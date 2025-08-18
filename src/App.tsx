@@ -13,6 +13,7 @@ import QuotesSummaryPage from "./pages/QuotesSummaryPage";
 import CustomerQuotesSummaryPage from "./pages/CustomerQuotesSummaryPage";
 import EmbedCodePage from "./pages/EmbedCodePage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
+import PriceManagement from "./pages/PriceManagement";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/customer-quotes-summary" element={<CustomerQuotesSummaryPage />} />
             <Route path="/embed-code" element={<EmbedCodePage />} />
             <Route path="/admin-settings" element={<AdminSettingsPage />} />
+            <Route path="/price-management" element={<PriceManagement />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

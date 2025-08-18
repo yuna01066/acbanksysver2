@@ -50,18 +50,18 @@ const AdminSettingsPage = () => {
                 </Button>
               </div>
               
-              <div className="border rounded-lg p-4 opacity-50">
+              <div className="border rounded-lg p-4">
                 <h3 className="font-medium mb-2">가격 관리</h3>
                 <p className="text-sm text-gray-600 mb-3">
-                  제품별 가격을 설정하고 관리합니다. (준비중)
+                  제품별 가격을 설정하고 관리합니다.
                 </p>
                 <Button
+                  onClick={() => navigate('/price-management')}
                   variant="outline"
-                  disabled
                   className="flex items-center gap-2"
                 >
                   <Settings className="w-4 h-4" />
-                  가격 설정 (준비중)
+                  가격 설정
                 </Button>
               </div>
               
