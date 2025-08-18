@@ -41,7 +41,6 @@ const PROCESSING_OPTIONS = [
 
 const FACTORIES = [
   { id: 'jangwon', name: '장원' },
-  { id: 'yuwon', name: '유원' },
   { id: 'tbd1', name: '미정' },
   { id: 'tbd2', name: '미정' }
 ];
