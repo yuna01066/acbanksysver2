@@ -18,7 +18,8 @@ export interface CalculatorStep {
 }
 
 export const MATERIALS: Material[] = [
-  { id: 'casting', name: '캐스팅 아크릴' }
+  { id: 'casting', name: '캐스팅 아크릴' },
+  { id: 'acrylic-dye', name: '아크릴 염료' }
 ];
 
 export const CASTING_QUALITIES: Quality[] = [

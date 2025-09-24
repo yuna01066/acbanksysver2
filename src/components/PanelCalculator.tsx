@@ -144,7 +144,7 @@ const PanelCalculator = () => {
     console.log('Material selected:', material);
     setSelectedMaterial(material);
     resetFromStep(2);
-    if (material.id === 'casting') {
+    if (material.id === 'casting' || material.id === 'acrylic-dye') {
       setCurrentStep(2);
     } else {
       alert('해당 소재는 아직 지원되지 않습니다.');
@@ -327,7 +327,7 @@ const PanelCalculator = () => {
           )}
 
           {/* Step 2: 재질 선택 */}
-          {currentStep === 2 && selectedMaterial?.id === 'casting' && (
+          {currentStep === 2 && (selectedMaterial?.id === 'casting' || selectedMaterial?.id === 'acrylic-dye') && (
             <QualitySelection
               qualities={CASTING_QUALITIES}
               selectedQuality={selectedQuality}
