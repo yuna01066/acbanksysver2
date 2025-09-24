@@ -49,15 +49,34 @@ export const initializeAstelColorPrices = (): PricingData => {
       if (astelColorQuality.thicknesses.includes(thickness)) {
         Object.entries(sizeData).forEach(([size, price]) => {
           if (astelColorQuality.sizes.includes(size)) {
-            // 단면 가격 설정
-            const singleKey = createPriceKey('casting', 'astel-color', thickness, size, '단면');
-            initialPrices[singleKey] = price;
+            const thicknessNum = parseFloat(thickness.replace('T', ''));
             
-            // 양면 가격 설정 (단면 가격 + 아스텔 양면 추가금액)
-            const doubleSideSurcharge = astelDoubleSideSurcharge[size as keyof typeof astelDoubleSideSurcharge] || 0;
-            if (doubleSideSurcharge > 0) {
-              const doubleKey = createPriceKey('casting', 'astel-color', thickness, size, '양면');
-              initialPrices[doubleKey] = price + doubleSideSurcharge;
+            // Special handling for 소1*2: 6T and below = single only, 8T and above = double only
+            if (size === '소1*2') {
+              if (thicknessNum <= 6) {
+                // Only single-sided available for 6T and below
+                const singleKey = createPriceKey('casting', 'astel-color', thickness, size, '단면');
+                initialPrices[singleKey] = price;
+              } else {
+                // Only double-sided available for 8T and above
+                const doubleSideSurcharge = astelDoubleSideSurcharge[size as keyof typeof astelDoubleSideSurcharge] || 0;
+                if (doubleSideSurcharge > 0) {
+                  const doubleKey = createPriceKey('casting', 'astel-color', thickness, size, '양면');
+                  initialPrices[doubleKey] = price + doubleSideSurcharge;
+                }
+              }
+            } else {
+              // Normal handling for all other sizes
+              // 단면 가격 설정
+              const singleKey = createPriceKey('casting', 'astel-color', thickness, size, '단면');
+              initialPrices[singleKey] = price;
+              
+              // 양면 가격 설정 (단면 가격 + 아스텔 양면 추가금액)
+              const doubleSideSurcharge = astelDoubleSideSurcharge[size as keyof typeof astelDoubleSideSurcharge] || 0;
+              if (doubleSideSurcharge > 0) {
+                const doubleKey = createPriceKey('casting', 'astel-color', thickness, size, '양면');
+                initialPrices[doubleKey] = price + doubleSideSurcharge;
+              }
             }
           }
         });
