@@ -33,7 +33,7 @@ export const CASTING_QUALITIES: Quality[] = [
     id: 'satin-color',
     name: 'Bright (브라이트)',
     thicknesses: ['1.3T', '1.5T', '2T', '3T', '4T', '5T', '6T', '8T', '10T', '12T', '15T', '20T', '25T', '30T'],
-    sizes: ['대3*6', '1*2', '4*8']
+    sizes: ['대3*6', '1*2', '4*8', '4*10']
   },
   {
     id: 'acrylic-mirror',
