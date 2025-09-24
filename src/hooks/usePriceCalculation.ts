@@ -71,6 +71,22 @@ export const usePriceCalculation = ({
   const getAvailableSizes = (): string[] => {
     if (!selectedQuality || !selectedThickness) return [];
     
+    // 15T 두께에 대한 특별한 사이즈 배열 (클리어와 브라이트만)
+    if (selectedThickness === '15T' && (selectedQuality.id === 'glossy-color' || selectedQuality.id === 'satin-color')) {
+      return [
+        '3*6 (910*1810)',
+        '대3*6 (950*1860)', 
+        '4*5 (1170*1475)',
+        '대4*5 (1250*1550)',
+        '1*2 (1050*2050)',
+        '4*6 (1250*1860)',
+        '4*8 (1250*2450)',
+        '4*10 (1250*3050)',
+        '5*6 (1550*1850)',
+        '5*8 (1550*2450)'
+      ];
+    }
+    
     if (selectedFactory === 'jangwon') {
       return selectedQuality.sizes.filter(size => 
         hasPriceData(selectedQuality.id, selectedThickness, size)
