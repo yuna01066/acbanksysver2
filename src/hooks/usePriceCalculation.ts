@@ -71,6 +71,26 @@ export const usePriceCalculation = ({
   const getAvailableSizes = (): string[] => {
     if (!selectedQuality || !selectedThickness) return [];
     
+    // 실제 크기 정보를 포함한 사이즈 매핑
+    const getSizeWithDimensions = (baseSize: string): string => {
+      const sizeMapping: { [key: string]: string } = {
+        '3*6': '3*6 (910*1810)',
+        '대3*6': '대3*6 (950*1860)',
+        '4*5': '4*5 (1170*1475)',
+        '대4*5': '대4*5 (1250*1550)',
+        '1*2': '1*2 (1050*2050)',
+        '4*6': '4*6 (1250*1860)',
+        '4*8': '4*8 (1250*2450)',
+        '4*10': '4*10 (1250*3050)',
+        '5*5': '5*5 (1550*1550)',
+        '5*6': '5*6 (1550*1850)',
+        '5*8': '5*8 (1550*2450)',
+        '소3*6': '소3*6 (850*1750)',
+        '소1*2': '소1*2 (1000*2000)'
+      };
+      return sizeMapping[baseSize] || baseSize;
+    };
+    
     // 15T 두께에 대한 특별한 사이즈 배열 (클리어와 브라이트만)
     if (selectedThickness === '15T' && (selectedQuality.id === 'glossy-color' || selectedQuality.id === 'satin-color')) {
       return [
@@ -87,13 +107,14 @@ export const usePriceCalculation = ({
       ];
     }
     
+    // 다른 두께들에 대해서는 기본 사이즈에 크기 정보 추가
     if (selectedFactory === 'jangwon') {
-      return selectedQuality.sizes.filter(size => 
-        hasPriceData(selectedQuality.id, selectedThickness, size)
-      );
+      return selectedQuality.sizes
+        .filter(size => hasPriceData(selectedQuality.id, selectedThickness, size))
+        .map(size => getSizeWithDimensions(size));
     }
     
-    return selectedQuality.sizes;
+    return selectedQuality.sizes.map(size => getSizeWithDimensions(size));
   };
 
   // 가격 계산 업데이트
