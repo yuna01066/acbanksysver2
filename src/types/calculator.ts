@@ -18,7 +18,7 @@ export interface CalculatorStep {
 }
 
 export const MATERIALS: Material[] = [
-  { id: 'casting', name: '캐스팅' }
+  { id: 'casting', name: '캐스팅 아크릴' }
 ];
 
 export const CASTING_QUALITIES: Quality[] = [
