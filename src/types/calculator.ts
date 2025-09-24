@@ -19,12 +19,7 @@ export interface CalculatorStep {
 
 export const MATERIALS: Material[] = [
   { id: 'casting', name: '캐스팅' },
-  { id: 'extrusion', name: '압출' },
-  { id: 'acrylic-mirror', name: '아크릴 미러' },
-  { id: 'format', name: '포마트' },
-  { id: 'abs', name: 'ABS' },
-  { id: 'pc', name: 'PC' },
-  { id: 'a-pet', name: 'A-PET' }
+  { id: 'acrylic-mirror', name: '아크릴 미러' }
 ];
 
 export const CASTING_QUALITIES: Quality[] = [
