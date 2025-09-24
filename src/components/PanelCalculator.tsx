@@ -13,6 +13,7 @@ import {
 import PriceBreakdown from "./PriceBreakdown";
 import ProcessingOptions from "./ProcessingOptions";
 import ColorMixingStep from "./ColorMixingStep";
+import CalculatorTypeSelection from "./CalculatorTypeSelection";
 import StepIndicator from "./StepIndicator";
 import SelectionSummary from "./SelectionSummary";
 import MaterialSelection from "./MaterialSelection";
@@ -38,11 +39,10 @@ const PROCESSING_OPTIONS = [
   { id: 'complex-shapes', name: '복잡한 모양 가공' }
 ];
 
-
 const PanelCalculator = () => {
   const navigate = useNavigate();
   const { addQuote, quotes } = useQuotes();
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(0);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [selectedQuality, setSelectedQuality] = useState<Quality | null>(null);
   const [selectedThickness, setSelectedThickness] = useState<string>('');
@@ -67,7 +67,17 @@ const PanelCalculator = () => {
 
   // 이전 단계로 돌아가기 버튼
   const resetFromStep = (step: number) => {
-    if (step <= 1) {
+    if (step <= 0) {
+      setSelectedMaterial(null);
+      setSelectedQuality(null);
+      setSelectedThickness('');
+      setSelectedSize('');
+      setSelectedColorType('');
+      setSelectedSurface('');
+      setColorMixingCost(0);
+      setSelectedProcessing('');
+      setCurrentStep(0);
+    } else if (step <= 1) {
       setSelectedMaterial(null);
       setSelectedQuality(null);
       setSelectedThickness('');
@@ -122,6 +132,13 @@ const PanelCalculator = () => {
     }
   };
 
+  const handleCalculatorTypeSelect = (type: 'quote' | 'yield') => {
+    if (type === 'quote') {
+      setCurrentStep(1);
+    } else {
+      alert('수율 계산기는 준비중입니다.');
+    }
+  };
 
   const handleMaterialSelect = (material: Material) => {
     console.log('Material selected:', material);
@@ -220,7 +237,7 @@ const PanelCalculator = () => {
     addQuote(quoteData);
     
     // Reset form for new quote
-    setCurrentStep(1);
+    setCurrentStep(0);
     setSelectedMaterial(null);
     setSelectedQuality(null);
     setSelectedThickness('');
@@ -238,7 +255,7 @@ const PanelCalculator = () => {
     navigate('/quotes-summary');
   };
 
-  const maxSteps = selectedQuality?.id === 'glossy-standard' ? 8 : 8;
+  const maxSteps = selectedQuality?.id === 'glossy-standard' ? 9 : 9;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
@@ -263,7 +280,7 @@ const PanelCalculator = () => {
           <p className="text-gray-600">정확하고 빠른 판재 가격 계산</p>
         </CardHeader>
         <CardContent className="p-8">
-          <StepIndicator currentStep={currentStep + 1} maxSteps={maxSteps + 1} />
+          <StepIndicator currentStep={currentStep + 1} maxSteps={maxSteps} />
           
           <SelectionSummary
             selectedFactory="jangwon"
@@ -279,12 +296,10 @@ const PanelCalculator = () => {
             factories={[{ id: 'jangwon', name: '장원' }]}
           />
           
-          {/* 가격 정보 표시 */}
-          {selectedSize && (
-            <PriceBreakdown 
-              totalPrice={priceInfo.totalPrice}
-              breakdown={priceInfo.breakdown}
-              isVisible={true}
+          {/* Step 0: 계산기 유형 선택 */}
+          {currentStep === 0 && (
+            <CalculatorTypeSelection
+              onTypeSelect={handleCalculatorTypeSelect}
             />
           )}
 
@@ -296,6 +311,15 @@ const PanelCalculator = () => {
               selectedFactory="jangwon"
               factories={[{ id: 'jangwon', name: '장원' }]}
               onMaterialSelect={handleMaterialSelect}
+            />
+          )}
+          
+          {/* 가격 정보 표시 */}
+          {selectedSize && (
+            <PriceBreakdown 
+              totalPrice={priceInfo.totalPrice}
+              breakdown={priceInfo.breakdown}
+              isVisible={true}
             />
           )}
 
@@ -405,7 +429,7 @@ const PanelCalculator = () => {
           )}
 
           {/* 이전 단계로 돌아가기 버튼 */}
-          {currentStep > 1 && (
+          {currentStep > 0 && (
             <>
               <Separator className="my-8" />
               <div className="flex justify-center">
