@@ -252,60 +252,49 @@ const ModernPriceManager = () => {
   }, []);
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-8 p-6">
-      {/* Apple-style header */}
-      <div className="text-center space-y-4">
-        <div className="inline-flex items-center justify-center w-20 h-20 bg-primary/10 rounded-3xl mb-6">
-          <Edit3 className="w-10 h-10 text-primary" />
+    <div className="w-full max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">가격 관리</h1>
+          <p className="text-muted-foreground">제품별 가격을 쉽게 관리하고 수정할 수 있습니다</p>
         </div>
-        <h1 className="text-title-1 font-display">가격 관리</h1>
-        <p className="text-body text-muted-foreground max-w-2xl mx-auto">
-          제품별 가격을 쉽게 관리하고 수정할 수 있는 스마트 관리 도구입니다
-        </p>
+        <div className="flex gap-2">
+          <Button onClick={loadAllPrices} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            전체 새로고침
+          </Button>
+          <Button onClick={handleExportPricing}>
+            <Download className="h-4 w-4 mr-2" />
+            내보내기
+          </Button>
+        </div>
       </div>
 
-      {/* Action buttons */}
-      <div className="flex justify-center gap-4">
-        <Button onClick={loadAllPrices} variant="secondary" className="btn-apple">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          전체 새로고침
-        </Button>
-        <Button onClick={handleExportPricing} className="btn-apple">
-          <Download className="h-4 w-4 mr-2" />
-          내보내기
-        </Button>
-      </div>
-
-      {/* Apple-style search */}
-      <Card className="glass shadow-apple border-0 rounded-2xl">
+      {/* Search */}
+      <Card>
         <CardContent className="pt-6">
-          <div className="relative max-w-lg mx-auto">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               placeholder="두께로 검색 (예: 3T, 10T)"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-12 h-12 rounded-xl border-0 bg-muted/50 focus:bg-background transition-colors"
+              className="pl-10"
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Apple-style tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <div className="flex justify-center">
-          <TabsList className="glass shadow-apple border-0 rounded-2xl p-1 h-auto">
-            {qualities.map((quality) => (
-              <TabsTrigger 
-                key={quality.id} 
-                value={quality.id} 
-                className="rounded-xl px-6 py-3 text-sm font-medium transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
-              >
-                {quality.name.split(' ')[0]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
+          {qualities.map((quality) => (
+            <TabsTrigger key={quality.id} value={quality.id} className="text-xs sm:text-sm">
+              {quality.name.split(' ')[0]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
         {qualities.map((quality) => (
           <TabsContent key={quality.id} value={quality.id}>
