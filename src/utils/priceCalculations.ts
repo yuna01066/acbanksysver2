@@ -49,15 +49,35 @@ export const initializeAstelColorPrices = (): PricingData => {
       if (astelColorQuality.thicknesses.includes(thickness)) {
         Object.entries(sizeData).forEach(([size, price]) => {
           if (astelColorQuality.sizes.includes(size)) {
-            // 단면 가격 설정
-            const singleKey = createPriceKey('casting', 'astel-color', thickness, size, '단면');
-            initialPrices[singleKey] = price;
+            const thicknessValue = parseFloat(thickness.replace('T', ''));
             
-            // 양면 가격 설정 (단면 가격 + 아스텔 양면 추가금액)
-            const doubleSideSurcharge = astelDoubleSideSurcharge[size as keyof typeof astelDoubleSideSurcharge] || 0;
-            if (doubleSideSurcharge > 0) {
-              const doubleKey = createPriceKey('casting', 'astel-color', thickness, size, '양면');
-              initialPrices[doubleKey] = price + doubleSideSurcharge;
+            // 소1*2 특별 규칙: 6T 이하는 단면만, 8T 이상은 양면만
+            if (size === '소1*2') {
+              if (thicknessValue <= 6) {
+                // 6T 이하: 단면만 (기본 가격 + 아스텔 추가금액)
+                const astelSurcharge = astelDoubleSideSurcharge[size as keyof typeof astelDoubleSideSurcharge] || 0;
+                const singleKey = createPriceKey('casting', 'astel-color', thickness, size, '단면');
+                initialPrices[singleKey] = price + astelSurcharge;
+              } else {
+                // 8T 이상: 양면만 (기본 가격 + 테이프 + 아스텔 추가금액)
+                const tapePrice = tapePrices[size as keyof typeof tapePrices] || 0;
+                const astelSurcharge = astelDoubleSideSurcharge[size as keyof typeof astelDoubleSideSurcharge] || 0;
+                const doubleKey = createPriceKey('casting', 'astel-color', thickness, size, '양면');
+                initialPrices[doubleKey] = price + tapePrice + astelSurcharge;
+              }
+            } else {
+              // 다른 사이즈는 기존 로직 적용
+              // 단면 가격 설정 (기본 가격 + 아스텔 추가금액)
+              const astelSurcharge = astelDoubleSideSurcharge[size as keyof typeof astelDoubleSideSurcharge] || 0;
+              const singleKey = createPriceKey('casting', 'astel-color', thickness, size, '단면');
+              initialPrices[singleKey] = price + astelSurcharge;
+              
+              // 양면 가격 설정 (기본 가격 + 테이프 + 아스텔 추가금액)
+              const tapePrice = tapePrices[size as keyof typeof tapePrices] || 0;
+              if (tapePrice > 0) {
+                const doubleKey = createPriceKey('casting', 'astel-color', thickness, size, '양면');
+                initialPrices[doubleKey] = price + tapePrice + astelSurcharge;
+              }
             }
           }
         });
@@ -279,6 +299,13 @@ export const calculatePrice = (
     const prices = astelColorSinglePrices[thickness as keyof typeof astelColorSinglePrices];
     basePrice = prices?.[size as keyof typeof prices] || 0;
     breakdown.push({ label: '아스텔 색상판 기본가', price: basePrice });
+    
+    // 아스텔 추가금액
+    const astelSurcharge = astelDoubleSideSurcharge[size as keyof typeof astelDoubleSideSurcharge] || 0;
+    if (astelSurcharge > 0) {
+      breakdown.push({ label: '아스텔 추가금액', price: astelSurcharge });
+      basePrice += astelSurcharge;
+    }
   } else if (qualityId === 'satin-color') {
     const prices = satinColorSinglePrices[thickness as keyof typeof satinColorSinglePrices];
     basePrice = prices?.[size as keyof typeof prices] || 0;
@@ -305,8 +332,8 @@ export const calculatePrice = (
     let doubleSidePrice = 0;
     
     if (qualityId === 'astel-color') {
-      doubleSidePrice = astelDoubleSideSurcharge[size as keyof typeof astelDoubleSideSurcharge] || 0;
-      breakdown.push({ label: '아스텔 양면 추가금액', price: doubleSidePrice });
+      doubleSidePrice = tapePrices[size as keyof typeof tapePrices] || 0;
+      breakdown.push({ label: '양면 테이프 추가금액', price: doubleSidePrice });
     } else if (qualityId === 'satin-color') {
       doubleSidePrice = satinDoubleSideSurcharge[size as keyof typeof satinDoubleSideSurcharge] || 0;
       breakdown.push({ label: '사틴 양면 추가금액', price: doubleSidePrice });
