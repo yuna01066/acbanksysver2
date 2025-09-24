@@ -279,7 +279,7 @@ export const calculatePrice = (
   surface: string,
   colorType?: string,
   processingType?: string,
-  colorMixingCost: number = 0
+  colorMixingCost: number = 20000
 ): { totalPrice: number; breakdown: { label: string; price: number }[] } => {
   const breakdown: { label: string; price: number }[] = [];
   
@@ -337,11 +337,9 @@ export const calculatePrice = (
     totalPrice += doubleSidePrice;
   }
 
-  // 조색비 추가
-  if (colorMixingCost > 0) {
-    breakdown.push({ label: '조색비', price: colorMixingCost });
-    totalPrice += colorMixingCost;
-  }
+  // 조색비 추가 (기본 20,000원)
+  breakdown.push({ label: '조색비', price: colorMixingCost });
+  totalPrice += colorMixingCost;
 
   // 가공비 계산
   if (processingType && processingType !== 'raw-only') {
