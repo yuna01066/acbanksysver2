@@ -7,6 +7,7 @@ interface PriceManagerHeaderProps {
   onLoadGlossyColorPrices: () => void;
   onLoadAstelColorPrices: () => void;
   onLoadGlossyStandardPrices: () => void;
+  onLoadSatinColorPrices: () => void;
   onExportPricing: () => void;
 }
 
@@ -14,6 +15,7 @@ const PriceManagerHeader: React.FC<PriceManagerHeaderProps> = ({
   onLoadGlossyColorPrices,
   onLoadAstelColorPrices,
   onLoadGlossyStandardPrices,
+  onLoadSatinColorPrices,
   onExportPricing
 }) => {
   return (
@@ -29,6 +31,9 @@ const PriceManagerHeader: React.FC<PriceManagerHeaderProps> = ({
           </Button>
           <Button onClick={onLoadGlossyStandardPrices} variant="secondary">
             유광 보급판 가격 로드
+          </Button>
+          <Button onClick={onLoadSatinColorPrices} variant="secondary">
+            사틴 색상판 가격 로드
           </Button>
           <Button onClick={onExportPricing} variant="outline">
             가격 데이터 내보내기

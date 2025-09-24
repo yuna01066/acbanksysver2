@@ -6,7 +6,8 @@ import { generateAllCombinations } from "@/utils/priceCombinations";
 import { 
   initializeGlossyColorPrices, 
   initializeAstelColorPrices, 
-  initializeGlossyStandardPrices, 
+  initializeGlossyStandardPrices,
+  initializeSatinColorPrices,
   exportPricingData 
 } from "@/utils/priceCalculations";
 import PriceManagerHeader from "./PriceManagerHeader";
@@ -34,6 +35,11 @@ const PriceManager = () => {
   const handleLoadGlossyStandardPrices = () => {
     const glossyStandardPrices = initializeGlossyStandardPrices();
     setPricingData(prev => ({ ...prev, ...glossyStandardPrices }));
+  };
+
+  const handleLoadSatinColorPrices = () => {
+    const satinPrices = initializeSatinColorPrices();
+    setPricingData(prev => ({ ...prev, ...satinPrices }));
   };
 
   const handleExportPricing = () => {
@@ -65,8 +71,11 @@ const PriceManager = () => {
   };
 
   useEffect(() => {
-    // 컴포넌트 마운트 시 유광 색상판 단면/양면 가격 자동 로드
+    // 컴포넌트 마운트 시 모든 가격 데이터 자동 로드
     handleLoadGlossyColorPrices();
+    handleLoadAstelColorPrices();
+    handleLoadGlossyStandardPrices();
+    handleLoadSatinColorPrices();
   }, []);
 
   return (
@@ -75,6 +84,7 @@ const PriceManager = () => {
         onLoadGlossyColorPrices={handleLoadGlossyColorPrices}
         onLoadAstelColorPrices={handleLoadAstelColorPrices}
         onLoadGlossyStandardPrices={handleLoadGlossyStandardPrices}
+        onLoadSatinColorPrices={handleLoadSatinColorPrices}
         onExportPricing={handleExportPricing}
       />
       <CardContent>
