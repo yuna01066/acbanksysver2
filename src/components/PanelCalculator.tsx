@@ -15,7 +15,6 @@ import ProcessingOptions from "./ProcessingOptions";
 import ColorMixingStep from "./ColorMixingStep";
 import StepIndicator from "./StepIndicator";
 import SelectionSummary from "./SelectionSummary";
-import FactorySelection from "./FactorySelection";
 import MaterialSelection from "./MaterialSelection";
 import QualitySelection from "./QualitySelection";
 import ThicknessSelection from "./ThicknessSelection";
@@ -39,17 +38,11 @@ const PROCESSING_OPTIONS = [
   { id: 'complex-shapes', name: '복잡한 모양 가공' }
 ];
 
-const FACTORIES = [
-  { id: 'jangwon', name: '장원' },
-  { id: 'tbd1', name: '미정' },
-  { id: 'tbd2', name: '미정' }
-];
 
 const PanelCalculator = () => {
   const navigate = useNavigate();
   const { addQuote, quotes } = useQuotes();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [selectedFactory, setSelectedFactory] = useState<string>('');
+  const [currentStep, setCurrentStep] = useState(1);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [selectedQuality, setSelectedQuality] = useState<Quality | null>(null);
   const [selectedThickness, setSelectedThickness] = useState<string>('');
@@ -61,7 +54,7 @@ const PanelCalculator = () => {
   const [serialNumber, setSerialNumber] = useState<string>('');
 
   const { priceInfo, getAvailableSizes } = usePriceCalculation({
-    selectedFactory,
+    selectedFactory: 'jangwon',
     selectedMaterial,
     selectedQuality,
     selectedThickness,
@@ -74,18 +67,7 @@ const PanelCalculator = () => {
 
   // 이전 단계로 돌아가기 버튼
   const resetFromStep = (step: number) => {
-    if (step <= 0) {
-      setSelectedFactory('');
-      setSelectedMaterial(null);
-      setSelectedQuality(null);
-      setSelectedThickness('');
-      setSelectedSize('');
-      setSelectedColorType('');
-      setSelectedSurface('');
-      setColorMixingCost(0);
-      setSelectedProcessing('');
-      setCurrentStep(0);
-    } else if (step <= 1) {
+    if (step <= 1) {
       setSelectedMaterial(null);
       setSelectedQuality(null);
       setSelectedThickness('');
@@ -140,17 +122,6 @@ const PanelCalculator = () => {
     }
   };
 
-  const handleFactorySelect = (factoryId: string) => {
-    console.log('Factory selected:', factoryId);
-    setSelectedFactory(factoryId);
-    resetFromStep(1);
-    
-    if (factoryId === 'jangwon') {
-      setCurrentStep(1);
-    } else {
-      setCurrentStep(1);
-    }
-  };
 
   const handleMaterialSelect = (material: Material) => {
     console.log('Material selected:', material);
@@ -159,11 +130,7 @@ const PanelCalculator = () => {
     if (material.id === 'casting') {
       setCurrentStep(2);
     } else {
-      if (selectedFactory === 'jangwon') {
-        alert('해당 소재는 아직 지원되지 않습니다.');
-      } else {
-        setCurrentStep(2);
-      }
+      alert('해당 소재는 아직 지원되지 않습니다.');
     }
   };
 
@@ -226,11 +193,6 @@ const PanelCalculator = () => {
   };
 
   const handleAddQuote = () => {
-    if (selectedFactory !== 'jangwon') {
-      alert('현재 장원 공장만 견적 추가가 가능합니다.');
-      return;
-    }
-    
     if (!selectedMaterial || !selectedQuality || !selectedThickness || !selectedSize || !selectedSurface) {
       alert('모든 필수 항목을 선택해주세요.');
       return;
@@ -239,7 +201,7 @@ const PanelCalculator = () => {
     const processingName = PROCESSING_OPTIONS.find(p => p.id === selectedProcessing)?.name || '';
     
     const quoteData = {
-      factory: selectedFactory,
+      factory: 'jangwon',
       material: selectedMaterial.name,
       quality: selectedQuality.name,
       thickness: selectedThickness,
@@ -258,8 +220,7 @@ const PanelCalculator = () => {
     addQuote(quoteData);
     
     // Reset form for new quote
-    setCurrentStep(0);
-    setSelectedFactory('');
+    setCurrentStep(1);
     setSelectedMaterial(null);
     setSelectedQuality(null);
     setSelectedThickness('');
@@ -305,7 +266,7 @@ const PanelCalculator = () => {
           <StepIndicator currentStep={currentStep + 1} maxSteps={maxSteps + 1} />
           
           <SelectionSummary
-            selectedFactory={selectedFactory}
+            selectedFactory="jangwon"
             selectedMaterial={selectedMaterial}
             selectedQuality={selectedQuality}
             selectedThickness={selectedThickness}
@@ -315,34 +276,25 @@ const PanelCalculator = () => {
             colorMixingCost={colorMixingCost}
             selectedProcessing={selectedProcessing}
             processingOptions={PROCESSING_OPTIONS}
-            factories={FACTORIES}
+            factories={[{ id: 'jangwon', name: '장원' }]}
           />
           
           {/* 가격 정보 표시 */}
-          {selectedSize && selectedFactory === 'jangwon' && (
+          {selectedSize && (
             <PriceBreakdown 
               totalPrice={priceInfo.totalPrice}
               breakdown={priceInfo.breakdown}
               isVisible={true}
             />
           )}
-          
-          {/* Step 0: 공장 선택 */}
-          {currentStep === 0 && (
-            <FactorySelection
-              factories={FACTORIES}
-              selectedFactory={selectedFactory}
-              onFactorySelect={handleFactorySelect}
-            />
-          )}
 
           {/* Step 1: 소재 선택 */}
-          {currentStep === 1 && selectedFactory && (
+          {currentStep === 1 && (
             <MaterialSelection
               materials={MATERIALS}
               selectedMaterial={selectedMaterial}
-              selectedFactory={selectedFactory}
-              factories={FACTORIES}
+              selectedFactory="jangwon"
+              factories={[{ id: 'jangwon', name: '장원' }]}
               onMaterialSelect={handleMaterialSelect}
             />
           )}
@@ -352,7 +304,7 @@ const PanelCalculator = () => {
             <QualitySelection
               qualities={CASTING_QUALITIES}
               selectedQuality={selectedQuality}
-              selectedFactory={selectedFactory}
+              selectedFactory="jangwon"
               onQualitySelect={handleQualitySelect}
             />
           )}
@@ -437,29 +389,23 @@ const PanelCalculator = () => {
           )}
 
           {/* 견적 추가 버튼 */}
-          {currentStep === 8 && selectedProcessing && (selectedFactory !== 'jangwon' || priceInfo.totalPrice > 0) && (
+          {currentStep === 8 && selectedProcessing && priceInfo.totalPrice > 0 && (
             <>
               <Separator className="my-8" />
               <div className="flex justify-center gap-4">
                 <Button 
                   onClick={handleAddQuote}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg font-semibold rounded-lg transition-all duration-200 flex items-center gap-3"
-                  disabled={selectedFactory !== 'jangwon'}
                 >
                   <Plus className="w-5 h-5" />
-                  {selectedFactory === 'jangwon' ? '견적 추가' : '견적 추가 (준비중)'}
+                  견적 추가
                 </Button>
               </div>
-              {selectedFactory !== 'jangwon' && (
-                <p className="text-center text-gray-500 mt-2 text-sm">
-                  현재 장원 공장만 견적 추가가 가능합니다
-                </p>
-              )}
             </>
           )}
 
           {/* 이전 단계로 돌아가기 버튼 */}
-          {currentStep > 0 && (
+          {currentStep > 1 && (
             <>
               <Separator className="my-8" />
               <div className="flex justify-center">
