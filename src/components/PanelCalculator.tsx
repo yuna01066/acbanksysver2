@@ -282,19 +282,22 @@ const PanelCalculator = () => {
         <CardContent className="p-8">
           <StepIndicator currentStep={currentStep + 1} maxSteps={maxSteps} />
           
-          <SelectionSummary
-            selectedFactory="jangwon"
-            selectedMaterial={selectedMaterial}
-            selectedQuality={selectedQuality}
-            selectedThickness={selectedThickness}
-            selectedSize={selectedSize}
-            selectedColorType={selectedColorType}
-            selectedSurface={selectedSurface}
-            colorMixingCost={colorMixingCost}
-            selectedProcessing={selectedProcessing}
-            processingOptions={PROCESSING_OPTIONS}
-            factories={[{ id: 'jangwon', name: '장원' }]}
-          />
+          {/* 선택된 옵션 요약 - Step 0에서는 숨김 */}
+          {currentStep > 0 && (
+            <SelectionSummary
+              selectedFactory="jangwon"
+              selectedMaterial={selectedMaterial}
+              selectedQuality={selectedQuality}
+              selectedThickness={selectedThickness}
+              selectedSize={selectedSize}
+              selectedColorType={selectedColorType}
+              selectedSurface={selectedSurface}
+              colorMixingCost={colorMixingCost}
+              selectedProcessing={selectedProcessing}
+              processingOptions={PROCESSING_OPTIONS}
+              factories={[{ id: 'jangwon', name: '장원' }]}
+            />
+          )}
           
           {/* Step 0: 계산기 유형 선택 */}
           {currentStep === 0 && (
