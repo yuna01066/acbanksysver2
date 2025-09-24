@@ -32,12 +32,8 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
 }) => {
   const selections = [];
 
-  if (selectedFactory && factories) {
-    const factoryName = factories.find(f => f.id === selectedFactory)?.name;
-    if (factoryName) {
-      selections.push({ label: '공장', value: factoryName });
-    }
-  }
+  // 첫 번째 항목으로 계산기 유형 표시
+  selections.push({ label: '계산기', value: '견적 계산기' });
 
   if (selectedMaterial) {
     selections.push({ label: '소재', value: selectedMaterial.name });
