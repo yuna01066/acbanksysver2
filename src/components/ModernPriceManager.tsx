@@ -24,10 +24,11 @@ import {
 interface PriceCardProps {
   thickness: string;
   sizeData: Record<string, number>;
-  onPriceEdit: (thickness: string, size: string, price: number) => void;
+  surface: string;
+  onPriceEdit: (thickness: string, size: string, surface: string, price: number) => void;
 }
 
-const PriceCard: React.FC<PriceCardProps> = ({ thickness, sizeData, onPriceEdit }) => {
+const PriceCard: React.FC<PriceCardProps> = ({ thickness, sizeData, surface, onPriceEdit }) => {
   const [editingKey, setEditingKey] = useState<string>('');
   const [editingPrice, setEditingPrice] = useState<string>('');
 
@@ -39,7 +40,7 @@ const PriceCard: React.FC<PriceCardProps> = ({ thickness, sizeData, onPriceEdit 
   const handleEditSave = (size: string) => {
     const price = parseFloat(editingPrice.replace(/[^0-9.]/g, ''));
     if (!isNaN(price)) {
-      onPriceEdit(thickness, size, price);
+      onPriceEdit(thickness, size, surface, price);
     }
     setEditingKey('');
     setEditingPrice('');
@@ -54,7 +55,10 @@ const PriceCard: React.FC<PriceCardProps> = ({ thickness, sizeData, onPriceEdit 
     <Card className="h-full">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center justify-between">
-          <span>{thickness}</span>
+          <div>
+            <span>{thickness}</span>
+            <div className="text-sm font-normal text-muted-foreground">{surface}</div>
+          </div>
           <Badge variant="outline">{Object.keys(sizeData).length}개 사이즈</Badge>
         </CardTitle>
       </CardHeader>
@@ -118,9 +122,9 @@ const PriceCard: React.FC<PriceCardProps> = ({ thickness, sizeData, onPriceEdit 
 interface QualityTabProps {
   qualityId: string;
   qualityName: string;
-  priceData: Record<string, Record<string, number>>;
+  priceData: Record<string, Record<string, Record<string, number>>>;
   searchTerm: string;
-  onPriceEdit: (thickness: string, size: string, price: number) => void;
+  onPriceEdit: (thickness: string, size: string, surface: string, price: number) => void;
   onLoadPrices: () => void;
 }
 
@@ -136,12 +140,16 @@ const QualityTab: React.FC<QualityTabProps> = ({
     thickness.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const totalCards = filteredData.reduce((sum, [_, surfaceData]) => 
+    sum + Object.keys(surfaceData).length, 0
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xl font-semibold">{qualityName}</h3>
-          <p className="text-muted-foreground">총 {filteredData.length}개 두께 옵션</p>
+          <p className="text-muted-foreground">총 {totalCards}개 가격 카드 ({filteredData.length}개 두께)</p>
         </div>
         <Button onClick={onLoadPrices} variant="outline" size="sm">
           <RefreshCw className="h-4 w-4 mr-2" />
@@ -150,15 +158,18 @@ const QualityTab: React.FC<QualityTabProps> = ({
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filteredData.map(([thickness, sizeData]) => (
-          <div key={thickness} className="group">
-            <PriceCard
-              thickness={thickness}
-              sizeData={sizeData}
-              onPriceEdit={onPriceEdit}
-            />
-          </div>
-        ))}
+        {filteredData.map(([thickness, surfaceData]) => 
+          Object.entries(surfaceData).map(([surface, sizeData]) => (
+            <div key={`${thickness}-${surface}`} className="group">
+              <PriceCard
+                thickness={thickness}
+                surface={surface}
+                sizeData={sizeData}
+                onPriceEdit={onPriceEdit}
+              />
+            </div>
+          ))
+        )}
       </div>
       
       {filteredData.length === 0 && (
@@ -175,16 +186,32 @@ const ModernPriceManager = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>('glossy-color');
 
+  // 단면 가격 데이터를 단면/양면 구조로 변환
+  const convertToSurfaceStructure = (singlePrices: Record<string, Record<string, number>>) => {
+    const result: Record<string, Record<string, Record<string, number>>> = {};
+    
+    Object.entries(singlePrices).forEach(([thickness, sizes]) => {
+      result[thickness] = {
+        '단면': sizes,
+        '양면': Object.fromEntries(
+          Object.entries(sizes).map(([size, price]) => [size, price * 2])
+        )
+      };
+    });
+    
+    return result;
+  };
+
   const qualities = [
-    { id: 'glossy-color', name: '유광 색상판 (Clear)', data: glossyColorSinglePrices },
-    { id: 'astel-color', name: '아스텔 색상판 (Astel)', data: astelColorSinglePrices },
-    { id: 'glossy-standard', name: '유광 보급판 (Standard)', data: glossyStandardSinglePrices },
-    { id: 'satin-color', name: '사틴 색상판 (Bright)', data: satinColorSinglePrices }
+    { id: 'glossy-color', name: '유광 색상판 (Clear)', data: convertToSurfaceStructure(glossyColorSinglePrices) },
+    { id: 'astel-color', name: '아스텔 색상판 (Astel)', data: convertToSurfaceStructure(astelColorSinglePrices) },
+    { id: 'glossy-standard', name: '유광 보급판 (Standard)', data: convertToSurfaceStructure(glossyStandardSinglePrices) },
+    { id: 'satin-color', name: '사틴 색상판 (Bright)', data: convertToSurfaceStructure(satinColorSinglePrices) }
   ];
 
-  const handlePriceEdit = (qualityId: string, thickness: string, size: string, price: number) => {
+  const handlePriceEdit = (qualityId: string, thickness: string, size: string, surface: string, price: number) => {
     // 실제 가격 데이터 업데이트 로직
-    console.log(`Price updated: ${qualityId} ${thickness} ${size} = ${price}`);
+    console.log(`Price updated: ${qualityId} ${thickness} ${size} ${surface} = ${price}`);
   };
 
   const loadPricesByQuality = (qualityId: string) => {
@@ -276,8 +303,8 @@ const ModernPriceManager = () => {
               qualityName={quality.name}
               priceData={quality.data}
               searchTerm={searchTerm}
-              onPriceEdit={(thickness, size, price) => 
-                handlePriceEdit(quality.id, thickness, size, price)
+              onPriceEdit={(thickness, size, surface, price) => 
+                handlePriceEdit(quality.id, thickness, size, surface, price)
               }
               onLoadPrices={() => loadPricesByQuality(quality.id)}
             />
@@ -302,7 +329,9 @@ const ModernPriceManager = () => {
             <div>
               <div className="text-2xl font-bold">
                 {qualities.reduce((sum, q) => 
-                  sum + Object.values(q.data).reduce((s, sizes) => s + Object.keys(sizes).length, 0), 0
+                  sum + Object.values(q.data).reduce((s, thicknessData) => 
+                    s + Object.values(thicknessData).reduce((ss, sizes) => ss + Object.keys(sizes).length, 0), 0
+                  ), 0
                 )}
               </div>
               <div className="text-sm text-muted-foreground">총 가격 항목</div>
