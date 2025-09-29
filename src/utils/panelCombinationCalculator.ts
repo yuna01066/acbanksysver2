@@ -39,7 +39,7 @@ const calculateMultiItemLayout = (
   placedCounts: { [key: string]: number };
 } => {
   const MARGIN = 80;
-  const SPACING = 50; // 정확히 50mm 간격 (변경 금지)
+  const SPACING = 10; // 정확히 10mm 간격
   
   const usableWidth = panelW - (MARGIN * 2);
   const usableHeight = panelH - (MARGIN * 2);
