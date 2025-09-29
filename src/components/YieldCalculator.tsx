@@ -552,8 +552,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       quantity: parseInt(item.quantity),
       id: `item-${index}`
     }));
-    return calculatePanelCombinations(itemsForNesting, availablePanelSizes);
-  }, [cutItems, availablePanelSizes]);
+    return calculatePanelCombinations(itemsForNesting, availablePanelSizes, 10, selectedThickness);
+  }, [cutItems, availablePanelSizes, selectedThickness]);
   const availableThicknesses = useMemo(() => {
     const priceData = getPriceDataByQuality(selectedQuality);
     const thicknesses = new Set<string>();

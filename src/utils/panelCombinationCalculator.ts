@@ -27,19 +27,23 @@ interface CombinationResult {
   remainingItems: Array<{ itemId: string; remaining: number }>;
 }
 
-// 복합 네스팅 알고리즘
+// 복합 네스팅 알고리즘 - 새로운 최적화된 버전 사용
 const calculateMultiItemLayout = (
   items: CutItem[],
   panelW: number,
-  panelH: number
+  panelH: number,
+  selectedThickness?: string
 ): {
   positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }>;
   totalPieces: number;
   canFitAll: boolean;
   placedCounts: { [key: string]: number };
 } => {
-  const MARGIN = 50; // 정확히 50mm 마진
-  const SPACING = 10; // 정확히 10mm 간격
+  const MARGIN = 0; // 가용사이즈가 이미 재단 가능 영역이므로 마진 불필요
+  
+  // 두께에 따른 간격 설정 - 다른 컴포넌트와 통일
+  const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
+  const SPACING = thickness < 10 ? 6 : 8;
   
   const usableWidth = panelW - (MARGIN * 2);
   const usableHeight = panelH - (MARGIN * 2);
@@ -121,9 +125,10 @@ const calculateMultiItemLayout = (
 // 단일 원판에서 최대한 많은 아이템 배치
 const optimizeForSinglePanel = (
   items: CutItem[],
-  panel: PanelSize
+  panel: PanelSize,
+  selectedThickness?: string
 ): { placedCounts: { [key: string]: number }; efficiency: number; wasteArea: number } => {
-  const result = calculateMultiItemLayout(items, panel.width, panel.height);
+  const result = calculateMultiItemLayout(items, panel.width, panel.height, selectedThickness);
   
   const totalRequiredArea = Object.keys(result.placedCounts).reduce((sum, itemId) => {
     const item = items.find(i => i.id === itemId);
@@ -142,11 +147,12 @@ const optimizeForSinglePanel = (
   };
 };
 
-// 복합 조합 계산
+// 복합 조합 계산 - 원판 개수 최소화 우선
 export const calculatePanelCombinations = (
   cutItems: CutItem[],
   availablePanels: PanelSize[],
-  maxCombinations: number = 10
+  maxCombinations: number = 10,
+  selectedThickness?: string
 ): CombinationResult[] => {
   const results: CombinationResult[] = [];
   
@@ -164,7 +170,7 @@ export const calculatePanelCombinations = (
         break;
       }
       
-      const result = optimizeForSinglePanel(itemsToPlace, panel);
+      const result = optimizeForSinglePanel(itemsToPlace, panel, selectedThickness);
       
       if (Object.keys(result.placedCounts).length === 0) break;
       
@@ -218,7 +224,7 @@ export const calculatePanelCombinations = (
       const panelUsages: PanelUsage[] = [];
       
       // 첫 번째 원판에 배치
-      const result1 = optimizeForSinglePanel(remainingItems, panel1);
+      const result1 = optimizeForSinglePanel(remainingItems, panel1, selectedThickness);
       if (Object.keys(result1.placedCounts).length > 0) {
         panelUsages.push({
           panelName: panel1.name,
@@ -236,7 +242,7 @@ export const calculatePanelCombinations = (
       // 두 번째 원판에 배치
       const itemsToPlace2 = remainingItems.filter(item => item.quantity > 0);
       if (itemsToPlace2.length > 0) {
-        const result2 = optimizeForSinglePanel(itemsToPlace2, panel2);
+        const result2 = optimizeForSinglePanel(itemsToPlace2, panel2, selectedThickness);
         if (Object.keys(result2.placedCounts).length > 0) {
           panelUsages.push({
             panelName: panel2.name,
@@ -279,15 +285,17 @@ export const calculatePanelCombinations = (
     }
   }
   
-  // 결과 정렬 (모든 아이템 배치 가능 > 효율성 > 적은 판 수)
+  // 결과 정렬 (모든 아이템 배치 가능 > 적은 판 수 > 효율성)
   results.sort((a, b) => {
     if (a.allItemsPlaced !== b.allItemsPlaced) {
       return a.allItemsPlaced ? -1 : 1;
     }
-    if (Math.abs(a.totalEfficiency - b.totalEfficiency) > 1) {
-      return b.totalEfficiency - a.totalEfficiency;
+    // 원판 개수 최소화를 우선시
+    if (a.totalCost !== b.totalCost) {
+      return a.totalCost - b.totalCost;
     }
-    return a.totalCost - b.totalCost;
+    // 효율성이 비슷하면 원판 개수 적은 것 우선
+    return b.totalEfficiency - a.totalEfficiency;
   });
   
   return results.slice(0, maxCombinations);
