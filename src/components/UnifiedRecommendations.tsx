@@ -102,12 +102,32 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
     return null;
   }
 
+  // 최적 추천안 선택 (가장 높은 효율의 단일 원판)
+  const bestSingleRecommendation = unifiedRecommendations.find(rec => rec.type === 'single');
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Star className="w-5 h-5" />
-          효율성 순 추천
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Star className="w-5 h-5" />
+            효율성 순 추천
+          </div>
+          {onPanelSelect && bestSingleRecommendation && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => onPanelSelect({
+                quality: selectedQuality,
+                thickness: selectedThickness,
+                size: (bestSingleRecommendation.data as YieldResult).panelSize,
+                quantity: bestSingleRecommendation.panelsNeeded
+              })}
+              className="animate-fade-in"
+            >
+              견적계산기로
+            </Button>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -241,22 +261,6 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                     cutItems={cutItems}
                     availablePanelSizes={availablePanelSizes}
                   />
-                )}
-                
-                {onPanelSelect && recommendation.type === 'single' && (
-                  <Button
-                    variant="minimal"
-                    size="sm"
-                    onClick={() => onPanelSelect({
-                      quality: selectedQuality,
-                      thickness: selectedThickness,
-                      size: (recommendation.data as YieldResult).panelSize,
-                      quantity: recommendation.panelsNeeded
-                    })}
-                    className="whitespace-nowrap"
-                  >
-                    견적계산기로
-                  </Button>
                 )}
               </div>
             </div>
