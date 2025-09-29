@@ -8,6 +8,7 @@ export interface Quote {
   thickness: string;
   size: string;
   colorType?: string;
+  selectedColor?: string;
   surface: string;
   colorMixingCost: number;
   processing: string;

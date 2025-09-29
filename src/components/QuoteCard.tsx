@@ -102,8 +102,8 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity }: QuoteCardProps)
         {/* 선택한 옵션들 표시 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-xs text-gray-600 mb-1">공장</div>
-            <div className="font-semibold text-gray-900 text-sm">{quote.factory}</div>
+            <div className="text-xs text-gray-600 mb-1">색상</div>
+            <div className="font-semibold text-gray-900 text-sm">{quote.selectedColor || 'AC-미선택'}</div>
           </div>
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
             <div className="text-xs text-gray-600 mb-1">소재</div>
