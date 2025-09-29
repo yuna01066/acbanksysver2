@@ -79,7 +79,7 @@ export const usePriceCalculation = ({
       '대3*6': { width: 950, height: 1850 },
       '4*5': { width: 1170, height: 1475 },
       '대4*5': { width: 1250, height: 1550 },
-      '1*2': { width: 1050, height: 2050 },
+      '1*2': { width: 950, height: 1950 },
       '4*6': { width: 1250, height: 1900 },
       '4*8': { width: 1200, height: 2400 },
       '4*10': { width: 1250, height: 3050 },
