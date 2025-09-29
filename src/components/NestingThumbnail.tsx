@@ -92,12 +92,9 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
         // 사용 가능한 영역에 들어가는지 확인
         if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
         
-        // 가능한 모든 위치에서 배치 시도 (격자 방식)
-        const stepX = Math.max(50, orientation.width);
-        const stepY = Math.max(50, orientation.height);
-        
-        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height && !placed; y += stepY) {
-          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width && !placed; x += stepX) {
+        // 가능한 모든 위치에서 배치 시도 (정확한 간격으로)
+        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height && !placed; y += SPACING) {
+          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width && !placed; x += SPACING) {
             if (!isOverlapping(x, y, orientation.width, orientation.height)) {
               // 배치 가능한 위치 발견
               positions.push({
@@ -110,10 +107,10 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
               });
               
               occupiedAreas.push({
-                x: x - SPACING / 2,
-                y: y - SPACING / 2,
-                width: orientation.width + SPACING,
-                height: orientation.height + SPACING
+                x,
+                y,
+                width: orientation.width,
+                height: orientation.height
               });
               
               placed = true;
