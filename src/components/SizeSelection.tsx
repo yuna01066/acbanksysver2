@@ -24,12 +24,9 @@ const SizeSelection: React.FC<SizeSelectionProps> = ({
           {availableSizes.map((size) => (
             <Button
               key={size}
-              variant={selectedSize === size ? "default" : "outline"}
-              className={`h-14 text-lg font-semibold transition-all duration-200 rounded-lg ${
-                selectedSize === size
-                  ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
-                  : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-900'
-              }`}
+              variant={selectedSize === size ? "default" : "minimal"}
+              size="lg"
+              className="h-14 text-lg font-semibold shadow-depth hover:shadow-smooth transform hover:scale-105 transition-all duration-200"
               onClick={() => onSizeSelect(size)}
             >
               {size}
