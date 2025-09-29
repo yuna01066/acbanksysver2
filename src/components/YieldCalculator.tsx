@@ -127,7 +127,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       }
     };
 
-    // 원판 사이즈 매핑 (10T~20T 기준 치수)
+    // 원판 사이즈 매핑 (10T~20T 기준 치수) - usePriceCalculation.ts와 일치
     const baseSizeMapping: {
       [key: string]: {
         width: number;
@@ -135,59 +135,57 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       };
     } = {
       '3*6': {
+        width: 850,
+        height: 1750
+      },
+      '대3*6': {
         width: 900,
         height: 1800
       },
-      '대3*6': {
-        width: 950,
-        height: 1850
-      },
       '4*5': {
-        width: 1170,
-        height: 1475
+        width: 1120,
+        height: 1425
       },
       '대4*5': {
-        width: 1250,
-        height: 1550
+        width: 1200,
+        height: 1500
       },
       '1*2': {
-        width: 1050,
-        height: 2050
+        width: 1000,
+        height: 2000
       },
       '4*6': {
-        width: 1250,
-        height: 1900
+        width: 1200,
+        height: 1850
       },
       '4*8': {
-        width: 1250,
-        height: 2450
+        width: 1200,
+        height: 2400
       },
       '4*10': {
         width: 1200,
         height: 3000
       },
       '5*6': {
-        width: 1550,
-        height: 1850
-      },
-      '5*8': {
-        width: 1550,
-        height: 2450
-      },
-      '소3*6': {
-        width: 900,
+        width: 1500,
         height: 1800
       },
-      // 소3*6은 3*6과 동일
-      '소1*2': {
-        width: 1050,
-        height: 2050
+      '5*8': {
+        width: 1500,
+        height: 2400
       },
-      // 소1*2는 1*2와 동일
+      '소3*6': {
+        width: 850,
+        height: 1750
+      },
+      '소1*2': {
+        width: 1000,
+        height: 2000
+      },
       '5*5': {
-        width: 1550,
-        height: 1550
-      } // 5*5 추가 (정사각형)
+        width: 1500,
+        height: 1500
+      }
     };
 
     // 두께에 따라 조정된 사이즈 매핑
