@@ -290,7 +290,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
               <Calculator className="w-5 h-5" />
               수율 계산 결과
             </CardTitle>
-            <p className="text-caption">
+            <p className="text-body">
               여분이 적을수록, 효율성이 높을수록, 필요 판수가 적을수록 우선 정렬됩니다
               <br />
               * 견적계산기로 이동 할 경우 원판 수량이 저장되지 않으니 수량을 꼭 기억 해 주세요
