@@ -115,6 +115,9 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
       }
     });
 
+    console.log('CombinationThumbnail - 배치할 아이템들:', itemsToPlace);
+    console.log('CombinationThumbnail - 총 배치해야 할 개수:', itemsToPlace.reduce((sum, item) => sum + item.count, 0));
+
     // 면적 기준으로 내림차순 정렬 (큰 것부터 배치)
     itemsToPlace.sort((a, b) => (b.width * b.height) - (a.width * a.height));
 
@@ -123,9 +126,9 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
       for (let i = 0; i < item.count; i++) {
         let placed = false;
         
-        // 가능한 모든 위치를 체크하여 배치
-        for (let y = MARGIN; y <= MARGIN + usableHeight - item.height && !placed; y += 10) {
-          for (let x = MARGIN; x <= MARGIN + usableWidth - item.width && !placed; x += 10) {
+        // 가능한 모든 위치를 체크하여 배치 (5mm 간격으로 더 세밀하게)
+        for (let y = MARGIN; y <= MARGIN + usableHeight - item.height && !placed; y += 5) {
+          for (let x = MARGIN; x <= MARGIN + usableWidth - item.width && !placed; x += 5) {
             if (canPlaceAt(x, y, item.width, item.height)) {
               positions.push({
                 x,
@@ -149,10 +152,10 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
           }
         }
         
-        // 원래 방향으로 배치할 수 없으면 회전해서 시도
+        // 원래 방향으로 배치할 수 없으면 회전해서 시도 (5mm 간격)
         if (!placed && item.width !== item.height) {
-          for (let y = MARGIN; y <= MARGIN + usableHeight - item.width && !placed; y += 10) {
-            for (let x = MARGIN; x <= MARGIN + usableWidth - item.height && !placed; x += 10) {
+          for (let y = MARGIN; y <= MARGIN + usableHeight - item.width && !placed; y += 5) {
+            for (let x = MARGIN; x <= MARGIN + usableWidth - item.height && !placed; x += 5) {
               if (canPlaceAt(x, y, item.height, item.width)) {
                 positions.push({
                   x,
@@ -179,6 +182,7 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
       }
     }
 
+    console.log('CombinationThumbnail - 실제 배치된 개수:', positions.length);
     return positions;
   };
 
