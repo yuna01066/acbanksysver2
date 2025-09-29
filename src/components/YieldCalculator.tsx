@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Calculator, Package, Plus, Trash2 } from "lucide-react";
 import NestingThumbnail from "@/components/NestingThumbnail";
-import PanelCombinationResult from "@/components/PanelCombinationResult";
+import UnifiedRecommendations from "@/components/UnifiedRecommendations";
 import { calculatePanelCombinations } from "@/utils/panelCombinationCalculator";
 import { 
   glossyColorSinglePrices, 
@@ -601,122 +601,10 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
         </CardContent>
       </Card>
 
-      {yieldResults.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-title flex items-center gap-2">
-              <Calculator className="w-5 h-5" />
-              수율 계산 결과
-            </CardTitle>
-            <p className="text-body">
-              여분이 적을수록, 효율성이 높을수록, 필요 판수가 적을수록 우선 정렬됩니다
-              <br />
-              * 견적계산기로 이동 할 경우 원판 수량이 저장되지 않으니 수량을 꼭 기억 해 주세요
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {yieldResults.map((result, index) => (
-                <div 
-                  key={result.panelSize}
-                  className={`p-4 rounded-xl border transition-all duration-200 ${
-                    index === 0 
-                      ? 'border-primary/30 bg-primary/5 shadow-smooth' 
-                      : 'border-border/50 bg-background/50'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0">
-                        <NestingThumbnail
-                          cutItems={cutItems}
-                          panelWidth={result.panelWidth}
-                          panelHeight={result.panelHeight}
-                          panelsNeeded={result.panelsNeeded}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h4 className="font-semibold">
-                            {result.panelSize} 원판
-                            {index === 0 && (
-                              <span className="ml-2 px-2 py-1 text-xs bg-primary text-primary-foreground rounded-full">
-                                추천
-                              </span>
-                            )}
-                          </h4>
-                          <span className="text-caption">
-                            ({result.panelWidth}mm × {result.panelHeight}mm)
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <div className="text-muted-foreground">총 필요 수량</div>
-                            <div className="font-medium">{totalQuantity}개</div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground">총 생산량</div>
-                            <div className="font-medium">{result.totalPieces}개</div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground">수율</div>
-                            <div className="font-medium">{result.efficiency.toFixed(1)}%</div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground">총 폐기면적</div>
-                            <div className="font-medium">
-                              {(result.wasteArea / 1000000).toFixed(2)}㎡
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <div className="font-semibold text-foreground">
-                          {result.panelsNeeded}장 필요
-                        </div>
-                      </div>
-                      {onPanelSelect && (
-                        <Button
-                          variant="minimal"
-                          size="sm"
-                          onClick={() => onPanelSelect({
-                            quality: selectedQuality,
-                            thickness: selectedThickness,
-                            size: result.panelSize,
-                            quantity: result.panelsNeeded
-                          })}
-                          className="whitespace-nowrap"
-                        >
-                          견적계산기로
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {result.surplus > 0 && (
-                    <div className="mt-3 p-2 bg-warning/10 text-muted-foreground text-sm rounded-lg">
-                      <span className="font-medium">여분 생산:</span> 
-                      {result.surplus}개 추가 생산됩니다
-                    </div>
-                  )}
-                  
-                  {result.surplus === 0 && (
-                    <div className="mt-3 p-2 bg-success/10 text-muted-foreground text-sm rounded-lg">
-                      <span className="font-medium">정확한 수량:</span> 
-                      여분 없이 정확히 {totalQuantity}개 생산됩니다
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {panelCombinations.length > 0 && (
-        <PanelCombinationResult
+      {/* 통합 추천 결과 */}
+      {(yieldResults.length > 0 || panelCombinations.length > 0) && (
+        <UnifiedRecommendations
+          yieldResults={yieldResults}
           combinations={panelCombinations}
           cutItems={cutItems}
           onPanelSelect={onPanelSelect}
