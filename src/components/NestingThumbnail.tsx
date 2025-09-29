@@ -27,20 +27,18 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
   const THUMBNAIL_WIDTH = 240;
   const THUMBNAIL_HEIGHT = 180;
   
-  // 1/10 스케일 계산 (원판 mm 기준으로 1/10)
+  // 1/10 스케일 계산 (원판 mm 기준으로 정확히 1/10)
   const scale = 0.1;
   const scaledPanelWidth = panelWidth * scale;
   const scaledPanelHeight = panelHeight * scale;
   
-  // 썸네일에 맞게 조정하는 추가 스케일
-  const displayScale = Math.min(THUMBNAIL_WIDTH / scaledPanelWidth, THUMBNAIL_HEIGHT / scaledPanelHeight) * 0.9;
-  const finalScale = scale * displayScale;
-  const finalPanelWidth = panelWidth * finalScale;
-  const finalPanelHeight = panelHeight * finalScale;
+  // 썸네일 크기를 원판 크기에 맞게 조정 (최소 240x180 보장)
+  const thumbnailWidth = Math.max(THUMBNAIL_WIDTH, scaledPanelWidth + 40);
+  const thumbnailHeight = Math.max(THUMBNAIL_HEIGHT, scaledPanelHeight + 40);
   
   // 중앙 정렬을 위한 오프셋
-  const offsetX = (THUMBNAIL_WIDTH - finalPanelWidth) / 2;
-  const offsetY = (THUMBNAIL_HEIGHT - finalPanelHeight) / 2;
+  const offsetX = (thumbnailWidth - scaledPanelWidth) / 2;
+  const offsetY = (thumbnailHeight - scaledPanelHeight) / 2;
 
   // 여러 원판에 걸쳐 배치 계산
   const calculateMultiPanelLayout = () => {
@@ -198,18 +196,18 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
 
   return (
     <div className="relative bg-background border border-border rounded-lg overflow-hidden" 
-         style={{ width: THUMBNAIL_WIDTH, height: THUMBNAIL_HEIGHT }}>
+         style={{ width: thumbnailWidth, height: thumbnailHeight }}>
       <svg
-        width={THUMBNAIL_WIDTH}
-        height={THUMBNAIL_HEIGHT}
+        width={thumbnailWidth}
+        height={thumbnailHeight}
         className="absolute inset-0"
       >
         {/* 원판 배경 */}
         <rect
           x={offsetX}
           y={offsetY}
-          width={finalPanelWidth}
-          height={finalPanelHeight}
+          width={scaledPanelWidth}
+          height={scaledPanelHeight}
           fill="hsl(var(--muted))"
           stroke="hsl(var(--border))"
           strokeWidth="1"
@@ -218,10 +216,10 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
         
         {/* 마진 영역 표시 */}
         <rect
-          x={offsetX + (MARGIN * finalScale)}
-          y={offsetY + (MARGIN * finalScale)}
-          width={finalPanelWidth - (MARGIN * 2 * finalScale)}
-          height={finalPanelHeight - (MARGIN * 2 * finalScale)}
+          x={offsetX + (MARGIN * scale)}
+          y={offsetY + (MARGIN * scale)}
+          width={scaledPanelWidth - (MARGIN * 2 * scale)}
+          height={scaledPanelHeight - (MARGIN * 2 * scale)}
           fill="none"
           stroke="hsl(var(--muted-foreground))"
           strokeWidth="1"
@@ -233,10 +231,10 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
         {currentLayout.map((pos, index) => (
           <rect
             key={index}
-            x={offsetX + (pos.x * finalScale)}
-            y={offsetY + (pos.y * finalScale)}
-            width={pos.width * finalScale}
-            height={pos.height * finalScale}
+            x={offsetX + (pos.x * scale)}
+            y={offsetY + (pos.y * scale)}
+            width={pos.width * scale}
+            height={pos.height * scale}
             fill={pos.color}
             fillOpacity="0.7"
             stroke={pos.color}
