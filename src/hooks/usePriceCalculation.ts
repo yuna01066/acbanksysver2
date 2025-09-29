@@ -80,7 +80,7 @@ export const usePriceCalculation = ({
       '4*5': { width: 1170, height: 1475 },
       '대4*5': { width: 1250, height: 1550 },
       '1*2': { width: 950, height: 1950 },
-      '4*6': { width: 1250, height: 1900 },
+      '4*6': { width: 1200, height: 1800 },
       '4*8': { width: 1200, height: 2400 },
       '4*10': { width: 1250, height: 3050 },
       '5*5': { width: 1550, height: 1550 },
