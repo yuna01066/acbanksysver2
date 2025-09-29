@@ -20,7 +20,6 @@ import MaterialSelection from "./MaterialSelection";
 import QualitySelection from "./QualitySelection";
 import ThicknessSelection from "./ThicknessSelection";
 import SizeSelection from "./SizeSelection";
-import ColorTypeSelection from "./ColorTypeSelection";
 import SurfaceSelection from "./SurfaceSelection";
 import ColorSelection from "./ColorSelection";
 import { useQuotes } from "@/contexts/QuoteContext";
@@ -128,23 +127,17 @@ const PanelCalculator = () => {
       setSelectedProcessing('');
       setCurrentStep(5);
     } else if (step <= 6) {
-      setSelectedColorType('');
       setSelectedSurface('');
       setColorMixingCost(0);
       setSelectedProcessing('');
       setCurrentStep(6);
     } else if (step <= 7) {
-      setSelectedSurface('');
       setColorMixingCost(0);
       setSelectedProcessing('');
       setCurrentStep(7);
     } else if (step <= 8) {
-      setColorMixingCost(0);
       setSelectedProcessing('');
       setCurrentStep(8);
-    } else if (step <= 9) {
-      setSelectedProcessing('');
-      setCurrentStep(9);
     }
   };
 
@@ -193,25 +186,14 @@ const PanelCalculator = () => {
     console.log('Size selected:', size);
     setSelectedSize(size);
     resetFromStep(6);
-    if (selectedQuality?.id === 'glossy-standard') {
-      setCurrentStep(6);
-    } else {
-      setCurrentStep(7);
-    }
-  };
-
-  const handleColorTypeSelect = (colorType: string) => {
-    console.log('Color type selected:', colorType);
-    setSelectedColorType(colorType);
-    resetFromStep(7);
-    setCurrentStep(7);
+    setCurrentStep(6); // 바로 면수 선택으로 이동
   };
 
   const handleSurfaceSelect = (surface: string) => {
     console.log('Surface selected:', surface);
     setSelectedSurface(surface);
-    resetFromStep(8);
-    setCurrentStep(8);
+    resetFromStep(7);
+    setCurrentStep(7);
   };
 
   const handleColorMixingAdd = () => {
@@ -230,7 +212,7 @@ const PanelCalculator = () => {
   };
 
   const handleNextStepFromColorMixing = () => {
-    setCurrentStep(9);
+    setCurrentStep(8);
   };
 
   const handleAddQuote = () => {
@@ -266,6 +248,7 @@ const PanelCalculator = () => {
     setSelectedMaterial(null);
     setSelectedQuality(null);
     setSelectedColor('');
+    setSelectedThickness('');
     setSelectedSize('');
     setSelectedColorType('');
     setSelectedSurface('');
@@ -299,13 +282,7 @@ const PanelCalculator = () => {
     
     // 견적계산기 모드로 전환하고 면수 선택 단계로 이동
     setCalculatorType('quote');
-    
-    // glossy-standard인 경우 색상 타입 선택 단계로, 아니면 면수 선택 단계로
-    if (quality?.id === 'glossy-standard') {
-      setCurrentStep(6); // 색상 타입 선택
-    } else {
-      setCurrentStep(7); // 면수 선택
-    }
+    setCurrentStep(6); // 면수 선택 단계로 바로 이동
   };
 
   const handleBackToCalculatorSelection = () => {
@@ -313,7 +290,7 @@ const PanelCalculator = () => {
     setCalculatorType(null);
   };
 
-  const maxSteps = selectedQuality?.id === 'glossy-standard' ? 10 : 10;
+  const maxSteps = 9;
 
   return (
     <div className="min-h-screen p-6">
@@ -326,10 +303,10 @@ const PanelCalculator = () => {
                 onClick={handleViewQuotesSummary}
                 variant="default"
                 className="animate-slide-in"
-               >
-                 <ShoppingCart className="w-4 h-4" />
-                 담은 견적 보기 ({quotes.length})
-               </Button>
+              >
+                <ShoppingCart className="w-4 h-4" />
+                담은 견적 보기 ({quotes.length})
+              </Button>
             )}
           </div>
           <CardTitle className="text-display flex items-center justify-center gap-4 mb-3">
@@ -426,16 +403,15 @@ const PanelCalculator = () => {
 
           {/* Step 5: 사이즈 선택 */}
           {currentStep === 5 && selectedThickness && (
-            <ColorTypeSelection
-              selectedColorType={selectedColorType}
-              onColorTypeSelect={handleColorTypeSelect}
+            <SizeSelection
+              availableSizes={getAvailableSizes()}
+              selectedSize={selectedSize}
+              onSizeSelect={handleSizeSelect}
             />
           )}
 
-          {/* Step 7: 면수 선택 */}
-          {currentStep === 7 && 
-           ((selectedQuality?.id === 'glossy-standard' && selectedColorType) || 
-            (selectedQuality?.id !== 'glossy-standard' && selectedSize)) && (
+          {/* Step 6: 면수 선택 */}
+          {currentStep === 6 && selectedSize && (
             <SurfaceSelection
               selectedSurface={selectedSurface}
               onSurfaceSelect={handleSurfaceSelect}
@@ -443,8 +419,8 @@ const PanelCalculator = () => {
             />
           )}
 
-          {/* Step 8: 조색비 추가 */}
-          {currentStep === 8 && selectedSurface && (
+          {/* Step 7: 조색비 추가 */}
+          {currentStep === 7 && selectedSurface && (
             <ColorMixingStep
               colorMixingCost={colorMixingCost}
               onColorMixingAdd={handleColorMixingAdd}
@@ -454,8 +430,8 @@ const PanelCalculator = () => {
             />
           )}
 
-          {/* Step 9: 가공 선택 */}
-          {currentStep === 9 && (
+          {/* Step 8: 가공 선택 */}
+          {currentStep === 8 && (
             <ProcessingOptions
               selectedProcessing={selectedProcessing}
               onProcessingSelect={handleProcessingSelect}
@@ -464,7 +440,7 @@ const PanelCalculator = () => {
           )}
 
           {/* 시리얼 넘버 입력 */}
-          {currentStep === 9 && selectedProcessing && (
+          {currentStep === 8 && selectedProcessing && (
             <>
               <Separator className="my-8" />
               <div className="space-y-4">
@@ -486,7 +462,7 @@ const PanelCalculator = () => {
           )}
 
           {/* 견적 추가 버튼 */}
-          {currentStep === 9 && selectedProcessing && priceInfo.totalPrice > 0 && (
+          {currentStep === 8 && selectedProcessing && priceInfo.totalPrice > 0 && (
             <>
               <Separator className="my-8" />
               <div className="flex justify-center gap-4">

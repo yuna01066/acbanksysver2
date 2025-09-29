@@ -22,7 +22,7 @@ const ColorMixingStep: React.FC<ColorMixingStepProps> = ({
     <div className="space-y-6">
       <div className="text-center">
         <h3 className="text-2xl font-bold text-gray-900 mb-2">
-          {isGlossyStandard ? '8.' : '8.'} 조색비 추가 (선택사항)
+          7. 조색비 추가 (선택사항)
         </h3>
         <p className="text-gray-600">특수 색상 조색이 필요한 경우 추가해주세요</p>
       </div>

@@ -110,7 +110,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     <div className="space-y-8">
       <div className="text-center">
         <h3 className="text-2xl font-bold text-gray-900 mb-2">
-          {isGlossyStandard ? '9.' : '9.'} 가공 방법을 선택해주세요
+          8. 가공 방법을 선택해주세요
         </h3>
         <p className="text-gray-600">필요한 가공 방식을 선택하여 정확한 견적을 받아보세요</p>
       </div>
