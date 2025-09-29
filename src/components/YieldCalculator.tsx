@@ -125,6 +125,12 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
           height: baseHeight - 50
         };
       }
+      
+      // 기본값 반환
+      return {
+        width: baseWidth,
+        height: baseHeight
+      };
     };
 
     // 원판 사이즈 매핑 (10T~20T 기준 치수) - usePriceCalculation.ts와 일치

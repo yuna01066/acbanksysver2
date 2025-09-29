@@ -416,6 +416,7 @@ const PanelCalculator = () => {
               availableSizes={getAvailableSizes()}
               selectedSize={selectedSize}
               onSizeSelect={handleSizeSelect}
+              selectedThickness={selectedThickness}
             />
           )}
 
