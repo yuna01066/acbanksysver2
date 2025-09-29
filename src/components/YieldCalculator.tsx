@@ -33,9 +33,14 @@ interface YieldResult {
 
 interface YieldCalculatorProps {
   onBack: () => void;
+  onPanelSelect?: (panelData: {
+    quality: string;
+    thickness: string;
+    size: string;
+  }) => void;
 }
 
-const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
+const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect }) => {
   const [cutWidth, setCutWidth] = useState<string>('');
   const [cutHeight, setCutHeight] = useState<string>('');
   const [quantity, setQuantity] = useState<string>('');
@@ -313,10 +318,26 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
                         ({result.panelWidth}mm × {result.panelHeight}mm)
                       </span>
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-primary">
-                        {result.panelsNeeded}장 필요
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="font-semibold text-primary">
+                          {result.panelsNeeded}장 필요
+                        </div>
                       </div>
+                      {onPanelSelect && (
+                        <Button
+                          variant="minimal"
+                          size="sm"
+                          onClick={() => onPanelSelect({
+                            quality: selectedQuality,
+                            thickness: selectedThickness,
+                            size: result.panelSize
+                          })}
+                          className="whitespace-nowrap"
+                        >
+                          견적계산기로
+                        </Button>
+                      )}
                     </div>
                   </div>
                   

@@ -259,6 +259,34 @@ const PanelCalculator = () => {
     navigate('/quotes-summary');
   };
 
+  const handlePanelSelectFromYield = (panelData: { quality: string; thickness: string; size: string }) => {
+    // 재질 매핑 (캐스팅만 지원)
+    const castingMaterial = MATERIALS.find(m => m.id === 'casting');
+    if (castingMaterial) {
+      setSelectedMaterial(castingMaterial);
+    }
+    
+    // 재질 매핑
+    const quality = CASTING_QUALITIES.find(q => q.id === panelData.quality);
+    if (quality) {
+      setSelectedQuality(quality);
+    }
+    
+    // 두께와 사이즈 설정
+    setSelectedThickness(panelData.thickness);
+    setSelectedSize(panelData.size);
+    
+    // 견적계산기 모드로 전환하고 면수 선택 단계로 이동
+    setCalculatorType('quote');
+    
+    // glossy-standard인 경우 색상 타입 선택 단계로, 아니면 면수 선택 단계로
+    if (quality?.id === 'glossy-standard') {
+      setCurrentStep(5); // 색상 타입 선택
+    } else {
+      setCurrentStep(6); // 면수 선택
+    }
+  };
+
   const handleBackToCalculatorSelection = () => {
     setCurrentStep(0);
     setCalculatorType(null);
@@ -292,7 +320,10 @@ const PanelCalculator = () => {
         <CardContent className="p-8 space-y-8">
           {/* 수율 계산기 */}
           {currentStep === -1 && (
-            <YieldCalculator onBack={handleBackToCalculatorSelection} />
+            <YieldCalculator 
+              onBack={handleBackToCalculatorSelection}
+              onPanelSelect={(panelData) => handlePanelSelectFromYield(panelData)}
+            />
           )}
           
           {/* 견적 계산기 단계들 */}
