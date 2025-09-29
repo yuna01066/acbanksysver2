@@ -77,7 +77,7 @@ export const usePriceCalculation = ({
     const baseSizeMapping: { [key: string]: { width: number; height: number } } = {
       '3*6': { width: 860, height: 1750 },
       '대3*6': { width: 900, height: 1800 },
-      '4*5': { width: 1170, height: 1475 },
+      '4*5': { width: 1120, height: 1425 },
       '대4*5': { width: 1200, height: 1500 },
       '1*2': { width: 950, height: 1950 },
       '4*6': { width: 1200, height: 1800 },
