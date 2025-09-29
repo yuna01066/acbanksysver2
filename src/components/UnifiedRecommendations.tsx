@@ -242,47 +242,26 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                     availablePanelSizes={availablePanelSizes}
                   />
                 )}
-              </div>
-            </div>
-          </div>
-        ))}
-        
-        {/* 견적계산기 이동 버튼 - 양식 하단에 통합 */}
-        {onPanelSelect && unifiedRecommendations.some(r => r.type === 'single') && (
-          <div className="mt-6 pt-4 border-t border-border">
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-4">
-                선택한 추천안으로 견적을 계산하시겠습니까?
-              </p>
-              <div className="flex flex-wrap gap-3 justify-center">
-                {unifiedRecommendations
-                  .filter(r => r.type === 'single')
-                  .slice(0, 3) // 상위 3개만 표시
-                  .map((recommendation, index) => (
+                
+                {onPanelSelect && recommendation.type === 'single' && (
                   <Button
-                    key={index}
-                    variant={index === 0 ? "default" : "outline"}
-                    size="lg"
+                    variant="minimal"
+                    size="sm"
                     onClick={() => onPanelSelect({
                       quality: selectedQuality,
                       thickness: selectedThickness,
                       size: (recommendation.data as YieldResult).panelSize,
                       quantity: recommendation.panelsNeeded
                     })}
-                    className="min-w-[160px] animate-fade-in"
-                    style={{ animationDelay: `${index * 100}ms` }}
+                    className="whitespace-nowrap"
                   >
-                    <Package className="w-4 h-4 mr-2" />
-                    {(recommendation.data as YieldResult).panelSize}
-                    <span className="ml-2 text-xs opacity-80">
-                      ({recommendation.panelsNeeded}장)
-                    </span>
+                    견적계산기로
                   </Button>
-                ))}
+                )}
               </div>
             </div>
           </div>
-        )}
+        ))}
       </CardContent>
     </Card>
   );
