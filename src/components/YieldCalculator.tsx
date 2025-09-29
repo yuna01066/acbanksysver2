@@ -139,52 +139,52 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
         height: 1800
       },
       '대3*6': {
-        width: 900,
-        height: 1800
+        width: 950,
+        height: 1850
       },
       '4*5': {
         width: 1170,
         height: 1475
       },
       '대4*5': {
-        width: 1200,
-        height: 1500
+        width: 1250,
+        height: 1550
       },
       '1*2': {
-        width: 1000,
-        height: 2000
+        width: 1050,
+        height: 2050
       },
       '4*6': {
-        width: 1200,
-        height: 1850
+        width: 1250,
+        height: 1900
       },
       '4*8': {
-        width: 1200,
-        height: 2400
+        width: 1250,
+        height: 2450
       },
       '4*10': {
-        width: 1200,
-        height: 3000
+        width: 1250,
+        height: 3050
       },
       '5*6': {
-        width: 1500,
-        height: 1800
+        width: 1550,
+        height: 1850
       },
       '5*8': {
-        width: 1500,
-        height: 2400
+        width: 1550,
+        height: 2450
       },
       '소3*6': {
         width: 900,
         height: 1800
       },
       '소1*2': {
-        width: 1000,
-        height: 2000
+        width: 1050,
+        height: 2050
       },
       '5*5': {
-        width: 1500,
-        height: 1500
+        width: 1550,
+        height: 1550
       }
     };
 
@@ -242,7 +242,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       [key: string]: number;
     };
   } => {
-    const MARGIN = 50;
+    const MARGIN = 80;
     const SPACING = 10; // 10mm 간격으로 변경
 
     const usableWidth = panelW - MARGIN * 2;
@@ -420,8 +420,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
 
     // 각 도형이 원판에 물리적으로 들어갈 수 있는지 먼저 확인
     for (const item of items) {
-      const usableWidth = panelW - 100; // 마진 50*2
-      const usableHeight = panelH - 100; // 마진 50*2
+      const usableWidth = panelW - 160; // 마진 80*2
+      const usableHeight = panelH - 160; // 마진 80*2
 
       // 회전 포함해서 들어갈 수 있는지 확인
       const canFitNormally = item.width <= usableWidth && item.height <= usableHeight;
