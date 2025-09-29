@@ -28,9 +28,9 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
 }) => {
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   
-  const MARGIN = 80;
+  const MARGIN = 50; // 정확히 50mm 마진
   const SPACING = 10; // 정확히 10mm 간격
-  const THUMBNAIL_WIDTH = 400; // 더 큰 썸네일 크기
+  const THUMBNAIL_WIDTH = 400; // 썸네일 크기
   const THUMBNAIL_HEIGHT = 300;
 
   // 현재 선택된 원판 정보
@@ -120,7 +120,7 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
       for (let i = 0; i < item.count; i++) {
         let placed = false;
         
-        // 가능한 모든 위치를 체크하여 배치 (1mm 간격으로 더 세밀하게)
+        // 1mm 간격으로 세밀한 배치 시도
         for (let y = MARGIN; y <= MARGIN + usableHeight - item.height && !placed; y += 1) {
           for (let x = MARGIN; x <= MARGIN + usableWidth - item.width && !placed; x += 1) {
             if (canPlaceAt(x, y, item.width, item.height)) {
@@ -146,7 +146,7 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
           }
         }
         
-        // 원래 방향으로 배치할 수 없으면 회전해서 시도 (1mm 간격)
+        // 회전 배치 시도 (정사각형이 아닌 경우만)
         if (!placed && item.width !== item.height) {
           for (let y = MARGIN; y <= MARGIN + usableHeight - item.width && !placed; y += 1) {
             for (let x = MARGIN; x <= MARGIN + usableWidth - item.height && !placed; x += 1) {

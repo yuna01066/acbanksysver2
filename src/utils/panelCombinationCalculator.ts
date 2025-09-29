@@ -38,7 +38,7 @@ const calculateMultiItemLayout = (
   canFitAll: boolean;
   placedCounts: { [key: string]: number };
 } => {
-  const MARGIN = 80;
+  const MARGIN = 50; // 정확히 50mm 마진
   const SPACING = 10; // 정확히 10mm 간격
   
   const usableWidth = panelW - (MARGIN * 2);
@@ -62,7 +62,7 @@ const calculateMultiItemLayout = (
   const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
   const placedCounts: { [key: string]: number } = {};
   
-  // 위치가 겹치는지 확인 (정확히 50mm 간격 포함)
+  // 위치가 겹치는지 확인 (정확히 10mm 간격 포함)
   const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
     return occupiedAreas.some(area => 
       !(x >= area.x + area.width + SPACING || x + w + SPACING <= area.x || 
@@ -85,8 +85,8 @@ const calculateMultiItemLayout = (
       // 엄격한 경계 검사: 도형이 원판 범위를 절대 넘어가지 않도록
       if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
       
-      for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height && !placed; y += 10) {
-        for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width && !placed; x += 10) {
+      for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height && !placed; y += 1) {
+        for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width && !placed; x += 1) {
           // 엄격한 경계 검사: 도형이 원판 경계 내부에만 배치되는지 확인
           if (x + orientation.width <= MARGIN + usableWidth && 
               y + orientation.height <= MARGIN + usableHeight &&
