@@ -201,10 +201,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     const results: YieldResult[] = availablePanelSizes.map(panel => {
       let totalRequired = 0;
       let canFitAll = true;
-      let combinedEfficiency = 0;
-      let totalUsedArea = 0;
 
-      // 모든 재단 항목이 한 판에 들어갈 수 있는지 확인
+      // 각 재단 항목별 계산
       const itemCalculations = validCutItems.map(item => {
         const cutW = parseFloat(item.width);
         const cutH = parseFloat(item.height);
@@ -220,14 +218,12 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
         }
 
         const panelsNeeded = piecesPerPanel > 0 ? Math.ceil(qty / piecesPerPanel) : 0;
-        const usedArea = qty * cutW * cutH;
-        totalUsedArea += usedArea;
 
         return {
           piecesPerPanel,
           panelsNeeded,
-          usedArea,
-          efficiency
+          quantity: qty,
+          itemArea: cutW * cutH
         };
       });
 
@@ -248,16 +244,20 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
       // 필요한 최대 판 수 계산
       const maxPanelsNeeded = Math.max(...itemCalculations.map(calc => calc.panelsNeeded));
       
-      // 총 생산량 계산
+      // 총 생산량과 실제 필요 면적 계산
       let totalProduced = 0;
+      let totalRequiredArea = 0;
+      
       validCutItems.forEach((item, index) => {
         const calc = itemCalculations[index];
         totalProduced += calc.piecesPerPanel * maxPanelsNeeded;
+        totalRequiredArea += calc.quantity * calc.itemArea;
       });
 
       const totalPanelArea = panel.width * panel.height * maxPanelsNeeded;
-      const efficiency = totalPanelArea > 0 ? (totalUsedArea / totalPanelArea) * 100 : 0;
-      const wasteArea = totalPanelArea - totalUsedArea;
+      // 수율 = 실제 필요한 면적 / 사용된 전체 판 면적
+      const efficiency = totalPanelArea > 0 ? (totalRequiredArea / totalPanelArea) * 100 : 0;
+      const wasteArea = totalPanelArea - totalRequiredArea;
       const surplus = totalProduced - totalRequired;
 
       return {
