@@ -233,14 +233,23 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
         </CardHeader>
         <CardContent className="space-y-4">
           {/* 현재 선택 상태 표시 */}
-          <SelectionSummary 
-            selectedQuality={selectedQuality}
-            selectedThickness={selectedThickness}
-            selectedSurface={selectedSurface}
-            selectedColor={selectedColor}
-            selectedFactory={selectedFactory}
-            selectedProcessing={selectedProcessing}
-          />
+          <div className="bg-muted/50 p-4 rounded-lg">
+            <h4 className="text-sm font-medium mb-2">현재 선택 상태</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">재질:</span> {selectedQuality}
+              </div>
+              <div>
+                <span className="text-muted-foreground">두께:</span> {selectedThickness}mm
+              </div>
+              <div>
+                <span className="text-muted-foreground">표면:</span> {selectedSurface}
+              </div>
+              <div>
+                <span className="text-muted-foreground">색상:</span> {selectedColor}
+              </div>
+            </div>
+          </div>
 
           {/* 재단 항목 입력 */}
           <div className="space-y-4">

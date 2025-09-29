@@ -328,6 +328,12 @@ const PanelCalculator = () => {
           {/* 수율 계산기 */}
           {currentStep === -1 && (
             <YieldCalculator 
+              selectedQuality={selectedQuality?.id || 'glossy-color'}
+              selectedThickness={selectedThickness}
+              selectedSurface={selectedSurface}
+              selectedColor={selectedColor}
+              selectedFactory="jangwon"
+              selectedProcessing={selectedProcessing}
               onBack={handleBackToCalculatorSelection}
               onPanelSelect={(panelData) => handlePanelSelectFromYield(panelData)}
             />
