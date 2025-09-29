@@ -7,6 +7,7 @@ import { ArrowLeft, Calculator, Package, Plus, Trash2 } from "lucide-react";
 import NestingThumbnail from "@/components/NestingThumbnail";
 import UnifiedRecommendations from "@/components/UnifiedRecommendations";
 import { calculatePanelCombinations } from "@/utils/panelCombinationCalculator";
+import { optimizedNesting } from "@/utils/optimizedNesting";
 import { glossyColorSinglePrices, glossyStandardSinglePrices, astelColorSinglePrices, satinColorSinglePrices } from "@/data/glossyColorPricing";
 import { CASTING_QUALITIES } from "@/types/calculator";
 interface PanelSize {
@@ -215,7 +216,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
     return panelSizes.sort((a, b) => a.width * a.height - b.width * b.height);
   }, [selectedThickness, selectedQuality]);
 
-  // 복합 네스팅 알고리즘 - 여러 도형을 함께 배치
+  // 최적화된 네스팅 알고리즘 사용
   const calculateMultiItemLayout = (items: Array<{
     width: number;
     height: number;
@@ -236,159 +237,14 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       [key: string]: number;
     };
   } => {
-    const MARGIN = 0; // 가용사이즈가 이미 재단 가능 영역이므로 마진 불필요
+    // 최적화된 네스팅 알고리즘 사용
+    const result = optimizedNesting(items, panelW, panelH, selectedThickness);
     
-    // 두께에 따른 간격 설정
-    const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
-    const SPACING = thickness < 10 ? 6 : 8; // 10T 미만: 6mm, 10T 이상: 8mm
-
-    const usableWidth = panelW - MARGIN * 2;
-    const usableHeight = panelH - MARGIN * 2;
-
-    // 배치 결과를 저장할 배열들 초기화
-    const positions: Array<{
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      rotated: boolean;
-      itemId: string;
-    }> = [];
-    const occupiedAreas: Array<{
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    }> = [];
-    const placedCounts: {
-      [key: string]: number;
-    } = {};
-
-    // 모든 도형을 크기 순(면적)으로 정렬하여 큰 것부터 배치
-    const allPieces: Array<{
-      width: number;
-      height: number;
-      itemId: string;
-      originalIndex: number;
-    }> = [];
-    items.forEach((item, index) => {
-      for (let i = 0; i < item.quantity; i++) {
-        allPieces.push({
-          width: item.width,
-          height: item.height,
-          itemId: item.id,
-          originalIndex: index
-        });
-      }
-    });
-
-    // 면적 기준으로 내림차순 정렬
-    allPieces.sort((a, b) => b.width * b.height - a.width * a.height);
-
-    // 위치가 겹치는지 확인하는 함수 (50mm 간격 포함)
-    const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
-      const minGap = SPACING; // 50mm 간격
-      return occupiedAreas.some(area => !(x >= area.x + area.width + minGap || x + w + minGap <= area.x || y >= area.y + area.height + minGap || y + h + minGap <= area.y));
-    };
-
-    // 각 도형 배치 시도 - 회전을 고려한 최적 배치
-    for (const piece of allPieces) {
-      let placed = false;
-      let bestPosition = null;
-      let bestScore = -1;
-
-      // 가능한 배치 위치와 회전 시도 (더 체계적인 평가)
-      const orientations = [{
-        width: piece.width,
-        height: piece.height,
-        rotated: false
-      }, {
-        width: piece.height,
-        height: piece.width,
-        rotated: true
-      }];
-
-      // 각 방향에 대해 가능한 모든 위치 평가
-      for (const orientation of orientations) {
-        // 사용 가능한 영역에 들어가는지 확인
-        if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
-
-        // 가능한 모든 위치에서 배치 시도 (10mm 간격으로 더 세밀하게 검색)
-        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 10) {
-          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 10) {
-            if (!isOverlapping(x, y, orientation.width, orientation.height)) {
-              // 이 위치의 점수 계산 (왼쪽 위부터 우선, 회전하지 않은 것을 약간 선호)
-              const positionScore = calculatePositionScore(x, y, orientation, usableWidth, usableHeight);
-              if (positionScore > bestScore) {
-                bestScore = positionScore;
-                bestPosition = {
-                  x,
-                  y,
-                  width: orientation.width,
-                  height: orientation.height,
-                  rotated: orientation.rotated
-                };
-              }
-            }
-          }
-        }
-      }
-
-      // 최적 위치에 배치
-      if (bestPosition) {
-        positions.push({
-          x: bestPosition.x,
-          y: bestPosition.y,
-          width: bestPosition.width,
-          height: bestPosition.height,
-          rotated: bestPosition.rotated,
-          itemId: piece.itemId
-        });
-        occupiedAreas.push({
-          x: bestPosition.x,
-          y: bestPosition.y,
-          width: bestPosition.width,
-          height: bestPosition.height
-        });
-
-        // 배치된 개수 카운트
-        placedCounts[piece.itemId] = (placedCounts[piece.itemId] || 0) + 1;
-        placed = true;
-      }
-
-      // 배치하지 못한 도형이 있으면 중단
-      if (!placed) {
-        break;
-      }
-    }
-
-    // 배치 점수 계산 함수
-    function calculatePositionScore(x: number, y: number, orientation: {
-      width: number;
-      height: number;
-      rotated: boolean;
-    }, maxWidth: number, maxHeight: number): number {
-      // 기본 점수: 왼쪽 위부터 우선 (거리 기반)
-      const distanceScore = Math.sqrt((x - MARGIN) ** 2 + (y - MARGIN) ** 2);
-      let score = 10000 - distanceScore;
-
-      // 회전하지 않은 방향을 약간 선호 (같은 위치라면)
-      if (!orientation.rotated) {
-        score += 5;
-      }
-
-      // 가장자리에 가까운 배치 선호 (공간 효율성)
-      const edgeBonus = Math.min(x - MARGIN, y - MARGIN, maxWidth - (x - MARGIN) - orientation.width, maxHeight - (y - MARGIN) - orientation.height);
-      if (edgeBonus < SPACING) {
-        score += 10;
-      }
-      return score;
-    }
     return {
-      positions,
-      totalPieces: positions.length,
-      canFitAll: positions.length === allPieces.length,
-      placedCounts
+      positions: result.positions,
+      totalPieces: result.totalPieces,
+      canFitAll: result.canFitAll,
+      placedCounts: result.placedCounts
     };
   };
 

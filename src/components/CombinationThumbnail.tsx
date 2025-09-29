@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { optimizedNesting } from '@/utils/optimizedNesting';
 
 interface CutItem {
   id: string;
@@ -57,7 +58,7 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
   const offsetX = (THUMBNAIL_WIDTH - scaledPanelWidth) / 2;
   const offsetY = (THUMBNAIL_HEIGHT - scaledPanelHeight) / 2;
 
-  // 배치된 도형들 계산
+  // 최적화된 네스팅을 사용한 배치 계산
   const calculateLayout = () => {
     const usableWidth = currentPanelInfo.width; // MARGIN이 0이므로 전체 크기 사용
     const usableHeight = currentPanelInfo.height; // MARGIN이 0이므로 전체 크기 사용

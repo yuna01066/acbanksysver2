@@ -29,7 +29,7 @@ interface NestingResult {
   wasteArea: number;
 }
 
-// 개선된 네스팅 알고리즘 - Bottom-Left Fill with optimization
+// 개선된 네스팅 알고리즘 - 공간 효율성 극대화
 export const optimizedNesting = (
   items: CutItem[],
   panelW: number,
@@ -44,7 +44,7 @@ export const optimizedNesting = (
   const usableWidth = panelW - (MARGIN * 2);
   const usableHeight = panelH - (MARGIN * 2);
   
-  // 모든 도형을 개별 피스로 확장하고 효율적으로 정렬
+  // 모든 도형을 개별 피스로 확장
   const allPieces: Array<{ width: number; height: number; itemId: string; area: number }> = [];
   
   items.forEach(item => {
@@ -58,16 +58,26 @@ export const optimizedNesting = (
     }
   });
   
-  // 면적 기준으로 내림차순 정렬 (큰 것부터 배치)
-  allPieces.sort((a, b) => b.area - a.area);
+  // 면적과 높이를 고려한 정렬 (큰 것부터, 높이가 큰 것부터)
+  allPieces.sort((a, b) => {
+    if (Math.abs(a.area - b.area) > 100) {
+      return b.area - a.area;
+    }
+    return b.height - a.height;
+  });
   
   const positions: PlacedItem[] = [];
   const placedCounts: { [key: string]: number } = {};
   
-  // Bottom-Left Fill 알고리즘 구현
+  // 스카이라인 알고리즘 기반 배치
+  const skyline: Array<{ x: number; y: number; width: number }> = [
+    { x: MARGIN, y: MARGIN, width: usableWidth }
+  ];
+  
   for (const piece of allPieces) {
     let bestPosition: PlacedItem | null = null;
-    let bestScore = Infinity;
+    let bestSkylineIndex = -1;
+    let bestY = Infinity;
     
     // 회전 가능한 경우들 시도
     const orientations = [
@@ -79,42 +89,43 @@ export const optimizedNesting = (
       // 원판 크기 체크
       if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
       
-      // 가능한 모든 위치에서 최적 위치 찾기
-      for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 1) {
-        for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 1) {
-          
-          // 겹침 체크
-          if (isOverlapping(x, y, orientation.width, orientation.height, positions, SPACING)) {
-            continue;
-          }
+      // 각 스카이라인 세그먼트에서 배치 가능성 확인
+      for (let i = 0; i < skyline.length; i++) {
+        const segment = skyline[i];
+        
+        // 세그먼트에 맞는지 확인
+        if (segment.width >= orientation.width + SPACING) {
+          const x = segment.x;
+          const y = segment.y;
           
           // 경계 체크
-          if (x + orientation.width > MARGIN + usableWidth || 
-              y + orientation.height > MARGIN + usableHeight) {
-            continue;
-          }
-          
-          // Bottom-Left Fill 점수 계산 (왼쪽 아래 우선)
-          const score = calculatePlacementScore(x, y, orientation.width, orientation.height, positions);
-          
-          if (score < bestScore) {
-            bestScore = score;
-            bestPosition = {
-              x, y,
-              width: orientation.width,
-              height: orientation.height,
-              rotated: orientation.rotated,
-              itemId: piece.itemId
-            };
+          if (x + orientation.width <= MARGIN + usableWidth && 
+              y + orientation.height <= MARGIN + usableHeight) {
+            
+            // 높이가 가장 낮은 위치 우선 (더 밀집된 배치)
+            if (y < bestY) {
+              bestY = y;
+              bestPosition = {
+                x, y,
+                width: orientation.width,
+                height: orientation.height,
+                rotated: orientation.rotated,
+                itemId: piece.itemId
+              };
+              bestSkylineIndex = i;
+            }
           }
         }
       }
     }
     
-    // 최적 위치에 배치
-    if (bestPosition) {
+    // 최적 위치에 배치 및 스카이라인 업데이트
+    if (bestPosition && bestSkylineIndex >= 0) {
       positions.push(bestPosition);
       placedCounts[piece.itemId] = (placedCounts[piece.itemId] || 0) + 1;
+      
+      // 스카이라인 업데이트
+      updateSkyline(skyline, bestSkylineIndex, bestPosition, SPACING);
     } else {
       // 더 이상 배치할 수 없으면 중단
       break;
@@ -154,35 +165,71 @@ const isOverlapping = (
   );
 };
 
-// 배치 점수 계산 (Bottom-Left Fill 최적화)
-const calculatePlacementScore = (
-  x: number, 
-  y: number, 
-  width: number, 
-  height: number,
-  existingPositions: PlacedItem[]
-): number => {
-  // 기본 점수: 왼쪽 아래 우선 (y가 클수록, x가 작을수록 좋음)
-  let score = y * 1000 + x;
+// 스카이라인 업데이트 함수
+const updateSkyline = (
+  skyline: Array<{ x: number; y: number; width: number }>,
+  segmentIndex: number,
+  placedItem: PlacedItem,
+  spacing: number
+): void => {
+  const segment = skyline[segmentIndex];
+  const itemRight = placedItem.x + placedItem.width + spacing;
+  const itemTop = placedItem.y + placedItem.height + spacing;
   
-  // 기존 도형과의 접촉 보너스 (재료 효율성 향상)
-  let contactBonus = 0;
-  for (const pos of existingPositions) {
-    // 옆면 접촉
-    if (Math.abs(x - (pos.x + pos.width)) < 1 || Math.abs(x + width - pos.x) < 1) {
-      if (!(y >= pos.y + pos.height || y + height <= pos.y)) {
-        contactBonus += 100;
-      }
-    }
-    // 윗면/아랫면 접촉
-    if (Math.abs(y - (pos.y + pos.height)) < 1 || Math.abs(y + height - pos.y) < 1) {
-      if (!(x >= pos.x + pos.width || x + width <= pos.x)) {
-        contactBonus += 100;
-      }
-    }
+  // 배치된 도형으로 인한 스카이라인 변경
+  const newSegments: Array<{ x: number; y: number; width: number }> = [];
+  
+  // 배치된 도형의 왼쪽 부분
+  if (placedItem.x > segment.x) {
+    newSegments.push({
+      x: segment.x,
+      y: segment.y,
+      width: placedItem.x - segment.x
+    });
   }
   
-  return score - contactBonus;
+  // 배치된 도형 위쪽 새로운 세그먼트
+  newSegments.push({
+    x: placedItem.x,
+    y: itemTop,
+    width: placedItem.width
+  });
+  
+  // 배치된 도형의 오른쪽 부분
+  const remainingWidth = segment.width - (itemRight - segment.x);
+  if (remainingWidth > 0) {
+    newSegments.push({
+      x: itemRight,
+      y: segment.y,
+      width: remainingWidth
+    });
+  }
+  
+  // 스카이라인 업데이트
+  skyline.splice(segmentIndex, 1, ...newSegments);
+  
+  // 인접한 세그먼트들 병합
+  mergeSkylineSegments(skyline);
+};
+
+// 스카이라인 세그먼트 병합
+const mergeSkylineSegments = (
+  skyline: Array<{ x: number; y: number; width: number }>
+): void => {
+  let i = 0;
+  while (i < skyline.length - 1) {
+    const current = skyline[i];
+    const next = skyline[i + 1];
+    
+    // 같은 높이의 인접한 세그먼트 병합
+    if (Math.abs(current.y - next.y) < 1 && 
+        Math.abs(current.x + current.width - next.x) < 1) {
+      current.width += next.width;
+      skyline.splice(i + 1, 1);
+    } else {
+      i++;
+    }
+  }
 };
 
 // 멀티 패널 최적화 함수
