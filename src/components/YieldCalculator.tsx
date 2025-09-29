@@ -109,25 +109,25 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       if (thickness >= 1.3 && thickness < 10) {
         // 1.3T ~ 10T 미만: 10T~20T 기준에서 20mm 더하기
         return {
-          width: baseWidth + 70,  // 20T 초과 기준에서 70mm 더하기 (50mm + 20mm)
-          height: baseHeight + 70
+          width: baseWidth + 20,
+          height: baseHeight + 20
         };
       } else if (thickness >= 10 && thickness <= 20) {
-        // 10T ~ 20T: 20T 초과 기준에서 50mm 더하기
-        return {
-          width: baseWidth + 50,
-          height: baseHeight + 50
-        };
-      } else {
-        // 20T 초과: 기본 사이즈 그대로
+        // 10T ~ 20T: 기준 사이즈 그대로
         return {
           width: baseWidth,
           height: baseHeight
         };
+      } else {
+        // 20T 초과: 10T~20T 기준에서 50mm 빼기
+        return {
+          width: baseWidth - 50,
+          height: baseHeight - 50
+        };
       }
     };
 
-    // 원판 사이즈 매핑 (기본 치수 - 20T 초과 기준)
+    // 원판 사이즈 매핑 (10T~20T 기준 치수)
     const baseSizeMapping: {
       [key: string]: {
         width: number;
@@ -135,58 +135,58 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       };
     } = {
       '3*6': {
-        width: 850,
-        height: 1750
-      },
-      '대3*6': {
         width: 900,
         height: 1800
       },
-      '4*5': {
-        width: 1120,
-        height: 1425
-      },
-      '대4*5': {
-        width: 1200,
-        height: 1500
-      },
-      '1*2': {
-        width: 1000,
-        height: 2000
-      },
-      '4*6': {
-        width: 1200,
+      '대3*6': {
+        width: 950,
         height: 1850
       },
+      '4*5': {
+        width: 1170,
+        height: 1475
+      },
+      '대4*5': {
+        width: 1250,
+        height: 1550
+      },
+      '1*2': {
+        width: 1050,
+        height: 2050
+      },
+      '4*6': {
+        width: 1250,
+        height: 1900
+      },
       '4*8': {
-        width: 1200,
-        height: 2400
+        width: 1250,
+        height: 2450
       },
       '4*10': {
         width: 1200,
         height: 3000
       },
       '5*6': {
-        width: 1500,
-        height: 1800
+        width: 1550,
+        height: 1850
       },
       '5*8': {
-        width: 1500,
-        height: 2400
+        width: 1550,
+        height: 2450
       },
       '소3*6': {
-        width: 850,
-        height: 1750
+        width: 900,
+        height: 1800
       },
       // 소3*6은 3*6과 동일
       '소1*2': {
-        width: 1000,
-        height: 2000
+        width: 1050,
+        height: 2050
       },
       // 소1*2는 1*2와 동일
       '5*5': {
-        width: 1500,
-        height: 1500
+        width: 1550,
+        height: 1550
       } // 5*5 추가 (정사각형)
     };
 
