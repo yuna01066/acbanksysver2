@@ -10,6 +10,7 @@ import {
   astelColorSinglePrices, 
   satinColorSinglePrices 
 } from "@/data/glossyColorPricing";
+import { CASTING_QUALITIES } from "@/types/calculator";
 
 interface PanelSize {
   name: string;
@@ -39,18 +40,33 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
   const [cutHeight, setCutHeight] = useState<string>('');
   const [quantity, setQuantity] = useState<string>('');
   const [selectedThickness, setSelectedThickness] = useState<string>('3T');
+  const [selectedQuality, setSelectedQuality] = useState<string>('glossy-color');
 
-  // 모든 가격 데이터에서 사용 가능한 원판 사이즈 추출
+  // 선택된 재질에 따른 가격 데이터 매핑
+  const getPriceDataByQuality = (qualityId: string) => {
+    switch (qualityId) {
+      case 'glossy-color':
+        return glossyColorSinglePrices;
+      case 'glossy-standard':
+        return glossyStandardSinglePrices;
+      case 'astel-color':
+        return astelColorSinglePrices;
+      case 'satin-color':
+        return satinColorSinglePrices;
+      default:
+        return glossyColorSinglePrices;
+    }
+  };
+
+  // 선택된 재질에서 사용 가능한 원판 사이즈 추출
   const availablePanelSizes = useMemo(() => {
+    const priceData = getPriceDataByQuality(selectedQuality);
     const allSizes = new Set<string>();
     
-    // 모든 가격 데이터에서 사이즈 수집
-    [glossyColorSinglePrices, glossyStandardSinglePrices, astelColorSinglePrices, satinColorSinglePrices]
-      .forEach(priceData => {
-        Object.values(priceData).forEach(thicknessData => {
-          Object.keys(thicknessData).forEach(size => allSizes.add(size));
-        });
-      });
+    // 선택된 재질의 가격 데이터에서 사이즈 수집
+    Object.values(priceData).forEach(thicknessData => {
+      Object.keys(thicknessData).forEach(size => allSizes.add(size));
+    });
 
     // 사이즈를 실제 치수로 변환
     const panelSizes: PanelSize[] = Array.from(allSizes).map(sizeStr => {
@@ -58,15 +74,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
       const width = parseFloat(parts[0]) * 1000; // m를 mm로 변환
       const height = parseFloat(parts[1]) * 1000;
       
-      // 선택된 두께에서 해당 사이즈가 사용 가능한지 확인
-      const isAvailable = [
-        glossyColorSinglePrices,
-        glossyStandardSinglePrices, 
-        astelColorSinglePrices,
-        satinColorSinglePrices
-      ].some(priceData => 
-        priceData[selectedThickness] && priceData[selectedThickness][sizeStr]
-      );
+      // 선택된 두께와 재질에서 해당 사이즈가 사용 가능한지 확인
+      const isAvailable = priceData[selectedThickness] && priceData[selectedThickness][sizeStr];
 
       return {
         name: sizeStr,
@@ -77,7 +86,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
     }).filter(panel => panel.available);
 
     return panelSizes.sort((a, b) => (a.width * a.height) - (b.width * b.height));
-  }, [selectedThickness]);
+  }, [selectedThickness, selectedQuality]);
 
   // 수율 계산 함수 (마진과 간격 고려)
   const calculateYield = (
@@ -170,13 +179,11 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
   }, [cutWidth, cutHeight, quantity, availablePanelSizes]);
 
   const availableThicknesses = useMemo(() => {
+    const priceData = getPriceDataByQuality(selectedQuality);
     const thicknesses = new Set<string>();
-    [glossyColorSinglePrices, glossyStandardSinglePrices, astelColorSinglePrices, satinColorSinglePrices]
-      .forEach(priceData => {
-        Object.keys(priceData).forEach(thickness => thicknesses.add(thickness));
-      });
+    Object.keys(priceData).forEach(thickness => thicknesses.add(thickness));
     return Array.from(thicknesses).sort((a, b) => parseFloat(a) - parseFloat(b));
-  }, []);
+  }, [selectedQuality]);
 
   return (
     <div className="space-y-8">
@@ -206,7 +213,20 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
           <CardTitle className="text-title">재단 정보 입력</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="quality">재질</Label>
+              <select 
+                id="quality"
+                value={selectedQuality}
+                onChange={(e) => setSelectedQuality(e.target.value)}
+                className="w-full h-10 px-3 rounded-xl border border-border bg-background focus:border-primary focus:outline-none"
+              >
+                {CASTING_QUALITIES.map(quality => (
+                  <option key={quality.id} value={quality.id}>{quality.name}</option>
+                ))}
+              </select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="thickness">두께</Label>
               <select 
