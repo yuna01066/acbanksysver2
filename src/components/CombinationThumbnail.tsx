@@ -43,17 +43,14 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
     </div>;
   }
 
-  // 1/10 스케일 계산 (원판 mm 기준으로 정확히 1/10)
+  // 1/10 스케일 계산 (원판 mm 기준으로 정확히 1/10, 절대 변경 금지)
   const scale = 0.1;
   const scaledPanelWidth = currentPanelInfo.width * scale;
   const scaledPanelHeight = currentPanelInfo.height * scale;
   
-  // 썸네일 크기를 원판 크기에 맞게 조정 (최소 240x180 보장)
-  const thumbnailWidth = Math.max(THUMBNAIL_WIDTH, scaledPanelWidth + 40);
-  const thumbnailHeight = Math.max(THUMBNAIL_HEIGHT, scaledPanelHeight + 40);
-  
-  const offsetX = (thumbnailWidth - scaledPanelWidth) / 2;
-  const offsetY = (thumbnailHeight - scaledPanelHeight) / 2;
+  // 썸네일 크기는 고정 (240x180)
+  const offsetX = (THUMBNAIL_WIDTH - scaledPanelWidth) / 2;
+  const offsetY = (THUMBNAIL_HEIGHT - scaledPanelHeight) / 2;
 
   // 배치된 도형들 계산
   const calculateLayout = () => {
@@ -195,10 +192,10 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
 
   return (
     <div className="relative bg-background border border-border rounded-lg overflow-hidden" 
-         style={{ width: thumbnailWidth, height: thumbnailHeight }}>
+         style={{ width: THUMBNAIL_WIDTH, height: THUMBNAIL_HEIGHT }}>
       <svg
-        width={thumbnailWidth}
-        height={thumbnailHeight}
+        width={THUMBNAIL_WIDTH}
+        height={THUMBNAIL_HEIGHT}
         className="absolute inset-0"
       >
         {/* 원판 배경 */}
