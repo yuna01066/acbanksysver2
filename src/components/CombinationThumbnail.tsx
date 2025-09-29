@@ -92,10 +92,12 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
     // 면적 기준으로 내림차순 정렬
     piecesToPlace.sort((a, b) => (b.width * b.height) - (a.width * a.height));
 
-    // 위치가 겹치는지 확인하는 함수
+    // 위치가 겹치는지 확인하는 함수 (간격 포함)
     const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
+      const minGap = 10; // 최소 간격
       return occupiedAreas.some(area => 
-        !(x >= area.x + area.width || x + w <= area.x || y >= area.y + area.height || y + h <= area.y)
+        !(x >= area.x + area.width + minGap || x + w + minGap <= area.x || 
+          y >= area.y + area.height + minGap || y + h + minGap <= area.y)
       );
     };
 
@@ -129,8 +131,8 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
       for (const orientation of orientations) {
         if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
 
-        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += SPACING) {
-          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += SPACING) {
+        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 20) {
+          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 20) {
             if (!isOverlapping(x, y, orientation.width, orientation.height)) {
               const positionScore = calculatePositionScore(x, y, orientation);
               

@@ -80,12 +80,14 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
       const currentPanelPositions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; color: string; itemIndex: number }> = [];
       const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
       
-      // 위치가 겹치는지 확인하는 함수
-      const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
-        return occupiedAreas.some(area => 
-          !(x >= area.x + area.width || x + w <= area.x || y >= area.y + area.height || y + h <= area.y)
-        );
-      };
+    // 위치가 겹치는지 확인하는 함수 (간격 포함)
+    const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
+      const minGap = 10; // 최소 간격
+      return occupiedAreas.some(area => 
+        !(x >= area.x + area.width + minGap || x + w + minGap <= area.x || 
+          y >= area.y + area.height + minGap || y + h + minGap <= area.y)
+      );
+    };
       
       // 현재 원판에 배치할 도형들
       const piecesToPlace = [...remainingPieces];
@@ -111,8 +113,8 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
           if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
           
           // 가능한 모든 위치에서 배치 시도
-          for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += SPACING) {
-            for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += SPACING) {
+        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 20) {
+          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 20) {
               if (!isOverlapping(x, y, orientation.width, orientation.height)) {
                 // 이 위치의 점수 계산
                 const positionScore = calculatePositionScore(x, y, orientation, usableWidth, usableHeight);
