@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Calculator, Package } from "lucide-react";
+import { ArrowLeft, Calculator, Package, Plus, Trash2 } from "lucide-react";
 import { 
   glossyColorSinglePrices, 
   glossyStandardSinglePrices, 
@@ -31,6 +31,13 @@ interface YieldResult {
   surplus: number; // 여분
 }
 
+interface CutItem {
+  id: string;
+  width: string;
+  height: string;
+  quantity: string;
+}
+
 interface YieldCalculatorProps {
   onBack: () => void;
   onPanelSelect?: (panelData: {
@@ -42,11 +49,29 @@ interface YieldCalculatorProps {
 }
 
 const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect }) => {
-  const [cutWidth, setCutWidth] = useState<string>('');
-  const [cutHeight, setCutHeight] = useState<string>('');
-  const [quantity, setQuantity] = useState<string>('');
+  const [cutItems, setCutItems] = useState<CutItem[]>([
+    { id: '1', width: '', height: '', quantity: '' }
+  ]);
   const [selectedThickness, setSelectedThickness] = useState<string>('3T');
   const [selectedQuality, setSelectedQuality] = useState<string>('glossy-color');
+
+  // 재단 항목 추가/제거 함수
+  const addCutItem = () => {
+    const newId = (Math.max(...cutItems.map(item => parseInt(item.id))) + 1).toString();
+    setCutItems([...cutItems, { id: newId, width: '', height: '', quantity: '' }]);
+  };
+
+  const removeCutItem = (id: string) => {
+    if (cutItems.length > 1) {
+      setCutItems(cutItems.filter(item => item.id !== id));
+    }
+  };
+
+  const updateCutItem = (id: string, field: keyof CutItem, value: string) => {
+    setCutItems(cutItems.map(item => 
+      item.id === id ? { ...item, [field]: value } : item
+    ));
+  };
 
   // 선택된 재질에 따른 가격 데이터 매핑
   const getPriceDataByQuality = (qualityId: string) => {
@@ -165,30 +190,83 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
 
   // 수율 결과 계산
   const yieldResults = useMemo(() => {
-    if (!cutWidth || !cutHeight || !quantity) return [];
+    // 모든 재단 항목이 유효한지 확인
+    const validCutItems = cutItems.filter(item => 
+      item.width && item.height && item.quantity &&
+      parseFloat(item.width) > 0 && parseFloat(item.height) > 0 && parseInt(item.quantity) > 0
+    );
 
-    const cutW = parseFloat(cutWidth);
-    const cutH = parseFloat(cutHeight);
-    const qty = parseInt(quantity);
-
-    if (cutW <= 0 || cutH <= 0 || qty <= 0) return [];
+    if (validCutItems.length === 0) return [];
 
     const results: YieldResult[] = availablePanelSizes.map(panel => {
-      const { piecesPerPanel, efficiency, wasteArea } = calculateYield(
-        cutW, cutH, qty, panel.width, panel.height
-      );
+      let totalRequired = 0;
+      let canFitAll = true;
+      let combinedEfficiency = 0;
+      let totalUsedArea = 0;
 
-      const panelsNeeded = piecesPerPanel > 0 ? Math.ceil(qty / piecesPerPanel) : 0;
-      const totalPieces = panelsNeeded * piecesPerPanel;
-      const surplus = totalPieces - qty; // 여분 계산
+      // 모든 재단 항목이 한 판에 들어갈 수 있는지 확인
+      const itemCalculations = validCutItems.map(item => {
+        const cutW = parseFloat(item.width);
+        const cutH = parseFloat(item.height);
+        const qty = parseInt(item.quantity);
+        totalRequired += qty;
+
+        const { piecesPerPanel, efficiency, wasteArea } = calculateYield(
+          cutW, cutH, qty, panel.width, panel.height
+        );
+
+        if (piecesPerPanel === 0) {
+          canFitAll = false;
+        }
+
+        const panelsNeeded = piecesPerPanel > 0 ? Math.ceil(qty / piecesPerPanel) : 0;
+        const usedArea = qty * cutW * cutH;
+        totalUsedArea += usedArea;
+
+        return {
+          piecesPerPanel,
+          panelsNeeded,
+          usedArea,
+          efficiency
+        };
+      });
+
+      if (!canFitAll) {
+        return {
+          panelSize: panel.name,
+          panelWidth: panel.width,
+          panelHeight: panel.height,
+          piecesPerPanel: 0,
+          panelsNeeded: 0,
+          totalPieces: 0,
+          efficiency: 0,
+          wasteArea: panel.width * panel.height,
+          surplus: 0
+        };
+      }
+
+      // 필요한 최대 판 수 계산
+      const maxPanelsNeeded = Math.max(...itemCalculations.map(calc => calc.panelsNeeded));
+      
+      // 총 생산량 계산
+      let totalProduced = 0;
+      validCutItems.forEach((item, index) => {
+        const calc = itemCalculations[index];
+        totalProduced += calc.piecesPerPanel * maxPanelsNeeded;
+      });
+
+      const totalPanelArea = panel.width * panel.height * maxPanelsNeeded;
+      const efficiency = totalPanelArea > 0 ? (totalUsedArea / totalPanelArea) * 100 : 0;
+      const wasteArea = totalPanelArea - totalUsedArea;
+      const surplus = totalProduced - totalRequired;
 
       return {
         panelSize: panel.name,
         panelWidth: panel.width,
         panelHeight: panel.height,
-        piecesPerPanel,
-        panelsNeeded,
-        totalPieces,
+        piecesPerPanel: Math.floor(totalProduced / maxPanelsNeeded), // 평균값
+        panelsNeeded: maxPanelsNeeded,
+        totalPieces: totalProduced,
         efficiency,
         wasteArea,
         surplus
@@ -208,7 +286,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
       // 3순위: 필요 판수가 적을수록 좋음
       return a.panelsNeeded - b.panelsNeeded;
     });
-  }, [cutWidth, cutHeight, quantity, availablePanelSizes]);
+  }, [cutItems, availablePanelSizes]);
 
   const availableThicknesses = useMemo(() => {
     const priceData = getPriceDataByQuality(selectedQuality);
@@ -216,6 +294,11 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     Object.keys(priceData).forEach(thickness => thicknesses.add(thickness));
     return Array.from(thicknesses).sort((a, b) => parseFloat(a) - parseFloat(b));
   }, [selectedQuality]);
+
+  const totalQuantity = cutItems.reduce((sum, item) => {
+    const qty = parseInt(item.quantity) || 0;
+    return sum + qty;
+  }, 0);
 
   return (
     <div className="space-y-8">
@@ -245,7 +328,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
           <CardTitle className="text-title">재단 정보 입력</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="quality">재질</Label>
               <select 
@@ -272,39 +355,77 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
                 ))}
               </select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="cutWidth">가로 (mm)</Label>
-              <Input
-                id="cutWidth"
-                type="number"
-                placeholder="예: 300"
-                value={cutWidth}
-                onChange={(e) => setCutWidth(e.target.value)}
-                className="rounded-xl"
-              />
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-medium">재단할 도형 정보</Label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addCutItem}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                추가
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="cutHeight">세로 (mm)</Label>
-              <Input
-                id="cutHeight"
-                type="number"
-                placeholder="예: 200"
-                value={cutHeight}
-                onChange={(e) => setCutHeight(e.target.value)}
-                className="rounded-xl"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="quantity">수량 (개)</Label>
-              <Input
-                id="quantity"
-                type="number"
-                placeholder="예: 50"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="rounded-xl"
-              />
-            </div>
+            
+            {cutItems.map((item, index) => (
+              <div key={item.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-border rounded-xl bg-background/50">
+                <div className="space-y-2">
+                  <Label htmlFor={`width-${item.id}`}>가로 (mm)</Label>
+                  <Input
+                    id={`width-${item.id}`}
+                    type="number"
+                    placeholder="예: 300"
+                    value={item.width}
+                    onChange={(e) => updateCutItem(item.id, 'width', e.target.value)}
+                    className="rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`height-${item.id}`}>세로 (mm)</Label>
+                  <Input
+                    id={`height-${item.id}`}
+                    type="number"
+                    placeholder="예: 200"
+                    value={item.height}
+                    onChange={(e) => updateCutItem(item.id, 'height', e.target.value)}
+                    className="rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`quantity-${item.id}`}>수량 (개)</Label>
+                  <Input
+                    id={`quantity-${item.id}`}
+                    type="number"
+                    placeholder="예: 50"
+                    value={item.quantity}
+                    onChange={(e) => updateCutItem(item.id, 'quantity', e.target.value)}
+                    className="rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>&nbsp;</Label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground font-medium">
+                      도형 {index + 1}
+                    </span>
+                    {cutItems.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeCutItem(item.id)}
+                        className="p-1 h-8 w-8 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -316,7 +437,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
               <Calculator className="w-5 h-5" />
               수율 계산 결과
             </CardTitle>
-            <p className="text-caption">
+            <p className="text-body">
               여분이 적을수록, 효율성이 높을수록, 필요 판수가 적을수록 우선 정렬됩니다
               <br />
               * 견적계산기로 이동 할 경우 원판 수량이 저장되지 않으니 수량을 꼭 기억 해 주세요
@@ -349,7 +470,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <div className="font-semibold text-primary-dark">
+                        <div className="font-semibold text-foreground">
                           {result.panelsNeeded}장 필요
                         </div>
                       </div>
@@ -373,8 +494,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
-                      <div className="text-muted-foreground">판당 개수</div>
-                      <div className="font-medium">{result.piecesPerPanel}개</div>
+                      <div className="text-muted-foreground">총 필요 수량</div>
+                      <div className="font-medium">{totalQuantity}개</div>
                     </div>
                     <div>
                       <div className="text-muted-foreground">총 생산량</div>
@@ -385,7 +506,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
                       <div className="font-medium">{result.efficiency.toFixed(1)}%</div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground">판당 폐기면적</div>
+                      <div className="text-muted-foreground">총 폐기면적</div>
                       <div className="font-medium">
                         {(result.wasteArea / 1000000).toFixed(2)}㎡
                       </div>
@@ -402,7 +523,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
                   {result.surplus === 0 && (
                     <div className="mt-3 p-2 bg-success/10 text-muted-foreground text-sm rounded-lg">
                       <span className="font-medium">정확한 수량:</span> 
-                      여분 없이 정확히 {quantity}개 생산됩니다
+                      여분 없이 정확히 {totalQuantity}개 생산됩니다
                     </div>
                   )}
                 </div>
@@ -412,7 +533,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
         </Card>
       )}
 
-      {cutWidth && cutHeight && quantity && yieldResults.length === 0 && (
+      {cutItems.some(item => item.width && item.height && item.quantity) && yieldResults.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center">
             <p className="text-muted-foreground">
