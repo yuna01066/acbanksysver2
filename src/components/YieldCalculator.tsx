@@ -74,11 +74,37 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
       Object.keys(thicknessData).forEach(size => allSizes.add(size));
     });
 
+    // 원판 사이즈 매핑 (실제 치수)
+    const sizeMapping: { [key: string]: { width: number; height: number } } = {
+      '3*6': { width: 910, height: 1810 },
+      '대3*6': { width: 950, height: 1860 },
+      '4*5': { width: 1170, height: 1475 },
+      '대4*5': { width: 1250, height: 1550 },
+      '1*2': { width: 1050, height: 2050 },
+      '4*6': { width: 1250, height: 1860 },
+      '4*8': { width: 1250, height: 2450 },
+      '4*10': { width: 1250, height: 3050 },
+      '5*6': { width: 1550, height: 1850 },
+      '5*8': { width: 1550, height: 2450 },
+      '소3*6': { width: 910, height: 1810 }, // 소3*6은 3*6과 동일
+      '소1*2': { width: 1050, height: 2050 }, // 소1*2는 1*2와 동일
+      '5*5': { width: 1550, height: 1550 } // 5*5 추가 (정사각형)
+    };
+
     // 사이즈를 실제 치수로 변환
     const panelSizes: PanelSize[] = Array.from(allSizes).map(sizeStr => {
-      const parts = sizeStr.replace(/[소대]/g, '').split('*');
-      const width = parseFloat(parts[0]) * 1000; // m를 mm로 변환
-      const height = parseFloat(parts[1]) * 1000;
+      const sizeInfo = sizeMapping[sizeStr];
+      
+      // 매핑에 없는 사이즈는 기본 계산 사용 (fallback)
+      let width, height;
+      if (sizeInfo) {
+        width = sizeInfo.width;
+        height = sizeInfo.height;
+      } else {
+        const parts = sizeStr.replace(/[소대]/g, '').split('*');
+        width = parseFloat(parts[0]) * 1000;
+        height = parseFloat(parts[1]) * 1000;
+      }
       
       // 선택된 두께와 재질에서 해당 사이즈가 사용 가능한지 확인
       const isAvailable = priceData[selectedThickness] && priceData[selectedThickness][sizeStr];
