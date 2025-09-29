@@ -193,10 +193,15 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                 </div>
 
                 {recommendation.type === 'single' ? (
-                  <div>
+                <div>
                     <div className="flex items-center justify-between mb-2">
-                      <div className="text-lg font-medium">
-                        {(recommendation.data as YieldResult).panelSize}
+                      <div>
+                        <div className="text-lg font-medium">
+                          {(recommendation.data as YieldResult).panelSize}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          가용사이즈: {(recommendation.data as YieldResult).panelWidth}×{(recommendation.data as YieldResult).panelHeight}mm
+                        </div>
                       </div>
                       <div className="bg-muted px-2 py-1 rounded text-xs text-muted-foreground">
                         {recommendation.panelsNeeded}장 (효율: {recommendation.efficiency.toFixed(1)}%)
@@ -226,14 +231,24 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                 ) : (
                   <div>
                     <div className="space-y-2 mb-3">
-                      {(recommendation.data as CombinationResult).panels.map((panel, panelIndex) => (
-                        <div key={panelIndex} className="flex justify-between items-center">
-                          <span className="text-lg font-medium">{panel.panelName}</span>
-                          <div className="bg-muted px-2 py-1 rounded text-xs text-muted-foreground">
-                            {panel.quantity}장 (효율: {panel.efficiency.toFixed(1)}%)
+                      {(recommendation.data as CombinationResult).panels.map((panel, panelIndex) => {
+                        const panelInfo = availablePanelSizes.find(p => p.name === panel.panelName);
+                        return (
+                          <div key={panelIndex} className="flex justify-between items-center">
+                            <div>
+                              <span className="text-lg font-medium">{panel.panelName}</span>
+                              {panelInfo && (
+                                <div className="text-xs text-muted-foreground">
+                                  가용사이즈: {panelInfo.width}×{panelInfo.height}mm
+                                </div>
+                              )}
+                            </div>
+                            <div className="bg-muted px-2 py-1 rounded text-xs text-muted-foreground">
+                              {panel.quantity}장 (효율: {panel.efficiency.toFixed(1)}%)
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
