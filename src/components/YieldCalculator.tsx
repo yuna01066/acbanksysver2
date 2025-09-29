@@ -157,6 +157,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }>;
     totalPieces: number;
     canFitAll: boolean;
+    placedCounts: { [key: string]: number };
   } => {
     const MARGIN = 80;
     const SPACING = 50;
@@ -182,6 +183,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     
     const positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }> = [];
     const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
+    const placedCounts: { [key: string]: number } = {};
     
     // 위치가 겹치는지 확인하는 함수
     const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
@@ -227,6 +229,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
                 height: orientation.height
               });
               
+              // 배치된 개수 카운트
+              placedCounts[piece.itemId] = (placedCounts[piece.itemId] || 0) + 1;
               placed = true;
             }
           }
@@ -242,19 +246,20 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     return {
       positions,
       totalPieces: positions.length,
-      canFitAll: positions.length === allPieces.length
+      canFitAll: positions.length === allPieces.length,
+      placedCounts
     };
   };
 
-  // 수율 계산 함수 (여러 판 지원)
+  // 복합 네스팅을 사용한 수율 계산 함수
   const calculateYield = (
     items: Array<{ width: number; height: number; quantity: number; id: string }>,
     panelW: number, 
     panelH: number
-  ): { piecesPerPanel: number; efficiency: number; wasteArea: number; canFitAll: boolean; panelsNeeded: number } => {
+  ): { piecesPerPanel: number; efficiency: number; wasteArea: number; canFitAll: boolean; panelsNeeded: number; placedCounts: { [key: string]: number } } => {
     let remainingItems = [...items];
     let totalPanelsNeeded = 0;
-    let totalPiecesPlaced = 0;
+    let allPlacedCounts: { [key: string]: number } = {};
     let allCanFit = true;
     
     // 각 도형이 원판에 물리적으로 들어갈 수 있는지 먼저 확인
@@ -273,16 +278,22 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     }
     
     if (!allCanFit) {
-      return { piecesPerPanel: 0, efficiency: 0, wasteArea: panelW * panelH, canFitAll: false, panelsNeeded: 0 };
+      return { 
+        piecesPerPanel: 0, 
+        efficiency: 0, 
+        wasteArea: panelW * panelH, 
+        canFitAll: false, 
+        panelsNeeded: 0,
+        placedCounts: {}
+      };
     }
     
     // 여러 판에 걸쳐 배치 시뮬레이션
     while (remainingItems.some(item => item.quantity > 0)) {
-      const { totalPieces } = calculateMultiItemLayout(
-        remainingItems.filter(item => item.quantity > 0),
-        panelW,
-        panelH
-      );
+      const itemsToPlace = remainingItems.filter(item => item.quantity > 0);
+      if (itemsToPlace.length === 0) break;
+      
+      const { totalPieces, placedCounts } = calculateMultiItemLayout(itemsToPlace, panelW, panelH);
       
       if (totalPieces === 0) {
         // 더 이상 배치할 수 없음
@@ -290,19 +301,10 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
       }
       
       totalPanelsNeeded++;
-      totalPiecesPlaced += totalPieces;
       
-      // 배치된 만큼 수량 감소
-      const layoutResult = calculateMultiItemLayout(
-        remainingItems.filter(item => item.quantity > 0),
-        panelW,
-        panelH
-      );
-      
-      // 각 아이템별로 몇 개씩 배치되었는지 계산
-      const placedCounts: { [key: string]: number } = {};
-      layoutResult.positions.forEach(pos => {
-        placedCounts[pos.itemId] = (placedCounts[pos.itemId] || 0) + 1;
+      // 전체 배치 카운트 누적
+      Object.entries(placedCounts).forEach(([itemId, count]) => {
+        allPlacedCounts[itemId] = (allPlacedCounts[itemId] || 0) + count;
       });
       
       // 수량 업데이트
@@ -316,18 +318,20 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     }
     
     const totalRequired = items.reduce((sum, item) => sum + item.quantity, 0);
+    const totalPlaced = Object.values(allPlacedCounts).reduce((sum, count) => sum + count, 0);
     const totalRequiredArea = items.reduce((sum, item) => sum + (item.width * item.height * item.quantity), 0);
     const totalPanelArea = panelW * panelH * totalPanelsNeeded;
     const efficiency = totalPanelArea > 0 ? (totalRequiredArea / totalPanelArea) * 100 : 0;
     const wasteArea = totalPanelArea - totalRequiredArea;
-    const avgPiecesPerPanel = totalPanelsNeeded > 0 ? Math.round(totalPiecesPlaced / totalPanelsNeeded) : 0;
+    const avgPiecesPerPanel = totalPanelsNeeded > 0 ? Math.round(totalPlaced / totalPanelsNeeded) : 0;
 
     return { 
       piecesPerPanel: avgPiecesPerPanel, 
       efficiency, 
       wasteArea, 
-      canFitAll: totalPiecesPlaced >= totalRequired,
-      panelsNeeded: totalPanelsNeeded
+      canFitAll: totalPlaced >= totalRequired,
+      panelsNeeded: totalPanelsNeeded,
+      placedCounts: allPlacedCounts
     };
   };
 

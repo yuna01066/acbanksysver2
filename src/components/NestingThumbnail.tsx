@@ -45,7 +45,7 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
     const usableHeight = panelHeight - (MARGIN * 2);
     
     // 모든 도형을 크기 순(면적)으로 정렬하여 큰 것부터 배치
-    const allPieces: Array<{ width: number; height: number; itemIndex: number }> = [];
+    const allPieces: Array<{ width: number; height: number; itemIndex: number; pieceId: string }> = [];
     cutItems.forEach((item, index) => {
       const cutW = parseFloat(item.width);
       const cutH = parseFloat(item.height);
@@ -56,7 +56,8 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
           allPieces.push({
             width: cutW,
             height: cutH,
-            itemIndex: index
+            itemIndex: index,
+            pieceId: `item-${index}-piece-${i}`
           });
         }
       }
@@ -65,9 +66,22 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
     // 면적 기준으로 내림차순 정렬
     allPieces.sort((a, b) => (b.width * b.height) - (a.width * a.height));
     
-    const positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; color: string }> = [];
+    const positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; color: string; itemIndex: number }> = [];
     const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
-    const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
+    
+    // 더 다양하고 구별되는 색상 팔레트
+    const colors = [
+      '#3b82f6', // 파란색
+      '#ef4444', // 빨간색
+      '#10b981', // 초록색
+      '#f59e0b', // 주황색
+      '#8b5cf6', // 보라색
+      '#06b6d4', // 청록색
+      '#ec4899', // 핑크색
+      '#84cc16', // 라임색
+      '#f97316', // 오렌지색
+      '#6366f1'  // 인디고색
+    ];
     
     // 위치가 겹치는지 확인하는 함수
     const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
@@ -103,7 +117,8 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
                 width: orientation.width,
                 height: orientation.height,
                 rotated: orientation.rotated,
-                color: colors[piece.itemIndex % colors.length]
+                color: colors[piece.itemIndex % colors.length],
+                itemIndex: piece.itemIndex
               });
               
               occupiedAreas.push({
