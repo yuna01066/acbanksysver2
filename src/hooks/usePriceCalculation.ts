@@ -71,40 +71,55 @@ export const usePriceCalculation = ({
   const getAvailableSizes = (): string[] => {
     if (!selectedQuality || !selectedThickness) return [];
     
-    // 실제 크기 정보를 포함한 사이즈 매핑 (10T~20T 기준 치수)
-    const getSizeWithDimensions = (baseSize: string): string => {
-      const sizeMapping: { [key: string]: string } = {
-        '3*6': '3*6 (900*1800)',
-        '대3*6': '대3*6 (950*1850)',
-        '4*5': '4*5 (1170*1475)',
-        '대4*5': '대4*5 (1250*1550)',
-        '1*2': '1*2 (1050*2050)',
-        '4*6': '4*6 (1250*1900)',
-        '4*8': '4*8 (1250*2450)',
-        '4*10': '4*10 (1250*3050)',
-        '5*5': '5*5 (1550*1550)',
-        '5*6': '5*6 (1550*1850)',
-        '5*8': '5*8 (1550*2450)',
-        '소3*6': '소3*6 (900*1800)',
-        '소1*2': '소1*2 (1050*2050)'
-      };
-      return sizeMapping[baseSize] || baseSize;
+  // 두께별 가용 사이즈 계산 (실제 치수 포함)
+  const getSizeWithDimensions = (baseSize: string): string => {
+    // 10T~20T 기준 치수 매핑
+    const baseSizeMapping: { [key: string]: { width: number; height: number } } = {
+      '3*6': { width: 900, height: 1800 },
+      '대3*6': { width: 950, height: 1850 },
+      '4*5': { width: 1170, height: 1475 },
+      '대4*5': { width: 1250, height: 1550 },
+      '1*2': { width: 1050, height: 2050 },
+      '4*6': { width: 1250, height: 1900 },
+      '4*8': { width: 1250, height: 2450 },
+      '4*10': { width: 1250, height: 3050 },
+      '5*5': { width: 1550, height: 1550 },
+      '5*6': { width: 1550, height: 1850 },
+      '5*8': { width: 1550, height: 2450 },
+      '소3*6': { width: 900, height: 1800 },
+      '소1*2': { width: 1050, height: 2050 }
     };
+
+    const baseInfo = baseSizeMapping[baseSize];
+    if (!baseInfo) return baseSize;
+
+    // 두께에 따른 실제 가용 사이즈 계산
+    const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
+    let actualWidth = baseInfo.width;
+    let actualHeight = baseInfo.height;
+
+    if (thickness >= 1.3 && thickness < 10) {
+      // 1.3T ~ 10T 미만: 10T~20T 기준에서 20mm 더하기
+      actualWidth += 20;
+      actualHeight += 20;
+    } else if (thickness >= 10 && thickness <= 20) {
+      // 10T ~ 20T: 기준 사이즈 그대로
+      // 변경 없음
+    } else if (thickness > 20) {
+      // 20T 초과: 10T~20T 기준에서 50mm 빼기
+      actualWidth -= 50;
+      actualHeight -= 50;
+    }
+
+    return `${baseSize} (${actualWidth}*${actualHeight})`;
+  };
     
-    // 15T 두께에 대한 특별한 사이즈 배열 (클리어와 브라이트만) - 10T~20T 기준 치수
+    // 15T 두께에 대한 특별한 사이즈 배열 (두께별 실제 치수 적용)
     if (selectedThickness === '15T' && (selectedQuality.id === 'glossy-color' || selectedQuality.id === 'satin-color')) {
-      return [
-        '3*6 (900*1800)',
-        '대3*6 (950*1850)', 
-        '4*5 (1170*1475)',
-        '대4*5 (1250*1550)',
-        '1*2 (1050*2050)',
-        '4*6 (1250*1900)',
-        '4*8 (1250*2450)',
-        '4*10 (1250*3050)',
-        '5*6 (1550*1850)',
-        '5*8 (1550*2450)'
+      const specialSizes = [
+        '3*6', '대3*6', '4*5', '대4*5', '1*2', '4*6', '4*8', '4*10', '5*6', '5*8'
       ];
+      return specialSizes.map(size => getSizeWithDimensions(size));
     }
     
     // 다른 두께들에 대해서는 기본 사이즈에 크기 정보 추가
