@@ -322,7 +322,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
                   </div>
                   
                   {result.surplus > 0 && (
-                    <div className="mt-3 p-2 bg-muted/50 text-muted-foreground text-sm rounded-lg border border-border/30">
+                    <div className="mt-3 p-2 bg-warning/10 text-muted-foreground text-sm rounded-lg">
                       <span className="font-medium">여분 생산:</span> 
                       {result.surplus}개 추가 생산됩니다
                     </div>
