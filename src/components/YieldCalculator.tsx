@@ -135,16 +135,16 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       };
     } = {
       '3*6': {
-        width: 850,
-        height: 1750
+        width: 900,
+        height: 1800
       },
       '대3*6': {
         width: 900,
         height: 1800
       },
       '4*5': {
-        width: 1120,
-        height: 1425
+        width: 1170,
+        height: 1475
       },
       '대4*5': {
         width: 1200,
@@ -175,8 +175,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
         height: 2400
       },
       '소3*6': {
-        width: 850,
-        height: 1750
+        width: 900,
+        height: 1800
       },
       '소1*2': {
         width: 1000,
@@ -242,7 +242,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       [key: string]: number;
     };
   } => {
-    const MARGIN = 80;
+    const MARGIN = 50;
     const SPACING = 10; // 10mm 간격으로 변경
 
     const usableWidth = panelW - MARGIN * 2;
@@ -420,8 +420,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
 
     // 각 도형이 원판에 물리적으로 들어갈 수 있는지 먼저 확인
     for (const item of items) {
-      const usableWidth = panelW - 160; // 마진 80*2
-      const usableHeight = panelH - 160; // 마진 80*2
+      const usableWidth = panelW - 100; // 마진 50*2
+      const usableHeight = panelH - 100; // 마진 50*2
 
       // 회전 포함해서 들어갈 수 있는지 확인
       const canFitNormally = item.width <= usableWidth && item.height <= usableHeight;
