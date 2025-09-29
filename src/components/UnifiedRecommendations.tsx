@@ -72,30 +72,34 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
     sum + (item.quantity ? parseInt(item.quantity) : 0), 0
   );
 
-  // 모든 추천안을 통합하고 효율성 순으로 정렬
+  // 모든 추천안을 통합하고 효율성 순으로 정렬 (모든 도형이 배치된 경우만)
   const allRecommendations: UnifiedRecommendation[] = [
-    // 단일 원판 결과들
-    ...yieldResults.map(result => ({
-      type: 'single' as const,
-      efficiency: result.efficiency,
-      panelsNeeded: result.panelsNeeded,
-      wasteArea: result.wasteArea,
-      data: result,
-      panelInfo: {
-        panelSize: result.panelSize,
-        panelWidth: result.panelWidth,
-        panelHeight: result.panelHeight
-      }
-    })),
-    // 복합 원판 조합 결과들
-    ...combinations.map(combination => ({
-      type: 'combination' as const,
-      efficiency: combination.totalEfficiency,
-      panelsNeeded: combination.panels.reduce((sum, panel) => sum + panel.quantity, 0),
-      wasteArea: combination.totalWasteArea,
-      totalCost: combination.totalCost,
-      data: combination
-    }))
+    // 단일 원판 결과들 (모든 도형이 배치된 경우만)
+    ...yieldResults
+      .filter(result => result.efficiency > 0) // 효율이 0인 경우 제외
+      .map(result => ({
+        type: 'single' as const,
+        efficiency: result.efficiency,
+        panelsNeeded: result.panelsNeeded,
+        wasteArea: result.wasteArea,
+        data: result,
+        panelInfo: {
+          panelSize: result.panelSize,
+          panelWidth: result.panelWidth,
+          panelHeight: result.panelHeight
+        }
+      })),
+    // 복합 원판 조합 결과들 (모든 아이템이 배치된 경우만)
+    ...combinations
+      .filter(combination => combination.allItemsPlaced) // 모든 아이템이 배치된 경우만
+      .map(combination => ({
+        type: 'combination' as const,
+        efficiency: combination.totalEfficiency,
+        panelsNeeded: combination.panels.reduce((sum, panel) => sum + panel.quantity, 0),
+        wasteArea: combination.totalWasteArea,
+        totalCost: combination.totalCost,
+        data: combination
+      }))
   ];
 
   // 중복 제거: 같은 효율성(±0.5%)과 비슷한 패널 수를 가진 추천안들 중에서 더 나은 것만 선택

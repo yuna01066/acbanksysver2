@@ -395,18 +395,9 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     const results: YieldResult[] = availablePanelSizes.map(panel => {
       const { canFitAll, efficiency, wasteArea, panelsNeeded, piecesPerPanel } = calculateYield(itemsForNesting, panel.width, panel.height);
       
+      // 모든 도형이 배치되지 않으면 제외
       if (!canFitAll) {
-        return {
-          panelSize: panel.name,
-          panelWidth: panel.width,
-          panelHeight: panel.height,
-          piecesPerPanel: 0,
-          panelsNeeded: 0,
-          totalPieces: 0,
-          efficiency: 0,
-          wasteArea: panel.width * panel.height,
-          surplus: 0
-        };
+        return null;
       }
 
       const totalPieces = totalRequired;
@@ -423,7 +414,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
         wasteArea,
         surplus: Math.max(0, surplus)
       };
-    }).filter(result => result.piecesPerPanel > 0);
+    }).filter(result => result !== null && result.piecesPerPanel > 0);
 
     // 여분이 적을수록, 효율성이 높을수록, 필요 판수가 적을수록 우선
     return results.sort((a, b) => {
