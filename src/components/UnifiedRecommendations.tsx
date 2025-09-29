@@ -218,9 +218,9 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                   <div>
                     <div className="space-y-2 mb-3">
                       {(recommendation.data as CombinationResult).panels.map((panel, panelIndex) => (
-                        <div key={panelIndex} className="flex justify-between text-sm">
-                          <span className="font-medium">{panel.panelName}</span>
-                          <span>{panel.quantity}장 (효율: {panel.efficiency.toFixed(1)}%)</span>
+                        <div key={panelIndex} className="flex justify-between">
+                          <span className="text-lg font-medium">{panel.panelName}</span>
+                          <span className="text-lg">{panel.quantity}장 (효율: {panel.efficiency.toFixed(1)}%)</span>
                         </div>
                       ))}
                     </div>
