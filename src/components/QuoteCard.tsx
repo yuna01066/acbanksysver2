@@ -143,22 +143,16 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity }: QuoteCardProps)
             <div className="text-xs text-gray-600 mb-1">면수</div>
             <div className="font-semibold text-gray-900 text-sm">{quote.surface}</div>
           </div>
-          {quote.serialNumber && (
-            <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-              <div className="text-xs text-yellow-700 mb-1">시리얼 넘버</div>
-              <div className="font-semibold text-yellow-900 text-sm">{quote.serialNumber}</div>
-            </div>
-          )}
-          {quote.colorMixingCost > 0 && (
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-xs text-gray-600 mb-1">조색비</div>
-              <div className="font-semibold text-gray-900 text-sm">{(quote.colorMixingCost / 10000).toFixed(0)}개</div>
-            </div>
-          )}
           {quote.processing && (
             <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 md:col-span-2">
               <div className="text-xs text-gray-600 mb-1">가공방법</div>
               <div className="font-semibold text-gray-900 text-sm">{quote.processingName}</div>
+            </div>
+          )}
+          {quote.serialNumber && (
+            <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+              <div className="text-xs text-yellow-700 mb-1">클라이언트 요청사항</div>
+              <div className="font-semibold text-yellow-900 text-sm">{quote.serialNumber}</div>
             </div>
           )}
         </div>
