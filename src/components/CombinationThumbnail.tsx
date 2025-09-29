@@ -60,16 +60,18 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
     const usableHeight = currentPanelInfo.height - (MARGIN * 2);
     
     const positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; color: string; itemIndex: number }> = [];
-    const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
     
     const colors = [
       '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', 
       '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'
     ];
 
-    // 배치할 도형들 생성
-    const piecesToPlace: Array<{ width: number; height: number; itemIndex: number; pieceId: string }> = [];
-    
+    // 실제 배치된 아이템들을 기반으로 시각화 (더 정확한 표현)
+    let currentX = MARGIN;
+    let currentY = MARGIN;
+    let rowHeight = 0;
+    const GAP = 15; // 아이템 간 간격
+
     currentPanelUsage.placedItems.forEach(placedItem => {
       const itemIndex = parseInt(placedItem.itemId.replace('item-', ''));
       const cutItem = cutItems[itemIndex];
@@ -79,89 +81,36 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
         const cutH = parseFloat(cutItem.height);
         
         for (let i = 0; i < placedItem.count; i++) {
-          piecesToPlace.push({
+          // 현재 행에 공간이 충분한지 확인
+          if (currentX + cutW > MARGIN + usableWidth) {
+            // 다음 행으로 이동
+            currentX = MARGIN;
+            currentY += rowHeight + GAP;
+            rowHeight = 0;
+            
+            // 세로 공간 초과 시 배치 중단
+            if (currentY + cutH > MARGIN + usableHeight) {
+              break;
+            }
+          }
+          
+          // 현재 위치에 배치
+          positions.push({
+            x: currentX,
+            y: currentY,
             width: cutW,
             height: cutH,
-            itemIndex,
-            pieceId: `${placedItem.itemId}-piece-${i}`
+            rotated: false,
+            color: colors[itemIndex % colors.length],
+            itemIndex
           });
+          
+          // 다음 위치 계산
+          currentX += cutW + GAP;
+          rowHeight = Math.max(rowHeight, cutH);
         }
       }
     });
-
-    // 면적 기준으로 내림차순 정렬
-    piecesToPlace.sort((a, b) => (b.width * b.height) - (a.width * a.height));
-
-    // 위치가 겹치는지 확인하는 함수 (간격 포함)
-    const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
-      const minGap = 10; // 최소 간격
-      return occupiedAreas.some(area => 
-        !(x >= area.x + area.width + minGap || x + w + minGap <= area.x || 
-          y >= area.y + area.height + minGap || y + h + minGap <= area.y)
-      );
-    };
-
-    // 배치 점수 계산 함수
-    const calculatePositionScore = (x: number, y: number, orientation: { width: number; height: number; rotated: boolean }): number => {
-      const distanceScore = Math.sqrt((x - MARGIN) ** 2 + (y - MARGIN) ** 2);
-      let score = 10000 - distanceScore;
-      
-      if (!orientation.rotated) {
-        score += 5;
-      }
-      
-      const edgeBonus = Math.min(x - MARGIN, y - MARGIN, usableWidth - (x - MARGIN) - orientation.width, usableHeight - (y - MARGIN) - orientation.height);
-      if (edgeBonus < SPACING) {
-        score += 10;
-      }
-      
-      return score;
-    };
-
-    // 각 도형 배치
-    for (const piece of piecesToPlace) {
-      let bestPosition = null;
-      let bestScore = -1;
-
-      const orientations = [
-        { width: piece.width, height: piece.height, rotated: false },
-        { width: piece.height, height: piece.width, rotated: true }
-      ];
-
-      for (const orientation of orientations) {
-        if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
-
-        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 20) {
-          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 20) {
-            if (!isOverlapping(x, y, orientation.width, orientation.height)) {
-              const positionScore = calculatePositionScore(x, y, orientation);
-              
-              if (positionScore > bestScore) {
-                bestScore = positionScore;
-                bestPosition = {
-                  x, y,
-                  width: orientation.width,
-                  height: orientation.height,
-                  rotated: orientation.rotated,
-                  color: colors[piece.itemIndex % colors.length],
-                  itemIndex: piece.itemIndex
-                };
-              }
-            }
-          }
-        }
-      }
-
-      if (bestPosition) {
-        positions.push(bestPosition);
-        occupiedAreas.push({
-          x: bestPosition.x,
-          y: bestPosition.y,
-          width: bestPosition.width,
-          height: bestPosition.height
-        });
-      }
-    }
 
     return positions;
   };

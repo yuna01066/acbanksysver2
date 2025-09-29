@@ -233,16 +233,7 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                         <div className="text-muted-foreground">총 생산량</div>
                         <div className="font-medium">
                           {(recommendation.data as CombinationResult).panels.reduce((sum, panel) => {
-                            const panelSize = availablePanelSizes.find(p => p.name === panel.panelName);
-                            if (!panelSize) return sum;
-                            const panelArea = panelSize.width * panelSize.height;
-                            const totalCutItemArea = cutItems.reduce((itemSum, item) => {
-                              const itemArea = parseFloat(item.width) * parseFloat(item.height);
-                              const itemQuantity = parseInt(item.quantity) || 0;
-                              return itemSum + (itemArea * itemQuantity);
-                            }, 0);
-                            const piecesPerPanel = Math.floor(panelArea / (totalCutItemArea / totalQuantity));
-                            return sum + (panel.quantity * piecesPerPanel);
+                            return sum + panel.placedItems.reduce((itemSum, item) => itemSum + item.count, 0) * panel.quantity;
                           }, 0)}개
                         </div>
                       </div>
