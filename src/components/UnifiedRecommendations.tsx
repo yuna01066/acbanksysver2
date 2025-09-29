@@ -130,149 +130,138 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         {unifiedRecommendations.map((recommendation, index) => (
-          <div 
-            key={index} 
-            className={`
-              border rounded-xl p-5 transition-all duration-200 hover:shadow-md
-              ${index === 0 ? 'border-primary/20 bg-primary/5' : 'border-border hover:border-primary/30'}
-            `}
-          >
-            {/* 헤더 섹션 */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                {index === 0 && (
-                  <Badge variant="default" className="text-xs animate-fade-in">
-                    <Star className="w-3 h-3 mr-1" />
-                    최고 효율
-                  </Badge>
-                )}
-                <Badge variant={recommendation.type === 'single' ? 'secondary' : 'outline'}>
-                  {recommendation.type === 'single' ? (
-                    <>
-                      <Package className="w-3 h-3 mr-1" />
-                      단일 원판
-                    </>
-                  ) : (
-                    <>
-                      <Layers className="w-3 h-3 mr-1" />
-                      복합 조합
-                    </>
+          <div key={index} className="border border-border rounded-lg p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-3">
+                  {index === 0 && (
+                    <Badge variant="default" className="text-xs">
+                      <Star className="w-3 h-3 mr-1" />
+                      최고 효율
+                    </Badge>
                   )}
-                </Badge>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-primary">
-                  {recommendation.efficiency.toFixed(1)}%
-                </div>
-                <div className="text-xs text-muted-foreground">효율성</div>
-              </div>
-            </div>
-
-            {/* 메인 콘텐츠 */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr,120px] gap-6 items-start">
-              {/* 정보 섹션 */}
-              <div className="space-y-4">
-                {/* 제목 */}
-                <div className="text-lg font-semibold text-foreground">
-                  {recommendation.type === 'single' 
-                    ? (recommendation.data as YieldResult).panelSize
-                    : `복합 원판 조합 (${(recommendation.data as CombinationResult).panels.length}종류)`
-                  }
+                  <Badge variant={recommendation.type === 'single' ? 'secondary' : 'outline'}>
+                    {recommendation.type === 'single' ? (
+                      <>
+                        <Package className="w-3 h-3 mr-1" />
+                        단일 원판
+                      </>
+                    ) : (
+                      <>
+                        <Layers className="w-3 h-3 mr-1" />
+                        복합 조합
+                      </>
+                    )}
+                  </Badge>
+                  <span className="text-lg font-semibold text-primary">
+                    {recommendation.efficiency.toFixed(1)}%
+                  </span>
                 </div>
 
-                {/* 복합 조합의 세부 패널 정보 */}
-                {recommendation.type === 'combination' && (
-                  <div className="bg-muted/30 rounded-lg p-3 space-y-2">
-                    {(recommendation.data as CombinationResult).panels.map((panel, panelIndex) => (
-                      <div key={panelIndex} className="flex justify-between items-center text-sm">
-                        <span className="font-medium">{panel.panelName}</span>
-                        <div className="text-right">
-                          <div className="font-medium">{panel.quantity}장</div>
-                          <div className="text-xs text-muted-foreground">효율: {panel.efficiency.toFixed(1)}%</div>
+                {recommendation.type === 'single' ? (
+                  <div>
+                    <div className="text-lg font-medium mb-2">
+                      {(recommendation.data as YieldResult).panelSize}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <div className="text-muted-foreground">총 필요 수량</div>
+                        <div className="font-medium">{totalQuantity}개</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">총 생산량</div>
+                        <div className="font-medium">{(recommendation.data as YieldResult).totalPieces}개</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">원판 수량</div>
+                        <div className="font-medium">{recommendation.panelsNeeded}장</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">폐기면적</div>
+                        <div className="font-medium">
+                          {(recommendation.wasteArea / 1000000).toFixed(2)}㎡
                         </div>
                       </div>
-                    ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="text-lg font-medium mb-2">
+                      복합 원판 조합 ({(recommendation.data as CombinationResult).panels.length}종류)
+                    </div>
+                    <div className="space-y-2 mb-3">
+                      {(recommendation.data as CombinationResult).panels.map((panel, panelIndex) => (
+                        <div key={panelIndex} className="flex justify-between text-sm">
+                          <span>{panel.panelName}</span>
+                          <span>{panel.quantity}장 (효율: {panel.efficiency.toFixed(1)}%)</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <div className="text-muted-foreground">총 필요 수량</div>
+                        <div className="font-medium">{totalQuantity}개</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">총 원판 수량</div>
+                        <div className="font-medium">{recommendation.panelsNeeded}장</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">총 폐기면적</div>
+                        <div className="font-medium">
+                          {(recommendation.wasteArea / 1000000).toFixed(2)}㎡
+                        </div>
+                      </div>
+                      {recommendation.totalCost && (
+                        <div>
+                          <div className="text-muted-foreground">예상 비용</div>
+                          <div className="font-medium">
+                            {recommendation.totalCost.toLocaleString()}원
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
-
-                {/* 통계 정보 그리드 */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-muted/20 rounded-lg">
-                    <div className="text-sm text-muted-foreground mb-1">필요 수량</div>
-                    <div className="text-lg font-semibold">{totalQuantity}개</div>
-                  </div>
-                  
-                  {recommendation.type === 'single' && (
-                    <div className="text-center p-3 bg-muted/20 rounded-lg">
-                      <div className="text-sm text-muted-foreground mb-1">생산량</div>
-                      <div className="text-lg font-semibold">{(recommendation.data as YieldResult).totalPieces}개</div>
-                    </div>
-                  )}
-                  
-                  <div className="text-center p-3 bg-muted/20 rounded-lg">
-                    <div className="text-sm text-muted-foreground mb-1">원판 수량</div>
-                    <div className="text-lg font-semibold">{recommendation.panelsNeeded}장</div>
-                  </div>
-                  
-                  <div className="text-center p-3 bg-muted/20 rounded-lg">
-                    <div className="text-sm text-muted-foreground mb-1">폐기면적</div>
-                    <div className="text-lg font-semibold">
-                      {(recommendation.wasteArea / 1000000).toFixed(2)}㎡
-                    </div>
-                  </div>
-                  
-                  {recommendation.totalCost && (
-                    <div className="text-center p-3 bg-muted/20 rounded-lg">
-                      <div className="text-sm text-muted-foreground mb-1">예상 비용</div>
-                      <div className="text-lg font-semibold">
-                        {recommendation.totalCost.toLocaleString()}원
-                      </div>
-                    </div>
-                  )}
-                </div>
 
                 {/* 여분 생산 정보 */}
                 {recommendation.type === 'single' && (
-                  <div className="mt-3">
-                    {(recommendation.data as YieldResult).surplus > 0 ? (
-                      <div className="flex items-center gap-2 p-3 bg-warning/10 border border-warning/20 rounded-lg">
-                        <Package className="w-4 h-4 text-warning" />
-                        <span className="text-sm">
-                          <span className="font-medium">여분 생산:</span> {(recommendation.data as YieldResult).surplus}개 추가 생산됩니다
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 p-3 bg-success/10 border border-success/20 rounded-lg">
-                        <Star className="w-4 h-4 text-success" />
-                        <span className="text-sm">
-                          <span className="font-medium">정확한 수량:</span> 여분 없이 정확히 {totalQuantity}개 생산됩니다
-                        </span>
+                  <>
+                    {(recommendation.data as YieldResult).surplus > 0 && (
+                      <div className="mt-3 p-2 bg-warning/10 text-muted-foreground text-sm rounded-lg">
+                        <span className="font-medium">여분 생산:</span> 
+                        {(recommendation.data as YieldResult).surplus}개 추가 생산됩니다
                       </div>
                     )}
-                  </div>
+                    
+                    {(recommendation.data as YieldResult).surplus === 0 && (
+                      <div className="mt-3 p-2 bg-success/10 text-muted-foreground text-sm rounded-lg">
+                        <span className="font-medium">정확한 수량:</span> 
+                        여분 없이 정확히 {totalQuantity}개 생산됩니다
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
-              {/* 썸네일 섹션 */}
-              <div className="flex justify-center lg:justify-end">
-                <div className="shrink-0">
-                  {recommendation.type === 'single' ? (
-                    <NestingThumbnail
-                      cutItems={cutItems}
-                      panelWidth={(recommendation.data as YieldResult).panelWidth}
-                      panelHeight={(recommendation.data as YieldResult).panelHeight}
-                      panelsNeeded={(recommendation.data as YieldResult).panelsNeeded}
-                    />
-                  ) : (
-                    <CombinationThumbnail
-                      panelUsages={(recommendation.data as CombinationResult).panels}
-                      cutItems={cutItems}
-                      availablePanelSizes={availablePanelSizes}
-                    />
-                  )}
-                </div>
+              {/* 썸네일 및 버튼 */}
+              <div className="flex items-center gap-3">
+                {recommendation.type === 'single' ? (
+                  <NestingThumbnail
+                    cutItems={cutItems}
+                    panelWidth={(recommendation.data as YieldResult).panelWidth}
+                    panelHeight={(recommendation.data as YieldResult).panelHeight}
+                    panelsNeeded={(recommendation.data as YieldResult).panelsNeeded}
+                  />
+                ) : (
+                  <CombinationThumbnail
+                    panelUsages={(recommendation.data as CombinationResult).panels}
+                    cutItems={cutItems}
+                    availablePanelSizes={availablePanelSizes}
+                  />
+                )}
               </div>
             </div>
           </div>
