@@ -78,13 +78,13 @@ export const usePriceCalculation = ({
       '3*6': { width: 860, height: 1750 },
       '대3*6': { width: 900, height: 1800 },
       '4*5': { width: 1170, height: 1475 },
-      '대4*5': { width: 1250, height: 1550 },
+      '대4*5': { width: 1200, height: 1500 },
       '1*2': { width: 950, height: 1950 },
       '4*6': { width: 1200, height: 1800 },
       '4*8': { width: 1200, height: 2400 },
       '4*10': { width: 1200, height: 3000 },
       '5*5': { width: 1550, height: 1550 },
-      '5*6': { width: 1550, height: 1850 },
+      '5*6': { width: 1500, height: 1800 },
       '5*8': { width: 1500, height: 2400 }
     };
 
