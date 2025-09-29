@@ -146,81 +146,125 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     return panelSizes.sort((a, b) => (a.width * a.height) - (b.width * b.height));
   }, [selectedThickness, selectedQuality]);
 
-  // 네스팅 시각화를 위한 배치 계산 함수
-  const calculateLayout = (
-    cutW: number, 
-    cutH: number, 
-    qty: number, 
-    panelW: number, 
+  // 복합 네스팅 알고리즘 - 여러 도형을 함께 배치
+  const calculateMultiItemLayout = (
+    items: Array<{ width: number; height: number; quantity: number; id: string }>,
+    panelW: number,
     panelH: number
-  ): { positions: { x: number; y: number; width: number; height: number; rotated: boolean }[]; piecesPerPanel: number } => {
+  ): { 
+    positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }>;
+    totalPieces: number;
+    canFitAll: boolean;
+  } => {
     const MARGIN = 80;
     const SPACING = 50;
     
     const usableWidth = panelW - (MARGIN * 2);
     const usableHeight = panelH - (MARGIN * 2);
     
-    if (usableWidth < cutW || usableHeight < cutH) {
-      return { positions: [], piecesPerPanel: 0 };
-    }
-    
-    // 90도 회전을 고려한 최적 배치 계산
-    const layout1 = {
-      horizontal: Math.floor((usableWidth + SPACING) / (cutW + SPACING)),
-      vertical: Math.floor((usableHeight + SPACING) / (cutH + SPACING)),
-      rotated: false
-    };
-    
-    const layout2 = {
-      horizontal: Math.floor((usableWidth + SPACING) / (cutH + SPACING)),
-      vertical: Math.floor((usableHeight + SPACING) / (cutW + SPACING)),
-      rotated: true
-    };
-
-    const pieces1 = layout1.horizontal * layout1.vertical;
-    const pieces2 = layout2.horizontal * layout2.vertical;
-    
-    const bestLayout = pieces1 >= pieces2 ? layout1 : layout2;
-    const piecesPerPanel = Math.max(pieces1, pieces2);
-    
-    // 실제 배치 위치 계산
-    const positions = [];
-    const actualWidth = bestLayout.rotated ? cutH : cutW;
-    const actualHeight = bestLayout.rotated ? cutW : cutH;
-    
-    for (let row = 0; row < bestLayout.vertical; row++) {
-      for (let col = 0; col < bestLayout.horizontal; col++) {
-        if (positions.length >= qty) break;
-        
-        positions.push({
-          x: MARGIN + col * (actualWidth + SPACING),
-          y: MARGIN + row * (actualHeight + SPACING),
-          width: actualWidth,
-          height: actualHeight,
-          rotated: bestLayout.rotated
+    // 모든 도형을 크기 순(면적)으로 정렬하여 큰 것부터 배치
+    const allPieces: Array<{ width: number; height: number; itemId: string; originalIndex: number }> = [];
+    items.forEach((item, index) => {
+      for (let i = 0; i < item.quantity; i++) {
+        allPieces.push({
+          width: item.width,
+          height: item.height,
+          itemId: item.id,
+          originalIndex: index
         });
       }
-      if (positions.length >= qty) break;
+    });
+    
+    // 면적 기준으로 내림차순 정렬
+    allPieces.sort((a, b) => (b.width * b.height) - (a.width * a.height));
+    
+    const positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }> = [];
+    const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
+    
+    // 위치가 겹치는지 확인하는 함수
+    const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
+      return occupiedAreas.some(area => 
+        !(x >= area.x + area.width || x + w <= area.x || y >= area.y + area.height || y + h <= area.y)
+      );
+    };
+    
+    // 각 도형 배치 시도
+    for (const piece of allPieces) {
+      let placed = false;
+      
+      // 가능한 배치 위치와 회전 시도
+      const orientations = [
+        { width: piece.width, height: piece.height, rotated: false },
+        { width: piece.height, height: piece.width, rotated: true }
+      ];
+      
+      for (const orientation of orientations) {
+        if (placed) break;
+        
+        // 사용 가능한 영역에 들어가는지 확인
+        if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
+        
+        // 가능한 모든 위치에서 배치 시도 (격자 방식)
+        const stepX = Math.max(20, orientation.width / 4); // 더 세밀한 배치를 위해
+        const stepY = Math.max(20, orientation.height / 4);
+        
+        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height && !placed; y += stepY) {
+          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width && !placed; x += stepX) {
+            if (!isOverlapping(x, y, orientation.width, orientation.height)) {
+              // 배치 가능한 위치 발견
+              positions.push({
+                x,
+                y,
+                width: orientation.width,
+                height: orientation.height,
+                rotated: orientation.rotated,
+                itemId: piece.itemId
+              });
+              
+              occupiedAreas.push({
+                x: x - SPACING / 2,
+                y: y - SPACING / 2,
+                width: orientation.width + SPACING,
+                height: orientation.height + SPACING
+              });
+              
+              placed = true;
+            }
+          }
+        }
+      }
+      
+      // 배치하지 못한 도형이 있으면 중단
+      if (!placed) {
+        break;
+      }
     }
     
-    return { positions, piecesPerPanel };
+    return {
+      positions,
+      totalPieces: positions.length,
+      canFitAll: positions.length === allPieces.length
+    };
   };
 
-  // 수율 계산 함수 (마진과 간격 고려)
+  // 수율 계산 함수 (복합 네스팅 사용)
   const calculateYield = (
-    cutW: number, 
-    cutH: number, 
-    qty: number, 
+    items: Array<{ width: number; height: number; quantity: number; id: string }>,
     panelW: number, 
     panelH: number
-  ): { piecesPerPanel: number; efficiency: number; wasteArea: number } => {
-    const { piecesPerPanel } = calculateLayout(cutW, cutH, qty, panelW, panelH);
-    const usedArea = piecesPerPanel * cutW * cutH;
+  ): { piecesPerPanel: number; efficiency: number; wasteArea: number; canFitAll: boolean } => {
+    const { totalPieces, canFitAll } = calculateMultiItemLayout(items, panelW, panelH);
+    
+    if (!canFitAll) {
+      return { piecesPerPanel: 0, efficiency: 0, wasteArea: panelW * panelH, canFitAll: false };
+    }
+    
+    const totalRequiredArea = items.reduce((sum, item) => sum + (item.width * item.height * item.quantity), 0);
     const totalArea = panelW * panelH;
-    const efficiency = totalArea > 0 ? (usedArea / totalArea) * 100 : 0;
-    const wasteArea = totalArea - usedArea;
+    const efficiency = totalArea > 0 ? (totalRequiredArea / totalArea) * 100 : 0;
+    const wasteArea = totalArea - totalRequiredArea;
 
-    return { piecesPerPanel, efficiency, wasteArea };
+    return { piecesPerPanel: totalPieces, efficiency, wasteArea, canFitAll: true };
   };
 
   // 수율 결과 계산
@@ -233,35 +277,19 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
 
     if (validCutItems.length === 0) return [];
 
+    // 복합 네스팅을 위한 아이템 배열 생성
+    const itemsForNesting = validCutItems.map((item, index) => ({
+      width: parseFloat(item.width),
+      height: parseFloat(item.height),
+      quantity: parseInt(item.quantity),
+      id: `item-${index}`
+    }));
+
+    const totalRequired = itemsForNesting.reduce((sum, item) => sum + item.quantity, 0);
+
     const results: YieldResult[] = availablePanelSizes.map(panel => {
-      let totalRequired = 0;
-      let canFitAll = true;
-
-      // 각 재단 항목별 계산
-      const itemCalculations = validCutItems.map(item => {
-        const cutW = parseFloat(item.width);
-        const cutH = parseFloat(item.height);
-        const qty = parseInt(item.quantity);
-        totalRequired += qty;
-
-        const { piecesPerPanel, efficiency, wasteArea } = calculateYield(
-          cutW, cutH, qty, panel.width, panel.height
-        );
-
-        if (piecesPerPanel === 0) {
-          canFitAll = false;
-        }
-
-        const panelsNeeded = piecesPerPanel > 0 ? Math.ceil(qty / piecesPerPanel) : 0;
-
-        return {
-          piecesPerPanel,
-          panelsNeeded,
-          quantity: qty,
-          itemArea: cutW * cutH
-        };
-      });
-
+      const { canFitAll, efficiency, wasteArea } = calculateYield(itemsForNesting, panel.width, panel.height);
+      
       if (!canFitAll) {
         return {
           panelSize: panel.name,
@@ -276,32 +304,18 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
         };
       }
 
-      // 필요한 최대 판 수 계산
-      const maxPanelsNeeded = Math.max(...itemCalculations.map(calc => calc.panelsNeeded));
-      
-      // 총 생산량과 실제 필요 면적 계산
-      let totalProduced = 0;
-      let totalRequiredArea = 0;
-      
-      validCutItems.forEach((item, index) => {
-        const calc = itemCalculations[index];
-        totalProduced += calc.piecesPerPanel * maxPanelsNeeded;
-        totalRequiredArea += calc.quantity * calc.itemArea;
-      });
-
-      const totalPanelArea = panel.width * panel.height * maxPanelsNeeded;
-      // 수율 = 실제 필요한 면적 / 사용된 전체 판 면적
-      const efficiency = totalPanelArea > 0 ? (totalRequiredArea / totalPanelArea) * 100 : 0;
-      const wasteArea = totalPanelArea - totalRequiredArea;
-      const surplus = totalProduced - totalRequired;
+      // 한 판에 모든 필요 수량이 들어갈 수 있으므로 1장만 필요
+      const panelsNeeded = 1;
+      const totalPieces = totalRequired;
+      const surplus = 0; // 정확히 필요한 수량만 생산
 
       return {
         panelSize: panel.name,
         panelWidth: panel.width,
         panelHeight: panel.height,
-        piecesPerPanel: Math.floor(totalProduced / maxPanelsNeeded), // 평균값
-        panelsNeeded: maxPanelsNeeded,
-        totalPieces: totalProduced,
+        piecesPerPanel: totalPieces,
+        panelsNeeded,
+        totalPieces,
         efficiency,
         wasteArea,
         surplus
