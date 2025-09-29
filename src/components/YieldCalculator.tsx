@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import NestingThumbnail from "@/components/NestingThumbnail";
 import UnifiedRecommendations from "@/components/UnifiedRecommendations";
 import { calculatePanelCombinations } from "@/utils/panelCombinationCalculator";
 import { optimizedNesting } from "@/utils/optimizedNesting";
+import { useDebounce } from "@/utils/debounce";
 import { glossyColorSinglePrices, glossyStandardSinglePrices, astelColorSinglePrices, satinColorSinglePrices } from "@/data/glossyColorPricing";
 import { CASTING_QUALITIES } from "@/types/calculator";
 interface PanelSize {
@@ -54,6 +55,11 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
   }]);
   const [selectedThickness, setSelectedThickness] = useState<string>('3T');
   const [selectedQuality, setSelectedQuality] = useState<string>('glossy-color');
+
+  // 디바운스를 사용한 성능 최적화
+  const debouncedCutItems = useDebounce(cutItems, 300);
+  const debouncedThickness = useDebounce(selectedThickness, 200);
+  const debouncedQuality = useDebounce(selectedQuality, 200);
 
   // 재단 항목 추가/제거 함수
   const addCutItem = () => {
@@ -214,10 +220,10 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       };
     }).filter(panel => panel.available);
     return panelSizes.sort((a, b) => a.width * a.height - b.width * b.height);
-  }, [selectedThickness, selectedQuality]);
+  }, [debouncedThickness, debouncedQuality]);
 
-  // 최적화된 네스팅 알고리즘 사용
-  const calculateMultiItemLayout = (items: Array<{
+  // 최적화된 네스팅 알고리즘 사용 - 성능 개선
+  const calculateMultiItemLayout = useCallback((items: Array<{
     width: number;
     height: number;
     quantity: number;
@@ -246,10 +252,10 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       canFitAll: result.canFitAll,
       placedCounts: result.placedCounts
     };
-  };
+  }, [selectedThickness]);
 
-  // 복합 네스팅을 사용한 수율 계산 함수
-  const calculateYield = (items: Array<{
+  // 수율 계산 함수 최적화
+  const calculateYield = useCallback((items: Array<{
     width: number;
     height: number;
     quantity: number;
@@ -338,12 +344,12 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       panelsNeeded: totalPanelsNeeded,
       placedCounts: allPlacedCounts
     };
-  };
+  }, [calculateMultiItemLayout]);
 
   // 수율 결과 계산
   const yieldResults = useMemo(() => {
     // 모든 재단 항목이 유효한지 확인
-    const validCutItems = cutItems.filter(item => item.width && item.height && item.quantity && parseFloat(item.width) > 0 && parseFloat(item.height) > 0 && parseInt(item.quantity) > 0);
+    const validCutItems = debouncedCutItems.filter(item => item.width && item.height && item.quantity && parseFloat(item.width) > 0 && parseFloat(item.height) > 0 && parseInt(item.quantity) > 0);
     if (validCutItems.length === 0) return [];
 
     // 복합 네스팅을 위한 아이템 배열 생성
@@ -396,7 +402,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       // 3순위: 필요 판수가 적을수록 좋음
       return a.panelsNeeded - b.panelsNeeded;
     });
-  }, [cutItems, availablePanelSizes]);
+  }, [debouncedCutItems, availablePanelSizes, calculateYield]);
 
   // 복합 조합 계산
   const panelCombinations = useMemo(() => {
@@ -408,8 +414,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       quantity: parseInt(item.quantity),
       id: `item-${index}`
     }));
-    return calculatePanelCombinations(itemsForNesting, availablePanelSizes, 10, selectedThickness);
-  }, [cutItems, availablePanelSizes, selectedThickness]);
+    return calculatePanelCombinations(itemsForNesting, availablePanelSizes, 10, debouncedThickness);
+  }, [debouncedCutItems, availablePanelSizes, debouncedThickness]);
   const availableThicknesses = useMemo(() => {
     const priceData = getPriceDataByQuality(selectedQuality);
     const thicknesses = new Set<string>();
