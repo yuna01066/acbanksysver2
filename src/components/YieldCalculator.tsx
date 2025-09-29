@@ -244,24 +244,89 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     };
   };
 
-  // 수율 계산 함수 (복합 네스팅 사용)
+  // 수율 계산 함수 (여러 판 지원)
   const calculateYield = (
     items: Array<{ width: number; height: number; quantity: number; id: string }>,
     panelW: number, 
     panelH: number
-  ): { piecesPerPanel: number; efficiency: number; wasteArea: number; canFitAll: boolean } => {
-    const { totalPieces, canFitAll } = calculateMultiItemLayout(items, panelW, panelH);
+  ): { piecesPerPanel: number; efficiency: number; wasteArea: number; canFitAll: boolean; panelsNeeded: number } => {
+    let remainingItems = [...items];
+    let totalPanelsNeeded = 0;
+    let totalPiecesPlaced = 0;
+    let allCanFit = true;
     
-    if (!canFitAll) {
-      return { piecesPerPanel: 0, efficiency: 0, wasteArea: panelW * panelH, canFitAll: false };
+    // 각 도형이 원판에 물리적으로 들어갈 수 있는지 먼저 확인
+    for (const item of items) {
+      const usableWidth = panelW - 160; // 마진 80*2
+      const usableHeight = panelH - 160; // 마진 80*2
+      
+      // 회전 포함해서 들어갈 수 있는지 확인
+      const canFitNormally = item.width <= usableWidth && item.height <= usableHeight;
+      const canFitRotated = item.height <= usableWidth && item.width <= usableHeight;
+      
+      if (!canFitNormally && !canFitRotated) {
+        allCanFit = false;
+        break;
+      }
     }
     
+    if (!allCanFit) {
+      return { piecesPerPanel: 0, efficiency: 0, wasteArea: panelW * panelH, canFitAll: false, panelsNeeded: 0 };
+    }
+    
+    // 여러 판에 걸쳐 배치 시뮬레이션
+    while (remainingItems.some(item => item.quantity > 0)) {
+      const { totalPieces } = calculateMultiItemLayout(
+        remainingItems.filter(item => item.quantity > 0),
+        panelW,
+        panelH
+      );
+      
+      if (totalPieces === 0) {
+        // 더 이상 배치할 수 없음
+        break;
+      }
+      
+      totalPanelsNeeded++;
+      totalPiecesPlaced += totalPieces;
+      
+      // 배치된 만큼 수량 감소
+      const layoutResult = calculateMultiItemLayout(
+        remainingItems.filter(item => item.quantity > 0),
+        panelW,
+        panelH
+      );
+      
+      // 각 아이템별로 몇 개씩 배치되었는지 계산
+      const placedCounts: { [key: string]: number } = {};
+      layoutResult.positions.forEach(pos => {
+        placedCounts[pos.itemId] = (placedCounts[pos.itemId] || 0) + 1;
+      });
+      
+      // 수량 업데이트
+      remainingItems = remainingItems.map(item => ({
+        ...item,
+        quantity: Math.max(0, item.quantity - (placedCounts[item.id] || 0))
+      }));
+      
+      // 무한 루프 방지
+      if (totalPanelsNeeded > 50) break;
+    }
+    
+    const totalRequired = items.reduce((sum, item) => sum + item.quantity, 0);
     const totalRequiredArea = items.reduce((sum, item) => sum + (item.width * item.height * item.quantity), 0);
-    const totalArea = panelW * panelH;
-    const efficiency = totalArea > 0 ? (totalRequiredArea / totalArea) * 100 : 0;
-    const wasteArea = totalArea - totalRequiredArea;
+    const totalPanelArea = panelW * panelH * totalPanelsNeeded;
+    const efficiency = totalPanelArea > 0 ? (totalRequiredArea / totalPanelArea) * 100 : 0;
+    const wasteArea = totalPanelArea - totalRequiredArea;
+    const avgPiecesPerPanel = totalPanelsNeeded > 0 ? Math.round(totalPiecesPlaced / totalPanelsNeeded) : 0;
 
-    return { piecesPerPanel: totalPieces, efficiency, wasteArea, canFitAll: true };
+    return { 
+      piecesPerPanel: avgPiecesPerPanel, 
+      efficiency, 
+      wasteArea, 
+      canFitAll: totalPiecesPlaced >= totalRequired,
+      panelsNeeded: totalPanelsNeeded
+    };
   };
 
   // 수율 결과 계산
@@ -285,7 +350,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     const totalRequired = itemsForNesting.reduce((sum, item) => sum + item.quantity, 0);
 
     const results: YieldResult[] = availablePanelSizes.map(panel => {
-      const { canFitAll, efficiency, wasteArea } = calculateYield(itemsForNesting, panel.width, panel.height);
+      const { canFitAll, efficiency, wasteArea, panelsNeeded, piecesPerPanel } = calculateYield(itemsForNesting, panel.width, panel.height);
       
       if (!canFitAll) {
         return {
@@ -301,21 +366,19 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
         };
       }
 
-      // 한 판에 모든 필요 수량이 들어갈 수 있으므로 1장만 필요
-      const panelsNeeded = 1;
       const totalPieces = totalRequired;
-      const surplus = 0; // 정확히 필요한 수량만 생산
+      const surplus = (piecesPerPanel * panelsNeeded) - totalRequired; // 실제 생산량 - 필요량
 
       return {
         panelSize: panel.name,
         panelWidth: panel.width,
         panelHeight: panel.height,
-        piecesPerPanel: totalPieces,
+        piecesPerPanel,
         panelsNeeded,
         totalPieces,
         efficiency,
         wasteArea,
-        surplus
+        surplus: Math.max(0, surplus)
       };
     }).filter(result => result.piecesPerPanel > 0);
 
