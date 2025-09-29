@@ -29,7 +29,7 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   
   const MARGIN = 80;
-  const SPACING = 5; // 50mm의 1/10 = 5mm 간격
+  const SPACING = 50; // 정확히 50mm 간격 (변경 금지)
   const THUMBNAIL_WIDTH = 240;
   const THUMBNAIL_HEIGHT = 180;
 
@@ -68,7 +68,7 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
       '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'
     ];
 
-    const GAP = SPACING; // 20mm 간격
+    const GAP = SPACING; // 정확히 50mm 간격
 
     // 겹침 확인 함수 (간격 포함)
     const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
@@ -80,15 +80,15 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
       );
     };
 
-    // 특정 위치에 배치 가능한지 확인
+    // 특정 위치에 배치 가능한지 확인 (엄격한 경계 검사)
     const canPlaceAt = (x: number, y: number, w: number, h: number): boolean => {
-      // 원판 경계 내부에 있는지 확인
+      // 원판 경계 내부에 완전히 있는지 엄격하게 확인
       if (x < MARGIN || y < MARGIN || 
           x + w > MARGIN + usableWidth || 
           y + h > MARGIN + usableHeight) {
         return false;
       }
-      // 다른 도형과 겹치지 않는지 확인
+      // 다른 도형과 50mm 간격을 유지하는지 확인
       return !isOverlapping(x, y, w, h);
     };
 
