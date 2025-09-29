@@ -85,7 +85,7 @@ export const usePriceCalculation = ({
       '4*10': { width: 1250, height: 3050 },
       '5*5': { width: 1550, height: 1550 },
       '5*6': { width: 1550, height: 1850 },
-      '5*8': { width: 1550, height: 2450 },
+      '5*8': { width: 1500, height: 2400 },
       '소3*6': { width: 900, height: 1800 },
       '소1*2': { width: 1050, height: 2050 }
     };
