@@ -9,6 +9,7 @@ export interface Quote {
   size: string;
   colorType?: string;
   selectedColor?: string;
+  selectedColorHex?: string;
   surface: string;
   colorMixingCost: number;
   processing: string;

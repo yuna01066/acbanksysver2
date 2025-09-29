@@ -103,7 +103,19 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity }: QuoteCardProps)
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
             <div className="text-xs text-gray-600 mb-1">색상</div>
-            <div className="font-semibold text-gray-900 text-sm">{quote.selectedColor || 'AC-미선택'}</div>
+            <div className="flex items-center gap-2">
+              {quote.selectedColor && quote.selectedColorHex ? (
+                <>
+                  <div 
+                    className="w-4 h-4 rounded border border-gray-300" 
+                    style={{ backgroundColor: quote.selectedColorHex }}
+                  ></div>
+                  <div className="font-semibold text-gray-900 text-sm">{quote.selectedColor}</div>
+                </>
+              ) : (
+                <div className="font-semibold text-gray-900 text-sm">AC-미선택</div>
+              )}
+            </div>
           </div>
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
             <div className="text-xs text-gray-600 mb-1">소재</div>
