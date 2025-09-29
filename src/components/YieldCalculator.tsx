@@ -165,6 +165,11 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     const usableWidth = panelW - (MARGIN * 2);
     const usableHeight = panelH - (MARGIN * 2);
     
+    // 배치 결과를 저장할 배열들 초기화
+    const positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }> = [];
+    const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
+    const placedCounts: { [key: string]: number } = {};
+    
     // 모든 도형을 크기 순(면적)으로 정렬하여 큰 것부터 배치
     const allPieces: Array<{ width: number; height: number; itemId: string; originalIndex: number }> = [];
     items.forEach((item, index) => {
@@ -180,10 +185,6 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     
     // 면적 기준으로 내림차순 정렬
     allPieces.sort((a, b) => (b.width * b.height) - (a.width * a.height));
-    
-    const positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }> = [];
-    const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
-    const placedCounts: { [key: string]: number } = {};
     
     // 위치가 겹치는지 확인하는 함수
     const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
