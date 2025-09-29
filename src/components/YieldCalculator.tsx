@@ -1,38 +1,22 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Calculator, Package, Plus, Trash2 } from "lucide-react";
-import NestingThumbnail from "@/components/NestingThumbnail";
-import UnifiedRecommendations from "@/components/UnifiedRecommendations";
-import { calculatePanelCombinations } from "@/utils/panelCombinationCalculator";
-import { 
-  glossyColorSinglePrices, 
-  glossyStandardSinglePrices, 
-  astelColorSinglePrices, 
-  satinColorSinglePrices 
-} from "@/data/glossyColorPricing";
-import { CASTING_QUALITIES } from "@/types/calculator";
+import { Badge } from "@/components/ui/badge";
+import { Trash2, Plus, Calculator, Users } from "lucide-react";
+import { toast } from "sonner";
+import SelectionSummary from '@/components/SelectionSummary';
+import UnifiedRecommendations from '@/components/UnifiedRecommendations';
+import { useUnifiedCalculation } from '@/hooks/useUnifiedCalculation';
 
-interface PanelSize {
-  name: string;
-  width: number;
-  height: number;
-  available: boolean;
-}
-
-interface YieldResult {
-  panelSize: string;
-  panelWidth: number;
-  panelHeight: number;
-  piecesPerPanel: number;
-  panelsNeeded: number;
-  totalPieces: number;
-  efficiency: number;
-  wasteArea: number;
-  surplus: number; // 여분
-}
+// 가격 데이터 임포트
+import {
+  glossyColorSinglePrices,
+  glossyStandardSinglePrices,
+  astelColorSinglePrices,
+  satinColorSinglePrices
+} from '@/data/glossyColorPricing';
 
 interface CutItem {
   id: string;
@@ -42,7 +26,13 @@ interface CutItem {
 }
 
 interface YieldCalculatorProps {
-  onBack: () => void;
+  selectedQuality: string;
+  selectedThickness: string;
+  selectedSurface: string;
+  selectedColor: string;
+  selectedFactory: string;
+  selectedProcessing: string;
+  onBack?: () => void;
   onPanelSelect?: (panelData: {
     quality: string;
     thickness: string;
@@ -51,12 +41,18 @@ interface YieldCalculatorProps {
   }) => void;
 }
 
-const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect }) => {
+const YieldCalculator: React.FC<YieldCalculatorProps> = ({
+  selectedQuality,
+  selectedThickness,
+  selectedSurface,
+  selectedColor,
+  selectedFactory,
+  selectedProcessing,
+  onPanelSelect
+}) => {
   const [cutItems, setCutItems] = useState<CutItem[]>([
     { id: '1', width: '', height: '', quantity: '' }
   ]);
-  const [selectedThickness, setSelectedThickness] = useState<string>('3T');
-  const [selectedQuality, setSelectedQuality] = useState<string>('glossy-color');
 
   // 재단 항목 추가/제거 함수
   const addCutItem = () => {
@@ -119,12 +115,9 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
       '5*5': { width: 1550, height: 1550 } // 5*5 추가 (정사각형)
     };
 
-    // 사이즈를 실제 치수로 변환
-    const panelSizes: PanelSize[] = Array.from(allSizes).map(sizeStr => {
-      const sizeInfo = sizeMapping[sizeStr];
-      
-      // 매핑에 없는 사이즈는 기본 계산 사용 (fallback)
+    const panelSizes = Array.from(allSizes).map(sizeStr => {
       let width, height;
+      const sizeInfo = sizeMapping[sizeStr];
       if (sizeInfo) {
         width = sizeInfo.width;
         height = sizeInfo.height;
@@ -148,475 +141,218 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     return panelSizes.sort((a, b) => (a.width * a.height) - (b.width * b.height));
   }, [selectedThickness, selectedQuality]);
 
-  // 복합 네스팅 알고리즘 - 여러 도형을 함께 배치
-  const calculateMultiItemLayout = (
-    items: Array<{ width: number; height: number; quantity: number; id: string }>,
-    panelW: number,
-    panelH: number
-  ): { 
-    positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }>;
-    totalPieces: number;
-    canFitAll: boolean;
-    placedCounts: { [key: string]: number };
-  } => {
-    const MARGIN = 80;
-    const SPACING = 10; // 10mm 간격으로 변경
-    
-    const usableWidth = panelW - (MARGIN * 2);
-    const usableHeight = panelH - (MARGIN * 2);
-    
-    // 배치 결과를 저장할 배열들 초기화
-    const positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }> = [];
-    const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
-    const placedCounts: { [key: string]: number } = {};
-    
-    // 모든 도형을 크기 순(면적)으로 정렬하여 큰 것부터 배치
-    const allPieces: Array<{ width: number; height: number; itemId: string; originalIndex: number }> = [];
-    items.forEach((item, index) => {
-      for (let i = 0; i < item.quantity; i++) {
-        allPieces.push({
-          width: item.width,
-          height: item.height,
-          itemId: item.id,
-          originalIndex: index
-        });
-      }
-    });
-    
-    // 면적 기준으로 내림차순 정렬
-    allPieces.sort((a, b) => (b.width * b.height) - (a.width * a.height));
-    
-    // 위치가 겹치는지 확인하는 함수 (50mm 간격 포함)
-    const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
-      const minGap = SPACING; // 50mm 간격
-      return occupiedAreas.some(area => 
-        !(x >= area.x + area.width + minGap || x + w + minGap <= area.x || 
-          y >= area.y + area.height + minGap || y + h + minGap <= area.y)
-      );
-    };
-    
-    // 각 도형 배치 시도 - 회전을 고려한 최적 배치
-    for (const piece of allPieces) {
-      let placed = false;
-      let bestPosition = null;
-      let bestScore = -1;
-      
-      // 가능한 배치 위치와 회전 시도 (더 체계적인 평가)
-      const orientations = [
-        { width: piece.width, height: piece.height, rotated: false },
-        { width: piece.height, height: piece.width, rotated: true }
-      ];
-      
-      // 각 방향에 대해 가능한 모든 위치 평가
-      for (const orientation of orientations) {
-        // 사용 가능한 영역에 들어가는지 확인
-        if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
-        
-        // 가능한 모든 위치에서 배치 시도 (10mm 간격으로 더 세밀하게 검색)
-        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 10) {
-          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 10) {
-            if (!isOverlapping(x, y, orientation.width, orientation.height)) {
-              // 이 위치의 점수 계산 (왼쪽 위부터 우선, 회전하지 않은 것을 약간 선호)
-              const positionScore = calculatePositionScore(x, y, orientation, usableWidth, usableHeight);
-              
-              if (positionScore > bestScore) {
-                bestScore = positionScore;
-                bestPosition = {
-                  x, y,
-                  width: orientation.width,
-                  height: orientation.height,
-                  rotated: orientation.rotated
-                };
-              }
-            }
-          }
-        }
-      }
-      
-      // 최적 위치에 배치
-      if (bestPosition) {
-        positions.push({
-          x: bestPosition.x,
-          y: bestPosition.y,
-          width: bestPosition.width,
-          height: bestPosition.height,
-          rotated: bestPosition.rotated,
-          itemId: piece.itemId
-        });
-        
-        occupiedAreas.push({
-          x: bestPosition.x,
-          y: bestPosition.y,
-          width: bestPosition.width,
-          height: bestPosition.height
-        });
-        
-        // 배치된 개수 카운트
-        placedCounts[piece.itemId] = (placedCounts[piece.itemId] || 0) + 1;
-        placed = true;
-      }
-      
-      // 배치하지 못한 도형이 있으면 중단
-      if (!placed) {
-        break;
-      }
-    }
-    
-    // 배치 점수 계산 함수
-    function calculatePositionScore(x: number, y: number, orientation: { width: number; height: number; rotated: boolean }, maxWidth: number, maxHeight: number): number {
-      // 기본 점수: 왼쪽 위부터 우선 (거리 기반)
-      const distanceScore = Math.sqrt((x - MARGIN) ** 2 + (y - MARGIN) ** 2);
-      let score = 10000 - distanceScore;
-      
-      // 회전하지 않은 방향을 약간 선호 (같은 위치라면)
-      if (!orientation.rotated) {
-        score += 5;
-      }
-      
-      // 가장자리에 가까운 배치 선호 (공간 효율성)
-      const edgeBonus = Math.min(x - MARGIN, y - MARGIN, maxWidth - (x - MARGIN) - orientation.width, maxHeight - (y - MARGIN) - orientation.height);
-      if (edgeBonus < SPACING) {
-        score += 10;
-      }
-      
-      return score;
-    }
-    
-    return {
-      positions,
-      totalPieces: positions.length,
-      canFitAll: positions.length === allPieces.length,
-      placedCounts
-    };
-  };
+  // 통합 계산 훅 사용
+  const { unifiedResults, totalQuantity, bestSingleRecommendation } = useUnifiedCalculation({
+    cutItems,
+    availablePanelSizes,
+    maxResults: 10
+  });
 
-  // 복합 네스팅을 사용한 수율 계산 함수
-  const calculateYield = (
-    items: Array<{ width: number; height: number; quantity: number; id: string }>,
-    panelW: number, 
-    panelH: number
-  ): { piecesPerPanel: number; efficiency: number; wasteArea: number; canFitAll: boolean; panelsNeeded: number; placedCounts: { [key: string]: number } } => {
-    let remainingItems = [...items];
-    let totalPanelsNeeded = 0;
-    let allPlacedCounts: { [key: string]: number } = {};
-    let allCanFit = true;
-    
-    // 각 도형이 원판에 물리적으로 들어갈 수 있는지 먼저 확인
-    for (const item of items) {
-      const usableWidth = panelW - 160; // 마진 80*2
-      const usableHeight = panelH - 160; // 마진 80*2
-      
-      // 회전 포함해서 들어갈 수 있는지 확인
-      const canFitNormally = item.width <= usableWidth && item.height <= usableHeight;
-      const canFitRotated = item.height <= usableWidth && item.width <= usableHeight;
-      
-      if (!canFitNormally && !canFitRotated) {
-        allCanFit = false;
-        break;
-      }
-    }
-    
-    if (!allCanFit) {
-      return { 
-        piecesPerPanel: 0, 
-        efficiency: 0, 
-        wasteArea: panelW * panelH, 
-        canFitAll: false, 
-        panelsNeeded: 0,
-        placedCounts: {}
-      };
-    }
-    
-    // 여러 판에 걸쳐 배치 시뮬레이션
-    while (remainingItems.some(item => item.quantity > 0)) {
-      const itemsToPlace = remainingItems.filter(item => item.quantity > 0);
-      if (itemsToPlace.length === 0) break;
-      
-      const { totalPieces, placedCounts } = calculateMultiItemLayout(itemsToPlace, panelW, panelH);
-      
-      if (totalPieces === 0) {
-        // 더 이상 배치할 수 없음
-        break;
-      }
-      
-      totalPanelsNeeded++;
-      
-      // 전체 배치 카운트 누적
-      Object.entries(placedCounts).forEach(([itemId, count]) => {
-        allPlacedCounts[itemId] = (allPlacedCounts[itemId] || 0) + count;
-      });
-      
-      // 수량 업데이트
-      remainingItems = remainingItems.map(item => ({
-        ...item,
-        quantity: Math.max(0, item.quantity - (placedCounts[item.id] || 0))
-      }));
-      
-      // 무한 루프 방지
-      if (totalPanelsNeeded > 50) break;
-    }
-    
-    const totalRequired = items.reduce((sum, item) => sum + item.quantity, 0);
-    const totalPlaced = Object.values(allPlacedCounts).reduce((sum, count) => sum + count, 0);
-    const totalRequiredArea = items.reduce((sum, item) => sum + (item.width * item.height * item.quantity), 0);
-    const totalPanelArea = panelW * panelH * totalPanelsNeeded;
-    const efficiency = totalPanelArea > 0 ? (totalRequiredArea / totalPanelArea) * 100 : 0;
-    const wasteArea = totalPanelArea - totalRequiredArea;
-    const avgPiecesPerPanel = totalPanelsNeeded > 0 ? Math.round(totalPlaced / totalPanelsNeeded) : 0;
-
-    return { 
-      piecesPerPanel: avgPiecesPerPanel, 
-      efficiency, 
-      wasteArea, 
-      canFitAll: totalPlaced >= totalRequired,
-      panelsNeeded: totalPanelsNeeded,
-      placedCounts: allPlacedCounts
-    };
-  };
-
-  // 수율 결과 계산
-  const yieldResults = useMemo(() => {
-    // 모든 재단 항목이 유효한지 확인
-    const validCutItems = cutItems.filter(item => 
+  const validCutItems = useMemo(() => {
+    return cutItems.filter(item => 
       item.width && item.height && item.quantity &&
       parseFloat(item.width) > 0 && parseFloat(item.height) > 0 && parseInt(item.quantity) > 0
     );
+  }, [cutItems]);
 
-    if (validCutItems.length === 0) return [];
+  // 에러 검증 함수들
+  const validateCutItem = useCallback((item: CutItem) => {
+    const width = parseFloat(item.width);
+    const height = parseFloat(item.height);
+    const quantity = parseInt(item.quantity);
 
-    // 복합 네스팅을 위한 아이템 배열 생성
-    const itemsForNesting = validCutItems.map((item, index) => ({
-      width: parseFloat(item.width),
-      height: parseFloat(item.height),
-      quantity: parseInt(item.quantity),
-      id: `item-${index}`
-    }));
+    if (!item.width || !item.height || !item.quantity) {
+      return { isValid: false, message: "모든 필드를 입력해주세요." };
+    }
+    
+    if (isNaN(width) || width <= 0) {
+      return { isValid: false, message: "가로 크기는 0보다 큰 숫자여야 합니다." };
+    }
+    
+    if (isNaN(height) || height <= 0) {
+      return { isValid: false, message: "세로 크기는 0보다 큰 숫자여야 합니다." };
+    }
+    
+    if (isNaN(quantity) || quantity <= 0 || quantity !== Math.floor(quantity)) {
+      return { isValid: false, message: "수량은 1 이상의 정수여야 합니다." };
+    }
 
-    const totalRequired = itemsForNesting.reduce((sum, item) => sum + item.quantity, 0);
+    return { isValid: true, message: "" };
+  }, []);
 
-    const results: YieldResult[] = availablePanelSizes.map(panel => {
-      const { canFitAll, efficiency, wasteArea, panelsNeeded, piecesPerPanel } = calculateYield(itemsForNesting, panel.width, panel.height);
-      
-      // 모든 도형이 배치되지 않으면 제외
-      if (!canFitAll) {
-        return null;
+  const validateAllItems = useCallback(() => {
+    if (cutItems.length === 0) {
+      return { isValid: false, message: "최소 1개의 재단 항목이 필요합니다." };
+    }
+
+    for (const item of cutItems) {
+      const validation = validateCutItem(item);
+      if (!validation.isValid) {
+        return validation;
       }
+    }
 
-      const totalPieces = totalRequired;
-      const surplus = (piecesPerPanel * panelsNeeded) - totalRequired; // 실제 생산량 - 필요량
+    return { isValid: true, message: "" };
+  }, [cutItems, validateCutItem]);
 
-      return {
-        panelSize: panel.name,
-        panelWidth: panel.width,
-        panelHeight: panel.height,
-        piecesPerPanel,
-        panelsNeeded,
-        totalPieces,
-        efficiency,
-        wasteArea,
-        surplus: Math.max(0, surplus)
-      };
-    }).filter(result => result !== null && result.piecesPerPanel > 0);
+  const handleCalculate = () => {
+    const validation = validateAllItems();
+    if (!validation.isValid) {
+      toast.error(validation.message);
+      return;
+    }
 
-    // 여분이 적을수록, 효율성이 높을수록, 필요 판수가 적을수록 우선
-    return results.sort((a, b) => {
-      // 1순위: 여분이 적을수록 좋음
-      if (a.surplus !== b.surplus) {
-        return a.surplus - b.surplus;
-      }
-      // 2순위: 효율성이 높을수록 좋음
-      if (Math.abs(a.efficiency - b.efficiency) > 1) {
-        return b.efficiency - a.efficiency;
-      }
-      // 3순위: 필요 판수가 적을수록 좋음
-      return a.panelsNeeded - b.panelsNeeded;
-    });
-  }, [cutItems, availablePanelSizes]);
+    if (unifiedResults.length === 0) {
+      toast.error("선택한 재질과 두께에서 해당 크기의 재단이 불가능합니다.");
+      return;
+    }
 
-  // 복합 조합 계산
-  const panelCombinations = useMemo(() => {
-    const validCutItems = cutItems.filter(item => 
-      item.width && item.height && item.quantity &&
-      parseFloat(item.width) > 0 && parseFloat(item.height) > 0 && parseInt(item.quantity) > 0
-    );
+    toast.success("수율 계산이 완료되었습니다.");
+  };
 
-    if (validCutItems.length === 0) return [];
-
-    const itemsForNesting = validCutItems.map((item, index) => ({
-      width: parseFloat(item.width),
-      height: parseFloat(item.height),
-      quantity: parseInt(item.quantity),
-      id: `item-${index}`
-    }));
-
-    return calculatePanelCombinations(itemsForNesting, availablePanelSizes);
-  }, [cutItems, availablePanelSizes]);
-
-  const availableThicknesses = useMemo(() => {
-    const priceData = getPriceDataByQuality(selectedQuality);
-    const thicknesses = new Set<string>();
-    Object.keys(priceData).forEach(thickness => thicknesses.add(thickness));
-    return Array.from(thicknesses).sort((a, b) => parseFloat(a) - parseFloat(b));
-  }, [selectedQuality]);
-
-  const totalQuantity = cutItems.reduce((sum, item) => {
-    const qty = parseInt(item.quantity) || 0;
-    return sum + qty;
-  }, 0);
+  const handlePanelSelect = (panelData: {
+    quality: string;
+    thickness: string;
+    size: string;
+    quantity: number;
+  }) => {
+    if (onPanelSelect) {
+      onPanelSelect(panelData);
+      toast.success(`${panelData.size} ${panelData.quantity}장이 견적에 추가되었습니다.`);
+    }
+  };
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          onClick={onBack}
-          className="p-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <div>
-          <h2 className="text-headline flex items-center gap-3">
-            <Package className="w-6 h-6 text-primary" />
-            수율 계산기
-          </h2>
-          <p className="text-body text-muted-foreground mt-1">
-            재단할 도형의 크기와 수량을 입력하여 최적의 원판 사이즈를 찾아보세요
-            <br />
-            <span className="text-xs text-muted-foreground">※ 원판 마진 80mm, 도형 간 간격 50mm가 자동 적용됩니다</span>
-          </p>
-        </div>
-      </div>
-
+    <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-title">재단 정보 입력</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Calculator className="w-5 h-5" />
+            재단 수율 계산기
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="quality">재질</Label>
-              <select 
-                id="quality"
-                value={selectedQuality}
-                onChange={(e) => setSelectedQuality(e.target.value)}
-                className="w-full h-10 px-3 rounded-xl border border-border bg-background focus:border-primary focus:outline-none"
-              >
-                {CASTING_QUALITIES.map(quality => (
-                  <option key={quality.id} value={quality.id}>{quality.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="thickness">두께</Label>
-              <select 
-                id="thickness"
-                value={selectedThickness}
-                onChange={(e) => setSelectedThickness(e.target.value)}
-                className="w-full h-10 px-3 rounded-xl border border-border bg-background focus:border-primary focus:outline-none"
-              >
-                {availableThicknesses.map(thickness => (
-                  <option key={thickness} value={thickness}>{thickness}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+        <CardContent className="space-y-4">
+          {/* 현재 선택 상태 표시 */}
+          <SelectionSummary 
+            selectedQuality={selectedQuality}
+            selectedThickness={selectedThickness}
+            selectedSurface={selectedSurface}
+            selectedColor={selectedColor}
+            selectedFactory={selectedFactory}
+            selectedProcessing={selectedProcessing}
+          />
 
+          {/* 재단 항목 입력 */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label className="text-base font-medium">재단할 도형 정보</Label>
-              <Button
-                variant="outline"
+              <h3 className="text-lg font-semibold">재단 항목</h3>
+              <Button 
+                type="button" 
+                variant="outline" 
                 size="sm"
                 onClick={addCutItem}
-                className="flex items-center gap-2"
+                className="flex items-center gap-1"
               >
                 <Plus className="w-4 h-4" />
-                추가
+                항목 추가
               </Button>
             </div>
-            
+
             {cutItems.map((item, index) => (
-              <div key={item.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-border rounded-xl bg-background/50">
-                <div className="space-y-2">
-                  <Label htmlFor={`width-${item.id}`}>가로 (mm)</Label>
-                  <Input
-                    id={`width-${item.id}`}
-                    type="number"
-                    placeholder="예: 300"
-                    value={item.width}
-                    onChange={(e) => updateCutItem(item.id, 'width', e.target.value)}
-                    className="rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`height-${item.id}`}>세로 (mm)</Label>
-                  <Input
-                    id={`height-${item.id}`}
-                    type="number"
-                    placeholder="예: 200"
-                    value={item.height}
-                    onChange={(e) => updateCutItem(item.id, 'height', e.target.value)}
-                    className="rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`quantity-${item.id}`}>수량 (개)</Label>
-                  <Input
-                    id={`quantity-${item.id}`}
-                    type="number"
-                    placeholder="예: 50"
-                    value={item.quantity}
-                    onChange={(e) => updateCutItem(item.id, 'quantity', e.target.value)}
-                    className="rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>&nbsp;</Label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground font-medium">
-                      도형 {index + 1}
-                    </span>
-                    {cutItems.length > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeCutItem(item.id)}
-                        className="p-1 h-8 w-8 text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
+              <div key={item.id} className="flex items-center gap-3 p-4 border border-border rounded-lg">
+                <div className="flex-1 grid grid-cols-3 gap-3">
+                  <div>
+                    <Label htmlFor={`width-${item.id}`} className="text-sm font-medium">
+                      가로 (mm)
+                    </Label>
+                    <Input
+                      id={`width-${item.id}`}
+                      type="number"
+                      placeholder="0"
+                      value={item.width}
+                      onChange={(e) => updateCutItem(item.id, 'width', e.target.value)}
+                      min="1"
+                      step="1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`height-${item.id}`} className="text-sm font-medium">
+                      세로 (mm)
+                    </Label>
+                    <Input
+                      id={`height-${item.id}`}
+                      type="number"
+                      placeholder="0"
+                      value={item.height}
+                      onChange={(e) => updateCutItem(item.id, 'height', e.target.value)}
+                      min="1"
+                      step="1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`quantity-${item.id}`} className="text-sm font-medium">
+                      수량 (개)
+                    </Label>
+                    <Input
+                      id={`quantity-${item.id}`}
+                      type="number"
+                      placeholder="0"
+                      value={item.quantity}
+                      onChange={(e) => updateCutItem(item.id, 'quantity', e.target.value)}
+                      min="1"
+                      step="1"
+                    />
                   </div>
                 </div>
+                {cutItems.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeCutItem(item.id)}
+                    className="text-destructive hover:text-destructive/90"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
             ))}
           </div>
+
+          {/* 계산 버튼 */}
+          <div className="flex justify-center">
+            <Button 
+              onClick={handleCalculate}
+              className="flex items-center gap-2"
+              disabled={validCutItems.length === 0}
+            >
+              <Calculator className="w-4 h-4" />
+              수율 계산하기
+            </Button>
+          </div>
+
+          {/* 총 수량 표시 */}
+          {totalQuantity > 0 && (
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Users className="w-4 h-4" />
+              총 재단 수량: <Badge variant="secondary">{totalQuantity}개</Badge>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* 통합 추천 결과 */}
-      {(yieldResults.length > 0 || panelCombinations.length > 0) && (
+      {unifiedResults.length > 0 && (
         <UnifiedRecommendations
-          yieldResults={yieldResults}
-          combinations={panelCombinations}
+          unifiedResults={unifiedResults}
           cutItems={cutItems}
-          onPanelSelect={onPanelSelect}
+          onPanelSelect={handlePanelSelect}
           selectedQuality={selectedQuality}
           selectedThickness={selectedThickness}
           availablePanelSizes={availablePanelSizes}
+          totalQuantity={totalQuantity}
+          bestSingleRecommendation={bestSingleRecommendation}
         />
-      )}
-
-      {cutItems.some(item => item.width && item.height && item.quantity) && yieldResults.length === 0 && panelCombinations.length === 0 && (
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <p className="text-muted-foreground">
-              입력하신 크기로는 선택된 두께에서 생산 가능한 원판이 없습니다.
-              <br />
-              더 작은 크기로 입력하거나 다른 두께를 선택해주세요.
-            </p>
-          </CardContent>
-        </Card>
       )}
     </div>
   );
