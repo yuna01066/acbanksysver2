@@ -455,7 +455,7 @@ const PanelCalculator = () => {
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900">클라이언트 메모 (선택사항)</h3>
                 <p className="text-sm text-gray-600">
-                  특별한 요청사항이나 참고할 내용을 입력해주세요.
+                  클라이언트의 요청사항이나 참고할 내용을 입력해주세요.
                 </p>
                 <div className="max-w-md">
                   <Input
