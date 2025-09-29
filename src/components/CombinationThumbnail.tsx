@@ -205,8 +205,8 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
           width={scaledPanelWidth}
           height={scaledPanelHeight}
           fill="hsl(var(--muted))"
-          stroke="hsl(var(--border))"
-          strokeWidth="1"
+          stroke="hsl(var(--foreground))"
+          strokeWidth="2"
           rx="4"
         />
         
