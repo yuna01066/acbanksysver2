@@ -129,7 +129,6 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                     style={{ backgroundColor: color.hexCode }}
                   />
                   <div className="mt-2 text-center">
-                    <div className="text-xs font-medium text-gray-900">{color.name}</div>
                     <div className="text-xs text-gray-500">{color.acCode}</div>
                     <div className="text-xs text-gray-400">{color.hexCode}</div>
                   </div>
