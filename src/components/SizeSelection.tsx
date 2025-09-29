@@ -16,7 +16,7 @@ const SizeSelection: React.FC<SizeSelectionProps> = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-2xl font-bold text-gray-900 mb-2">판재 사이즈를 선택해주세요</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-2">5. 판재 사이즈를 선택해주세요</h3>
         <p className="text-gray-600">원하는 판재의 크기를 선택해주세요</p>
       </div>
       {availableSizes.length > 0 ? (

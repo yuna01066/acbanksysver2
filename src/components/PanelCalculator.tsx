@@ -22,6 +22,7 @@ import ThicknessSelection from "./ThicknessSelection";
 import SizeSelection from "./SizeSelection";
 import ColorTypeSelection from "./ColorTypeSelection";
 import SurfaceSelection from "./SurfaceSelection";
+import ColorSelection from "./ColorSelection";
 import { useQuotes } from "@/contexts/QuoteContext";
 import { usePriceCalculation } from "@/hooks/usePriceCalculation";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,7 @@ const PanelCalculator = () => {
   const [selectedQuality, setSelectedQuality] = useState<Quality | null>(null);
   const [selectedThickness, setSelectedThickness] = useState<string>('');
   const [selectedSize, setSelectedSize] = useState<string>('');
+  const [selectedColor, setSelectedColor] = useState<string>('');
   const [selectedColorType, setSelectedColorType] = useState<string>('');
   const [selectedSurface, setSelectedSurface] = useState<string>('');
   const [colorMixingCost, setColorMixingCost] = useState<number>(0);
@@ -72,6 +74,7 @@ const PanelCalculator = () => {
     if (step <= 0) {
       setSelectedMaterial(null);
       setSelectedQuality(null);
+      setSelectedColor('');
       setSelectedThickness('');
       setSelectedSize('');
       setSelectedColorType('');
@@ -82,6 +85,7 @@ const PanelCalculator = () => {
     } else if (step <= 1) {
       setSelectedMaterial(null);
       setSelectedQuality(null);
+      setSelectedColor('');
       setSelectedThickness('');
       setSelectedSize('');
       setSelectedColorType('');
@@ -91,6 +95,7 @@ const PanelCalculator = () => {
       setCurrentStep(1);
     } else if (step <= 2) {
       setSelectedQuality(null);
+      setSelectedColor('');
       setSelectedThickness('');
       setSelectedSize('');
       setSelectedColorType('');
@@ -99,6 +104,7 @@ const PanelCalculator = () => {
       setSelectedProcessing('');
       setCurrentStep(2);
     } else if (step <= 3) {
+      setSelectedColor('');
       setSelectedThickness('');
       setSelectedSize('');
       setSelectedColorType('');
@@ -107,6 +113,7 @@ const PanelCalculator = () => {
       setSelectedProcessing('');
       setCurrentStep(3);
     } else if (step <= 4) {
+      setSelectedThickness('');
       setSelectedSize('');
       setSelectedColorType('');
       setSelectedSurface('');
@@ -114,23 +121,30 @@ const PanelCalculator = () => {
       setSelectedProcessing('');
       setCurrentStep(4);
     } else if (step <= 5) {
+      setSelectedSize('');
       setSelectedColorType('');
       setSelectedSurface('');
       setColorMixingCost(0);
       setSelectedProcessing('');
       setCurrentStep(5);
     } else if (step <= 6) {
+      setSelectedColorType('');
       setSelectedSurface('');
       setColorMixingCost(0);
       setSelectedProcessing('');
       setCurrentStep(6);
     } else if (step <= 7) {
+      setSelectedSurface('');
       setColorMixingCost(0);
       setSelectedProcessing('');
       setCurrentStep(7);
     } else if (step <= 8) {
+      setColorMixingCost(0);
       setSelectedProcessing('');
       setCurrentStep(8);
+    } else if (step <= 9) {
+      setSelectedProcessing('');
+      setCurrentStep(9);
     }
   };
 
@@ -161,36 +175,43 @@ const PanelCalculator = () => {
     setCurrentStep(3);
   };
 
+  const handleColorSelect = (color: string) => {
+    console.log('Color selected:', color);
+    setSelectedColor(color);
+    resetFromStep(4);
+    setCurrentStep(4);
+  };
+
   const handleThicknessSelect = (thickness: string) => {
     console.log('Thickness selected:', thickness);
     setSelectedThickness(thickness);
-    resetFromStep(4);
-    setCurrentStep(4);
+    resetFromStep(5);
+    setCurrentStep(5);
   };
 
   const handleSizeSelect = (size: string) => {
     console.log('Size selected:', size);
     setSelectedSize(size);
-    resetFromStep(5);
+    resetFromStep(6);
     if (selectedQuality?.id === 'glossy-standard') {
-      setCurrentStep(5);
-    } else {
       setCurrentStep(6);
+    } else {
+      setCurrentStep(7);
     }
   };
 
   const handleColorTypeSelect = (colorType: string) => {
     console.log('Color type selected:', colorType);
     setSelectedColorType(colorType);
-    resetFromStep(6);
-    setCurrentStep(6);
+    resetFromStep(7);
+    setCurrentStep(7);
   };
 
   const handleSurfaceSelect = (surface: string) => {
     console.log('Surface selected:', surface);
     setSelectedSurface(surface);
-    resetFromStep(7);
-    setCurrentStep(7);
+    resetFromStep(8);
+    setCurrentStep(8);
   };
 
   const handleColorMixingAdd = () => {
@@ -209,7 +230,7 @@ const PanelCalculator = () => {
   };
 
   const handleNextStepFromColorMixing = () => {
-    setCurrentStep(8);
+    setCurrentStep(9);
   };
 
   const handleAddQuote = () => {
@@ -244,7 +265,7 @@ const PanelCalculator = () => {
     setCalculatorType(null);
     setSelectedMaterial(null);
     setSelectedQuality(null);
-    setSelectedThickness('');
+    setSelectedColor('');
     setSelectedSize('');
     setSelectedColorType('');
     setSelectedSurface('');
@@ -281,9 +302,9 @@ const PanelCalculator = () => {
     
     // glossy-standard인 경우 색상 타입 선택 단계로, 아니면 면수 선택 단계로
     if (quality?.id === 'glossy-standard') {
-      setCurrentStep(5); // 색상 타입 선택
+      setCurrentStep(6); // 색상 타입 선택
     } else {
-      setCurrentStep(6); // 면수 선택
+      setCurrentStep(7); // 면수 선택
     }
   };
 
@@ -292,7 +313,7 @@ const PanelCalculator = () => {
     setCalculatorType(null);
   };
 
-  const maxSteps = selectedQuality?.id === 'glossy-standard' ? 9 : 9;
+  const maxSteps = selectedQuality?.id === 'glossy-standard' ? 10 : 10;
 
   return (
     <div className="min-h-screen p-6">
@@ -385,8 +406,16 @@ const PanelCalculator = () => {
             />
           )}
 
-          {/* Step 3: 두께 선택 */}
+          {/* Step 3: 색상 선택 */}
           {currentStep === 3 && selectedQuality && (
+            <ColorSelection
+              selectedColor={selectedColor}
+              onColorSelect={handleColorSelect}
+            />
+          )}
+
+          {/* Step 4: 두께 선택 */}
+          {currentStep === 4 && selectedColor && (
             <ThicknessSelection
               thicknesses={selectedQuality.thicknesses}
               selectedThickness={selectedThickness}
@@ -394,25 +423,16 @@ const PanelCalculator = () => {
             />
           )}
 
-          {/* Step 4: 사이즈 선택 */}
-          {currentStep === 4 && selectedThickness && (
-            <SizeSelection
-              availableSizes={getAvailableSizes()}
-              selectedSize={selectedSize}
-              onSizeSelect={handleSizeSelect}
-            />
-          )}
-
-          {/* Step 5: 색상타입 선택 */}
-          {currentStep === 5 && selectedSize && selectedQuality?.id === 'glossy-standard' && (
+          {/* Step 5: 사이즈 선택 */}
+          {currentStep === 5 && selectedThickness && (
             <ColorTypeSelection
               selectedColorType={selectedColorType}
               onColorTypeSelect={handleColorTypeSelect}
             />
           )}
 
-          {/* Step 6: 면수 선택 */}
-          {currentStep === 6 && 
+          {/* Step 7: 면수 선택 */}
+          {currentStep === 7 && 
            ((selectedQuality?.id === 'glossy-standard' && selectedColorType) || 
             (selectedQuality?.id !== 'glossy-standard' && selectedSize)) && (
             <SurfaceSelection
@@ -422,8 +442,8 @@ const PanelCalculator = () => {
             />
           )}
 
-          {/* Step 7: 조색비 추가 */}
-          {currentStep === 7 && selectedSurface && (
+          {/* Step 8: 조색비 추가 */}
+          {currentStep === 8 && selectedSurface && (
             <ColorMixingStep
               colorMixingCost={colorMixingCost}
               onColorMixingAdd={handleColorMixingAdd}
@@ -433,8 +453,8 @@ const PanelCalculator = () => {
             />
           )}
 
-          {/* Step 8: 가공 선택 */}
-          {currentStep === 8 && (
+          {/* Step 9: 가공 선택 */}
+          {currentStep === 9 && (
             <ProcessingOptions
               selectedProcessing={selectedProcessing}
               onProcessingSelect={handleProcessingSelect}
@@ -443,7 +463,7 @@ const PanelCalculator = () => {
           )}
 
           {/* 시리얼 넘버 입력 */}
-          {currentStep === 8 && selectedProcessing && (
+          {currentStep === 9 && selectedProcessing && (
             <>
               <Separator className="my-8" />
               <div className="space-y-4">
@@ -465,7 +485,7 @@ const PanelCalculator = () => {
           )}
 
           {/* 견적 추가 버튼 */}
-          {currentStep === 8 && selectedProcessing && priceInfo.totalPrice > 0 && (
+          {currentStep === 9 && selectedProcessing && priceInfo.totalPrice > 0 && (
             <>
               <Separator className="my-8" />
               <div className="flex justify-center gap-4">

@@ -16,7 +16,7 @@ const ThicknessSelection: React.FC<ThicknessSelectionProps> = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-2xl font-bold text-gray-900 mb-2">두께를 선택해주세요</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-2">4. 두께를 선택해주세요</h3>
         <p className="text-gray-600">필요한 판재의 두께를 선택해주세요</p>
       </div>
       <div className="grid grid-cols-4 md:grid-cols-6 gap-3">

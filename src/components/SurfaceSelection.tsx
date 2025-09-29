@@ -18,7 +18,7 @@ const SurfaceSelection: React.FC<SurfaceSelectionProps> = ({
     <div className="space-y-6">
       <div className="text-center">
         <h3 className="text-2xl font-bold text-gray-900 mb-2">
-          {isGlossyStandard ? '6.' : '5.'} 면수를 선택해주세요
+          {isGlossyStandard ? '7.' : '7.'} 면수를 선택해주세요
         </h3>
         <p className="text-gray-600">판재의 면수를 선택해주세요</p>
       </div>
