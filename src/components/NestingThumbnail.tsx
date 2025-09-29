@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { optimizedNesting } from '@/utils/optimizedNesting';
 
 interface CutItem {
   width: string;
@@ -42,7 +41,7 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
   const offsetX = (THUMBNAIL_WIDTH - scaledPanelWidth) / 2;
   const offsetY = (THUMBNAIL_HEIGHT - scaledPanelHeight) / 2;
 
-  // 최적화된 네스팅 알고리즘 사용
+  // 여러 원판에 걸쳐 배치 계산
   const calculateMultiPanelLayout = () => {
     const usableWidth = panelWidth; // MARGIN이 0이므로 전체 크기 사용
     const usableHeight = panelHeight; // MARGIN이 0이므로 전체 크기 사용
