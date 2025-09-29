@@ -290,10 +290,6 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
         </>
       )}
       
-      {/* 판 수와 효율 표시 */}
-      <div className="absolute top-1 right-1 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded">
-        {panelsNeeded}장 (효율: {efficiency.toFixed(1)}%)
-      </div>
     </div>
   );
 };

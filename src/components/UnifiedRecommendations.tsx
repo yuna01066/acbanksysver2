@@ -194,8 +194,13 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
 
                 {recommendation.type === 'single' ? (
                   <div>
-                    <div className="text-lg font-medium mb-2">
-                      {(recommendation.data as YieldResult).panelSize}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-lg font-medium">
+                        {(recommendation.data as YieldResult).panelSize}
+                      </div>
+                      <div className="bg-muted px-2 py-1 rounded text-xs text-muted-foreground">
+                        {recommendation.panelsNeeded}장 (효율: {recommendation.efficiency.toFixed(1)}%)
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
