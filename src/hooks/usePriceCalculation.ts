@@ -75,19 +75,19 @@ export const usePriceCalculation = ({
   const getSizeWithDimensions = (baseSize: string): string => {
     // 10T~20T 기준 치수 매핑
     const baseSizeMapping: { [key: string]: { width: number; height: number } } = {
-      '3*6': { width: 920, height: 1820 },
-      '대3*6': { width: 970, height: 1870 },
-      '4*5': { width: 1190, height: 1495 },
-      '대4*5': { width: 1270, height: 1570 },
-      '1*2': { width: 1070, height: 2070 },
-      '4*6': { width: 1270, height: 1920 },
+      '3*6': { width: 900, height: 1800 },
+      '대3*6': { width: 950, height: 1850 },
+      '4*5': { width: 1170, height: 1475 },
+      '대4*5': { width: 1250, height: 1550 },
+      '1*2': { width: 1050, height: 2050 },
+      '4*6': { width: 1250, height: 1900 },
       '4*8': { width: 1200, height: 2400 },
-      '4*10': { width: 1270, height: 3070 },
-      '5*5': { width: 1570, height: 1570 },
-      '5*6': { width: 1570, height: 1870 },
-      '5*8': { width: 1570, height: 2470 },
-      '소3*6': { width: 920, height: 1820 },
-      '소1*2': { width: 1070, height: 2070 }
+      '4*10': { width: 1250, height: 3050 },
+      '5*5': { width: 1550, height: 1550 },
+      '5*6': { width: 1550, height: 1850 },
+      '5*8': { width: 1550, height: 2450 },
+      '소3*6': { width: 900, height: 1800 },
+      '소1*2': { width: 1050, height: 2050 }
     };
 
     const baseInfo = baseSizeMapping[baseSize];
