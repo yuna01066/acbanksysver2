@@ -151,8 +151,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
         height: 1500
       },
       '1*2': {
-        width: 950,
-        height: 1950
+        width: 1000,
+        height: 2000
       },
       '4*6': {
         width: 1200,
@@ -173,10 +173,6 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       '5*8': {
         width: 1500,
         height: 2400
-      },
-      '5*5': {
-        width: 1550,
-        height: 1550
       }
     };
 
