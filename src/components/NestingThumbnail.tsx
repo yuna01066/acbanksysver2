@@ -93,50 +93,80 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
       
       for (const piece of piecesToPlace) {
         let placed = false;
+        let bestPosition = null;
+        let bestScore = -1;
         
         // 이미 배치된 도형은 건너뛰기
         if (placedInThisPanel.includes(piece.pieceId)) continue;
         
-        // 가능한 배치 위치와 회전 시도
+        // 가능한 배치 위치와 회전 시도 (최적화된 평가)
         const orientations = [
           { width: piece.width, height: piece.height, rotated: false },
           { width: piece.height, height: piece.width, rotated: true }
         ];
         
+        // 각 방향에 대해 가능한 모든 위치 평가
         for (const orientation of orientations) {
-          if (placed) break;
-          
           // 사용 가능한 영역에 들어가는지 확인
           if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
           
           // 가능한 모든 위치에서 배치 시도
-          for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height && !placed; y += SPACING) {
-            for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width && !placed; x += SPACING) {
+          for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += SPACING) {
+            for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += SPACING) {
               if (!isOverlapping(x, y, orientation.width, orientation.height)) {
-                // 배치 가능한 위치 발견
-                currentPanelPositions.push({
-                  x,
-                  y,
-                  width: orientation.width,
-                  height: orientation.height,
-                  rotated: orientation.rotated,
-                  color: colors[piece.itemIndex % colors.length],
-                  itemIndex: piece.itemIndex
-                });
+                // 이 위치의 점수 계산
+                const positionScore = calculatePositionScore(x, y, orientation, usableWidth, usableHeight);
                 
-                occupiedAreas.push({
-                  x,
-                  y,
-                  width: orientation.width,
-                  height: orientation.height
-                });
-                
-                placedInThisPanel.push(piece.pieceId);
-                placed = true;
+                if (positionScore > bestScore) {
+                  bestScore = positionScore;
+                  bestPosition = {
+                    x, y,
+                    width: orientation.width,
+                    height: orientation.height,
+                    rotated: orientation.rotated,
+                    color: colors[piece.itemIndex % colors.length],
+                    itemIndex: piece.itemIndex
+                  };
+                }
               }
             }
           }
         }
+        
+        // 최적 위치에 배치
+        if (bestPosition) {
+          currentPanelPositions.push(bestPosition);
+          
+          occupiedAreas.push({
+            x: bestPosition.x,
+            y: bestPosition.y,
+            width: bestPosition.width,
+            height: bestPosition.height
+          });
+          
+          placedInThisPanel.push(piece.pieceId);
+          placed = true;
+        }
+      }
+      
+      // 배치 점수 계산 함수
+      function calculatePositionScore(x: number, y: number, orientation: { width: number; height: number; rotated: boolean }, maxWidth: number, maxHeight: number): number {
+        // 기본 점수: 왼쪽 위부터 우선 (거리 기반)
+        const distanceScore = Math.sqrt((x - MARGIN) ** 2 + (y - MARGIN) ** 2);
+        let score = 10000 - distanceScore;
+        
+        // 회전하지 않은 방향을 약간 선호 (같은 위치라면)
+        if (!orientation.rotated) {
+          score += 5;
+        }
+        
+        // 가장자리에 가까운 배치 선호 (공간 효율성)
+        const edgeBonus = Math.min(x - MARGIN, y - MARGIN, maxWidth - (x - MARGIN) - orientation.width, maxHeight - (y - MARGIN) - orientation.height);
+        if (edgeBonus < SPACING) {
+          score += 10;
+        }
+        
+        return score;
       }
       
       // 배치된 도형들을 남은 도형 목록에서 제거
