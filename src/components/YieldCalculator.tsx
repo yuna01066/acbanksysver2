@@ -163,8 +163,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
          height: 2400
        },
       '4*10': {
-        width: 1250,
-        height: 3050
+        width: 1200,
+        height: 3000
       },
       '5*6': {
         width: 1550,
