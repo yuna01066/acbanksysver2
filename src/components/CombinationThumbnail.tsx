@@ -30,15 +30,15 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
   
   const MARGIN = 80;
   const SPACING = 50; // 정확히 50mm 간격 (변경 금지)
-  const THUMBNAIL_WIDTH = 240;
-  const THUMBNAIL_HEIGHT = 180;
+  const THUMBNAIL_WIDTH = 400; // 더 큰 썸네일 크기
+  const THUMBNAIL_HEIGHT = 300;
 
   // 현재 선택된 원판 정보
   const currentPanelUsage = panelUsages[currentPanelIndex];
   const currentPanelInfo = availablePanelSizes.find(p => p.name === currentPanelUsage?.panelName);
   
   if (!currentPanelUsage || !currentPanelInfo) {
-    return <div className="w-[240px] h-[180px] bg-muted rounded border flex items-center justify-center text-sm text-muted-foreground">
+    return <div className="w-[400px] h-[300px] bg-muted rounded border flex items-center justify-center text-sm text-muted-foreground">
       네스팅 정보 없음
     </div>;
   }

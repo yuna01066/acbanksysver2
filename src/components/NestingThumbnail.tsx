@@ -24,8 +24,8 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
   
   const MARGIN = 80;
   const SPACING = 50; // 정확히 50mm 간격 (변경 금지)
-  const THUMBNAIL_WIDTH = 240;
-  const THUMBNAIL_HEIGHT = 180;
+  const THUMBNAIL_WIDTH = 400; // 더 큰 썸네일 크기
+  const THUMBNAIL_HEIGHT = 300;
   
   // 1/10 스케일 계산 (원판 mm 기준으로 정확히 1/10, 절대 변경 금지)
   const scale = 0.1;
