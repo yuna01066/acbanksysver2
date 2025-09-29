@@ -140,19 +140,6 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         ))}
       </div>
 
-      {selectedProcessing && (
-        <div className="text-center pt-8">
-          <Button
-            onClick={() => {
-              console.log('Selection completed');
-            }}
-            className="px-8 py-3 text-lg font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-colors duration-200"
-          >
-            <Calculator className="w-5 h-5 mr-2" />
-            견적 완료
-          </Button>
-        </div>
-      )}
     </div>
   );
 };
