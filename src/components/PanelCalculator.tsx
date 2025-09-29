@@ -460,7 +460,7 @@ const PanelCalculator = () => {
                 <div className="max-w-md">
                   <Input
                     type="text"
-                    placeholder="특별 요청사항을 입력해주세요"
+                    placeholder="요청사항을 입력해주세요"
                     value={serialNumber}
                     onChange={(e) => setSerialNumber(e.target.value)}
                     className="w-full"
