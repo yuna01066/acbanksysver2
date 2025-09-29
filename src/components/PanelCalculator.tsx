@@ -358,6 +358,7 @@ const PanelCalculator = () => {
               selectedFactory="jangwon"
               selectedMaterial={selectedMaterial}
               selectedQuality={selectedQuality}
+              selectedColor={selectedColor}
               selectedThickness={selectedThickness}
               selectedSize={selectedSize}
               selectedColorType={selectedColorType}
