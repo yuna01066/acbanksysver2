@@ -258,28 +258,29 @@ const PanelCalculator = () => {
   const maxSteps = selectedQuality?.id === 'glossy-standard' ? 9 : 9;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <Card className="w-full max-w-4xl mx-auto shadow-sm border-0 rounded-xl overflow-hidden bg-white">
-        <CardHeader className="text-center pb-6 bg-white border-b border-gray-100">
-          <div className="flex justify-between items-center mb-4 print:hidden">
+    <div className="min-h-screen p-6">
+      <Card className="w-full max-w-4xl mx-auto border-border/50 shadow-smooth animate-fade-up overflow-hidden">
+        <CardHeader className="text-center pb-8 border-b border-border/50">
+          <div className="flex justify-between items-center mb-6 print:hidden">
             <div></div>
             {quotes.length > 0 && (
               <Button 
                 onClick={handleViewQuotesSummary}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                variant="default"
+                className="animate-slide-in"
               >
                 <ShoppingCart className="w-4 h-4" />
                 견적서 작성 완료 ({quotes.length})
               </Button>
             )}
           </div>
-          <CardTitle className="text-2xl font-semibold flex items-center justify-center gap-3 mb-2 text-gray-900">
-            <Calculator className="w-6 h-6" />
+          <CardTitle className="text-display flex items-center justify-center gap-4 mb-3">
+            <Calculator className="w-8 h-8 text-primary" />
             판재 단가 계산기
           </CardTitle>
-          <p className="text-gray-600">정확하고 빠른 판재 가격 계산</p>
+          <p className="text-body text-muted-foreground">정확하고 빠른 판재 가격 계산</p>
         </CardHeader>
-        <CardContent className="p-8">
+        <CardContent className="p-8 space-y-8">
           <StepIndicator currentStep={currentStep + 1} maxSteps={maxSteps} />
           
           {/* 선택된 옵션 요약 - Step 0에서는 숨김 */}
@@ -422,7 +423,8 @@ const PanelCalculator = () => {
               <div className="flex justify-center gap-4">
                 <Button 
                   onClick={handleAddQuote}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg font-semibold rounded-lg transition-all duration-200 flex items-center gap-3"
+                  size="lg"
+                  className="px-8 animate-fade-up"
                 >
                   <Plus className="w-5 h-5" />
                   견적 추가
@@ -439,7 +441,7 @@ const PanelCalculator = () => {
                 <Button 
                   variant="ghost" 
                   onClick={() => setCurrentStep(currentStep - 1)}
-                  className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-6 py-3 rounded-lg font-medium transition-all duration-200"
+                  className="px-6"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   이전 단계로

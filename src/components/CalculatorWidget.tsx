@@ -9,13 +9,13 @@ const CalculatorWidget = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="w-full min-h-screen bg-gray-50">
-      <div className="fixed top-4 right-4 z-50 print:hidden">
+    <div className="w-full min-h-screen">
+      <div className="fixed top-6 right-6 z-50 print:hidden">
         <Button
           onClick={() => navigate('/admin-settings')}
-          variant="outline"
+          variant="minimal"
           size="sm"
-          className="flex items-center gap-2 bg-white shadow-md hover:shadow-lg"
+          className="animate-fade-up backdrop-blur-sm bg-white/90 border-border/50 hover:bg-white hover:shadow-smooth"
         >
           <Settings className="w-4 h-4" />
           관리자 설정

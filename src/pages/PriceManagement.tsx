@@ -9,13 +9,13 @@ const PriceManagement = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-6">
       <div className="w-full max-w-7xl mx-auto">
-        <div className="mb-6">
+        <div className="mb-8">
           <Button 
-            variant="outline" 
+            variant="minimal" 
             onClick={() => navigate('/admin-settings')}
-            className="flex items-center gap-2 bg-white shadow-sm"
+            className="animate-slide-in"
             size="sm"
           >
             <ArrowLeft className="w-4 h-4" />

@@ -52,24 +52,26 @@ const PriceCard: React.FC<PriceCardProps> = ({ thickness, sizeData, surface, onP
   };
 
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center justify-between">
-          <div>
-            <span>{thickness}</span>
-            <div className="text-sm font-normal text-muted-foreground">{surface}</div>
+    <Card className="h-full hover:shadow-smooth transition-all duration-200 border-border/50">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-title flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="font-medium">{thickness}</span>
+            <div className="text-caption">{surface}</div>
           </div>
-          <Badge variant="outline">{Object.keys(sizeData).length}개 사이즈</Badge>
+          <Badge variant="outline" className="rounded-full text-xs">
+            {Object.keys(sizeData).length}개
+          </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-2">
         {Object.entries(sizeData).map(([size, price]) => {
           const isEditing = editingKey === `${thickness}-${size}`;
           
           return (
-            <div key={size} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+            <div key={size} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors duration-200">
               <div className="flex-1">
-                <div className="font-medium">{size}</div>
+                <div className="text-body font-medium">{size}</div>
                 <div className="text-sm text-muted-foreground">
                   {isEditing ? (
                     <div className="flex items-center gap-2 mt-1">
@@ -145,22 +147,22 @@ const QualityTab: React.FC<QualityTabProps> = ({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-xl font-semibold">{qualityName}</h3>
-          <p className="text-muted-foreground">총 {totalCards}개 가격 카드 ({filteredData.length}개 두께)</p>
+        <div className="space-y-1">
+          <h3 className="text-headline">{qualityName}</h3>
+          <p className="text-body text-muted-foreground">총 {totalCards}개 가격 카드 ({filteredData.length}개 두께)</p>
         </div>
-        <Button onClick={onLoadPrices} variant="outline" size="sm">
+        <Button onClick={onLoadPrices} variant="minimal" size="sm">
           <RefreshCw className="h-4 w-4 mr-2" />
           가격 새로고침
         </Button>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredData.map(([thickness, surfaceData]) => 
           Object.entries(surfaceData).map(([surface, sizeData]) => (
-            <div key={`${thickness}-${surface}`} className="group">
+            <div key={`${thickness}-${surface}`} className="group animate-fade-up">
               <PriceCard
                 thickness={thickness}
                 surface={surface}
@@ -252,15 +254,15 @@ const ModernPriceManager = () => {
   }, []);
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6">
+    <div className="w-full max-w-7xl mx-auto space-y-8 animate-fade-up">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">가격 관리</h1>
-          <p className="text-muted-foreground">제품별 가격을 쉽게 관리하고 수정할 수 있습니다</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+        <div className="space-y-2">
+          <h1 className="text-display">가격 관리</h1>
+          <p className="text-body text-muted-foreground">제품별 가격을 쉽게 관리하고 수정할 수 있습니다</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={loadAllPrices} variant="outline">
+        <div className="flex gap-3">
+          <Button onClick={loadAllPrices} variant="minimal">
             <RefreshCw className="h-4 w-4 mr-2" />
             전체 새로고침
           </Button>
@@ -272,15 +274,15 @@ const ModernPriceManager = () => {
       </div>
 
       {/* Search */}
-      <Card>
+      <Card className="hover:shadow-smooth transition-all duration-200">
         <CardContent className="pt-6">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               placeholder="두께로 검색 (예: 3T, 10T)"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-12 h-12 rounded-xl border-border/50 focus:border-primary"
             />
           </div>
         </CardContent>
@@ -288,9 +290,13 @@ const ModernPriceManager = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 bg-muted/30 rounded-2xl p-1 border border-border/50">
           {qualities.map((quality) => (
-            <TabsTrigger key={quality.id} value={quality.id} className="text-xs sm:text-sm">
+            <TabsTrigger 
+              key={quality.id} 
+              value={quality.id} 
+              className="text-xs sm:text-sm rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-minimal"
+            >
               {quality.name.split(' ')[0]}
             </TabsTrigger>
           ))}
