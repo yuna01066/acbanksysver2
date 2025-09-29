@@ -75,8 +75,8 @@ export const usePriceCalculation = ({
   const getSizeWithDimensions = (baseSize: string): string => {
     // 10T~20T 기준 치수 매핑
     const baseSizeMapping: { [key: string]: { width: number; height: number } } = {
-      '3*6': { width: 900, height: 1800 },
-      '대3*6': { width: 950, height: 1850 },
+      '3*6': { width: 860, height: 1750 },
+      '대3*6': { width: 900, height: 1800 },
       '4*5': { width: 1170, height: 1475 },
       '대4*5': { width: 1250, height: 1550 },
       '1*2': { width: 950, height: 1950 },
@@ -85,9 +85,7 @@ export const usePriceCalculation = ({
       '4*10': { width: 1200, height: 3000 },
       '5*5': { width: 1550, height: 1550 },
       '5*6': { width: 1550, height: 1850 },
-      '5*8': { width: 1500, height: 2400 },
-      '소3*6': { width: 900, height: 1800 },
-      '소1*2': { width: 1050, height: 2050 }
+      '5*8': { width: 1500, height: 2400 }
     };
 
     const baseInfo = baseSizeMapping[baseSize];
