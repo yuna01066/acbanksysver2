@@ -118,8 +118,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
           width: baseWidth,
           height: baseHeight
         };
-      } else {
-        // 20T 초과: 10T~20T 기준에서 50mm 빼기
+      } else if (thickness >= 20 && thickness <= 30) {
+        // 20T ~ 30T: 10T~20T 기준에서 50mm 빼기
         return {
           width: baseWidth - 50,
           height: baseHeight - 50

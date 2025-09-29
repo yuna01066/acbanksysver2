@@ -105,8 +105,8 @@ export const usePriceCalculation = ({
     } else if (thickness >= 10 && thickness <= 20) {
       // 10T ~ 20T: 기준 사이즈 그대로
       // 변경 없음
-    } else if (thickness > 20) {
-      // 20T 초과: 10T~20T 기준에서 50mm 빼기
+    } else if (thickness >= 20 && thickness <= 30) {
+      // 20T ~ 30T: 10T~20T 기준에서 50mm 빼기
       actualWidth -= 50;
       actualHeight -= 50;
     }
