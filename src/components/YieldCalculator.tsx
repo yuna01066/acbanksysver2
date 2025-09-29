@@ -107,13 +107,13 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
       
       if (thickness >= 1.3 && thickness < 10) {
-        // 1.3T ~ 10T 미만: 20mm 추가 (10T~20T 대비)
+        // 1.3T ~ 10T 미만: 10T~20T 기준에서 20mm 더하기
         return {
-          width: baseWidth + 70,  // 기본 사이즈에서 70mm 추가
+          width: baseWidth + 70,  // 20T 초과 기준에서 70mm 더하기 (50mm + 20mm)
           height: baseHeight + 70
         };
       } else if (thickness >= 10 && thickness <= 20) {
-        // 10T ~ 20T: 50mm 추가 (기본 사이즈 대비)
+        // 10T ~ 20T: 20T 초과 기준에서 50mm 더하기
         return {
           width: baseWidth + 50,
           height: baseHeight + 50
