@@ -24,8 +24,8 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
   
   const MARGIN = 80;
   const SPACING = 50;
-  const THUMBNAIL_WIDTH = 200;
-  const THUMBNAIL_HEIGHT = 150;
+  const THUMBNAIL_WIDTH = 240;
+  const THUMBNAIL_HEIGHT = 180;
   
   // 스케일 계산 (원판이 썸네일에 맞도록)
   const scaleX = THUMBNAIL_WIDTH / panelWidth;
