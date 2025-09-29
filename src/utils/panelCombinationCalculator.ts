@@ -39,7 +39,7 @@ const calculateMultiItemLayout = (
   placedCounts: { [key: string]: number };
 } => {
   const MARGIN = 80;
-  const SPACING = 20; // 20mm 간격으로 수정
+  const SPACING = 5; // 50mm의 1/10 = 5mm 간격
   
   const usableWidth = panelW - (MARGIN * 2);
   const usableHeight = panelH - (MARGIN * 2);
@@ -62,7 +62,7 @@ const calculateMultiItemLayout = (
   const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
   const placedCounts: { [key: string]: number } = {};
   
-  // 위치가 겹치는지 확인 (20mm 간격 포함)
+  // 위치가 겹치는지 확인 (5mm 간격 포함)
   const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
     return occupiedAreas.some(area => 
       !(x >= area.x + area.width + SPACING || x + w + SPACING <= area.x || 
@@ -84,8 +84,8 @@ const calculateMultiItemLayout = (
       
       if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
       
-      for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height && !placed; y += 10) {
-        for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width && !placed; x += 10) {
+      for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height && !placed; y += 5) {
+        for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width && !placed; x += 5) {
           if (!isOverlapping(x, y, orientation.width, orientation.height)) {
             positions.push({
               x, y,

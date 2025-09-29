@@ -29,7 +29,7 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   
   const MARGIN = 80;
-  const SPACING = 20; // 20mm 간격
+  const SPACING = 5; // 50mm의 1/10 = 5mm 간격
   const THUMBNAIL_WIDTH = 240;
   const THUMBNAIL_HEIGHT = 180;
 

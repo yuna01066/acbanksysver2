@@ -23,7 +23,7 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   
   const MARGIN = 80;
-  const SPACING = 20; // 20mm 간격
+  const SPACING = 5; // 50mm의 1/10 = 5mm 간격
   const THUMBNAIL_WIDTH = 240;
   const THUMBNAIL_HEIGHT = 180;
   
@@ -83,9 +83,9 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
       const currentPanelPositions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; color: string; itemIndex: number }> = [];
       const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
       
-    // 위치가 겹치는지 확인하는 함수 (간격 포함)
+    // 위치가 겹치는지 확인하는 함수 (5mm 간격 포함)
     const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
-      const minGap = SPACING; // 20mm 간격
+      const minGap = SPACING; // 5mm 간격
       return occupiedAreas.some(area => 
         !(x >= area.x + area.width + minGap || x + w + minGap <= area.x || 
           y >= area.y + area.height + minGap || y + h + minGap <= area.y)
