@@ -73,7 +73,7 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
   );
 
   // 모든 추천안을 통합하고 효율성 순으로 정렬
-  const unifiedRecommendations: UnifiedRecommendation[] = [
+  const allRecommendations: UnifiedRecommendation[] = [
     // 단일 원판 결과들
     ...yieldResults.map(result => ({
       type: 'single' as const,
@@ -96,7 +96,35 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
       totalCost: combination.totalCost,
       data: combination
     }))
-  ].sort((a, b) => b.efficiency - a.efficiency); // 효율성 내림차순 정렬
+  ];
+
+  // 중복 제거: 같은 효율성(±0.5%)과 비슷한 패널 수를 가진 추천안들 중에서 더 나은 것만 선택
+  const unifiedRecommendations = allRecommendations
+    .sort((a, b) => b.efficiency - a.efficiency) // 효율성 내림차순 정렬
+    .filter((recommendation, index, array) => {
+      // 첫 번째는 항상 포함
+      if (index === 0) return true;
+      
+      // 이전 추천안들과 비교하여 중복 체크
+      const isDuplicate = array.slice(0, index).some(prev => {
+        // 효율성이 비슷한지 체크 (±0.5% 범위)
+        const efficiencyDiff = Math.abs(prev.efficiency - recommendation.efficiency);
+        const similarEfficiency = efficiencyDiff <= 0.5;
+        
+        // 패널 수가 같은지 체크
+        const samePanelCount = prev.panelsNeeded === recommendation.panelsNeeded;
+        
+        // 효율성과 패널 수가 비슷하면 중복으로 간주
+        if (similarEfficiency && samePanelCount) {
+          // 단일 조합을 우선시 (더 간단하므로)
+          return recommendation.type === 'combination' && prev.type === 'single';
+        }
+        
+        return false;
+      });
+      
+      return !isDuplicate;
+    });
 
   if (unifiedRecommendations.length === 0) {
     return null;
