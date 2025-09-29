@@ -14,11 +14,11 @@
     --popover: 0 0% 100%;
     --popover-foreground: 224 71% 4%;
 
-    /* Vibrant Primary - Electric Blue */
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-    --primary-light: 217 91% 95%;
-    --primary-dark: 217 91% 35%;
+    /* Light Sky Blue Primary */
+    --primary: 197 100% 85%;
+    --primary-foreground: 224 71% 4%;
+    --primary-light: 197 100% 95%;
+    --primary-dark: 197 100% 70%;
 
     /* Neutral System */
     --secondary: 240 4.8% 95.9%;
