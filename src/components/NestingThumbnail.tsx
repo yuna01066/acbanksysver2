@@ -22,9 +22,9 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
 }) => {
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   
-  const MARGIN = 80;
-  const SPACING = 10; // 10mm 간격으로 변경
-  const THUMBNAIL_WIDTH = 400; // 더 큰 썸네일 크기
+  const MARGIN = 50; // 정확히 50mm 마진
+  const SPACING = 10; // 정확히 10mm 간격
+  const THUMBNAIL_WIDTH = 400; // 썸네일 크기
   const THUMBNAIL_HEIGHT = 300;
   
   // 1/10 스케일 계산 (원판 mm 기준으로 정확히 1/10, 절대 변경 금지)
@@ -92,9 +92,9 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
       return score;
     }
 
-    // 위치가 겹치는지 확인하는 함수 (정확히 50mm 간격 포함)
+    // 위치가 겹치는지 확인하는 함수 (정확히 10mm 간격 포함)
     const isOverlapping = (x: number, y: number, w: number, h: number, occupiedAreas: Array<{ x: number; y: number; width: number; height: number }>): boolean => {
-      const minGap = SPACING; // 정확히 50mm 간격
+      const minGap = SPACING; // 정확히 10mm 간격
       return occupiedAreas.some(area => 
         !(x >= area.x + area.width + minGap || x + w + minGap <= area.x || 
           y >= area.y + area.height + minGap || y + h + minGap <= area.y)
@@ -128,9 +128,9 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
           // 사용 가능한 영역에 완전히 들어가는지 엄격하게 확인
           if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
           
-          // 가능한 모든 위치에서 배치 시도 (10mm 간격으로 더 세밀하게 검색)
-          for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 10) {
-            for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 10) {
+          // 1mm 간격으로 세밀한 배치 시도 (최적 효율을 위해)
+          for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 1) {
+            for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 1) {
               // 엄격한 경계 검사: 도형이 원판 경계 내부에만 배치되는지 확인
               if (x + orientation.width <= MARGIN + usableWidth && 
                   y + orientation.height <= MARGIN + usableHeight &&
