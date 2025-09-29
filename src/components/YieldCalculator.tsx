@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Calculator, Package, Plus, Trash2 } from "lucide-react";
 import NestingThumbnail from "@/components/NestingThumbnail";
+import PanelCombinationResult from "@/components/PanelCombinationResult";
+import { calculatePanelCombinations } from "@/utils/panelCombinationCalculator";
 import { 
   glossyColorSinglePrices, 
   glossyStandardSinglePrices, 
@@ -397,6 +399,25 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     });
   }, [cutItems, availablePanelSizes]);
 
+  // 복합 조합 계산
+  const panelCombinations = useMemo(() => {
+    const validCutItems = cutItems.filter(item => 
+      item.width && item.height && item.quantity &&
+      parseFloat(item.width) > 0 && parseFloat(item.height) > 0 && parseInt(item.quantity) > 0
+    );
+
+    if (validCutItems.length === 0) return [];
+
+    const itemsForNesting = validCutItems.map((item, index) => ({
+      width: parseFloat(item.width),
+      height: parseFloat(item.height),
+      quantity: parseInt(item.quantity),
+      id: `item-${index}`
+    }));
+
+    return calculatePanelCombinations(itemsForNesting, availablePanelSizes);
+  }, [cutItems, availablePanelSizes]);
+
   const availableThicknesses = useMemo(() => {
     const priceData = getPriceDataByQuality(selectedQuality);
     const thicknesses = new Set<string>();
@@ -653,7 +674,17 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
         </Card>
       )}
 
-      {cutItems.some(item => item.width && item.height && item.quantity) && yieldResults.length === 0 && (
+      {panelCombinations.length > 0 && (
+        <PanelCombinationResult
+          combinations={panelCombinations}
+          cutItems={cutItems}
+          onPanelSelect={onPanelSelect}
+          selectedQuality={selectedQuality}
+          selectedThickness={selectedThickness}
+        />
+      )}
+
+      {cutItems.some(item => item.width && item.height && item.quantity) && yieldResults.length === 0 && panelCombinations.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center">
             <p className="text-muted-foreground">
