@@ -453,14 +453,14 @@ const PanelCalculator = () => {
             <>
               <Separator className="my-8" />
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">시리얼 넘버 입력 (선택사항)</h3>
+                <h3 className="text-lg font-semibold text-gray-900">클라이언트 메모 (선택사항)</h3>
                 <p className="text-sm text-gray-600">
-                  컬러 시리얼 넘버를 입력하시면 견적서에서 해당 정보를 확인할 수 있습니다.
+                  특별한 요청사항이나 참고할 내용을 입력해주세요.
                 </p>
                 <div className="max-w-md">
                   <Input
                     type="text"
-                    placeholder="예: ABC123, COLOR-001 등"
+                    placeholder="특별 요청사항을 입력해주세요"
                     value={serialNumber}
                     onChange={(e) => setSerialNumber(e.target.value)}
                     className="w-full"
