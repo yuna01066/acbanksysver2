@@ -182,23 +182,16 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
 
   const panelLayouts = calculateMultiPanelLayout();
   const currentLayout = panelLayouts[currentPanelIndex] || [];
-
-  // 효율 계산
-  const calculateEfficiency = () => {
-    const totalCutArea = cutItems.reduce((sum, item) => {
-      const cutW = parseFloat(item.width);
-      const cutH = parseFloat(item.height);
-      const qty = parseInt(item.quantity);
-      return sum + (cutW * cutH * qty);
-    }, 0);
-    
-    const panelArea = panelWidth * panelHeight;
-    const totalPanelArea = panelArea * panelsNeeded;
-    
-    return totalPanelArea > 0 ? (totalCutArea / totalPanelArea) * 100 : 0;
-  };
   
-  const efficiency = calculateEfficiency();
+  // 효율 계산
+  const totalCutArea = cutItems.reduce((sum, item) => {
+    const w = parseFloat(item.width);
+    const h = parseFloat(item.height);
+    const qty = parseInt(item.quantity);
+    return sum + (w * h * qty);
+  }, 0);
+  const panelArea = panelWidth * panelHeight;
+  const efficiency = Math.round((totalCutArea / (panelArea * panelsNeeded)) * 100);
 
   const handlePrevPanel = () => {
     setCurrentPanelIndex(prev => Math.max(0, prev - 1));
@@ -290,9 +283,9 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
         </>
       )}
       
-      {/* 판 수와 효율 표시 */}
+      {/* 총 판 수 및 효율 표시 */}
       <div className="absolute top-1 right-1 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded">
-        {panelsNeeded}장 (효율: {efficiency.toFixed(1)}%)
+        {panelsNeeded}장 (효율: {efficiency}%)
       </div>
     </div>
   );
