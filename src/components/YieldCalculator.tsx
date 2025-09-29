@@ -107,27 +107,27 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
       
       if (thickness >= 1.3 && thickness < 10) {
-        // 1.3T ~ 10T 미만: 20T~30T 기준에서 20mm 더하기
+        // 1.3T ~ 10T 미만: 10T~20T 기준에서 20mm 더하기
         return {
           width: baseWidth + 20,
           height: baseHeight + 20
         };
       } else if (thickness >= 10 && thickness <= 20) {
-        // 10T ~ 20T: 20T~30T 기준에서 50mm 빼기
-        return {
-          width: baseWidth - 50,
-          height: baseHeight - 50
-        };
-      } else {
-        // 20T ~ 30T: 기준 사이즈 그대로
+        // 10T ~ 20T: 기준 사이즈 그대로
         return {
           width: baseWidth,
           height: baseHeight
         };
+      } else {
+        // 20T 초과: 10T~20T 기준에서 50mm 빼기
+        return {
+          width: baseWidth - 50,
+          height: baseHeight - 50
+        };
       }
     };
 
-    // 원판 사이즈 매핑 (20T~30T 기준 치수)
+    // 원판 사이즈 매핑 (10T~20T 기준 치수) - usePriceCalculation.ts와 일치
     const baseSizeMapping: {
       [key: string]: {
         width: number;

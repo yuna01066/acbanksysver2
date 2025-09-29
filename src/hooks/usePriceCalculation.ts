@@ -73,7 +73,7 @@ export const usePriceCalculation = ({
     
   // 두께별 가용 사이즈 계산 (실제 치수 포함)
   const getSizeWithDimensions = (baseSize: string): string => {
-    // 20T~30T 기준 치수 매핑 (기준값)
+    // 10T~20T 기준 치수 매핑
     const baseSizeMapping: { [key: string]: { width: number; height: number } } = {
       '3*6': { width: 900, height: 1800 },
       '대3*6': { width: 950, height: 1850 },
@@ -99,16 +99,16 @@ export const usePriceCalculation = ({
     let actualHeight = baseInfo.height;
 
     if (thickness >= 1.3 && thickness < 10) {
-      // 1.3T ~ 10T 미만: 20T~30T 기준에서 20mm 더하기
+      // 1.3T ~ 10T 미만: 10T~20T 기준에서 20mm 더하기
       actualWidth += 20;
       actualHeight += 20;
     } else if (thickness >= 10 && thickness <= 20) {
-      // 10T ~ 20T: 20T~30T 기준에서 50mm 빼기
+      // 10T ~ 20T: 기준 사이즈 그대로
+      // 변경 없음
+    } else if (thickness > 20) {
+      // 20T 초과: 10T~20T 기준에서 50mm 빼기
       actualWidth -= 50;
       actualHeight -= 50;
-    } else if (thickness >= 20 && thickness <= 30) {
-      // 20T ~ 30T: 기준 사이즈 그대로
-      // 변경 없음
     }
 
     return `${baseSize} (${actualWidth}*${actualHeight})`;
