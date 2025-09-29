@@ -82,7 +82,7 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
       
     // 위치가 겹치는지 확인하는 함수 (간격 포함)
     const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
-      const minGap = 15; // 최소 간격을 15로 증가
+      const minGap = 5; // 최소 간격을 5px로 세밀하게
       return occupiedAreas.some(area => 
         !(x >= area.x + area.width + minGap || x + w + minGap <= area.x || 
           y >= area.y + area.height + minGap || y + h + minGap <= area.y)
@@ -112,9 +112,9 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
           // 사용 가능한 영역에 들어가는지 확인
           if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
           
-          // 가능한 모든 위치에서 배치 시도 (간격을 줄여서 더 세밀하게)
-        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 15) {
-          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 15) {
+          // 가능한 모든 위치에서 배치 시도 (5px 단위로 매우 세밀하게)
+        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 5) {
+          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 5) {
               if (!isOverlapping(x, y, orientation.width, orientation.height)) {
                 // 이 위치의 점수 계산
                 const positionScore = calculatePositionScore(x, y, orientation, usableWidth, usableHeight);
