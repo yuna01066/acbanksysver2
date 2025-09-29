@@ -60,18 +60,40 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
     const usableHeight = currentPanelInfo.height - (MARGIN * 2);
     
     const positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; color: string; itemIndex: number }> = [];
+    const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
     
     const colors = [
       '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', 
       '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'
     ];
 
-    // 실제 배치된 아이템들을 기반으로 시각화 (더 정확한 표현)
-    let currentX = MARGIN;
-    let currentY = MARGIN;
-    let rowHeight = 0;
-    const GAP = 15; // 아이템 간 간격
+    const GAP = 15; // 아이템 간 최소 간격
 
+    // 겹침 확인 함수 (간격 포함)
+    const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
+      return occupiedAreas.some(area => 
+        !(x >= area.x + area.width + GAP || 
+          x + w + GAP <= area.x || 
+          y >= area.y + area.height + GAP || 
+          y + h + GAP <= area.y)
+      );
+    };
+
+    // 특정 위치에 배치 가능한지 확인
+    const canPlaceAt = (x: number, y: number, w: number, h: number): boolean => {
+      // 원판 경계 내부에 있는지 확인
+      if (x < MARGIN || y < MARGIN || 
+          x + w > MARGIN + usableWidth || 
+          y + h > MARGIN + usableHeight) {
+        return false;
+      }
+      // 다른 도형과 겹치지 않는지 확인
+      return !isOverlapping(x, y, w, h);
+    };
+
+    // 배치할 아이템들 생성
+    const itemsToPlace: Array<{ width: number; height: number; itemIndex: number; count: number }> = [];
+    
     currentPanelUsage.placedItems.forEach(placedItem => {
       const itemIndex = parseInt(placedItem.itemId.replace('item-', ''));
       const cutItem = cutItems[itemIndex];
@@ -80,37 +102,78 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
         const cutW = parseFloat(cutItem.width);
         const cutH = parseFloat(cutItem.height);
         
-        for (let i = 0; i < placedItem.count; i++) {
-          // 현재 행에 공간이 충분한지 확인
-          if (currentX + cutW > MARGIN + usableWidth) {
-            // 다음 행으로 이동
-            currentX = MARGIN;
-            currentY += rowHeight + GAP;
-            rowHeight = 0;
-            
-            // 세로 공간 초과 시 배치 중단
-            if (currentY + cutH > MARGIN + usableHeight) {
-              break;
-            }
-          }
-          
-          // 현재 위치에 배치
-          positions.push({
-            x: currentX,
-            y: currentY,
-            width: cutW,
-            height: cutH,
-            rotated: false,
-            color: colors[itemIndex % colors.length],
-            itemIndex
-          });
-          
-          // 다음 위치 계산
-          currentX += cutW + GAP;
-          rowHeight = Math.max(rowHeight, cutH);
-        }
+        itemsToPlace.push({
+          width: cutW,
+          height: cutH,
+          itemIndex,
+          count: placedItem.count
+        });
       }
     });
+
+    // 면적 기준으로 내림차순 정렬 (큰 것부터 배치)
+    itemsToPlace.sort((a, b) => (b.width * b.height) - (a.width * a.height));
+
+    // 각 아이템 타입별로 배치
+    for (const item of itemsToPlace) {
+      for (let i = 0; i < item.count; i++) {
+        let placed = false;
+        
+        // 가능한 모든 위치를 체크하여 배치
+        for (let y = MARGIN; y <= MARGIN + usableHeight - item.height && !placed; y += 10) {
+          for (let x = MARGIN; x <= MARGIN + usableWidth - item.width && !placed; x += 10) {
+            if (canPlaceAt(x, y, item.width, item.height)) {
+              positions.push({
+                x,
+                y,
+                width: item.width,
+                height: item.height,
+                rotated: false,
+                color: colors[item.itemIndex % colors.length],
+                itemIndex: item.itemIndex
+              });
+              
+              occupiedAreas.push({
+                x,
+                y,
+                width: item.width,
+                height: item.height
+              });
+              
+              placed = true;
+            }
+          }
+        }
+        
+        // 원래 방향으로 배치할 수 없으면 회전해서 시도
+        if (!placed && item.width !== item.height) {
+          for (let y = MARGIN; y <= MARGIN + usableHeight - item.width && !placed; y += 10) {
+            for (let x = MARGIN; x <= MARGIN + usableWidth - item.height && !placed; x += 10) {
+              if (canPlaceAt(x, y, item.height, item.width)) {
+                positions.push({
+                  x,
+                  y,
+                  width: item.height,
+                  height: item.width,
+                  rotated: true,
+                  color: colors[item.itemIndex % colors.length],
+                  itemIndex: item.itemIndex
+                });
+                
+                occupiedAreas.push({
+                  x,
+                  y,
+                  width: item.height,
+                  height: item.width
+                });
+                
+                placed = true;
+              }
+            }
+          }
+        }
+      }
+    }
 
     return positions;
   };
