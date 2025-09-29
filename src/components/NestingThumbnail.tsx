@@ -23,7 +23,7 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   
   const MARGIN = 80;
-  const SPACING = 50; // 정확히 50mm 간격 (변경 금지)
+  const SPACING = 10; // 10mm 간격으로 변경
   const THUMBNAIL_WIDTH = 400; // 더 큰 썸네일 크기
   const THUMBNAIL_HEIGHT = 300;
   

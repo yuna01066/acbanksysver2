@@ -160,7 +160,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     placedCounts: { [key: string]: number };
   } => {
     const MARGIN = 80;
-    const SPACING = 50;
+    const SPACING = 10; // 10mm 간격으로 변경
     
     const usableWidth = panelW - (MARGIN * 2);
     const usableHeight = panelH - (MARGIN * 2);
