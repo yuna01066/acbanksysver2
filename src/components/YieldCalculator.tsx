@@ -102,8 +102,33 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       Object.keys(thicknessData).forEach(size => allSizes.add(size));
     });
 
-    // 원판 사이즈 매핑 (실제 치수)
-    const sizeMapping: {
+    // 두께에 따른 원판 사이즈 조정 함수
+    const getSizeByThickness = (baseWidth: number, baseHeight: number): { width: number; height: number } => {
+      const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
+      
+      if (thickness >= 1.3 && thickness < 10) {
+        // 1.3T ~ 10T 미만: 20mm 추가 (10T~20T 대비)
+        return {
+          width: baseWidth + 70,  // 기본 사이즈에서 70mm 추가
+          height: baseHeight + 70
+        };
+      } else if (thickness >= 10 && thickness <= 20) {
+        // 10T ~ 20T: 50mm 추가 (기본 사이즈 대비)
+        return {
+          width: baseWidth + 50,
+          height: baseHeight + 50
+        };
+      } else {
+        // 20T 초과: 기본 사이즈 그대로
+        return {
+          width: baseWidth,
+          height: baseHeight
+        };
+      }
+    };
+
+    // 원판 사이즈 매핑 (기본 치수 - 20T 초과 기준)
+    const baseSizeMapping: {
       [key: string]: {
         width: number;
         height: number;
@@ -164,6 +189,12 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
         height: 1500
       } // 5*5 추가 (정사각형)
     };
+
+    // 두께에 따라 조정된 사이즈 매핑
+    const sizeMapping: { [key: string]: { width: number; height: number } } = {};
+    Object.entries(baseSizeMapping).forEach(([key, baseSize]) => {
+      sizeMapping[key] = getSizeByThickness(baseSize.width, baseSize.height);
+    });
 
     // 사이즈를 실제 치수로 변환
     const panelSizes: PanelSize[] = Array.from(allSizes).map(sizeStr => {
