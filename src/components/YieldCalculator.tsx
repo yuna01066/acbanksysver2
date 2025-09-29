@@ -27,6 +27,7 @@ interface YieldResult {
   totalPieces: number;
   efficiency: number;
   wasteArea: number;
+  surplus: number; // 여분
 }
 
 interface YieldCalculatorProps {
@@ -138,6 +139,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
 
       const panelsNeeded = piecesPerPanel > 0 ? Math.ceil(qty / piecesPerPanel) : 0;
       const totalPieces = panelsNeeded * piecesPerPanel;
+      const surplus = totalPieces - qty; // 여분 계산
 
       return {
         panelSize: panel.name,
@@ -147,16 +149,23 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
         panelsNeeded,
         totalPieces,
         efficiency,
-        wasteArea
+        wasteArea,
+        surplus
       };
     }).filter(result => result.piecesPerPanel > 0);
 
-    // 효율성과 필요 판수를 종합적으로 고려한 정렬
+    // 여분이 적을수록, 효율성이 높을수록, 필요 판수가 적을수록 우선
     return results.sort((a, b) => {
-      // 효율성이 높을수록, 필요 판수가 적을수록 우선
-      const scoreA = a.efficiency - (a.panelsNeeded * 5);
-      const scoreB = b.efficiency - (b.panelsNeeded * 5);
-      return scoreB - scoreA;
+      // 1순위: 여분이 적을수록 좋음
+      if (a.surplus !== b.surplus) {
+        return a.surplus - b.surplus;
+      }
+      // 2순위: 효율성이 높을수록 좋음
+      if (Math.abs(a.efficiency - b.efficiency) > 1) {
+        return b.efficiency - a.efficiency;
+      }
+      // 3순위: 필요 판수가 적을수록 좋음
+      return a.panelsNeeded - b.panelsNeeded;
     });
   }, [cutWidth, cutHeight, quantity, availablePanelSizes]);
 
@@ -256,7 +265,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
               수율 계산 결과
             </CardTitle>
             <p className="text-caption">
-              효율성과 필요 판수를 고려하여 최적순으로 정렬됩니다
+              여분이 적을수록, 효율성이 높을수록, 필요 판수가 적을수록 우선 정렬됩니다
             </p>
           </CardHeader>
           <CardContent>
@@ -312,10 +321,17 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
                     </div>
                   </div>
                   
-                  {result.totalPieces > parseInt(quantity || '0') && (
+                  {result.surplus > 0 && (
                     <div className="mt-3 p-2 bg-warning/10 text-warning-foreground text-sm rounded-lg">
                       <span className="font-medium">여분 생산:</span> 
-                      {result.totalPieces - parseInt(quantity || '0')}개 추가 생산됩니다
+                      {result.surplus}개 추가 생산됩니다
+                    </div>
+                  )}
+                  
+                  {result.surplus === 0 && (
+                    <div className="mt-3 p-2 bg-success/10 text-success-foreground text-sm rounded-lg">
+                      <span className="font-medium">정확한 수량:</span> 
+                      여분 없이 정확히 {quantity}개 생산됩니다
                     </div>
                   )}
                 </div>
