@@ -135,56 +135,56 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       };
     } = {
       '3*6': {
-        width: 900,
-        height: 1800
+        width: 920,
+        height: 1820
       },
       '대3*6': {
-        width: 950,
-        height: 1850
+        width: 970,
+        height: 1870
       },
       '4*5': {
-        width: 1170,
-        height: 1475
+        width: 1190,
+        height: 1495
       },
       '대4*5': {
-        width: 1250,
-        height: 1550
+        width: 1270,
+        height: 1570
       },
       '1*2': {
-        width: 1050,
-        height: 2050
+        width: 1070,
+        height: 2070
       },
       '4*6': {
-        width: 1250,
-        height: 1900
+        width: 1270,
+        height: 1920
       },
-       '4*8': {
-         width: 1200,
-         height: 2400
-       },
+      '4*8': {
+        width: 1200,
+        height: 2400
+      },
       '4*10': {
-        width: 1250,
-        height: 3050
+        width: 1270,
+        height: 3070
       },
       '5*6': {
-        width: 1550,
-        height: 1850
+        width: 1570,
+        height: 1870
       },
       '5*8': {
-        width: 1550,
-        height: 2450
+        width: 1570,
+        height: 2470
       },
       '소3*6': {
-        width: 900,
-        height: 1800
+        width: 920,
+        height: 1820
       },
       '소1*2': {
-        width: 1050,
-        height: 2050
+        width: 1070,
+        height: 2070
       },
       '5*5': {
-        width: 1550,
-        height: 1550
+        width: 1570,
+        height: 1570
       }
     };
 
