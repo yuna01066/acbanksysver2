@@ -202,23 +202,32 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                         <div className="font-medium">{totalQuantity}개</div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">총 원판 수량</div>
+                        <div className="text-muted-foreground">총 생산량</div>
+                        <div className="font-medium">
+                          {(recommendation.data as CombinationResult).panels.reduce((sum, panel) => {
+                            const panelSize = availablePanelSizes.find(p => p.name === panel.panelName);
+                            if (!panelSize) return sum;
+                            const panelArea = panelSize.width * panelSize.height;
+                            const totalCutItemArea = cutItems.reduce((itemSum, item) => {
+                              const itemArea = parseFloat(item.width) * parseFloat(item.height);
+                              const itemQuantity = parseInt(item.quantity) || 0;
+                              return itemSum + (itemArea * itemQuantity);
+                            }, 0);
+                            const piecesPerPanel = Math.floor(panelArea / (totalCutItemArea / totalQuantity));
+                            return sum + (panel.quantity * piecesPerPanel);
+                          }, 0)}개
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">원판 수량</div>
                         <div className="font-medium">{recommendation.panelsNeeded}장</div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">총 폐기면적</div>
+                        <div className="text-muted-foreground">폐기면적</div>
                         <div className="font-medium">
                           {(recommendation.wasteArea / 1000000).toFixed(2)}㎡
                         </div>
                       </div>
-                      {recommendation.totalCost && (
-                        <div>
-                          <div className="text-muted-foreground">예상 비용</div>
-                          <div className="font-medium">
-                            {recommendation.totalCost.toLocaleString()}원
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
