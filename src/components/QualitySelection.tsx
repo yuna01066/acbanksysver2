@@ -31,12 +31,8 @@ const QualitySelection: React.FC<QualitySelectionProps> = ({
         {qualities.map((quality) => (
           <Button
             key={quality.id}
-            variant={selectedQuality?.id === quality.id ? "default" : "outline"}
-            className={`h-16 text-lg font-semibold transition-all duration-200 rounded-lg ${
-              selectedQuality?.id === quality.id
-                ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
-                : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-900'
-            }`}
+            variant={selectedQuality?.id === quality.id ? "default" : "minimal"}
+            className="h-16 text-lg font-semibold shadow-depth hover:shadow-smooth transform hover:scale-105 transition-all duration-200"
             onClick={() => onQualitySelect(quality)}
           >
             {quality.name}

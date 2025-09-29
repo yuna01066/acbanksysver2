@@ -23,12 +23,8 @@ const ThicknessSelection: React.FC<ThicknessSelectionProps> = ({
         {thicknesses.map((thickness) => (
           <Button
             key={thickness}
-            variant={selectedThickness === thickness ? "default" : "outline"}
-            className={`h-12 font-semibold transition-all duration-200 rounded-lg ${
-              selectedThickness === thickness
-                ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
-                : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-900'
-            }`}
+            variant={selectedThickness === thickness ? "default" : "minimal"}
+            className="h-12 font-semibold shadow-depth hover:shadow-smooth transform hover:scale-105 transition-all duration-200"
             onClick={() => onThicknessSelect(thickness)}
           >
             {thickness}

@@ -26,12 +26,8 @@ const SurfaceSelection: React.FC<SurfaceSelectionProps> = ({
         {SURFACE_OPTIONS.map((option) => (
           <Button
             key={option.id}
-            variant={selectedSurface === option.name ? "default" : "outline"}
-            className={`h-20 text-xl font-semibold transition-all duration-200 rounded-lg ${
-              selectedSurface === option.name
-                ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
-                : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-900'
-            }`}
+            variant={selectedSurface === option.name ? "default" : "minimal"}
+            className="h-20 text-xl font-semibold shadow-depth hover:shadow-smooth transform hover:scale-105 transition-all duration-200"
             onClick={() => onSurfaceSelect(option.name)}
           >
             {option.name}
