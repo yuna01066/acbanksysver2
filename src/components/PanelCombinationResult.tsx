@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Star, Package } from "lucide-react";
+import CombinationThumbnail from "@/components/CombinationThumbnail";
 
 interface PanelUsage {
   panelName: string;
@@ -31,6 +32,7 @@ interface PanelCombinationResultProps {
   }) => void;
   selectedQuality: string;
   selectedThickness: string;
+  availablePanelSizes: Array<{ name: string; width: number; height: number }>;
 }
 
 const PanelCombinationResult: React.FC<PanelCombinationResultProps> = ({
@@ -38,7 +40,8 @@ const PanelCombinationResult: React.FC<PanelCombinationResultProps> = ({
   cutItems,
   onPanelSelect,
   selectedQuality,
-  selectedThickness
+  selectedThickness,
+  availablePanelSizes
 }) => {
   const totalQuantity = cutItems.reduce((sum, item) => {
     const qty = parseInt(item.quantity) || 0;
@@ -90,70 +93,56 @@ const PanelCombinationResult: React.FC<PanelCombinationResultProps> = ({
               }`}
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h4 className="font-semibold">
-                      조합 {index + 1}
-                      {index === 0 && combination.allItemsPlaced && (
-                        <Badge variant="default" className="ml-2">
-                          <Star className="w-3 h-3 mr-1" />
-                          최적
-                        </Badge>
-                      )}
-                    </h4>
-                    <div className="flex gap-2">
-                      {combination.panels.map((panel, panelIndex) => (
-                        <Badge key={panelIndex} variant="outline">
-                          {panel.panelName} {panel.quantity}장
-                        </Badge>
-                      ))}
-                    </div>
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0">
+                    <CombinationThumbnail
+                      panelUsages={combination.panels}
+                      cutItems={cutItems}
+                      availablePanelSizes={availablePanelSizes}
+                    />
                   </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
-                    <div>
-                      <div className="text-muted-foreground">총 필요 수량</div>
-                      <div className="font-medium">{totalQuantity}개</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">총 판 수</div>
-                      <div className="font-medium">
-                        {combination.panels.reduce((sum, panel) => sum + panel.quantity, 0)}장
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h4 className="font-semibold">
+                        조합 {index + 1}
+                        {index === 0 && combination.allItemsPlaced && (
+                          <Badge variant="default" className="ml-2">
+                            <Star className="w-3 h-3 mr-1" />
+                            최적
+                          </Badge>
+                        )}
+                      </h4>
+                      <div className="flex gap-2">
+                        {combination.panels.map((panel, panelIndex) => (
+                          <Badge key={panelIndex} variant="outline">
+                            {panel.panelName} {panel.quantity}장
+                          </Badge>
+                        ))}
                       </div>
                     </div>
-                    <div>
-                      <div className="text-muted-foreground">평균 수율</div>
-                      <div className="font-medium">{combination.totalEfficiency.toFixed(1)}%</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">총 폐기면적</div>
-                      <div className="font-medium">
-                        {(combination.totalWasteArea / 1000000).toFixed(2)}㎡
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
+                      <div>
+                        <div className="text-muted-foreground">총 필요 수량</div>
+                        <div className="font-medium">{totalQuantity}개</div>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* 각 원판별 배치 정보 */}
-                  <div className="space-y-2">
-                    {combination.panels.map((panel, panelIndex) => (
-                      <div key={panelIndex} className="bg-muted/30 rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-sm">
-                            {panel.panelName} 원판 ({panel.quantity}장)
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            수율 {panel.efficiency.toFixed(1)}%
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {panel.placedItems.map((item, itemIndex) => (
-                            <Badge key={itemIndex} variant="secondary" className="text-xs">
-                              {getItemName(item.itemId)} {item.count}개
-                            </Badge>
-                          ))}
+                      <div>
+                        <div className="text-muted-foreground">총 판 수</div>
+                        <div className="font-medium">
+                          {combination.panels.reduce((sum, panel) => sum + panel.quantity, 0)}장
                         </div>
                       </div>
-                    ))}
+                      <div>
+                        <div className="text-muted-foreground">평균 수율</div>
+                        <div className="font-medium">{combination.totalEfficiency.toFixed(1)}%</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">총 폐기면적</div>
+                        <div className="font-medium">
+                          {(combination.totalWasteArea / 1000000).toFixed(2)}㎡
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 
@@ -183,6 +172,29 @@ const PanelCombinationResult: React.FC<PanelCombinationResultProps> = ({
                     </Button>
                   )}
                 </div>
+              </div>
+
+              {/* 각 원판별 배치 정보 */}
+              <div className="space-y-2">
+                {combination.panels.map((panel, panelIndex) => (
+                  <div key={panelIndex} className="bg-muted/30 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-sm">
+                        {panel.panelName} 원판 ({panel.quantity}장)
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        수율 {panel.efficiency.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {panel.placedItems.map((item, itemIndex) => (
+                        <Badge key={itemIndex} variant="secondary" className="text-xs">
+                          {getItemName(item.itemId)} {item.count}개
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
               
               {!combination.allItemsPlaced && combination.remainingItems.length > 0 && (

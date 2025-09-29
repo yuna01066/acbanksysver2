@@ -722,6 +722,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
           onPanelSelect={onPanelSelect}
           selectedQuality={selectedQuality}
           selectedThickness={selectedThickness}
+          availablePanelSizes={availablePanelSizes}
         />
       )}
 
