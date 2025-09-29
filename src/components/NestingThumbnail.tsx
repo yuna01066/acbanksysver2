@@ -72,31 +72,50 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
     const panelLayouts: Array<Array<{ x: number; y: number; width: number; height: number; rotated: boolean; color: string; itemIndex: number }>> = [];
     let remainingPieces = [...allPieces];
     
-    // 원판별로 배치 시뮬레이션
-    for (let panelIndex = 0; panelIndex < panelsNeeded; panelIndex++) {
-      const currentPanelPositions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; color: string; itemIndex: number }> = [];
-      const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
+    // 배치 점수 계산 함수
+    function calculatePositionScore(x: number, y: number, orientation: { width: number; height: number; rotated: boolean }, maxWidth: number, maxHeight: number): number {
+      // 기본 점수: 왼쪽 위부터 우선 (거리 기반)
+      const distanceScore = Math.sqrt((x - MARGIN) ** 2 + (y - MARGIN) ** 2);
+      let score = 10000 - distanceScore;
       
+      // 회전하지 않은 방향을 약간 선호 (같은 위치라면)
+      if (!orientation.rotated) {
+        score += 5;
+      }
+      
+      // 가장자리에 가까운 배치 선호 (공간 효율성)
+      const edgeBonus = Math.min(x - MARGIN, y - MARGIN, maxWidth - (x - MARGIN) - orientation.width, maxHeight - (y - MARGIN) - orientation.height);
+      if (edgeBonus < SPACING) {
+        score += 10;
+      }
+      
+      return score;
+    }
+
     // 위치가 겹치는지 확인하는 함수 (정확히 50mm 간격 포함)
-    const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
+    const isOverlapping = (x: number, y: number, w: number, h: number, occupiedAreas: Array<{ x: number; y: number; width: number; height: number }>): boolean => {
       const minGap = SPACING; // 정확히 50mm 간격
       return occupiedAreas.some(area => 
         !(x >= area.x + area.width + minGap || x + w + minGap <= area.x || 
           y >= area.y + area.height + minGap || y + h + minGap <= area.y)
       );
     };
+
+    // 원판별로 배치 시뮬레이션
+    for (let panelIndex = 0; panelIndex < panelsNeeded; panelIndex++) {
+      const currentPanelPositions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; color: string; itemIndex: number }> = [];
+      const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
+      const placedInThisPanel: string[] = [];
       
       // 현재 원판에 배치할 도형들
       const piecesToPlace = [...remainingPieces];
-      const placedInThisPanel: string[] = [];
       
       for (const piece of piecesToPlace) {
-        let placed = false;
-        let bestPosition = null;
-        let bestScore = -1;
-        
         // 이미 배치된 도형은 건너뛰기
         if (placedInThisPanel.includes(piece.pieceId)) continue;
+        
+        let bestPosition = null;
+        let bestScore = -1;
         
         // 가능한 배치 위치와 회전 시도 (최적화된 평가)
         const orientations = [
@@ -110,12 +129,12 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
           if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
           
           // 가능한 모든 위치에서 배치 시도 (10mm 간격으로 검색)
-        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 10) {
-          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 10) {
+          for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 10) {
+            for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 10) {
               // 엄격한 경계 검사: 도형이 원판 경계 내부에만 배치되는지 확인
               if (x + orientation.width <= MARGIN + usableWidth && 
                   y + orientation.height <= MARGIN + usableHeight &&
-                  !isOverlapping(x, y, orientation.width, orientation.height)) {
+                  !isOverlapping(x, y, orientation.width, orientation.height, occupiedAreas)) {
                 // 이 위치의 점수 계산
                 const positionScore = calculatePositionScore(x, y, orientation, usableWidth, usableHeight);
                 
@@ -147,28 +166,7 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
           });
           
           placedInThisPanel.push(piece.pieceId);
-          placed = true;
         }
-      }
-      
-      // 배치 점수 계산 함수
-      function calculatePositionScore(x: number, y: number, orientation: { width: number; height: number; rotated: boolean }, maxWidth: number, maxHeight: number): number {
-        // 기본 점수: 왼쪽 위부터 우선 (거리 기반)
-        const distanceScore = Math.sqrt((x - MARGIN) ** 2 + (y - MARGIN) ** 2);
-        let score = 10000 - distanceScore;
-        
-        // 회전하지 않은 방향을 약간 선호 (같은 위치라면)
-        if (!orientation.rotated) {
-          score += 5;
-        }
-        
-        // 가장자리에 가까운 배치 선호 (공간 효율성)
-        const edgeBonus = Math.min(x - MARGIN, y - MARGIN, maxWidth - (x - MARGIN) - orientation.width, maxHeight - (y - MARGIN) - orientation.height);
-        if (edgeBonus < SPACING) {
-          score += 10;
-        }
-        
-        return score;
       }
       
       // 배치된 도형들을 남은 도형 목록에서 제거
