@@ -78,7 +78,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
     return panelSizes.sort((a, b) => (a.width * a.height) - (b.width * b.height));
   }, [selectedThickness]);
 
-  // 수율 계산 함수
+  // 수율 계산 함수 (마진과 간격 고려)
   const calculateYield = (
     cutW: number, 
     cutH: number, 
@@ -86,15 +86,27 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
     panelW: number, 
     panelH: number
   ): { piecesPerPanel: number; efficiency: number; wasteArea: number } => {
-    // 90도 회전을 고려한 최적 배치 계산
+    // 원판 마진 80mm (각 면에서 80mm씩 제거)
+    const MARGIN = 80;
+    const SPACING = 50; // 도형 간 최소 간격
+    
+    const usableWidth = panelW - (MARGIN * 2);
+    const usableHeight = panelH - (MARGIN * 2);
+    
+    // 사용 가능한 영역이 도형보다 작으면 배치 불가
+    if (usableWidth < cutW || usableHeight < cutH) {
+      return { piecesPerPanel: 0, efficiency: 0, wasteArea: panelW * panelH };
+    }
+    
+    // 90도 회전을 고려한 최적 배치 계산 (간격 포함)
     const layout1 = {
-      horizontal: Math.floor(panelW / cutW),
-      vertical: Math.floor(panelH / cutH)
+      horizontal: Math.floor((usableWidth + SPACING) / (cutW + SPACING)),
+      vertical: Math.floor((usableHeight + SPACING) / (cutH + SPACING))
     };
     
     const layout2 = {
-      horizontal: Math.floor(panelW / cutH),
-      vertical: Math.floor(panelH / cutW)
+      horizontal: Math.floor((usableWidth + SPACING) / (cutH + SPACING)),
+      vertical: Math.floor((usableHeight + SPACING) / (cutW + SPACING))
     };
 
     const pieces1 = layout1.horizontal * layout1.vertical;
@@ -174,6 +186,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
           </h2>
           <p className="text-body text-muted-foreground mt-1">
             재단할 도형의 크기와 수량을 입력하여 최적의 원판 사이즈를 찾아보세요
+            <br />
+            <span className="text-xs text-muted-foreground">※ 원판 마진 80mm, 도형 간 간격 50mm가 자동 적용됩니다</span>
           </p>
         </div>
       </div>
