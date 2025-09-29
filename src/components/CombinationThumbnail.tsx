@@ -29,7 +29,7 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   
   const MARGIN = 80;
-  const SPACING = 50; // 정확히 50mm 간격 (변경 금지)
+  const SPACING = 10; // 정확히 10mm 간격
   const THUMBNAIL_WIDTH = 400; // 더 큰 썸네일 크기
   const THUMBNAIL_HEIGHT = 300;
 
@@ -65,7 +65,7 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
       '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'
     ];
 
-    const GAP = SPACING; // 정확히 50mm 간격
+    const GAP = SPACING; // 정확히 10mm 간격
 
     // 겹침 확인 함수 (간격 포함)
     const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
@@ -85,7 +85,7 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
           y + h > MARGIN + usableHeight) {
         return false;
       }
-      // 다른 도형과 50mm 간격을 유지하는지 확인
+      // 다른 도형과 10mm 간격을 유지하는지 확인
       return !isOverlapping(x, y, w, h);
     };
 
@@ -120,9 +120,9 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
       for (let i = 0; i < item.count; i++) {
         let placed = false;
         
-        // 가능한 모든 위치를 체크하여 배치 (5mm 간격으로 더 세밀하게)
-        for (let y = MARGIN; y <= MARGIN + usableHeight - item.height && !placed; y += 5) {
-          for (let x = MARGIN; x <= MARGIN + usableWidth - item.width && !placed; x += 5) {
+        // 가능한 모든 위치를 체크하여 배치 (1mm 간격으로 더 세밀하게)
+        for (let y = MARGIN; y <= MARGIN + usableHeight - item.height && !placed; y += 1) {
+          for (let x = MARGIN; x <= MARGIN + usableWidth - item.width && !placed; x += 1) {
             if (canPlaceAt(x, y, item.width, item.height)) {
               positions.push({
                 x,
@@ -146,10 +146,10 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
           }
         }
         
-        // 원래 방향으로 배치할 수 없으면 회전해서 시도 (5mm 간격)
+        // 원래 방향으로 배치할 수 없으면 회전해서 시도 (1mm 간격)
         if (!placed && item.width !== item.height) {
-          for (let y = MARGIN; y <= MARGIN + usableHeight - item.width && !placed; y += 5) {
-            for (let x = MARGIN; x <= MARGIN + usableWidth - item.height && !placed; x += 5) {
+          for (let y = MARGIN; y <= MARGIN + usableHeight - item.width && !placed; y += 1) {
+            for (let x = MARGIN; x <= MARGIN + usableWidth - item.height && !placed; x += 1) {
               if (canPlaceAt(x, y, item.height, item.width)) {
                 positions.push({
                   x,
