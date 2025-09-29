@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
 
 interface ColorOption {
   id: string;
@@ -74,6 +76,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
   selectedColor,
   onColorSelect
 }) => {
+  const [searchTerm, setSearchTerm] = useState('');
   // AC 코드 숫자 순서로 정렬
   const sortedColors = [...COLOR_OPTIONS].sort((a, b) => {
     const aCode = parseInt(a.acCode.replace('AC-C', ''));
@@ -81,18 +84,12 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
     return aCode - bCode;
   });
 
-  // 4개씩 그룹으로 나누기
-  const colorGroups = [];
-  for (let i = 0; i < sortedColors.length; i += 4) {
-    const group = sortedColors.slice(i, i + 4);
-    const groupNumber = Math.floor(i / 4) + 1;
-    colorGroups.push({
-      id: `group-${groupNumber}`,
-      name: `그룹 ${groupNumber}`,
-      description: `AC-C${String(group[0].acCode.replace('AC-C', '')).padStart(3, '0')} ~ AC-C${String(group[group.length - 1].acCode.replace('AC-C', '')).padStart(3, '0')}`,
-      colors: group
-    });
-  }
+  // 검색 필터링
+  const filteredColors = sortedColors.filter(color => 
+    color.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    color.acCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    color.hexCode.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
@@ -101,43 +98,56 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
         <p className="text-gray-600">원하는 색상을 선택해주세요</p>
       </div>
       
-      <div className="space-y-8">
-        {colorGroups.map((group) => (
-          <div key={group.id} className="space-y-4">
-            <div>
-              <h4 className="text-lg font-semibold text-gray-900">{group.name}</h4>
-              <p className="text-sm text-gray-600">{group.description}</p>
+      {/* 검색 기능 */}
+      <div className="relative max-w-md mx-auto">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-gray-400" />
+        </div>
+        <Input
+          type="text"
+          placeholder="색상명, AC 코드, HEX 코드로 검색..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10 w-full"
+        />
+      </div>
+
+      {/* 색상 그리드 */}
+      <div className="grid grid-cols-4 gap-4">
+        {filteredColors.map((color) => (
+          <div
+            key={color.id}
+            className={`relative cursor-pointer group ${
+              selectedColor === color.id ? 'ring-2 ring-primary ring-offset-2' : ''
+            }`}
+            onClick={() => onColorSelect(color.id)}
+          >
+            <div 
+              className="w-full h-20 rounded-lg border border-gray-200 shadow-sm group-hover:shadow-md transition-all duration-200"
+              style={{ backgroundColor: color.hexCode }}
+            />
+            <div className="mt-2 text-center">
+              <div className="text-sm font-bold text-gray-500">{color.acCode}</div>
+              <div className="text-xs text-gray-400">{color.hexCode}</div>
             </div>
-            <div className="grid grid-cols-4 gap-3">
-              {group.colors.map((color) => (
-                <div
-                  key={color.id}
-                  className={`relative cursor-pointer group ${
-                    selectedColor === color.id ? 'ring-2 ring-primary ring-offset-2' : ''
-                  }`}
-                  onClick={() => onColorSelect(color.id)}
-                >
-                  <div 
-                    className="w-full h-16 rounded-lg border border-gray-200 shadow-sm group-hover:shadow-md transition-all duration-200"
-                    style={{ backgroundColor: color.hexCode }}
-                  />
-                  <div className="mt-2 text-center">
-                    <div className="text-sm font-bold text-gray-500">{color.acCode}</div>
-                    <div className="text-xs text-gray-400">{color.hexCode}</div>
-                  </div>
-                  {selectedColor === color.id && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-6 h-6 bg-white rounded-full shadow-md flex items-center justify-center">
-                        <div className="w-3 h-3 bg-primary rounded-full"></div>
-                      </div>
-                    </div>
-                  )}
+            {selectedColor === color.id && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-6 h-6 bg-white rounded-full shadow-md flex items-center justify-center">
+                  <div className="w-3 h-3 bg-primary rounded-full"></div>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
+
+      {/* 검색 결과 없음 메시지 */}
+      {searchTerm && filteredColors.length === 0 && (
+        <div className="text-center py-8">
+          <p className="text-gray-500">검색 결과가 없습니다.</p>
+          <p className="text-sm text-gray-400 mt-1">다른 검색어를 시도해보세요.</p>
+        </div>
+      )}
     </div>
   );
 };
