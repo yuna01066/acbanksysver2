@@ -12,18 +12,23 @@ interface NestingThumbnailProps {
   panelWidth: number;
   panelHeight: number;
   panelsNeeded: number;
+  selectedThickness?: string;
 }
 
 const NestingThumbnail: React.FC<NestingThumbnailProps> = ({ 
   cutItems, 
   panelWidth, 
   panelHeight, 
-  panelsNeeded 
+  panelsNeeded,
+  selectedThickness
 }) => {
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   
   const MARGIN = 0; // 가용사이즈가 이미 재단 가능 영역이므로 마진 불필요
-  const SPACING = 10; // 정확히 10mm 간격
+  
+  // 두께에 따른 간격 설정
+  const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
+  const SPACING = thickness < 10 ? 6 : 8; // 10T 미만: 6mm, 10T 이상: 8mm
   const THUMBNAIL_WIDTH = 400; // 썸네일 크기
   const THUMBNAIL_HEIGHT = 300;
   
@@ -38,8 +43,8 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
 
   // 여러 원판에 걸쳐 배치 계산
   const calculateMultiPanelLayout = () => {
-    const usableWidth = panelWidth - (MARGIN * 2);
-    const usableHeight = panelHeight - (MARGIN * 2);
+    const usableWidth = panelWidth; // MARGIN이 0이므로 전체 크기 사용
+    const usableHeight = panelHeight; // MARGIN이 0이므로 전체 크기 사용
     
     // 모든 도형을 배열로 생성
     const allPieces: Array<{ width: number; height: number; itemIndex: number; pieceId: string }> = [];

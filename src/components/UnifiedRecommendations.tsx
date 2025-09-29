@@ -338,12 +338,14 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                     panelWidth={(recommendation.data as YieldResult).panelWidth}
                     panelHeight={(recommendation.data as YieldResult).panelHeight}
                     panelsNeeded={(recommendation.data as YieldResult).panelsNeeded}
+                    selectedThickness={selectedThickness}
                   />
                 ) : (
                   <CombinationThumbnail
                     panelUsages={(recommendation.data as CombinationResult).panels}
                     cutItems={cutItems}
                     availablePanelSizes={availablePanelSizes}
+                    selectedThickness={selectedThickness}
                   />
                 )}
               </div>

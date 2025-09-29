@@ -19,17 +19,22 @@ interface CombinationThumbnailProps {
   panelUsages: PanelUsage[];
   cutItems: CutItem[];
   availablePanelSizes: Array<{ name: string; width: number; height: number }>;
+  selectedThickness?: string;
 }
 
 const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
   panelUsages,
   cutItems,
-  availablePanelSizes
+  availablePanelSizes,
+  selectedThickness
 }) => {
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   
   const MARGIN = 0; // 가용사이즈가 이미 재단 가능 영역이므로 마진 불필요
-  const SPACING = 10; // 정확히 10mm 간격
+  
+  // 두께에 따른 간격 설정
+  const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
+  const SPACING = thickness < 10 ? 6 : 8; // 10T 미만: 6mm, 10T 이상: 8mm
   const THUMBNAIL_WIDTH = 400; // 썸네일 크기
   const THUMBNAIL_HEIGHT = 300;
 
@@ -54,8 +59,8 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
 
   // 배치된 도형들 계산
   const calculateLayout = () => {
-    const usableWidth = currentPanelInfo.width - (MARGIN * 2);
-    const usableHeight = currentPanelInfo.height - (MARGIN * 2);
+    const usableWidth = currentPanelInfo.width; // MARGIN이 0이므로 전체 크기 사용
+    const usableHeight = currentPanelInfo.height; // MARGIN이 0이므로 전체 크기 사용
     
     const positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; color: string; itemIndex: number }> = [];
     const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];

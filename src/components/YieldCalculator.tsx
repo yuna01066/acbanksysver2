@@ -237,7 +237,10 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
     };
   } => {
     const MARGIN = 0; // 가용사이즈가 이미 재단 가능 영역이므로 마진 불필요
-    const SPACING = 10; // 10mm 간격
+    
+    // 두께에 따른 간격 설정
+    const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
+    const SPACING = thickness < 10 ? 6 : 8; // 10T 미만: 6mm, 10T 이상: 8mm
 
     const usableWidth = panelW - MARGIN * 2;
     const usableHeight = panelH - MARGIN * 2;
