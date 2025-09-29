@@ -110,58 +110,58 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       };
     } = {
       '3*6': {
-        width: 910,
-        height: 1810
+        width: 850,
+        height: 1750
       },
       '대3*6': {
-        width: 950,
-        height: 1860
+        width: 900,
+        height: 1800
       },
       '4*5': {
-        width: 1170,
-        height: 1475
+        width: 1120,
+        height: 1425
       },
       '대4*5': {
-        width: 1250,
-        height: 1550
+        width: 1200,
+        height: 1500
       },
       '1*2': {
-        width: 1050,
-        height: 2050
+        width: 1000,
+        height: 2000
       },
       '4*6': {
-        width: 1250,
-        height: 1860
-      },
-      '4*8': {
-        width: 1250,
-        height: 2450
-      },
-      '4*10': {
-        width: 1250,
-        height: 3050
-      },
-      '5*6': {
-        width: 1550,
+        width: 1200,
         height: 1850
       },
+      '4*8': {
+        width: 1200,
+        height: 2400
+      },
+      '4*10': {
+        width: 1200,
+        height: 3000
+      },
+      '5*6': {
+        width: 1500,
+        height: 1800
+      },
       '5*8': {
-        width: 1550,
-        height: 2450
+        width: 1500,
+        height: 2400
       },
       '소3*6': {
-        width: 910,
-        height: 1810
+        width: 850,
+        height: 1750
       },
       // 소3*6은 3*6과 동일
       '소1*2': {
-        width: 1050,
-        height: 2050
+        width: 1000,
+        height: 2000
       },
       // 소1*2는 1*2와 동일
       '5*5': {
-        width: 1550,
-        height: 1550
+        width: 1500,
+        height: 1500
       } // 5*5 추가 (정사각형)
     };
 
