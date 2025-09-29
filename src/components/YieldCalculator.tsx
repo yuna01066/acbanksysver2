@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Calculator, Package, Plus, Trash2 } from "lucide-react";
+import NestingThumbnail from "@/components/NestingThumbnail";
 import { 
   glossyColorSinglePrices, 
   glossyStandardSinglePrices, 
@@ -145,6 +146,66 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     return panelSizes.sort((a, b) => (a.width * a.height) - (b.width * b.height));
   }, [selectedThickness, selectedQuality]);
 
+  // 네스팅 시각화를 위한 배치 계산 함수
+  const calculateLayout = (
+    cutW: number, 
+    cutH: number, 
+    qty: number, 
+    panelW: number, 
+    panelH: number
+  ): { positions: { x: number; y: number; width: number; height: number; rotated: boolean }[]; piecesPerPanel: number } => {
+    const MARGIN = 80;
+    const SPACING = 50;
+    
+    const usableWidth = panelW - (MARGIN * 2);
+    const usableHeight = panelH - (MARGIN * 2);
+    
+    if (usableWidth < cutW || usableHeight < cutH) {
+      return { positions: [], piecesPerPanel: 0 };
+    }
+    
+    // 90도 회전을 고려한 최적 배치 계산
+    const layout1 = {
+      horizontal: Math.floor((usableWidth + SPACING) / (cutW + SPACING)),
+      vertical: Math.floor((usableHeight + SPACING) / (cutH + SPACING)),
+      rotated: false
+    };
+    
+    const layout2 = {
+      horizontal: Math.floor((usableWidth + SPACING) / (cutH + SPACING)),
+      vertical: Math.floor((usableHeight + SPACING) / (cutW + SPACING)),
+      rotated: true
+    };
+
+    const pieces1 = layout1.horizontal * layout1.vertical;
+    const pieces2 = layout2.horizontal * layout2.vertical;
+    
+    const bestLayout = pieces1 >= pieces2 ? layout1 : layout2;
+    const piecesPerPanel = Math.max(pieces1, pieces2);
+    
+    // 실제 배치 위치 계산
+    const positions = [];
+    const actualWidth = bestLayout.rotated ? cutH : cutW;
+    const actualHeight = bestLayout.rotated ? cutW : cutH;
+    
+    for (let row = 0; row < bestLayout.vertical; row++) {
+      for (let col = 0; col < bestLayout.horizontal; col++) {
+        if (positions.length >= qty) break;
+        
+        positions.push({
+          x: MARGIN + col * (actualWidth + SPACING),
+          y: MARGIN + row * (actualHeight + SPACING),
+          width: actualWidth,
+          height: actualHeight,
+          rotated: bestLayout.rotated
+        });
+      }
+      if (positions.length >= qty) break;
+    }
+    
+    return { positions, piecesPerPanel };
+  };
+
   // 수율 계산 함수 (마진과 간격 고려)
   const calculateYield = (
     cutW: number, 
@@ -153,33 +214,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     panelW: number, 
     panelH: number
   ): { piecesPerPanel: number; efficiency: number; wasteArea: number } => {
-    // 원판 마진 80mm (각 면에서 80mm씩 제거)
-    const MARGIN = 80;
-    const SPACING = 50; // 도형 간 최소 간격
-    
-    const usableWidth = panelW - (MARGIN * 2);
-    const usableHeight = panelH - (MARGIN * 2);
-    
-    // 사용 가능한 영역이 도형보다 작으면 배치 불가
-    if (usableWidth < cutW || usableHeight < cutH) {
-      return { piecesPerPanel: 0, efficiency: 0, wasteArea: panelW * panelH };
-    }
-    
-    // 90도 회전을 고려한 최적 배치 계산 (간격 포함)
-    const layout1 = {
-      horizontal: Math.floor((usableWidth + SPACING) / (cutW + SPACING)),
-      vertical: Math.floor((usableHeight + SPACING) / (cutH + SPACING))
-    };
-    
-    const layout2 = {
-      horizontal: Math.floor((usableWidth + SPACING) / (cutH + SPACING)),
-      vertical: Math.floor((usableHeight + SPACING) / (cutW + SPACING))
-    };
-
-    const pieces1 = layout1.horizontal * layout1.vertical;
-    const pieces2 = layout2.horizontal * layout2.vertical;
-    
-    const piecesPerPanel = Math.max(pieces1, pieces2);
+    const { piecesPerPanel } = calculateLayout(cutW, cutH, qty, panelW, panelH);
     const usedArea = piecesPerPanel * cutW * cutH;
     const totalArea = panelW * panelH;
     const efficiency = totalArea > 0 ? (usedArea / totalArea) * 100 : 0;
@@ -454,19 +489,51 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
                       : 'border-border/50 bg-background/50'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <h4 className="font-semibold">
-                        {result.panelSize} 원판
-                        {index === 0 && (
-                          <span className="ml-2 px-2 py-1 text-xs bg-primary text-primary-foreground rounded-full">
-                            추천
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0">
+                        <NestingThumbnail
+                          cutItems={cutItems}
+                          panelWidth={result.panelWidth}
+                          panelHeight={result.panelHeight}
+                          panelsNeeded={result.panelsNeeded}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h4 className="font-semibold">
+                            {result.panelSize} 원판
+                            {index === 0 && (
+                              <span className="ml-2 px-2 py-1 text-xs bg-primary text-primary-foreground rounded-full">
+                                추천
+                              </span>
+                            )}
+                          </h4>
+                          <span className="text-caption">
+                            ({result.panelWidth}mm × {result.panelHeight}mm)
                           </span>
-                        )}
-                      </h4>
-                      <span className="text-caption">
-                        ({result.panelWidth}mm × {result.panelHeight}mm)
-                      </span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <div className="text-muted-foreground">총 필요 수량</div>
+                            <div className="font-medium">{totalQuantity}개</div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">총 생산량</div>
+                            <div className="font-medium">{result.totalPieces}개</div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">수율</div>
+                            <div className="font-medium">{result.efficiency.toFixed(1)}%</div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">총 폐기면적</div>
+                            <div className="font-medium">
+                              {(result.wasteArea / 1000000).toFixed(2)}㎡
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
@@ -489,27 +556,6 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
                           견적계산기로
                         </Button>
                       )}
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <div className="text-muted-foreground">총 필요 수량</div>
-                      <div className="font-medium">{totalQuantity}개</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">총 생산량</div>
-                      <div className="font-medium">{result.totalPieces}개</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">수율</div>
-                      <div className="font-medium">{result.efficiency.toFixed(1)}%</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">총 폐기면적</div>
-                      <div className="font-medium">
-                        {(result.wasteArea / 1000000).toFixed(2)}㎡
-                      </div>
                     </div>
                   </div>
                   
