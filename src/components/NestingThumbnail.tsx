@@ -22,7 +22,7 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
 }) => {
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   
-  const MARGIN = 50; // 정확히 50mm 마진
+  const MARGIN = 0; // 가용사이즈가 이미 재단 가능 영역이므로 마진 불필요
   const SPACING = 10; // 정확히 10mm 간격
   const THUMBNAIL_WIDTH = 400; // 썸네일 크기
   const THUMBNAIL_HEIGHT = 300;
@@ -75,7 +75,7 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
     // 배치 점수 계산 함수
     function calculatePositionScore(x: number, y: number, orientation: { width: number; height: number; rotated: boolean }, maxWidth: number, maxHeight: number): number {
       // 기본 점수: 왼쪽 위부터 우선 (거리 기반)
-      const distanceScore = Math.sqrt((x - MARGIN) ** 2 + (y - MARGIN) ** 2);
+      const distanceScore = Math.sqrt(x ** 2 + y ** 2);
       let score = 10000 - distanceScore;
       
       // 회전하지 않은 방향을 약간 선호 (같은 위치라면)
@@ -84,7 +84,7 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
       }
       
       // 가장자리에 가까운 배치 선호 (공간 효율성)
-      const edgeBonus = Math.min(x - MARGIN, y - MARGIN, maxWidth - (x - MARGIN) - orientation.width, maxHeight - (y - MARGIN) - orientation.height);
+      const edgeBonus = Math.min(x, y, maxWidth - x - orientation.width, maxHeight - y - orientation.height);
       if (edgeBonus < SPACING) {
         score += 10;
       }
@@ -129,11 +129,11 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
           if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
           
           // 1mm 간격으로 세밀한 배치 시도 (최적 효율을 위해)
-          for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 1) {
-            for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 1) {
+          for (let y = 0; y <= usableHeight - orientation.height; y += 1) {
+            for (let x = 0; x <= usableWidth - orientation.width; x += 1) {
               // 엄격한 경계 검사: 도형이 원판 경계 내부에만 배치되는지 확인
-              if (x + orientation.width <= MARGIN + usableWidth && 
-                  y + orientation.height <= MARGIN + usableHeight &&
+              if (x + orientation.width <= usableWidth && 
+                  y + orientation.height <= usableHeight &&
                   !isOverlapping(x, y, orientation.width, orientation.height, occupiedAreas)) {
                 // 이 위치의 점수 계산
                 const positionScore = calculatePositionScore(x, y, orientation, usableWidth, usableHeight);
@@ -216,7 +216,7 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
         height={THUMBNAIL_HEIGHT}
         className="absolute inset-0"
       >
-        {/* 원판 배경 */}
+        {/* 가용사이즈 영역 */}
         <rect
           x={offsetX}
           y={offsetY}
@@ -226,19 +226,6 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
           stroke="hsl(var(--border))"
           strokeWidth="1"
           rx="4"
-        />
-        
-        {/* 마진 영역 표시 */}
-        <rect
-          x={offsetX + (MARGIN * scale)}
-          y={offsetY + (MARGIN * scale)}
-          width={scaledPanelWidth - (MARGIN * 2 * scale)}
-          height={scaledPanelHeight - (MARGIN * 2 * scale)}
-          fill="none"
-          stroke="hsl(var(--muted-foreground))"
-          strokeWidth="1"
-          strokeDasharray="2,2"
-          opacity="0.5"
         />
         
         {/* 현재 원판의 재단 도형들 */}

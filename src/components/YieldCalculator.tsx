@@ -236,7 +236,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       [key: string]: number;
     };
   } => {
-    const MARGIN = 50; // 50mm 마진으로 통일
+    const MARGIN = 0; // 가용사이즈가 이미 재단 가능 영역이므로 마진 불필요
     const SPACING = 10; // 10mm 간격
 
     const usableWidth = panelW - MARGIN * 2;

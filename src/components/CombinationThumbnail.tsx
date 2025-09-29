@@ -28,7 +28,7 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
 }) => {
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   
-  const MARGIN = 50; // 정확히 50mm 마진
+  const MARGIN = 0; // 가용사이즈가 이미 재단 가능 영역이므로 마진 불필요
   const SPACING = 10; // 정확히 10mm 간격
   const THUMBNAIL_WIDTH = 400; // 썸네일 크기
   const THUMBNAIL_HEIGHT = 300;
@@ -80,9 +80,9 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
     // 특정 위치에 배치 가능한지 확인 (엄격한 경계 검사)
     const canPlaceAt = (x: number, y: number, w: number, h: number): boolean => {
       // 원판 경계 내부에 완전히 있는지 엄격하게 확인
-      if (x < MARGIN || y < MARGIN || 
-          x + w > MARGIN + usableWidth || 
-          y + h > MARGIN + usableHeight) {
+      if (x < 0 || y < 0 || 
+          x + w > usableWidth || 
+          y + h > usableHeight) {
         return false;
       }
       // 다른 도형과 10mm 간격을 유지하는지 확인
@@ -121,8 +121,8 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
         let placed = false;
         
         // 1mm 간격으로 세밀한 배치 시도
-        for (let y = MARGIN; y <= MARGIN + usableHeight - item.height && !placed; y += 1) {
-          for (let x = MARGIN; x <= MARGIN + usableWidth - item.width && !placed; x += 1) {
+        for (let y = 0; y <= usableHeight - item.height && !placed; y += 1) {
+          for (let x = 0; x <= usableWidth - item.width && !placed; x += 1) {
             if (canPlaceAt(x, y, item.width, item.height)) {
               positions.push({
                 x,
@@ -148,8 +148,8 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
         
         // 회전 배치 시도 (정사각형이 아닌 경우만)
         if (!placed && item.width !== item.height) {
-          for (let y = MARGIN; y <= MARGIN + usableHeight - item.width && !placed; y += 1) {
-            for (let x = MARGIN; x <= MARGIN + usableWidth - item.height && !placed; x += 1) {
+          for (let y = 0; y <= usableHeight - item.width && !placed; y += 1) {
+            for (let x = 0; x <= usableWidth - item.height && !placed; x += 1) {
               if (canPlaceAt(x, y, item.height, item.width)) {
                 positions.push({
                   x,
@@ -198,7 +198,7 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
         height={THUMBNAIL_HEIGHT}
         className="absolute inset-0"
       >
-        {/* 원판 배경 */}
+        {/* 가용사이즈 영역 */}
         <rect
           x={offsetX}
           y={offsetY}
@@ -208,19 +208,6 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
           stroke="hsl(var(--border))"
           strokeWidth="1"
           rx="4"
-        />
-        
-        {/* 마진 영역 표시 */}
-        <rect
-          x={offsetX + (MARGIN * scale)}
-          y={offsetY + (MARGIN * scale)}
-          width={scaledPanelWidth - (MARGIN * 2 * scale)}
-          height={scaledPanelHeight - (MARGIN * 2 * scale)}
-          fill="none"
-          stroke="hsl(var(--muted-foreground))"
-          strokeWidth="1"
-          strokeDasharray="2,2"
-          opacity="0.5"
         />
         
         {/* 배치된 도형들 */}
