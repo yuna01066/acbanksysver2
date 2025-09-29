@@ -18,14 +18,13 @@ const CalculatorTypeSelection: React.FC<CalculatorTypeSelectionProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
         <Button
           variant="outline"
-          className="h-32 flex-col gap-4 text-lg font-semibold transition-all duration-200 rounded-lg border-2 hover:border-green-500 hover:bg-green-50 opacity-50"
-          onClick={() => alert('수율 계산기는 준비중입니다.')}
-          disabled
+          className="h-32 flex-col gap-4 text-lg font-semibold transition-all duration-200 rounded-lg border-2 hover:border-green-500 hover:bg-green-50"
+          onClick={() => onTypeSelect('yield')}
         >
           <TrendingUp className="w-8 h-8 text-green-600" />
           <div className="text-center">
             <div className="font-semibold text-gray-900">수율 계산기</div>
-            <div className="text-sm text-gray-600 mt-1">원자재 수율 계산 (준비중)</div>
+            <div className="text-sm text-gray-600 mt-1">원자재 수율 계산</div>
           </div>
         </Button>
         

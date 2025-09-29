@@ -25,6 +25,7 @@ import SurfaceSelection from "./SurfaceSelection";
 import { useQuotes } from "@/contexts/QuoteContext";
 import { usePriceCalculation } from "@/hooks/usePriceCalculation";
 import { Input } from "@/components/ui/input";
+import YieldCalculator from "./YieldCalculator";
 
 const PROCESSING_OPTIONS = [
   { id: 'raw-only', name: '원판 단독 구매' },
@@ -43,6 +44,7 @@ const PanelCalculator = () => {
   const navigate = useNavigate();
   const { addQuote, quotes } = useQuotes();
   const [currentStep, setCurrentStep] = useState(0);
+  const [calculatorType, setCalculatorType] = useState<'quote' | 'yield' | null>(null);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [selectedQuality, setSelectedQuality] = useState<Quality | null>(null);
   const [selectedThickness, setSelectedThickness] = useState<string>('');
@@ -133,10 +135,11 @@ const PanelCalculator = () => {
   };
 
   const handleCalculatorTypeSelect = (type: 'quote' | 'yield') => {
+    setCalculatorType(type);
     if (type === 'quote') {
       setCurrentStep(1);
     } else {
-      alert('수율 계산기는 준비중입니다.');
+      setCurrentStep(-1); // 수율 계산기는 특별한 step
     }
   };
 
@@ -238,6 +241,7 @@ const PanelCalculator = () => {
     
     // Reset form for new quote
     setCurrentStep(0);
+    setCalculatorType(null);
     setSelectedMaterial(null);
     setSelectedQuality(null);
     setSelectedThickness('');
@@ -253,6 +257,11 @@ const PanelCalculator = () => {
 
   const handleViewQuotesSummary = () => {
     navigate('/quotes-summary');
+  };
+
+  const handleBackToCalculatorSelection = () => {
+    setCurrentStep(0);
+    setCalculatorType(null);
   };
 
   const maxSteps = selectedQuality?.id === 'glossy-standard' ? 9 : 9;
@@ -281,7 +290,15 @@ const PanelCalculator = () => {
           <p className="text-body text-muted-foreground">정확하고 빠른 판재 가격 계산</p>
         </CardHeader>
         <CardContent className="p-8 space-y-8">
-          <StepIndicator currentStep={currentStep + 1} maxSteps={maxSteps} />
+          {/* 수율 계산기 */}
+          {currentStep === -1 && (
+            <YieldCalculator onBack={handleBackToCalculatorSelection} />
+          )}
+          
+          {/* 견적 계산기 단계들 */}
+          {currentStep >= 0 && (
+            <>
+              <StepIndicator currentStep={currentStep + 1} maxSteps={maxSteps} />
           
           {/* 선택된 옵션 요약 - Step 0에서는 숨김 */}
           {currentStep > 0 && (
@@ -447,6 +464,8 @@ const PanelCalculator = () => {
                   이전 단계로
                 </Button>
               </div>
+            </>
+              )}
             </>
           )}
         </CardContent>
