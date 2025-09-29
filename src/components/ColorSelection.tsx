@@ -74,32 +74,25 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
   selectedColor,
   onColorSelect
 }) => {
-  const categories = [
-    {
-      id: 'light',
-      name: '밝은 색상',
-      description: '파스텔 톤 및 밝은 컬러',
-      colors: COLOR_OPTIONS.filter(color => color.category === 'light')
-    },
-    {
-      id: 'standard',
-      name: '표준 색상',
-      description: '기본 제공 색상',
-      colors: COLOR_OPTIONS.filter(color => color.category === 'standard')
-    },
-    {
-      id: 'dark',
-      name: '진한 색상',
-      description: '다크 톤 및 진한 컬러',
-      colors: COLOR_OPTIONS.filter(color => color.category === 'dark')
-    },
-    {
-      id: 'fluorescent',
-      name: '형광 색상',
-      description: '네온 및 형광 컬러',
-      colors: COLOR_OPTIONS.filter(color => color.category === 'fluorescent')
-    }
-  ];
+  // AC 코드 숫자 순서로 정렬
+  const sortedColors = [...COLOR_OPTIONS].sort((a, b) => {
+    const aCode = parseInt(a.acCode.replace('AC-C', ''));
+    const bCode = parseInt(b.acCode.replace('AC-C', ''));
+    return aCode - bCode;
+  });
+
+  // 4개씩 그룹으로 나누기
+  const colorGroups = [];
+  for (let i = 0; i < sortedColors.length; i += 4) {
+    const group = sortedColors.slice(i, i + 4);
+    const groupNumber = Math.floor(i / 4) + 1;
+    colorGroups.push({
+      id: `group-${groupNumber}`,
+      name: `그룹 ${groupNumber}`,
+      description: `AC-C${String(group[0].acCode.replace('AC-C', '')).padStart(3, '0')} ~ AC-C${String(group[group.length - 1].acCode.replace('AC-C', '')).padStart(3, '0')}`,
+      colors: group
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -109,14 +102,14 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
       </div>
       
       <div className="space-y-8">
-        {categories.map((category) => (
-          <div key={category.id} className="space-y-4">
+        {colorGroups.map((group) => (
+          <div key={group.id} className="space-y-4">
             <div>
-              <h4 className="text-lg font-semibold text-gray-900">{category.name}</h4>
-              <p className="text-sm text-gray-600">{category.description}</p>
+              <h4 className="text-lg font-semibold text-gray-900">{group.name}</h4>
+              <p className="text-sm text-gray-600">{group.description}</p>
             </div>
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-              {category.colors.map((color) => (
+            <div className="grid grid-cols-4 gap-3">
+              {group.colors.map((color) => (
                 <div
                   key={color.id}
                   className={`relative cursor-pointer group ${
