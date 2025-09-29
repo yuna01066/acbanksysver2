@@ -186,24 +186,24 @@ export const calculatePanelCombinations = (
     
     const totalRequired = cutItems.reduce((sum, item) => sum + item.quantity, 0);
     const totalPlaced = panelUsages.reduce((sum, usage) => 
-      sum + usage.placedItems.reduce((itemSum, placed) => itemSum + placed.count, 0), 0
+      sum + usage.placedItems.reduce((itemSum, placed) => itemSum + placed.count, 0) * usage.quantity, 0
     );
     
-    if (totalPlaced > 0) {
+    // 모든 아이템이 배치되었는지 정확히 확인
+    const allItemsPlaced = remainingItems.every(item => item.quantity === 0);
+    
+    if (totalPlaced > 0 && allItemsPlaced) {
       const avgEfficiency = panelUsages.reduce((sum, usage) => sum + usage.efficiency, 0) / panelUsages.length;
       const totalWaste = panelUsages.length * panel.width * panel.height - 
-        cutItems.reduce((sum, item) => sum + (item.width * item.height * Math.min(item.quantity, totalPlaced)), 0);
+        cutItems.reduce((sum, item) => sum + (item.width * item.height * item.quantity), 0);
       
       results.push({
         panels: panelUsages,
         totalEfficiency: avgEfficiency,
         totalWasteArea: totalWaste,
         totalCost: panelUsages.length, // 임시로 판 개수를 비용으로 사용
-        allItemsPlaced: totalPlaced >= totalRequired,
-        remainingItems: remainingItems.filter(item => item.quantity > 0).map(item => ({
-          itemId: item.id,
-          remaining: item.quantity
-        }))
+        allItemsPlaced: true,
+        remainingItems: []
       });
     }
   }
@@ -255,24 +255,26 @@ export const calculatePanelCombinations = (
       if (panelUsages.length > 1) {
         const totalRequired = cutItems.reduce((sum, item) => sum + item.quantity, 0);
         const totalPlaced = panelUsages.reduce((sum, usage) => 
-          sum + usage.placedItems.reduce((itemSum, placed) => itemSum + placed.count, 0), 0
+          sum + usage.placedItems.reduce((itemSum, placed) => itemSum + placed.count, 0) * usage.quantity, 0
         );
         
-        const avgEfficiency = panelUsages.reduce((sum, usage) => sum + usage.efficiency, 0) / panelUsages.length;
-        const totalWaste = (panel1.width * panel1.height + panel2.width * panel2.height) - 
-          cutItems.reduce((sum, item) => sum + (item.width * item.height * Math.min(item.quantity, totalPlaced)), 0);
+        // 모든 아이템이 배치되었는지 정확히 확인
+        const allItemsPlaced = remainingItems.every(item => item.quantity === 0);
         
-        results.push({
-          panels: panelUsages,
-          totalEfficiency: avgEfficiency,
-          totalWasteArea: totalWaste,
-          totalCost: panelUsages.length,
-          allItemsPlaced: totalPlaced >= totalRequired,
-          remainingItems: remainingItems.filter(item => item.quantity > 0).map(item => ({
-            itemId: item.id,
-            remaining: item.quantity
-          }))
-        });
+        if (allItemsPlaced) {
+          const avgEfficiency = panelUsages.reduce((sum, usage) => sum + usage.efficiency, 0) / panelUsages.length;
+          const totalWaste = (panel1.width * panel1.height + panel2.width * panel2.height) - 
+            cutItems.reduce((sum, item) => sum + (item.width * item.height * item.quantity), 0);
+          
+          results.push({
+            panels: panelUsages,
+            totalEfficiency: avgEfficiency,
+            totalWasteArea: totalWaste,
+            totalCost: panelUsages.length,
+            allItemsPlaced: true,
+            remainingItems: []
+          });
+        }
       }
     }
   }
