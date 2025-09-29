@@ -23,21 +23,24 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   
   const MARGIN = 80;
-  const SPACING = 50;
+  const SPACING = 20; // 20mm 간격
   const THUMBNAIL_WIDTH = 240;
   const THUMBNAIL_HEIGHT = 180;
   
-  // 스케일 계산 (원판이 썸네일에 맞도록)
-  const scaleX = THUMBNAIL_WIDTH / panelWidth;
-  const scaleY = THUMBNAIL_HEIGHT / panelHeight;
-  const scale = Math.min(scaleX, scaleY) * 0.9; // 여백을 위해 0.9 곱함
-  
+  // 1/10 스케일 계산 (원판 mm 기준으로 1/10)
+  const scale = 0.1;
   const scaledPanelWidth = panelWidth * scale;
   const scaledPanelHeight = panelHeight * scale;
   
+  // 썸네일에 맞게 조정하는 추가 스케일
+  const displayScale = Math.min(THUMBNAIL_WIDTH / scaledPanelWidth, THUMBNAIL_HEIGHT / scaledPanelHeight) * 0.9;
+  const finalScale = scale * displayScale;
+  const finalPanelWidth = panelWidth * finalScale;
+  const finalPanelHeight = panelHeight * finalScale;
+  
   // 중앙 정렬을 위한 오프셋
-  const offsetX = (THUMBNAIL_WIDTH - scaledPanelWidth) / 2;
-  const offsetY = (THUMBNAIL_HEIGHT - scaledPanelHeight) / 2;
+  const offsetX = (THUMBNAIL_WIDTH - finalPanelWidth) / 2;
+  const offsetY = (THUMBNAIL_HEIGHT - finalPanelHeight) / 2;
 
   // 여러 원판에 걸쳐 배치 계산
   const calculateMultiPanelLayout = () => {
@@ -82,7 +85,7 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
       
     // 위치가 겹치는지 확인하는 함수 (간격 포함)
     const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
-      const minGap = 15; // 최소 간격을 15로 증가
+      const minGap = SPACING; // 20mm 간격
       return occupiedAreas.some(area => 
         !(x >= area.x + area.width + minGap || x + w + minGap <= area.x || 
           y >= area.y + area.height + minGap || y + h + minGap <= area.y)
@@ -112,9 +115,9 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
           // 사용 가능한 영역에 들어가는지 확인
           if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
           
-          // 가능한 모든 위치에서 배치 시도 (간격을 줄여서 더 세밀하게)
-        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 15) {
-          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 15) {
+          // 가능한 모든 위치에서 배치 시도 (10mm 간격으로 검색)
+        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 10) {
+          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 10) {
               if (!isOverlapping(x, y, orientation.width, orientation.height)) {
                 // 이 위치의 점수 계산
                 const positionScore = calculatePositionScore(x, y, orientation, usableWidth, usableHeight);
@@ -205,8 +208,8 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
         <rect
           x={offsetX}
           y={offsetY}
-          width={scaledPanelWidth}
-          height={scaledPanelHeight}
+          width={finalPanelWidth}
+          height={finalPanelHeight}
           fill="hsl(var(--muted))"
           stroke="hsl(var(--border))"
           strokeWidth="1"
@@ -215,10 +218,10 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
         
         {/* 마진 영역 표시 */}
         <rect
-          x={offsetX + (MARGIN * scale)}
-          y={offsetY + (MARGIN * scale)}
-          width={scaledPanelWidth - (MARGIN * 2 * scale)}
-          height={scaledPanelHeight - (MARGIN * 2 * scale)}
+          x={offsetX + (MARGIN * finalScale)}
+          y={offsetY + (MARGIN * finalScale)}
+          width={finalPanelWidth - (MARGIN * 2 * finalScale)}
+          height={finalPanelHeight - (MARGIN * 2 * finalScale)}
           fill="none"
           stroke="hsl(var(--muted-foreground))"
           strokeWidth="1"
@@ -230,10 +233,10 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
         {currentLayout.map((pos, index) => (
           <rect
             key={index}
-            x={offsetX + (pos.x * scale)}
-            y={offsetY + (pos.y * scale)}
-            width={pos.width * scale}
-            height={pos.height * scale}
+            x={offsetX + (pos.x * finalScale)}
+            y={offsetY + (pos.y * finalScale)}
+            width={pos.width * finalScale}
+            height={pos.height * finalScale}
             fill={pos.color}
             fillOpacity="0.7"
             stroke={pos.color}

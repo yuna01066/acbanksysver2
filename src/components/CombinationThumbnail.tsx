@@ -29,7 +29,7 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   
   const MARGIN = 80;
-  const SPACING = 50;
+  const SPACING = 20; // 20mm 간격
   const THUMBNAIL_WIDTH = 240;
   const THUMBNAIL_HEIGHT = 180;
 
@@ -43,16 +43,20 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
     </div>;
   }
 
-  // 스케일 계산
-  const scaleX = THUMBNAIL_WIDTH / currentPanelInfo.width;
-  const scaleY = THUMBNAIL_HEIGHT / currentPanelInfo.height;
-  const scale = Math.min(scaleX, scaleY) * 0.85;
+  // 1/10 스케일 계산 (원판 mm 기준으로 1/10)
+  const scale = 0.1;
   
   const scaledPanelWidth = currentPanelInfo.width * scale;
   const scaledPanelHeight = currentPanelInfo.height * scale;
   
-  const offsetX = (THUMBNAIL_WIDTH - scaledPanelWidth) / 2;
-  const offsetY = (THUMBNAIL_HEIGHT - scaledPanelHeight) / 2;
+  // 썸네일에 맞게 조정하는 추가 스케일
+  const displayScale = Math.min(THUMBNAIL_WIDTH / scaledPanelWidth, THUMBNAIL_HEIGHT / scaledPanelHeight) * 0.85;
+  const finalScale = scale * displayScale;
+  const finalPanelWidth = currentPanelInfo.width * finalScale;
+  const finalPanelHeight = currentPanelInfo.height * finalScale;
+  
+  const offsetX = (THUMBNAIL_WIDTH - finalPanelWidth) / 2;
+  const offsetY = (THUMBNAIL_HEIGHT - finalPanelHeight) / 2;
 
   // 배치된 도형들 계산
   const calculateLayout = () => {
@@ -67,7 +71,7 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
       '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'
     ];
 
-    const GAP = 15; // 아이템 간 최소 간격
+    const GAP = SPACING; // 20mm 간격
 
     // 겹침 확인 함수 (간격 포함)
     const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
@@ -200,8 +204,8 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
         <rect
           x={offsetX}
           y={offsetY}
-          width={scaledPanelWidth}
-          height={scaledPanelHeight}
+          width={finalPanelWidth}
+          height={finalPanelHeight}
           fill="hsl(var(--muted))"
           stroke="hsl(var(--border))"
           strokeWidth="1"
@@ -210,10 +214,10 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
         
         {/* 마진 영역 표시 */}
         <rect
-          x={offsetX + (MARGIN * scale)}
-          y={offsetY + (MARGIN * scale)}
-          width={scaledPanelWidth - (MARGIN * 2 * scale)}
-          height={scaledPanelHeight - (MARGIN * 2 * scale)}
+          x={offsetX + (MARGIN * finalScale)}
+          y={offsetY + (MARGIN * finalScale)}
+          width={finalPanelWidth - (MARGIN * 2 * finalScale)}
+          height={finalPanelHeight - (MARGIN * 2 * finalScale)}
           fill="none"
           stroke="hsl(var(--muted-foreground))"
           strokeWidth="1"
@@ -225,10 +229,10 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
         {layout.map((pos, index) => (
           <rect
             key={index}
-            x={offsetX + (pos.x * scale)}
-            y={offsetY + (pos.y * scale)}
-            width={pos.width * scale}
-            height={pos.height * scale}
+            x={offsetX + (pos.x * finalScale)}
+            y={offsetY + (pos.y * finalScale)}
+            width={pos.width * finalScale}
+            height={pos.height * finalScale}
             fill={pos.color}
             fillOpacity="0.7"
             stroke={pos.color}
