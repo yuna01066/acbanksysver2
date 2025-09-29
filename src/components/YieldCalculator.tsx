@@ -135,57 +135,59 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       };
     } = {
       '3*6': {
-        width: 900,   // 20T 초과(850) + 50mm
+        width: 900,
         height: 1800
       },
       '대3*6': {
-        width: 950,   // 20T 초과(900) + 50mm
+        width: 950,
         height: 1850
       },
       '4*5': {
-        width: 1170,  // 20T 초과(1120) + 50mm
+        width: 1170,
         height: 1475
       },
       '대4*5': {
-        width: 1250,  // 20T 초과(1200) + 50mm
+        width: 1250,
         height: 1550
       },
       '1*2': {
-        width: 1050,  // 20T 초과(1000) + 50mm
+        width: 1050,
         height: 2050
       },
       '4*6': {
-        width: 1250,  // 20T 초과(1200) + 50mm
+        width: 1250,
         height: 1900
       },
       '4*8': {
-        width: 1250,  // 20T 초과(1200) + 50mm
+        width: 1250,
         height: 2450
       },
       '4*10': {
-        width: 1250,  // 20T 초과(1200) + 50mm
-        height: 3050
+        width: 1200,
+        height: 3000
       },
       '5*6': {
-        width: 1550,  // 20T 초과(1500) + 50mm
+        width: 1550,
         height: 1850
       },
       '5*8': {
-        width: 1550,  // 20T 초과(1500) + 50mm
+        width: 1550,
         height: 2450
       },
       '소3*6': {
-        width: 900,   // 3*6과 동일
+        width: 900,
         height: 1800
       },
+      // 소3*6은 3*6과 동일
       '소1*2': {
-        width: 1050,  // 1*2와 동일
+        width: 1050,
         height: 2050
       },
+      // 소1*2는 1*2와 동일
       '5*5': {
-        width: 1550,  // 20T 초과(1500) + 50mm
+        width: 1550,
         height: 1550
-      }
+      } // 5*5 추가 (정사각형)
     };
 
     // 두께에 따라 조정된 사이즈 매핑
