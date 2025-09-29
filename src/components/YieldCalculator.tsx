@@ -329,7 +329,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack }) => {
                   )}
                   
                   {result.surplus === 0 && (
-                    <div className="mt-3 p-2 bg-success/10 text-success-foreground text-sm rounded-lg">
+                    <div className="mt-3 p-2 bg-success/10 text-muted-foreground text-sm rounded-lg">
                       <span className="font-medium">정확한 수량:</span> 
                       여분 없이 정확히 {quantity}개 생산됩니다
                     </div>
