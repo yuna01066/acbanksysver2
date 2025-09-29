@@ -162,7 +162,7 @@ const COLOR_OPTIONS: ColorOption[] = [
 
 interface ColorSelectionProps {
   selectedColor: string;
-  onColorSelect: (color: string) => void;
+  onColorSelect: (colorId: string, colorInfo: { acCode: string; hexCode: string }) => void;
 }
 
 const ColorSelection: React.FC<ColorSelectionProps> = ({
@@ -255,7 +255,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                     } ${
                       selectedColor === color.id ? 'ring-2 ring-primary ring-offset-2' : ''
                     }`}
-                    onClick={() => !color.isEmpty && onColorSelect(color.id)}
+                    onClick={() => !color.isEmpty && onColorSelect(color.id, { acCode: color.acCode, hexCode: color.hexCode })}
                   >
                     <div 
                       className={`w-full h-20 rounded-lg border border-gray-200 transition-all duration-200 ${
@@ -300,7 +300,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                     className={`relative cursor-pointer group ${
                       selectedColor === color.id ? 'ring-2 ring-primary ring-offset-2' : ''
                     }`}
-                    onClick={() => onColorSelect(color.id)}
+                    onClick={() => onColorSelect(color.id, { acCode: color.acCode, hexCode: color.hexCode })}
                   >
                     <div 
                       className="w-full h-20 rounded-lg border border-gray-200 shadow-sm group-hover:shadow-md transition-all duration-200"

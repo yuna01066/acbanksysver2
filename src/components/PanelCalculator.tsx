@@ -50,6 +50,7 @@ const PanelCalculator = () => {
   const [selectedThickness, setSelectedThickness] = useState<string>('');
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<string>('');
+  const [selectedColorHex, setSelectedColorHex] = useState<string>('');
   const [selectedColorType, setSelectedColorType] = useState<string>('');
   const [selectedSurface, setSelectedSurface] = useState<string>('');
   const [colorMixingCost, setColorMixingCost] = useState<number>(0);
@@ -74,6 +75,7 @@ const PanelCalculator = () => {
       setSelectedMaterial(null);
       setSelectedQuality(null);
       setSelectedColor('');
+      setSelectedColorHex('');
       setSelectedThickness('');
       setSelectedSize('');
       setSelectedColorType('');
@@ -85,6 +87,7 @@ const PanelCalculator = () => {
       setSelectedMaterial(null);
       setSelectedQuality(null);
       setSelectedColor('');
+      setSelectedColorHex('');
       setSelectedThickness('');
       setSelectedSize('');
       setSelectedColorType('');
@@ -95,6 +98,7 @@ const PanelCalculator = () => {
     } else if (step <= 2) {
       setSelectedQuality(null);
       setSelectedColor('');
+      setSelectedColorHex('');
       setSelectedThickness('');
       setSelectedSize('');
       setSelectedColorType('');
@@ -104,6 +108,7 @@ const PanelCalculator = () => {
       setCurrentStep(2);
     } else if (step <= 3) {
       setSelectedColor('');
+      setSelectedColorHex('');
       setSelectedThickness('');
       setSelectedSize('');
       setSelectedColorType('');
@@ -168,9 +173,10 @@ const PanelCalculator = () => {
     setCurrentStep(3);
   };
 
-  const handleColorSelect = (color: string) => {
-    console.log('Color selected:', color);
-    setSelectedColor(color);
+  const handleColorSelect = (colorId: string, colorInfo: { acCode: string; hexCode: string }) => {
+    console.log('Color selected:', colorId, colorInfo);
+    setSelectedColor(colorInfo.acCode);
+    setSelectedColorHex(colorInfo.hexCode);
     resetFromStep(4);
     setCurrentStep(4);
   };
@@ -230,6 +236,8 @@ const PanelCalculator = () => {
       thickness: selectedThickness,
       size: selectedSize,
       colorType: selectedColorType,
+      selectedColor: selectedColor,
+      selectedColorHex: selectedColorHex,
       surface: selectedSurface,
       colorMixingCost: colorMixingCost,
       processing: selectedProcessing,
@@ -248,6 +256,7 @@ const PanelCalculator = () => {
     setSelectedMaterial(null);
     setSelectedQuality(null);
     setSelectedColor('');
+    setSelectedColorHex('');
     setSelectedThickness('');
     setSelectedSize('');
     setSelectedColorType('');
