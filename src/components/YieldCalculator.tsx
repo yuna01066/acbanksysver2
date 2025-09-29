@@ -37,6 +37,7 @@ interface YieldCalculatorProps {
     quality: string;
     thickness: string;
     size: string;
+    quantity: number;
   }) => void;
 }
 
@@ -331,7 +332,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
                           onClick={() => onPanelSelect({
                             quality: selectedQuality,
                             thickness: selectedThickness,
-                            size: result.panelSize
+                            size: result.panelSize,
+                            quantity: result.panelsNeeded
                           })}
                           className="whitespace-nowrap"
                         >
