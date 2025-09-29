@@ -54,6 +54,9 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
   }]);
   const [selectedThickness, setSelectedThickness] = useState<string>('3T');
   const [selectedQuality, setSelectedQuality] = useState<string>('glossy-color');
+  const [showResults, setShowResults] = useState<boolean>(false);
+  const [yieldResults, setYieldResults] = useState<YieldResult[]>([]);
+  const [panelCombinations, setPanelCombinations] = useState<any[]>([]);
 
   // 재단 항목 추가/제거 함수
   const addCutItem = () => {
@@ -340,11 +343,16 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
     };
   };
 
-  // 수율 결과 계산
-  const yieldResults = useMemo(() => {
+  // 계산하기 버튼 클릭 시 실행되는 함수
+  const handleCalculate = () => {
     // 모든 재단 항목이 유효한지 확인
     const validCutItems = cutItems.filter(item => item.width && item.height && item.quantity && parseFloat(item.width) > 0 && parseFloat(item.height) > 0 && parseInt(item.quantity) > 0);
-    if (validCutItems.length === 0) return [];
+    if (validCutItems.length === 0) {
+      setYieldResults([]);
+      setPanelCombinations([]);
+      setShowResults(true);
+      return;
+    }
 
     // 복합 네스팅을 위한 아이템 배열 생성
     const itemsForNesting = validCutItems.map((item, index) => ({
@@ -353,6 +361,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       quantity: parseInt(item.quantity),
       id: `item-${index}`
     }));
+
+    // 수율 결과 계산
     const totalRequired = itemsForNesting.reduce((sum, item) => sum + item.quantity, 0);
     const results: YieldResult[] = availablePanelSizes.map(panel => {
       const {
@@ -384,7 +394,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
     }).filter(result => result !== null && result.piecesPerPanel > 0);
 
     // 여분이 적을수록, 효율성이 높을수록, 필요 판수가 적을수록 우선
-    return results.sort((a, b) => {
+    const sortedResults = results.sort((a, b) => {
       // 1순위: 여분이 적을수록 좋음
       if (a.surplus !== b.surplus) {
         return a.surplus - b.surplus;
@@ -396,20 +406,14 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       // 3순위: 필요 판수가 적을수록 좋음
       return a.panelsNeeded - b.panelsNeeded;
     });
-  }, [cutItems, availablePanelSizes]);
 
-  // 복합 조합 계산
-  const panelCombinations = useMemo(() => {
-    const validCutItems = cutItems.filter(item => item.width && item.height && item.quantity && parseFloat(item.width) > 0 && parseFloat(item.height) > 0 && parseInt(item.quantity) > 0);
-    if (validCutItems.length === 0) return [];
-    const itemsForNesting = validCutItems.map((item, index) => ({
-      width: parseFloat(item.width),
-      height: parseFloat(item.height),
-      quantity: parseInt(item.quantity),
-      id: `item-${index}`
-    }));
-    return calculatePanelCombinations(itemsForNesting, availablePanelSizes, 10, selectedThickness);
-  }, [cutItems, availablePanelSizes, selectedThickness]);
+    // 복합 조합 계산
+    const combinations = calculatePanelCombinations(itemsForNesting, availablePanelSizes, 10, selectedThickness);
+
+    setYieldResults(sortedResults);
+    setPanelCombinations(combinations);
+    setShowResults(true);
+  };
   const availableThicknesses = useMemo(() => {
     const priceData = getPriceDataByQuality(selectedQuality);
     const thicknesses = new Set<string>();
@@ -489,17 +493,28 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
                     {cutItems.length > 1 && <Button variant="ghost" size="sm" onClick={() => removeCutItem(item.id)} className="p-1 h-8 w-8 text-destructive hover:text-destructive">
                         <Trash2 className="w-4 h-4" />
                       </Button>}
-                  </div>
+                   </div>
                 </div>
               </div>)}
+          </div>
+
+          <div className="flex justify-center pt-4">
+            <Button 
+              onClick={handleCalculate}
+              className="flex items-center gap-2 px-8 py-3 text-lg"
+              size="lg"
+            >
+              <Calculator className="w-5 h-5" />
+              계산하기
+            </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* 통합 추천 결과 */}
-      {(yieldResults.length > 0 || panelCombinations.length > 0) && <UnifiedRecommendations yieldResults={yieldResults} combinations={panelCombinations} cutItems={cutItems} onPanelSelect={onPanelSelect} selectedQuality={selectedQuality} selectedThickness={selectedThickness} availablePanelSizes={availablePanelSizes} />}
+      {showResults && (yieldResults.length > 0 || panelCombinations.length > 0) && <UnifiedRecommendations yieldResults={yieldResults} combinations={panelCombinations} cutItems={cutItems} onPanelSelect={onPanelSelect} selectedQuality={selectedQuality} selectedThickness={selectedThickness} availablePanelSizes={availablePanelSizes} />}
 
-      {cutItems.some(item => item.width && item.height && item.quantity) && yieldResults.length === 0 && panelCombinations.length === 0 && <Card>
+      {showResults && yieldResults.length === 0 && panelCombinations.length === 0 && <Card>
           <CardContent className="pt-6 text-center">
             <p className="text-muted-foreground">
               입력하신 크기로는 선택된 두께에서 생산 가능한 원판이 없습니다.
