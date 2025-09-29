@@ -305,10 +305,10 @@ const PanelCalculator = () => {
                 onClick={handleViewQuotesSummary}
                 variant="default"
                 className="animate-slide-in"
-              >
-                <ShoppingCart className="w-4 h-4" />
-                견적서 작성 완료 ({quotes.length})
-              </Button>
+               >
+                 <ShoppingCart className="w-4 h-4" />
+                 담은 견적 보기 ({quotes.length})
+               </Button>
             )}
           </div>
           <CardTitle className="text-display flex items-center justify-center gap-4 mb-3">
