@@ -92,10 +92,18 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity }: Custome
             <div className="text-xs text-gray-600 mb-1">사이즈</div>
             <div className="font-semibold text-gray-900 text-sm">{quote.size}</div>
           </div>
-          {quote.colorType && (
+          {quote.selectedColor && (
             <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
               <div className="text-xs text-gray-600 mb-1">색상</div>
-              <div className="font-semibold text-gray-900 text-sm">{quote.colorType}</div>
+              <div className="flex items-center gap-2">
+                {quote.selectedColorHex && (
+                  <div 
+                    className="w-4 h-4 rounded border border-gray-300"
+                    style={{ backgroundColor: quote.selectedColorHex }}
+                  />
+                )}
+                <span className="font-semibold text-gray-900 text-sm">{quote.selectedColor}</span>
+              </div>
             </div>
           )}
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
