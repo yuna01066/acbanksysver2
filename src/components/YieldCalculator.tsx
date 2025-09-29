@@ -320,7 +320,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <div className="font-semibold text-primary-dark">
+                        <div className="font-semibold text-foreground">
                           {result.panelsNeeded}장 필요
                         </div>
                       </div>
