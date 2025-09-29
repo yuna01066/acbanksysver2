@@ -233,7 +233,7 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                 )}
 
                 {/* 여분 생산 정보 */}
-                {recommendation.type === 'single' && (
+                {recommendation.type === 'single' ? (
                   <>
                     {(recommendation.data as YieldResult).surplus > 0 && (
                       <div className="mt-3 p-2 bg-warning/10 text-muted-foreground text-sm rounded-lg">
@@ -249,6 +249,39 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                       </div>
                     )}
                   </>
+                ) : (
+                  (() => {
+                    // 복합 조합의 총 생산량 계산
+                    const combinationData = recommendation.data as CombinationResult;
+                    const totalProduced = combinationData.panels.reduce((sum, panel) => {
+                      const panelSize = availablePanelSizes.find(p => p.name === panel.panelName);
+                      if (!panelSize) return sum;
+                      
+                      // 이 패널에 배치된 총 아이템 수 계산
+                      const placedCount = panel.placedItems.reduce((itemSum, item) => itemSum + item.count, 0);
+                      return sum + (placedCount * panel.quantity);
+                    }, 0);
+                    
+                    const surplus = totalProduced - totalQuantity;
+                    
+                    return (
+                      <>
+                        {surplus > 0 && (
+                          <div className="mt-3 p-2 bg-warning/10 text-muted-foreground text-sm rounded-lg">
+                            <span className="font-medium">여분 생산:</span> 
+                            {surplus}개 추가 생산됩니다
+                          </div>
+                        )}
+                        
+                        {surplus === 0 && (
+                          <div className="mt-3 p-2 bg-success/10 text-muted-foreground text-sm rounded-lg">
+                            <span className="font-medium">정확한 수량:</span> 
+                            여분 없이 정확히 {totalQuantity}개 생산됩니다
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()
                 )}
               </div>
 
