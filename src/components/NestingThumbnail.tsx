@@ -128,7 +128,7 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
           // 사용 가능한 영역에 완전히 들어가는지 엄격하게 확인
           if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
           
-          // 가능한 모든 위치에서 배치 시도 (10mm 간격으로 검색)
+          // 가능한 모든 위치에서 배치 시도 (10mm 간격으로 더 세밀하게 검색)
           for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 10) {
             for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 10) {
               // 엄격한 경계 검사: 도형이 원판 경계 내부에만 배치되는지 확인

@@ -186,10 +186,12 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     // 면적 기준으로 내림차순 정렬
     allPieces.sort((a, b) => (b.width * b.height) - (a.width * a.height));
     
-    // 위치가 겹치는지 확인하는 함수
+    // 위치가 겹치는지 확인하는 함수 (50mm 간격 포함)
     const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
+      const minGap = SPACING; // 50mm 간격
       return occupiedAreas.some(area => 
-        !(x >= area.x + area.width || x + w <= area.x || y >= area.y + area.height || y + h <= area.y)
+        !(x >= area.x + area.width + minGap || x + w + minGap <= area.x || 
+          y >= area.y + area.height + minGap || y + h + minGap <= area.y)
       );
     };
     
@@ -210,9 +212,9 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
         // 사용 가능한 영역에 들어가는지 확인
         if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
         
-        // 가능한 모든 위치에서 배치 시도
-        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += SPACING) {
-          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += SPACING) {
+        // 가능한 모든 위치에서 배치 시도 (10mm 간격으로 더 세밀하게 검색)
+        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 10) {
+          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 10) {
             if (!isOverlapping(x, y, orientation.width, orientation.height)) {
               // 이 위치의 점수 계산 (왼쪽 위부터 우선, 회전하지 않은 것을 약간 선호)
               const positionScore = calculatePositionScore(x, y, orientation, usableWidth, usableHeight);
