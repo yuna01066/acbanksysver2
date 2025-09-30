@@ -74,6 +74,13 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
     }
   };
   const updateCutItem = (id: string, field: keyof CutItem, value: string) => {
+    // 가로/세로 필드의 경우 최대값 3000mm 제한
+    if (field === 'width' || field === 'height') {
+      const numValue = parseFloat(value);
+      if (numValue > 3000) {
+        value = '3000';
+      }
+    }
     // 수량 필드의 경우 최대값 1000 제한
     if (field === 'quantity') {
       const numValue = parseInt(value);
@@ -637,11 +644,31 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
             {cutItems.map((item, index) => <div key={item.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-border rounded-xl bg-background/50">
                 <div className="space-y-2">
                   <Label htmlFor={`width-${item.id}`}>가로 (mm)</Label>
-                  <Input id={`width-${item.id}`} type="number" placeholder="예: 300" value={item.width} onChange={e => updateCutItem(item.id, 'width', e.target.value)} className="rounded-xl" />
+                  <Input 
+                    id={`width-${item.id}`} 
+                    type="number" 
+                    placeholder="예: 300" 
+                    min="1"
+                    max="3000"
+                    value={item.width} 
+                    onChange={e => updateCutItem(item.id, 'width', e.target.value)} 
+                    className="rounded-xl" 
+                  />
+                  <p className="text-xs text-muted-foreground">최대 3000mm</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor={`height-${item.id}`}>세로 (mm)</Label>
-                  <Input id={`height-${item.id}`} type="number" placeholder="예: 200" value={item.height} onChange={e => updateCutItem(item.id, 'height', e.target.value)} className="rounded-xl" />
+                  <Input 
+                    id={`height-${item.id}`} 
+                    type="number" 
+                    placeholder="예: 200" 
+                    min="1"
+                    max="3000"
+                    value={item.height} 
+                    onChange={e => updateCutItem(item.id, 'height', e.target.value)} 
+                    className="rounded-xl" 
+                  />
+                  <p className="text-xs text-muted-foreground">최대 3000mm</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor={`quantity-${item.id}`}>수량 (개)</Label>
