@@ -353,6 +353,9 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
     if (selectedQuality?.id === 'glossy-color') {
       // 클리어를 선택한 경우 클리어 A, B만 표시
       return allCategories.filter(cat => cat.id === 'clear-a' || cat.id === 'clear-b');
+    } else if (selectedQuality?.id === 'satin-color') {
+      // 브라이트를 선택한 경우 브라이트 A, B만 표시
+      return allCategories.filter(cat => cat.id === 'bright-a' || cat.id === 'bright-b');
     }
     
     // 다른 재질의 경우 모든 카테고리 표시 (기본값)
