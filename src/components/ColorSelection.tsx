@@ -464,11 +464,11 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="color-name">색상명 *</Label>
+                <Label htmlFor="color-name">팬톤 색상명</Label>
                 <Input
                   id="color-name"
                   type="text"
-                  placeholder="예: 커스텀 블루"
+                  placeholder="예: PMS 286 C (선택사항)"
                   value={customColorName}
                   onChange={(e) => setCustomColorName(e.target.value)}
                 />
