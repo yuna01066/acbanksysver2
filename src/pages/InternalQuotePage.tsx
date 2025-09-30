@@ -127,9 +127,9 @@ const InternalQuotePage = () => {
                     <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 수신</h3>
                     
                     {/* 프로젝트 기본 정보 */}
-                    <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                      <h4 className="font-semibold text-green-800 mb-3">프로젝트 정보</h4>
-                      <div className="space-y-2 text-sm text-green-700">
+                    <div className="p-4 bg-slate-50 rounded-lg">
+                      <h4 className="font-semibold text-slate-800 mb-3">프로젝트 정보</h4>
+                      <div className="space-y-2 text-sm text-slate-700">
                         <div><strong>프로젝트명:</strong> {recipient.projectName}</div>
                         <div><strong>견적번호:</strong> {recipient.quoteNumber}</div>
                         <div><strong>견적일자:</strong> {recipient.quoteDate ? recipient.quoteDate.toLocaleDateString('ko-KR') : currentDate}</div>
@@ -140,9 +140,9 @@ const InternalQuotePage = () => {
                     </div>
 
                     {/* 담당자 및 납기 정보 */}
-                    <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                      <h4 className="font-semibold text-purple-800 mb-3">담당자 및 납기 정보</h4>
-                      <div className="space-y-2 text-sm text-purple-700">
+                    <div className="p-4 bg-violet-50 rounded-lg">
+                      <h4 className="font-semibold text-slate-800 mb-3">담당자 및 납기 정보</h4>
+                      <div className="space-y-2 text-sm text-slate-700">
                         <div><strong>담당자:</strong> {recipient.contactPerson}</div>
                         <div><strong>연락처:</strong> {recipient.phoneNumber}</div>
                         <div><strong>이메일:</strong> {recipient.email}</div>
