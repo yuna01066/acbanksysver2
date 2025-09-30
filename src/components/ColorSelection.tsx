@@ -8,7 +8,7 @@ interface ColorOption {
   name: string;
   acCode: string;
   hexCode: string;
-  category: 'clear-a' | 'clear-b';
+  category: 'clear-a' | 'clear-b' | 'bright-a';
   isEmpty?: boolean; // 빈 색상 표시용
 }
 
@@ -157,7 +157,69 @@ const COLOR_OPTIONS: ColorOption[] = [
   { id: 'empty-206', name: '', acCode: 'AC-C206', hexCode: '', category: 'clear-b', isEmpty: true },
   { id: 'silver-gray-clear-b', name: '실버 그레이 B', acCode: 'AC-C207', hexCode: '#b3b0c4', category: 'clear-b' },
   { id: 'steel-gray-clear-b', name: '스틸 그레이 B', acCode: 'AC-C208', hexCode: '#1f2a44', category: 'clear-b' },
-  { id: 'charcoal-gray-clear-b', name: '차콜 그레이 B', acCode: 'AC-C209', hexCode: '#13294b', category: 'clear-b' }
+  { id: 'charcoal-gray-clear-b', name: '차콜 그레이 B', acCode: 'AC-C209', hexCode: '#13294b', category: 'clear-b' },
+
+  // 브라이트 A 색상
+  { id: 'bright-pink-light', name: '연핑크', acCode: 'AC-B011', hexCode: '#ffb1bb', category: 'bright-a' },
+  { id: 'bright-pink-standard', name: '핑크', acCode: 'AC-B012', hexCode: '#f67599', category: 'bright-a' },
+  { id: 'bright-red', name: '레드', acCode: 'AC-B013', hexCode: '#e4002b', category: 'bright-a' },
+  { id: 'bright-maroon', name: '마룬', acCode: 'AC-B014', hexCode: '#a4343a', category: 'bright-a' },
+  { id: 'bright-peach', name: '피치', acCode: 'AC-B021', hexCode: '#ffb3ab', category: 'bright-a' },
+  { id: 'bright-coral', name: '코랄', acCode: 'AC-B022', hexCode: '#ff7f41', category: 'bright-a' },
+  { id: 'bright-orange-red', name: '오렌지 레드', acCode: 'AC-B023', hexCode: '#eb3300', category: 'bright-a' },
+  { id: 'bright-rust', name: '러스트', acCode: 'AC-B024', hexCode: '#963821', category: 'bright-a' },
+  { id: 'bright-salmon', name: '살몬', acCode: 'AC-B031', hexCode: '#ffbe9f', category: 'bright-a' },
+  { id: 'bright-tangerine', name: '탠저린', acCode: 'AC-B032', hexCode: '#ff9800', category: 'bright-a' },
+  { id: 'bright-flame', name: '플레임', acCode: 'AC-B033', hexCode: '#ff7500', category: 'bright-a' },
+  { id: 'bright-brick', name: '브릭', acCode: 'AC-B034', hexCode: '#be531c', category: 'bright-a' },
+  { id: 'bright-orange-light', name: '연오렌지', acCode: 'AC-B041', hexCode: '#ffc27b', category: 'bright-a' },
+  { id: 'bright-orange-standard', name: '오렌지', acCode: 'AC-B042', hexCode: '#ffad00', category: 'bright-a' },
+  { id: 'bright-orange-dark', name: '진오렌지', acCode: 'AC-B043', hexCode: '#ff8200', category: 'bright-a' },
+  { id: 'bright-brown', name: '브라운', acCode: 'AC-B044', hexCode: '#be6a14', category: 'bright-a' },
+  { id: 'bright-yellow-light', name: '연노랑', acCode: 'AC-B051', hexCode: '#f8e08e', category: 'bright-a' },
+  { id: 'bright-yellow-standard', name: '노랑', acCode: 'AC-B052', hexCode: '#ffc72c', category: 'bright-a' },
+  { id: 'bright-orange-bright', name: '브라이트 오렌지', acCode: 'AC-B053', hexCode: '#ffb600', category: 'bright-a' },
+  { id: 'bright-amber', name: '앰버', acCode: 'AC-B054', hexCode: '#ad841f', category: 'bright-a' },
+  { id: 'bright-lemon', name: '레몬', acCode: 'AC-B061', hexCode: '#ebe49a', category: 'bright-a' },
+  { id: 'bright-gold', name: '골드', acCode: 'AC-B062', hexCode: '#e1cd00', category: 'bright-a' },
+  { id: 'bright-sunshine', name: '선샤인', acCode: 'AC-B063', hexCode: '#fedb00', category: 'bright-a' },
+  { id: 'bright-mustard', name: '머스타드', acCode: 'AC-B064', hexCode: '#af9800', category: 'bright-a' },
+  { id: 'bright-lime-light', name: '연라임', acCode: 'AC-B071', hexCode: '#d4ec8e', category: 'bright-a' },
+  { id: 'bright-lime-standard', name: '라임', acCode: 'AC-B072', hexCode: '#93c90f', category: 'bright-a' },
+  { id: 'bright-green-dark', name: '진그린', acCode: 'AC-B073', hexCode: '#79c300', category: 'bright-a' },
+  { id: 'bright-olive', name: '올리브', acCode: 'AC-B074', hexCode: '#79863c', category: 'bright-a' },
+  { id: 'bright-mint', name: '민트', acCode: 'AC-B081', hexCode: '#bde9c9', category: 'bright-a' },
+  { id: 'bright-green-standard', name: '그린', acCode: 'AC-B082', hexCode: '#2cc84d', category: 'bright-a' },
+  { id: 'bright-forest-green', name: '포레스트 그린', acCode: 'AC-B083', hexCode: '#009739', category: 'bright-a' },
+  { id: 'bright-pine-green', name: '파인 그린', acCode: 'AC-B084', hexCode: '#275d38', category: 'bright-a' },
+  { id: 'bright-sea-green', name: '시 그린', acCode: 'AC-B091', hexCode: '#9be3bf', category: 'bright-a' },
+  { id: 'bright-emerald', name: '에메랄드', acCode: 'AC-B092', hexCode: '#48d597', category: 'bright-a' },
+  { id: 'bright-jade', name: '제이드', acCode: 'AC-B093', hexCode: '#009a44', category: 'bright-a' },
+  { id: 'bright-forest', name: '포레스트', acCode: 'AC-B094', hexCode: '#046a38', category: 'bright-a' },
+  { id: 'bright-cyan-light', name: '연시안', acCode: 'AC-B101', hexCode: '#9bd3dd', category: 'bright-a' },
+  { id: 'bright-cyan-standard', name: '시안', acCode: 'AC-B102', hexCode: '#00b7bd', category: 'bright-a' },
+  { id: 'bright-teal', name: '틸', acCode: 'AC-B103', hexCode: '#008578', category: 'bright-a' },
+  { id: 'bright-navy', name: '네이비', acCode: 'AC-B104', hexCode: '#005f61', category: 'bright-a' },
+  { id: 'bright-sky-blue', name: '하늘색', acCode: 'AC-B111', hexCode: '#a4dbe8', category: 'bright-a' },
+  { id: 'bright-turquoise', name: '터키석', acCode: 'AC-B112', hexCode: '#05c3dd', category: 'bright-a' },
+  { id: 'bright-ocean-blue', name: '오션 블루', acCode: 'AC-B113', hexCode: '#00a9ce', category: 'bright-a' },
+  { id: 'bright-steel-blue', name: '스틸 블루', acCode: 'AC-B114', hexCode: '#0092bc', category: 'bright-a' },
+  { id: 'bright-powder-blue', name: '파우더 블루', acCode: 'AC-B121', hexCode: '#99d6ea', category: 'bright-a' },
+  { id: 'bright-cerulean', name: '세룰리안', acCode: 'AC-B122', hexCode: '#56b7e6', category: 'bright-a' },
+  { id: 'bright-sapphire', name: '사파이어', acCode: 'AC-B123', hexCode: '#0085ca', category: 'bright-a' },
+  { id: 'bright-midnight', name: '미드나잇', acCode: 'AC-B124', hexCode: '#00617f', category: 'bright-a' },
+  { id: 'bright-blue-light', name: '연블루', acCode: 'AC-B131', hexCode: '#becae9', category: 'bright-a' },
+  { id: 'bright-blue-standard', name: '블루', acCode: 'AC-B132', hexCode: '#5c88da', category: 'bright-a' },
+  { id: 'bright-blue-dark', name: '진블루', acCode: 'AC-B133', hexCode: '#0047bb', category: 'bright-a' },
+  { id: 'bright-indigo', name: '인디고', acCode: 'AC-B134', hexCode: '#002d72', category: 'bright-a' },
+  { id: 'bright-lavender', name: '라벤더', acCode: 'AC-B141', hexCode: '#c5b4e3', category: 'bright-a' },
+  { id: 'bright-violet', name: '바이올렛', acCode: 'AC-B142', hexCode: '#9b7dd4', category: 'bright-a' },
+  { id: 'bright-royal-purple', name: '로얄 퍼플', acCode: 'AC-B143', hexCode: '#6638b6', category: 'bright-a' },
+  { id: 'bright-deep-purple', name: '딥 퍼플', acCode: 'AC-B144', hexCode: '#483698', category: 'bright-a' },
+  { id: 'bright-lilac', name: '라일락', acCode: 'AC-B151', hexCode: '#c7b2de', category: 'bright-a' },
+  { id: 'bright-amethyst', name: '자수정', acCode: 'AC-B152', hexCode: '#9063cd', category: 'bright-a' },
+  { id: 'bright-orchid', name: '오키드', acCode: 'AC-B153', hexCode: '#753bbd', category: 'bright-a' },
+  { id: 'bright-eggplant', name: '에그플랜트', acCode: 'AC-B154', hexCode: '#582c83', category: 'bright-a' }
 ];
 
 interface ColorSelectionProps {
@@ -191,6 +253,12 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
       name: '클리어 B',
       description: '클리어 B 색상 팔레트',
       colors: sortedColors.filter(color => color.category === 'clear-b')
+    },
+    {
+      id: 'bright-a',
+      name: '브라이트 A',
+      description: '브라이트 A 색상 팔레트',
+      colors: sortedColors.filter(color => color.category === 'bright-a')
     }
   ];
 
