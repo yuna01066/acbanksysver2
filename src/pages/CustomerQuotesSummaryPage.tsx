@@ -86,9 +86,11 @@ const CustomerQuotesSummaryPage = () => {
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
             <CardContent className="p-8">
               {/* 견적서 헤더 */}
-              <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold mb-2">견 적 서</h1>
-                <div className="text-lg text-gray-600">견적번호: {quoteNumber}</div>
+              <div className="text-center mb-8 p-6 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border">
+                <h1 className="text-4xl font-bold mb-3 text-slate-800">견 적 서</h1>
+                <div className="text-lg font-semibold text-blue-600 bg-white px-4 py-2 rounded-lg inline-block shadow-sm">
+                  견적번호: {quoteNumber}
+                </div>
               </div>
 
               {/* 회사 정보 섹션 */}
@@ -129,27 +131,33 @@ const CustomerQuotesSummaryPage = () => {
               </div>
 
               {/* 총합계 금액 박스 */}
-              <div className="text-center p-6 bg-gray-100 rounded-lg mb-8">
-                <div className="text-xl font-bold">
-                  합계 금액: 일금 {totalWithTax.toLocaleString()}원 정 ( ₩ {totalWithTax.toLocaleString()} ) / 배송비 별도
+              <div className="text-center p-8 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl mb-8 text-white shadow-lg">
+                <div className="text-2xl font-bold mb-2">
+                  합계 금액: 일금 {totalWithTax.toLocaleString()}원 정
+                </div>
+                <div className="text-lg opacity-90">
+                  ( ₩ {totalWithTax.toLocaleString()} ) / 배송비 별도
                 </div>
               </div>
 
               {/* 견적 상세 내역 테이블 */}
               <div className="mb-8">
-                <h3 className="text-xl font-bold mb-4">견적 상세 내역</h3>
+                <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800">
+                  <Calculator className="w-5 h-5" />
+                  견적 상세 내역
+                </h3>
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse border border-gray-300">
+                  <table className="w-full border-collapse border border-slate-300 rounded-lg overflow-hidden shadow-sm">
                     <thead>
-                      <tr className="bg-gray-100">
-                        <th className="border border-gray-300 px-3 py-2 text-sm font-bold">Component No.</th>
-                        <th className="border border-gray-300 px-3 py-2 text-sm font-bold">분류</th>
-                        <th className="border border-gray-300 px-3 py-2 text-sm font-bold">세부 내용</th>
-                        <th className="border border-gray-300 px-3 py-2 text-sm font-bold">수량</th>
-                        <th className="border border-gray-300 px-3 py-2 text-sm font-bold">단가(원)</th>
-                        <th className="border border-gray-300 px-3 py-2 text-sm font-bold">공급가(원)</th>
-                        <th className="border border-gray-300 px-3 py-2 text-sm font-bold">세액계</th>
-                        <th className="border border-gray-300 px-3 py-2 text-sm font-bold">합계</th>
+                      <tr className="bg-slate-100">
+                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">Component No.</th>
+                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">분류</th>
+                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">세부 내용</th>
+                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">수량</th>
+                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">단가(원)</th>
+                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">공급가(원)</th>
+                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">세액계</th>
+                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">합계</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -161,53 +169,53 @@ const CustomerQuotesSummaryPage = () => {
                         
                         return (
                           <React.Fragment key={quote.id}>
-                            <tr>
-                              <td className="border border-gray-300 px-3 py-2 text-sm font-bold" rowSpan={6}>{index + 1}.</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm">소재</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm">{quote.material}</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-center">1</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
+                            <tr className="hover:bg-slate-50">
+                              <td className="border border-slate-300 px-4 py-3 text-sm font-bold text-left bg-slate-50" rowSpan={6}>{index + 1}.</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm">소재</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm font-medium">{quote.material}</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-center">1</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
                             </tr>
-                            <tr>
-                              <td className="border border-gray-300 px-3 py-2 text-sm">두께</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm">{quote.thickness}</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-center">1</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
+                            <tr className="hover:bg-slate-50">
+                              <td className="border border-slate-300 px-4 py-3 text-sm">두께</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm font-medium">{quote.thickness}</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-center">1</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
                             </tr>
-                            <tr>
-                              <td className="border border-gray-300 px-3 py-2 text-sm">사이즈</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm">{quote.size}</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-center">{quote.quantity}</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
+                            <tr className="hover:bg-slate-50">
+                              <td className="border border-slate-300 px-4 py-3 text-sm">사이즈</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm font-medium">{quote.size}</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-center font-semibold text-blue-600">{quote.quantity}</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
                             </tr>
                             {quote.selectedColor && (
-                              <tr>
-                                <td className="border border-gray-300 px-3 py-2 text-sm">컬러</td>
-                                <td className="border border-gray-300 px-3 py-2 text-sm">{quote.selectedColor}</td>
-                                <td className="border border-gray-300 px-3 py-2 text-sm text-center">1</td>
-                                <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
-                                <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
-                                <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
-                                <td className="border border-gray-300 px-3 py-2 text-sm text-right">0</td>
+                              <tr className="hover:bg-slate-50">
+                                <td className="border border-slate-300 px-4 py-3 text-sm">컬러</td>
+                                <td className="border border-slate-300 px-4 py-3 text-sm font-medium">{quote.selectedColor}</td>
+                                <td className="border border-slate-300 px-4 py-3 text-sm text-center">1</td>
+                                <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                                <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                                <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                                <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
                               </tr>
                             )}
-                            <tr>
-                              <td className="border border-gray-300 px-3 py-2 text-sm">가공</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm">{quote.processingName}</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-center">1</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">{unitPrice.toLocaleString()}</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">{totalPrice.toLocaleString()}</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">{taxAmount.toLocaleString()}</td>
-                              <td className="border border-gray-300 px-3 py-2 text-sm text-right">{totalWithTax.toLocaleString()}</td>
+                            <tr className="bg-blue-50 hover:bg-blue-100 font-medium">
+                              <td className="border border-slate-300 px-4 py-3 text-sm">가공</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm font-semibold">{quote.processingName}</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-center">1</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right font-semibold">{unitPrice.toLocaleString()}</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right font-semibold">{totalPrice.toLocaleString()}</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right font-semibold">{taxAmount.toLocaleString()}</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right font-bold text-blue-600">{totalWithTax.toLocaleString()}</td>
                             </tr>
                           </React.Fragment>
                         );
@@ -238,12 +246,14 @@ const CustomerQuotesSummaryPage = () => {
               </div>
 
               {/* 연락처 정보 */}
-              <div className="mt-8 p-6 bg-gray-50 border border-gray-200 rounded-lg">
-                <h4 className="font-semibold text-gray-800 mb-3">문의 및 주문</h4>
-                <div className="text-sm text-gray-700 space-y-1">
-                  <p>견적 관련 문의사항이나 주문을 원하시면 아래 연락처로 문의해주세요.</p>
-                  <p className="font-medium">• 전화: 070-7666-9828</p>
-                  <p className="font-medium">• 이메일: acbank@acbank.co.kr</p>
+              <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-slate-50 border border-blue-200 rounded-xl shadow-sm">
+                <h4 className="font-bold text-slate-800 mb-4 text-lg">문의 및 주문</h4>
+                <div className="text-sm text-slate-700 space-y-2">
+                  <p className="mb-3">견적 관련 문의사항이나 주문을 원하시면 아래 연락처로 문의해주세요.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <p className="font-semibold bg-white px-3 py-2 rounded-lg">📞 전화: 070-7666-9828</p>
+                    <p className="font-semibold bg-white px-3 py-2 rounded-lg">📧 이메일: acbank@acbank.co.kr</p>
+                  </div>
                 </div>
               </div>
             </CardContent>
