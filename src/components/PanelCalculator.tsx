@@ -320,7 +320,7 @@ const PanelCalculator = () => {
           </div>
           <CardTitle className="text-display flex items-center justify-center gap-4 mb-3">
             <Calculator className="w-8 h-8 text-primary" />
-            판재 단가 계산기
+            ACBANK Quotation System
           </CardTitle>
           <p className="text-body text-muted-foreground">정확하고 빠른 판재 가격 계산</p>
         </CardHeader>
