@@ -1,11 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Calculator, ShoppingCart } from "lucide-react";
+import { Calculator, ShoppingCart, ArrowLeft, Download, FileText, Calendar } from "lucide-react";
 import { useQuotes } from "@/contexts/QuoteContext";
-import QuoteSummaryHeader from "@/components/QuoteSummaryHeader";
 import QuoteCard from "@/components/QuoteCard";
 import TotalPricingSummary from "@/components/TotalPricingSummary";
 import QuoteWarningNote from "@/components/QuoteWarningNote";
@@ -61,12 +61,51 @@ const QuotesSummaryPage = () => {
       `}</style>
       <div className="min-h-screen bg-gray-50 p-4">
         <div className="w-full max-w-4xl mx-auto">
-          <QuoteSummaryHeader 
-            onClearQuotes={clearQuotes}
-            onPrintPDF={handlePrintPDF}
-            onViewCustomerQuote={handleViewCustomerQuote}
-            currentDate={currentDate}
-          />
+          {/* 간단한 헤더 */}
+          <div className="flex justify-between items-center mb-6 print:hidden">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              계산기로 돌아가기
+            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handlePrintPDF}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Download className="w-4 h-4" />
+                PDF 출력
+              </Button>
+            </div>
+          </div>
+
+          {/* 헤더 카드 */}
+          <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white mb-6">
+            <CardHeader className="bg-slate-900 text-white p-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-3xl font-bold flex items-center gap-3 mb-2">
+                    <FileText className="w-8 h-8" />
+                    종합 견적서
+                  </CardTitle>
+                  <p className="text-slate-200 text-lg">Comprehensive Panel Material Quotation</p>
+                </div>
+                <div className="text-right">
+                  <div className="flex items-center gap-2 text-slate-200 mb-2">
+                    <Calendar className="w-4 h-4" />
+                    <span>{currentDate}</span>
+                  </div>
+                  <Badge className="bg-white/20 text-white border-0 px-4 py-2 text-lg font-bold">
+                    견적번호: QT-{Date.now().toString().slice(-6)}
+                  </Badge>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
 
           {/* 상단 액션 버튼들 */}
           <div className="flex justify-end gap-3 mb-6">
