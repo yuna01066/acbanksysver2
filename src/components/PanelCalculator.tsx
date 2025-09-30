@@ -367,7 +367,7 @@ const PanelCalculator = () => {
               />
               <div className="mt-8 p-4 bg-muted/50 rounded-lg border border-border/50">
                 <p className="text-sm text-muted-foreground text-center leading-relaxed">
-                  이 프로그램은 아크뱅크 내부용 프로그램으로 무단 복제 및 배포를 금지하고 있습니다.<br />
+                  이 프로그램은 아크뱅크 사내용 프로그램으로 무단 복제 및 배포를 금지하고 있습니다.<br />
                   또한, 본 시스템의 회사 관련 내용을 무단으로 유출 시 법적인 제재를 받으실 수 있습니다.
                 </p>
               </div>
