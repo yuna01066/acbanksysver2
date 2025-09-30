@@ -318,9 +318,12 @@ const PanelCalculator = () => {
               </Button>
             )}
           </div>
-          <CardTitle className="text-display flex items-center justify-center gap-4 mb-3">
-            <Calculator className="w-8 h-8 text-primary" />
-            ACBANK Quotation System
+          <CardTitle className="flex flex-col items-center justify-center gap-3 mb-3">
+            <Calculator className="w-7 h-7 text-primary" />
+            <div className="text-center">
+              <div className="text-2xl font-bold">ACBANK</div>
+              <div className="text-xl font-medium text-muted-foreground">Quotation System</div>
+            </div>
           </CardTitle>
           <p className="text-body text-muted-foreground">정확하고 빠른 판재 가격 계산</p>
         </CardHeader>
