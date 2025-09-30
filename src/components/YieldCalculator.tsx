@@ -644,18 +644,21 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-base font-medium">재단할 도형 정보</Label>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={addCutItem} 
-                disabled={cutItems.length >= 100}
-                className="flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                추가 ({cutItems.length}/100)
-              </Button>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-medium">재단할 도형 정보</Label>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={addCutItem} 
+                  disabled={cutItems.length >= 100}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  추가 ({cutItems.length}/100)
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">가로/세로 최대 3000mm, 수량 최대 1000개</p>
             </div>
             
             {cutItems.map((item, index) => <div key={item.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-border rounded-xl bg-background/50">
@@ -671,7 +674,6 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
                     onChange={e => updateCutItem(item.id, 'width', e.target.value)} 
                     className="rounded-xl" 
                   />
-                  <p className="text-xs text-muted-foreground">최대 3000mm</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor={`height-${item.id}`}>세로 (mm)</Label>
@@ -685,7 +687,6 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
                     onChange={e => updateCutItem(item.id, 'height', e.target.value)} 
                     className="rounded-xl" 
                   />
-                  <p className="text-xs text-muted-foreground">최대 3000mm</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor={`quantity-${item.id}`}>수량 (개)</Label>
@@ -699,7 +700,6 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
                     onChange={e => updateCutItem(item.id, 'quantity', e.target.value)} 
                     className="rounded-xl" 
                   />
-                  <p className="text-xs text-muted-foreground">최대 1000개</p>
                 </div>
                 <div className="space-y-2">
                   <Label>&nbsp;</Label>
