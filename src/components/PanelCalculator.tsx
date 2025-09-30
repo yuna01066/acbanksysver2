@@ -314,11 +314,11 @@ const PanelCalculator = () => {
                 담은 견적 보기 ({quotes.length})
               </Button>}
           </div>
-          <CardTitle className="flex flex-col items-center justify-center gap-3 mb-3">
+          <CardTitle className="flex items-center justify-center gap-3 mb-3">
             <Calculator className="w-7 h-7 text-primary" />
-            <div className="text-center">
-              <div className="text-2xl font-bold">ACBANK</div>
-              <div className="text-xl font-medium text-muted-foreground">Quotation System</div>
+            <div className="text-2xl">
+              <span className="font-bold">ACBANK</span>{" "}
+              <span className="font-medium text-muted-foreground">Quotation System</span>
             </div>
           </CardTitle>
           <p className="text-body text-muted-foreground">아크뱅크 견적 시스템</p>
