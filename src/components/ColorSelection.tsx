@@ -468,7 +468,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                 <Input
                   id="color-name"
                   type="text"
-                  placeholder="예: PMS 286 C (선택사항)"
+                  placeholder="예: PT 286 C (선택사항)"
                   value={customColorName}
                   onChange={(e) => setCustomColorName(e.target.value)}
                 />
