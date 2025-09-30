@@ -220,6 +220,14 @@ const COLOR_OPTIONS: ColorOption[] = [
   { id: 'bright-amethyst', name: '자수정', acCode: 'AC-B152', hexCode: '#9063cd', category: 'bright-a' },
   { id: 'bright-orchid', name: '오키드', acCode: 'AC-B153', hexCode: '#753bbd', category: 'bright-a' },
   { id: 'bright-eggplant', name: '에그플랜트', acCode: 'AC-B154', hexCode: '#582c83', category: 'bright-a' },
+  { id: 'bright-lilac-light', name: '연라일락', acCode: 'AC-B161', hexCode: '#dd9cdf', category: 'bright-a' },
+  { id: 'bright-purple-medium', name: '미디엄 퍼플', acCode: 'AC-B162', hexCode: '#c964cf', category: 'bright-a' },
+  { id: 'bright-purple-vivid', name: '비비드 퍼플', acCode: 'AC-B163', hexCode: '#bb29bb', category: 'bright-a' },
+  { id: 'bright-purple-deep', name: '딥 퍼플', acCode: 'AC-B164', hexCode: '#77246c', category: 'bright-a' },
+  { id: 'bright-pink-soft', name: '소프트 핑크', acCode: 'AC-B171', hexCode: '#eab8e4', category: 'bright-a' },
+  { id: 'bright-hot-pink', name: '핫 핑크', acCode: 'AC-B172', hexCode: '#e93cac', category: 'bright-a' },
+  { id: 'bright-wine-deep', name: '딥 와인', acCode: 'AC-B173', hexCode: '#72246c', category: 'bright-a' },
+  { id: 'bright-berry-dark', name: '다크 베리', acCode: 'AC-B174', hexCode: '#80225f', category: 'bright-a' },
 
   // 브라이트 B 색상
   { id: 'bright-b-peach-light', name: '연피치', acCode: 'AC-B016', hexCode: '#ffa28b', category: 'bright-b' },
