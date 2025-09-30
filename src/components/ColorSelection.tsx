@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Search, Palette } from "lucide-react";
 
 interface ColorOption {
   id: string;
@@ -312,6 +314,10 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
   onColorSelect
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [customColor, setCustomColor] = useState('#ffffff');
+  const [customColorName, setCustomColorName] = useState('');
+  const [customAcCode, setCustomAcCode] = useState('');
+  const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false);
 
   // AC 코드 숫자 순서로 정렬
   const sortedColors = [...COLOR_OPTIONS].sort((a, b) => {
@@ -384,6 +390,25 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
 
   const displayCategories = getFilteredColors();
 
+  const handleCustomColorApply = () => {
+    if (!customColorName.trim()) {
+      alert('색상명을 입력해주세요.');
+      return;
+    }
+    
+    const acCode = customAcCode.trim() || 'CUSTOM';
+    onColorSelect(`custom-${Date.now()}`, { 
+      acCode: acCode, 
+      hexCode: customColor 
+    });
+    
+    // 다이얼로그 닫기 및 상태 초기화
+    setIsCustomDialogOpen(false);
+    setCustomColorName('');
+    setCustomAcCode('');
+    setCustomColor('#ffffff');
+  };
+
   return (
     <div className="space-y-6">
       <div className="text-center">
@@ -391,18 +416,89 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
         <p className="text-gray-600">원하는 색상을 선택해주세요</p>
       </div>
       
-      {/* 검색 기능 */}
-      <div className="relative max-w-md mx-auto">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
+      {/* 검색 기능 및 커스텀 조색 버튼 */}
+      <div className="flex gap-3 max-w-2xl mx-auto">
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <Input
+            type="text"
+            placeholder="색상명, AC 코드, HEX 코드로 검색..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 w-full"
+          />
         </div>
-        <Input
-          type="text"
-          placeholder="색상명, AC 코드, HEX 코드로 검색..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 w-full"
-        />
+        
+        <Dialog open={isCustomDialogOpen} onOpenChange={setIsCustomDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="flex items-center gap-2 whitespace-nowrap">
+              <Palette className="h-4 w-4" />
+              커스텀 조색
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md bg-white">
+            <DialogHeader>
+              <DialogTitle>커스텀 색상 설정</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="color-picker">색상 선택</Label>
+                <div className="flex gap-3 items-center">
+                  <input
+                    id="color-picker"
+                    type="color"
+                    value={customColor}
+                    onChange={(e) => setCustomColor(e.target.value)}
+                    className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    placeholder="#ffffff"
+                    value={customColor}
+                    onChange={(e) => setCustomColor(e.target.value)}
+                    className="flex-1"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="color-name">색상명 *</Label>
+                <Input
+                  id="color-name"
+                  type="text"
+                  placeholder="예: 커스텀 블루"
+                  value={customColorName}
+                  onChange={(e) => setCustomColorName(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="ac-code">AC 코드 (선택사항)</Label>
+                <Input
+                  id="ac-code"
+                  type="text"
+                  placeholder="예: AC-CUSTOM"
+                  value={customAcCode}
+                  onChange={(e) => setCustomAcCode(e.target.value)}
+                />
+              </div>
+              
+              <div className="flex justify-end gap-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsCustomDialogOpen(false)}
+                >
+                  취소
+                </Button>
+                <Button onClick={handleCustomColorApply}>
+                  적용
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* 색상 카테고리별 표시 */}
