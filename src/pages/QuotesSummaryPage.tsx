@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Calculator, ShoppingCart, ArrowLeft, Download, FileText, Calendar } from "lucide-react";
+import { Calculator, ShoppingCart, ArrowLeft, Download, FileText, Calendar, Plus } from "lucide-react";
 import { useQuotes } from "@/contexts/QuoteContext";
 import QuoteCard from "@/components/QuoteCard";
 import TotalPricingSummary from "@/components/TotalPricingSummary";
@@ -36,6 +36,10 @@ const QuotesSummaryPage = () => {
 
   const handlePrintPDF = () => {
     window.print();
+  };
+
+  const handleAddQuote = () => {
+    navigate('/');
   };
 
   const handleViewCustomerQuote = () => {
@@ -72,6 +76,14 @@ const QuotesSummaryPage = () => {
               계산기로 돌아가기
             </Button>
             <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={handleAddQuote}
+                className="text-green-600 border-green-200 hover:bg-green-50"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                견적 추가
+              </Button>
               <Button 
                 variant="outline" 
                 onClick={clearQuotes}
