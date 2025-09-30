@@ -28,6 +28,7 @@ const QuotesSummaryPage = () => {
     validUntil: '견적일자로 부터 14일',
     deliveryPeriod: '최대 14일 소요 예상',
     paymentCondition: '선지급 조건',
+    companyName: recipient?.companyName || '',
     contactPerson: recipient?.contactPerson || '',
     phoneNumber: recipient?.phoneNumber || '',
     email: recipient?.email || '',
@@ -237,6 +238,15 @@ const QuotesSummaryPage = () => {
 
                   {/* 담당자 정보 */}
                   <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="companyName">회사명</Label>
+                      <Input
+                        id="companyName"
+                        value={recipientData.companyName}
+                        onChange={(e) => handleRecipientChange('companyName', e.target.value)}
+                        placeholder="회사명을 입력하세요"
+                      />
+                    </div>
                     <div>
                       <Label htmlFor="contactPerson">담당자 *</Label>
                       <Input

@@ -28,6 +28,7 @@ export interface QuoteRecipient {
   validUntil: string;
   deliveryPeriod: string;
   paymentCondition: string;
+  companyName: string;
   contactPerson: string;
   phoneNumber: string;
   email: string;

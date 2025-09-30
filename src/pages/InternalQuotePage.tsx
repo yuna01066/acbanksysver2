@@ -143,6 +143,7 @@ const InternalQuotePage = () => {
                     <div className="p-4 bg-gray-50 rounded-lg">
                       <h4 className="font-semibold text-slate-800 mb-3">담당자 및 납기 정보</h4>
                       <div className="space-y-2 text-sm text-slate-700">
+                        <div><strong>회사명:</strong> {recipient.companyName}</div>
                         <div><strong>담당자:</strong> {recipient.contactPerson}</div>
                         <div><strong>연락처:</strong> {recipient.phoneNumber}</div>
                         <div><strong>이메일:</strong> {recipient.email}</div>
@@ -163,7 +164,6 @@ const InternalQuotePage = () => {
                     <div className="space-y-2 text-sm text-slate-700">
                       <div><strong>상호:</strong> (주)아크뱅크</div>
                       <div><strong>사업자번호:</strong> 299-87-02991</div>
-                      <div><strong>견적일자:</strong> {currentDate}</div>
                       <div><strong>웹사이트:</strong> acbank.co.kr</div>
                       <div><strong>주소:</strong> 경기도 포천시 소흘읍 호국로 287번길 15, 나동 1층 101호 (동행빌딩)</div>
                       <div><strong>업태:</strong> 제조업 / 도매 및 소매업</div>
