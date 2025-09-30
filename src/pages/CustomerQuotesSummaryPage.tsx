@@ -162,7 +162,7 @@ const CustomerQuotesSummaryPage = () => {
                         return (
                           <React.Fragment key={quote.id}>
                             <tr>
-                              <td className="border border-gray-300 px-3 py-2 text-sm font-bold text-left" rowSpan={6}>{index + 1}.</td>
+                              <td className="border border-gray-300 px-3 py-2 text-sm font-bold" rowSpan={6}>{index + 1}.</td>
                               <td className="border border-gray-300 px-3 py-2 text-sm">소재</td>
                               <td className="border border-gray-300 px-3 py-2 text-sm">{quote.material}</td>
                               <td className="border border-gray-300 px-3 py-2 text-sm text-center">1</td>
