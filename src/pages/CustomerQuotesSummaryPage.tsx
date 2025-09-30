@@ -219,11 +219,8 @@ const CustomerQuotesSummaryPage = () => {
 
               {/* 총합계 금액 박스 */}
               <div className="text-center p-8 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl mb-8 text-white shadow-lg">
-                <div className="text-2xl font-bold mb-2">
-                  합계 금액: 일금 {totalWithTax.toLocaleString()}원 정
-                </div>
-                <div className="text-lg opacity-90">
-                  ( ₩ {totalWithTax.toLocaleString()} ) / 배송비 별도
+                <div className="text-2xl font-bold">
+                  합계 금액: 일금 {totalWithTax.toLocaleString()}원 정 ( ₩ {totalWithTax.toLocaleString()} ) / 배송비 별도
                 </div>
               </div>
 
