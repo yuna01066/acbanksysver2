@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Calculator, ShoppingCart, ArrowLeft, Download, FileText, Calendar, Plus } from "lucide-react";
+import { Calculator, ShoppingCart, ArrowLeft, Download, FileText, Calendar, Plus, Trash2, Send } from "lucide-react";
 import { useQuotes } from "@/contexts/QuoteContext";
 import QuoteCard from "@/components/QuoteCard";
 import TotalPricingSummary from "@/components/TotalPricingSummary";
@@ -89,12 +89,14 @@ const QuotesSummaryPage = () => {
                 onClick={clearQuotes}
                 className="text-red-600 border-red-200 hover:bg-red-50"
               >
+                <Trash2 className="w-4 h-4 mr-2" />
                 전체 삭제
               </Button>
               <Button 
                 onClick={() => navigate('/internal-quote')}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
+                <Send className="w-4 h-4 mr-2" />
                 견적 발행
               </Button>
             </div>
