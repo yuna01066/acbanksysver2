@@ -72,14 +72,6 @@ const QuotesSummaryPage = () => {
               계산기로 돌아가기
             </Button>
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={handlePrintPDF}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Download className="w-4 h-4" />
-                PDF 출력
-              </Button>
             </div>
           </div>
 
