@@ -167,10 +167,11 @@ const CustomerQuotesSummaryPage = () => {
                         const taxAmount = totalPrice * 0.1;
                         const totalWithTax = totalPrice + taxAmount;
                         
+                        const rowCount = quote.selectedColor ? 5 : 4;
                         return (
                           <React.Fragment key={quote.id}>
                             <tr className="hover:bg-slate-50">
-                              <td className="border border-slate-300 px-4 py-3 text-sm font-bold text-left bg-slate-50" rowSpan={6}>{index + 1}.</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm font-bold text-left bg-slate-50 align-top" rowSpan={rowCount}>{index + 1}.</td>
                               <td className="border border-slate-300 px-4 py-3 text-sm">소재</td>
                               <td className="border border-slate-300 px-4 py-3 text-sm font-medium">{quote.material}</td>
                               <td className="border border-slate-300 px-4 py-3 text-sm text-center">1</td>
