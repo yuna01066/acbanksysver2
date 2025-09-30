@@ -56,6 +56,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
   const [showResults, setShowResults] = useState<boolean>(false);
   const [yieldResults, setYieldResults] = useState<YieldResult[]>([]);
   const [panelCombinations, setPanelCombinations] = useState<any[]>([]);
+  const [isCalculating, setIsCalculating] = useState<boolean>(false);
 
   // 재단 항목 추가/제거 함수
   const addCutItem = () => {
@@ -488,15 +489,21 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
   };
 
   // 계산 함수
-  const handleCalculate = () => {
-    // 모든 재단 항목이 유효한지 확인
-    const validCutItems = cutItems.filter(item => item.width && item.height && item.quantity && parseFloat(item.width) > 0 && parseFloat(item.height) > 0 && parseInt(item.quantity) > 0);
-    if (validCutItems.length === 0) {
-      setYieldResults([]);
-      setPanelCombinations([]);
-      setShowResults(true);
-      return;
-    }
+  const handleCalculate = async () => {
+    setIsCalculating(true);
+    
+    // UI 업데이트를 위한 짧은 지연
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    try {
+      // 모든 재단 항목이 유효한지 확인
+      const validCutItems = cutItems.filter(item => item.width && item.height && item.quantity && parseFloat(item.width) > 0 && parseFloat(item.height) > 0 && parseInt(item.quantity) > 0);
+      if (validCutItems.length === 0) {
+        setYieldResults([]);
+        setPanelCombinations([]);
+        setShowResults(true);
+        return;
+      }
 
     // 복합 네스팅을 위한 아이템 배열 생성
     const itemsForNesting = validCutItems.map((item, index) => ({
@@ -551,13 +558,16 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       return a.panelsNeeded - b.panelsNeeded;
     });
 
-    // 복합 조합 계산
-    const combinations = calculatePanelCombinations(itemsForNesting, availablePanelSizes, 10, selectedThickness);
+      // 복합 조합 계산
+      const combinations = calculatePanelCombinations(itemsForNesting, availablePanelSizes, 10, selectedThickness);
 
-    // 결과 업데이트
-    setYieldResults(sortedResults);
-    setPanelCombinations(combinations);
-    setShowResults(true);
+      // 결과 업데이트
+      setYieldResults(sortedResults);
+      setPanelCombinations(combinations);
+      setShowResults(true);
+    } finally {
+      setIsCalculating(false);
+    }
   };
 
   const availableThicknesses = useMemo(() => {
@@ -649,12 +659,21 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
             <Button 
               onClick={handleCalculate}
               className="flex items-center gap-2 px-8 py-2"
-              disabled={!cutItems.some(item => item.width && item.height && item.quantity)}
+              disabled={!cutItems.some(item => item.width && item.height && item.quantity) || isCalculating}
             >
               <Calculator className="w-4 h-4" />
-              계산하기
+              {isCalculating ? '계산 중...' : '계산하기'}
             </Button>
           </div>
+          
+          {/* 로딩 메시지 */}
+          {isCalculating && (
+            <div className="text-center py-4">
+              <p className="text-sm text-muted-foreground animate-pulse">
+                계산 중입니다. 잠시만 기다려 주세요...
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
