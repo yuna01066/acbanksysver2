@@ -397,6 +397,7 @@ const PanelCalculator = () => {
           {currentStep === 3 && selectedQuality && (
             <ColorSelection
               selectedColor={selectedColor}
+              selectedQuality={selectedQuality}
               onColorSelect={handleColorSelect}
             />
           )}

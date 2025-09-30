@@ -224,11 +224,13 @@ const COLOR_OPTIONS: ColorOption[] = [
 
 interface ColorSelectionProps {
   selectedColor: string;
+  selectedQuality?: { id: string; name: string } | null;
   onColorSelect: (colorId: string, colorInfo: { acCode: string; hexCode: string }) => void;
 }
 
 const ColorSelection: React.FC<ColorSelectionProps> = ({
   selectedColor,
+  selectedQuality,
   onColorSelect
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -240,27 +242,40 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
     return aCode - bCode;
   });
 
-  // 카테고리별 분류
-  const categories = [
-    {
-      id: 'clear-a',
-      name: '클리어 A',
-      description: '클리어 A 색상 팔레트',
-      colors: sortedColors.filter(color => color.category === 'clear-a')
-    },
-    {
-      id: 'clear-b',
-      name: '클리어 B',
-      description: '클리어 B 색상 팔레트',
-      colors: sortedColors.filter(color => color.category === 'clear-b')
-    },
-    {
-      id: 'bright-a',
-      name: '브라이트 A',
-      description: '브라이트 A 색상 팔레트',
-      colors: sortedColors.filter(color => color.category === 'bright-a')
+  // 카테고리별 분류 - 재질에 따른 필터링
+  const getFilteredCategories = () => {
+    const allCategories = [
+      {
+        id: 'clear-a',
+        name: '클리어 A',
+        description: '클리어 A 색상 팔레트',
+        colors: sortedColors.filter(color => color.category === 'clear-a')
+      },
+      {
+        id: 'clear-b',
+        name: '클리어 B',
+        description: '클리어 B 색상 팔레트',
+        colors: sortedColors.filter(color => color.category === 'clear-b')
+      },
+      {
+        id: 'bright-a',
+        name: '브라이트 A',
+        description: '브라이트 A 색상 팔레트',
+        colors: sortedColors.filter(color => color.category === 'bright-a')
+      }
+    ];
+
+    // 재질에 따른 필터링
+    if (selectedQuality?.id === 'glossy-color') {
+      // 클리어를 선택한 경우 클리어 A, B만 표시
+      return allCategories.filter(cat => cat.id === 'clear-a' || cat.id === 'clear-b');
     }
-  ];
+    
+    // 다른 재질의 경우 모든 카테고리 표시 (기본값)
+    return allCategories;
+  };
+
+  const categories = getFilteredCategories();
 
   // 검색 결과 필터링
   const getFilteredColors = () => {
