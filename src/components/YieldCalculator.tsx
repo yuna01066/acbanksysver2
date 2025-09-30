@@ -60,6 +60,10 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
 
   // 재단 항목 추가/제거 함수
   const addCutItem = () => {
+    // 최대 100개로 제한
+    if (cutItems.length >= 100) {
+      return;
+    }
     const newId = (Math.max(...cutItems.map(item => parseInt(item.id))) + 1).toString();
     setCutItems([...cutItems, {
       id: newId,
@@ -642,9 +646,15 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-base font-medium">재단할 도형 정보</Label>
-              <Button variant="outline" size="sm" onClick={addCutItem} className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={addCutItem} 
+                disabled={cutItems.length >= 100}
+                className="flex items-center gap-2"
+              >
                 <Plus className="w-4 h-4" />
-                추가
+                추가 ({cutItems.length}/100)
               </Button>
             </div>
             
