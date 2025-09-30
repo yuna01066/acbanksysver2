@@ -74,6 +74,13 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
     }
   };
   const updateCutItem = (id: string, field: keyof CutItem, value: string) => {
+    // 수량 필드의 경우 최대값 1000 제한
+    if (field === 'quantity') {
+      const numValue = parseInt(value);
+      if (numValue > 1000) {
+        value = '1000';
+      }
+    }
     setCutItems(cutItems.map(item => item.id === id ? {
       ...item,
       [field]: value
@@ -638,7 +645,17 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor={`quantity-${item.id}`}>수량 (개)</Label>
-                  <Input id={`quantity-${item.id}`} type="number" placeholder="예: 50" value={item.quantity} onChange={e => updateCutItem(item.id, 'quantity', e.target.value)} className="rounded-xl" />
+                  <Input 
+                    id={`quantity-${item.id}`} 
+                    type="number" 
+                    placeholder="예: 50" 
+                    min="1"
+                    max="1000"
+                    value={item.quantity} 
+                    onChange={e => updateCutItem(item.id, 'quantity', e.target.value)} 
+                    className="rounded-xl" 
+                  />
+                  <p className="text-xs text-muted-foreground">최대 1000개</p>
                 </div>
                 <div className="space-y-2">
                   <Label>&nbsp;</Label>
