@@ -155,13 +155,6 @@ const InternalQuotePage = () => {
                     <div><strong>지불 조건:</strong> 선지급 조건</div>
                     <div><strong>업태:</strong> 제조업 / 도매 및 소매업</div>
                     <div><strong>종목:</strong> 아크릴 가공 외</div>
-                  </div>
-                </div>
-
-                {/* 담당자 정보 */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">담당자 정보</h3>
-                  <div className="space-y-2 text-sm">
                     <div><strong>담당자:</strong> 작성</div>
                     <div><strong>연락처:</strong> 070-7666-9828</div>
                     <div><strong>이메일:</strong> acbank@acbank.co.kr</div>
