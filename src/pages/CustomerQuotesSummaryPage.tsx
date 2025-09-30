@@ -108,9 +108,10 @@ const CustomerQuotesSummaryPage = () => {
                     </div>
 
                     {/* 담당자 및 납기 정보 */}
-                    <div className="p-4 bg-violet-50 rounded-lg">
+                    <div className="p-4 bg-gray-50 rounded-lg">
                       <h4 className="font-semibold text-slate-800 mb-3">담당자 및 납기 정보</h4>
                       <div className="space-y-2 text-sm text-slate-700">
+                        <div><strong>회사명:</strong> {recipient.companyName}</div>
                         <div><strong>담당자:</strong> {recipient.contactPerson}</div>
                         <div><strong>연락처:</strong> {recipient.phoneNumber}</div>
                         <div><strong>이메일:</strong> {recipient.email}</div>
@@ -124,27 +125,28 @@ const CustomerQuotesSummaryPage = () => {
                 {/* 견적서 발신 */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 발신</h3>
-                  <div className="space-y-2 text-sm">
-                    <div><strong>상호:</strong> (주)아크뱅크</div>
-                    <div><strong>사업자번호:</strong> 299-87-02991</div>
-                    <div><strong>견적일자:</strong> {currentDate}</div>
-                    <div><strong>웹사이트:</strong> acbank.co.kr</div>
-                    <div><strong>유효기간:</strong> 견적일자로부터 14일</div>
-                    <div><strong>주소:</strong> 경기도 포천시 소흘읍 호국로 287번길 15, 나동 1층 101호 (동행빌딩)</div>
-                    <div><strong>📅 납기:</strong> 최대 14일 소요 예상</div>
-                    <div><strong>지불 조건:</strong> 선지급 조건</div>
-                    <div><strong>업태:</strong> 제조업 / 도매 및 소매업</div>
-                    <div><strong>종목:</strong> 아크릴 가공 외</div>
+                  
+                  {/* 회사 기본 정보 */}
+                  <div className="p-4 bg-slate-50 rounded-lg">
+                    <h4 className="font-semibold text-slate-800 mb-3">회사 정보</h4>
+                    <div className="space-y-2 text-sm text-slate-700">
+                      <div><strong>상호:</strong> (주)아크뱅크</div>
+                      <div><strong>사업자번호:</strong> 299-87-02991</div>
+                      <div><strong>웹사이트:</strong> acbank.co.kr</div>
+                      <div><strong>주소:</strong> 경기도 포천시 소흘읍 호국로 287번길 15, 나동 1층 101호 (동행빌딩)</div>
+                      <div><strong>업태:</strong> 제조업 / 도매 및 소매업</div>
+                      <div><strong>종목:</strong> 아크릴 가공 외</div>
+                    </div>
                   </div>
-                </div>
 
-                {/* 담당자 정보 */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">담당자 정보</h3>
-                  <div className="space-y-2 text-sm">
-                    <div><strong>담당자:</strong> 작성</div>
-                    <div><strong>연락처:</strong> 070-7666-9828</div>
-                    <div><strong>이메일:</strong> acbank@acbank.co.kr</div>
+                  {/* 담당자 정보 */}
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-semibold text-slate-800 mb-3">담당자 정보</h4>
+                    <div className="space-y-2 text-sm text-slate-700">
+                      <div><strong>담당자:</strong> 작성</div>
+                      <div><strong>연락처:</strong> 070-7666-9828</div>
+                      <div><strong>이메일:</strong> acbank@acbank.co.kr</div>
+                    </div>
                   </div>
                   
                   <div className="mt-6 p-4 bg-blue-50 rounded-lg">
