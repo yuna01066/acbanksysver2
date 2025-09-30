@@ -316,7 +316,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [customColor, setCustomColor] = useState('#ffffff');
   const [customColorName, setCustomColorName] = useState('');
-  const [customAcCode, setCustomAcCode] = useState('');
+  const [customOpacity, setCustomOpacity] = useState('');
   const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false);
 
   // AC 코드 숫자 순서로 정렬
@@ -396,7 +396,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
       return;
     }
     
-    const acCode = customAcCode.trim() || 'CUSTOM';
+    const acCode = customOpacity ? `CUSTOM-${customOpacity}%` : 'CUSTOM';
     onColorSelect(`custom-${Date.now()}`, { 
       acCode: acCode, 
       hexCode: customColor 
@@ -405,7 +405,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
     // 다이얼로그 닫기 및 상태 초기화
     setIsCustomDialogOpen(false);
     setCustomColorName('');
-    setCustomAcCode('');
+    setCustomOpacity('');
     setCustomColor('#ffffff');
   };
 
@@ -464,14 +464,21 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="ac-code">AC 코드 (선택사항)</Label>
-                <Input
-                  id="ac-code"
-                  type="text"
-                  placeholder="예: AC-CUSTOM"
-                  value={customAcCode}
-                  onChange={(e) => setCustomAcCode(e.target.value)}
-                />
+                <Label htmlFor="opacity">투명도(스리) 선택</Label>
+                <select
+                  id="opacity"
+                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                  value={customOpacity}
+                  onChange={(e) => setCustomOpacity(e.target.value)}
+                >
+                  <option value="">투명도를 선택하세요</option>
+                  <option value="10">Opacity 10%</option>
+                  <option value="20">Opacity 20%</option>
+                  <option value="40">Opacity 40%</option>
+                  <option value="60">Opacity 60%</option>
+                  <option value="80">Opacity 80%</option>
+                  <option value="100">Opacity 100% (화이트 불투명)</option>
+                </select>
               </div>
               
               <div className="space-y-2">
