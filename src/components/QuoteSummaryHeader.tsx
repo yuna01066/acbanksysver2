@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, FileText, Calendar, Trash2, Users, Building2 } from "lucide-react";
+import { ArrowLeft, Download, FileText, Calendar, Trash2, Users, Building2, Home } from "lucide-react";
 
 interface QuoteSummaryHeaderProps {
   onClearQuotes: () => void;
@@ -27,8 +27,8 @@ const QuoteSummaryHeader = ({ onClearQuotes, onPrintPDF, onViewCustomerQuote, cu
           onClick={() => navigate('/')}
           className="flex items-center gap-2"
         >
-          <ArrowLeft className="w-4 h-4" />
-          계산기로 돌아가기
+          <Home className="w-4 h-4" />
+          홈으로 돌아가기
         </Button>
         <div className="flex gap-2">
           {onViewCustomerQuote && (
