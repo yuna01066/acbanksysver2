@@ -71,7 +71,20 @@ const QuotesSummaryPage = () => {
               <ArrowLeft className="w-4 h-4" />
               계산기로 돌아가기
             </Button>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={clearQuotes}
+                className="text-red-600 border-red-200 hover:bg-red-50"
+              >
+                전체 삭제
+              </Button>
+              <Button 
+                onClick={() => navigate('/internal-quote')}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                견적 발행
+              </Button>
             </div>
           </div>
 
@@ -99,22 +112,6 @@ const QuotesSummaryPage = () => {
             </CardHeader>
           </Card>
 
-          {/* 상단 액션 버튼들 */}
-          <div className="flex justify-end gap-3 mb-6">
-            <Button 
-              variant="outline" 
-              onClick={clearQuotes}
-              className="text-red-600 border-red-200 hover:bg-red-50"
-            >
-              전체 삭제
-            </Button>
-            <Button 
-              onClick={() => navigate('/internal-quote')}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              견적 발행
-            </Button>
-          </div>
 
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
             <CardContent className="p-8">
