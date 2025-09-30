@@ -85,13 +85,6 @@ const CustomerQuotesSummaryPage = () => {
 
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
             <CardContent className="p-8">
-              {/* 견적서 헤더 */}
-              <div className="text-center mb-8 p-6 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border">
-                <h1 className="text-4xl font-bold mb-3 text-slate-800">견 적 서</h1>
-                <div className="text-lg font-semibold text-blue-600 bg-white px-4 py-2 rounded-lg inline-block shadow-sm">
-                  견적번호: {quoteNumber}
-                </div>
-              </div>
 
               {/* 회사 정보 섹션 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
