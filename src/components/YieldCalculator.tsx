@@ -67,10 +67,14 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       height: '',
       quantity: ''
     }]);
+    // 항목 추가 시 이전 결과 숨기기
+    setShowResults(false);
   };
   const removeCutItem = (id: string) => {
     if (cutItems.length > 1) {
       setCutItems(cutItems.filter(item => item.id !== id));
+      // 항목 제거 시 이전 결과 숨기기
+      setShowResults(false);
     }
   };
   const updateCutItem = (id: string, field: keyof CutItem, value: string) => {
@@ -92,6 +96,9 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       ...item,
       [field]: value
     } : item));
+    
+    // 입력값 변경 시 이전 결과 숨기기
+    setShowResults(false);
   };
 
   // 선택된 재질에 따른 가격 데이터 매핑
