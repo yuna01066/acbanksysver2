@@ -19,11 +19,11 @@ import QuoteWarningNote from "@/components/QuoteWarningNote";
 
 const QuotesSummaryPage = () => {
   const navigate = useNavigate();
-  const { quotes, recipient, removeQuote, updateQuoteQuantity, clearQuotes, getTotalPrice, getTotalPriceWithTax, updateRecipient } = useQuotes();
+  const { quotes, recipient, removeQuote, updateQuoteQuantity, clearQuotes, getTotalPrice, getTotalPriceWithTax, updateRecipient, generateQuoteNumber } = useQuotes();
   
   const [recipientData, setRecipientData] = React.useState<QuoteRecipient>({
     projectName: recipient?.projectName || '',
-    quoteNumber: recipient?.quoteNumber || `QT-${Date.now().toString().slice(-6)}`,
+    quoteNumber: recipient?.quoteNumber || generateQuoteNumber(),
     quoteDate: recipient?.quoteDate || new Date(),
     validUntil: '견적일자로 부터 14일',
     deliveryPeriod: '최대 14일 소요 예상',

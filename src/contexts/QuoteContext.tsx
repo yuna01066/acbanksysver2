@@ -45,6 +45,7 @@ interface QuoteContextType {
   getTotalPrice: () => number;
   getTotalPriceWithTax: () => number;
   updateRecipient: (recipient: QuoteRecipient) => void;
+  generateQuoteNumber: () => string;
 }
 
 const QuoteContext = createContext<QuoteContextType | undefined>(undefined);
@@ -64,6 +65,18 @@ interface QuoteProviderProps {
 export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [recipient, setRecipient] = useState<QuoteRecipient | null>(null);
+
+  // 견적번호 생성 함수
+  const generateQuoteNumber = () => {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hour = String(now.getHours()).padStart(2, '0');
+    const minute = String(now.getMinutes()).padStart(2, '0');
+    const sequence = String(Math.floor(Math.random() * 100) + 1).padStart(2, '0');
+    
+    return `${month}${day}${hour}${minute}${sequence}`;
+  };
 
   const addQuote = (quoteData: Omit<Quote, 'id' | 'createdAt'>) => {
     const newQuote: Quote = {
@@ -111,7 +124,8 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
       clearQuotes,
       getTotalPrice,
       getTotalPriceWithTax,
-      updateRecipient
+      updateRecipient,
+      generateQuoteNumber
     }}>
       {children}
     </QuoteContext.Provider>
