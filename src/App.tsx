@@ -11,6 +11,7 @@ import QuotePage from "./pages/QuotePage";
 import CustomerQuotePage from "./pages/CustomerQuotePage";
 import QuotesSummaryPage from "./pages/QuotesSummaryPage";
 import CustomerQuotesSummaryPage from "./pages/CustomerQuotesSummaryPage";
+import InternalQuotePage from "./pages/InternalQuotePage";
 import EmbedCodePage from "./pages/EmbedCodePage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
 import PriceManagement from "./pages/PriceManagement";
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/customer-quote" element={<CustomerQuotePage />} />
             <Route path="/quotes-summary" element={<QuotesSummaryPage />} />
             <Route path="/customer-quotes-summary" element={<CustomerQuotesSummaryPage />} />
+            <Route path="/internal-quote" element={<InternalQuotePage />} />
             <Route path="/embed-code" element={<EmbedCodePage />} />
             <Route path="/admin-settings" element={<AdminSettingsPage />} />
             <Route path="/price-management" element={<PriceManagement />} />
