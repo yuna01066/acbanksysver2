@@ -140,7 +140,7 @@ const InternalQuotePage = () => {
                     </div>
 
                     {/* 담당자 및 납기 정보 */}
-                    <div className="p-4 bg-violet-50 rounded-lg">
+                    <div className="p-4 bg-gray-50 rounded-lg">
                       <h4 className="font-semibold text-slate-800 mb-3">담당자 및 납기 정보</h4>
                       <div className="space-y-2 text-sm text-slate-700">
                         <div><strong>담당자:</strong> {recipient.contactPerson}</div>
