@@ -464,17 +464,6 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="color-name">팬톤 색상명</Label>
-                <Input
-                  id="color-name"
-                  type="text"
-                  placeholder="예: PT 286 C (선택사항)"
-                  value={customColorName}
-                  onChange={(e) => setCustomColorName(e.target.value)}
-                />
-              </div>
-              
-              <div className="space-y-2">
                 <Label htmlFor="ac-code">AC 코드 (선택사항)</Label>
                 <Input
                   id="ac-code"
@@ -482,6 +471,17 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                   placeholder="예: AC-CUSTOM"
                   value={customAcCode}
                   onChange={(e) => setCustomAcCode(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="color-name">팬톤 색상명</Label>
+                <Input
+                  id="color-name"
+                  type="text"
+                  placeholder="예: PT 286 C (선택사항)"
+                  value={customColorName}
+                  onChange={(e) => setCustomColorName(e.target.value)}
                 />
               </div>
               
