@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Calculator, ShoppingCart, ArrowLeft, Download, FileText, Calendar, Plus, Trash2, Send } from "lucide-react";
+import { Calculator, ShoppingCart, Home, Download, FileText, Calendar, Plus, Trash2, Send } from "lucide-react";
 import { useQuotes } from "@/contexts/QuoteContext";
 import QuoteCard from "@/components/QuoteCard";
 import TotalPricingSummary from "@/components/TotalPricingSummary";
@@ -72,8 +72,8 @@ const QuotesSummaryPage = () => {
               onClick={() => navigate('/')}
               className="flex items-center gap-2"
             >
-              <ArrowLeft className="w-4 h-4" />
-              계산기로 돌아가기
+              <Home className="w-4 h-4" />
+              홈으로 돌아가기
             </Button>
             <div className="flex gap-3">
               <Button 
