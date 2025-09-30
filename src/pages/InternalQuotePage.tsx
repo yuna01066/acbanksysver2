@@ -53,7 +53,7 @@ const InternalQuotePage = () => {
     day: 'numeric'
   });
 
-  const quoteNumber = Date.now().toString().slice(-6);
+  const quoteNumber = recipient?.quoteNumber || Date.now().toString().slice(-6);
 
   return (
     <>
