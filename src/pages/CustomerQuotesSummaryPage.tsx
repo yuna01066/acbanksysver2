@@ -44,7 +44,7 @@ const CustomerQuotesSummaryPage = () => {
   };
 
   const handleViewInternalQuote = () => {
-    navigate('/quotes-summary');
+    navigate('/internal-quote');
   };
 
   const currentDate = new Date().toLocaleDateString('ko-KR', {
