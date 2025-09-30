@@ -11,6 +11,7 @@ const InternalQuotePage = () => {
   const navigate = useNavigate();
   const {
     quotes,
+    recipient,
     removeQuote,
     updateQuoteQuantity,
     clearQuotes,
@@ -118,7 +119,28 @@ const InternalQuotePage = () => {
                 </div>
               </div>
 
+              {/* 회사 정보 섹션 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                {/* 견적서 수신 */}
+                {recipient && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 수신</h3>
+                    <div className="space-y-2 text-sm">
+                      <div><strong>프로젝트명:</strong> {recipient.projectName}</div>
+                      <div><strong>견적번호:</strong> {recipient.quoteNumber}</div>
+                      <div><strong>견적일자:</strong> {recipient.quoteDate ? recipient.quoteDate.toLocaleDateString('ko-KR') : currentDate}</div>
+                      <div><strong>유효기간:</strong> {recipient.validUntil}</div>
+                      <div><strong>납기:</strong> {recipient.deliveryPeriod}</div>
+                      <div><strong>지불 조건:</strong> {recipient.paymentCondition}</div>
+                      <div><strong>담당자:</strong> {recipient.contactPerson}</div>
+                      <div><strong>연락처:</strong> {recipient.phoneNumber}</div>
+                      <div><strong>이메일:</strong> {recipient.email}</div>
+                      <div><strong>납기 희망일:</strong> {recipient.desiredDeliveryDate ? recipient.desiredDeliveryDate.toLocaleDateString('ko-KR') : '-'}</div>
+                      <div><strong>납기현장 주소:</strong> {recipient.deliveryAddress}</div>
+                    </div>
+                  </div>
+                )}
+
                 {/* 견적서 발신 */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 발신</h3>

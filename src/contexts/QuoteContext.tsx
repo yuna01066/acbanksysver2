@@ -21,14 +21,30 @@ export interface Quote {
   serialNumber?: string;
 }
 
+export interface QuoteRecipient {
+  projectName: string;
+  quoteNumber: string;
+  quoteDate: Date | null;
+  validUntil: string;
+  deliveryPeriod: string;
+  paymentCondition: string;
+  contactPerson: string;
+  phoneNumber: string;
+  email: string;
+  desiredDeliveryDate: Date | null;
+  deliveryAddress: string;
+}
+
 interface QuoteContextType {
   quotes: Quote[];
+  recipient: QuoteRecipient | null;
   addQuote: (quote: Omit<Quote, 'id' | 'createdAt'>) => void;
   removeQuote: (id: string) => void;
   updateQuoteQuantity: (id: string, quantity: number) => void;
   clearQuotes: () => void;
   getTotalPrice: () => number;
   getTotalPriceWithTax: () => number;
+  updateRecipient: (recipient: QuoteRecipient) => void;
 }
 
 const QuoteContext = createContext<QuoteContextType | undefined>(undefined);
@@ -47,6 +63,7 @@ interface QuoteProviderProps {
 
 export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [recipient, setRecipient] = useState<QuoteRecipient | null>(null);
 
   const addQuote = (quoteData: Omit<Quote, 'id' | 'createdAt'>) => {
     const newQuote: Quote = {
@@ -71,6 +88,10 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     setQuotes([]);
   };
 
+  const updateRecipient = (newRecipient: QuoteRecipient) => {
+    setRecipient(newRecipient);
+  };
+
   const getTotalPrice = () => {
     return quotes.reduce((total, quote) => total + (quote.totalPrice * quote.quantity), 0);
   };
@@ -83,12 +104,14 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   return (
     <QuoteContext.Provider value={{
       quotes,
+      recipient,
       addQuote,
       removeQuote,
       updateQuoteQuantity,
       clearQuotes,
       getTotalPrice,
-      getTotalPriceWithTax
+      getTotalPriceWithTax,
+      updateRecipient
     }}>
       {children}
     </QuoteContext.Provider>

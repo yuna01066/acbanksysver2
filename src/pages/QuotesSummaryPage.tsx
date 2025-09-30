@@ -4,15 +4,36 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Calculator, ShoppingCart, Home, Download, FileText, Calendar, Plus, Trash2, Send } from "lucide-react";
-import { useQuotes } from "@/contexts/QuoteContext";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calculator, ShoppingCart, Home, Download, FileText, Calendar as CalendarIcon, Plus, Trash2, Send } from "lucide-react";
+import { useQuotes, QuoteRecipient } from "@/contexts/QuoteContext";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 import QuoteCard from "@/components/QuoteCard";
 import TotalPricingSummary from "@/components/TotalPricingSummary";
 import QuoteWarningNote from "@/components/QuoteWarningNote";
 
 const QuotesSummaryPage = () => {
   const navigate = useNavigate();
-  const { quotes, removeQuote, updateQuoteQuantity, clearQuotes, getTotalPrice, getTotalPriceWithTax } = useQuotes();
+  const { quotes, recipient, removeQuote, updateQuoteQuantity, clearQuotes, getTotalPrice, getTotalPriceWithTax, updateRecipient } = useQuotes();
+  
+  const [recipientData, setRecipientData] = React.useState<QuoteRecipient>({
+    projectName: recipient?.projectName || '',
+    quoteNumber: recipient?.quoteNumber || `QT-${Date.now().toString().slice(-6)}`,
+    quoteDate: recipient?.quoteDate || new Date(),
+    validUntil: '견적일자로 부터 14일',
+    deliveryPeriod: '최대 14일 소요 예상',
+    paymentCondition: '선지급 조건',
+    contactPerson: recipient?.contactPerson || '',
+    phoneNumber: recipient?.phoneNumber || '',
+    email: recipient?.email || '',
+    desiredDeliveryDate: recipient?.desiredDeliveryDate || null,
+    deliveryAddress: recipient?.deliveryAddress || ''
+  });
 
   if (quotes.length === 0) {
     return (
@@ -40,6 +61,12 @@ const QuotesSummaryPage = () => {
 
   const handleAddQuote = () => {
     navigate('/');
+  };
+
+  const handleRecipientChange = (field: keyof QuoteRecipient, value: any) => {
+    const newRecipientData = { ...recipientData, [field]: value };
+    setRecipientData(newRecipientData);
+    updateRecipient(newRecipientData);
   };
 
   const handleViewCustomerQuote = () => {
@@ -109,17 +136,17 @@ const QuotesSummaryPage = () => {
                 <div>
                   <CardTitle className="text-3xl font-bold flex items-center gap-3 mb-2">
                     <FileText className="w-8 h-8" />
-                    종합 견적서
+                    견적서 작성하기
                   </CardTitle>
-                  <p className="text-slate-200 text-lg">Comprehensive Panel Material Quotation</p>
+                  <p className="text-slate-200 text-lg">Create Panel Material Quotation</p>
                 </div>
                 <div className="text-right">
                   <div className="flex items-center gap-2 text-slate-200 mb-2">
-                    <Calendar className="w-4 h-4" />
+                    <CalendarIcon className="w-4 h-4" />
                     <span>{currentDate}</span>
                   </div>
                   <Badge className="bg-white/20 text-white border-0 px-4 py-2 text-lg font-bold">
-                    견적번호: QT-{Date.now().toString().slice(-6)}
+                    견적번호: {recipientData.quoteNumber}
                   </Badge>
                 </div>
               </div>
@@ -129,6 +156,157 @@ const QuotesSummaryPage = () => {
 
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
             <CardContent className="p-8">
+              {/* 견적 수신 섹션 */}
+              <div className="mb-8">
+                <h3 className="text-xl font-bold text-gray-900 mb-6">견적서 수신</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* 기본 정보 */}
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="projectName">프로젝트명</Label>
+                      <Input
+                        id="projectName"
+                        value={recipientData.projectName}
+                        onChange={(e) => handleRecipientChange('projectName', e.target.value)}
+                        placeholder="프로젝트명을 입력하세요"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="quoteNumber">견적번호</Label>
+                      <Input
+                        id="quoteNumber"
+                        value={recipientData.quoteNumber}
+                        onChange={(e) => handleRecipientChange('quoteNumber', e.target.value)}
+                        placeholder="견적번호"
+                      />
+                    </div>
+                    <div>
+                      <Label>견적일자</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !recipientData.quoteDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {recipientData.quoteDate ? format(recipientData.quoteDate, "yyyy년 MM월 dd일") : <span>날짜 선택</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={recipientData.quoteDate || undefined}
+                            onSelect={(date) => handleRecipientChange('quoteDate', date)}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div>
+                      <Label htmlFor="validUntil">유효기간</Label>
+                      <Input
+                        id="validUntil"
+                        value={recipientData.validUntil}
+                        onChange={(e) => handleRecipientChange('validUntil', e.target.value)}
+                        placeholder="견적일자로 부터 14일"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="deliveryPeriod">납기</Label>
+                      <Input
+                        id="deliveryPeriod"
+                        value={recipientData.deliveryPeriod}
+                        onChange={(e) => handleRecipientChange('deliveryPeriod', e.target.value)}
+                        placeholder="최대 14일 소요 예상"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="paymentCondition">지불 조건</Label>
+                      <Input
+                        id="paymentCondition"
+                        value={recipientData.paymentCondition}
+                        onChange={(e) => handleRecipientChange('paymentCondition', e.target.value)}
+                        placeholder="선지급 조건"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 담당자 정보 */}
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="contactPerson">담당자 *</Label>
+                      <Input
+                        id="contactPerson"
+                        value={recipientData.contactPerson}
+                        onChange={(e) => handleRecipientChange('contactPerson', e.target.value)}
+                        placeholder="담당자명을 입력하세요"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="phoneNumber">연락처 *</Label>
+                      <Input
+                        id="phoneNumber"
+                        value={recipientData.phoneNumber}
+                        onChange={(e) => handleRecipientChange('phoneNumber', e.target.value)}
+                        placeholder="연락처를 입력하세요"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="email">이메일 *</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={recipientData.email}
+                        onChange={(e) => handleRecipientChange('email', e.target.value)}
+                        placeholder="이메일을 입력하세요"
+                      />
+                    </div>
+                    <div>
+                      <Label>납기 희망일 *</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !recipientData.desiredDeliveryDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {recipientData.desiredDeliveryDate ? format(recipientData.desiredDeliveryDate, "yyyy년 MM월 dd일") : <span>희망일 선택</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={recipientData.desiredDeliveryDate || undefined}
+                            onSelect={(date) => handleRecipientChange('desiredDeliveryDate', date)}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div>
+                      <Label htmlFor="deliveryAddress">납기현장 주소 *</Label>
+                      <Textarea
+                        id="deliveryAddress"
+                        value={recipientData.deliveryAddress}
+                        onChange={(e) => handleRecipientChange('deliveryAddress', e.target.value)}
+                        placeholder="납기현장 주소를 입력하세요"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator className="my-8" />
+
               {/* 견적 목록 */}
               <div className="mb-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
