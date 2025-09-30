@@ -163,7 +163,7 @@ const InternalQuotePage = () => {
                     <div><strong>웹사이트:</strong> acbank.co.kr</div>
                     <div><strong>유효기간:</strong> 견적일자로부터 14일</div>
                     <div><strong>주소:</strong> 경기도 포천시 소흘읍 호국로 287번길 15, 나동 1층 101호 (동행빌딩)</div>
-                    <div><strong>📅 납기:</strong> 최대 14일 소요 예상</div>
+                    <div><strong>납기:</strong> 최대 14일 소요 예상</div>
                     <div><strong>지불 조건:</strong> 선지급 조건</div>
                     <div><strong>업태:</strong> 제조업 / 도매 및 소매업</div>
                     <div><strong>종목:</strong> 아크릴 가공 외</div>
