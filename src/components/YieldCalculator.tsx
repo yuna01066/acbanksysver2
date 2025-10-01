@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,6 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Calculator, Package, Plus, Trash2 } from "lucide-react";
 import NestingThumbnail from "@/components/NestingThumbnail";
 import UnifiedRecommendations from "@/components/UnifiedRecommendations";
-import { calculatePanelCombinations } from "@/utils/panelCombinationCalculator";
 import { glossyColorSinglePrices, glossyStandardSinglePrices, astelColorSinglePrices, satinColorSinglePrices } from "@/data/glossyColorPricing";
 import { CASTING_QUALITIES } from "@/types/calculator";
 interface PanelSize {
@@ -59,6 +58,38 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
   const [panelCombinations, setPanelCombinations] = useState<any[]>([]);
   const [isCalculating, setIsCalculating] = useState<boolean>(false);
   const [calculationProgress, setCalculationProgress] = useState<number>(0);
+  
+  const workerRef = useRef<Worker | null>(null);
+
+  // Web Worker 초기화 및 정리
+  useEffect(() => {
+    workerRef.current = new Worker(
+      new URL('../workers/yieldCalculator.worker.ts', import.meta.url),
+      { type: 'module' }
+    );
+
+    workerRef.current.onmessage = (e) => {
+      const { type } = e.data;
+
+      if (type === 'progress') {
+        setCalculationProgress(e.data.progress);
+      } else if (type === 'result') {
+        setYieldResults(e.data.yieldResults);
+        setPanelCombinations(e.data.combinations);
+        setShowResults(true);
+        setIsCalculating(false);
+        setCalculationProgress(0);
+      } else if (type === 'error') {
+        console.error('Worker error:', e.data.error);
+        setIsCalculating(false);
+        setCalculationProgress(0);
+      }
+    };
+
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, []);
 
   // 재단 항목 추가/제거 함수
   const addCutItem = () => {
@@ -246,292 +277,25 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
     return panelSizes.sort((a, b) => a.width * a.height - b.width * b.height);
   }, [selectedThickness, selectedQuality]);
 
-  // 복합 네스팅 알고리즘 - 여러 도형을 함께 배치
-  const calculateMultiItemLayout = (items: Array<{
-    width: number;
-    height: number;
-    quantity: number;
-    id: string;
-  }>, panelW: number, panelH: number): {
-    positions: Array<{
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      rotated: boolean;
-      itemId: string;
-    }>;
-    totalPieces: number;
-    canFitAll: boolean;
-    placedCounts: {
-      [key: string]: number;
-    };
-  } => {
-    const MARGIN = 0; // 가용사이즈가 이미 재단 가능 영역이므로 마진 불필요
-    
-    // 두께에 따른 간격 설정
-    const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
-    const SPACING = thickness < 10 ? 6 : 8; // 10T 미만: 6mm, 10T 이상: 8mm
+  // 계산 함수 - Web Worker 사용
+  const handleCalculate = () => {
+    // 모든 재단 항목이 유효한지 확인
+    const validCutItems = cutItems.filter(
+      item =>
+        item.width &&
+        item.height &&
+        item.quantity &&
+        parseFloat(item.width) > 0 &&
+        parseFloat(item.height) > 0 &&
+        parseInt(item.quantity) > 0
+    );
 
-    const usableWidth = panelW - MARGIN * 2;
-    const usableHeight = panelH - MARGIN * 2;
-
-    // 배치 결과를 저장할 배열들 초기화
-    const positions: Array<{
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      rotated: boolean;
-      itemId: string;
-    }> = [];
-    const occupiedAreas: Array<{
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    }> = [];
-    const placedCounts: {
-      [key: string]: number;
-    } = {};
-
-    // 모든 도형을 크기 순(면적)으로 정렬하여 큰 것부터 배치
-    const allPieces: Array<{
-      width: number;
-      height: number;
-      itemId: string;
-      originalIndex: number;
-    }> = [];
-    items.forEach((item, index) => {
-      for (let i = 0; i < item.quantity; i++) {
-        allPieces.push({
-          width: item.width,
-          height: item.height,
-          itemId: item.id,
-          originalIndex: index
-        });
-      }
-    });
-
-    // 면적 기준으로 내림차순 정렬
-    allPieces.sort((a, b) => b.width * b.height - a.width * a.height);
-
-    // 위치가 겹치는지 확인하는 함수 (50mm 간격 포함)
-    const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
-      const minGap = SPACING; // 50mm 간격
-      return occupiedAreas.some(area => !(x >= area.x + area.width + minGap || x + w + minGap <= area.x || y >= area.y + area.height + minGap || y + h + minGap <= area.y));
-    };
-
-    // 각 도형 배치 시도 - 회전을 고려한 최적 배치
-    for (const piece of allPieces) {
-      let placed = false;
-      let bestPosition = null;
-      let bestScore = -1;
-
-      // 가능한 배치 위치와 회전 시도 (더 체계적인 평가)
-      const orientations = [{
-        width: piece.width,
-        height: piece.height,
-        rotated: false
-      }, {
-        width: piece.height,
-        height: piece.width,
-        rotated: true
-      }];
-
-      // 각 방향에 대해 가능한 모든 위치 평가
-      for (const orientation of orientations) {
-        // 사용 가능한 영역에 들어가는지 확인
-        if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
-
-        // 가능한 모든 위치에서 배치 시도 (10mm 간격으로 더 세밀하게 검색)
-        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 10) {
-          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 10) {
-            if (!isOverlapping(x, y, orientation.width, orientation.height)) {
-              // 이 위치의 점수 계산 (왼쪽 위부터 우선, 회전하지 않은 것을 약간 선호)
-              const positionScore = calculatePositionScore(x, y, orientation, usableWidth, usableHeight);
-              if (positionScore > bestScore) {
-                bestScore = positionScore;
-                bestPosition = {
-                  x,
-                  y,
-                  width: orientation.width,
-                  height: orientation.height,
-                  rotated: orientation.rotated
-                };
-              }
-            }
-          }
-        }
-      }
-
-      // 최적 위치에 배치
-      if (bestPosition) {
-        positions.push({
-          x: bestPosition.x,
-          y: bestPosition.y,
-          width: bestPosition.width,
-          height: bestPosition.height,
-          rotated: bestPosition.rotated,
-          itemId: piece.itemId
-        });
-        occupiedAreas.push({
-          x: bestPosition.x,
-          y: bestPosition.y,
-          width: bestPosition.width,
-          height: bestPosition.height
-        });
-
-        // 배치된 개수 카운트
-        placedCounts[piece.itemId] = (placedCounts[piece.itemId] || 0) + 1;
-        placed = true;
-      }
-
-      // 배치하지 못한 도형이 있으면 중단
-      if (!placed) {
-        break;
-      }
+    if (validCutItems.length === 0) {
+      setYieldResults([]);
+      setPanelCombinations([]);
+      setShowResults(true);
+      return;
     }
-
-    // 배치 점수 계산 함수
-    function calculatePositionScore(x: number, y: number, orientation: {
-      width: number;
-      height: number;
-      rotated: boolean;
-    }, maxWidth: number, maxHeight: number): number {
-      // 기본 점수: 왼쪽 위부터 우선 (거리 기반)
-      const distanceScore = Math.sqrt((x - MARGIN) ** 2 + (y - MARGIN) ** 2);
-      let score = 10000 - distanceScore;
-
-      // 회전하지 않은 방향을 약간 선호 (같은 위치라면)
-      if (!orientation.rotated) {
-        score += 5;
-      }
-
-      // 가장자리에 가까운 배치 선호 (공간 효율성)
-      const edgeBonus = Math.min(x - MARGIN, y - MARGIN, maxWidth - (x - MARGIN) - orientation.width, maxHeight - (y - MARGIN) - orientation.height);
-      if (edgeBonus < SPACING) {
-        score += 10;
-      }
-      return score;
-    }
-    return {
-      positions,
-      totalPieces: positions.length,
-      canFitAll: positions.length === allPieces.length,
-      placedCounts
-    };
-  };
-
-  // 복합 네스팅을 사용한 수율 계산 함수
-  const calculateYield = (items: Array<{
-    width: number;
-    height: number;
-    quantity: number;
-    id: string;
-  }>, panelW: number, panelH: number): {
-    piecesPerPanel: number;
-    efficiency: number;
-    wasteArea: number;
-    canFitAll: boolean;
-    panelsNeeded: number;
-    placedCounts: {
-      [key: string]: number;
-    };
-  } => {
-    let remainingItems = [...items];
-    let totalPanelsNeeded = 0;
-    let allPlacedCounts: {
-      [key: string]: number;
-    } = {};
-    let allCanFit = true;
-
-    // 각 도형이 원판에 물리적으로 들어갈 수 있는지 먼저 확인
-    for (const item of items) {
-      const usableWidth = panelW - 100; // 마진 50*2
-      const usableHeight = panelH - 100; // 마진 50*2
-
-      // 회전 포함해서 들어갈 수 있는지 확인
-      const canFitNormally = item.width <= usableWidth && item.height <= usableHeight;
-      const canFitRotated = item.height <= usableWidth && item.width <= usableHeight;
-      if (!canFitNormally && !canFitRotated) {
-        allCanFit = false;
-        break;
-      }
-    }
-    if (!allCanFit) {
-      return {
-        piecesPerPanel: 0,
-        efficiency: 0,
-        wasteArea: panelW * panelH,
-        canFitAll: false,
-        panelsNeeded: 0,
-        placedCounts: {}
-      };
-    }
-
-    // 여러 판에 걸쳐 배치 시뮬레이션
-    while (remainingItems.some(item => item.quantity > 0)) {
-      const itemsToPlace = remainingItems.filter(item => item.quantity > 0);
-      if (itemsToPlace.length === 0) break;
-      const {
-        totalPieces,
-        placedCounts
-      } = calculateMultiItemLayout(itemsToPlace, panelW, panelH);
-      if (totalPieces === 0) {
-        // 더 이상 배치할 수 없음
-        break;
-      }
-      totalPanelsNeeded++;
-
-      // 전체 배치 카운트 누적
-      Object.entries(placedCounts).forEach(([itemId, count]) => {
-        allPlacedCounts[itemId] = (allPlacedCounts[itemId] || 0) + count;
-      });
-
-      // 수량 업데이트
-      remainingItems = remainingItems.map(item => ({
-        ...item,
-        quantity: Math.max(0, item.quantity - (placedCounts[item.id] || 0))
-      }));
-
-      // 무한 루프 방지
-      if (totalPanelsNeeded > 50) break;
-    }
-    const totalRequired = items.reduce((sum, item) => sum + item.quantity, 0);
-    const totalPlaced = Object.values(allPlacedCounts).reduce((sum, count) => sum + count, 0);
-    const totalRequiredArea = items.reduce((sum, item) => sum + item.width * item.height * item.quantity, 0);
-    const totalPanelArea = panelW * panelH * totalPanelsNeeded;
-    const efficiency = totalPanelArea > 0 ? totalRequiredArea / totalPanelArea * 100 : 0;
-    const wasteArea = totalPanelArea - totalRequiredArea;
-    const avgPiecesPerPanel = totalPanelsNeeded > 0 ? Math.round(totalPlaced / totalPanelsNeeded) : 0;
-    return {
-      piecesPerPanel: avgPiecesPerPanel,
-      efficiency,
-      wasteArea,
-      canFitAll: totalPlaced >= totalRequired,
-      panelsNeeded: totalPanelsNeeded,
-      placedCounts: allPlacedCounts
-    };
-  };
-
-  // 계산 함수
-  const handleCalculate = async () => {
-    setIsCalculating(true);
-    setCalculationProgress(0);
-    
-    // UI 업데이트를 위한 짧은 지연
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    try {
-      // 모든 재단 항목이 유효한지 확인
-      const validCutItems = cutItems.filter(item => item.width && item.height && item.quantity && parseFloat(item.width) > 0 && parseFloat(item.height) > 0 && parseInt(item.quantity) > 0);
-      if (validCutItems.length === 0) {
-        setYieldResults([]);
-        setPanelCombinations([]);
-        setShowResults(true);
-        return;
-      }
 
     // 복합 네스팅을 위한 아이템 배열 생성
     const itemsForNesting = validCutItems.map((item, index) => ({
@@ -540,81 +304,19 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       quantity: parseInt(item.quantity),
       id: `item-${index}`
     }));
-    const totalRequired = itemsForNesting.reduce((sum, item) => sum + item.quantity, 0);
 
-    // 전체 작업 단계 계산 (패널 사이즈 수 + 조합 계산)
-    const totalSteps = availablePanelSizes.length + 1;
-    let completedSteps = 0;
+    // Web Worker에 계산 요청
+    setIsCalculating(true);
+    setCalculationProgress(0);
+    setShowResults(false);
 
-    // 수율 결과 계산
-    const results: YieldResult[] = [];
-    for (let i = 0; i < availablePanelSizes.length; i++) {
-      const panel = availablePanelSizes[i];
-      
-      // 진행률 업데이트
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      const {
-        canFitAll,
-        efficiency,
-        wasteArea,
-        panelsNeeded,
-        piecesPerPanel
-      } = calculateYield(itemsForNesting, panel.width, panel.height);
-
-      // 모든 도형이 배치되지 않으면 제외
-      if (canFitAll && piecesPerPanel > 0) {
-        const totalPieces = totalRequired;
-        const surplus = piecesPerPanel * panelsNeeded - totalRequired;
-
-        results.push({
-          panelSize: panel.name,
-          panelWidth: panel.width,
-          panelHeight: panel.height,
-          piecesPerPanel,
-          panelsNeeded,
-          totalPieces,
-          efficiency,
-          wasteArea,
-          surplus: Math.max(0, surplus)
-        });
-      }
-
-      // 진행률 업데이트
-      completedSteps++;
-      setCalculationProgress(Math.round((completedSteps / totalSteps) * 100));
-    }
-
-    // 여분이 적을수록, 효율성이 높을수록, 필요 판수가 적을수록 우선
-    const sortedResults = results.sort((a, b) => {
-      // 1순위: 여분이 적을수록 좋음
-      if (a.surplus !== b.surplus) {
-        return a.surplus - b.surplus;
-      }
-      // 2순위: 효율성이 높을수록 좋음
-      if (Math.abs(a.efficiency - b.efficiency) > 1) {
-        return b.efficiency - a.efficiency;
-      }
-      // 3순위: 필요 판수가 적을수록 좋음
-      return a.panelsNeeded - b.panelsNeeded;
+    workerRef.current?.postMessage({
+      type: 'calculate',
+      items: itemsForNesting,
+      panelSizes: availablePanelSizes,
+      thickness: selectedThickness,
+      quality: selectedQuality
     });
-
-      // 복합 조합 계산
-      await new Promise(resolve => setTimeout(resolve, 0));
-      const combinations = calculatePanelCombinations(itemsForNesting, availablePanelSizes, 10, selectedThickness);
-      
-      // 최종 진행률
-      completedSteps++;
-      setCalculationProgress(100);
-
-      // 결과 업데이트
-      setYieldResults(sortedResults);
-      setPanelCombinations(combinations);
-      setShowResults(true);
-    } finally {
-      setIsCalculating(false);
-      setCalculationProgress(0);
-    }
   };
 
   const availableThicknesses = useMemo(() => {
