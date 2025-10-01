@@ -51,7 +51,22 @@ const AdminSettingsPage = () => {
               </div>
               
               <div className="border rounded-lg p-4">
-                <h3 className="font-medium mb-2">가격 관리</h3>
+                <h3 className="font-medium mb-2">원판 관리</h3>
+                <p className="text-sm text-gray-600 mb-3">
+                  원판 사이즈, 두께, 가격을 관리합니다. 견적 계산기와 수율 계산기에서 공유됩니다.
+                </p>
+                <Button
+                  onClick={() => navigate('/panel-management')}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Settings className="w-4 h-4" />
+                  원판 관리
+                </Button>
+              </div>
+              
+              <div className="border rounded-lg p-4">
+                <h3 className="font-medium mb-2">가격 관리 (구버전)</h3>
                 <p className="text-sm text-gray-600 mb-3">
                   제품별 가격을 설정하고 관리합니다.
                 </p>
