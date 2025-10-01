@@ -49,7 +49,7 @@ export const usePriceCalculation = ({
         .from('panel_masters')
         .select('*')
         .eq('quality', selectedQuality.id as any)
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
       return data;

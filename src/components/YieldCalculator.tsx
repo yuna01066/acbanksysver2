@@ -72,7 +72,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
         .from('panel_masters')
         .select('*')
         .eq('quality', selectedQuality as any)
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
       return data;

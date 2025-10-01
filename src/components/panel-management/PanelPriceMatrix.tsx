@@ -20,6 +20,7 @@ interface PanelSizeWithPrice {
   size_name: string;
   thickness: string;
   panel_master_id: string;
+  is_active: boolean;
   price?: number;
   priceId?: string;
 }
@@ -41,14 +42,14 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
         .from('panel_masters')
         .select('*')
         .eq('quality', qualityId as any)
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
       return data;
     }
   });
 
-  // Fetch all panel sizes and prices for this quality
+  // Fetch all panel sizes and prices for this quality (including inactive ones)
   const { data: panelData, isLoading } = useQuery({
     queryKey: ['panel-matrix', qualityId],
     queryFn: async () => {
@@ -70,7 +71,6 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
           )
         `)
         .eq('panel_master_id', panelMaster.id)
-        .eq('is_active', true)
         .order('thickness')
         .order('size_name');
       
@@ -82,6 +82,7 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
         size_name: ps.size_name,
         thickness: ps.thickness,
         panel_master_id: ps.panel_master_id,
+        is_active: ps.is_active,
         price: ps.panel_prices?.find(p => !p.effective_to)?.price,
         priceId: ps.panel_prices?.find(p => !p.effective_to)?.id
       })) as PanelSizeWithPrice[];
@@ -225,6 +226,48 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
     setEditingPrice('');
   };
 
+  // Toggle active status mutation
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ 
+      panelSizeId, 
+      isActive 
+    }: { 
+      panelSizeId: string;
+      isActive: boolean;
+    }) => {
+      const { error } = await supabase
+        .from('panel_sizes')
+        .update({ is_active: isActive })
+        .eq('id', panelSizeId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['panel-matrix'] });
+      queryClient.invalidateQueries({ queryKey: ['panel-size-matrix'] });
+      queryClient.invalidateQueries({ queryKey: ['active-panel-sizes'] });
+      queryClient.invalidateQueries({ queryKey: ['active-panel-sizes-yield'] });
+      toast.success('상태가 변경되었습니다');
+    },
+    onError: (error) => {
+      toast.error(`상태 변경 실패: ${error.message}`);
+    }
+  });
+
+  const handleToggleActive = async (thickness: string, sizeName: string) => {
+    const cellData = getCellData(thickness, sizeName);
+    
+    if (!cellData?.id) {
+      toast.error('사이즈 데이터를 먼저 입력해주세요');
+      return;
+    }
+
+    toggleActiveMutation.mutate({
+      panelSizeId: cellData.id,
+      isActive: !cellData.is_active
+    });
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -276,7 +319,7 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
                     const hasPrice = cellData?.price !== undefined && cellData?.price !== null;
 
                     return (
-                      <TableCell key={cellKey} className="text-center relative group">
+                      <TableCell key={cellKey} className={`text-center relative group ${!cellData?.is_active ? 'bg-muted/30' : ''}`}>
                         {isEditing ? (
                           <div className="flex items-center gap-1 justify-center">
                             <Input
@@ -314,19 +357,37 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
                             </Button>
                           </div>
                         ) : (
-                          <div 
-                            className="cursor-pointer hover:bg-muted/50 rounded px-2 py-1 transition-colors min-h-[32px] flex items-center justify-center"
-                            onClick={() => handleEditStart(thickness, sizeName, cellData?.price)}
-                          >
-                            {hasPrice ? (
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm">₩{cellData.price?.toLocaleString()}</span>
-                                <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-sm opacity-0 group-hover:opacity-100">
-                                클릭하여 입력
-                              </span>
+                          <div className="flex flex-col gap-1">
+                            <div 
+                              className="cursor-pointer hover:bg-muted/50 rounded px-2 py-1 transition-colors min-h-[32px] flex items-center justify-center"
+                              onClick={() => handleEditStart(thickness, sizeName, cellData?.price)}
+                            >
+                              {hasPrice ? (
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-sm ${!cellData?.is_active ? 'line-through text-muted-foreground' : ''}`}>
+                                    ₩{cellData.price?.toLocaleString()}
+                                  </span>
+                                  <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-sm opacity-0 group-hover:opacity-100">
+                                  클릭하여 입력
+                                </span>
+                              )}
+                            </div>
+                            {cellData && (
+                              <Button
+                                size="sm"
+                                variant={cellData.is_active ? "outline" : "default"}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleActive(thickness, sizeName);
+                                }}
+                                disabled={toggleActiveMutation.isPending}
+                                className="h-6 text-xs"
+                              >
+                                {cellData.is_active ? '비활성화' : '활성화'}
+                              </Button>
                             )}
                           </div>
                         )}

@@ -43,7 +43,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
         .from('panel_masters')
         .select('*')
         .eq('quality', qualityId as any)
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
       return data;
@@ -156,6 +156,9 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['panel-size-matrix'] });
+      queryClient.invalidateQueries({ queryKey: ['panel-matrix'] });
+      queryClient.invalidateQueries({ queryKey: ['active-panel-sizes'] });
+      queryClient.invalidateQueries({ queryKey: ['active-panel-sizes-yield'] });
       toast.success('상태가 변경되었습니다');
     },
     onError: (error) => {
