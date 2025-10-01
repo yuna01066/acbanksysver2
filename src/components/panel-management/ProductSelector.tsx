@@ -17,24 +17,31 @@ interface PanelMaster {
 }
 
 interface ProductSelectorProps {
+  materialId: string;
+  materialName: string;
   onSelectProduct: (masterId: string, productName: string) => void;
+  onBack: () => void;
   selectedProductId: string | null;
 }
 
-export function ProductSelector({ onSelectProduct, selectedProductId }: ProductSelectorProps) {
+export function ProductSelector({ materialId, materialName, onSelectProduct, onBack, selectedProductId }: ProductSelectorProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: '', description: '' });
 
-  // Fetch products
+  // Map material IDs to database enum values
+  const materialDbValue = materialId === 'casting' || materialId === 'acrylic-dye' ? 'acrylic' as const : 'acrylic' as const;
+
+  // Fetch products filtered by material
   const { data: products = [], isLoading } = useQuery({
-    queryKey: ['panel-masters'],
+    queryKey: ['panel-masters', materialId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('panel_masters')
         .select('*')
+        .eq('material', materialDbValue)
         .order('name');
       
       if (error) throw error;
@@ -45,13 +52,16 @@ export function ProductSelector({ onSelectProduct, selectedProductId }: ProductS
   // Create mutation
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; description: string }) => {
+      // Map material IDs to database enum values
+      const dbMaterialValue = materialId === 'casting' || materialId === 'acrylic-dye' ? 'acrylic' as const : 'acrylic' as const;
+      
       // Map product names to quality enum values
       const qualityMap: Record<string, string> = {
-        'Clear': 'glossy-color',
-        'Bright': 'satin-color',
-        'Mirror': 'glossy-standard',
-        'Astel': 'astel-color',
-        'Astel Mirror': 'astel-color'
+        'Clear (클리어)': 'glossy-color',
+        'Bright (브라이트)': 'satin-color',
+        'Mirror (미러)': 'acrylic-mirror',
+        'Astel (아스텔)': 'astel-color',
+        'Astel Mirror (아스텔 미러)': 'astel-mirror'
       };
       
       const quality = qualityMap[data.name] || 'glossy-color';
@@ -61,14 +71,14 @@ export function ProductSelector({ onSelectProduct, selectedProductId }: ProductS
         .insert([{ 
           name: data.name, 
           description: data.description,
-          material: 'acrylic',
+          material: dbMaterialValue,
           quality: quality as any
         }]);
       
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['panel-masters'] });
+      queryClient.invalidateQueries({ queryKey: ['panel-masters', materialId] });
       toast({ title: "제품이 추가되었습니다" });
       setIsAdding(false);
       setFormData({ name: '', description: '' });
@@ -86,7 +96,7 @@ export function ProductSelector({ onSelectProduct, selectedProductId }: ProductS
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['panel-masters'] });
+      queryClient.invalidateQueries({ queryKey: ['panel-masters', materialId] });
       toast({ title: "제품이 수정되었습니다" });
       setEditingId(null);
       setFormData({ name: '', description: '' });
@@ -104,7 +114,7 @@ export function ProductSelector({ onSelectProduct, selectedProductId }: ProductS
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['panel-masters'] });
+      queryClient.invalidateQueries({ queryKey: ['panel-masters', materialId] });
       toast({ title: "제품이 삭제되었습니다" });
     }
   });
@@ -142,27 +152,35 @@ export function ProductSelector({ onSelectProduct, selectedProductId }: ProductS
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>제품 선택</CardTitle>
-          <Button
-            onClick={() => setIsAdding(!isAdding)}
-            variant="outline"
-            size="sm"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            제품 추가
-          </Button>
+          <div>
+            <CardTitle>재질 선택</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">{materialName}의 재질을 선택해주세요</p>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={onBack} variant="outline" size="sm">
+              소재 선택으로
+            </Button>
+            <Button
+              onClick={() => setIsAdding(!isAdding)}
+              variant="outline"
+              size="sm"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              재질 추가
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {isAdding && (
           <div className="p-4 border rounded-lg space-y-4 bg-muted/50">
             <div>
-              <Label htmlFor="name">제품명</Label>
+              <Label htmlFor="name">재질명</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="예: Clear (클리어)"
+                placeholder="예: Clear (클리어), Bright (브라이트)"
               />
             </div>
             <div>
@@ -171,7 +189,7 @@ export function ProductSelector({ onSelectProduct, selectedProductId }: ProductS
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="제품 설명"
+                placeholder="재질 설명"
               />
             </div>
             <div className="flex gap-2">
@@ -231,7 +249,7 @@ export function ProductSelector({ onSelectProduct, selectedProductId }: ProductS
 
         {products.length === 0 && !isAdding && (
           <div className="text-center py-8 text-muted-foreground">
-            제품이 없습니다. 제품을 추가해주세요.
+            재질이 없습니다. 재질을 추가해주세요.
           </div>
         )}
       </CardContent>
