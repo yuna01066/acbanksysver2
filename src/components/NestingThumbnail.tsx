@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CutItem {
@@ -185,11 +185,7 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
     return panelLayouts;
   };
 
-  // 레이아웃 계산 결과를 캐싱하여 페이지 전환 시 재계산 방지
-  const panelLayouts = useMemo(() => {
-    return calculateMultiPanelLayout();
-  }, [cutItems, panelWidth, panelHeight, panelsNeeded, selectedThickness]);
-  
+  const panelLayouts = calculateMultiPanelLayout();
   const currentLayout = panelLayouts[currentPanelIndex] || [];
 
   // 효율 계산
