@@ -3,31 +3,47 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { MaterialSelector } from "@/components/panel-management/MaterialSelector";
+import { OptionSelector } from "@/components/panel-management/OptionSelector";
 import { ProductSelector } from "@/components/panel-management/ProductSelector";
 import { PanelPriceMatrix } from "@/components/panel-management/PanelPriceMatrix";
+import { PanelSizeManager } from "@/components/panel-management/PanelSizeManager";
 
-type ViewLevel = 'material' | 'product' | 'matrix';
+type ViewLevel = 'material' | 'option' | 'product' | 'size' | 'price';
+type ManagementOption = 'size' | 'price';
 
 const PanelManagementPage = () => {
   const navigate = useNavigate();
   const [currentView, setCurrentView] = useState<ViewLevel>('material');
   const [selectedMaterial, setSelectedMaterial] = useState<{ id: string; name: string } | null>(null);
+  const [selectedOption, setSelectedOption] = useState<ManagementOption | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<{ id: string; name: string } | null>(null);
 
   const handleSelectMaterial = (id: string, name: string) => {
     setSelectedMaterial({ id, name });
+    setCurrentView('option');
+  };
+
+  const handleSelectOption = (option: ManagementOption) => {
+    setSelectedOption(option);
     setCurrentView('product');
   };
 
   const handleSelectProduct = (id: string, name: string) => {
     setSelectedProduct({ id, name });
-    setCurrentView('matrix');
+    setCurrentView(selectedOption === 'size' ? 'size' : 'price');
   };
 
   const handleBackToMaterials = () => {
     setSelectedMaterial(null);
+    setSelectedOption(null);
     setSelectedProduct(null);
     setCurrentView('material');
+  };
+
+  const handleBackToOptions = () => {
+    setSelectedOption(null);
+    setSelectedProduct(null);
+    setCurrentView('option');
   };
 
   const handleBackToProducts = () => {
@@ -65,17 +81,33 @@ const PanelManagementPage = () => {
             />
           )}
 
-          {currentView === 'product' && selectedMaterial && (
+          {currentView === 'option' && selectedMaterial && (
+            <OptionSelector
+              materialName={selectedMaterial.name}
+              onSelectOption={handleSelectOption}
+              onBack={handleBackToMaterials}
+            />
+          )}
+
+          {currentView === 'product' && selectedMaterial && selectedOption && (
             <ProductSelector
               materialId={selectedMaterial.id}
               materialName={selectedMaterial.name}
               onSelectProduct={handleSelectProduct}
-              onBack={handleBackToMaterials}
+              onBack={handleBackToOptions}
               selectedProductId={selectedProduct?.id || null}
             />
           )}
 
-          {currentView === 'matrix' && selectedProduct && (
+          {currentView === 'size' && selectedProduct && (
+            <PanelSizeManager
+              qualityId={selectedProduct.id}
+              qualityName={selectedProduct.name}
+              onBack={handleBackToProducts}
+            />
+          )}
+
+          {currentView === 'price' && selectedProduct && (
             <PanelPriceMatrix
               qualityId={selectedProduct.id}
               productName={selectedProduct.name}

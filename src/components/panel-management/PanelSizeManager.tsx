@@ -20,11 +20,31 @@ interface PanelSize {
 }
 
 interface PanelSizeManagerProps {
-  masterId: string;
+  qualityId: string;
+  qualityName: string;
+  onBack: () => void;
 }
 
-export const PanelSizeManager = ({ masterId }: PanelSizeManagerProps) => {
+export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeManagerProps) => {
   const queryClient = useQueryClient();
+  
+  // Get panel master by quality
+  const { data: panelMaster } = useQuery({
+    queryKey: ['panel-master', qualityId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('panel_masters')
+        .select('*')
+        .eq('quality', qualityId as any)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!qualityId
+  });
+
+  const masterId = panelMaster?.id;
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -163,9 +183,16 @@ export const PanelSizeManager = ({ masterId }: PanelSizeManagerProps) => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>사이즈 관리</span>
-            <Button
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>사이즈 관리</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">{qualityName}의 가용 사이즈를 관리합니다</p>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={onBack} variant="outline" size="sm">
+                재질 선택으로
+              </Button>
+              <Button
               onClick={() => {
                 setIsAdding(!isAdding);
                 if (isAdding) {
@@ -175,9 +202,10 @@ export const PanelSizeManager = ({ masterId }: PanelSizeManagerProps) => {
               size="sm"
             >
               <Plus className="w-4 h-4 mr-2" />
-              {isAdding ? '취소' : '새 사이즈 추가'}
-            </Button>
-          </CardTitle>
+                {isAdding ? '취소' : '새 사이즈 추가'}
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {(isAdding || editingId) && (
