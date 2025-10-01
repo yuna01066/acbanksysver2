@@ -4,17 +4,15 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { MaterialSelector } from "@/components/panel-management/MaterialSelector";
 import { ProductSelector } from "@/components/panel-management/ProductSelector";
-import { SizeSelector } from "@/components/panel-management/SizeSelector";
-import { ThicknessPriceManager } from "@/components/panel-management/ThicknessPriceManager";
+import { PanelPriceMatrix } from "@/components/panel-management/PanelPriceMatrix";
 
-type ViewLevel = 'material' | 'product' | 'size' | 'price';
+type ViewLevel = 'material' | 'product' | 'matrix';
 
 const PanelManagementPage = () => {
   const navigate = useNavigate();
   const [currentView, setCurrentView] = useState<ViewLevel>('material');
   const [selectedMaterial, setSelectedMaterial] = useState<{ id: string; name: string } | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<{ id: string; name: string } | null>(null);
-  const [selectedSize, setSelectedSize] = useState<{ id: string; name: string } | null>(null);
 
   const handleSelectMaterial = (id: string, name: string) => {
     setSelectedMaterial({ id, name });
@@ -23,30 +21,18 @@ const PanelManagementPage = () => {
 
   const handleSelectProduct = (id: string, name: string) => {
     setSelectedProduct({ id, name });
-    setCurrentView('size');
-  };
-
-  const handleSelectSize = (id: string, name: string) => {
-    setSelectedSize({ id, name });
-    setCurrentView('price');
+    setCurrentView('matrix');
   };
 
   const handleBackToMaterials = () => {
     setSelectedMaterial(null);
     setSelectedProduct(null);
-    setSelectedSize(null);
     setCurrentView('material');
   };
 
   const handleBackToProducts = () => {
     setSelectedProduct(null);
-    setSelectedSize(null);
     setCurrentView('product');
-  };
-
-  const handleBackToSizes = () => {
-    setSelectedSize(null);
-    setCurrentView('size');
   };
 
   return (
@@ -68,7 +54,7 @@ const PanelManagementPage = () => {
           <div>
             <h1 className="text-3xl font-bold">원판 관리</h1>
             <p className="text-muted-foreground mt-2">
-              소재 → 재질 → 사이즈 → 두께별 가격을 단계적으로 관리합니다.
+              소재 → 재질 선택 후, 두께 x 사이즈 매트릭스로 가격을 관리합니다.
             </p>
           </div>
 
@@ -89,23 +75,11 @@ const PanelManagementPage = () => {
             />
           )}
 
-          {currentView === 'size' && selectedProduct && (
-            <SizeSelector
+          {currentView === 'matrix' && selectedProduct && (
+            <PanelPriceMatrix
               qualityId={selectedProduct.id}
               productName={selectedProduct.name}
-              onSelectSize={handleSelectSize}
               onBack={handleBackToProducts}
-              selectedSizeId={selectedSize?.id || null}
-            />
-          )}
-
-          {currentView === 'price' && selectedProduct && selectedSize && (
-            <ThicknessPriceManager
-              qualityId={selectedProduct.id}
-              sizeId={selectedSize.id}
-              sizeName={selectedSize.name}
-              productName={selectedProduct.name}
-              onBack={handleBackToSizes}
             />
           )}
         </div>
