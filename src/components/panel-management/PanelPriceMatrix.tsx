@@ -89,6 +89,50 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
     enabled: !!panelMaster?.id
   });
 
+  // 두께에 따른 실제 사이즈 계산
+  const getSizeByThickness = (baseWidth: number, baseHeight: number, thickness: string): { width: number; height: number } => {
+    const thicknessNum = parseFloat(thickness.replace('T', ''));
+    
+    if (thicknessNum >= 1.3 && thicknessNum < 10) {
+      // 1.3T ~ 10T 미만: 10T~20T 기준에서 20mm 더하기
+      return {
+        width: baseWidth + 20,
+        height: baseHeight + 20
+      };
+    } else if (thicknessNum >= 10 && thicknessNum <= 20) {
+      // 10T ~ 20T: 기준 사이즈 그대로
+      return {
+        width: baseWidth,
+        height: baseHeight
+      };
+    } else if (thicknessNum > 20 && thicknessNum <= 30) {
+      // 20T ~ 30T: 10T~20T 기준에서 50mm 빼기
+      return {
+        width: baseWidth - 50,
+        height: baseHeight - 50
+      };
+    }
+    
+    return { width: baseWidth, height: baseHeight };
+  };
+
+  // 원판 사이즈 매핑 (10T~20T 기준 치수)
+  const baseSizeMapping: { [key: string]: { width: number; height: number } } = {
+    '3*6': { width: 860, height: 1750 },
+    '대3*6': { width: 900, height: 1800 },
+    '4*5': { width: 1120, height: 1425 },
+    '대4*5': { width: 1200, height: 1500 },
+    '1*2': { width: 1000, height: 2000 },
+    '4*6': { width: 1200, height: 1800 },
+    '4*8': { width: 1200, height: 2400 },
+    '4*10': { width: 1200, height: 3000 },
+    '5*6': { width: 1500, height: 1800 },
+    '5*8': { width: 1500, height: 2400 },
+    '소3*6': { width: 830, height: 1720 },
+    '소1*2': { width: 970, height: 1970 },
+    '5*5': { width: 1500, height: 1500 }
+  };
+
   // Get available sizes from quality definition and sort by custom order
   const sizeOrder = ['3*6', '대3*6', '4*5', '대4*5', '1*2', '4*6', '4*8', '4*10', '5*6', '5*8', '소3*6', '소1*2', '5*5'];
   const qualitySizes = quality?.sizes || [];
@@ -100,6 +144,14 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
     if (indexB === -1) return -1;
     return indexA - indexB;
   });
+
+  // 사이즈별 실제 치수 정보 생성
+  const getSizeDimensions = (sizeName: string, thickness: string) => {
+    const baseSize = baseSizeMapping[sizeName];
+    if (!baseSize) return null;
+    const actualSize = getSizeByThickness(baseSize.width, baseSize.height, thickness);
+    return actualSize;
+  };
 
   // Save or update price mutation
   const savePriceMutation = useMutation({
@@ -252,7 +304,21 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
           </p>
           <div className="text-sm">
             <span className="font-medium">가용 사이즈:</span>{' '}
-            <span className="text-muted-foreground">{availableSizes.join(', ')}</span>
+            <div className="mt-1 space-y-1">
+              {availableSizes.map(size => {
+                const dimensions = getSizeDimensions(size, thicknesses[0] || '10T');
+                return (
+                  <div key={size} className="text-muted-foreground">
+                    <span className="font-medium">{size}</span>
+                    {dimensions && (
+                      <span className="ml-2 text-xs">
+                        ({dimensions.width}mm × {dimensions.height}mm)
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </CardHeader>
