@@ -81,7 +81,7 @@ export function SizeSelector({ qualityId, productName, onSelectSize, onBack, sel
                     {sizeInfo.baseName}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    <div>가용: {sizeInfo.baseWidth}×{sizeInfo.baseHeight}mm</div>
+                    <div>{sizeInfo.baseWidth}×{sizeInfo.baseHeight}mm</div>
                   </div>
                 </div>
               </div>
