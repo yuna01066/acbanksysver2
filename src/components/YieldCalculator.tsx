@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +61,43 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
   const [panelCombinations, setPanelCombinations] = useState<any[]>([]);
   const [isCalculating, setIsCalculating] = useState<boolean>(false);
   const [calculationProgress, setCalculationProgress] = useState<number>(0);
+
+  // Fetch panel master for the selected quality
+  const { data: panelMaster } = useQuery({
+    queryKey: ['panel-master-yield', selectedQuality],
+    queryFn: async () => {
+      if (!selectedQuality) return null;
+      
+      const { data, error } = await supabase
+        .from('panel_masters')
+        .select('*')
+        .eq('quality', selectedQuality as any)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedQuality
+  });
+
+  // Fetch active panel sizes for selected quality and thickness
+  const { data: activePanelSizesFromDB } = useQuery({
+    queryKey: ['active-panel-sizes-yield', panelMaster?.id, selectedThickness],
+    queryFn: async () => {
+      if (!panelMaster?.id || !selectedThickness) return [];
+      
+      const { data, error } = await supabase
+        .from('panel_sizes')
+        .select('*')
+        .eq('panel_master_id', panelMaster.id)
+        .eq('thickness', selectedThickness)
+        .eq('is_active', true);
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!panelMaster?.id && !!selectedThickness
+  });
 
   // 재단 항목 추가/제거 함수
   const addCutItem = () => {
@@ -125,6 +164,17 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
 
   // 선택된 재질에서 사용 가능한 원판 사이즈 추출
   const availablePanelSizes = useMemo(() => {
+    // DB에서 활성화된 사이즈가 있으면 우선 사용
+    if (activePanelSizesFromDB && activePanelSizesFromDB.length > 0) {
+      return activePanelSizesFromDB.map(ps => ({
+        name: ps.size_name,
+        width: ps.actual_width || 0,
+        height: ps.actual_height || 0,
+        available: true
+      })).sort((a, b) => a.width * a.height - b.width * b.height);
+    }
+
+    // Fallback: 기존 로직 (하드코딩된 데이터 사용)
     const priceData = getPriceDataByQuality(selectedQuality);
     const allSizes = new Set<string>();
 
@@ -244,7 +294,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       };
     }).filter(panel => panel.available);
     return panelSizes.sort((a, b) => a.width * a.height - b.width * b.height);
-  }, [selectedThickness, selectedQuality]);
+  }, [selectedThickness, selectedQuality, activePanelSizesFromDB]);
 
   // 복합 네스팅 알고리즘 - 여러 도형을 함께 배치
   const calculateMultiItemLayout = (items: Array<{

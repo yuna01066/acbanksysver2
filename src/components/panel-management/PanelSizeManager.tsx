@@ -51,7 +51,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
     enabled: !!qualityId
   });
 
-  // Fetch all panel sizes for this quality
+  // Fetch all panel sizes for this quality (including inactive ones for management)
   const { data: panelData, isLoading } = useQuery({
     queryKey: ['panel-size-matrix', qualityId],
     queryFn: async () => {
@@ -61,7 +61,6 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
         .from('panel_sizes')
         .select('*')
         .eq('panel_master_id', panelMaster.id)
-        .eq('is_active', true)
         .order('thickness')
         .order('size_name');
       
@@ -139,6 +138,31 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
     }
   });
 
+  // Toggle active status mutation
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ 
+      panelSizeId, 
+      isActive 
+    }: { 
+      panelSizeId: string;
+      isActive: boolean;
+    }) => {
+      const { error } = await supabase
+        .from('panel_sizes')
+        .update({ is_active: isActive })
+        .eq('id', panelSizeId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['panel-size-matrix'] });
+      toast.success('상태가 변경되었습니다');
+    },
+    onError: (error) => {
+      toast.error(`상태 변경 실패: ${error.message}`);
+    }
+  });
+
   const getCellKey = (thickness: string, sizeName: string) => `${thickness}-${sizeName}`;
 
   const getCellData = (thickness: string, sizeName: string): PanelSizeWithDimensions | undefined => {
@@ -176,6 +200,20 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
     setEditingCell(null);
     setEditingWidth('');
     setEditingHeight('');
+  };
+
+  const handleToggleActive = async (thickness: string, sizeName: string) => {
+    const cellData = getCellData(thickness, sizeName);
+    
+    if (!cellData?.id) {
+      toast.error('사이즈 데이터를 먼저 입력해주세요');
+      return;
+    }
+
+    toggleActiveMutation.mutate({
+      panelSizeId: cellData.id,
+      isActive: !cellData.is_active
+    });
   };
 
   if (isLoading) {
@@ -229,7 +267,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
                     const hasDimensions = cellData?.actual_width && cellData?.actual_height;
 
                     return (
-                      <TableCell key={cellKey} className="text-center relative group">
+                      <TableCell key={cellKey} className={`text-center relative group ${!cellData?.is_active ? 'bg-muted/30' : ''}`}>
                         {isEditing ? (
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-1 justify-center">
@@ -286,21 +324,37 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
                             </div>
                           </div>
                         ) : (
-                          <div 
-                            className="cursor-pointer hover:bg-muted/50 rounded px-2 py-1 transition-colors min-h-[32px] flex items-center justify-center"
-                            onClick={() => handleEditStart(thickness, sizeName, cellData?.actual_width, cellData?.actual_height)}
-                          >
-                            {hasDimensions ? (
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm">
-                                  {cellData.actual_width} × {cellData.actual_height}mm
+                          <div className="flex flex-col gap-1">
+                            <div 
+                              className="cursor-pointer hover:bg-muted/50 rounded px-2 py-1 transition-colors min-h-[32px] flex items-center justify-center"
+                              onClick={() => handleEditStart(thickness, sizeName, cellData?.actual_width, cellData?.actual_height)}
+                            >
+                              {hasDimensions ? (
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-sm ${!cellData?.is_active ? 'line-through text-muted-foreground' : ''}`}>
+                                    {cellData.actual_width} × {cellData.actual_height}mm
+                                  </span>
+                                  <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-sm opacity-0 group-hover:opacity-100">
+                                  클릭하여 입력
                                 </span>
-                                <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-sm opacity-0 group-hover:opacity-100">
-                                클릭하여 입력
-                              </span>
+                              )}
+                            </div>
+                            {hasDimensions && (
+                              <Button
+                                size="sm"
+                                variant={cellData?.is_active ? "outline" : "default"}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleActive(thickness, sizeName);
+                                }}
+                                disabled={toggleActiveMutation.isPending}
+                                className="h-6 text-xs"
+                              >
+                                {cellData?.is_active ? '비활성화' : '활성화'}
+                              </Button>
                             )}
                           </div>
                         )}

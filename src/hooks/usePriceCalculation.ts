@@ -1,5 +1,7 @@
 
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Material, Quality } from "@/types/calculator";
 import { calculatePrice } from "@/utils/priceCalculations";
 import { 
@@ -37,6 +39,43 @@ export const usePriceCalculation = ({
     breakdown: []
   });
 
+  // Fetch panel master for the selected quality
+  const { data: panelMaster } = useQuery({
+    queryKey: ['panel-master-for-calc', selectedQuality?.id],
+    queryFn: async () => {
+      if (!selectedQuality?.id) return null;
+      
+      const { data, error } = await supabase
+        .from('panel_masters')
+        .select('*')
+        .eq('quality', selectedQuality.id as any)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedQuality?.id
+  });
+
+  // Fetch active panel sizes
+  const { data: activePanelSizes } = useQuery({
+    queryKey: ['active-panel-sizes', panelMaster?.id, selectedThickness],
+    queryFn: async () => {
+      if (!panelMaster?.id || !selectedThickness) return [];
+      
+      const { data, error } = await supabase
+        .from('panel_sizes')
+        .select('*')
+        .eq('panel_master_id', panelMaster.id)
+        .eq('thickness', selectedThickness)
+        .eq('is_active', true);
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!panelMaster?.id && !!selectedThickness
+  });
+
   // 특정 두께와 사이즈 조합에 가격 데이터가 있는지 확인하는 함수
   const hasPriceData = (qualityId: string, thickness: string, size: string): boolean => {
     if (selectedFactory !== 'jangwon') return false;
@@ -72,8 +111,13 @@ export const usePriceCalculation = ({
     if (!selectedQuality || !selectedThickness) return [];
     
   // 두께별 가용 사이즈 계산 (실제 치수 포함)
-  const getSizeWithDimensions = (baseSize: string): string => {
-    // 10T~20T 기준 치수 매핑
+  const getSizeWithDimensions = (baseSize: string, actualWidth?: number, actualHeight?: number): string => {
+    // DB에서 가져온 실제 치수가 있으면 사용
+    if (actualWidth && actualHeight) {
+      return `${baseSize} (${actualWidth}*${actualHeight})`;
+    }
+
+    // 10T~20T 기준 치수 매핑 (fallback)
     const baseSizeMapping: { [key: string]: { width: number; height: number } } = {
       '3*6': { width: 860, height: 1750 },
       '대3*6': { width: 900, height: 1800 },
@@ -92,24 +136,31 @@ export const usePriceCalculation = ({
 
     // 두께에 따른 실제 가용 사이즈 계산
     const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
-    let actualWidth = baseInfo.width;
-    let actualHeight = baseInfo.height;
+    let calculatedWidth = baseInfo.width;
+    let calculatedHeight = baseInfo.height;
 
     if (thickness >= 1.3 && thickness < 10) {
       // 1.3T ~ 10T 미만: 10T~20T 기준에서 20mm 더하기
-      actualWidth += 20;
-      actualHeight += 20;
+      calculatedWidth += 20;
+      calculatedHeight += 20;
     } else if (thickness >= 10 && thickness <= 20) {
       // 10T ~ 20T: 기준 사이즈 그대로
       // 변경 없음
     } else if (thickness >= 20 && thickness <= 30) {
       // 20T ~ 30T: 10T~20T 기준에서 50mm 빼기
-      actualWidth -= 50;
-      actualHeight -= 50;
+      calculatedWidth -= 50;
+      calculatedHeight -= 50;
     }
 
-    return `${baseSize} (${actualWidth}*${actualHeight})`;
+    return `${baseSize} (${calculatedWidth}*${calculatedHeight})`;
   };
+
+  // DB에 활성화된 사이즈가 있으면 그것을 사용
+  if (activePanelSizes && activePanelSizes.length > 0) {
+    return activePanelSizes.map(ps => 
+      getSizeWithDimensions(ps.size_name, ps.actual_width || undefined, ps.actual_height || undefined)
+    );
+  }
     
     // 15T 두께에 대한 특별한 사이즈 배열 (두께별 실제 치수 적용)
     if (selectedThickness === '15T' && (selectedQuality.id === 'glossy-color' || selectedQuality.id === 'satin-color')) {
