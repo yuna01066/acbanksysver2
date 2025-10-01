@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { CASTING_QUALITIES } from '@/types/calculator';
 
 interface SizeSelectorProps {
   qualityId: string;
@@ -19,75 +17,36 @@ interface PanelSizeInfo {
   baseHeight: number;
 }
 
-interface SizeData {
-  sizeName: string;
-  actualWidth: number;
-  actualHeight: number;
-}
-
 export function SizeSelector({ qualityId, productName, onSelectSize, onBack, selectedSizeId }: SizeSelectorProps) {
-  const { toast } = useToast();
-  const [sizes, setSizes] = useState<SizeData[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use CASTING_QUALITIES from calculator as the source of truth
+  const quality = CASTING_QUALITIES.find(q => q.id === qualityId);
+  const sizes = quality?.sizes || [];
 
-  useEffect(() => {
-    const fetchSizes = async () => {
-      try {
-        setLoading(true);
-        
-        // Get distinct sizes for this quality from panel_sizes joined with panel_masters
-        const { data, error } = await supabase
-          .from('panel_sizes')
-          .select(`
-            size_name,
-            actual_width,
-            actual_height,
-            panel_masters!inner(quality)
-          `)
-          .eq('panel_masters.quality', qualityId as any)
-          .eq('is_active', true);
-
-        if (error) throw error;
-
-        // Get unique sizes (some sizes may appear multiple times with different thicknesses)
-        const uniqueSizes = Array.from(
-          new Map(
-            data.map(item => [
-              item.size_name,
-              {
-                sizeName: item.size_name,
-                actualWidth: item.actual_width,
-                actualHeight: item.actual_height
-              }
-            ])
-          ).values()
-        );
-
-        setSizes(uniqueSizes);
-      } catch (error) {
-        console.error('Error fetching sizes:', error);
-        toast({
-          title: "오류",
-          description: "사이즈 목록을 불러오는데 실패했습니다.",
-          variant: "destructive"
-        });
-      } finally {
-        setLoading(false);
-      }
+  // 사이즈 정보 계산 (10T~20T 기준)
+  const getSizeInfo = (sizeString: string): PanelSizeInfo => {
+    const baseSizeMapping: { [key: string]: { width: number; height: number } } = {
+      '소3*6': { width: 800, height: 1700 },
+      '3*6': { width: 860, height: 1750 },
+      '대3*6': { width: 900, height: 1800 },
+      '4*5': { width: 1120, height: 1425 },
+      '대4*5': { width: 1200, height: 1500 },
+      '소1*2': { width: 950, height: 1900 },
+      '1*2': { width: 1000, height: 2000 },
+      '4*6': { width: 1200, height: 1800 },
+      '4*8': { width: 1200, height: 2400 },
+      '4*10': { width: 1200, height: 3000 },
+      '5*5': { width: 1500, height: 1500 },
+      '5*6': { width: 1500, height: 1800 },
+      '5*8': { width: 1500, height: 2400 }
     };
-
-    fetchSizes();
-  }, [qualityId, toast]);
-
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>로딩 중...</CardTitle>
-        </CardHeader>
-      </Card>
-    );
-  }
+    
+    const baseSize = baseSizeMapping[sizeString];
+    return {
+      baseName: sizeString,
+      baseWidth: baseSize?.width || 1000,
+      baseHeight: baseSize?.height || 1000
+    };
+  };
 
   return (
     <Card>
@@ -104,24 +63,25 @@ export function SizeSelector({ qualityId, productName, onSelectSize, onBack, sel
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sizes.map((size) => {
-            const isSelected = selectedSizeId === size.sizeName;
+            const sizeInfo = getSizeInfo(size);
+            const isSelected = selectedSizeId === size;
             
             return (
               <div
-                key={size.sizeName}
+                key={size}
                 className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${
                   isSelected 
                     ? 'border-primary bg-primary/5 shadow-md' 
                     : 'border-border bg-card hover:border-muted-foreground/30'
                 }`}
-                onClick={() => onSelectSize(size.sizeName, size.sizeName)}
+                onClick={() => onSelectSize(size, size)}
               >
                 <div className="text-center space-y-2">
                   <div className="font-semibold text-lg">
-                    {size.sizeName}
+                    {sizeInfo.baseName}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    <div>{size.actualWidth}×{size.actualHeight}mm</div>
+                    <div>{sizeInfo.baseWidth}×{sizeInfo.baseHeight}mm</div>
                   </div>
                 </div>
               </div>
