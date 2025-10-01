@@ -4,18 +4,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Check } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
+import { ArrowLeft, Check, X, Pencil } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { CASTING_QUALITIES } from '@/types/calculator';
 
-interface PanelSize {
+interface PanelSizeWithDimensions {
   id: string;
-  panel_master_id: string;
-  thickness: string;
   size_name: string;
-  actual_width: number;
-  actual_height: number;
+  thickness: string;
+  panel_master_id: string;
+  actual_width?: number;
+  actual_height?: number;
   is_active: boolean;
 }
 
@@ -27,6 +27,13 @@ interface PanelSizeManagerProps {
 
 export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeManagerProps) => {
   const queryClient = useQueryClient();
+  const [editingCell, setEditingCell] = useState<string | null>(null);
+  const [editingWidth, setEditingWidth] = useState<string>('');
+  const [editingHeight, setEditingHeight] = useState<string>('');
+  
+  // Get available thicknesses and sizes for this quality
+  const quality = CASTING_QUALITIES.find(q => q.id === qualityId);
+  const thicknesses = quality?.thicknesses || [];
   
   // Get panel master by quality
   const { data: panelMaster } = useQuery({
@@ -44,294 +51,274 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
     enabled: !!qualityId
   });
 
-  const masterId = panelMaster?.id;
-  const [isAdding, setIsAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    thickness: '',
-    size_name: '',
-    actual_width: '',
-    actual_height: '',
-    is_active: true
-  });
-
-  const { data: sizes, isLoading } = useQuery({
-    queryKey: ['panel-sizes', masterId],
+  // Fetch all panel sizes for this quality
+  const { data: panelData, isLoading } = useQuery({
+    queryKey: ['panel-size-matrix', qualityId],
     queryFn: async () => {
+      if (!panelMaster?.id) return [];
+
       const { data, error } = await supabase
         .from('panel_sizes')
         .select('*')
-        .eq('panel_master_id', masterId)
-        .order('thickness', { ascending: true })
-        .order('size_name', { ascending: true });
+        .eq('panel_master_id', panelMaster.id)
+        .eq('is_active', true)
+        .order('thickness')
+        .order('size_name');
       
       if (error) throw error;
-      return data as PanelSize[];
+      return data as PanelSizeWithDimensions[];
     },
-    enabled: !!masterId
+    enabled: !!panelMaster?.id
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      const { error } = await supabase
-        .from('panel_sizes')
-        .insert([{
-          panel_master_id: masterId,
-          thickness: data.thickness,
-          size_name: data.size_name,
-          actual_width: parseInt(data.actual_width),
-          actual_height: parseInt(data.actual_height),
-          is_active: data.is_active
-        }]);
-      
-      if (error) throw error;
+  // Get available sizes from quality definition and sort by custom order
+  const sizeOrder = ['3*6', '대3*6', '4*5', '대4*5', '1*2', '4*6', '4*8', '4*10', '5*6', '5*8', '소3*6', '소1*2', '5*5'];
+  const qualitySizes = quality?.sizes || [];
+  const availableSizes = qualitySizes.sort((a, b) => {
+    const indexA = sizeOrder.indexOf(a);
+    const indexB = sizeOrder.indexOf(b);
+    if (indexA === -1 && indexB === -1) return a.localeCompare(b);
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
+
+  // Create or update panel size mutation
+  const saveSizeMutation = useMutation({
+    mutationFn: async ({ 
+      panelSizeId, 
+      thickness,
+      sizeName,
+      width, 
+      height 
+    }: { 
+      panelSizeId?: string;
+      thickness: string;
+      sizeName: string;
+      width: number;
+      height: number;
+    }) => {
+      if (panelSizeId) {
+        // Update existing size
+        const { error } = await supabase
+          .from('panel_sizes')
+          .update({ 
+            actual_width: width,
+            actual_height: height
+          })
+          .eq('id', panelSizeId);
+
+        if (error) throw error;
+      } else {
+        // Create new size
+        if (!panelMaster?.id) throw new Error('Panel master not found');
+        
+        const { error } = await supabase
+          .from('panel_sizes')
+          .insert({
+            panel_master_id: panelMaster.id,
+            thickness,
+            size_name: sizeName,
+            actual_width: width,
+            actual_height: height,
+            is_active: true
+          });
+
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['panel-sizes', masterId] });
-      toast.success('사이즈가 추가되었습니다');
-      setIsAdding(false);
-      resetForm();
+      queryClient.invalidateQueries({ queryKey: ['panel-size-matrix'] });
+      toast.success('사이즈가 저장되었습니다');
+      setEditingCell(null);
+      setEditingWidth('');
+      setEditingHeight('');
     },
     onError: (error) => {
-      toast.error('추가 실패: ' + error.message);
+      toast.error(`사이즈 저장 실패: ${error.message}`);
     }
   });
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-      const { error } = await supabase
-        .from('panel_sizes')
-        .update({
-          thickness: data.thickness,
-          size_name: data.size_name,
-          actual_width: parseInt(data.actual_width),
-          actual_height: parseInt(data.actual_height),
-          is_active: data.is_active
-        })
-        .eq('id', id);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['panel-sizes', masterId] });
-      toast.success('사이즈가 수정되었습니다');
-      setEditingId(null);
-      resetForm();
-    },
-    onError: (error) => {
-      toast.error('수정 실패: ' + error.message);
-    }
-  });
+  const getCellKey = (thickness: string, sizeName: string) => `${thickness}-${sizeName}`;
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('panel_sizes')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['panel-sizes', masterId] });
-      toast.success('사이즈가 삭제되었습니다');
-    },
-    onError: (error) => {
-      toast.error('삭제 실패: ' + error.message);
-    }
-  });
-
-  const resetForm = () => {
-    setFormData({
-      thickness: '',
-      size_name: '',
-      actual_width: '',
-      actual_height: '',
-      is_active: true
-    });
+  const getCellData = (thickness: string, sizeName: string): PanelSizeWithDimensions | undefined => {
+    return panelData?.find(p => p.thickness === thickness && p.size_name === sizeName);
   };
 
-  const handleEdit = (size: PanelSize) => {
-    setEditingId(size.id);
-    setFormData({
-      thickness: size.thickness,
-      size_name: size.size_name,
-      actual_width: size.actual_width.toString(),
-      actual_height: size.actual_height.toString(),
-      is_active: size.is_active
-    });
+  const handleEditStart = (thickness: string, sizeName: string, currentWidth?: number, currentHeight?: number) => {
+    const key = getCellKey(thickness, sizeName);
+    setEditingCell(key);
+    setEditingWidth(currentWidth?.toString() || '');
+    setEditingHeight(currentHeight?.toString() || '');
   };
 
-  const handleSubmit = () => {
-    if (!formData.thickness || !formData.size_name || !formData.actual_width || !formData.actual_height) {
-      toast.error('모든 필드를 입력해주세요');
+  const handleEditSave = async (thickness: string, sizeName: string) => {
+    const width = parseFloat(editingWidth);
+    const height = parseFloat(editingHeight);
+    
+    if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
+      toast.error('올바른 크기를 입력해주세요');
       return;
     }
 
-    if (editingId) {
-      updateMutation.mutate({ id: editingId, data: formData });
-    } else {
-      createMutation.mutate(formData);
-    }
+    const cellData = getCellData(thickness, sizeName);
+    
+    saveSizeMutation.mutate({ 
+      panelSizeId: cellData?.id,
+      thickness,
+      sizeName,
+      width,
+      height
+    });
+  };
+
+  const handleEditCancel = () => {
+    setEditingCell(null);
+    setEditingWidth('');
+    setEditingHeight('');
   };
 
   if (isLoading) {
-    return <div>로딩 중...</div>;
+    return (
+      <Card>
+        <CardContent className="p-8 text-center text-muted-foreground">
+          로딩 중...
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>사이즈 관리</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">{qualityName}의 가용 사이즈를 관리합니다</p>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={onBack} variant="outline" size="sm">
-                재질 선택으로
-              </Button>
-              <Button
-              onClick={() => {
-                setIsAdding(!isAdding);
-                if (isAdding) {
-                  resetForm();
-                }
-              }}
-              size="sm"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-                {isAdding ? '취소' : '새 사이즈 추가'}
-              </Button>
-            </div>
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button onClick={onBack} variant="ghost" size="sm">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <CardTitle>{qualityName} - 사이즈 매트릭스</CardTitle>
           </div>
-        </CardHeader>
-        <CardContent>
-          {(isAdding || editingId) && (
-            <div className="mb-6 p-4 border rounded-lg space-y-4">
-              <h3 className="font-medium">
-                {editingId ? '사이즈 수정' : '새 사이즈 추가'}
-              </h3>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>두께</Label>
-                  <Input
-                    value={formData.thickness}
-                    onChange={(e) => setFormData({ ...formData, thickness: e.target.value })}
-                    placeholder="예: 10T, 15T"
-                  />
-                </div>
+        </div>
+        <p className="text-sm text-muted-foreground mt-2">
+          두께 x 사이즈 조합별 실제 치수(mm)를 관리합니다. 빈 셀을 클릭하여 치수를 입력하세요.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-24 sticky left-0 bg-background z-10">두께</TableHead>
+                {availableSizes.map(size => (
+                  <TableHead key={size} className="text-center min-w-[160px]">
+                    {size}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {thicknesses.map(thickness => (
+                <TableRow key={thickness}>
+                  <TableCell className="font-medium sticky left-0 bg-background z-10">
+                    {thickness}
+                  </TableCell>
+                  {availableSizes.map(sizeName => {
+                    const cellData = getCellData(thickness, sizeName);
+                    const cellKey = getCellKey(thickness, sizeName);
+                    const isEditing = editingCell === cellKey;
+                    const hasDimensions = cellData?.actual_width && cellData?.actual_height;
 
-                <div className="space-y-2">
-                  <Label>사이즈 이름</Label>
-                  <Input
-                    value={formData.size_name}
-                    onChange={(e) => setFormData({ ...formData, size_name: e.target.value })}
-                    placeholder="예: 3*6, 4*8"
-                  />
-                </div>
-              </div>
+                    return (
+                      <TableCell key={cellKey} className="text-center relative group">
+                        {isEditing ? (
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1 justify-center">
+                              <Input
+                                type="number"
+                                value={editingWidth}
+                                onChange={(e) => setEditingWidth(e.target.value)}
+                                className="w-20 h-8 text-sm"
+                                placeholder="가로"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleEditSave(thickness, sizeName);
+                                  } else if (e.key === 'Escape') {
+                                    handleEditCancel();
+                                  }
+                                }}
+                              />
+                              <span className="text-xs">×</span>
+                              <Input
+                                type="number"
+                                value={editingHeight}
+                                onChange={(e) => setEditingHeight(e.target.value)}
+                                className="w-20 h-8 text-sm"
+                                placeholder="세로"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleEditSave(thickness, sizeName);
+                                  } else if (e.key === 'Escape') {
+                                    handleEditCancel();
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="flex items-center gap-1 justify-center">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEditSave(thickness, sizeName)}
+                                disabled={saveSizeMutation.isPending}
+                                className="h-7 w-7 p-0"
+                              >
+                                <Check className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={handleEditCancel}
+                                disabled={saveSizeMutation.isPending}
+                                className="h-7 w-7 p-0"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div 
+                            className="cursor-pointer hover:bg-muted/50 rounded px-2 py-1 transition-colors min-h-[32px] flex items-center justify-center"
+                            onClick={() => handleEditStart(thickness, sizeName, cellData?.actual_width, cellData?.actual_height)}
+                          >
+                            {hasDimensions ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">
+                                  {cellData.actual_width} × {cellData.actual_height}mm
+                                </span>
+                                <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-sm opacity-0 group-hover:opacity-100">
+                                클릭하여 입력
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>실제 가로 (mm)</Label>
-                  <Input
-                    type="number"
-                    value={formData.actual_width}
-                    onChange={(e) => setFormData({ ...formData, actual_width: e.target.value })}
-                    placeholder="예: 860"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>실제 세로 (mm)</Label>
-                  <Input
-                    type="number"
-                    value={formData.actual_height}
-                    onChange={(e) => setFormData({ ...formData, actual_height: e.target.value })}
-                    placeholder="예: 1750"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                />
-                <Label>활성화</Label>
-              </div>
-
-              <div className="flex gap-2">
-                <Button onClick={handleSubmit}>
-                  <Check className="w-4 h-4 mr-2" />
-                  {editingId ? '수정' : '추가'}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsAdding(false);
-                    setEditingId(null);
-                    resetForm();
-                  }}
-                >
-                  취소
-                </Button>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            {sizes?.map((size) => (
-              <div
-                key={size.id}
-                className="p-4 border rounded-lg flex items-center justify-between"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium">
-                      {size.thickness} - {size.size_name}
-                    </h3>
-                    {!size.is_active && (
-                      <span className="text-xs bg-muted px-2 py-1 rounded">비활성</span>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    실제 크기: {size.actual_width}mm × {size.actual_height}mm
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleEdit(size)}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      if (confirm('정말 삭제하시겠습니까?')) {
-                        deleteMutation.mutate(size.id);
-                      }
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-            {sizes?.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                아직 등록된 사이즈가 없습니다. 새 사이즈를 추가해주세요.
-              </div>
-            )}
+        {thicknesses.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            두께 정보가 없습니다.
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
