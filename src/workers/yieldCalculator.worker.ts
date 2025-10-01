@@ -163,7 +163,11 @@ const calculateMultiItemLayout = (
     return score;
   };
 
-  for (const piece of allPieces) {
+  // 최대 배치 시도 제한 (성능 최적화)
+  const maxPiecesToPlace = Math.min(allPieces.length, 200);
+  
+  for (let pieceIndex = 0; pieceIndex < maxPiecesToPlace; pieceIndex++) {
+    const piece = allPieces[pieceIndex];
     let bestPosition = null;
     let bestScore = -1;
 
@@ -175,8 +179,10 @@ const calculateMultiItemLayout = (
     for (const orientation of orientations) {
       if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
 
-      for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 10) {
-        for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 10) {
+      // 가능한 모든 위치에서 배치 시도 (50mm 간격으로 검색 - 성능 최적화)
+      const step = 50; // 10mm -> 50mm로 증가하여 계산량 80% 감소
+      for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += step) {
+        for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += step) {
           if (!isOverlapping(x, y, orientation.width, orientation.height)) {
             const positionScore = calculatePositionScore(
               x,
@@ -298,7 +304,8 @@ const calculateYield = (
       quantity: Math.max(0, item.quantity - (placedCounts[item.id] || 0))
     }));
 
-    if (totalPanelsNeeded > 50) break;
+    // 무한 루프 방지: 최대 30판으로 제한 (50 -> 30)
+    if (totalPanelsNeeded > 30) break;
   }
 
   const totalRequired = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -374,9 +381,24 @@ self.onmessage = async (e: MessageEvent<CalculationRequest>) => {
 
     const results: YieldResult[] = [];
     const totalRequired = items.reduce((sum, item) => sum + item.quantity, 0);
+    const totalItemArea = items.reduce((sum, item) => sum + item.width * item.height * item.quantity, 0);
 
     // 각 패널 사이즈에 대해 수율 계산
-    for (const panel of panelSizes) {
+    for (let i = 0; i < panelSizes.length; i++) {
+      const panel = panelSizes[i];
+      
+      // 조기 종료: 패널이 너무 작으면 스킵
+      const panelArea = panel.width * panel.height;
+      const theoreticalEfficiency = (totalItemArea / panelArea) * 100;
+      
+      // 이론적 효율이 20% 미만이면 계산 스킵 (명백히 비효율적)
+      if (theoreticalEfficiency < 20 && i > 0) {
+        completedSteps++;
+        const progress = Math.round((completedSteps / totalSteps) * 100);
+        self.postMessage({ type: 'progress', progress } as ProgressMessage);
+        continue;
+      }
+
       const { canFitAll, efficiency, wasteArea, panelsNeeded, piecesPerPanel } = calculateYield(
         items,
         panel.width,
@@ -405,6 +427,11 @@ self.onmessage = async (e: MessageEvent<CalculationRequest>) => {
       completedSteps++;
       const progress = Math.round((completedSteps / totalSteps) * 100);
       self.postMessage({ type: 'progress', progress } as ProgressMessage);
+      
+      // 비동기 yield 포인트 추가 (브라우저에 제어권 반환)
+      if (i % 2 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
     }
 
     // 결과 정렬
