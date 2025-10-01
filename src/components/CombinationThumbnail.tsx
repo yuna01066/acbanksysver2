@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CutItem {
@@ -185,7 +185,10 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
     return positions;
   };
 
-  const layout = calculateLayout();
+  // 레이아웃 계산 결과를 캐싱하여 페이지 전환 시 재계산 방지
+  const layout = useMemo(() => {
+    return calculateLayout();
+  }, [currentPanelUsage, cutItems, availablePanelSizes, selectedThickness]);
 
   const handlePrevPanel = () => {
     setCurrentPanelIndex(prev => Math.max(0, prev - 1));
