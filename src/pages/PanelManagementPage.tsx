@@ -35,7 +35,7 @@ const PanelManagementPage = () => {
           </div>
 
           <Tabs defaultValue="masters" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="inline-flex w-auto">
               <TabsTrigger value="masters">원판 마스터</TabsTrigger>
               <TabsTrigger value="sizes" disabled={!selectedMasterId}>
                 사이즈 관리 {selectedMasterId && '✓'}
