@@ -3,52 +3,52 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { MaterialSelector } from "@/components/panel-management/MaterialSelector";
-import { OptionSelector } from "@/components/panel-management/OptionSelector";
 import { ProductSelector } from "@/components/panel-management/ProductSelector";
+import { OptionSelector } from "@/components/panel-management/OptionSelector";
 import { PanelPriceMatrix } from "@/components/panel-management/PanelPriceMatrix";
 import { PanelSizeManager } from "@/components/panel-management/PanelSizeManager";
 
-type ViewLevel = 'material' | 'option' | 'product' | 'size' | 'price';
+type ViewLevel = 'material' | 'product' | 'option' | 'size' | 'price';
 type ManagementOption = 'size' | 'price';
 
 const PanelManagementPage = () => {
   const navigate = useNavigate();
   const [currentView, setCurrentView] = useState<ViewLevel>('material');
   const [selectedMaterial, setSelectedMaterial] = useState<{ id: string; name: string } | null>(null);
-  const [selectedOption, setSelectedOption] = useState<ManagementOption | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<{ id: string; name: string } | null>(null);
+  const [selectedOption, setSelectedOption] = useState<ManagementOption | null>(null);
 
   const handleSelectMaterial = (id: string, name: string) => {
     setSelectedMaterial({ id, name });
-    setCurrentView('option');
-  };
-
-  const handleSelectOption = (option: ManagementOption) => {
-    setSelectedOption(option);
     setCurrentView('product');
   };
 
   const handleSelectProduct = (id: string, name: string) => {
     setSelectedProduct({ id, name });
-    setCurrentView(selectedOption === 'size' ? 'size' : 'price');
+    setCurrentView('option');
+  };
+
+  const handleSelectOption = (option: ManagementOption) => {
+    setSelectedOption(option);
+    setCurrentView(option === 'size' ? 'size' : 'price');
   };
 
   const handleBackToMaterials = () => {
     setSelectedMaterial(null);
-    setSelectedOption(null);
     setSelectedProduct(null);
+    setSelectedOption(null);
     setCurrentView('material');
-  };
-
-  const handleBackToOptions = () => {
-    setSelectedOption(null);
-    setSelectedProduct(null);
-    setCurrentView('option');
   };
 
   const handleBackToProducts = () => {
     setSelectedProduct(null);
+    setSelectedOption(null);
     setCurrentView('product');
+  };
+
+  const handleBackToOptions = () => {
+    setSelectedOption(null);
+    setCurrentView('option');
   };
 
   return (
@@ -81,21 +81,21 @@ const PanelManagementPage = () => {
             />
           )}
 
-          {currentView === 'option' && selectedMaterial && (
-            <OptionSelector
-              materialName={selectedMaterial.name}
-              onSelectOption={handleSelectOption}
-              onBack={handleBackToMaterials}
-            />
-          )}
-
-          {currentView === 'product' && selectedMaterial && selectedOption && (
+          {currentView === 'product' && selectedMaterial && (
             <ProductSelector
               materialId={selectedMaterial.id}
               materialName={selectedMaterial.name}
               onSelectProduct={handleSelectProduct}
-              onBack={handleBackToOptions}
+              onBack={handleBackToMaterials}
               selectedProductId={selectedProduct?.id || null}
+            />
+          )}
+
+          {currentView === 'option' && selectedProduct && (
+            <OptionSelector
+              materialName={`${selectedMaterial?.name} - ${selectedProduct.name}`}
+              onSelectOption={handleSelectOption}
+              onBack={handleBackToProducts}
             />
           )}
 
@@ -103,7 +103,7 @@ const PanelManagementPage = () => {
             <PanelSizeManager
               qualityId={selectedProduct.id}
               qualityName={selectedProduct.name}
-              onBack={handleBackToProducts}
+              onBack={handleBackToOptions}
             />
           )}
 
@@ -111,7 +111,7 @@ const PanelManagementPage = () => {
             <PanelPriceMatrix
               qualityId={selectedProduct.id}
               productName={selectedProduct.name}
-              onBack={handleBackToProducts}
+              onBack={handleBackToOptions}
             />
           )}
         </div>
