@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Check, X, Pencil } from 'lucide-react';
+import { ArrowLeft, Check, X, Pencil, CheckCircle2, XCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { CASTING_QUALITIES } from '@/types/calculator';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -363,11 +364,24 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
                               onClick={() => handleEditStart(thickness, sizeName, cellData?.price)}
                             >
                               {hasPrice ? (
-                                <div className="flex items-center gap-2">
-                                  <span className={`text-sm ${!cellData?.is_active ? 'line-through text-muted-foreground' : ''}`}>
-                                    ₩{cellData.price?.toLocaleString()}
-                                  </span>
-                                  <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <div className="flex flex-col items-center gap-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-sm ${!cellData?.is_active ? 'line-through text-muted-foreground' : ''}`}>
+                                      ₩{cellData.price?.toLocaleString()}
+                                    </span>
+                                    <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </div>
+                                  {cellData?.is_active ? (
+                                    <Badge variant="default" className="h-4 text-[10px] px-1.5 gap-1">
+                                      <CheckCircle2 className="w-2.5 h-2.5" />
+                                      활성
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="h-4 text-[10px] px-1.5 gap-1">
+                                      <XCircle className="w-2.5 h-2.5" />
+                                      비활성
+                                    </Badge>
+                                  )}
                                 </div>
                               ) : (
                                 <span className="text-muted-foreground text-sm opacity-0 group-hover:opacity-100">
