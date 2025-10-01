@@ -89,8 +89,17 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
     enabled: !!panelMaster?.id
   });
 
-  // Get unique sizes from panel data
-  const availableSizes = Array.from(new Set(panelData?.map(p => p.size_name) || [])).sort();
+  // Get available sizes from quality definition and sort by custom order
+  const sizeOrder = ['3*6', '대3*6', '4*5', '대4*5', '1*2', '4*6', '4*8', '4*10', '5*6', '5*8', '소3*6', '소1*2', '5*5'];
+  const qualitySizes = quality?.sizes || [];
+  const availableSizes = qualitySizes.sort((a, b) => {
+    const indexA = sizeOrder.indexOf(a);
+    const indexB = sizeOrder.indexOf(b);
+    if (indexA === -1 && indexB === -1) return a.localeCompare(b);
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
 
   // Save or update price mutation
   const savePriceMutation = useMutation({
@@ -237,9 +246,15 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
             <CardTitle>{productName} - 가격 매트릭스</CardTitle>
           </div>
         </div>
-        <p className="text-sm text-muted-foreground mt-2">
-          두께 x 사이즈 조합별 가격을 관리합니다. 빈 셀을 클릭하여 가격을 입력하세요.
-        </p>
+        <div className="mt-2 space-y-2">
+          <p className="text-sm text-muted-foreground">
+            두께 x 사이즈 조합별 가격을 관리합니다. 빈 셀을 클릭하여 가격을 입력하세요.
+          </p>
+          <div className="text-sm">
+            <span className="font-medium">가용 사이즈:</span>{' '}
+            <span className="text-muted-foreground">{availableSizes.join(', ')}</span>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
