@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Calculator, Package, Plus, Trash2 } from "lucide-react";
 import NestingThumbnail from "@/components/NestingThumbnail";
 import UnifiedRecommendations from "@/components/UnifiedRecommendations";
@@ -57,6 +58,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
   const [yieldResults, setYieldResults] = useState<YieldResult[]>([]);
   const [panelCombinations, setPanelCombinations] = useState<any[]>([]);
   const [isCalculating, setIsCalculating] = useState<boolean>(false);
+  const [calculationProgress, setCalculationProgress] = useState<number>(0);
 
   // 재단 항목 추가/제거 함수
   const addCutItem = () => {
@@ -516,6 +518,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
   // 계산 함수
   const handleCalculate = async () => {
     setIsCalculating(true);
+    setCalculationProgress(0);
     
     // UI 업데이트를 위한 짧은 지연
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -539,8 +542,18 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
     }));
     const totalRequired = itemsForNesting.reduce((sum, item) => sum + item.quantity, 0);
 
+    // 전체 작업 단계 계산 (패널 사이즈 수 + 조합 계산)
+    const totalSteps = availablePanelSizes.length + 1;
+    let completedSteps = 0;
+
     // 수율 결과 계산
-    const results: YieldResult[] = availablePanelSizes.map(panel => {
+    const results: YieldResult[] = [];
+    for (let i = 0; i < availablePanelSizes.length; i++) {
+      const panel = availablePanelSizes[i];
+      
+      // 진행률 업데이트
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
       const {
         canFitAll,
         efficiency,
@@ -550,24 +563,27 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       } = calculateYield(itemsForNesting, panel.width, panel.height);
 
       // 모든 도형이 배치되지 않으면 제외
-      if (!canFitAll) {
-        return null;
-      }
-      const totalPieces = totalRequired;
-      const surplus = piecesPerPanel * panelsNeeded - totalRequired; // 실제 생산량 - 필요량
+      if (canFitAll && piecesPerPanel > 0) {
+        const totalPieces = totalRequired;
+        const surplus = piecesPerPanel * panelsNeeded - totalRequired;
 
-      return {
-        panelSize: panel.name,
-        panelWidth: panel.width,
-        panelHeight: panel.height,
-        piecesPerPanel,
-        panelsNeeded,
-        totalPieces,
-        efficiency,
-        wasteArea,
-        surplus: Math.max(0, surplus)
-      };
-    }).filter(result => result !== null && result.piecesPerPanel > 0);
+        results.push({
+          panelSize: panel.name,
+          panelWidth: panel.width,
+          panelHeight: panel.height,
+          piecesPerPanel,
+          panelsNeeded,
+          totalPieces,
+          efficiency,
+          wasteArea,
+          surplus: Math.max(0, surplus)
+        });
+      }
+
+      // 진행률 업데이트
+      completedSteps++;
+      setCalculationProgress(Math.round((completedSteps / totalSteps) * 100));
+    }
 
     // 여분이 적을수록, 효율성이 높을수록, 필요 판수가 적을수록 우선
     const sortedResults = results.sort((a, b) => {
@@ -584,7 +600,12 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
     });
 
       // 복합 조합 계산
+      await new Promise(resolve => setTimeout(resolve, 0));
       const combinations = calculatePanelCombinations(itemsForNesting, availablePanelSizes, 10, selectedThickness);
+      
+      // 최종 진행률
+      completedSteps++;
+      setCalculationProgress(100);
 
       // 결과 업데이트
       setYieldResults(sortedResults);
@@ -592,6 +613,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
       setShowResults(true);
     } finally {
       setIsCalculating(false);
+      setCalculationProgress(0);
     }
   };
 
@@ -727,12 +749,14 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({
             </Button>
           </div>
           
-          {/* 로딩 메시지 */}
+          {/* 로딩 메시지 및 진행률 */}
           {isCalculating && (
-            <div className="text-center py-4">
-              <p className="text-sm text-muted-foreground animate-pulse">
-                계산 중입니다. 잠시만 기다려 주세요...
-              </p>
+            <div className="space-y-3 py-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">계산 진행 중...</span>
+                <span className="font-medium text-primary">{calculationProgress}%</span>
+              </div>
+              <Progress value={calculationProgress} className="h-2" />
             </div>
           )}
         </CardContent>
