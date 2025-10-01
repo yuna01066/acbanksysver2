@@ -175,6 +175,8 @@ export type Database = {
         | "glossy-standard"
         | "astel-color"
         | "satin-color"
+        | "acrylic-mirror"
+        | "astel-mirror"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -308,6 +310,8 @@ export const Constants = {
         "glossy-standard",
         "astel-color",
         "satin-color",
+        "acrylic-mirror",
+        "astel-mirror",
       ],
     },
   },
