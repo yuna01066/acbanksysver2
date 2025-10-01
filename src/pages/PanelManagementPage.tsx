@@ -2,14 +2,38 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PanelMasterList } from "@/components/panel-management/PanelMasterList";
-import { PanelSizeManager } from "@/components/panel-management/PanelSizeManager";
-import { PanelPriceManager } from "@/components/panel-management/PanelPriceManager";
+import { ProductSelector } from "@/components/panel-management/ProductSelector";
+import { SizeSelector } from "@/components/panel-management/SizeSelector";
+import { ThicknessPriceManager } from "@/components/panel-management/ThicknessPriceManager";
+
+type ViewLevel = 'product' | 'size' | 'price';
 
 const PanelManagementPage = () => {
   const navigate = useNavigate();
-  const [selectedMasterId, setSelectedMasterId] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<ViewLevel>('product');
+  const [selectedProduct, setSelectedProduct] = useState<{ id: string; name: string } | null>(null);
+  const [selectedSize, setSelectedSize] = useState<{ id: string; name: string } | null>(null);
+
+  const handleSelectProduct = (id: string, name: string) => {
+    setSelectedProduct({ id, name });
+    setCurrentView('size');
+  };
+
+  const handleSelectSize = (id: string, name: string) => {
+    setSelectedSize({ id, name });
+    setCurrentView('price');
+  };
+
+  const handleBackToProducts = () => {
+    setSelectedProduct(null);
+    setSelectedSize(null);
+    setCurrentView('product');
+  };
+
+  const handleBackToSizes = () => {
+    setSelectedSize(null);
+    setCurrentView('size');
+  };
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -30,40 +54,35 @@ const PanelManagementPage = () => {
           <div>
             <h1 className="text-3xl font-bold">원판 관리</h1>
             <p className="text-muted-foreground mt-2">
-              원판 사이즈, 두께, 가격을 관리합니다. 여기서 설정한 정보는 견적 계산기와 수율 계산기에서 공유됩니다.
+              제품 → 사이즈 → 두께별 가격을 단계적으로 관리합니다.
             </p>
           </div>
 
-          <Tabs defaultValue="masters" className="w-full">
-            <TabsList className="inline-flex w-auto">
-              <TabsTrigger value="masters">원판 마스터</TabsTrigger>
-              <TabsTrigger value="sizes" disabled={!selectedMasterId}>
-                사이즈 관리 {selectedMasterId && '✓'}
-              </TabsTrigger>
-              <TabsTrigger value="prices" disabled={!selectedMasterId}>
-                가격 관리 {selectedMasterId && '✓'}
-              </TabsTrigger>
-            </TabsList>
+          {currentView === 'product' && (
+            <ProductSelector
+              onSelectProduct={handleSelectProduct}
+              selectedProductId={selectedProduct?.id || null}
+            />
+          )}
 
-            <TabsContent value="masters" className="mt-6">
-              <PanelMasterList 
-                onSelectMaster={setSelectedMasterId}
-                selectedMasterId={selectedMasterId}
-              />
-            </TabsContent>
+          {currentView === 'size' && selectedProduct && (
+            <SizeSelector
+              masterId={selectedProduct.id}
+              productName={selectedProduct.name}
+              onSelectSize={handleSelectSize}
+              onBack={handleBackToProducts}
+              selectedSizeId={selectedSize?.id || null}
+            />
+          )}
 
-            <TabsContent value="sizes" className="mt-6">
-              {selectedMasterId && (
-                <PanelSizeManager masterId={selectedMasterId} />
-              )}
-            </TabsContent>
-
-            <TabsContent value="prices" className="mt-6">
-              {selectedMasterId && (
-                <PanelPriceManager masterId={selectedMasterId} />
-              )}
-            </TabsContent>
-          </Tabs>
+          {currentView === 'price' && selectedProduct && selectedSize && (
+            <ThicknessPriceManager
+              sizeId={selectedSize.id}
+              sizeName={selectedSize.name}
+              productName={selectedProduct.name}
+              onBack={handleBackToSizes}
+            />
+          )}
         </div>
       </div>
     </div>
