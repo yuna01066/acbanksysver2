@@ -91,7 +91,7 @@ const PanelManagementPage = () => {
 
           {currentView === 'size' && selectedProduct && (
             <SizeSelector
-              masterId={selectedProduct.id}
+              qualityId={selectedProduct.id}
               productName={selectedProduct.name}
               onSelectSize={handleSelectSize}
               onBack={handleBackToProducts}
@@ -101,6 +101,7 @@ const PanelManagementPage = () => {
 
           {currentView === 'price' && selectedProduct && selectedSize && (
             <ThicknessPriceManager
+              qualityId={selectedProduct.id}
               sizeId={selectedSize.id}
               sizeName={selectedSize.name}
               productName={selectedProduct.name}
