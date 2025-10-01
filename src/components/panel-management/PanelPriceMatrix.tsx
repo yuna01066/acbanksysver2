@@ -236,14 +236,21 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
       panelSizeId: string;
       isActive: boolean;
     }) => {
-      const { error } = await supabase
+      console.log('Mutation function executing (PriceMatrix):', { panelSizeId, isActive });
+      
+      const { data, error } = await supabase
         .from('panel_sizes')
         .update({ is_active: isActive })
-        .eq('id', panelSizeId);
+        .eq('id', panelSizeId)
+        .select();
+
+      console.log('Mutation result (PriceMatrix):', { data, error });
 
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Mutation success (PriceMatrix):', data);
       queryClient.invalidateQueries({ queryKey: ['panel-matrix'] });
       queryClient.invalidateQueries({ queryKey: ['panel-size-matrix'] });
       queryClient.invalidateQueries({ queryKey: ['active-panel-sizes'] });
@@ -251,6 +258,7 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
       toast.success('상태가 변경되었습니다');
     },
     onError: (error) => {
+      console.error('Mutation error (PriceMatrix):', error);
       toast.error(`상태 변경 실패: ${error.message}`);
     }
   });
@@ -258,10 +266,19 @@ export function PanelPriceMatrix({ qualityId, productName, onBack }: PanelPriceM
   const handleToggleActive = async (thickness: string, sizeName: string) => {
     const cellData = getCellData(thickness, sizeName);
     
+    console.log('Toggle active clicked (PriceMatrix):', { thickness, sizeName, cellData });
+    
     if (!cellData?.id) {
+      console.error('No cellData.id found');
       toast.error('사이즈 데이터를 먼저 입력해주세요');
       return;
     }
+
+    console.log('Executing toggle mutation:', {
+      panelSizeId: cellData.id,
+      currentState: cellData.is_active,
+      newState: !cellData.is_active
+    });
 
     toggleActiveMutation.mutate({
       panelSizeId: cellData.id,
