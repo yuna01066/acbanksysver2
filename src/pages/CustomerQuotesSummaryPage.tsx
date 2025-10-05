@@ -97,6 +97,7 @@ const CustomerQuotesSummaryPage = () => {
             onPrintPDF={handlePrintPDF}
             onViewCustomerQuote={handleViewInternalQuote}
             currentDate={currentDate}
+            quoteNumber={quoteNumber}
           />
 
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">

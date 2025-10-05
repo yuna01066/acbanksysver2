@@ -11,9 +11,10 @@ interface QuoteSummaryHeaderProps {
   onPrintPDF: () => void;
   onViewCustomerQuote?: () => void;
   currentDate: string;
+  quoteNumber: string;
 }
 
-const QuoteSummaryHeader = ({ onClearQuotes, onPrintPDF, onViewCustomerQuote, currentDate }: QuoteSummaryHeaderProps) => {
+const QuoteSummaryHeader = ({ onClearQuotes, onPrintPDF, onViewCustomerQuote, currentDate, quoteNumber }: QuoteSummaryHeaderProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isCustomerView = location.pathname === '/customer-quotes-summary';
@@ -89,7 +90,7 @@ const QuoteSummaryHeader = ({ onClearQuotes, onPrintPDF, onViewCustomerQuote, cu
                 <span>{currentDate}</span>
               </div>
               <Badge className="bg-white/20 text-white border-0 px-4 py-2 text-lg font-bold">
-                견적번호: QT-{Date.now().toString().slice(-6)}
+                견적번호: {quoteNumber}
               </Badge>
             </div>
           </div>
