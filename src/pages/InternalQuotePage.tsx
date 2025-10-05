@@ -16,7 +16,8 @@ const InternalQuotePage = () => {
     updateQuoteQuantity,
     clearQuotes,
     getTotalPrice,
-    getTotalPriceWithTax
+    getTotalPriceWithTax,
+    generateQuoteNumber
   } = useQuotes();
 
   if (quotes.length === 0) {
@@ -53,7 +54,7 @@ const InternalQuotePage = () => {
     day: 'numeric'
   });
 
-  const quoteNumber = recipient?.quoteNumber || Date.now().toString().slice(-6);
+  const quoteNumber = recipient?.quoteNumber || generateQuoteNumber();
 
   return (
     <>

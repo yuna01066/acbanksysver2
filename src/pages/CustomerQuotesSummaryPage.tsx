@@ -21,7 +21,8 @@ const CustomerQuotesSummaryPage = () => {
     updateQuoteQuantity,
     clearQuotes,
     getTotalPrice,
-    getTotalPriceWithTax
+    getTotalPriceWithTax,
+    generateQuoteNumber
   } = useQuotes();
 
   if (quotes.length === 0) {
@@ -56,8 +57,8 @@ const CustomerQuotesSummaryPage = () => {
     day: 'numeric'
   });
 
-  // 견적번호 생성
-  const quoteNumber = Date.now().toString().slice(-6);
+  // 견적번호 생성 - QuoteContext에서 가져옴
+  const quoteNumber = recipient?.quoteNumber || generateQuoteNumber();
 
   return (
     <>

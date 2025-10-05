@@ -66,9 +66,14 @@ interface QuoteProviderProps {
 export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [recipient, setRecipient] = useState<QuoteRecipient | null>(null);
+  const [quoteNumber, setQuoteNumber] = useState<string>('');
 
   // 견적번호 생성 함수
   const generateQuoteNumber = () => {
+    if (quoteNumber) {
+      return quoteNumber;
+    }
+    
     const now = new Date();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
@@ -76,7 +81,9 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     const minute = String(now.getMinutes()).padStart(2, '0');
     const sequence = String(Math.floor(Math.random() * 100) + 1).padStart(2, '0');
     
-    return `${month}${day}${hour}${minute}${sequence}`;
+    const newQuoteNumber = `${month}${day}${hour}${minute}${sequence}`;
+    setQuoteNumber(newQuoteNumber);
+    return newQuoteNumber;
   };
 
   const addQuote = (quoteData: Omit<Quote, 'id' | 'createdAt'>) => {
@@ -100,6 +107,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
 
   const clearQuotes = () => {
     setQuotes([]);
+    setQuoteNumber('');
   };
 
   const updateRecipient = (newRecipient: QuoteRecipient) => {
