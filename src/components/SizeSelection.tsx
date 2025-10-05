@@ -66,20 +66,30 @@ const SizeSelection: React.FC<SizeSelectionProps> = ({
     };
   };
 
-  // 1/10 스케일 썸네일 컴포넌트
+  // 실제 비율을 유지하는 썸네일 컴포넌트
   const PanelThumbnail: React.FC<{ sizeInfo: PanelSizeInfo }> = ({ sizeInfo }) => {
-    const scaleWidth = sizeInfo.availableWidth / 10;
-    const scaleHeight = sizeInfo.availableHeight / 10;
+    // 실제 비율 유지하면서 최대 크기 100px로 조정
+    const maxSize = 100;
+    const ratio = sizeInfo.availableWidth / sizeInfo.availableHeight;
+    
+    let displayWidth, displayHeight;
+    if (ratio > 1) {
+      // 가로가 더 긴 경우
+      displayWidth = maxSize;
+      displayHeight = maxSize / ratio;
+    } else {
+      // 세로가 더 긴 경우
+      displayHeight = maxSize;
+      displayWidth = maxSize * ratio;
+    }
     
     return (
       <div className="flex justify-center mb-2">
         <div 
           className="border-2 border-gray-400 bg-gray-100 relative"
           style={{ 
-            width: `${scaleWidth}px`, 
-            height: `${scaleHeight}px`,
-            maxWidth: '100px',
-            maxHeight: '100px'
+            width: `${displayWidth}px`, 
+            height: `${displayHeight}px`
           }}
         >
           <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-600 font-medium">
