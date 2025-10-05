@@ -131,7 +131,7 @@ const CustomerQuotesSummaryPage = () => {
                     <div className="bg-card/60 backdrop-blur-sm rounded-xl p-4 border border-border/30 shadow-minimal hover:shadow-smooth transition-all flex flex-col justify-center">
                       <p className="text-caption mb-2">견적 항목 수</p>
                       <div className="flex items-baseline gap-2">
-                        <p className="text-4xl font-bold text-primary">{quotes.length}</p>
+                        <p className="text-4xl font-bold text-primary-dark">{quotes.length}</p>
                         <p className="text-muted-foreground">개</p>
                       </div>
                     </div>
