@@ -80,9 +80,9 @@ const QuoteSummaryHeader = ({ onClearQuotes, onPrintPDF, onViewCustomerQuote, cu
             <div>
               <CardTitle className="text-3xl font-bold flex items-center gap-3 mb-2">
                 <FileText className="w-8 h-8" />
-                종합 견적서
+                아크뱅크 견적서
               </CardTitle>
-              <p className="text-slate-200 text-lg">Comprehensive Panel Material Quotation</p>
+              <p className="text-slate-200 text-lg">ARC BANK Panel Material Quotation</p>
             </div>
             <div className="text-right">
               <div className="flex items-center gap-2 text-slate-200 mb-2">
