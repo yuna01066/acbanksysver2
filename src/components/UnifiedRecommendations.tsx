@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +69,7 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
   selectedThickness,
   availablePanelSizes
 }) => {
+  const navigate = useNavigate();
   const totalQuantity = cutItems.reduce((sum, item) => 
     sum + (item.quantity ? parseInt(item.quantity) : 0), 0
   );
@@ -145,16 +147,11 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
             <Star className="w-5 h-5" />
             효율성 순 추천
           </div>
-          {onPanelSelect && bestSingleRecommendation && (
+          {bestSingleRecommendation && (
             <Button
               variant="default"
               size="sm"
-              onClick={() => onPanelSelect({
-                quality: selectedQuality,
-                thickness: selectedThickness,
-                size: (bestSingleRecommendation.data as YieldResult).panelSize,
-                quantity: bestSingleRecommendation.panelsNeeded
-              })}
+              onClick={() => navigate('/quote')}
               className="animate-fade-in"
             >
               견적계산기로
