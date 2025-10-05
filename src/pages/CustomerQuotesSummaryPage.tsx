@@ -103,15 +103,55 @@ const CustomerQuotesSummaryPage = () => {
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
             <CardContent className="p-8">
               {/* 견적 요약 정보 */}
-              <div className="mb-8 p-6 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border">
-                <h2 className="text-xl font-bold mb-4 text-slate-800">견적 요약</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  <div><strong>견적번호:</strong> {quoteNumber}</div>
-                  <div><strong>작성일:</strong> {currentDate}</div>
-                  <div><strong>견적 항목 수:</strong> {quotes.length}개</div>
-                  <div><strong>총 공급가:</strong> {subtotal.toLocaleString()}원</div>
-                  <div><strong>부가세:</strong> {tax.toLocaleString()}원</div>
-                  <div><strong>최종 금액:</strong> {totalWithTax.toLocaleString()}원</div>
+              <div className="mb-8 relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-primary/5 via-background to-primary/10 shadow-smooth">
+                {/* Decorative Elements */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
+                
+                <div className="relative p-8">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-1.5 h-8 bg-primary rounded-full" />
+                    <h2 className="text-headline text-foreground">견적 요약</h2>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* 견적 기본 정보 */}
+                    <div className="space-y-4">
+                      <div className="bg-card/60 backdrop-blur-sm rounded-xl p-4 border border-border/30 shadow-minimal hover:shadow-smooth transition-all">
+                        <p className="text-caption mb-1">견적번호</p>
+                        <p className="text-title font-bold text-foreground">{quoteNumber}</p>
+                      </div>
+                      <div className="bg-card/60 backdrop-blur-sm rounded-xl p-4 border border-border/30 shadow-minimal hover:shadow-smooth transition-all">
+                        <p className="text-caption mb-1">작성일</p>
+                        <p className="text-title font-semibold text-foreground">{currentDate}</p>
+                      </div>
+                    </div>
+                    
+                    {/* 견적 항목 */}
+                    <div className="bg-card/60 backdrop-blur-sm rounded-xl p-4 border border-border/30 shadow-minimal hover:shadow-smooth transition-all flex flex-col justify-center">
+                      <p className="text-caption mb-2">견적 항목 수</p>
+                      <div className="flex items-baseline gap-2">
+                        <p className="text-4xl font-bold text-primary">{quotes.length}</p>
+                        <p className="text-muted-foreground">개</p>
+                      </div>
+                    </div>
+                    
+                    {/* 금액 정보 */}
+                    <div className="space-y-3 bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-sm rounded-xl p-4 border border-primary/20 shadow-smooth">
+                      <div className="flex justify-between items-center pb-2 border-b border-border/30">
+                        <p className="text-caption">공급가</p>
+                        <p className="font-semibold text-foreground">{subtotal.toLocaleString()}원</p>
+                      </div>
+                      <div className="flex justify-between items-center pb-2 border-b border-border/30">
+                        <p className="text-caption">부가세</p>
+                        <p className="font-semibold text-foreground">{tax.toLocaleString()}원</p>
+                      </div>
+                      <div className="flex justify-between items-center pt-1">
+                        <p className="text-body font-bold text-foreground">최종 금액</p>
+                        <p className="text-xl font-bold text-primary">{totalWithTax.toLocaleString()}원</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
