@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Calculator, ShoppingCart, FileText, Users } from "lucide-react";
+import { Calculator, ShoppingCart, FileText, Users, ArrowLeft } from "lucide-react";
 import { useQuotes } from "@/contexts/QuoteContext";
 import QuoteCard from "@/components/QuoteCard";
 
@@ -73,6 +73,17 @@ const InternalQuotePage = () => {
         <div className="w-full max-w-5xl mx-auto">
           {/* 헤더 및 액션 버튼들 */}
           <div className="no-print mb-6">
+            <div className="mb-4">
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/')}
+                className="flex items-center gap-2"
+                size="sm"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                홈으로 돌아가기
+              </Button>
+            </div>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">내부용 견적서</h1>

@@ -19,7 +19,7 @@ const EmbedCodePage = () => {
             size="sm"
           >
             <ArrowLeft className="w-4 h-4" />
-            계산기로 돌아가기
+            홈으로 돌아가기
           </Button>
         </div>
         

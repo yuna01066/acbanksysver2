@@ -64,7 +64,7 @@ const CustomerQuotePage = () => {
             className="flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            계산기로 돌아가기
+            홈으로 돌아가기
           </Button>
           <Button 
             onClick={handlePrintPDF}

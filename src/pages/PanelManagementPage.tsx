@@ -55,15 +55,24 @@ const PanelManagementPage = () => {
     <div className="min-h-screen bg-background p-4">
       <div className="w-full max-w-7xl mx-auto">
         <div className="mb-6 flex items-center justify-between">
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/admin-settings')}
-            className="flex items-center gap-2"
-            size="sm"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            관리자 설정으로 돌아가기
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/admin-settings')}
+              className="flex items-center gap-2"
+              size="sm"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              관리자 설정으로 돌아가기
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/')}
+              size="sm"
+            >
+              홈으로 가기
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-6">
