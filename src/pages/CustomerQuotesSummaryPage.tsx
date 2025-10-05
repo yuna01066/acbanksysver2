@@ -148,7 +148,7 @@ const CustomerQuotesSummaryPage = () => {
                       </div>
                       <div className="flex justify-between items-center pt-1">
                         <p className="text-body font-bold text-foreground">최종 금액</p>
-                        <p className="text-xl font-bold text-primary">{totalWithTax.toLocaleString()}원</p>
+                        <p className="text-xl font-bold text-primary-dark">{totalWithTax.toLocaleString()}원</p>
                       </div>
                     </div>
                   </div>
