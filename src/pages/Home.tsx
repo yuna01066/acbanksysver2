@@ -19,8 +19,8 @@ const Home = () => {
     title: "채널톡",
     icon: MessageCircle,
     description: "실시간 상담",
-    url: "#",
-    action: () => window.open("#", "_blank")
+    url: "https://acbank.channel.io",
+    action: () => window.open("https://acbank.channel.io", "_blank")
   }, {
     title: "클라이언트 상담폼",
     icon: FileText,
@@ -37,8 +37,8 @@ const Home = () => {
     title: "아크뱅크 노션 페이지",
     icon: BookOpen,
     description: "문서 및 가이드",
-    url: "#",
-    action: () => window.open("#", "_blank")
+    url: "https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link",
+    action: () => window.open("https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link", "_blank")
   }];
   return <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <div className="container mx-auto px-4 py-16">
