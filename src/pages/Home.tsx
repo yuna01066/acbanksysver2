@@ -34,7 +34,7 @@ const Home = () => {
     url: "/calculator",
     action: () => navigate("/calculator")
   }, {
-    title: "노션",
+    title: "아크뱅크 노션 페이지",
     icon: BookOpen,
     description: "문서 및 가이드",
     url: "#",
