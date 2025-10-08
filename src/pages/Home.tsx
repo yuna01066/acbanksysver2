@@ -13,8 +13,8 @@ const Home = () => {
     title: "인스타그램",
     icon: Instagram,
     description: "소셜 미디어 팔로우",
-    url: "https://instagram.com",
-    action: () => window.open("https://instagram.com", "_blank")
+    url: "https://www.instagram.com/acbank.co.kr/",
+    action: () => window.open("https://www.instagram.com/acbank.co.kr/", "_blank")
   }, {
     title: "채널톡",
     icon: MessageCircle,
