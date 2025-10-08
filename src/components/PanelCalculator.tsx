@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Calculator, Plus, ShoppingCart } from "lucide-react";
+import { ArrowLeft, Calculator, Plus, ShoppingCart, Home } from "lucide-react";
 import { MATERIALS, CASTING_QUALITIES, Material, Quality } from "@/types/calculator";
 import PriceBreakdown from "./PriceBreakdown";
 import ProcessingOptions from "./ProcessingOptions";
@@ -308,7 +308,10 @@ const PanelCalculator = () => {
       <Card className="w-full max-w-4xl mx-auto border-border/50 shadow-smooth animate-fade-up overflow-hidden">
         <CardHeader className="text-center pb-8 border-b border-border/50">
           <div className="flex justify-between items-center mb-6 print:hidden">
-            <div></div>
+            <Button onClick={() => navigate('/')} variant="outline" size="sm" className="animate-fade-up">
+              <Home className="w-4 h-4" />
+              홈으로
+            </Button>
             {quotes.length > 0 && <Button onClick={handleViewQuotesSummary} variant="default" className="animate-slide-in">
                 <ShoppingCart className="w-4 h-4" />
                 담은 견적 보기 ({quotes.length})
