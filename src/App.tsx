@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QuoteProvider } from "@/contexts/QuoteContext";
 import Index from "./pages/Index";
+import Calculator from "./pages/Calculator";
 import NotFound from "./pages/NotFound";
 import QuotePage from "./pages/QuotePage";
 import CustomerQuotePage from "./pages/CustomerQuotePage";
@@ -28,6 +29,7 @@ const App = () => (
         <QuoteProvider>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/calculator" element={<Calculator />} />
             <Route path="/quote" element={<QuotePage />} />
             <Route path="/customer-quote" element={<CustomerQuotePage />} />
             <Route path="/quotes-summary" element={<QuotesSummaryPage />} />

@@ -1,0 +1,101 @@
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent } from "@/components/ui/card";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen } from "lucide-react";
+
+const Home = () => {
+  const navigate = useNavigate();
+
+  const links = [
+    {
+      title: "홈페이지",
+      icon: HomeIcon,
+      description: "공식 웹사이트 방문",
+      url: "https://arcbank.co.kr",
+      action: () => window.open("https://arcbank.co.kr", "_blank")
+    },
+    {
+      title: "인스타그램",
+      icon: Instagram,
+      description: "소셜 미디어 팔로우",
+      url: "https://instagram.com",
+      action: () => window.open("https://instagram.com", "_blank")
+    },
+    {
+      title: "채널톡",
+      icon: MessageCircle,
+      description: "실시간 상담",
+      url: "#",
+      action: () => window.open("#", "_blank")
+    },
+    {
+      title: "클라이언트 상담폼",
+      icon: FileText,
+      description: "상담 신청하기",
+      url: "#",
+      action: () => window.open("#", "_blank")
+    },
+    {
+      title: "견적 및 계산기",
+      icon: Calculator,
+      description: "스마트 판재 견적",
+      url: "/calculator",
+      action: () => navigate("/calculator")
+    },
+    {
+      title: "노션",
+      icon: BookOpen,
+      description: "문서 및 가이드",
+      url: "#",
+      action: () => window.open("#", "_blank")
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
+      <div className="container mx-auto px-4 py-16">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-16 animate-fade-up">
+            <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">
+              ARCBANK
+            </h1>
+            <p className="text-xl text-muted-foreground">
+              스마트한 판재 견적 시스템
+            </p>
+          </div>
+
+          {/* Links Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {links.map((link, index) => {
+              const Icon = link.icon;
+              return (
+                <Card
+                  key={index}
+                  className="cursor-pointer group hover:scale-105 transition-all duration-300"
+                  onClick={link.action}
+                >
+                  <CardContent className="p-8 text-center">
+                    <div className="mb-4 flex justify-center">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center group-hover:from-primary/30 group-hover:to-accent/30 transition-all duration-300">
+                        <Icon className="w-8 h-8 text-primary" />
+                      </div>
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">{link.title}</h3>
+                    <p className="text-sm text-muted-foreground">{link.description}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Footer */}
+          <div className="mt-16 text-center text-sm text-muted-foreground">
+            <p>© 2024 ARCBANK. All rights reserved.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Home;
