@@ -25,8 +25,8 @@ const Home = () => {
     title: "클라이언트 상담폼",
     icon: FileText,
     description: "상담 신청하기",
-    url: "#",
-    action: () => window.open("#", "_blank")
+    url: "https://acbank.co.kr/acbankform",
+    action: () => window.open("https://acbank.co.kr/acbankform", "_blank")
   }, {
     title: "견적 및 계산기",
     icon: Calculator,
