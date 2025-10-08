@@ -46,9 +46,7 @@ const Home = () => {
           {/* Header */}
           <div className="text-center mb-16 animate-fade-up">
             <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">ACBANK</h1>
-            <p className="text-xl text-muted-foreground">
-              스마트한 판재 견적 시스템
-            </p>
+            <p className="text-xl text-muted-foreground">아크뱅크 내부 관리 시스템</p>
           </div>
 
           {/* Links Grid */}
