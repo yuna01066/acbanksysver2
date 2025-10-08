@@ -7,8 +7,8 @@ const Home = () => {
     title: "홈페이지",
     icon: HomeIcon,
     description: "공식 웹사이트 방문",
-    url: "https://arcbank.co.kr",
-    action: () => window.open("https://arcbank.co.kr", "_blank")
+    url: "https://acbank.co.kr",
+    action: () => window.open("https://acbank.co.kr", "_blank")
   }, {
     title: "인스타그램",
     icon: Instagram,
