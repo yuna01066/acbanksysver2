@@ -426,9 +426,9 @@ const PanelCalculator = () => {
           {currentStep === 2 && selectedMaterial?.id === 'acrylic-dye' && <QualitySelection qualities={CASTING_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}
           {currentStep === 2 && selectedMaterial?.id === 'other-acrylic' && <QualitySelection qualities={OTHER_ACRYLIC_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}
 
-          {/* Step 3: 색상 선택 (필름 아크릴의 경우 기본 재질 선택) */}
-          {currentStep === 3 && selectedQuality && !isFilmAcrylic && <ColorSelection selectedColor={selectedColor} selectedQuality={selectedQuality} onColorSelect={handleColorSelect} />}
-          {currentStep === 3 && isFilmAcrylic && <FilmBaseTypeSelection selectedBaseType={filmBaseType} onBaseTypeSelect={handleFilmBaseTypeSelect} />}
+          {/* Step 3: 색상 선택 (필름 아크릴과 기타 아크릴의 필름 타입의 경우 기본 재질 선택) */}
+          {currentStep === 3 && selectedQuality && !isFilmAcrylic && selectedQuality?.id !== 'film' && <ColorSelection selectedColor={selectedColor} selectedQuality={selectedQuality} onColorSelect={handleColorSelect} />}
+          {currentStep === 3 && (isFilmAcrylic || selectedQuality?.id === 'film') && <FilmBaseTypeSelection selectedBaseType={filmBaseType} onBaseTypeSelect={handleFilmBaseTypeSelect} />}
 
           {/* Step 4: 두께 선택 */}
           {currentStep === 4 && (selectedColor || isFilmAcrylic) && <ThicknessSelection thicknesses={selectedQuality.thicknesses} selectedThickness={selectedThickness} onThicknessSelect={handleThicknessSelect} />}
