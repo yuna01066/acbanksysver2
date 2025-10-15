@@ -58,12 +58,6 @@ export const CASTING_QUALITIES: Quality[] = [
 
 export const OTHER_ACRYLIC_QUALITIES: Quality[] = [
   {
-    id: 'film-acrylic',
-    name: '필름 아크릴',
-    thicknesses: ['3T', '5T', '8T'],
-    sizes: ['3*6', '4*8']
-  },
-  {
     id: 'hanji-acrylic',
     name: '한지 아크릴',
     thicknesses: ['3T', '5T', '8T'],
