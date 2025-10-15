@@ -56,6 +56,45 @@ export const CASTING_QUALITIES: Quality[] = [
   }
 ];
 
+export const OTHER_ACRYLIC_QUALITIES: Quality[] = [
+  {
+    id: 'hanji-acrylic',
+    name: '한지 아크릴',
+    thicknesses: ['3T', '5T', '8T'],
+    sizes: ['3*6', '4*8']
+  },
+  {
+    id: 'wave-acrylic',
+    name: '물결 아크릴',
+    thicknesses: ['3T', '5T', '8T'],
+    sizes: ['3*6', '4*8']
+  },
+  {
+    id: 'layer-acrylic',
+    name: '레이어 아크릴',
+    thicknesses: ['3T', '5T', '8T'],
+    sizes: ['3*6', '4*8']
+  },
+  {
+    id: 'nameplate-acrylic',
+    name: '아크릴 명패 제작',
+    thicknesses: ['3T', '5T', '8T'],
+    sizes: ['맞춤 제작']
+  },
+  {
+    id: 'box-acrylic',
+    name: '아크릴 박스 제작',
+    thicknesses: ['3T', '5T', '8T'],
+    sizes: ['맞춤 제작']
+  },
+  {
+    id: 'fixture-acrylic',
+    name: '아크릴 집기 제작',
+    thicknesses: ['3T', '5T', '8T'],
+    sizes: ['맞춤 제작']
+  }
+];
+
 export const SURFACE_OPTIONS = [
   { id: 'single', name: '단면' },
   { id: 'double', name: '양면' }

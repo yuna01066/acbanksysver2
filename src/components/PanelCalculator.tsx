@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Calculator, Plus, ShoppingCart, Home } from "lucide-react";
-import { MATERIALS, CASTING_QUALITIES, Material, Quality } from "@/types/calculator";
+import { MATERIALS, CASTING_QUALITIES, OTHER_ACRYLIC_QUALITIES, Material, Quality } from "@/types/calculator";
 import PriceBreakdown from "./PriceBreakdown";
 import ProcessingOptions from "./ProcessingOptions";
 import ColorMixingStep from "./ColorMixingStep";
@@ -174,11 +174,7 @@ const PanelCalculator = () => {
     console.log('Material selected:', material);
     setSelectedMaterial(material);
     resetFromStep(2);
-    if (material.id === 'casting' || material.id === 'acrylic-dye') {
-      setCurrentStep(2);
-    } else {
-      alert('해당 소재는 아직 지원되지 않습니다.');
-    }
+    setCurrentStep(2);
   };
   const handleQualitySelect = (quality: Quality) => {
     console.log('Quality selected:', quality);
@@ -361,7 +357,9 @@ const PanelCalculator = () => {
           {selectedSize && <PriceBreakdown totalPrice={priceInfo.totalPrice} breakdown={priceInfo.breakdown} isVisible={true} />}
 
           {/* Step 2: 재질 선택 */}
-          {currentStep === 2 && (selectedMaterial?.id === 'casting' || selectedMaterial?.id === 'acrylic-dye') && <QualitySelection qualities={CASTING_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}
+          {currentStep === 2 && selectedMaterial?.id === 'casting' && <QualitySelection qualities={CASTING_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}
+          {currentStep === 2 && selectedMaterial?.id === 'acrylic-dye' && <QualitySelection qualities={CASTING_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}
+          {currentStep === 2 && selectedMaterial?.id === 'other-acrylic' && <QualitySelection qualities={OTHER_ACRYLIC_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}
 
           {/* Step 3: 색상 선택 */}
           {currentStep === 3 && selectedQuality && <ColorSelection selectedColor={selectedColor} selectedQuality={selectedQuality} onColorSelect={handleColorSelect} />}
