@@ -17,6 +17,7 @@ import ThicknessSelection from "./ThicknessSelection";
 import SizeSelection from "./SizeSelection";
 import SurfaceSelection from "./SurfaceSelection";
 import ColorSelection from "./ColorSelection";
+import FilmColorSelection from "./FilmColorSelection";
 import FilmSelection from "./FilmSelection";
 import { useQuotes } from "@/contexts/QuoteContext";
 import { usePriceCalculation } from "@/hooks/usePriceCalculation";
@@ -383,7 +384,22 @@ const PanelCalculator = () => {
           {currentStep === 2 && selectedMaterial?.id === 'other-acrylic' && <QualitySelection qualities={OTHER_ACRYLIC_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}
 
           {/* Step 3: 색상 선택 */}
-          {currentStep === 3 && selectedQuality && <ColorSelection selectedColor={selectedColor} selectedQuality={selectedQuality} onColorSelect={handleColorSelect} />}
+          {currentStep === 3 && selectedQuality && (
+            <>
+              {selectedQuality.id === 'film-acrylic' ? (
+                <FilmColorSelection 
+                  selectedColor={selectedColor} 
+                  onColorSelect={handleColorSelect} 
+                />
+              ) : (
+                <ColorSelection 
+                  selectedColor={selectedColor} 
+                  selectedQuality={selectedQuality} 
+                  onColorSelect={handleColorSelect} 
+                />
+              )}
+            </>
+          )}
 
           {/* Step 4: 두께 선택 */}
           {currentStep === 4 && selectedColor && <ThicknessSelection thicknesses={selectedQuality.thicknesses} selectedThickness={selectedThickness} onThicknessSelect={handleThicknessSelect} />}
