@@ -47,7 +47,8 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
     // 필름 아크릴인 경우 특수 제작으로 표시
     if (selectedQuality.id === 'film-acrylic') {
       selections.push({ label: '특수 제작', value: selectedQuality.name });
-    } else {
+    } else if (!filmBaseType) {
+      // filmBaseType이 선택되지 않은 경우만 재질 표시
       selections.push({ label: '재질', value: selectedQuality.name });
     }
   }
@@ -59,7 +60,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
       'bright': 'Bright (브라이트)',
       'astel': 'Astel (아스텔)'
     };
-    selections.push({ label: '기본 재질', value: baseTypeNames[filmBaseType] || filmBaseType });
+    selections.push({ label: '재질', value: baseTypeNames[filmBaseType] || filmBaseType });
   }
 
   if (selectedColor) {
