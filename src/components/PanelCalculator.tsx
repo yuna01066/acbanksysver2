@@ -390,7 +390,7 @@ const PanelCalculator = () => {
               <StepIndicator currentStep={currentStep + 1} maxSteps={maxSteps} />
           
           {/* 선택된 옵션 요약 - Step 0에서는 숨김 */}
-          {currentStep > 0 && <SelectionSummary selectedFactory="jangwon" selectedMaterial={selectedMaterial} selectedQuality={selectedQuality} selectedColor={selectedColor} selectedThickness={selectedThickness} selectedSize={selectedSize} selectedColorType={selectedColorType} selectedSurface={selectedSurface} colorMixingCost={colorMixingCost} selectedProcessing={selectedProcessing} processingOptions={PROCESSING_OPTIONS} factories={[{
+          {currentStep > 0 && <SelectionSummary selectedFactory="jangwon" selectedMaterial={selectedMaterial} selectedQuality={selectedQuality} selectedColor={selectedColor} selectedThickness={selectedThickness} selectedSize={selectedSize} selectedColorType={selectedColorType} selectedSurface={selectedSurface} colorMixingCost={colorMixingCost} selectedProcessing={selectedProcessing} filmBaseType={filmBaseType} processingOptions={PROCESSING_OPTIONS} factories={[{
             id: 'jangwon',
             name: '장원'
           }]} />}

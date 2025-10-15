@@ -14,6 +14,7 @@ interface SelectionSummaryProps {
   selectedSurface: string;
   colorMixingCost: number;
   selectedProcessing: string;
+  filmBaseType?: string;
   processingOptions: { id: string; name: string }[];
   factories?: { id: string; name: string }[];
 }
@@ -29,6 +30,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
   selectedSurface,
   colorMixingCost,
   selectedProcessing,
+  filmBaseType,
   processingOptions,
   factories
 }) => {
@@ -48,6 +50,16 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
     } else {
       selections.push({ label: '재질', value: selectedQuality.name });
     }
+  }
+
+  // 필름 기본 재질 표시 (Clear, Bright, Astel)
+  if (filmBaseType) {
+    const baseTypeNames: { [key: string]: string } = {
+      'clear': 'Clear (클리어)',
+      'bright': 'Bright (브라이트)',
+      'astel': 'Astel (아스텔)'
+    };
+    selections.push({ label: '기본 재질', value: baseTypeNames[filmBaseType] || filmBaseType });
   }
 
   if (selectedColor) {
