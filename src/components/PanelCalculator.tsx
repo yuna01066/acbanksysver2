@@ -219,21 +219,12 @@ const PanelCalculator = () => {
     const matchedQuality = CASTING_QUALITIES.find(q => q.id === qualityId);
     if (matchedQuality) {
       setSelectedQuality(matchedQuality);
-      
-      // Clear인 경우에만 색상 타입만 설정하고 색상 선택 단계로 이동
-      if (baseType === 'clear') {
-        setSelectedColorType('color');
-        resetFromStep(4);
-        setCurrentStep(4); // 색상 선택 단계로
-      } else {
-        // Bright나 Astel인 경우 색상 정보 자동 설정
-        setSelectedColor(baseType);
-        setSelectedColorType('color');
-        setSelectedSurface('단면'); // 면수를 단면으로 자동 설정
-        resetFromStep(5);
-        setCurrentStep(5); // 두께 선택 단계로
-      }
+      setSelectedColorType('color');
     }
+    
+    // 모든 타입 색상 선택 단계로 이동
+    resetFromStep(4);
+    setCurrentStep(4);
   };
 
   const handleColorSelect = (colorId: string, colorInfo: {
@@ -432,8 +423,8 @@ const PanelCalculator = () => {
           {/* Step 3: FilmBaseTypeSelection (필름 타입) */}
           {currentStep === 3 && (isFilmAcrylic || selectedQuality?.id === 'film') && <FilmBaseTypeSelection selectedBaseType={filmBaseType} onBaseTypeSelect={handleFilmBaseTypeSelect} />}
           
-          {/* Step 4: 색상 선택 (Clear 선택 시 또는 일반 아크릴) */}
-          {currentStep === 4 && selectedQuality && filmBaseType === 'clear' && <ColorSelection selectedColor={selectedColor} onColorSelect={handleColorSelect} />}
+          {/* Step 4: 색상 선택 */}
+          {currentStep === 4 && selectedQuality && filmBaseType && <ColorSelection selectedColor={selectedColor} onColorSelect={handleColorSelect} filmBaseType={filmBaseType} />}
           {currentStep === 4 && selectedQuality && !filmBaseType && <ColorSelection selectedColor={selectedColor} onColorSelect={handleColorSelect} />}
 
           {/* Step 5: 두께 선택 */}
