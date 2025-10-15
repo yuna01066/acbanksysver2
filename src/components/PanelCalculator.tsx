@@ -273,7 +273,7 @@ const PanelCalculator = () => {
     if (isFilmAcrylic) {
       setCurrentStep(9); // 필름 선택 단계
     } else {
-      setCurrentStep(9); // 가공 방법 선택
+      setCurrentStep(10); // 가공 방법 선택
     }
   };
 
