@@ -7,8 +7,8 @@ interface FilmSelectionProps {
 }
 
 const FILM_OPTIONS = [
-  { id: 'moru-film', name: '모루 필름', price: 10000 },
-  { id: 'dot-film', name: '도트 필름', price: 10000 }
+  { id: 'moru-film', name: '모루 반투명 필름', price: 10000 },
+  { id: 'dot-film', name: '도트 반투명 필름', price: 10000 }
 ];
 
 const FilmSelection: React.FC<FilmSelectionProps> = ({
