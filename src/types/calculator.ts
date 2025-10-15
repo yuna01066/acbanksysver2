@@ -60,8 +60,8 @@ export const OTHER_ACRYLIC_QUALITIES: Quality[] = [
   {
     id: 'film-acrylic',
     name: '필름 아크릴',
-    thicknesses: ['1.3T', '1.5T', '2T', '3T', '4T', '5T', '6T', '8T', '10T', '12T', '15T', '20T', '25T', '30T'],
-    sizes: ['3*6', '대3*6', '4*5', '대4*5', '1*2', '4*6', '4*8', '4*10', '5*6', '5*8']
+    thicknesses: ['3T', '5T', '8T'],
+    sizes: ['3*6', '4*8']
   },
   {
     id: 'hanji-acrylic',
