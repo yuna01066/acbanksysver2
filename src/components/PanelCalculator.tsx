@@ -259,13 +259,9 @@ const PanelCalculator = () => {
     console.log('Surface selected:', surface);
     setSelectedSurface(surface);
     
-    // 필름 아크릴이 아닌 경우 Step 7로, 필름 아크릴인 경우 조색비 단계는 건너뛰고 Step 8로
+    // 모든 경우 조색비 단계로 이동
     resetFromStep(7);
-    if (isFilmAcrylic) {
-      setCurrentStep(8); // 필름 선택 단계로
-    } else {
-      setCurrentStep(7); // 조색비 단계로
-    }
+    setCurrentStep(7);
   };
   const handleColorMixingAdd = () => {
     setColorMixingCost(prev => prev + 10000);
@@ -443,8 +439,8 @@ const PanelCalculator = () => {
           {/* Step 6: 면수 선택 */}
           {currentStep === 6 && selectedSize && <SurfaceSelection selectedSurface={selectedSurface} onSurfaceSelect={handleSurfaceSelect} isGlossyStandard={selectedQuality?.id === 'glossy-standard'} />}
 
-          {/* Step 7: 조색비 추가 (필름 아크릴 제외) */}
-          {currentStep === 7 && selectedSurface && !isFilmAcrylic && <ColorMixingStep colorMixingCost={colorMixingCost} onColorMixingAdd={handleColorMixingAdd} onColorMixingRemove={handleColorMixingRemove} onNextStep={handleNextStepFromColorMixing} isGlossyStandard={selectedQuality?.id === 'glossy-standard'} />}
+          {/* Step 7: 조색비 추가 */}
+          {currentStep === 7 && selectedSurface && <ColorMixingStep colorMixingCost={colorMixingCost} onColorMixingAdd={handleColorMixingAdd} onColorMixingRemove={handleColorMixingRemove} onNextStep={handleNextStepFromColorMixing} isGlossyStandard={selectedQuality?.id === 'glossy-standard'} />}
 
           {/* Step 8: 필름 선택 (필름 아크릴만) */}
           {currentStep === 8 && isFilmAcrylic && <FilmSelection selectedFilm={selectedFilm} onFilmSelect={handleFilmSelect} />}
