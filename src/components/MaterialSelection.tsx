@@ -21,8 +21,8 @@ const MaterialSelection: React.FC<MaterialSelectionProps> = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-2xl font-bold text-gray-900 mb-2">소재를 선택해주세요</h3>
-        <p className="text-gray-600">사용하실 판재의 소재를 선택해주세요</p>
+        <h3 className="text-2xl font-bold text-gray-900 mb-2">특수 제작을 선택 해 주세요</h3>
+        <p className="text-gray-600">원하시는 특수 제작 타입을 선택해주세요</p>
         {selectedFactory !== 'jangwon' && (
           <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-yellow-800 font-medium">
