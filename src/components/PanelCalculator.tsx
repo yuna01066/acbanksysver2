@@ -17,6 +17,8 @@ import ThicknessSelection from "./ThicknessSelection";
 import SizeSelection from "./SizeSelection";
 import SurfaceSelection from "./SurfaceSelection";
 import ColorSelection from "./ColorSelection";
+import FilmColorSelection from "./FilmColorSelection";
+import FilmSelection from "./FilmSelection";
 import { useQuotes } from "@/contexts/QuoteContext";
 import { usePriceCalculation } from "@/hooks/usePriceCalculation";
 import { Input } from "@/components/ui/input";
@@ -71,6 +73,8 @@ const PanelCalculator = () => {
   const [colorMixingCost, setColorMixingCost] = useState<number>(0);
   const [selectedProcessing, setSelectedProcessing] = useState<string>('');
   const [serialNumber, setSerialNumber] = useState<string>('');
+  const [selectedFilm, setSelectedFilm] = useState<string>('');
+  const [selectedBaseType, setSelectedBaseType] = useState<string>(''); // 필름 아크릴 기본 재질 (Clear/Bright/Astel)
   const {
     priceInfo,
     getAvailableSizes
@@ -126,6 +130,7 @@ const PanelCalculator = () => {
     } else if (step <= 3) {
       setSelectedColor('');
       setSelectedColorHex('');
+      setSelectedBaseType('');
       setSelectedThickness('');
       setSelectedSize('');
       setSelectedColorType('');
@@ -207,6 +212,12 @@ const PanelCalculator = () => {
   const handleSurfaceSelect = (surface: string) => {
     console.log('Surface selected:', surface);
     setSelectedSurface(surface);
+    
+    // 필름 아크릴의 경우 조색비를 기본 20000원으로 설정
+    if (selectedQuality?.id === 'film-acrylic') {
+      setColorMixingCost(20000);
+    }
+    
     resetFromStep(7);
     setCurrentStep(7);
   };
@@ -223,7 +234,18 @@ const PanelCalculator = () => {
     setSelectedProcessing(processingId);
   };
   const handleNextStepFromColorMixing = () => {
-    setCurrentStep(8);
+    // 필름 아크릴의 경우 필름 선택 단계로 이동
+    if (selectedQuality?.id === 'film-acrylic') {
+      setCurrentStep(8); // 필름 선택 단계
+    } else {
+      setCurrentStep(8); // 가공 선택 단계
+    }
+  };
+  
+  const handleFilmSelect = (filmId: string) => {
+    console.log('Film selected:', filmId);
+    setSelectedFilm(filmId);
+    setCurrentStep(9); // 가공 선택 단계로 이동
   };
   const handleAddQuote = () => {
     if (!selectedMaterial || !selectedQuality || !selectedThickness || !selectedSize || !selectedSurface) {
@@ -265,6 +287,8 @@ const PanelCalculator = () => {
     setColorMixingCost(0);
     setSelectedProcessing('');
     setSerialNumber('');
+    setSelectedFilm('');
+    setSelectedBaseType('');
     alert('견적이 추가되었습니다!');
   };
   const handleViewQuotesSummary = () => {
@@ -299,7 +323,8 @@ const PanelCalculator = () => {
     setCurrentStep(0);
     setCalculatorType(null);
   };
-  const maxSteps = 9;
+  // 필름 아크릴의 경우 maxSteps를 10으로 설정 (필름 선택 단계 추가)
+  const maxSteps = selectedQuality?.id === 'film-acrylic' ? 10 : 9;
   return <div className="min-h-screen p-6">
       <Card className="w-full max-w-4xl mx-auto border-border/50 shadow-smooth animate-fade-up overflow-hidden">
         <CardHeader className="text-center pb-8 border-b border-border/50">
@@ -362,7 +387,24 @@ const PanelCalculator = () => {
           {currentStep === 2 && selectedMaterial?.id === 'other-acrylic' && <QualitySelection qualities={OTHER_ACRYLIC_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}
 
           {/* Step 3: 색상 선택 */}
-          {currentStep === 3 && selectedQuality && <ColorSelection selectedColor={selectedColor} selectedQuality={selectedQuality} onColorSelect={handleColorSelect} />}
+          {currentStep === 3 && selectedQuality && (
+            <>
+              {selectedQuality.id === 'film-acrylic' ? (
+                <FilmColorSelection 
+                  selectedColor={selectedColor}
+                  selectedBaseType={selectedBaseType}
+                  onColorSelect={handleColorSelect}
+                  onBaseTypeSelect={setSelectedBaseType}
+                />
+              ) : (
+                <ColorSelection 
+                  selectedColor={selectedColor} 
+                  selectedQuality={selectedQuality} 
+                  onColorSelect={handleColorSelect} 
+                />
+              )}
+            </>
+          )}
 
           {/* Step 4: 두께 선택 */}
           {currentStep === 4 && selectedColor && <ThicknessSelection thicknesses={selectedQuality.thicknesses} selectedThickness={selectedThickness} onThicknessSelect={handleThicknessSelect} />}
@@ -371,16 +413,47 @@ const PanelCalculator = () => {
           {currentStep === 5 && selectedThickness && <SizeSelection availableSizes={getAvailableSizes()} selectedSize={selectedSize} onSizeSelect={handleSizeSelect} selectedThickness={selectedThickness} />}
 
           {/* Step 6: 면수 선택 */}
-          {currentStep === 6 && selectedSize && <SurfaceSelection selectedSurface={selectedSurface} onSurfaceSelect={handleSurfaceSelect} isGlossyStandard={selectedQuality?.id === 'glossy-standard'} />}
+          {currentStep === 6 && selectedSize && <SurfaceSelection 
+            selectedSurface={selectedSurface} 
+            onSurfaceSelect={handleSurfaceSelect} 
+            isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
+            // 브라이트와 아스텔은 무조건 단면
+            forceSingle={selectedColor === 'A002' || selectedColor === 'A003'} 
+          />}
 
           {/* Step 7: 조색비 추가 */}
-          {currentStep === 7 && selectedSurface && <ColorMixingStep colorMixingCost={colorMixingCost} onColorMixingAdd={handleColorMixingAdd} onColorMixingRemove={handleColorMixingRemove} onNextStep={handleNextStepFromColorMixing} isGlossyStandard={selectedQuality?.id === 'glossy-standard'} />}
+          {currentStep === 7 && selectedSurface && <ColorMixingStep 
+            colorMixingCost={colorMixingCost} 
+            onColorMixingAdd={handleColorMixingAdd} 
+            onColorMixingRemove={handleColorMixingRemove} 
+            onNextStep={handleNextStepFromColorMixing} 
+            isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
+            // 필름 아크릴의 경우 조색비 조절 불가
+            isFilmAcrylic={selectedQuality?.id === 'film-acrylic'}
+          />}
 
-          {/* Step 8: 가공 선택 */}
-          {currentStep === 8 && <ProcessingOptions selectedProcessing={selectedProcessing} onProcessingSelect={handleProcessingSelect} isGlossyStandard={selectedQuality?.id === 'glossy-standard'} />}
+          {/* Step 8: 필름 선택 (필름 아크릴인 경우만) */}
+          {currentStep === 8 && selectedQuality?.id === 'film-acrylic' && (
+            <FilmSelection 
+              selectedFilm={selectedFilm} 
+              onFilmSelect={handleFilmSelect} 
+            />
+          )}
+
+          {/* Step 8 또는 9: 가공 선택 */}
+          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic') || 
+            (currentStep === 9 && selectedQuality?.id === 'film-acrylic')) && (
+            <ProcessingOptions 
+              selectedProcessing={selectedProcessing} 
+              onProcessingSelect={handleProcessingSelect} 
+              isGlossyStandard={selectedQuality?.id === 'glossy-standard'} 
+            />
+          )}
 
           {/* 시리얼 넘버 입력 */}
-          {currentStep === 8 && selectedProcessing && <>
+          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && selectedProcessing) ||
+            (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && selectedProcessing)) && (
+            <>
               <Separator className="my-8" />
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900">클라이언트 메모 (선택사항)</h3>
@@ -388,13 +461,22 @@ const PanelCalculator = () => {
                   클라이언트의 요청사항이나 참고할 내용을 입력해주세요.
                 </p>
                 <div className="max-w-md">
-                  <Input type="text" placeholder="요청사항을 입력해주세요" value={serialNumber} onChange={e => setSerialNumber(e.target.value)} className="w-full" />
+                  <Input 
+                    type="text" 
+                    placeholder="요청사항을 입력해주세요" 
+                    value={serialNumber} 
+                    onChange={e => setSerialNumber(e.target.value)} 
+                    className="w-full" 
+                  />
                 </div>
               </div>
-            </>}
+            </>
+          )}
 
           {/* 견적 추가 버튼 */}
-          {currentStep === 8 && selectedProcessing && priceInfo.totalPrice > 0 && <>
+          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && selectedProcessing && priceInfo.totalPrice > 0) ||
+            (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && selectedProcessing && priceInfo.totalPrice > 0)) && (
+            <>
               <Separator className="my-8" />
               <div className="flex justify-center gap-4">
                 <Button onClick={handleAddQuote} size="lg" className="px-8 animate-fade-up">
@@ -402,7 +484,8 @@ const PanelCalculator = () => {
                   견적 추가
                 </Button>
               </div>
-            </>}
+            </>
+          )}
 
           {/* 이전 단계로 돌아가기 버튼 */}
           {currentStep > 0 && <>

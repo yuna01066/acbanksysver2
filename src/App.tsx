@@ -17,7 +17,6 @@ import EmbedCodePage from "./pages/EmbedCodePage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
 import PriceManagement from "./pages/PriceManagement";
 import PanelManagementPage from "./pages/PanelManagementPage";
-import FilmAcrylicCalculatorPage from "./pages/FilmAcrylicCalculatorPage";
 
 const queryClient = new QueryClient();
 
@@ -40,7 +39,6 @@ const App = () => (
             <Route path="/admin-settings" element={<AdminSettingsPage />} />
             <Route path="/price-management" element={<PriceManagement />} />
             <Route path="/panel-management" element={<PanelManagementPage />} />
-            <Route path="/film-acrylic-calculator" element={<FilmAcrylicCalculatorPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
