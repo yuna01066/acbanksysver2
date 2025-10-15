@@ -305,14 +305,12 @@ const COLOR_OPTIONS: ColorOption[] = [
 interface ColorSelectionProps {
   selectedColor: string;
   selectedQuality?: { id: string; name: string } | null;
-  filmBaseType?: string; // 'clear', 'bright', 'astel' 중 하나
   onColorSelect: (colorId: string, colorInfo: { acCode: string; hexCode: string }) => void;
 }
 
 const ColorSelection: React.FC<ColorSelectionProps> = ({
   selectedColor,
   selectedQuality,
-  filmBaseType,
   onColorSelect
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -357,19 +355,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
       }
     ];
 
-    // filmBaseType이 있으면 그에 따라 필터링
-    if (filmBaseType === 'clear') {
-      // Clear를 선택한 경우 클리어 A, B만 표시
-      return allCategories.filter(cat => cat.id === 'clear-a' || cat.id === 'clear-b');
-    } else if (filmBaseType === 'bright') {
-      // Bright를 선택한 경우 브라이트 A, B만 표시
-      return allCategories.filter(cat => cat.id === 'bright-a' || cat.id === 'bright-b');
-    } else if (filmBaseType === 'astel') {
-      // Astel을 선택한 경우 클리어 A, B만 표시 (아스텔은 클리어 색상 사용)
-      return allCategories.filter(cat => cat.id === 'clear-a' || cat.id === 'clear-b');
-    }
-
-    // selectedQuality에 따른 필터링 (기존 로직)
+    // 재질에 따른 필터링
     if (selectedQuality?.id === 'glossy-color') {
       // 클리어를 선택한 경우 클리어 A, B만 표시
       return allCategories.filter(cat => cat.id === 'clear-a' || cat.id === 'clear-b');
