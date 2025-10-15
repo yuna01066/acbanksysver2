@@ -420,8 +420,8 @@ const PanelCalculator = () => {
           {currentStep === 2 && selectedMaterial?.id === 'acrylic-dye' && <QualitySelection qualities={CASTING_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}
           {currentStep === 2 && selectedMaterial?.id === 'other-acrylic' && <QualitySelection qualities={OTHER_ACRYLIC_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}
 
-          {/* Step 3: FilmBaseTypeSelection (필름 타입) */}
-          {currentStep === 3 && (isFilmAcrylic || selectedQuality?.id === 'film') && <FilmBaseTypeSelection selectedBaseType={filmBaseType} onBaseTypeSelect={handleFilmBaseTypeSelect} />}
+          {/* Step 3: FilmBaseTypeSelection (필름 타입) - 필름 아크릴이거나 이전에 filmBaseType을 선택한 경우 */}
+          {currentStep === 3 && selectedQuality && (isFilmAcrylic || filmBaseType) && <FilmBaseTypeSelection selectedBaseType={filmBaseType} onBaseTypeSelect={handleFilmBaseTypeSelect} />}
           
           {/* Step 4: 색상 선택 */}
           {currentStep === 4 && selectedQuality && filmBaseType && <ColorSelection selectedColor={selectedColor} onColorSelect={handleColorSelect} filmBaseType={filmBaseType} />}
