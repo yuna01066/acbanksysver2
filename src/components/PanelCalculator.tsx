@@ -219,6 +219,9 @@ const PanelCalculator = () => {
     const matchedQuality = CASTING_QUALITIES.find(q => q.id === qualityId);
     if (matchedQuality) {
       setSelectedQuality(matchedQuality);
+      // 색상 정보도 설정 (필름 아크릴은 별도 색상 선택 없이 진행)
+      setSelectedColor(baseType);
+      setSelectedColorType('color');
     }
     
     // 브라이트나 아스텔인 경우 면수를 단면으로 자동 설정
