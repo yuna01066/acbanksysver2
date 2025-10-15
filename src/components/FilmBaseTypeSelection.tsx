@@ -20,9 +20,9 @@ const FilmBaseTypeSelection: React.FC<FilmBaseTypeSelectionProps> = ({
     <div className="space-y-6">
       <div className="text-center">
         <h3 className="text-2xl font-bold text-gray-900 mb-2">
-          3. 기본 재질을 선택해주세요
+          3. 제작 하고자 하는 특수 아크릴을 선택 해 주세요
         </h3>
-        <p className="text-gray-600">필름 아크릴의 기본 재질을 선택해주세요</p>
+        <p className="text-gray-600">특수 아크릴 타입을 선택해주세요</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {BASE_TYPE_OPTIONS.map((option) => (
