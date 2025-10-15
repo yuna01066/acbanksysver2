@@ -55,12 +55,13 @@ const FilmColorSelection: React.FC<FilmColorSelectionProps> = ({
 }) => {
   const [selectedBase, setSelectedBase] = useState<string>('');
 
-  const handleBaseColorSelect = (baseId: string, baseInfo: { acCode: string; hexCode: string }) => {
+  const handleBaseColorSelect = (baseId: string) => {
+    // 기본 재질 선택 시에는 다음 단계로 넘어가지 않고, 세부 색상만 표시
     setSelectedBase(baseId);
-    onColorSelect(baseId, baseInfo);
   };
 
   const handleDetailColorSelect = (colorId: string, colorInfo: { acCode: string; hexCode: string }) => {
+    // 세부 색상 선택 시에만 onColorSelect 호출하여 다음 단계로 진행
     onColorSelect(colorId, colorInfo);
   };
 
@@ -91,7 +92,7 @@ const FilmColorSelection: React.FC<FilmColorSelectionProps> = ({
                   ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
                   : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-900'
               }`}
-              onClick={() => handleBaseColorSelect(base.id, { acCode: base.acCode, hexCode: base.hexCode })}
+              onClick={() => handleBaseColorSelect(base.id)}
             >
               {base.name}
             </Button>
