@@ -19,8 +19,8 @@ const QualitySelection: React.FC<QualitySelectionProps> = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-2xl font-bold text-gray-900 mb-2">특수 제작을 선택해주세요</h3>
-        <p className="text-gray-600">원하시는 특수 제작 타입을 선택해주세요</p>
+        <h3 className="text-2xl font-bold text-gray-900 mb-2">재질을 선택해주세요</h3>
+        <p className="text-gray-600">원하시는 재질의 품질을 선택해주세요</p>
         {selectedFactory !== 'jangwon' && (
           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-blue-800 text-sm">템플릿 모드: 실제 가격은 표시되지 않습니다.</p>
