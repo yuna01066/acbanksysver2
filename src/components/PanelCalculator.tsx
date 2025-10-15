@@ -74,6 +74,7 @@ const PanelCalculator = () => {
   const [selectedProcessing, setSelectedProcessing] = useState<string>('');
   const [serialNumber, setSerialNumber] = useState<string>('');
   const [selectedFilm, setSelectedFilm] = useState<string>('');
+  const [selectedBaseType, setSelectedBaseType] = useState<string>(''); // 필름 아크릴 기본 재질 (Clear/Bright/Astel)
   const {
     priceInfo,
     getAvailableSizes
@@ -129,6 +130,7 @@ const PanelCalculator = () => {
     } else if (step <= 3) {
       setSelectedColor('');
       setSelectedColorHex('');
+      setSelectedBaseType('');
       setSelectedThickness('');
       setSelectedSize('');
       setSelectedColorType('');
@@ -286,6 +288,7 @@ const PanelCalculator = () => {
     setSelectedProcessing('');
     setSerialNumber('');
     setSelectedFilm('');
+    setSelectedBaseType('');
     alert('견적이 추가되었습니다!');
   };
   const handleViewQuotesSummary = () => {
@@ -388,8 +391,10 @@ const PanelCalculator = () => {
             <>
               {selectedQuality.id === 'film-acrylic' ? (
                 <FilmColorSelection 
-                  selectedColor={selectedColor} 
-                  onColorSelect={handleColorSelect} 
+                  selectedColor={selectedColor}
+                  selectedBaseType={selectedBaseType}
+                  onColorSelect={handleColorSelect}
+                  onBaseTypeSelect={setSelectedBaseType}
                 />
               ) : (
                 <ColorSelection 

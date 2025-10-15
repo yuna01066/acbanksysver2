@@ -3,7 +3,9 @@ import { Button } from "@/components/ui/button";
 
 interface FilmColorSelectionProps {
   selectedColor: string;
+  selectedBaseType: string;
   onColorSelect: (colorId: string, colorInfo: { acCode: string; hexCode: string }) => void;
+  onBaseTypeSelect: (baseType: string) => void;
 }
 
 // 필름 아크릴용 기본 색상 정의
@@ -51,13 +53,16 @@ const ASTEL_COLORS = [
 
 const FilmColorSelection: React.FC<FilmColorSelectionProps> = ({
   selectedColor,
-  onColorSelect
+  selectedBaseType,
+  onColorSelect,
+  onBaseTypeSelect
 }) => {
-  const [selectedBase, setSelectedBase] = useState<string>('');
+  const [selectedBase, setSelectedBase] = useState<string>(selectedBaseType || '');
 
   const handleBaseColorSelect = (baseId: string) => {
     // 기본 재질 선택 시에는 다음 단계로 넘어가지 않고, 세부 색상만 표시
     setSelectedBase(baseId);
+    onBaseTypeSelect(baseId); // 기본 재질 정보 저장
   };
 
   const handleDetailColorSelect = (colorId: string, colorInfo: { acCode: string; hexCode: string }) => {
