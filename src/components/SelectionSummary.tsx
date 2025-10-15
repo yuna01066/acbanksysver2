@@ -42,7 +42,12 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
   }
 
   if (selectedQuality) {
-    selections.push({ label: '재질', value: selectedQuality.name });
+    // 필름 아크릴인 경우 특수 제작으로 표시
+    if (selectedQuality.id === 'film-acrylic') {
+      selections.push({ label: '특수 제작', value: selectedQuality.name });
+    } else {
+      selections.push({ label: '재질', value: selectedQuality.name });
+    }
   }
 
   if (selectedColor) {
