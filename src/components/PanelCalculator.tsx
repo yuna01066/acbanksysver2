@@ -238,7 +238,7 @@ const PanelCalculator = () => {
     hexCode: string;
   }) => {
     console.log('Color selected:', colorId, colorInfo);
-    setSelectedColor(colorInfo.acCode);
+    setSelectedColor(colorId); // color ID를 저장 (SelectionSummary가 AC 코드로 변환)
     setSelectedColorHex(colorInfo.hexCode);
     resetFromStep(4);
     setCurrentStep(4);
