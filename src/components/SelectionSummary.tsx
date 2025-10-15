@@ -38,7 +38,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
   selections.push({ label: '계산기', value: '견적 계산기' });
 
   if (selectedMaterial) {
-    selections.push({ label: '소재', value: selectedMaterial.name });
+    selections.push({ label: '특수 제작', value: selectedMaterial.name });
   }
 
   if (selectedQuality) {
