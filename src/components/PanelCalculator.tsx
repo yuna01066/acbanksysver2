@@ -222,12 +222,18 @@ const PanelCalculator = () => {
     setCurrentStep(7);
   };
   const handleColorMixingAdd = () => {
-    setColorMixingCost(prev => prev + 10000);
-    console.log('Color mixing cost added:', colorMixingCost + 10000);
+    setColorMixingCost(prev => {
+      const newCost = prev + 10000;
+      console.log('Color mixing cost added:', newCost, 'Previous:', prev);
+      return newCost;
+    });
   };
   const handleColorMixingRemove = () => {
-    setColorMixingCost(prev => Math.max(0, prev - 10000));
-    console.log('Color mixing cost removed:', Math.max(0, colorMixingCost - 10000));
+    setColorMixingCost(prev => {
+      const newCost = Math.max(0, prev - 10000);
+      console.log('Color mixing cost removed:', newCost, 'Previous:', prev);
+      return newCost;
+    });
   };
   const handleProcessingSelect = (processingId: string) => {
     console.log('Processing selected:', processingId);
