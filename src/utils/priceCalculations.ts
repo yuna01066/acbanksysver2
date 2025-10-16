@@ -348,10 +348,11 @@ export const calculatePrice = (
     totalPrice += doubleSidePrice;
   }
 
-  // 조색비는 자동으로 20,000원 추가
-  const colorMixingCostAmount = 20000;
-  breakdown.push({ label: '조색비', price: colorMixingCostAmount });
-  totalPrice += colorMixingCostAmount;
+  // 조색비 추가 (파라미터로 전달받은 값 사용)
+  if (colorMixingCost > 0) {
+    breakdown.push({ label: '조색비', price: colorMixingCost });
+    totalPrice += colorMixingCost;
+  }
 
   // 가공비 계산
   if (processingType && processingType !== 'raw-only') {
