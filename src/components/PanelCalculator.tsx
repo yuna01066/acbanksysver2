@@ -101,7 +101,7 @@ const PanelCalculator = () => {
       setSelectedSize('');
       setSelectedColorType('');
       setSelectedSurface('');
-      setColorMixingCost(0);
+      setColorMixingCost(20000);
       setSelectedProcessing('');
       setCurrentStep(0);
     } else if (step <= 1) {
@@ -113,7 +113,7 @@ const PanelCalculator = () => {
       setSelectedSize('');
       setSelectedColorType('');
       setSelectedSurface('');
-      setColorMixingCost(0);
+      setColorMixingCost(20000);
       setSelectedProcessing('');
       setCurrentStep(1);
     } else if (step <= 2) {
@@ -124,7 +124,7 @@ const PanelCalculator = () => {
       setSelectedSize('');
       setSelectedColorType('');
       setSelectedSurface('');
-      setColorMixingCost(0);
+      setColorMixingCost(20000);
       setSelectedProcessing('');
       setCurrentStep(2);
     } else if (step <= 3) {
@@ -135,7 +135,7 @@ const PanelCalculator = () => {
       setSelectedSize('');
       setSelectedColorType('');
       setSelectedSurface('');
-      setColorMixingCost(0);
+      setColorMixingCost(20000);
       setSelectedProcessing('');
       setCurrentStep(3);
     } else if (step <= 4) {
@@ -143,23 +143,23 @@ const PanelCalculator = () => {
       setSelectedSize('');
       setSelectedColorType('');
       setSelectedSurface('');
-      setColorMixingCost(0);
+      setColorMixingCost(20000);
       setSelectedProcessing('');
       setCurrentStep(4);
     } else if (step <= 5) {
       setSelectedSize('');
       setSelectedColorType('');
       setSelectedSurface('');
-      setColorMixingCost(0);
+      setColorMixingCost(20000);
       setSelectedProcessing('');
       setCurrentStep(5);
     } else if (step <= 6) {
       setSelectedSurface('');
-      setColorMixingCost(0);
+      setColorMixingCost(20000);
       setSelectedProcessing('');
       setCurrentStep(6);
     } else if (step <= 7) {
-      setColorMixingCost(0);
+      setColorMixingCost(20000);
       setSelectedProcessing('');
       setCurrentStep(7);
     } else if (step <= 8) {
@@ -290,7 +290,7 @@ const PanelCalculator = () => {
     setSelectedSize('');
     setSelectedColorType('');
     setSelectedSurface('');
-    setColorMixingCost(0);
+    setColorMixingCost(20000);
     setSelectedProcessing('');
     setSerialNumber('');
     setSelectedFilm('');
