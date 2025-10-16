@@ -70,7 +70,7 @@ const PanelCalculator = () => {
   const [selectedColorHex, setSelectedColorHex] = useState<string>('');
   const [selectedColorType, setSelectedColorType] = useState<string>('');
   const [selectedSurface, setSelectedSurface] = useState<string>('');
-  const [colorMixingCost, setColorMixingCost] = useState<number>(0);
+  const [colorMixingCost, setColorMixingCost] = useState<number>(20000);
   const [selectedProcessing, setSelectedProcessing] = useState<string>('');
   const [serialNumber, setSerialNumber] = useState<string>('');
   const [selectedFilm, setSelectedFilm] = useState<string>('');
