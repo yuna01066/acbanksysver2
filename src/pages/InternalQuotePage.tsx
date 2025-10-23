@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Calculator, ShoppingCart, FileText, Users, ArrowLeft } from "lucide-react";
+import { Calculator, ShoppingCart, Home } from "lucide-react";
 import { useQuotes } from "@/contexts/QuoteContext";
+import QuoteSummaryHeader from "@/components/QuoteSummaryHeader";
 import QuoteCard from "@/components/QuoteCard";
 import businessRegistration from "@/assets/arcbank-business-registration.jpg";
 import bankAccount from "@/assets/arcbank-bank-account.jpg";
@@ -23,8 +24,7 @@ const InternalQuotePage = () => {
   } = useQuotes();
 
   if (quotes.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="w-full max-w-md mx-auto">
           <CardContent className="text-center p-8">
             <ShoppingCart className="w-16 h-16 mx-auto text-gray-400 mb-4" />
@@ -34,12 +34,11 @@ const InternalQuotePage = () => {
             </Button>
           </CardContent>
         </Card>
-      </div>
-    );
+      </div>;
   }
 
   const subtotal = getTotalPrice();
-  const tax = subtotal * 0.1;
+  const tax = subtotal * 0.1; // 10% 부가세
   const totalWithTax = getTotalPriceWithTax();
 
   const handlePrintPDF = () => {
@@ -56,6 +55,7 @@ const InternalQuotePage = () => {
     day: 'numeric'
   });
 
+  // 견적번호 생성 - QuoteContext에서 가져옴
   const quoteNumber = recipient?.quoteNumber || generateQuoteNumber();
 
   return (
@@ -63,65 +63,98 @@ const InternalQuotePage = () => {
       <style>{`
         @media print {
           body {
-            transform: scale(0.7);
+            transform: scale(0.8);
             transform-origin: top left;
-            width: 142.857%;
+            width: 125%; /* 100% / 0.8 to maintain full page width */
+            margin: 0;
+            padding: 0;
           }
-          .no-print {
-            display: none !important;
+          .print-container {
+            max-width: none;
+            margin: 0;
+            padding: 10px;
           }
         }
       `}</style>
       <div className="min-h-screen bg-gray-50 p-4">
-        <div className="w-full max-w-5xl mx-auto">
-          {/* 헤더 및 액션 버튼들 */}
-          <div className="no-print mb-6">
-            <div className="mb-4">
-              <Button 
-                variant="outline" 
-                onClick={() => navigate('/')}
-                className="flex items-center gap-2"
-                size="sm"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                홈으로 돌아가기
-              </Button>
-            </div>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">내부용 견적서</h1>
-                <p className="text-gray-600 mt-1">전체 견적 정보 및 고객 정보</p>
-              </div>
-              <div className="flex gap-3">
-                <Button 
-                  variant="outline" 
-                  onClick={() => navigate('/quotes-summary')}
-                >
-                  뒤로가기
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={handleViewCustomerQuote}
-                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  고객용 견적서
-                </Button>
-                <Button 
-                  onClick={handlePrintPDF}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  PDF 출력
-                </Button>
-              </div>
-            </div>
+        <div className="w-full max-w-4xl mx-auto print-container">
+          <div className="mb-6 print:hidden">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2"
+              size="sm"
+            >
+              <Home className="w-4 h-4" />
+              홈으로 돌아가기
+            </Button>
           </div>
+          
+          <QuoteSummaryHeader 
+            onClearQuotes={clearQuotes}
+            onPrintPDF={handlePrintPDF}
+            onViewCustomerQuote={handleViewCustomerQuote}
+            currentDate={currentDate}
+            quoteNumber={quoteNumber}
+          />
 
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
             <CardContent className="p-8">
-              {/* 내부 관리 정보 */}
-              <div className="no-print mb-8 p-6 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border">
+              {/* 견적 요약 정보 */}
+              <div className="mb-8 relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-primary/5 via-background to-primary/10 shadow-smooth">
+                {/* Decorative Elements */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
+                
+                <div className="relative p-8">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-1.5 h-8 bg-primary rounded-full" />
+                    <h2 className="text-headline text-foreground">견적 요약</h2>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* 견적 기본 정보 */}
+                    <div className="space-y-4">
+                      <div className="bg-card/60 backdrop-blur-sm rounded-xl p-4 border border-border/30 shadow-minimal hover:shadow-smooth transition-all">
+                        <p className="text-caption mb-1">견적번호</p>
+                        <p className="text-title font-bold text-foreground">{quoteNumber}</p>
+                      </div>
+                      <div className="bg-card/60 backdrop-blur-sm rounded-xl p-4 border border-border/30 shadow-minimal hover:shadow-smooth transition-all">
+                        <p className="text-caption mb-1">작성일</p>
+                        <p className="text-title font-semibold text-foreground">{currentDate}</p>
+                      </div>
+                    </div>
+                    
+                    {/* 견적 항목 */}
+                    <div className="bg-card/60 backdrop-blur-sm rounded-xl p-4 border border-border/30 shadow-minimal hover:shadow-smooth transition-all flex flex-col justify-center">
+                      <p className="text-caption mb-2">견적 항목 수</p>
+                      <div className="flex items-baseline gap-2">
+                        <p className="text-4xl font-bold text-primary-dark">{quotes.length}</p>
+                        <p className="text-muted-foreground">개</p>
+                      </div>
+                    </div>
+                    
+                    {/* 금액 정보 */}
+                    <div className="space-y-3 bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-sm rounded-xl p-4 border border-primary/20 shadow-smooth">
+                      <div className="flex justify-between items-center pb-2 border-b border-border/30">
+                        <p className="text-caption">공급가</p>
+                        <p className="font-semibold text-foreground">{subtotal.toLocaleString()}원</p>
+                      </div>
+                      <div className="flex justify-between items-center pb-2 border-b border-border/30">
+                        <p className="text-caption">부가세</p>
+                        <p className="font-semibold text-foreground">{tax.toLocaleString()}원</p>
+                      </div>
+                      <div className="flex justify-between items-center pt-1">
+                        <p className="text-body font-bold text-foreground">최종 금액</p>
+                        <p className="text-xl font-bold text-primary-dark">{totalWithTax.toLocaleString()}원</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 내부 관리 정보 - print 시에만 숨김 */}
+              <div className="print:hidden mb-8 p-6 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border">
                 <h2 className="text-xl font-bold mb-4 text-slate-800">내부 관리 정보</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div><strong>견적번호:</strong> {quoteNumber}</div>
@@ -204,8 +237,9 @@ const InternalQuotePage = () => {
                 </div>
               </div>
 
-              {/* 내부용 견적 목록 */}
-              <div className="no-print mb-8">
+
+              {/* 내부용 견적 목록 - print 시에만 숨김 */}
+              <div className="print:hidden mb-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                   <Calculator className="w-5 h-5" />
                   견적 목록 ({quotes.length}개) - 내부 관리용
