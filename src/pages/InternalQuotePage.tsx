@@ -169,37 +169,35 @@ const InternalQuotePage = () => {
               {/* 회사 정보 섹션 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 {/* 견적서 수신 */}
-                {recipient && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 수신</h3>
-                    
-                    {/* 프로젝트 기본 정보 */}
-                    <div className="p-4 bg-slate-50 rounded-lg">
-                      <h4 className="font-semibold text-slate-800 mb-3">프로젝트 정보</h4>
-                      <div className="space-y-2 text-sm text-slate-700">
-                        <div><strong>프로젝트명:</strong> {recipient.projectName}</div>
-                        <div><strong>견적번호:</strong> {recipient.quoteNumber}</div>
-                        <div><strong>견적일자:</strong> {recipient.quoteDate ? recipient.quoteDate.toLocaleDateString('ko-KR') : currentDate}</div>
-                        <div><strong>유효기간:</strong> {recipient.validUntil}</div>
-                        <div><strong>납기:</strong> {recipient.deliveryPeriod}</div>
-                        <div><strong>지불 조건:</strong> {recipient.paymentCondition}</div>
-                      </div>
-                    </div>
-
-                    {/* 담당자 및 납기 정보 */}
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <h4 className="font-semibold text-slate-800 mb-3">담당자 및 납기 정보</h4>
-                      <div className="space-y-2 text-sm text-slate-700">
-                        <div><strong>회사명:</strong> {recipient.companyName}</div>
-                        <div><strong>담당자:</strong> {recipient.contactPerson}</div>
-                        <div><strong>연락처:</strong> {recipient.phoneNumber}</div>
-                        <div><strong>이메일:</strong> {recipient.email}</div>
-                        <div><strong>납기 희망일:</strong> {recipient.desiredDeliveryDate ? recipient.desiredDeliveryDate.toLocaleDateString('ko-KR') : '-'}</div>
-                        <div><strong>납기현장 주소:</strong> {recipient.deliveryAddress}</div>
-                      </div>
+                <div className="space-y-4">
+                  <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 수신</h3>
+                  
+                  {/* 프로젝트 기본 정보 */}
+                  <div className="p-4 bg-slate-50 rounded-lg">
+                    <h4 className="font-semibold text-slate-800 mb-3">프로젝트 정보</h4>
+                    <div className="space-y-2 text-sm text-slate-700">
+                      <div><strong>프로젝트명:</strong> {recipient?.projectName || '-'}</div>
+                      <div><strong>견적번호:</strong> {recipient?.quoteNumber || quoteNumber}</div>
+                      <div><strong>견적일자:</strong> {recipient?.quoteDate ? recipient.quoteDate.toLocaleDateString('ko-KR') : currentDate}</div>
+                      <div><strong>유효기간:</strong> {recipient?.validUntil || '-'}</div>
+                      <div><strong>납기:</strong> {recipient?.deliveryPeriod || '-'}</div>
+                      <div><strong>지불 조건:</strong> {recipient?.paymentCondition || '-'}</div>
                     </div>
                   </div>
-                )}
+
+                  {/* 담당자 및 납기 정보 */}
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-semibold text-slate-800 mb-3">담당자 및 납기 정보</h4>
+                    <div className="space-y-2 text-sm text-slate-700">
+                      <div><strong>회사명:</strong> {recipient?.companyName || '-'}</div>
+                      <div><strong>담당자:</strong> {recipient?.contactPerson || '-'}</div>
+                      <div><strong>연락처:</strong> {recipient?.phoneNumber || '-'}</div>
+                      <div><strong>이메일:</strong> {recipient?.email || '-'}</div>
+                      <div><strong>납기 희망일:</strong> {recipient?.desiredDeliveryDate ? recipient.desiredDeliveryDate.toLocaleDateString('ko-KR') : '-'}</div>
+                      <div><strong>납기현장 주소:</strong> {recipient?.deliveryAddress || '-'}</div>
+                    </div>
+                  </div>
+                </div>
 
                 {/* 견적서 발신 */}
                 <div className="space-y-4">
