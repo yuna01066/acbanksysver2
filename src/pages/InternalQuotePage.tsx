@@ -101,52 +101,47 @@ const InternalQuotePage = () => {
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
             <CardContent className="p-8">
               {/* 견적 요약 정보 */}
-              <div className="mb-8 relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-primary/5 via-background to-primary/10 shadow-smooth">
-                {/* Decorative Elements */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
-                
-                <div className="relative p-8">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-1.5 h-8 bg-primary rounded-full" />
-                    <h2 className="text-headline text-foreground">견적 요약</h2>
+              <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm">
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
+                    <h2 className="text-lg font-semibold text-gray-900">견적 요약</h2>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* 견적 기본 정보 */}
-                    <div className="space-y-4">
-                      <div className="bg-card/60 backdrop-blur-sm rounded-xl p-4 border border-border/30 shadow-minimal hover:shadow-smooth transition-all">
-                        <p className="text-caption mb-1">견적번호</p>
-                        <p className="text-title font-bold text-foreground">{quoteNumber}</p>
+                    <div className="space-y-3">
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <p className="text-xs text-gray-500 mb-1">견적번호</p>
+                        <p className="text-sm font-semibold text-gray-900">{quoteNumber}</p>
                       </div>
-                      <div className="bg-card/60 backdrop-blur-sm rounded-xl p-4 border border-border/30 shadow-minimal hover:shadow-smooth transition-all">
-                        <p className="text-caption mb-1">작성일</p>
-                        <p className="text-title font-semibold text-foreground">{currentDate}</p>
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <p className="text-xs text-gray-500 mb-1">작성일</p>
+                        <p className="text-sm font-semibold text-gray-900">{currentDate}</p>
                       </div>
                     </div>
                     
                     {/* 견적 항목 */}
-                    <div className="bg-card/60 backdrop-blur-sm rounded-xl p-4 border border-border/30 shadow-minimal hover:shadow-smooth transition-all flex flex-col justify-center">
-                      <p className="text-caption mb-2">견적 항목 수</p>
-                      <div className="flex items-baseline gap-2">
-                        <p className="text-4xl font-bold text-primary-dark">{quotes.length}</p>
-                        <p className="text-muted-foreground">개</p>
+                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 flex flex-col justify-center">
+                      <p className="text-xs text-gray-500 mb-1">견적 항목 수</p>
+                      <div className="flex items-baseline gap-1">
+                        <p className="text-2xl font-bold text-gray-900">{quotes.length}</p>
+                        <p className="text-sm text-gray-500">개</p>
                       </div>
                     </div>
                     
                     {/* 금액 정보 */}
-                    <div className="space-y-3 bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-sm rounded-xl p-4 border border-primary/20 shadow-smooth">
-                      <div className="flex justify-between items-center pb-2 border-b border-border/30">
-                        <p className="text-caption">공급가</p>
-                        <p className="font-semibold text-foreground">{subtotal.toLocaleString()}원</p>
+                    <div className="space-y-2 bg-gray-50 rounded-lg p-3 border border-gray-100">
+                      <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+                        <p className="text-xs text-gray-500">공급가</p>
+                        <p className="text-sm font-semibold text-gray-900">{subtotal.toLocaleString()}원</p>
                       </div>
-                      <div className="flex justify-between items-center pb-2 border-b border-border/30">
-                        <p className="text-caption">부가세</p>
-                        <p className="font-semibold text-foreground">{tax.toLocaleString()}원</p>
+                      <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+                        <p className="text-xs text-gray-500">부가세</p>
+                        <p className="text-sm font-semibold text-gray-900">{tax.toLocaleString()}원</p>
                       </div>
                       <div className="flex justify-between items-center pt-1">
-                        <p className="text-body font-bold text-foreground">최종 금액</p>
-                        <p className="text-xl font-bold text-primary-dark">{totalWithTax.toLocaleString()}원</p>
+                        <p className="text-sm font-semibold text-gray-900">최종 금액</p>
+                        <p className="text-base font-bold text-gray-900">{totalWithTax.toLocaleString()}원</p>
                       </div>
                     </div>
                   </div>
