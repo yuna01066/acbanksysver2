@@ -346,7 +346,7 @@ const CustomerQuotesSummaryPage = () => {
                 <div className="text-sm text-slate-700 space-y-2">
                   <p className="mb-3">견적 관련 문의사항이나 주문을 원하시면 아래 연락처로 문의해주세요.</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <p className="font-semibold bg-white px-3 py-2 rounded-lg">📞 전화: 070-7666-9828</p>
+                    <p className="font-semibold bg-white px-3 py-2 rounded-lg">📞 전화: 070-7537-3680</p>
                     <p className="font-semibold bg-white px-3 py-2 rounded-lg">📧 이메일: acbank@acbank.co.kr</p>
                   </div>
                 </div>
