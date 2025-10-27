@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Calculator } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Package, Scissors, Cpu, Droplet, Sparkles, CheckCircle2 } from "lucide-react";
 
 interface ProcessingOption {
   id: string;
@@ -99,69 +100,133 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   onAdhesionSelect,
   isGlossyStandard
 }) => {
+  const getCategoryIcon = (categoryId: string) => {
+    switch (categoryId) {
+      case 'raw': return Package;
+      case 'cutting': return Scissors;
+      case 'special': return Cpu;
+      case 'adhesion': return Droplet;
+      default: return Sparkles;
+    }
+  };
+
   const categories = [
     { 
       id: 'raw', 
       name: '원판 구매', 
+      description: '가공 없이 원판만 구매',
       options: PROCESSING_OPTIONS.filter(opt => opt.category === 'raw')
     },
     { 
       id: 'cutting', 
-      name: '재단/가공 (상호배타)', 
+      name: '재단/가공', 
+      description: '레이저 및 기본 재단 (택1)',
       options: PROCESSING_OPTIONS.filter(opt => opt.category === 'cutting')
     },
     { 
       id: 'special', 
-      name: 'CNC 가공 (상호배타)', 
+      name: 'CNC 가공', 
+      description: '고정밀 CNC 가공 (택1)',
       options: PROCESSING_OPTIONS.filter(opt => opt.category === 'special')
     },
     { 
       id: 'adhesion', 
-      name: '접착 작업 (상호배타)', 
+      name: '접착 작업', 
+      description: '무기포 및 일반 접착 (택1)',
       options: PROCESSING_OPTIONS.filter(opt => opt.category === 'adhesion')
     }
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="text-center">
-        <h3 className="text-2xl font-bold text-gray-900 mb-2">
-          8. 가공 방법을 선택해주세요
+    <div className="space-y-8 animate-fade-in">
+      <div className="text-center space-y-3">
+        <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+          가공 방법을 선택해주세요
         </h3>
-        <p className="text-gray-600">가공과 접착은 각각 독립적으로 선택 가능합니다 (각 카테고리 내에서는 택1)</p>
+        <p className="text-muted-foreground text-lg">
+          각 카테고리에서 필요한 옵션을 선택하세요
+        </p>
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm">
+          <Sparkles className="w-4 h-4" />
+          <span>가공과 접착은 독립적으로 선택 가능</span>
+        </div>
       </div>
       
-      <div className="space-y-6">
-        {categories.map((category) => {
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {categories.map((category, idx) => {
           const isAdhesion = category.id === 'adhesion';
           const selectedValue = isAdhesion ? selectedAdhesion : selectedProcessing;
           const handleSelect = isAdhesion ? onAdhesionSelect : onProcessingSelect;
+          const CategoryIcon = getCategoryIcon(category.id);
+          const hasSelection = selectedValue && category.options.some(opt => opt.id === selectedValue);
           
           return (
-            <div key={category.id} className="p-6 bg-gray-50 rounded-xl border border-gray-100">
-              <h4 className="text-lg font-semibold mb-4 text-gray-900">{category.name}</h4>
-              <div className="space-y-3">
-                {category.options.map((option) => (
-                  <Button
-                    key={option.id}
-                    variant={selectedValue === option.id ? "default" : "outline"}
-                    className={`w-full p-4 h-auto flex flex-col items-start text-left transition-all duration-200 ${
-                      selectedValue === option.id 
-                        ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800' 
-                        : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-900'
-                    }`}
-                    onClick={() => handleSelect(option.id)}
-                  >
-                    <div className="font-semibold text-base mb-1">{option.name}</div>
-                    <div className="text-sm opacity-80 leading-relaxed">{option.description}</div>
-                  </Button>
-                ))}
+            <Card 
+              key={category.id} 
+              className={`p-6 border-2 transition-all duration-300 hover:shadow-lg animate-fade-in ${
+                hasSelection 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-border hover:border-primary/50'
+              }`}
+              style={{ animationDelay: `${idx * 100}ms` }}
+            >
+              <div className="flex items-start gap-4 mb-5">
+                <div className={`p-3 rounded-xl transition-colors ${
+                  hasSelection ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                }`}>
+                  <CategoryIcon className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-lg font-bold text-foreground">{category.name}</h4>
+                    {hasSelection && (
+                      <CheckCircle2 className="w-5 h-5 text-primary animate-scale-in" />
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">{category.description}</p>
+                </div>
               </div>
-            </div>
+              
+              <div className="space-y-2">
+                {category.options.map((option) => {
+                  const isSelected = selectedValue === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => handleSelect(option.id)}
+                      className={`w-full p-4 rounded-lg text-left transition-all duration-200 border-2 ${
+                        isSelected
+                          ? 'bg-primary text-primary-foreground border-primary shadow-md scale-[1.02]' 
+                          : 'bg-card hover:bg-muted border-border hover:border-primary/30'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`mt-0.5 transition-transform ${isSelected ? 'scale-110' : ''}`}>
+                          {isSelected ? (
+                            <CheckCircle2 className="w-5 h-5" />
+                          ) : (
+                            <div className="w-5 h-5 rounded-full border-2 border-current opacity-30" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className={`font-semibold mb-1 ${isSelected ? '' : 'text-foreground'}`}>
+                            {option.name}
+                          </div>
+                          <div className={`text-sm leading-relaxed ${
+                            isSelected ? 'opacity-90' : 'text-muted-foreground'
+                          }`}>
+                            {option.description}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </Card>
           );
         })}
       </div>
-
     </div>
   );
 };
