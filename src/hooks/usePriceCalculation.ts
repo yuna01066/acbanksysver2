@@ -180,7 +180,7 @@ export const usePriceCalculation = ({
     return selectedQuality.sizes.map(size => getSizeWithDimensions(size));
   };
 
-  // 가격 계산 업데이트
+  // 가격 계산 업데이트 (V2 증분 방식)
   useEffect(() => {
     console.log('Price calculation triggered with:', {
       factory: selectedFactory,
@@ -196,6 +196,40 @@ export const usePriceCalculation = ({
 
     if (selectedMaterial && selectedQuality && selectedThickness && selectedSize && selectedFactory === 'jangwon') {
       const surface = selectedSurface || '단면';
+      
+      // V2 옵션 구성: 새로운 프로필 사용
+      let processing: any = 'none';
+      let adhesion: any = 'none';
+      let inquiryType: 'with-processing' | 'raw-only' = 'with-processing';
+
+      // processingType 매핑
+      if (selectedProcessing === 'raw-only') {
+        inquiryType = 'raw-only';
+        processing = 'none';
+      } else if (selectedProcessing === 'auto') {
+        processing = 'auto';
+      } else if (selectedProcessing === 'simple-cutting') {
+        processing = 'simple-cutting';
+      } else if (selectedProcessing === 'laser-simple') {
+        processing = 'laser-simple';
+      } else if (selectedProcessing === 'laser-complex') {
+        processing = 'laser-complex';
+      } else if (selectedProcessing === 'cnc-simple') {
+        processing = 'cnc-simple';
+      } else if (selectedProcessing === 'cnc-complex') {
+        processing = 'cnc-complex';
+      } else if (selectedProcessing === 'bond-normal') {
+        adhesion = 'bond-normal';
+      } else if (selectedProcessing === 'bond-mugipo-auto') {
+        adhesion = 'auto';
+      } else if (selectedProcessing === 'bond-mugipo-45') {
+        adhesion = 'bond-mugipo-45';
+      } else if (selectedProcessing === 'bond-mugipo-90') {
+        adhesion = 'bond-mugipo-90';
+      } else if (selectedProcessing === 'none') {
+        processing = 'none';
+      }
+
       const result = calculatePrice(
         selectedMaterial.id,
         selectedQuality.id,
@@ -204,7 +238,15 @@ export const usePriceCalculation = ({
         surface,
         selectedColorType || undefined,
         selectedProcessing || undefined,
-        colorMixingCost
+        colorMixingCost,
+        {
+          inquiryType,
+          processing,
+          adhesion,
+          qty: 1,
+          isComplex: false,
+          edgeRequested: false,
+        }
       );
       
       console.log('Price calculation result:', result);

@@ -272,6 +272,24 @@ export const calculateProcessingCost = (
   };
 };
 
+// V2: 증분 방식 가격 계산 (문의 배수는 자재비에만, 가공/접착은 증분으로)
+export interface CalculatePriceV2Options {
+  inquiryType?: 'with-processing' | 'raw-only';  // 문의 유형
+  processing?: ProcessingProfile;                 // 가공 프로필
+  adhesion?: AdhesionProfile;                     // 접착 프로필
+  qty?: number;                                   // 수량
+  isComplex?: boolean;                            // 복잡도
+  edgeRequested?: boolean;                        // 엣지 요청
+  bevelLengthM?: number;                          // 베벨 길이
+  bevelFeePerM?: number;                          // 베벨 단가
+  laserHoles?: number;                            // 타공 개수
+  holeFee?: number;                               // 타공 단가
+  corners90?: number;                             // 90도 코너 개수
+  useDetailedBond?: boolean;                      // 상세 접착 계산
+  joinLengthM?: number;                           // 접착선 길이
+  trayHeightMm?: number;                          // 트레이 높이
+}
+
 export const calculatePrice = (
   materialId: string,
   qualityId: string,
@@ -280,7 +298,8 @@ export const calculatePrice = (
   surface: string,
   colorType?: string,
   processingType?: string,
-  colorMixingCost: number = 0
+  colorMixingCost: number = 0,
+  options?: CalculatePriceV2Options
 ): { totalPrice: number; breakdown: { label: string; price: number }[] } => {
   const breakdown: { label: string; price: number }[] = [];
   
@@ -291,7 +310,7 @@ export const calculatePrice = (
   // 사이즈에서 실제 키 추출 (예: "소3*6 (850*1750)" -> "소3*6")
   const sizeKey = size.split(' ')[0];
 
-  // 기본 단면 가격 가져오기
+  // 1) 기본 단면 가격 가져오기 (원자재 비용)
   let basePrice = 0;
   
   if (qualityId === 'glossy-color') {
@@ -328,9 +347,7 @@ export const calculatePrice = (
     }
   }
 
-  let totalPrice = basePrice;
-
-  // 양면 추가금액
+  // 2) 양면 추가금액 (자재비에 포함)
   if (surface === '양면') {
     let doubleSidePrice = 0;
     
@@ -345,19 +362,72 @@ export const calculatePrice = (
       breakdown.push({ label: '양면 테이프 추가금액', price: doubleSidePrice });
     }
     
-    totalPrice += doubleSidePrice;
+    basePrice += doubleSidePrice;
   }
 
-  // 조색비 추가 (파라미터로 전달받은 값 사용)
+  // 3) 조색비 추가 (자재비에 포함)
   if (colorMixingCost > 0) {
     breakdown.push({ label: '조색비', price: colorMixingCost });
-    totalPrice += colorMixingCost;
+    basePrice += colorMixingCost;
   }
 
-  // 가공비 계산
-  if (processingType && processingType !== 'raw-only') {
-    const inquiryType: 'raw-only' | 'with-processing' = 'with-processing';
-    const processingCost = calculateProcessingCost(totalPrice, thickness, processingType, inquiryType);
+  // 4) 문의 배수 적용 (자재비에만!)
+  let materialCost = basePrice;
+  const inquiryType = options?.inquiryType || (processingType === 'raw-only' ? 'raw-only' : 'with-processing');
+  
+  if (inquiryType === 'raw-only') {
+    const inquiryDelta = basePrice * 0.3; // ×1.3 → 증분 +30%
+    breakdown.push({ label: '원장 단독 구매 할증 (×1.3)', price: inquiryDelta });
+    materialCost += inquiryDelta;
+  } else {
+    const inquiryDelta = basePrice * 0.2; // ×1.2 → 증분 +20%
+    breakdown.push({ label: '가공 포함 문의 할증 (×1.2)', price: inquiryDelta });
+    materialCost += inquiryDelta;
+  }
+
+  let totalPrice = materialCost;
+
+  // 5) 새로운 V2 방식: 가공/접착 증분 계산
+  if (options && (options.processing || options.adhesion)) {
+    const processing = options.processing || 'none';
+    const adhesion = options.adhesion || 'none';
+    
+    const deltaResult = calcProcessingDelta(
+      materialCost,
+      thickness,
+      processing,
+      adhesion,
+      {
+        qty: options.qty,
+        isComplex: options.isComplex,
+        edgeRequested: options.edgeRequested,
+        bevelLengthM: options.bevelLengthM,
+        bevelFeePerM: options.bevelFeePerM,
+        laserHoles: options.laserHoles,
+        holeFee: options.holeFee,
+        corners90: options.corners90,
+        useDetailedBond: options.useDetailedBond,
+        joinLengthM: options.joinLengthM,
+        trayHeightMm: options.trayHeightMm,
+      }
+    );
+
+    // 증분 비용 추가
+    totalPrice += deltaResult.procCost;
+    
+    // breakdown에 상세 설명 추가
+    deltaResult.descriptions.forEach(desc => {
+      breakdown.push({ label: desc, price: 0 }); // 개별 항목은 설명만, 총액은 아래에
+    });
+    
+    if (deltaResult.procCost > 0) {
+      breakdown.push({ label: '가공/접착 총 증분', price: deltaResult.procCost });
+    }
+  } 
+  // 6) 레거시 방식 (processingType이 문자열로 전달된 경우)
+  else if (processingType && processingType !== 'raw-only') {
+    const inquiryTypeOld: 'raw-only' | 'with-processing' = 'with-processing';
+    const processingCost = calculateProcessingCost(totalPrice, thickness, processingType, inquiryTypeOld);
     
     // 기본 계수 적용
     if (processingCost.baseMultiplier !== 1) {
@@ -371,14 +441,6 @@ export const calculatePrice = (
       breakdown.push({ label: `${processingCost.description} 추가비용`, price: processingCost.additionalCost });
       totalPrice += processingCost.additionalCost;
     }
-  } else if (processingType === 'raw-only') {
-    // 원장 단독 구매
-    const inquiryType: 'raw-only' | 'with-processing' = 'raw-only';
-    const processingCost = calculateProcessingCost(totalPrice, thickness, processingType, inquiryType);
-    
-    const multiplierCost = totalPrice * (processingCost.baseMultiplier - 1);
-    breakdown.push({ label: processingCost.description, price: multiplierCost });
-    totalPrice *= processingCost.baseMultiplier;
   }
 
   return { totalPrice, breakdown };
