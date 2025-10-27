@@ -7,7 +7,7 @@ interface ProcessingOption {
   id: string;
   name: string;
   description: string;
-  category: 'raw' | 'cutting' | 'special' | 'adhesion';
+  category: 'raw' | 'processing' | 'adhesion';
 }
 
 const PROCESSING_OPTIONS: ProcessingOption[] = [
@@ -18,40 +18,46 @@ const PROCESSING_OPTIONS: ProcessingOption[] = [
     category: 'raw' 
   },
   { 
+    id: 'none', 
+    name: '가공 없음', 
+    description: '자재비에만 기본 문의 배수 적용 (×1.2)', 
+    category: 'raw' 
+  },
+  { 
     id: 'auto', 
     name: '자동 선택 (권장)', 
     description: '두께와 복잡도에 따라 최적 가공 방식 자동 선택 (10T 미만: 레이저, 10T 이상: CNC)', 
-    category: 'cutting' 
+    category: 'processing' 
   },
   { 
     id: 'simple-cutting', 
     name: '단순 재단', 
     description: '기본 직선 재단 (10T 미만: 자재비 증분 +20%, 10T 이상: +80%)', 
-    category: 'cutting' 
+    category: 'processing' 
   },
   { 
     id: 'laser-simple', 
     name: '레이저 단순 가공', 
     description: '10T 미만 적합, 단순 모양 레이저 커팅 (배수 1.7 × 두께계수)', 
-    category: 'cutting' 
+    category: 'processing' 
   },
   { 
     id: 'laser-complex', 
     name: '레이저 복합 가공', 
     description: '10T 미만 적합, 복잡한 모양 레이저 커팅 (배수 2.0 × 두께계수)', 
-    category: 'cutting' 
+    category: 'processing' 
   },
   { 
     id: 'cnc-simple', 
     name: 'CNC 단순 가공', 
     description: '10T 이상 적합, 단순 CNC 가공 (배수 1.8 × 두께계수)', 
-    category: 'special' 
+    category: 'processing' 
   },
   { 
     id: 'cnc-complex', 
     name: 'CNC 복합 가공', 
     description: '10T 이상 적합, 복잡한 CNC 가공 (배수 2.5 × 두께계수)', 
-    category: 'special' 
+    category: 'processing' 
   },
   { 
     id: 'bond-normal', 
@@ -76,12 +82,6 @@ const PROCESSING_OPTIONS: ProcessingOption[] = [
     name: '무기포 접착 90°', 
     description: '90° 무기포 접착, 레이저/엣지 포함 + 인건비 프리미엄 (배수 2.3 × 1.12)', 
     category: 'adhesion' 
-  },
-  { 
-    id: 'none', 
-    name: '가공 없음', 
-    description: '자재비에만 기본 문의 배수 적용 (×1.2)', 
-    category: 'raw' 
   }
 ];
 
@@ -103,8 +103,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   const getCategoryIcon = (categoryId: string) => {
     switch (categoryId) {
       case 'raw': return Package;
-      case 'cutting': return Scissors;
-      case 'special': return Cpu;
+      case 'processing': return Scissors;
       case 'adhesion': return Droplet;
       default: return Sparkles;
     }
@@ -114,25 +113,19 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     { 
       id: 'raw', 
       name: '원판 구매', 
-      description: '가공 없이 원판만 구매',
+      description: '가공 없이 원판만 구매하거나 기본 문의',
       options: PROCESSING_OPTIONS.filter(opt => opt.category === 'raw')
     },
     { 
-      id: 'cutting', 
-      name: '재단/가공', 
-      description: '레이저 및 기본 재단 (택1)',
-      options: PROCESSING_OPTIONS.filter(opt => opt.category === 'cutting')
-    },
-    { 
-      id: 'special', 
-      name: 'CNC 가공', 
-      description: '고정밀 CNC 가공 (택1)',
-      options: PROCESSING_OPTIONS.filter(opt => opt.category === 'special')
+      id: 'processing', 
+      name: '가공 방식', 
+      description: '레이저, CNC 등 가공 방법 선택 (택1)',
+      options: PROCESSING_OPTIONS.filter(opt => opt.category === 'processing')
     },
     { 
       id: 'adhesion', 
       name: '접착 작업', 
-      description: '무기포 및 일반 접착 (택1)',
+      description: '무기포 및 일반 접착 선택 (택1)',
       options: PROCESSING_OPTIONS.filter(opt => opt.category === 'adhesion')
     }
   ];
@@ -152,7 +145,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {categories.map((category, idx) => {
           const isAdhesion = category.id === 'adhesion';
           const selectedValue = isAdhesion ? selectedAdhesion : selectedProcessing;
