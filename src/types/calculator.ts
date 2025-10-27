@@ -105,3 +105,20 @@ export const SURFACE_OPTIONS = [
   { id: 'single', name: '단면' },
   { id: 'double', name: '양면' }
 ];
+
+// 새로운 가공 프로필 타입
+export type ProcessingProfile =
+  | 'auto'
+  | 'simple-cutting'
+  | 'laser-simple'
+  | 'laser-complex'
+  | 'cnc-simple'
+  | 'cnc-complex'
+  | 'none';
+
+export type AdhesionProfile =
+  | 'auto'
+  | 'bond-normal'
+  | 'bond-mugipo-45'
+  | 'bond-mugipo-90'
+  | 'none';
