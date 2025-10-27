@@ -14,6 +14,7 @@ interface SelectionSummaryProps {
   selectedSurface: string;
   colorMixingCost: number;
   selectedProcessing: string;
+  selectedAdhesion: string;
   processingOptions: { id: string; name: string }[];
   factories?: { id: string; name: string }[];
 }
@@ -29,6 +30,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
   selectedSurface,
   colorMixingCost,
   selectedProcessing,
+  selectedAdhesion,
   processingOptions,
   factories
 }) => {
@@ -212,6 +214,19 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
     const processingName = processingOptions.find(p => p.id === selectedProcessing)?.name;
     if (processingName) {
       selections.push({ label: '가공', value: processingName });
+    }
+  }
+
+  if (selectedAdhesion) {
+    const adhesionOptions = [
+      { id: 'bond-normal', name: '일반 접착' },
+      { id: 'bond-mugipo-auto', name: '무기포 접착 (자동)' },
+      { id: 'bond-mugipo-45', name: '무기포 접착 45°' },
+      { id: 'bond-mugipo-90', name: '무기포 접착 90°' }
+    ];
+    const adhesionName = adhesionOptions.find(a => a.id === selectedAdhesion)?.name;
+    if (adhesionName) {
+      selections.push({ label: '접착', value: adhesionName });
     }
   }
 

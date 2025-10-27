@@ -72,6 +72,7 @@ const PanelCalculator = () => {
   const [selectedSurface, setSelectedSurface] = useState<string>('');
   const [colorMixingCost, setColorMixingCost] = useState<number>(20000);
   const [selectedProcessing, setSelectedProcessing] = useState<string>('');
+  const [selectedAdhesion, setSelectedAdhesion] = useState<string>('');
   const [serialNumber, setSerialNumber] = useState<string>('');
   const [selectedFilm, setSelectedFilm] = useState<string>('');
   const [selectedBaseType, setSelectedBaseType] = useState<string>(''); // 필름 아크릴 기본 재질 (Clear/Bright/Astel)
@@ -87,7 +88,8 @@ const PanelCalculator = () => {
     selectedColorType,
     selectedSurface,
     colorMixingCost,
-    selectedProcessing
+    selectedProcessing,
+    selectedAdhesion
   });
 
   // 이전 단계로 돌아가기 버튼
@@ -103,6 +105,7 @@ const PanelCalculator = () => {
       setSelectedSurface('');
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedAdhesion('');
       setCurrentStep(0);
     } else if (step <= 1) {
       setSelectedMaterial(null);
@@ -115,6 +118,7 @@ const PanelCalculator = () => {
       setSelectedSurface('');
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedAdhesion('');
       setCurrentStep(1);
     } else if (step <= 2) {
       setSelectedQuality(null);
@@ -126,6 +130,7 @@ const PanelCalculator = () => {
       setSelectedSurface('');
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedAdhesion('');
       setCurrentStep(2);
     } else if (step <= 3) {
       setSelectedColor('');
@@ -137,6 +142,7 @@ const PanelCalculator = () => {
       setSelectedSurface('');
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedAdhesion('');
       setCurrentStep(3);
     } else if (step <= 4) {
       setSelectedThickness('');
@@ -145,6 +151,7 @@ const PanelCalculator = () => {
       setSelectedSurface('');
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedAdhesion('');
       setCurrentStep(4);
     } else if (step <= 5) {
       setSelectedSize('');
@@ -152,18 +159,22 @@ const PanelCalculator = () => {
       setSelectedSurface('');
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedAdhesion('');
       setCurrentStep(5);
     } else if (step <= 6) {
       setSelectedSurface('');
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedAdhesion('');
       setCurrentStep(6);
     } else if (step <= 7) {
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedAdhesion('');
       setCurrentStep(7);
     } else if (step <= 8) {
       setSelectedProcessing('');
+      setSelectedAdhesion('');
       setCurrentStep(8);
     }
   };
@@ -239,6 +250,11 @@ const PanelCalculator = () => {
     console.log('Processing selected:', processingId);
     setSelectedProcessing(processingId);
   };
+
+  const handleAdhesionSelect = (adhesionId: string) => {
+    console.log('Adhesion selected:', adhesionId);
+    setSelectedAdhesion(adhesionId);
+  };
   const handleNextStepFromColorMixing = () => {
     // 필름 아크릴의 경우 필름 선택 단계로 이동
     if (selectedQuality?.id === 'film-acrylic') {
@@ -292,6 +308,7 @@ const PanelCalculator = () => {
     setSelectedSurface('');
     setColorMixingCost(20000);
     setSelectedProcessing('');
+    setSelectedAdhesion('');
     setSerialNumber('');
     setSelectedFilm('');
     setSelectedBaseType('');
@@ -362,7 +379,7 @@ const PanelCalculator = () => {
               <StepIndicator currentStep={currentStep + 1} maxSteps={maxSteps} />
           
           {/* 선택된 옵션 요약 - Step 0에서는 숨김 */}
-          {currentStep > 0 && <SelectionSummary selectedFactory="jangwon" selectedMaterial={selectedMaterial} selectedQuality={selectedQuality} selectedColor={selectedColor} selectedThickness={selectedThickness} selectedSize={selectedSize} selectedColorType={selectedColorType} selectedSurface={selectedSurface} colorMixingCost={colorMixingCost} selectedProcessing={selectedProcessing} processingOptions={PROCESSING_OPTIONS} factories={[{
+          {currentStep > 0 && <SelectionSummary selectedFactory="jangwon" selectedMaterial={selectedMaterial} selectedQuality={selectedQuality} selectedColor={selectedColor} selectedThickness={selectedThickness} selectedSize={selectedSize} selectedColorType={selectedColorType} selectedSurface={selectedSurface} colorMixingCost={colorMixingCost} selectedProcessing={selectedProcessing} selectedAdhesion={selectedAdhesion} processingOptions={PROCESSING_OPTIONS} factories={[{
             id: 'jangwon',
             name: '장원'
           }]} />}
@@ -450,15 +467,17 @@ const PanelCalculator = () => {
           {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic') || 
             (currentStep === 9 && selectedQuality?.id === 'film-acrylic')) && (
             <ProcessingOptions 
-              selectedProcessing={selectedProcessing} 
-              onProcessingSelect={handleProcessingSelect} 
+              selectedProcessing={selectedProcessing}
+              selectedAdhesion={selectedAdhesion}
+              onProcessingSelect={handleProcessingSelect}
+              onAdhesionSelect={handleAdhesionSelect}
               isGlossyStandard={selectedQuality?.id === 'glossy-standard'} 
             />
           )}
 
           {/* 시리얼 넘버 입력 */}
-          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && selectedProcessing) ||
-            (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && selectedProcessing)) && (
+          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && (selectedProcessing || selectedAdhesion)) ||
+            (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && (selectedProcessing || selectedAdhesion))) && (
             <>
               <Separator className="my-8" />
               <div className="space-y-4">
@@ -480,8 +499,8 @@ const PanelCalculator = () => {
           )}
 
           {/* 견적 추가 버튼 */}
-          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && selectedProcessing && priceInfo.totalPrice > 0) ||
-            (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && selectedProcessing && priceInfo.totalPrice > 0)) && (
+          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && (selectedProcessing || selectedAdhesion) && priceInfo.totalPrice > 0) ||
+            (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && (selectedProcessing || selectedAdhesion) && priceInfo.totalPrice > 0)) && (
             <>
               <Separator className="my-8" />
               <div className="flex justify-center gap-4">

@@ -86,13 +86,17 @@ const PROCESSING_OPTIONS: ProcessingOption[] = [
 
 interface ProcessingOptionsProps {
   selectedProcessing: string;
+  selectedAdhesion: string;
   onProcessingSelect: (processingId: string) => void;
+  onAdhesionSelect: (adhesionId: string) => void;
   isGlossyStandard: boolean;
 }
 
 const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   selectedProcessing,
+  selectedAdhesion,
   onProcessingSelect,
+  onAdhesionSelect,
   isGlossyStandard
 }) => {
   const categories = [
@@ -124,32 +128,38 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         <h3 className="text-2xl font-bold text-gray-900 mb-2">
           8. 가공 방법을 선택해주세요
         </h3>
-        <p className="text-gray-600">필요한 가공 방식을 선택하여 정확한 견적을 받아보세요</p>
+        <p className="text-gray-600">가공과 접착은 각각 독립적으로 선택 가능합니다 (각 카테고리 내에서는 택1)</p>
       </div>
       
       <div className="space-y-6">
-        {categories.map((category) => (
-          <div key={category.id} className="p-6 bg-gray-50 rounded-xl border border-gray-100">
-            <h4 className="text-lg font-semibold mb-4 text-gray-900">{category.name}</h4>
-            <div className="space-y-3">
-              {category.options.map((option) => (
-                <Button
-                  key={option.id}
-                  variant={selectedProcessing === option.id ? "default" : "outline"}
-                  className={`w-full p-4 h-auto flex flex-col items-start text-left transition-all duration-200 ${
-                    selectedProcessing === option.id 
-                      ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800' 
-                      : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-900'
-                  }`}
-                  onClick={() => onProcessingSelect(option.id)}
-                >
-                  <div className="font-semibold text-base mb-1">{option.name}</div>
-                  <div className="text-sm opacity-80 leading-relaxed">{option.description}</div>
-                </Button>
-              ))}
+        {categories.map((category) => {
+          const isAdhesion = category.id === 'adhesion';
+          const selectedValue = isAdhesion ? selectedAdhesion : selectedProcessing;
+          const handleSelect = isAdhesion ? onAdhesionSelect : onProcessingSelect;
+          
+          return (
+            <div key={category.id} className="p-6 bg-gray-50 rounded-xl border border-gray-100">
+              <h4 className="text-lg font-semibold mb-4 text-gray-900">{category.name}</h4>
+              <div className="space-y-3">
+                {category.options.map((option) => (
+                  <Button
+                    key={option.id}
+                    variant={selectedValue === option.id ? "default" : "outline"}
+                    className={`w-full p-4 h-auto flex flex-col items-start text-left transition-all duration-200 ${
+                      selectedValue === option.id 
+                        ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800' 
+                        : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-900'
+                    }`}
+                    onClick={() => handleSelect(option.id)}
+                  >
+                    <div className="font-semibold text-base mb-1">{option.name}</div>
+                    <div className="text-sm opacity-80 leading-relaxed">{option.description}</div>
+                  </Button>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
     </div>

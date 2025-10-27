@@ -21,6 +21,7 @@ interface UsePriceCalculationProps {
   selectedSurface: string;
   colorMixingCost: number;
   selectedProcessing: string;
+  selectedAdhesion: string;
 }
 
 export const usePriceCalculation = ({
@@ -32,7 +33,8 @@ export const usePriceCalculation = ({
   selectedColorType,
   selectedSurface,
   colorMixingCost,
-  selectedProcessing
+  selectedProcessing,
+  selectedAdhesion
 }: UsePriceCalculationProps) => {
   const [priceInfo, setPriceInfo] = useState<{ totalPrice: number; breakdown: { label: string; price: number }[] }>({
     totalPrice: 0,
@@ -191,7 +193,8 @@ export const usePriceCalculation = ({
       colorType: selectedColorType,
       surface: selectedSurface,
       colorMixingCost: colorMixingCost,
-      processing: selectedProcessing
+      processing: selectedProcessing,
+      adhesion: selectedAdhesion
     });
 
     if (selectedMaterial && selectedQuality && selectedThickness && selectedSize && selectedFactory === 'jangwon') {
@@ -202,7 +205,7 @@ export const usePriceCalculation = ({
       let adhesion: any = 'none';
       let inquiryType: 'with-processing' | 'raw-only' = 'with-processing';
 
-      // processingType 매핑
+      // selectedProcessing 매핑 (가공 카테고리)
       if (selectedProcessing === 'raw-only') {
         inquiryType = 'raw-only';
         processing = 'none';
@@ -218,16 +221,21 @@ export const usePriceCalculation = ({
         processing = 'cnc-simple';
       } else if (selectedProcessing === 'cnc-complex') {
         processing = 'cnc-complex';
-      } else if (selectedProcessing === 'bond-normal') {
-        adhesion = 'bond-normal';
-      } else if (selectedProcessing === 'bond-mugipo-auto') {
-        adhesion = 'auto';
-      } else if (selectedProcessing === 'bond-mugipo-45') {
-        adhesion = 'bond-mugipo-45';
-      } else if (selectedProcessing === 'bond-mugipo-90') {
-        adhesion = 'bond-mugipo-90';
       } else if (selectedProcessing === 'none') {
         processing = 'none';
+      }
+
+      // selectedAdhesion 매핑 (접착 카테고리)
+      if (selectedAdhesion === 'bond-normal') {
+        adhesion = 'bond-normal';
+      } else if (selectedAdhesion === 'bond-mugipo-auto') {
+        adhesion = 'auto';
+      } else if (selectedAdhesion === 'bond-mugipo-45') {
+        adhesion = 'bond-mugipo-45';
+      } else if (selectedAdhesion === 'bond-mugipo-90') {
+        adhesion = 'bond-mugipo-90';
+      } else if (selectedAdhesion === 'none') {
+        adhesion = 'none';
       }
 
       const result = calculatePrice(
@@ -255,7 +263,7 @@ export const usePriceCalculation = ({
       console.log('Price calculation skipped - missing required fields or not Jangwon factory');
       setPriceInfo({ totalPrice: 0, breakdown: [] });
     }
-  }, [selectedFactory, selectedMaterial, selectedQuality, selectedThickness, selectedSize, selectedColorType, selectedSurface, colorMixingCost, selectedProcessing]);
+  }, [selectedFactory, selectedMaterial, selectedQuality, selectedThickness, selectedSize, selectedColorType, selectedSurface, colorMixingCost, selectedProcessing, selectedAdhesion]);
 
   return {
     priceInfo,
