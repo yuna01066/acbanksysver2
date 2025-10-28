@@ -224,6 +224,8 @@ export const usePriceCalculation = ({
       let inquiryType: 'with-processing' | 'raw-only' = 'with-processing';
 
       // selectedProcessing 매핑 (가공 카테고리)
+      let edgeRequested = false;
+      
       if (selectedProcessing === 'raw-only') {
         inquiryType = 'raw-only';
         processing = 'none';
@@ -231,6 +233,9 @@ export const usePriceCalculation = ({
         processing = 'auto';
       } else if (selectedProcessing === 'simple-cutting') {
         processing = 'simple-cutting';
+      } else if (selectedProcessing === 'edge-finishing') {
+        processing = 'none'; // 엣지는 별도 플래그로 처리
+        edgeRequested = true;
       } else if (selectedProcessing === 'laser-simple') {
         processing = 'laser-simple';
       } else if (selectedProcessing === 'laser-complex') {
@@ -271,7 +276,7 @@ export const usePriceCalculation = ({
           adhesion,
           qty,
           isComplex,
-          edgeRequested: false,
+          edgeRequested,
           bevelLengthM,
           bevelFeePerM: bevelLengthM > 0 ? 3000 : undefined, // 3,000원/m
           laserHoles,
