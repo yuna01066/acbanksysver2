@@ -23,6 +23,7 @@ import { useQuotes } from "@/contexts/QuoteContext";
 import { usePriceCalculation } from "@/hooks/usePriceCalculation";
 import { Input } from "@/components/ui/input";
 import YieldCalculator from "./YieldCalculator";
+import AdvancedProcessingOptions from "./AdvancedProcessingOptions";
 const PROCESSING_OPTIONS = [{
   id: 'raw-only',
   name: '원판 단독 구매'
@@ -76,6 +77,17 @@ const PanelCalculator = () => {
   const [serialNumber, setSerialNumber] = useState<string>('');
   const [selectedFilm, setSelectedFilm] = useState<string>('');
   const [selectedBaseType, setSelectedBaseType] = useState<string>(''); // 필름 아크릴 기본 재질 (Clear/Bright/Astel)
+  
+  // 고급 옵션 상태
+  const [qty, setQty] = useState<number>(1);
+  const [isComplex, setIsComplex] = useState<boolean>(false);
+  const [bevelLengthM, setBevelLengthM] = useState<number>(0);
+  const [laserHoles, setLaserHoles] = useState<number>(0);
+  const [corners90, setCorners90] = useState<number>(0);
+  const [useDetailedBond, setUseDetailedBond] = useState<boolean>(false);
+  const [joinLengthM, setJoinLengthM] = useState<number>(0);
+  const [trayHeightMm, setTrayHeightMm] = useState<number | undefined>(undefined);
+  
   const {
     priceInfo,
     getAvailableSizes
@@ -89,7 +101,16 @@ const PanelCalculator = () => {
     selectedSurface,
     colorMixingCost,
     selectedProcessing,
-    selectedAdhesion
+    selectedAdhesion,
+    // V2 고급 옵션
+    qty,
+    isComplex,
+    bevelLengthM,
+    laserHoles,
+    corners90,
+    useDetailedBond,
+    joinLengthM,
+    trayHeightMm
   });
 
   // 이전 단계로 돌아가기 버튼
@@ -466,13 +487,37 @@ const PanelCalculator = () => {
           {/* Step 8 또는 9: 가공 선택 */}
           {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic') || 
             (currentStep === 9 && selectedQuality?.id === 'film-acrylic')) && (
-            <ProcessingOptions 
-              selectedProcessing={selectedProcessing}
-              selectedAdhesion={selectedAdhesion}
-              onProcessingSelect={handleProcessingSelect}
-              onAdhesionSelect={handleAdhesionSelect}
-              isGlossyStandard={selectedQuality?.id === 'glossy-standard'} 
-            />
+            <>
+              <ProcessingOptions 
+                selectedProcessing={selectedProcessing}
+                selectedAdhesion={selectedAdhesion}
+                onProcessingSelect={handleProcessingSelect}
+                onAdhesionSelect={handleAdhesionSelect}
+                isGlossyStandard={selectedQuality?.id === 'glossy-standard'} 
+              />
+              
+              {/* 고급 옵션 */}
+              {(selectedProcessing || selectedAdhesion) && (
+                <AdvancedProcessingOptions 
+                  qty={qty}
+                  onQtyChange={setQty}
+                  isComplex={isComplex}
+                  onComplexChange={setIsComplex}
+                  bevelLengthM={bevelLengthM}
+                  onBevelLengthChange={setBevelLengthM}
+                  laserHoles={laserHoles}
+                  onLaserHolesChange={setLaserHoles}
+                  corners90={corners90}
+                  onCorners90Change={setCorners90}
+                  useDetailedBond={useDetailedBond}
+                  onDetailedBondChange={setUseDetailedBond}
+                  joinLengthM={joinLengthM}
+                  onJoinLengthChange={setJoinLengthM}
+                  trayHeightMm={trayHeightMm}
+                  onTrayHeightChange={setTrayHeightMm}
+                />
+              )}
+            </>
           )}
 
           {/* 시리얼 넘버 입력 */}

@@ -22,6 +22,15 @@ interface UsePriceCalculationProps {
   colorMixingCost: number;
   selectedProcessing: string;
   selectedAdhesion: string;
+  // V2 고급 옵션
+  qty?: number;
+  isComplex?: boolean;
+  bevelLengthM?: number;
+  laserHoles?: number;
+  corners90?: number;
+  useDetailedBond?: boolean;
+  joinLengthM?: number;
+  trayHeightMm?: number;
 }
 
 export const usePriceCalculation = ({
@@ -34,7 +43,16 @@ export const usePriceCalculation = ({
   selectedSurface,
   colorMixingCost,
   selectedProcessing,
-  selectedAdhesion
+  selectedAdhesion,
+  // V2 고급 옵션
+  qty = 1,
+  isComplex = false,
+  bevelLengthM = 0,
+  laserHoles = 0,
+  corners90 = 0,
+  useDetailedBond = false,
+  joinLengthM = 0,
+  trayHeightMm
 }: UsePriceCalculationProps) => {
   const [priceInfo, setPriceInfo] = useState<{ totalPrice: number; breakdown: { label: string; price: number }[] }>({
     totalPrice: 0,
@@ -251,9 +269,17 @@ export const usePriceCalculation = ({
           inquiryType,
           processing,
           adhesion,
-          qty: 1,
-          isComplex: false,
+          qty,
+          isComplex,
           edgeRequested: false,
+          bevelLengthM,
+          bevelFeePerM: bevelLengthM > 0 ? 3000 : undefined, // 3,000원/m
+          laserHoles,
+          holeFee: laserHoles > 0 ? 500 : undefined, // 500원/개
+          corners90,
+          useDetailedBond,
+          joinLengthM,
+          trayHeightMm,
         }
       );
       
@@ -263,7 +289,26 @@ export const usePriceCalculation = ({
       console.log('Price calculation skipped - missing required fields or not Jangwon factory');
       setPriceInfo({ totalPrice: 0, breakdown: [] });
     }
-  }, [selectedFactory, selectedMaterial, selectedQuality, selectedThickness, selectedSize, selectedColorType, selectedSurface, colorMixingCost, selectedProcessing, selectedAdhesion]);
+  }, [
+    selectedFactory, 
+    selectedMaterial, 
+    selectedQuality, 
+    selectedThickness, 
+    selectedSize, 
+    selectedColorType, 
+    selectedSurface, 
+    colorMixingCost, 
+    selectedProcessing, 
+    selectedAdhesion,
+    qty,
+    isComplex,
+    bevelLengthM,
+    laserHoles,
+    corners90,
+    useDetailedBond,
+    joinLengthM,
+    trayHeightMm
+  ]);
 
   return {
     priceInfo,
