@@ -157,7 +157,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
           가공 방법 및 수량을 선택해주세요
         </h3>
         <p className="text-muted-foreground text-lg">
-          수량과 복잡도를 먼저 설정하고, 각 카테고리에서 필요한 옵션을 선택하세요
+          수량과 가공 카테고리를 먼저 설정하고, 구체적인 옵션을 선택하세요
         </p>
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm">
           <Sparkles className="w-4 h-4" />
@@ -165,65 +165,115 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         </div>
       </div>
 
-      {/* 수량 및 복잡도 선택 섹션 */}
+      {/* 수량 및 가공 카테고리 선택 섹션 */}
       <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Settings className="w-5 h-5 text-primary" />
-            수량 및 복잡도 설정
+            수량 및 가공 카테고리 설정
             <Badge variant="secondary" className="ml-auto">필수</Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="qty" className="text-sm font-semibold flex items-center gap-2">
-                <Package className="w-4 h-4 text-primary" />
-                수량 (EA)
-              </Label>
-              <Input
-                id="qty"
-                type="number"
-                min="1"
-                value={qty}
-                onChange={(e) => onQtyChange?.(parseInt(e.target.value) || 1)}
-                className="text-lg font-medium h-12"
-                placeholder="수량을 입력하세요"
-              />
-              <p className="text-xs text-muted-foreground">
-                여러 장을 제작하는 경우 수량을 입력하세요
-              </p>
-            </div>
+        <CardContent className="space-y-6">
+          {/* 수량 입력 */}
+          <div className="space-y-2">
+            <Label htmlFor="qty" className="text-sm font-semibold flex items-center gap-2">
+              <Package className="w-4 h-4 text-primary" />
+              수량 (EA)
+            </Label>
+            <Input
+              id="qty"
+              type="number"
+              min="1"
+              value={qty}
+              onChange={(e) => onQtyChange?.(parseInt(e.target.value) || 1)}
+              className="text-lg font-medium h-12 max-w-xs"
+              placeholder="수량을 입력하세요"
+            />
+            <p className="text-xs text-muted-foreground">
+              여러 장을 제작하는 경우 수량을 입력하세요
+            </p>
+          </div>
 
-            <div className="flex items-center justify-center">
-              <div className="p-5 bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg border-2 border-border/50 hover:border-primary/30 transition-colors w-full">
-                <div className="flex items-start space-x-4">
-                  <Checkbox
-                    id="isComplex"
-                    checked={isComplex}
-                    onCheckedChange={(checked) => onComplexChange?.(checked as boolean)}
-                    className="mt-1"
-                  />
-                  <div className="flex-1 space-y-2">
-                    <Label
-                      htmlFor="isComplex"
-                      className="text-base font-semibold cursor-pointer flex items-center gap-2"
-                    >
-                      <Cpu className="w-5 h-5 text-primary" />
-                      복잡한 모양 가공
-                      {isComplex && (
-                        <Badge variant="default" className="ml-2">
-                          선택됨
-                        </Badge>
-                      )}
-                    </Label>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      슬릿, 다공, 복잡한 형상 등의 고급 가공이 필요한 경우 선택하세요.
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      선택 시 레이저 complex 또는 CNC complex 가공으로 자동 분류됩니다.
-                    </p>
-                  </div>
+          <Separator />
+
+          {/* 가공 카테고리 선택 */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">가공 카테고리 (중복 선택 가능)</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* 원판구매 */}
+              <div className="p-4 bg-background/80 rounded-lg border-2 border-border/50 hover:border-primary/30 transition-colors">
+                <div className="flex items-center gap-3 mb-2">
+                  <Package className="w-5 h-5 text-primary" />
+                  <span className="font-semibold">원판구매</span>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  가공 없이 원판만 구매 또는 기본 문의
+                </p>
+                <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                  하단 "원판 구매" 카테고리에서 선택
+                </div>
+              </div>
+
+              {/* 재단 */}
+              <div 
+                className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                  !isComplex 
+                    ? 'bg-primary/10 border-primary' 
+                    : 'bg-background/80 border-border/50 hover:border-primary/30'
+                }`}
+                onClick={() => onComplexChange?.(false)}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <Scissors className="w-5 h-5 text-primary" />
+                  <span className="font-semibold">재단</span>
+                  {!isComplex && (
+                    <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  단순 재단 또는 기본 가공
+                </p>
+                <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                  하단 "가공 방식"에서 구체적 방법 선택
+                </div>
+              </div>
+
+              {/* 복잡한 모양 가공 */}
+              <div 
+                className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                  isComplex 
+                    ? 'bg-primary/10 border-primary' 
+                    : 'bg-background/80 border-border/50 hover:border-primary/30'
+                }`}
+                onClick={() => onComplexChange?.(true)}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <Cpu className="w-5 h-5 text-primary" />
+                  <span className="font-semibold">복잡한 모양 가공</span>
+                  {isComplex && (
+                    <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  슬릿, 다공, 복잡한 형상 등 고급 가공
+                </p>
+                <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                  레이저 complex 또는 CNC complex 자동 분류
+                </div>
+              </div>
+
+              {/* 접착 가공 */}
+              <div className="p-4 bg-background/80 rounded-lg border-2 border-border/50 hover:border-primary/30 transition-colors">
+                <div className="flex items-center gap-3 mb-2">
+                  <Droplet className="w-5 h-5 text-primary" />
+                  <span className="font-semibold">접착 가공</span>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  무기포 접착 및 일반 접착 작업
+                </p>
+                <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                  하단 "접착 작업" 카테고리에서 선택
                 </div>
               </div>
             </div>
