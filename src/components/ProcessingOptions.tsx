@@ -101,7 +101,6 @@ interface ProcessingOptionsProps {
   selectedAdhesion: string;
   onProcessingSelect: (processingId: string) => void;
   onAdhesionSelect: (adhesionId: string) => void;
-  onNext?: () => void;
   isGlossyStandard: boolean;
   // 수량 및 복잡도 관련 props 추가
   qty?: number;
@@ -115,7 +114,6 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   selectedAdhesion,
   onProcessingSelect,
   onAdhesionSelect,
-  onNext,
   isGlossyStandard,
   qty = 1,
   onQtyChange,
@@ -427,20 +425,6 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
               );
             })}
           </div>
-        </div>
-      )}
-      
-      {/* 다음 단계 버튼 */}
-      {(selectedProcessing || selectedAdhesion) && onNext && (
-        <div className="flex justify-center pt-6">
-          <Button 
-            size="lg"
-            onClick={onNext}
-            className="min-w-[300px] text-lg font-semibold"
-          >
-            다음 단계로
-            <CheckCircle2 className="w-5 h-5 ml-2" />
-          </Button>
         </div>
       )}
     </div>
