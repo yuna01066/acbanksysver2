@@ -586,8 +586,8 @@ const PanelCalculator = () => {
           )}
 
           {/* 견적 추가 버튼 및 시리얼 넘버 */}
-          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && (selectedProcessing || selectedAdhesion) && priceInfo.totalPrice > 0) ||
-            (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && (selectedProcessing || selectedAdhesion) && priceInfo.totalPrice > 0)) && (
+          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && (selectedProcessing || selectedAdhesion) && selectedSizes.length > 0) ||
+            (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && (selectedProcessing || selectedAdhesion) && selectedSizes.length > 0)) && (
             <>
               <Separator className="my-8" />
               <div className="space-y-6">
