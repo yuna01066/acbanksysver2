@@ -17,6 +17,8 @@ interface PanelSizeInfo {
 export interface SizeQuantitySelection {
   size: string;
   quantity: number;
+  surface?: string; // 단면/양면
+  colorMixingCost?: number; // 조색비
 }
 
 interface MultipleSizeSelectionProps {

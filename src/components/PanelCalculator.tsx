@@ -16,6 +16,8 @@ import QualitySelection from "./QualitySelection";
 import ThicknessSelection from "./ThicknessSelection";
 import SizeSelection from "./SizeSelection";
 import MultipleSizeSelection, { SizeQuantitySelection } from "./MultipleSizeSelection";
+import MultipleSurfaceSelection from "./MultipleSurfaceSelection";
+import MultipleColorMixingStep from "./MultipleColorMixingStep";
 import SurfaceSelection from "./SurfaceSelection";
 import ColorSelection from "./ColorSelection";
 import FilmColorSelection from "./FilmColorSelection";
@@ -273,6 +275,11 @@ const PanelCalculator = () => {
     resetFromStep(7);
     setCurrentStep(7);
   };
+
+  const handleNextFromMultipleSurface = () => {
+    resetFromStep(7);
+    setCurrentStep(7);
+  };
   const handleColorMixingAdd = () => {
     setColorMixingCost(prev => {
       const newCost = prev + 10000;
@@ -297,6 +304,11 @@ const PanelCalculator = () => {
     setSelectedAdhesion(adhesionId);
   };
   const handleNextStepFromColorMixing = () => {
+    // 수량 및 복잡도 선택 단계로 이동
+    setCurrentStep(8);
+  };
+
+  const handleNextFromMultipleColorMixing = () => {
     // 수량 및 복잡도 선택 단계로 이동
     setCurrentStep(8);
   };
@@ -489,25 +501,27 @@ const PanelCalculator = () => {
             />
           )}
 
-          {/* Step 6: 면수 선택 */}
-          {currentStep === 6 && selectedSizes.length > 0 && <SurfaceSelection 
-            selectedSurface={selectedSurface} 
-            onSurfaceSelect={handleSurfaceSelect} 
-            isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
-            // 브라이트와 아스텔은 무조건 단면
-            forceSingle={selectedColor === 'A002' || selectedColor === 'A003'} 
-          />}
+          {/* Step 6: 면수 선택 (각 판재별) */}
+          {currentStep === 6 && selectedSizes.length > 0 && (
+            <MultipleSurfaceSelection 
+              selectedSizes={selectedSizes}
+              onSelectionChange={setSelectedSizes}
+              onNext={handleNextFromMultipleSurface}
+              isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
+              forceSingle={selectedColor === 'A002' || selectedColor === 'A003'} 
+            />
+          )}
 
-          {/* Step 7: 조색비 추가 */}
-          {currentStep === 7 && selectedSurface && <ColorMixingStep 
-            colorMixingCost={colorMixingCost} 
-            onColorMixingAdd={handleColorMixingAdd} 
-            onColorMixingRemove={handleColorMixingRemove} 
-            onNextStep={handleNextStepFromColorMixing} 
-            isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
-            // 필름 아크릴의 경우 조색비 조절 불가
-            isFilmAcrylic={selectedQuality?.id === 'film-acrylic'}
-          />}
+          {/* Step 7: 조색비 추가 (각 판재별) */}
+          {currentStep === 7 && selectedSizes.length > 0 && (
+            <MultipleColorMixingStep 
+              selectedSizes={selectedSizes}
+              onSelectionChange={setSelectedSizes}
+              onNext={handleNextFromMultipleColorMixing}
+              isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
+              isFilmAcrylic={selectedQuality?.id === 'film-acrylic'}
+            />
+          )}
 
           {/* Step 8: 수량 및 복잡도 선택 */}
           {currentStep === 8 && (
