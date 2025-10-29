@@ -322,22 +322,33 @@ const PanelCalculator = () => {
     setCurrentStep(9); // 가공 선택 단계로 이동 (수량 포함)
   };
   const handleAddQuote = () => {
-    if (!selectedMaterial || !selectedQuality || !selectedThickness || !selectedSize || !selectedSurface) {
+    // 다중 선택 방식으로 검증 수정
+    if (!selectedMaterial || !selectedQuality || !selectedThickness || selectedSizes.length === 0) {
       alert('모든 필수 항목을 선택해주세요.');
       return;
     }
+
+    // 각 사이즈별로 면수가 선택되었는지 확인
+    const allSizesHaveSurface = selectedSizes.every(s => s.surface);
+    if (!allSizesHaveSurface) {
+      alert('모든 판재의 면수를 선택해주세요.');
+      return;
+    }
+
     const processingName = PROCESSING_OPTIONS.find(p => p.id === selectedProcessing)?.name || '';
+    
+    // 다중 선택된 사이즈를 하나의 견적으로 처리 (총 가격은 priceInfo.totalPrice)
     const quoteData = {
       factory: 'jangwon',
       material: selectedMaterial.name,
       quality: selectedQuality.name,
       thickness: selectedThickness,
-      size: selectedSize,
+      size: selectedSizes.map(s => `${s.size} (${s.quantity}개)`).join(', '),
       colorType: selectedColorType,
       selectedColor: selectedColor,
       selectedColorHex: selectedColorHex,
-      surface: selectedSurface,
-      colorMixingCost: colorMixingCost,
+      surface: selectedSizes.map(s => `${s.size}: ${s.surface}`).join(', '),
+      colorMixingCost: selectedSizes.reduce((sum, s) => sum + (s.colorMixingCost || 0), 0),
       processing: selectedProcessing,
       processingName: processingName,
       totalPrice: priceInfo.totalPrice,
@@ -356,6 +367,7 @@ const PanelCalculator = () => {
     setSelectedColorHex('');
     setSelectedThickness('');
     setSelectedSize('');
+    setSelectedSizes([]);
     setSelectedColorType('');
     setSelectedSurface('');
     setColorMixingCost(20000);
