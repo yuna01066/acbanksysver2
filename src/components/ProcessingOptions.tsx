@@ -120,6 +120,9 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   isComplex = false,
   onComplexChange
 }) => {
+  // 상단 카테고리 선택에 따라 표시할 카테고리 결정
+  const [selectedCategory, setSelectedCategory] = React.useState<'raw' | 'processing' | 'complex' | 'adhesion' | null>(null);
+
   const getCategoryIcon = (categoryId: string) => {
     switch (categoryId) {
       case 'raw': return Package;
@@ -129,7 +132,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     }
   };
 
-  const categories = [
+  const allCategories = [
     { 
       id: 'raw', 
       name: '원판 구매', 
@@ -149,6 +152,21 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
       options: PROCESSING_OPTIONS.filter(opt => opt.category === 'adhesion')
     }
   ];
+
+  // 선택된 카테고리에 따라 표시할 카테고리 필터링
+  const categories = React.useMemo(() => {
+    if (!selectedCategory) return [];
+    
+    if (selectedCategory === 'raw') {
+      return allCategories.filter(cat => cat.id === 'raw');
+    } else if (selectedCategory === 'processing' || selectedCategory === 'complex') {
+      return allCategories.filter(cat => cat.id === 'processing');
+    } else if (selectedCategory === 'adhesion') {
+      return allCategories.filter(cat => cat.id === 'adhesion');
+    }
+    
+    return [];
+  }, [selectedCategory]);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -177,10 +195,24 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* 원판구매 */}
-            <div className="p-4 bg-background/80 rounded-lg border-2 border-border/50 hover:border-primary/30 transition-colors">
+            <div 
+              className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                selectedCategory === 'raw' 
+                  ? 'bg-primary/10 border-primary' 
+                  : 'bg-background/80 border-border/50 hover:border-primary/30'
+              }`}
+              onClick={() => {
+                setSelectedCategory('raw');
+                onProcessingSelect('');
+                onAdhesionSelect('');
+              }}
+            >
               <div className="flex items-center gap-3 mb-2">
                 <Package className="w-5 h-5 text-primary" />
                 <span className="font-semibold text-sm">원판구매</span>
+                {selectedCategory === 'raw' && (
+                  <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
+                )}
               </div>
               <p className="text-xs text-muted-foreground mb-3">
                 가공 없이 원판만 구매 또는 기본 문의
@@ -193,16 +225,20 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
             {/* 재단 */}
             <div 
               className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
-                !isComplex 
+                selectedCategory === 'processing'
                   ? 'bg-primary/10 border-primary' 
                   : 'bg-background/80 border-border/50 hover:border-primary/30'
               }`}
-              onClick={() => onComplexChange?.(false)}
+              onClick={() => {
+                setSelectedCategory('processing');
+                onComplexChange?.(false);
+                onAdhesionSelect('');
+              }}
             >
               <div className="flex items-center gap-3 mb-2">
                 <Scissors className="w-5 h-5 text-primary" />
                 <span className="font-semibold text-sm">재단</span>
-                {!isComplex && (
+                {selectedCategory === 'processing' && (
                   <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
                 )}
               </div>
@@ -217,16 +253,20 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
             {/* 복잡한 모양 가공 */}
             <div 
               className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
-                isComplex 
+                selectedCategory === 'complex' 
                   ? 'bg-primary/10 border-primary' 
                   : 'bg-background/80 border-border/50 hover:border-primary/30'
               }`}
-              onClick={() => onComplexChange?.(true)}
+              onClick={() => {
+                setSelectedCategory('complex');
+                onComplexChange?.(true);
+                onAdhesionSelect('');
+              }}
             >
               <div className="flex items-center gap-3 mb-2">
                 <Cpu className="w-5 h-5 text-primary" />
                 <span className="font-semibold text-sm">복잡한 모양 가공</span>
-                {isComplex && (
+                {selectedCategory === 'complex' && (
                   <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
                 )}
               </div>
@@ -239,10 +279,23 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
             </div>
 
             {/* 접착 가공 */}
-            <div className="p-4 bg-background/80 rounded-lg border-2 border-border/50 hover:border-primary/30 transition-colors">
+            <div 
+              className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                selectedCategory === 'adhesion' 
+                  ? 'bg-primary/10 border-primary' 
+                  : 'bg-background/80 border-border/50 hover:border-primary/30'
+              }`}
+              onClick={() => {
+                setSelectedCategory('adhesion');
+                onProcessingSelect('');
+              }}
+            >
               <div className="flex items-center gap-3 mb-2">
                 <Droplet className="w-5 h-5 text-primary" />
                 <span className="font-semibold text-sm">접착 가공</span>
+                {selectedCategory === 'adhesion' && (
+                  <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
+                )}
               </div>
               <p className="text-xs text-muted-foreground mb-3">
                 무기포 접착 및 일반 접착 작업
