@@ -431,10 +431,30 @@ const PanelCalculator = () => {
               <StepIndicator currentStep={currentStep + 1} maxSteps={maxSteps} />
           
           {/* 선택된 옵션 요약 - Step 0에서는 숨김 */}
-          {currentStep > 0 && <SelectionSummary selectedFactory="jangwon" selectedMaterial={selectedMaterial} selectedQuality={selectedQuality} selectedColor={selectedColor} selectedThickness={selectedThickness} selectedSize={selectedSize} selectedColorType={selectedColorType} selectedSurface={selectedSurface} colorMixingCost={colorMixingCost} selectedProcessing={selectedProcessing} selectedAdhesion={selectedAdhesion} processingOptions={PROCESSING_OPTIONS} factories={[{
-            id: 'jangwon',
-            name: '장원'
-          }]} />}
+          {currentStep > 0 && <SelectionSummary 
+            selectedFactory="jangwon" 
+            selectedMaterial={selectedMaterial} 
+            selectedQuality={selectedQuality} 
+            selectedColor={selectedColor} 
+            selectedThickness={selectedThickness} 
+            selectedSize={selectedSize}
+            selectedSizes={selectedSizes}
+            selectedColorType={selectedColorType} 
+            selectedSurface={selectedSurface} 
+            colorMixingCost={colorMixingCost} 
+            selectedProcessing={selectedProcessing} 
+            selectedAdhesion={selectedAdhesion} 
+            processingOptions={PROCESSING_OPTIONS} 
+            basePrice={priceInfo.breakdown.find(b => 
+              b.label.includes('기본가') || 
+              b.label.includes('색상판') || 
+              b.label.includes('보급판')
+            )?.price}
+            factories={[{
+              id: 'jangwon',
+              name: '장원'
+            }]} 
+          />}
           
           {/* Step 0: 계산기 유형 선택 */}
           {currentStep === 0 && <>
