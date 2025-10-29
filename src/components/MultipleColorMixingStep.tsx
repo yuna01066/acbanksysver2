@@ -20,6 +20,19 @@ const MultipleColorMixingStep: React.FC<MultipleColorMixingStepProps> = ({
   isGlossyStandard = false,
   isFilmAcrylic = false,
 }) => {
+  // 초기 렌더링 시 조색비가 없는 항목에 기본값 설정
+  React.useEffect(() => {
+    const needsInit = selectedSizes.some(item => item.colorMixingCost === undefined);
+    if (needsInit) {
+      onSelectionChange(
+        selectedSizes.map(item => ({
+          ...item,
+          colorMixingCost: item.colorMixingCost ?? 20000
+        }))
+      );
+    }
+  }, []);
+
   const handleColorMixingChange = (size: string, delta: number) => {
     onSelectionChange(
       selectedSizes.map(item => {

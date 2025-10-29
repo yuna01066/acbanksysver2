@@ -82,8 +82,13 @@ const MultipleSizeSelection: React.FC<MultipleSizeSelectionProps> = ({
       // 이미 선택된 경우 제거
       onSelectionChange(selectedSizes.filter(s => s.size !== size));
     } else {
-      // 새로 추가 (기본 수량 1)
-      onSelectionChange([...selectedSizes, { size, quantity: 1 }]);
+      // 새로 추가 (기본 수량 1, 조색비 20000원)
+      onSelectionChange([...selectedSizes, { 
+        size, 
+        quantity: 1,
+        surface: undefined,
+        colorMixingCost: 20000
+      }]);
     }
   };
 
