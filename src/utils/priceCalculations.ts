@@ -602,8 +602,8 @@ export const calculatePrice = (
   const inquiryType = options?.inquiryType || (processingType === 'raw-only' ? 'raw-only' : 'with-processing');
   
   if (inquiryType === 'raw-only') {
-    const inquiryDelta = basePrice * 0.3; // ×1.3 → 증분 +30%
-    breakdown.push({ label: '원장 단독 구매 할증 (×1.3)', price: inquiryDelta });
+    const inquiryDelta = basePrice * 0.8; // ×1.8 → 증분 +80%
+    breakdown.push({ label: '원장 단독 구매 할증 (×1.8)', price: inquiryDelta });
     materialCost += inquiryDelta;
   } else {
     const inquiryDelta = basePrice * 0.2; // ×1.2 → 증분 +20%
