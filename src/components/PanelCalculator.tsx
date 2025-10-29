@@ -100,6 +100,7 @@ const PanelCalculator = () => {
     selectedQuality,
     selectedThickness,
     selectedSize,
+    selectedSizes, // 다중 선택 지원
     selectedColorType,
     selectedSurface,
     colorMixingCost,

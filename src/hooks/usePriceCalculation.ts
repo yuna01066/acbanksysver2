@@ -11,12 +11,20 @@ import {
   satinColorSinglePrices
 } from "@/data/glossyColorPricing";
 
+interface SizeQuantitySelection {
+  size: string;
+  quantity: number;
+  surface?: string;
+  colorMixingCost?: number;
+}
+
 interface UsePriceCalculationProps {
   selectedFactory: string;
   selectedMaterial: Material | null;
   selectedQuality: Quality | null;
   selectedThickness: string;
   selectedSize: string;
+  selectedSizes?: SizeQuantitySelection[]; // 다중 선택 지원
   selectedColorType: string;
   selectedSurface: string;
   colorMixingCost: number;
@@ -39,6 +47,7 @@ export const usePriceCalculation = ({
   selectedQuality,
   selectedThickness,
   selectedSize,
+  selectedSizes,
   selectedColorType,
   selectedSurface,
   colorMixingCost,
@@ -208,6 +217,7 @@ export const usePriceCalculation = ({
       quality: selectedQuality?.id,
       thickness: selectedThickness,
       size: selectedSize,
+      selectedSizes: selectedSizes,
       colorType: selectedColorType,
       surface: selectedSurface,
       colorMixingCost: colorMixingCost,
@@ -215,15 +225,110 @@ export const usePriceCalculation = ({
       adhesion: selectedAdhesion
     });
 
-    if (selectedMaterial && selectedQuality && selectedThickness && selectedSize && selectedFactory === 'jangwon') {
+    // 다중 선택된 사이즈가 있는 경우
+    if (selectedMaterial && selectedQuality && selectedThickness && selectedSizes && selectedSizes.length > 0 && selectedFactory === 'jangwon') {
+      let totalPrice = 0;
+      let allBreakdown: { label: string; price: number }[] = [];
+
+      // 각 사이즈별로 가격 계산
+      selectedSizes.forEach((sizeSelection, index) => {
+        const surface = sizeSelection.surface || '단면';
+        const sizeColorMixingCost = sizeSelection.colorMixingCost || 0;
+        
+        // 사이즈 문자열에서 실제 사이즈 부분만 추출 (예: "4*8 (1200*2400)" -> "4*8")
+        const sizeMatch = sizeSelection.size.match(/^([^\(]+)/);
+        const actualSize = sizeMatch ? sizeMatch[1].trim() : sizeSelection.size;
+
+        // V2 옵션 구성: 새로운 프로필 사용
+        let processing: any = 'none';
+        let adhesion: any = 'none';
+        let inquiryType: 'with-processing' | 'raw-only' = 'with-processing';
+
+        // selectedProcessing 매핑 (가공 카테고리)
+        let edgeRequested = false;
+        
+        if (selectedProcessing === 'raw-only') {
+          inquiryType = 'raw-only';
+          processing = 'none';
+        } else if (selectedProcessing === 'auto') {
+          processing = 'auto';
+        } else if (selectedProcessing === 'simple-cutting') {
+          processing = 'simple-cutting';
+        } else if (selectedProcessing === 'edge-finishing') {
+          processing = 'none';
+          edgeRequested = true;
+        } else if (selectedProcessing === 'laser-simple') {
+          processing = 'laser-simple';
+        } else if (selectedProcessing === 'laser-complex') {
+          processing = 'laser-complex';
+        } else if (selectedProcessing === 'cnc-simple') {
+          processing = 'cnc-simple';
+        } else if (selectedProcessing === 'cnc-complex') {
+          processing = 'cnc-complex';
+        } else if (selectedProcessing === 'none') {
+          processing = 'none';
+        }
+
+        // selectedAdhesion 매핑 (접착 카테고리)
+        if (selectedAdhesion === 'bond-normal') {
+          adhesion = 'bond-normal';
+        } else if (selectedAdhesion === 'bond-mugipo-auto') {
+          adhesion = 'auto';
+        } else if (selectedAdhesion === 'bond-mugipo-45') {
+          adhesion = 'bond-mugipo-45';
+        } else if (selectedAdhesion === 'bond-mugipo-90') {
+          adhesion = 'bond-mugipo-90';
+        } else if (selectedAdhesion === 'none') {
+          adhesion = 'none';
+        }
+
+        const result = calculatePrice(
+          selectedMaterial.id,
+          selectedQuality.id,
+          selectedThickness,
+          actualSize,
+          surface,
+          selectedColorType || undefined,
+          selectedProcessing || undefined,
+          sizeColorMixingCost,
+          {
+            inquiryType,
+            processing,
+            adhesion,
+            qty: sizeSelection.quantity,
+            isComplex,
+            edgeRequested,
+            bevelLengthM,
+            bevelFeePerM: bevelLengthM > 0 ? 3000 : undefined,
+            laserHoles,
+            holeFee: laserHoles > 0 ? 500 : undefined,
+            corners90,
+            useDetailedBond,
+            joinLengthM,
+            trayHeightMm,
+          }
+        );
+
+        // 개별 breakdown에 사이즈 정보 추가
+        const labeledBreakdown = result.breakdown.map(item => ({
+          label: `[${actualSize} #${index + 1}] ${item.label}`,
+          price: item.price
+        }));
+
+        allBreakdown.push(...labeledBreakdown);
+        totalPrice += result.totalPrice;
+      });
+
+      console.log('Multi-size price calculation result:', { totalPrice, breakdown: allBreakdown });
+      setPriceInfo({ totalPrice, breakdown: allBreakdown });
+    }
+    // 단일 선택된 사이즈가 있는 경우 (하위 호환성)
+    else if (selectedMaterial && selectedQuality && selectedThickness && selectedSize && selectedFactory === 'jangwon') {
       const surface = selectedSurface || '단면';
       
-      // V2 옵션 구성: 새로운 프로필 사용
       let processing: any = 'none';
       let adhesion: any = 'none';
       let inquiryType: 'with-processing' | 'raw-only' = 'with-processing';
-
-      // selectedProcessing 매핑 (가공 카테고리)
       let edgeRequested = false;
       
       if (selectedProcessing === 'raw-only') {
@@ -234,7 +339,7 @@ export const usePriceCalculation = ({
       } else if (selectedProcessing === 'simple-cutting') {
         processing = 'simple-cutting';
       } else if (selectedProcessing === 'edge-finishing') {
-        processing = 'none'; // 엣지는 별도 플래그로 처리
+        processing = 'none';
         edgeRequested = true;
       } else if (selectedProcessing === 'laser-simple') {
         processing = 'laser-simple';
@@ -248,7 +353,6 @@ export const usePriceCalculation = ({
         processing = 'none';
       }
 
-      // selectedAdhesion 매핑 (접착 카테고리)
       if (selectedAdhesion === 'bond-normal') {
         adhesion = 'bond-normal';
       } else if (selectedAdhesion === 'bond-mugipo-auto') {
@@ -278,9 +382,9 @@ export const usePriceCalculation = ({
           isComplex,
           edgeRequested,
           bevelLengthM,
-          bevelFeePerM: bevelLengthM > 0 ? 3000 : undefined, // 3,000원/m
+          bevelFeePerM: bevelLengthM > 0 ? 3000 : undefined,
           laserHoles,
-          holeFee: laserHoles > 0 ? 500 : undefined, // 500원/개
+          holeFee: laserHoles > 0 ? 500 : undefined,
           corners90,
           useDetailedBond,
           joinLengthM,
@@ -288,7 +392,7 @@ export const usePriceCalculation = ({
         }
       );
       
-      console.log('Price calculation result:', result);
+      console.log('Single-size price calculation result:', result);
       setPriceInfo(result);
     } else {
       console.log('Price calculation skipped - missing required fields or not Jangwon factory');
@@ -299,7 +403,8 @@ export const usePriceCalculation = ({
     selectedMaterial, 
     selectedQuality, 
     selectedThickness, 
-    selectedSize, 
+    selectedSize,
+    selectedSizes,
     selectedColorType, 
     selectedSurface, 
     colorMixingCost, 
