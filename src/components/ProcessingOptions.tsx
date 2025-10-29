@@ -19,13 +19,7 @@ const PROCESSING_OPTIONS: ProcessingOption[] = [
   { 
     id: 'raw-only', 
     name: '원판 단독 구매', 
-    description: '가공 없이 원판만 구매 (자재비에만 ×1.3 적용)', 
-    category: 'raw' 
-  },
-  { 
-    id: 'none', 
-    name: '가공 없음', 
-    description: '자재비에만 기본 문의 배수 적용 (×1.2)', 
+    description: '가공 없이 원판만 구매 (자재비에만 ×1.8 적용)', 
     category: 'raw' 
   },
   { 
