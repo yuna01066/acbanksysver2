@@ -162,7 +162,8 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     } else if (selectedCategory === 'processing' || selectedCategory === 'complex') {
       return allCategories.filter(cat => cat.id === 'processing');
     } else if (selectedCategory === 'adhesion') {
-      return allCategories.filter(cat => cat.id === 'adhesion');
+      // 접착 가공은 가공 방식 + 접착 작업 둘 다 필요
+      return allCategories.filter(cat => cat.id === 'processing' || cat.id === 'adhesion');
     }
     
     return [];
