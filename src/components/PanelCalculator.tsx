@@ -554,6 +554,13 @@ const PanelCalculator = () => {
                 selectedAdhesion={selectedAdhesion}
                 onProcessingSelect={handleProcessingSelect}
                 onAdhesionSelect={handleAdhesionSelect}
+                onNext={() => {
+                  // 다음 섹션(시리얼 넘버)로 부드럽게 스크롤
+                  setTimeout(() => {
+                    const element = document.querySelector('[data-section="client-memo"]');
+                    element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 100);
+                }}
                 isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
                 qty={qty}
                 onQtyChange={setQty}
@@ -590,7 +597,7 @@ const PanelCalculator = () => {
             (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && (selectedProcessing || selectedAdhesion))) && (
             <>
               <Separator className="my-8" />
-              <div className="space-y-4">
+              <div className="space-y-4" data-section="client-memo">
                 <h3 className="text-lg font-semibold text-gray-900">클라이언트 메모 (선택사항)</h3>
                 <p className="text-sm text-gray-600">
                   클라이언트의 요청사항이나 참고할 내용을 입력해주세요.
