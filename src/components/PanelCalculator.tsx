@@ -541,9 +541,9 @@ const PanelCalculator = () => {
                 onComplexChange={setIsComplex}
               />
               
-              {/* 고급 옵션 */}
-              {(selectedProcessing || selectedAdhesion) && (
-                <AdvancedProcessingOptions 
+              {/* 고급 옵션 - 무기포 접착 시에만 표시 */}
+              {(selectedAdhesion && selectedAdhesion.startsWith('bond-mugipo')) && (
+                <AdvancedProcessingOptions
                   qty={qty}
                   onQtyChange={setQty}
                   isComplex={isComplex}
