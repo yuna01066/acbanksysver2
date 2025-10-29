@@ -585,39 +585,34 @@ const PanelCalculator = () => {
             </>
           )}
 
-          {/* 시리얼 넘버 입력 */}
-          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && (selectedProcessing || selectedAdhesion)) ||
-            (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && (selectedProcessing || selectedAdhesion))) && (
-            <>
-              <Separator className="my-8" />
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">클라이언트 메모 (선택사항)</h3>
-                <p className="text-sm text-gray-600">
-                  클라이언트의 요청사항이나 참고할 내용을 입력해주세요.
-                </p>
-                <div className="max-w-md">
-                  <Input 
-                    type="text" 
-                    placeholder="요청사항을 입력해주세요" 
-                    value={serialNumber} 
-                    onChange={e => setSerialNumber(e.target.value)} 
-                    className="w-full" 
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* 견적 추가 버튼 */}
+          {/* 견적 추가 버튼 및 시리얼 넘버 */}
           {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && (selectedProcessing || selectedAdhesion) && priceInfo.totalPrice > 0) ||
             (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && (selectedProcessing || selectedAdhesion) && priceInfo.totalPrice > 0)) && (
             <>
               <Separator className="my-8" />
-              <div className="flex justify-center gap-4">
-                <Button onClick={handleAddQuote} size="lg" className="px-8 animate-fade-up">
-                  <Plus className="w-5 h-5" />
-                  견적 추가
-                </Button>
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">클라이언트 메모 (선택사항)</h3>
+                  <p className="text-sm text-gray-600">
+                    클라이언트의 요청사항이나 참고할 내용을 입력해주세요.
+                  </p>
+                  <div className="max-w-md">
+                    <Input 
+                      type="text" 
+                      placeholder="요청사항을 입력해주세요" 
+                      value={serialNumber} 
+                      onChange={e => setSerialNumber(e.target.value)} 
+                      className="w-full" 
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex justify-center gap-4 pt-4">
+                  <Button onClick={handleAddQuote} size="lg" className="px-8 animate-fade-up">
+                    <Plus className="w-5 h-5" />
+                    견적 추가
+                  </Button>
+                </div>
               </div>
             </>
           )}
