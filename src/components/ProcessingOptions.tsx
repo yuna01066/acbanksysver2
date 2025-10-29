@@ -150,6 +150,14 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     }
   ];
 
+  // 원판구매 선택 여부 확인
+  const isRawOnlySelected = selectedProcessing === 'raw-only' || selectedProcessing === 'none';
+  
+  // 원판구매가 선택된 경우 해당 카테고리만 표시
+  const visibleCategories = isRawOnlySelected 
+    ? categories.filter(cat => cat.id === 'raw')
+    : categories;
+
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="text-center space-y-3">
@@ -177,88 +185,109 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* 원판구매 */}
-            <div className="p-4 bg-background/80 rounded-lg border-2 border-border/50 hover:border-primary/30 transition-colors">
+            <div 
+              className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                isRawOnlySelected
+                  ? 'bg-primary/10 border-primary' 
+                  : 'bg-background/80 border-border/50 hover:border-primary/30'
+              }`}
+              onClick={() => {
+                // 원판구매 카테고리 선택 시 'none' 자동 선택
+                onProcessingSelect('none');
+                // 접착도 초기화
+                onAdhesionSelect('');
+              }}
+            >
               <div className="flex items-center gap-3 mb-2">
                 <Package className="w-5 h-5 text-primary" />
                 <span className="font-semibold text-sm">원판구매</span>
+                {isRawOnlySelected && (
+                  <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
+                )}
               </div>
               <p className="text-xs text-muted-foreground mb-3">
                 가공 없이 원판만 구매 또는 기본 문의
               </p>
               <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                하단 "원판 구매" 카테고리에서 선택
+                {isRawOnlySelected ? '선택됨 - 하단에서 구체적 옵션 선택' : '클릭하여 원판구매 모드로 전환'}
               </div>
             </div>
 
-            {/* 재단 */}
-            <div 
-              className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
-                !isComplex 
-                  ? 'bg-primary/10 border-primary' 
-                  : 'bg-background/80 border-border/50 hover:border-primary/30'
-              }`}
-              onClick={() => onComplexChange?.(false)}
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <Scissors className="w-5 h-5 text-primary" />
-                <span className="font-semibold text-sm">재단</span>
-                {!isComplex && (
-                  <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
-                )}
+            {/* 재단 - 원판구매가 선택되지 않은 경우만 표시 */}
+            {!isRawOnlySelected && (
+              <div 
+                className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                  !isComplex 
+                    ? 'bg-primary/10 border-primary' 
+                    : 'bg-background/80 border-border/50 hover:border-primary/30'
+                }`}
+                onClick={() => onComplexChange?.(false)}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <Scissors className="w-5 h-5 text-primary" />
+                  <span className="font-semibold text-sm">재단</span>
+                  {!isComplex && (
+                    <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  단순 재단 또는 기본 가공
+                </p>
+                <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                  하단 "가공 방식"에서 구체적 방법 선택
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                단순 재단 또는 기본 가공
-              </p>
-              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                하단 "가공 방식"에서 구체적 방법 선택
-              </div>
-            </div>
+            )}
 
-            {/* 복잡한 모양 가공 */}
-            <div 
-              className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
-                isComplex 
-                  ? 'bg-primary/10 border-primary' 
-                  : 'bg-background/80 border-border/50 hover:border-primary/30'
-              }`}
-              onClick={() => onComplexChange?.(true)}
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <Cpu className="w-5 h-5 text-primary" />
-                <span className="font-semibold text-sm">복잡한 모양 가공</span>
-                {isComplex && (
-                  <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
-                )}
+            {/* 복잡한 모양 가공 - 원판구매가 선택되지 않은 경우만 표시 */}
+            {!isRawOnlySelected && (
+              <div 
+                className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                  isComplex 
+                    ? 'bg-primary/10 border-primary' 
+                    : 'bg-background/80 border-border/50 hover:border-primary/30'
+                }`}
+                onClick={() => onComplexChange?.(true)}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <Cpu className="w-5 h-5 text-primary" />
+                  <span className="font-semibold text-sm">복잡한 모양 가공</span>
+                  {isComplex && (
+                    <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  슬릿, 다공, 복잡한 형상 등 고급 가공
+                </p>
+                <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                  레이저 complex 또는 CNC complex 자동 분류
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                슬릿, 다공, 복잡한 형상 등 고급 가공
-              </p>
-              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                레이저 complex 또는 CNC complex 자동 분류
-              </div>
-            </div>
+            )}
 
-            {/* 접착 가공 */}
-            <div className="p-4 bg-background/80 rounded-lg border-2 border-border/50 hover:border-primary/30 transition-colors">
-              <div className="flex items-center gap-3 mb-2">
-                <Droplet className="w-5 h-5 text-primary" />
-                <span className="font-semibold text-sm">접착 가공</span>
+            {/* 접착 가공 - 원판구매가 선택되지 않은 경우만 표시 */}
+            {!isRawOnlySelected && (
+              <div className="p-4 bg-background/80 rounded-lg border-2 border-border/50 hover:border-primary/30 transition-colors">
+                <div className="flex items-center gap-3 mb-2">
+                  <Droplet className="w-5 h-5 text-primary" />
+                  <span className="font-semibold text-sm">접착 가공</span>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  무기포 접착 및 일반 접착 작업
+                </p>
+                <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                  하단 "접착 작업" 카테고리에서 선택
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                무기포 접착 및 일반 접착 작업
-              </p>
-              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                하단 "접착 작업" 카테고리에서 선택
-              </div>
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
       <Separator />
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {categories.map((category, idx) => {
+      <div className={`grid gap-6 ${isRawOnlySelected ? 'grid-cols-1 max-w-md mx-auto' : 'grid-cols-1 lg:grid-cols-3'}`}>
+        {visibleCategories.map((category, idx) => {
           const isAdhesion = category.id === 'adhesion';
           const selectedValue = isAdhesion ? selectedAdhesion : selectedProcessing;
           const handleSelect = isAdhesion ? onAdhesionSelect : onProcessingSelect;
