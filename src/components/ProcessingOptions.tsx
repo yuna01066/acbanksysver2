@@ -427,6 +427,19 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
           </div>
         </div>
       )}
+      
+      {/* 다음 단계 버튼 */}
+      {(selectedProcessing || selectedAdhesion) && (
+        <div className="flex justify-center pt-6">
+          <Button 
+            size="lg"
+            className="min-w-[300px] text-lg font-semibold"
+          >
+            다음 단계로
+            <CheckCircle2 className="w-5 h-5 ml-2" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
