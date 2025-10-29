@@ -34,6 +34,7 @@ export interface QuoteRecipient {
   email: string;
   desiredDeliveryDate: Date | null;
   deliveryAddress: string;
+  clientMemo: string; // 클라이언트 요청사항
 }
 
 interface QuoteContextType {

@@ -33,7 +33,8 @@ const QuotesSummaryPage = () => {
     phoneNumber: recipient?.phoneNumber || '',
     email: recipient?.email || '',
     desiredDeliveryDate: recipient?.desiredDeliveryDate || null,
-    deliveryAddress: recipient?.deliveryAddress || ''
+    deliveryAddress: recipient?.deliveryAddress || '',
+    clientMemo: recipient?.clientMemo || ''
   });
 
   if (quotes.length === 0) {
@@ -313,6 +314,23 @@ const QuotesSummaryPage = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <Separator className="my-8" />
+
+              {/* 클라이언트 요청사항 */}
+              <div className="mb-8">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">클라이언트 요청사항</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  클라이언트의 요청사항이나 참고할 내용을 입력해주세요.
+                </p>
+                <Textarea
+                  value={recipientData.clientMemo}
+                  onChange={(e) => handleRecipientChange('clientMemo', e.target.value)}
+                  placeholder="요청사항을 입력하세요 (예: 제품 관련 특이사항, 배송 요청사항 등)"
+                  rows={4}
+                  className="w-full"
+                />
               </div>
 
               <Separator className="my-8" />

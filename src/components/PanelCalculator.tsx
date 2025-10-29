@@ -78,7 +78,6 @@ const PanelCalculator = () => {
   const [colorMixingCost, setColorMixingCost] = useState<number>(20000);
   const [selectedProcessing, setSelectedProcessing] = useState<string>('');
   const [selectedAdhesion, setSelectedAdhesion] = useState<string>('');
-  const [serialNumber, setSerialNumber] = useState<string>('');
   const [selectedFilm, setSelectedFilm] = useState<string>('');
   const [selectedBaseType, setSelectedBaseType] = useState<string>(''); // 필름 아크릴 기본 재질 (Clear/Bright/Astel)
   
@@ -353,8 +352,7 @@ const PanelCalculator = () => {
       processingName: processingName,
       totalPrice: priceInfo.totalPrice,
       quantity: 1,
-      breakdown: priceInfo.breakdown,
-      serialNumber: serialNumber
+      breakdown: priceInfo.breakdown
     };
     addQuote(quoteData);
 
@@ -373,7 +371,6 @@ const PanelCalculator = () => {
     setColorMixingCost(20000);
     setSelectedProcessing('');
     setSelectedAdhesion('');
-    setSerialNumber('');
     setSelectedFilm('');
     setSelectedBaseType('');
     alert('견적이 추가되었습니다!');
@@ -597,34 +594,16 @@ const PanelCalculator = () => {
             </>
           )}
 
-          {/* 견적 추가 버튼 및 시리얼 넘버 */}
+          {/* 견적 추가 버튼 */}
           {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && (selectedProcessing || selectedAdhesion) && selectedSizes.length > 0) ||
             (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && (selectedProcessing || selectedAdhesion) && selectedSizes.length > 0)) && (
             <>
               <Separator className="my-8" />
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900">클라이언트 메모 (선택사항)</h3>
-                  <p className="text-sm text-gray-600">
-                    클라이언트의 요청사항이나 참고할 내용을 입력해주세요.
-                  </p>
-                  <div className="max-w-md">
-                    <Input 
-                      type="text" 
-                      placeholder="요청사항을 입력해주세요" 
-                      value={serialNumber} 
-                      onChange={e => setSerialNumber(e.target.value)} 
-                      className="w-full" 
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex justify-center gap-4 pt-4">
-                  <Button onClick={handleAddQuote} size="lg" className="px-8 animate-fade-up">
-                    <Plus className="w-5 h-5" />
-                    견적 추가
-                  </Button>
-                </div>
+              <div className="flex justify-center gap-4">
+                <Button onClick={handleAddQuote} size="lg" className="px-8 animate-fade-up">
+                  <Plus className="w-5 h-5" />
+                  견적 추가
+                </Button>
               </div>
             </>
           )}
