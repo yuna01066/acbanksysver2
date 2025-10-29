@@ -1,7 +1,12 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Package, Scissors, Cpu, Droplet, Sparkles, CheckCircle2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Package, Scissors, Cpu, Droplet, Sparkles, CheckCircle2, Settings } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 interface ProcessingOption {
   id: string;
@@ -97,6 +102,11 @@ interface ProcessingOptionsProps {
   onProcessingSelect: (processingId: string) => void;
   onAdhesionSelect: (adhesionId: string) => void;
   isGlossyStandard: boolean;
+  // 수량 및 복잡도 관련 props 추가
+  qty?: number;
+  onQtyChange?: (qty: number) => void;
+  isComplex?: boolean;
+  onComplexChange?: (isComplex: boolean) => void;
 }
 
 const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
@@ -104,7 +114,11 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   selectedAdhesion,
   onProcessingSelect,
   onAdhesionSelect,
-  isGlossyStandard
+  isGlossyStandard,
+  qty = 1,
+  onQtyChange,
+  isComplex = false,
+  onComplexChange
 }) => {
   const getCategoryIcon = (categoryId: string) => {
     switch (categoryId) {
@@ -140,16 +154,84 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     <div className="space-y-8 animate-fade-in">
       <div className="text-center space-y-3">
         <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-          가공 방법을 선택해주세요
+          가공 방법 및 수량을 선택해주세요
         </h3>
         <p className="text-muted-foreground text-lg">
-          각 카테고리에서 필요한 옵션을 선택하세요
+          수량과 복잡도를 먼저 설정하고, 각 카테고리에서 필요한 옵션을 선택하세요
         </p>
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm">
           <Sparkles className="w-4 h-4" />
           <span>가공과 접착은 독립적으로 선택 가능</span>
         </div>
       </div>
+
+      {/* 수량 및 복잡도 선택 섹션 */}
+      <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Settings className="w-5 h-5 text-primary" />
+            수량 및 복잡도 설정
+            <Badge variant="secondary" className="ml-auto">필수</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="qty" className="text-sm font-semibold flex items-center gap-2">
+                <Package className="w-4 h-4 text-primary" />
+                수량 (EA)
+              </Label>
+              <Input
+                id="qty"
+                type="number"
+                min="1"
+                value={qty}
+                onChange={(e) => onQtyChange?.(parseInt(e.target.value) || 1)}
+                className="text-lg font-medium h-12"
+                placeholder="수량을 입력하세요"
+              />
+              <p className="text-xs text-muted-foreground">
+                여러 장을 제작하는 경우 수량을 입력하세요
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center">
+              <div className="p-5 bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg border-2 border-border/50 hover:border-primary/30 transition-colors w-full">
+                <div className="flex items-start space-x-4">
+                  <Checkbox
+                    id="isComplex"
+                    checked={isComplex}
+                    onCheckedChange={(checked) => onComplexChange?.(checked as boolean)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1 space-y-2">
+                    <Label
+                      htmlFor="isComplex"
+                      className="text-base font-semibold cursor-pointer flex items-center gap-2"
+                    >
+                      <Cpu className="w-5 h-5 text-primary" />
+                      복잡한 모양 가공
+                      {isComplex && (
+                        <Badge variant="default" className="ml-2">
+                          선택됨
+                        </Badge>
+                      )}
+                    </Label>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      슬릿, 다공, 복잡한 형상 등의 고급 가공이 필요한 경우 선택하세요.
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      선택 시 레이저 complex 또는 CNC complex 가공으로 자동 분류됩니다.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Separator />
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {categories.map((category, idx) => {

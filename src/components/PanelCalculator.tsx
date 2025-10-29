@@ -27,7 +27,6 @@ import { usePriceCalculation } from "@/hooks/usePriceCalculation";
 import { Input } from "@/components/ui/input";
 import YieldCalculator from "./YieldCalculator";
 import AdvancedProcessingOptions from "./AdvancedProcessingOptions";
-import BasicQuantityOptions from "./BasicQuantityOptions";
 const PROCESSING_OPTIONS = [{
   id: 'raw-only',
   name: '원판 단독 구매'
@@ -199,16 +198,12 @@ const PanelCalculator = () => {
       setSelectedAdhesion('');
       setCurrentStep(7);
     } else if (step <= 8) {
-      // 수량/복잡도 단계 리셋
+      // 가공 선택 단계 리셋 (수량/복잡도 포함)
       setQty(1);
       setIsComplex(false);
       setSelectedProcessing('');
       setSelectedAdhesion('');
       setCurrentStep(8);
-    } else if (step <= 9) {
-      setSelectedProcessing('');
-      setSelectedAdhesion('');
-      setCurrentStep(9);
     }
   };
   const handleCalculatorTypeSelect = (type: 'quote' | 'yield') => {
@@ -304,28 +299,27 @@ const PanelCalculator = () => {
     setSelectedAdhesion(adhesionId);
   };
   const handleNextStepFromColorMixing = () => {
-    // 수량 및 복잡도 선택 단계로 이동
-    setCurrentStep(8);
+    // 필름 아크릴의 경우 필름 선택 단계로, 아니면 가공 선택 단계로 이동
+    if (selectedQuality?.id === 'film-acrylic') {
+      setCurrentStep(8); // 필름 선택 단계
+    } else {
+      setCurrentStep(8); // 가공 선택 단계 (수량 포함)
+    }
   };
 
   const handleNextFromMultipleColorMixing = () => {
-    // 수량 및 복잡도 선택 단계로 이동
-    setCurrentStep(8);
-  };
-  
-  const handleNextFromQuantity = () => {
     // 필름 아크릴의 경우 필름 선택 단계로, 아니면 가공 선택 단계로 이동
     if (selectedQuality?.id === 'film-acrylic') {
-      setCurrentStep(9); // 필름 선택 단계
+      setCurrentStep(8); // 필름 선택 단계
     } else {
-      setCurrentStep(9); // 가공 선택 단계
+      setCurrentStep(8); // 가공 선택 단계 (수량 포함)
     }
   };
   
   const handleFilmSelect = (filmId: string) => {
     console.log('Film selected:', filmId);
     setSelectedFilm(filmId);
-    setCurrentStep(10); // 가공 선택 단계로 이동
+    setCurrentStep(9); // 가공 선택 단계로 이동 (수량 포함)
   };
   const handleAddQuote = () => {
     if (!selectedMaterial || !selectedQuality || !selectedThickness || !selectedSize || !selectedSurface) {
@@ -404,8 +398,8 @@ const PanelCalculator = () => {
     setCurrentStep(0);
     setCalculatorType(null);
   };
-  // 필름 아크릴의 경우 maxSteps를 11로 설정 (수량 선택 + 필름 선택 단계 추가)
-  const maxSteps = selectedQuality?.id === 'film-acrylic' ? 11 : 10;
+  // 필름 아크릴의 경우 maxSteps를 10으로 설정 (필름 선택 단계 추가)
+  const maxSteps = selectedQuality?.id === 'film-acrylic' ? 10 : 9;
   return <div className="min-h-screen p-6">
       <Card className="w-full max-w-4xl mx-auto border-border/50 shadow-smooth animate-fade-up overflow-hidden">
         <CardHeader className="text-center pb-8 border-b border-border/50">
@@ -523,35 +517,28 @@ const PanelCalculator = () => {
             />
           )}
 
-          {/* Step 8: 수량 및 복잡도 선택 */}
-          {currentStep === 8 && (
-            <BasicQuantityOptions 
-              qty={qty}
-              onQtyChange={setQty}
-              isComplex={isComplex}
-              onComplexChange={setIsComplex}
-              onNext={handleNextFromQuantity}
-            />
-          )}
-
-          {/* Step 9: 필름 선택 (필름 아크릴인 경우만) */}
-          {currentStep === 9 && selectedQuality?.id === 'film-acrylic' && (
+          {/* Step 8: 필름 선택 (필름 아크릴인 경우만) */}
+          {currentStep === 8 && selectedQuality?.id === 'film-acrylic' && (
             <FilmSelection 
               selectedFilm={selectedFilm} 
               onFilmSelect={handleFilmSelect} 
             />
           )}
 
-          {/* Step 9 또는 10: 가공 선택 */}
-          {((currentStep === 9 && selectedQuality?.id !== 'film-acrylic') || 
-            (currentStep === 10 && selectedQuality?.id === 'film-acrylic')) && (
+          {/* Step 8 또는 9: 가공 선택 (수량 및 복잡도 포함) */}
+          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic') || 
+            (currentStep === 9 && selectedQuality?.id === 'film-acrylic')) && (
             <>
               <ProcessingOptions 
                 selectedProcessing={selectedProcessing}
                 selectedAdhesion={selectedAdhesion}
                 onProcessingSelect={handleProcessingSelect}
                 onAdhesionSelect={handleAdhesionSelect}
-                isGlossyStandard={selectedQuality?.id === 'glossy-standard'} 
+                isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
+                qty={qty}
+                onQtyChange={setQty}
+                isComplex={isComplex}
+                onComplexChange={setIsComplex}
               />
               
               {/* 고급 옵션 */}
@@ -579,8 +566,8 @@ const PanelCalculator = () => {
           )}
 
           {/* 시리얼 넘버 입력 */}
-          {((currentStep === 9 && selectedQuality?.id !== 'film-acrylic' && (selectedProcessing || selectedAdhesion)) ||
-            (currentStep === 10 && selectedQuality?.id === 'film-acrylic' && (selectedProcessing || selectedAdhesion))) && (
+          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && (selectedProcessing || selectedAdhesion)) ||
+            (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && (selectedProcessing || selectedAdhesion))) && (
             <>
               <Separator className="my-8" />
               <div className="space-y-4">
@@ -602,8 +589,8 @@ const PanelCalculator = () => {
           )}
 
           {/* 견적 추가 버튼 */}
-          {((currentStep === 9 && selectedQuality?.id !== 'film-acrylic' && (selectedProcessing || selectedAdhesion) && priceInfo.totalPrice > 0) ||
-            (currentStep === 10 && selectedQuality?.id === 'film-acrylic' && (selectedProcessing || selectedAdhesion) && priceInfo.totalPrice > 0)) && (
+          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && (selectedProcessing || selectedAdhesion) && priceInfo.totalPrice > 0) ||
+            (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && (selectedProcessing || selectedAdhesion) && priceInfo.totalPrice > 0)) && (
             <>
               <Separator className="my-8" />
               <div className="flex justify-center gap-4">
