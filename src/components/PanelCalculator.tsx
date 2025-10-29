@@ -431,27 +431,10 @@ const PanelCalculator = () => {
               <StepIndicator currentStep={currentStep + 1} maxSteps={maxSteps} />
           
           {/* 선택된 옵션 요약 - Step 0에서는 숨김 */}
-          {currentStep > 0 && (
-            <SelectionSummary 
-              selectedFactory="jangwon" 
-              selectedMaterial={selectedMaterial} 
-              selectedQuality={selectedQuality} 
-              selectedColor={selectedColor} 
-              selectedThickness={selectedThickness} 
-              selectedSize={selectedSize} 
-              selectedColorType={selectedColorType} 
-              selectedSurface={selectedSurface} 
-              colorMixingCost={colorMixingCost} 
-              selectedProcessing={selectedProcessing} 
-              selectedAdhesion={selectedAdhesion} 
-              processingOptions={PROCESSING_OPTIONS} 
-              factories={[{ id: 'jangwon', name: '장원' }]}
-              basePrice={priceInfo.breakdown.find(b => b.label === '기본 자재비')?.price || 0}
-              processingCost={priceInfo.breakdown.find(b => b.label.includes('가공'))?.price || 0}
-              adhesionCost={priceInfo.breakdown.find(b => b.label.includes('접착') || b.label.includes('본드'))?.price || 0}
-              qty={qty}
-            />
-          )}
+          {currentStep > 0 && <SelectionSummary selectedFactory="jangwon" selectedMaterial={selectedMaterial} selectedQuality={selectedQuality} selectedColor={selectedColor} selectedThickness={selectedThickness} selectedSize={selectedSize} selectedColorType={selectedColorType} selectedSurface={selectedSurface} colorMixingCost={colorMixingCost} selectedProcessing={selectedProcessing} selectedAdhesion={selectedAdhesion} processingOptions={PROCESSING_OPTIONS} factories={[{
+            id: 'jangwon',
+            name: '장원'
+          }]} />}
           
           {/* Step 0: 계산기 유형 선택 */}
           {currentStep === 0 && <>
