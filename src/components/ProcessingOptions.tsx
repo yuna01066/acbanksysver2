@@ -308,105 +308,124 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         </CardContent>
       </Card>
 
-      <Separator />
+      <Separator className="my-8" />
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {categories.map((category, idx) => {
-          const isAdhesion = category.id === 'adhesion';
-          const selectedValue = isAdhesion ? selectedAdhesion : selectedProcessing;
-          const handleSelect = isAdhesion ? onAdhesionSelect : onProcessingSelect;
-          const CategoryIcon = getCategoryIcon(category.id);
-          const hasSelection = selectedValue && category.options.some(opt => opt.id === selectedValue);
+      {selectedCategory && (
+        <div className="space-y-6">
+          <div className="text-center space-y-2">
+            <h4 className="text-2xl font-bold text-foreground">
+              {selectedCategory === 'raw' && '원판 구매 옵션'}
+              {(selectedCategory === 'processing' || selectedCategory === 'complex') && '가공 방식 선택'}
+              {selectedCategory === 'adhesion' && '접착 작업 선택'}
+            </h4>
+            <p className="text-muted-foreground">
+              원하시는 옵션을 선택해주세요
+            </p>
+          </div>
           
-          return (
-            <Card 
-              key={category.id} 
-              className={`p-6 border-2 transition-all duration-300 hover:shadow-lg animate-fade-in ${
-                hasSelection 
-                  ? 'border-primary bg-primary/5' 
-                  : 'border-border hover:border-primary/50'
-              }`}
-              style={{ animationDelay: `${idx * 100}ms` }}
-            >
-              <div className="flex items-start gap-4 mb-5">
-                <div className={`p-3 rounded-xl transition-colors ${
-                  hasSelection ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                }`}>
-                  <CategoryIcon className="w-6 h-6" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-lg font-bold text-foreground">{category.name}</h4>
-                    {hasSelection && (
-                      <CheckCircle2 className="w-5 h-5 text-primary animate-scale-in" />
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">{category.description}</p>
-                </div>
-              </div>
-
-              {/* 접착 카테고리인 경우 수량 입력 추가 */}
-              {isAdhesion && (
-                <div className="mb-4 p-4 bg-primary/5 rounded-lg border border-primary/20">
-                  <Label htmlFor="adhesion-qty" className="text-sm font-semibold flex items-center gap-2 mb-2">
-                    <Package className="w-4 h-4 text-primary" />
-                    제작 수량 (EA)
-                  </Label>
-                  <Input
-                    id="adhesion-qty"
-                    type="number"
-                    min="1"
-                    value={qty}
-                    onChange={(e) => onQtyChange?.(parseInt(e.target.value) || 1)}
-                    className="font-medium"
-                    placeholder="수량을 입력하세요"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    접착 제작 시 여러 개를 만드는 경우 수량을 입력하세요
-                  </p>
-                </div>
-              )}
+          <div className="grid grid-cols-1 max-w-4xl mx-auto gap-6">
+            {categories.map((category, idx) => {
+              const isAdhesion = category.id === 'adhesion';
+              const selectedValue = isAdhesion ? selectedAdhesion : selectedProcessing;
+              const handleSelect = isAdhesion ? onAdhesionSelect : onProcessingSelect;
+              const CategoryIcon = getCategoryIcon(category.id);
+              const hasSelection = selectedValue && category.options.some(opt => opt.id === selectedValue);
               
-              <div className="space-y-2">
-                {category.options.map((option) => {
-                  const isSelected = selectedValue === option.id;
-                  return (
-                    <button
-                      key={option.id}
-                      onClick={() => handleSelect(option.id)}
-                      className={`w-full p-4 rounded-lg text-left transition-all duration-200 border-2 ${
-                        isSelected
-                          ? 'bg-primary text-primary-foreground border-primary shadow-md scale-[1.02]' 
-                          : 'bg-card hover:bg-muted border-border hover:border-primary/30'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`mt-0.5 transition-transform ${isSelected ? 'scale-110' : ''}`}>
-                          {isSelected ? (
-                            <CheckCircle2 className="w-5 h-5" />
-                          ) : (
-                            <div className="w-5 h-5 rounded-full border-2 border-current opacity-30" />
+              return (
+                <Card 
+                  key={category.id} 
+                  className={`border-2 transition-all duration-300 animate-fade-in ${
+                    hasSelection 
+                      ? 'border-primary bg-primary/5 shadow-lg' 
+                      : 'border-border hover:border-primary/30 hover:shadow-md'
+                  }`}
+                  style={{ animationDelay: `${idx * 100}ms` }}
+                >
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-3 rounded-xl transition-colors ${
+                        hasSelection ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                      }`}>
+                        <CategoryIcon className="w-6 h-6" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-xl">{category.name}</CardTitle>
+                          {hasSelection && (
+                            <CheckCircle2 className="w-5 h-5 text-primary animate-scale-in" />
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className={`font-semibold mb-1 ${isSelected ? '' : 'text-foreground'}`}>
-                            {option.name}
-                          </div>
-                          <div className={`text-sm leading-relaxed ${
-                            isSelected ? 'opacity-90' : 'text-muted-foreground'
-                          }`}>
-                            {option.description}
-                          </div>
-                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">{category.description}</p>
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="space-y-4">
+                    {/* 접착 카테고리인 경우 수량 입력 추가 */}
+                    {isAdhesion && (
+                      <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                        <Label htmlFor="adhesion-qty" className="text-sm font-semibold flex items-center gap-2 mb-2">
+                          <Package className="w-4 h-4 text-primary" />
+                          제작 수량 (EA)
+                        </Label>
+                        <Input
+                          id="adhesion-qty"
+                          type="number"
+                          min="1"
+                          value={qty}
+                          onChange={(e) => onQtyChange?.(parseInt(e.target.value) || 1)}
+                          className="font-medium"
+                          placeholder="수량을 입력하세요"
+                        />
+                        <p className="text-xs text-muted-foreground mt-2">
+                          접착 제작 시 여러 개를 만드는 경우 수량을 입력하세요
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="space-y-3">
+                      {category.options.map((option) => {
+                        const isSelected = selectedValue === option.id;
+                        return (
+                          <button
+                            key={option.id}
+                            onClick={() => handleSelect(option.id)}
+                            className={`w-full p-4 rounded-lg text-left transition-all duration-200 border-2 ${
+                              isSelected
+                                ? 'bg-primary text-primary-foreground border-primary shadow-md' 
+                                : 'bg-card hover:bg-accent border-border hover:border-primary/30'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`mt-1 transition-transform ${isSelected ? 'scale-110' : ''}`}>
+                                {isSelected ? (
+                                  <CheckCircle2 className="w-5 h-5" />
+                                ) : (
+                                  <div className="w-5 h-5 rounded-full border-2 border-current opacity-40" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <div className={`font-semibold text-base ${isSelected ? '' : 'text-foreground'}`}>
+                                  {option.name}
+                                </div>
+                                <div className={`text-sm leading-relaxed ${
+                                  isSelected ? 'opacity-95' : 'text-muted-foreground'
+                                }`}>
+                                  {option.description}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
