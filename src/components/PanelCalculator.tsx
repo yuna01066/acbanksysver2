@@ -15,6 +15,7 @@ import MaterialSelection from "./MaterialSelection";
 import QualitySelection from "./QualitySelection";
 import ThicknessSelection from "./ThicknessSelection";
 import SizeSelection from "./SizeSelection";
+import MultipleSizeSelection, { SizeQuantitySelection } from "./MultipleSizeSelection";
 import SurfaceSelection from "./SurfaceSelection";
 import ColorSelection from "./ColorSelection";
 import FilmColorSelection from "./FilmColorSelection";
@@ -68,6 +69,7 @@ const PanelCalculator = () => {
   const [selectedQuality, setSelectedQuality] = useState<Quality | null>(null);
   const [selectedThickness, setSelectedThickness] = useState<string>('');
   const [selectedSize, setSelectedSize] = useState<string>('');
+  const [selectedSizes, setSelectedSizes] = useState<SizeQuantitySelection[]>([]);
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [selectedColorHex, setSelectedColorHex] = useState<string>('');
   const [selectedColorType, setSelectedColorType] = useState<string>('');
@@ -248,6 +250,16 @@ const PanelCalculator = () => {
     setSelectedSize(size);
     resetFromStep(6);
     setCurrentStep(6); // 바로 면수 선택으로 이동
+  };
+
+  const handleMultipleSizeSelect = (selections: SizeQuantitySelection[]) => {
+    console.log('Multiple sizes selected:', selections);
+    setSelectedSizes(selections);
+  };
+
+  const handleNextFromMultipleSize = () => {
+    resetFromStep(6);
+    setCurrentStep(6);
   };
   const handleSurfaceSelect = (surface: string) => {
     console.log('Surface selected:', surface);
@@ -436,7 +448,7 @@ const PanelCalculator = () => {
           }]} onMaterialSelect={handleMaterialSelect} />}
           
           {/* 가격 정보 표시 */}
-          {selectedSize && <PriceBreakdown totalPrice={priceInfo.totalPrice} breakdown={priceInfo.breakdown} isVisible={true} />}
+          {selectedSizes.length > 0 && currentStep > 5 && <PriceBreakdown totalPrice={priceInfo.totalPrice} breakdown={priceInfo.breakdown} isVisible={true} />}
 
           {/* Step 2: 재질 선택 */}
           {currentStep === 2 && selectedMaterial?.id === 'casting' && <QualitySelection qualities={CASTING_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}
@@ -466,11 +478,19 @@ const PanelCalculator = () => {
           {/* Step 4: 두께 선택 */}
           {currentStep === 4 && selectedColor && <ThicknessSelection thicknesses={selectedQuality.thicknesses} selectedThickness={selectedThickness} onThicknessSelect={handleThicknessSelect} />}
 
-          {/* Step 5: 사이즈 선택 */}
-          {currentStep === 5 && selectedThickness && <SizeSelection availableSizes={getAvailableSizes()} selectedSize={selectedSize} onSizeSelect={handleSizeSelect} selectedThickness={selectedThickness} />}
+          {/* Step 5: 사이즈 선택 (다중 선택 가능) */}
+          {currentStep === 5 && selectedThickness && (
+            <MultipleSizeSelection 
+              availableSizes={getAvailableSizes()} 
+              selectedSizes={selectedSizes}
+              onSelectionChange={handleMultipleSizeSelect}
+              onNext={handleNextFromMultipleSize}
+              selectedThickness={selectedThickness}
+            />
+          )}
 
           {/* Step 6: 면수 선택 */}
-          {currentStep === 6 && selectedSize && <SurfaceSelection 
+          {currentStep === 6 && selectedSizes.length > 0 && <SurfaceSelection 
             selectedSurface={selectedSurface} 
             onSurfaceSelect={handleSurfaceSelect} 
             isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
