@@ -154,10 +154,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     <div className="space-y-8 animate-fade-in">
       <div className="text-center space-y-3">
         <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-          가공 방법 및 수량을 선택해주세요
+          가공 방법을 선택해주세요
         </h3>
         <p className="text-muted-foreground text-lg">
-          수량과 가공 카테고리를 먼저 설정하고, 구체적인 옵션을 선택하세요
+          가공 카테고리를 선택하고, 구체적인 옵션을 선택하세요
         </p>
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm">
           <Sparkles className="w-4 h-4" />
@@ -165,116 +165,90 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         </div>
       </div>
 
-      {/* 수량 및 가공 카테고리 선택 섹션 */}
+      {/* 가공 카테고리 선택 섹션 */}
       <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Settings className="w-5 h-5 text-primary" />
-            수량 및 가공 카테고리 설정
+            가공 카테고리 설정
             <Badge variant="secondary" className="ml-auto">필수</Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* 수량 입력 */}
-          <div className="space-y-2">
-            <Label htmlFor="qty" className="text-sm font-semibold flex items-center gap-2">
-              <Package className="w-4 h-4 text-primary" />
-              수량 (EA)
-            </Label>
-            <Input
-              id="qty"
-              type="number"
-              min="1"
-              value={qty}
-              onChange={(e) => onQtyChange?.(parseInt(e.target.value) || 1)}
-              className="text-lg font-medium h-12 max-w-xs"
-              placeholder="수량을 입력하세요"
-            />
-            <p className="text-xs text-muted-foreground">
-              여러 장을 제작하는 경우 수량을 입력하세요
-            </p>
-          </div>
-
-          <Separator />
-
-          {/* 가공 카테고리 선택 */}
-          <div className="space-y-3">
-            <Label className="text-sm font-semibold">가공 카테고리 (중복 선택 가능)</Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* 원판구매 */}
-              <div className="p-4 bg-background/80 rounded-lg border-2 border-border/50 hover:border-primary/30 transition-colors">
-                <div className="flex items-center gap-3 mb-2">
-                  <Package className="w-5 h-5 text-primary" />
-                  <span className="font-semibold">원판구매</span>
-                </div>
-                <p className="text-xs text-muted-foreground mb-3">
-                  가공 없이 원판만 구매 또는 기본 문의
-                </p>
-                <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                  하단 "원판 구매" 카테고리에서 선택
-                </div>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* 원판구매 */}
+            <div className="p-4 bg-background/80 rounded-lg border-2 border-border/50 hover:border-primary/30 transition-colors">
+              <div className="flex items-center gap-3 mb-2">
+                <Package className="w-5 h-5 text-primary" />
+                <span className="font-semibold text-sm">원판구매</span>
               </div>
-
-              {/* 재단 */}
-              <div 
-                className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
-                  !isComplex 
-                    ? 'bg-primary/10 border-primary' 
-                    : 'bg-background/80 border-border/50 hover:border-primary/30'
-                }`}
-                onClick={() => onComplexChange?.(false)}
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <Scissors className="w-5 h-5 text-primary" />
-                  <span className="font-semibold">재단</span>
-                  {!isComplex && (
-                    <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mb-3">
-                  단순 재단 또는 기본 가공
-                </p>
-                <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                  하단 "가공 방식"에서 구체적 방법 선택
-                </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                가공 없이 원판만 구매 또는 기본 문의
+              </p>
+              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                하단 "원판 구매" 카테고리에서 선택
               </div>
+            </div>
 
-              {/* 복잡한 모양 가공 */}
-              <div 
-                className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
-                  isComplex 
-                    ? 'bg-primary/10 border-primary' 
-                    : 'bg-background/80 border-border/50 hover:border-primary/30'
-                }`}
-                onClick={() => onComplexChange?.(true)}
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <Cpu className="w-5 h-5 text-primary" />
-                  <span className="font-semibold">복잡한 모양 가공</span>
-                  {isComplex && (
-                    <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mb-3">
-                  슬릿, 다공, 복잡한 형상 등 고급 가공
-                </p>
-                <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                  레이저 complex 또는 CNC complex 자동 분류
-                </div>
+            {/* 재단 */}
+            <div 
+              className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                !isComplex 
+                  ? 'bg-primary/10 border-primary' 
+                  : 'bg-background/80 border-border/50 hover:border-primary/30'
+              }`}
+              onClick={() => onComplexChange?.(false)}
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <Scissors className="w-5 h-5 text-primary" />
+                <span className="font-semibold text-sm">재단</span>
+                {!isComplex && (
+                  <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
+                )}
               </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                단순 재단 또는 기본 가공
+              </p>
+              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                하단 "가공 방식"에서 구체적 방법 선택
+              </div>
+            </div>
 
-              {/* 접착 가공 */}
-              <div className="p-4 bg-background/80 rounded-lg border-2 border-border/50 hover:border-primary/30 transition-colors">
-                <div className="flex items-center gap-3 mb-2">
-                  <Droplet className="w-5 h-5 text-primary" />
-                  <span className="font-semibold">접착 가공</span>
-                </div>
-                <p className="text-xs text-muted-foreground mb-3">
-                  무기포 접착 및 일반 접착 작업
-                </p>
-                <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                  하단 "접착 작업" 카테고리에서 선택
-                </div>
+            {/* 복잡한 모양 가공 */}
+            <div 
+              className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                isComplex 
+                  ? 'bg-primary/10 border-primary' 
+                  : 'bg-background/80 border-border/50 hover:border-primary/30'
+              }`}
+              onClick={() => onComplexChange?.(true)}
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <Cpu className="w-5 h-5 text-primary" />
+                <span className="font-semibold text-sm">복잡한 모양 가공</span>
+                {isComplex && (
+                  <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                슬릿, 다공, 복잡한 형상 등 고급 가공
+              </p>
+              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                레이저 complex 또는 CNC complex 자동 분류
+              </div>
+            </div>
+
+            {/* 접착 가공 */}
+            <div className="p-4 bg-background/80 rounded-lg border-2 border-border/50 hover:border-primary/30 transition-colors">
+              <div className="flex items-center gap-3 mb-2">
+                <Droplet className="w-5 h-5 text-primary" />
+                <span className="font-semibold text-sm">접착 가공</span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                무기포 접착 및 일반 접착 작업
+              </p>
+              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                하단 "접착 작업" 카테고리에서 선택
               </div>
             </div>
           </div>
@@ -317,6 +291,28 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                   <p className="text-sm text-muted-foreground mt-1">{category.description}</p>
                 </div>
               </div>
+
+              {/* 접착 카테고리인 경우 수량 입력 추가 */}
+              {isAdhesion && (
+                <div className="mb-4 p-4 bg-primary/5 rounded-lg border border-primary/20">
+                  <Label htmlFor="adhesion-qty" className="text-sm font-semibold flex items-center gap-2 mb-2">
+                    <Package className="w-4 h-4 text-primary" />
+                    제작 수량 (EA)
+                  </Label>
+                  <Input
+                    id="adhesion-qty"
+                    type="number"
+                    min="1"
+                    value={qty}
+                    onChange={(e) => onQtyChange?.(parseInt(e.target.value) || 1)}
+                    className="font-medium"
+                    placeholder="수량을 입력하세요"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    접착 제작 시 여러 개를 만드는 경우 수량을 입력하세요
+                  </p>
+                </div>
+              )}
               
               <div className="space-y-2">
                 {category.options.map((option) => {
