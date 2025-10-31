@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Calculator, Plus, ShoppingCart, Home } from "lucide-react";
 import { MATERIALS, CASTING_QUALITIES, OTHER_ACRYLIC_QUALITIES, Material, Quality } from "@/types/calculator";
-import PriceBreakdown from "./PriceBreakdown";
 import ProcessingOptions from "./ProcessingOptions";
 import ColorMixingStep from "./ColorMixingStep";
 import CalculatorTypeSelection from "./CalculatorTypeSelection";
@@ -440,7 +439,7 @@ const PanelCalculator = () => {
           {currentStep >= 0 && <>
               <StepIndicator currentStep={currentStep + 1} maxSteps={maxSteps} />
           
-          {/* 선택된 옵션 요약 - Step 0에서는 숨김 */}
+          {/* 선택된 옵션 요약 및 가격 계산 결과 - Step 0에서는 숨김 */}
           {currentStep > 0 && <SelectionSummary 
             selectedFactory="jangwon" 
             selectedMaterial={selectedMaterial} 
@@ -463,7 +462,8 @@ const PanelCalculator = () => {
             factories={[{
               id: 'jangwon',
               name: '장원'
-            }]} 
+            }]}
+            priceInfo={priceInfo}
           />}
           
           {/* Step 0: 계산기 유형 선택 */}
@@ -482,9 +482,6 @@ const PanelCalculator = () => {
             id: 'jangwon',
             name: '장원'
           }]} onMaterialSelect={handleMaterialSelect} />}
-          
-          {/* 가격 정보 표시 */}
-          {selectedSizes.length > 0 && currentStep > 5 && <PriceBreakdown totalPrice={priceInfo.totalPrice} breakdown={priceInfo.breakdown} isVisible={true} />}
 
           {/* Step 2: 재질 선택 */}
           {currentStep === 2 && selectedMaterial?.id === 'casting' && <QualitySelection qualities={CASTING_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}

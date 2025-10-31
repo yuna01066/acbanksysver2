@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Material, Quality } from "@/types/calculator";
 import { SizeQuantitySelection } from "./MultipleSizeSelection";
-import { Package, Layers, Palette, DollarSign } from "lucide-react";
+import { Package, Layers, Palette, DollarSign, Calculator, Receipt } from "lucide-react";
 import { formatPrice } from "@/utils/priceCalculations";
 
 interface SelectionSummaryProps {
@@ -24,6 +24,10 @@ interface SelectionSummaryProps {
   processingOptions: { id: string; name: string }[];
   factories?: { id: string; name: string }[];
   basePrice?: number;
+  priceInfo?: {
+    totalPrice: number;
+    breakdown: { label: string; price: number }[];
+  };
 }
 
 const SelectionSummary: React.FC<SelectionSummaryProps> = ({
@@ -41,7 +45,8 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
   selectedAdhesion,
   processingOptions,
   factories,
-  basePrice
+  basePrice,
+  priceInfo
 }) => {
   const getSizeBaseName = (sizeString: string): string => {
     const match = sizeString.match(/^(.+?) \(/);
@@ -265,6 +270,52 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* 가격 계산 결과 */}
+        {priceInfo && priceInfo.totalPrice > 0 && (
+          <div className="space-y-2 mt-6 pt-6 border-t-2 border-primary/30">
+            <h5 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+              <Calculator className="w-5 h-5 text-primary" />
+              가격 계산 결과
+            </h5>
+            
+            <div className="space-y-3 mt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Receipt className="w-4 h-4 text-muted-foreground" />
+                <h6 className="font-medium text-sm text-muted-foreground">가격 구성 내역</h6>
+              </div>
+              
+              {priceInfo.breakdown.map((item, index) => (
+                <div 
+                  key={index} 
+                  className="flex justify-between items-center py-2 px-3 bg-muted/50 rounded-lg border border-border/50"
+                >
+                  <span className="text-sm font-medium text-foreground">
+                    {item.label}
+                  </span>
+                  <span className="text-sm font-semibold text-foreground">
+                    {formatPrice(item.price)}
+                  </span>
+                </div>
+              ))}
+              
+              {/* 최종 견적가 강조 */}
+              <Card className="border-2 border-primary bg-primary/10 mt-4">
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-bold flex items-center gap-2">
+                      <DollarSign className="w-5 h-5" />
+                      최종 견적가
+                    </span>
+                    <span className="text-2xl font-bold text-primary">
+                      {formatPrice(priceInfo.totalPrice)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         )}
