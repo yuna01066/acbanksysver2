@@ -673,7 +673,7 @@ export const calculatePrice = (
 };
 
 export const formatPrice = (price: number): string => {
-  return `₩${price.toLocaleString()}`;
+  return `₩${Math.round(price).toLocaleString()}`;
 };
 
 export const exportPricingData = (pricingData: PricingData): void => {
