@@ -618,11 +618,8 @@ export const calculatePrice = (
     const processing = options.processing || 'none';
     const adhesion = options.adhesion || 'none';
     
-    // 단순 재단의 경우 순수 자재비 기준, 다른 가공은 할증 적용된 자재비 기준
-    const costBasisForProcessing = (processing === 'simple-cutting') ? basePrice : materialCost;
-    
     const deltaResult = calcProcessingDelta(
-      costBasisForProcessing,
+      materialCost,
       thickness,
       processing,
       adhesion,
@@ -652,7 +649,7 @@ export const calculatePrice = (
     if (deltaResult.procCost > 0) {
       breakdown.push({ label: '가공/접착 총 증분', price: deltaResult.procCost });
     }
-  }
+  } 
   // 6) 레거시 방식 (processingType이 문자열로 전달된 경우)
   else if (processingType && processingType !== 'raw-only') {
     const inquiryTypeOld: 'raw-only' | 'with-processing' = 'with-processing';
