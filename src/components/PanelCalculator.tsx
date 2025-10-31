@@ -532,7 +532,7 @@ const PanelCalculator = () => {
               onSelectionChange={setSelectedSizes}
               onNext={handleNextFromMultipleSurface}
               isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
-              forceSingle={selectedColor === 'A002' || selectedColor === 'A003'} 
+              forceSingle={selectedMaterial?.id === 'film' && (selectedColor === 'A002' || selectedColor === 'A003')} 
             />
           )}
 
