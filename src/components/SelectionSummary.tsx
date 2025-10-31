@@ -193,54 +193,6 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
                 );
               })}
             </div>
-
-            {/* 전체 합계 */}
-            {basePrice && (
-              <Card className="border-2 border-primary bg-primary/10">
-                <CardContent className="p-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">전체 원판 수량</span>
-                      <span className="font-bold">
-                        {selectedSizes.reduce((sum, item) => sum + item.quantity, 0)}EA
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">전체 원판 금액</span>
-                      <span className="font-bold">
-                        {formatPrice(selectedSizes.reduce((sum, item) => sum + (basePrice * item.quantity), 0))}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">전체 면수 추가금액</span>
-                      <span className="font-bold">
-                        {formatPrice(selectedSizes.reduce((sum, item) => sum + (item.surfaceAdditionalCost || 0), 0))}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">전체 조색비</span>
-                      <span className="font-bold">
-                        {formatPrice(selectedSizes.reduce((sum, item) => sum + (item.colorMixingCost || 0), 0))}
-                      </span>
-                    </div>
-                    <Separator />
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-lg flex items-center gap-2">
-                        <DollarSign className="w-5 h-5" />
-                        전체 합계
-                      </span>
-                      <span className="font-bold text-2xl text-primary">
-                        {formatPrice(
-                          selectedSizes.reduce((sum, item) => 
-                            sum + (basePrice * item.quantity) + (item.surfaceAdditionalCost || 0) + (item.colorMixingCost || 0), 0
-                          )
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         )}
 
