@@ -261,21 +261,21 @@ export const usePriceCalculation = ({
           processing = 'cnc-simple';
         } else if (selectedProcessing === 'cnc-complex') {
           processing = 'cnc-complex';
-        } else if (selectedProcessing === 'none') {
+        } else if (selectedProcessing === 'none' || selectedProcessing === '') {
           processing = 'none';
         }
 
-        if (selectedAdhesion === 'bond-normal') {
-          adhesion = 'bond-normal';
-        } else if (selectedAdhesion === 'bond-mugipo-auto') {
-          adhesion = 'auto';
-        } else if (selectedAdhesion === 'bond-mugipo-45') {
-          adhesion = 'bond-mugipo-45';
-        } else if (selectedAdhesion === 'bond-mugipo-90') {
-          adhesion = 'bond-mugipo-90';
-        } else if (selectedAdhesion === 'none') {
-          adhesion = 'none';
-        }
+      if (selectedAdhesion === 'bond-normal') {
+        adhesion = 'bond-normal';
+      } else if (selectedAdhesion === 'bond-mugipo-auto') {
+        adhesion = 'auto';
+      } else if (selectedAdhesion === 'bond-mugipo-45') {
+        adhesion = 'bond-mugipo-45';
+      } else if (selectedAdhesion === 'bond-mugipo-90') {
+        adhesion = 'bond-mugipo-90';
+      } else if (selectedAdhesion === 'none' || selectedAdhesion === '') {
+        adhesion = 'none';
+      }
 
         // 할증을 적용하지 않고 기본 가격만 계산
         const result = calculatePrice(
@@ -379,7 +379,7 @@ export const usePriceCalculation = ({
         processing = 'cnc-simple';
       } else if (selectedProcessing === 'cnc-complex') {
         processing = 'cnc-complex';
-      } else if (selectedProcessing === 'none') {
+      } else if (selectedProcessing === 'none' || selectedProcessing === '') {
         processing = 'none';
       }
 
@@ -391,7 +391,7 @@ export const usePriceCalculation = ({
         adhesion = 'bond-mugipo-45';
       } else if (selectedAdhesion === 'bond-mugipo-90') {
         adhesion = 'bond-mugipo-90';
-      } else if (selectedAdhesion === 'none') {
+      } else if (selectedAdhesion === 'none' || selectedAdhesion === '') {
         adhesion = 'none';
       }
 

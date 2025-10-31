@@ -307,6 +307,11 @@ const PanelCalculator = () => {
   };
 
   const handleNextFromMultipleColorMixing = () => {
+    // 가공 옵션 단계로 진입하면 기본값 설정하여 실시간 가격 계산
+    if (!selectedProcessing) {
+      setSelectedProcessing('none');
+    }
+    
     // 필름 아크릴의 경우 필름 선택 단계로, 아니면 가공 선택 단계로 이동
     if (selectedQuality?.id === 'film-acrylic') {
       setCurrentStep(8); // 필름 선택 단계
@@ -318,6 +323,12 @@ const PanelCalculator = () => {
   const handleFilmSelect = (filmId: string) => {
     console.log('Film selected:', filmId);
     setSelectedFilm(filmId);
+    
+    // 가공 옵션 단계로 진입하면 기본값 설정하여 실시간 가격 계산
+    if (!selectedProcessing) {
+      setSelectedProcessing('none');
+    }
+    
     setCurrentStep(9); // 가공 선택 단계로 이동 (수량 포함)
   };
   const handleAddQuote = () => {
@@ -594,8 +605,8 @@ const PanelCalculator = () => {
           )}
 
           {/* 견적 추가 버튼 */}
-          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && (selectedProcessing || selectedAdhesion) && selectedSizes.length > 0) ||
-            (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && (selectedProcessing || selectedAdhesion) && selectedSizes.length > 0)) && (
+          {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && selectedSizes.length > 0) ||
+            (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && selectedSizes.length > 0)) && (
             <>
               <Separator className="my-8" />
               <div className="flex justify-center gap-4">
