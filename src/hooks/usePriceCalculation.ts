@@ -241,12 +241,16 @@ export const usePriceCalculation = ({
         const sizeMatch = sizeSelection.size.match(/^([^\(]+)/);
         const actualSize = sizeMatch ? sizeMatch[1].trim() : sizeSelection.size;
 
-        // 할증 없이 기본 가격만 계산하기 위해 inquiryType을 임시로 설정하지 않음
+        // inquiryType 결정
+        let inquiryType: 'with-processing' | 'raw-only' = 'with-processing';
         let processing: any = 'none';
         let adhesion: any = 'none';
         let edgeRequested = false;
         
-        if (selectedProcessing === 'auto') {
+        if (selectedProcessing === 'raw-only') {
+          inquiryType = 'raw-only';
+          processing = 'none';
+        } else if (selectedProcessing === 'auto') {
           processing = 'auto';
         } else if (selectedProcessing === 'simple-cutting') {
           processing = 'simple-cutting';
@@ -277,7 +281,7 @@ export const usePriceCalculation = ({
         adhesion = 'none';
       }
 
-        // 할증을 적용하지 않고 기본 가격만 계산
+        // 가격 계산 (inquiryType에 따라 할증 적용)
         const result = calculatePrice(
           selectedMaterial.id,
           selectedQuality.id,
@@ -288,7 +292,7 @@ export const usePriceCalculation = ({
           selectedProcessing || undefined,
           sizeColorMixingCost,
           {
-            inquiryType: 'with-processing', // 기본값 설정하지만 할증은 나중에 한 번만 적용
+            inquiryType,
             processing,
             adhesion,
             qty: sizeSelection.quantity,
@@ -305,49 +309,21 @@ export const usePriceCalculation = ({
           }
         );
 
-        // breakdown에서 할증 항목 제외하고 추가
-        const filteredBreakdown = result.breakdown.filter(item => 
-          !item.label.includes('할증') && !item.label.includes('원장 단독')
-        );
-        
-        // 할증 항목 찾기 (첫 번째 사이즈에서만)
-        if (index === 0) {
-          const inquiryItem = result.breakdown.find(item => 
-            item.label.includes('할증') || item.label.includes('원장 단독')
-          );
-          if (inquiryItem) {
-            // 할증 배수 추출 (예: "×1.2" -> 1.2)
-            const match = inquiryItem.label.match(/×([\d.]+)/);
-            if (match) {
-              inquiryMultiplier = parseFloat(match[1]);
-            }
-          }
-        }
-
         // 개별 breakdown에 사이즈 정보 추가
-        const labeledBreakdown = filteredBreakdown.map(item => ({
+        const labeledBreakdown = result.breakdown.map(item => ({
           label: `[${actualSize} #${index + 1}] ${item.label}`,
           price: item.price
         }));
 
         allBreakdown.push(...labeledBreakdown);
         
-        // 할증 제외한 가격 합산
-        const basePrice = filteredBreakdown.reduce((sum, item) => sum + item.price, 0);
-        totalBasePrice += basePrice;
+        // 전체 가격 합산
+        const itemTotal = result.breakdown.reduce((sum, item) => sum + item.price, 0);
+        totalBasePrice += itemTotal;
       });
 
-      // 모든 기본 가격 합산 후 할증 1회 적용
+      // 최종 총 가격
       let totalPrice = totalBasePrice;
-      if (inquiryMultiplier > 0) {
-        const inquiryDelta = totalBasePrice * (inquiryMultiplier - 1);
-        const inquiryLabel = selectedProcessing === 'raw-only' 
-          ? `원장 단독 구매 할증 (×${inquiryMultiplier})`
-          : `가공 포함 문의 할증 (×${inquiryMultiplier})`;
-        
-        allBreakdown.push({ label: inquiryLabel, price: inquiryDelta });
-        totalPrice += inquiryDelta;
-      }
 
       console.log('Multi-size price calculation result:', { totalPrice, breakdown: allBreakdown });
       setPriceInfo({ totalPrice, breakdown: allBreakdown });
