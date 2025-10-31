@@ -6,6 +6,11 @@ import { Square, Layers, ArrowRight } from "lucide-react";
 import { SizeQuantitySelection } from "./MultipleSizeSelection";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { 
+  tapePrices, 
+  astelDoubleSideSurcharge, 
+  satinDoubleSideSurcharge 
+} from "@/data/glossyColorPricing";
 
 interface MultipleSurfaceSelectionProps {
   selectedSizes: SizeQuantitySelection[];
@@ -13,6 +18,7 @@ interface MultipleSurfaceSelectionProps {
   onNext: () => void;
   isGlossyStandard?: boolean;
   forceSingle?: boolean;
+  qualityId?: string; // 재질 ID로 추가금액 계산
 }
 
 const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
@@ -21,11 +27,44 @@ const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
   onNext,
   isGlossyStandard = false,
   forceSingle = false,
+  qualityId,
 }) => {
+  // 사이즈에서 기본 이름 추출 (예: "3*6 (860*1750)" -> "3*6")
+  const extractBaseName = (sizeString: string): string => {
+    const match = sizeString.match(/^([^\(]+)/);
+    return match ? match[1].trim() : sizeString;
+  };
+
+  // 면수 추가금액 계산
+  const calculateSurfaceAdditionalCost = (size: string, surface: string): number => {
+    if (surface !== '양면') return 0;
+    
+    const baseName = extractBaseName(size);
+    
+    switch (qualityId) {
+      case 'glossy-color':
+      case 'glossy-standard':
+        return tapePrices[baseName as keyof typeof tapePrices] || 0;
+      
+      case 'astel-color':
+        const astelTape = tapePrices[baseName as keyof typeof tapePrices] || 0;
+        const astelSurcharge = astelDoubleSideSurcharge[baseName as keyof typeof astelDoubleSideSurcharge] || 0;
+        return astelTape + astelSurcharge;
+      
+      case 'satin-color':
+        return satinDoubleSideSurcharge[baseName as keyof typeof satinDoubleSideSurcharge] || 0;
+      
+      default:
+        return 0;
+    }
+  };
+
   const handleSurfaceChange = (size: string, surface: string) => {
+    const surfaceAdditionalCost = calculateSurfaceAdditionalCost(size, surface);
+    
     onSelectionChange(
       selectedSizes.map(item => 
-        item.size === size ? { ...item, surface } : item
+        item.size === size ? { ...item, surface, surfaceAdditionalCost } : item
       )
     );
   };

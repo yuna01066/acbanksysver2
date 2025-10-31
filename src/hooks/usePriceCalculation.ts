@@ -16,6 +16,7 @@ interface SizeQuantitySelection {
   quantity: number;
   surface?: string;
   colorMixingCost?: number;
+  surfaceAdditionalCost?: number; // 면수 추가금액
 }
 
 interface UsePriceCalculationProps {

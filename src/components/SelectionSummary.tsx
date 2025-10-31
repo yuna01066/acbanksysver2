@@ -112,6 +112,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
               {selectedSizes.map((sizeItem, index) => {
                 const baseName = getSizeBaseName(sizeItem.size);
                 const itemColorMixingCost = sizeItem.colorMixingCost || 0;
+                const surfaceAdditionalCost = sizeItem.surfaceAdditionalCost || 0;
                 
                 return (
                   <Card key={index} className="border-2 border-primary/20 bg-gradient-to-br from-background to-muted/30">
@@ -128,11 +129,22 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
                         </Badge>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         {sizeItem.surface && (
                           <div className="p-2 bg-muted/50 rounded border border-border/50">
                             <div className="text-xs text-muted-foreground">면수</div>
                             <div className="font-medium text-sm">{sizeItem.surface}</div>
+                          </div>
+                        )}
+                        {surfaceAdditionalCost > 0 && (
+                          <div className="p-2 bg-muted/50 rounded border border-border/50">
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Layers className="w-3 h-3" />
+                              면수 추가
+                            </div>
+                            <div className="font-medium text-sm text-primary">
+                              {formatPrice(surfaceAdditionalCost)}
+                            </div>
                           </div>
                         )}
                         <div className="p-2 bg-muted/50 rounded border border-border/50">
@@ -160,10 +172,18 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
                               {formatPrice(basePrice * sizeItem.quantity)}
                             </span>
                           </div>
+                          {surfaceAdditionalCost > 0 && (
+                            <div className="flex items-center justify-between mt-1">
+                              <span className="text-sm text-muted-foreground">면수 추가금액</span>
+                              <span className="font-semibold">
+                                {formatPrice(surfaceAdditionalCost)}
+                              </span>
+                            </div>
+                          )}
                           <div className="flex items-center justify-between mt-1 pt-2 border-t border-border/30">
-                            <span className="text-sm font-medium">소계 (원판+조색비)</span>
+                            <span className="text-sm font-medium">소계 (원판+면수+조색비)</span>
                             <span className="font-bold text-lg text-primary">
-                              {formatPrice((basePrice * sizeItem.quantity) + itemColorMixingCost)}
+                              {formatPrice((basePrice * sizeItem.quantity) + surfaceAdditionalCost + itemColorMixingCost)}
                             </span>
                           </div>
                         </div>
@@ -192,6 +212,12 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
+                      <span className="font-medium">전체 면수 추가금액</span>
+                      <span className="font-bold">
+                        {formatPrice(selectedSizes.reduce((sum, item) => sum + (item.surfaceAdditionalCost || 0), 0))}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
                       <span className="font-medium">전체 조색비</span>
                       <span className="font-bold">
                         {formatPrice(selectedSizes.reduce((sum, item) => sum + (item.colorMixingCost || 0), 0))}
@@ -206,7 +232,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
                       <span className="font-bold text-2xl text-primary">
                         {formatPrice(
                           selectedSizes.reduce((sum, item) => 
-                            sum + (basePrice * item.quantity) + (item.colorMixingCost || 0), 0
+                            sum + (basePrice * item.quantity) + (item.surfaceAdditionalCost || 0) + (item.colorMixingCost || 0), 0
                           )
                         )}
                       </span>

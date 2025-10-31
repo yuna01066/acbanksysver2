@@ -530,6 +530,7 @@ const PanelCalculator = () => {
               onNext={handleNextFromMultipleSurface}
               isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
               forceSingle={selectedColor === 'A002' || selectedColor === 'A003'} 
+              qualityId={selectedQuality?.id}
             />
           )}
 
