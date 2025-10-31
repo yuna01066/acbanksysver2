@@ -250,6 +250,7 @@ export interface ProcessingDeltaResult {
   procCost: number;            // 증분 총액
   descriptions: string[];      // 브레이크다운 라벨
   edgeIncluded: boolean;       // 접착에 엣지 포함 시 true
+  hasAdhesion: boolean;        // 접착 가공 포함 여부
   picked: {
     processing: ProcessingProfile;
     adhesion: 'none' | 'normal' | '45°' | '90°';
@@ -277,6 +278,7 @@ export const calcProcessingDelta = (
   let procCost = 0;
   const desc: string[] = [];
   let edgeIncluded = false;
+  let hasAdhesion = false;
 
   // 1) 가공 프로필 선택
   let pickedProcessing: ProcessingProfile = processing;
@@ -302,6 +304,7 @@ export const calcProcessingDelta = (
     procCost += materialCost * (f - 1);
     desc.push(`일반 접착 (×${f})`);
     pickedAdhesion = 'normal';
+    hasAdhesion = true;
   } else if (adhesion === 'bond-mugipo-45' || adhesion === 'bond-mugipo-90' || adhesion === 'auto') {
     // 45°와 90°를 각각 계산해 최소 비용 선택(adhesion==='auto'일 때)
     const f45 = bondFactor45(t, opts.trayHeightMm);
@@ -354,6 +357,7 @@ export const calcProcessingDelta = (
     procCost += chosenCost;
     desc.push(chosenLabel);
     edgeIncluded = true; // 무기포는 레이저/엣지 포함 정의 → 별도 엣지 청구 OFF
+    hasAdhesion = true;
   }
 
   // 3) 엣지(요청 시, 무기포 포함이면 비활성)
@@ -374,6 +378,7 @@ export const calcProcessingDelta = (
     procCost,
     descriptions: desc,
     edgeIncluded,
+    hasAdhesion,
     picked: {
       processing: pickedProcessing,
       adhesion: pickedAdhesion,
@@ -647,7 +652,9 @@ export const calculatePrice = (
     });
     
     if (deltaResult.procCost > 0) {
-      breakdown.push({ label: '가공/접착 총 증분', price: deltaResult.procCost });
+      // 접착이 포함된 경우에만 "가공/접착", 아니면 "가공"만 표시
+      const label = deltaResult.hasAdhesion ? '가공/접착 총 증분' : '가공 총 증분';
+      breakdown.push({ label, price: deltaResult.procCost });
     }
   } 
   // 6) 레거시 방식 (processingType이 문자열로 전달된 경우)
