@@ -618,84 +618,111 @@ export const calculatePrice = (
 
   let totalPrice = materialCost;
 
-  // 5) 새로운 V2 방식: 가공/접착 증분 계산
+  // 5) 배수 중첩 방식: 가공/접착 계산
   if (options && (options.processing || options.adhesion)) {
     const processing = options.processing || 'none';
     const adhesion = options.adhesion || 'none';
+    const t = parseFloat(thickness.replace('T', ''));
     
-    // 단순 재단은 배수 중첩 방식 사용
+    // 5-1) 가공 배수 적용
     if (processing === 'simple-cutting') {
-      const t = parseFloat(thickness.replace('T', ''));
       const multiplier = (t < 10 ? 1.2 : 1.8);
-      const processingCost = materialCost * (multiplier - 1);
+      const processingCost = totalPrice * (multiplier - 1);
       breakdown.push({ label: `단순 재단 (×${multiplier})`, price: processingCost });
       totalPrice += processingCost;
+    } else if (processing === 'laser-simple' || processing === 'laser-complex' || 
+               processing === 'cnc-simple' || processing === 'cnc-complex') {
+      const baseF = PROCESS_FACTORS[processing];
+      const tf = thicknessFactor(t);
+      const multiplier = baseF * tf;
+      const processingCost = totalPrice * (multiplier - 1);
+      breakdown.push({ label: `${processing} (×${multiplier.toFixed(2)})`, price: processingCost });
+      totalPrice += processingCost;
+    } else if (processing === 'auto') {
+      const isComplex = options.isComplex || false;
+      const autoProcessing = t < 10 
+        ? (isComplex ? 'laser-complex' : 'laser-simple')
+        : (isComplex ? 'cnc-complex' : 'cnc-simple');
+      const baseF = PROCESS_FACTORS[autoProcessing];
+      const tf = thicknessFactor(t);
+      const multiplier = baseF * tf;
+      const processingCost = totalPrice * (multiplier - 1);
+      breakdown.push({ label: `${autoProcessing} (×${multiplier.toFixed(2)})`, price: processingCost });
+      totalPrice += processingCost;
+    }
+    
+    // 5-2) 엣지 요청 (접착 포함 전에 처리)
+    if (options.edgeRequested) {
+      const multiplier = (t <= 10 ? 1.8 : 2.0);
+      const edgeCost = totalPrice * (multiplier - 1);
+      breakdown.push({ label: `엣지 격면 (×${multiplier})`, price: edgeCost });
+      totalPrice += edgeCost;
+    }
+    
+    // 5-3) 접착 배수 적용
+    if (adhesion === 'bond-normal') {
+      const multiplier = BOND_FACTORS.normal;
+      const adhesionCost = totalPrice * (multiplier - 1);
+      breakdown.push({ label: `일반 접착 (×${multiplier})`, price: adhesionCost });
+      totalPrice += adhesionCost;
+    } else if (adhesion === 'bond-mugipo-45' || adhesion === 'bond-mugipo-90' || adhesion === 'auto') {
+      // 45°와 90° 비교
+      const f45 = t < 10 
+        ? (options.trayHeightMm && options.trayHeightMm <= ADHESION_CONFIG.thinTrayMaxHeightMm ? 2.0 : BOND_FACTORS.mugipo45_thin)
+        : BOND_FACTORS.mugipo45_thick;
+      const f90 = BOND_FACTORS.mugipo90;
       
-      // 접착이 있으면 추가 계산
-      if (adhesion !== 'none') {
-        const deltaResult = calcProcessingDelta(
-          totalPrice, // 단순 재단 적용 후 금액 기준
-          thickness,
-          'none', // 가공은 이미 처리했으므로 none
-          adhesion,
-          {
-            qty: options.qty,
-            isComplex: options.isComplex,
-            edgeRequested: options.edgeRequested,
-            bevelLengthM: options.bevelLengthM,
-            bevelFeePerM: options.bevelFeePerM,
-            laserHoles: options.laserHoles,
-            holeFee: options.holeFee,
-            corners90: options.corners90,
-            useDetailedBond: options.useDetailedBond,
-            joinLengthM: options.joinLengthM,
-            trayHeightMm: options.trayHeightMm,
-          }
-        );
-        
-        totalPrice += deltaResult.procCost;
-        deltaResult.descriptions.forEach(desc => {
-          breakdown.push({ label: desc, price: 0 });
-        });
-        if (deltaResult.procCost > 0) {
-          breakdown.push({ label: '접착 총 증분', price: deltaResult.procCost });
+      // 배수 기반 비용
+      let cost45 = totalPrice * (f45 - 1);
+      let cost90 = totalPrice * (f90 - 1);
+      
+      // 90°는 인건비 프리미엄 + 코너 마감비
+      cost90 = cost90 * ADHESION_CONFIG.laborPremium90
+             + (options.corners90 ?? 0) * ADHESION_CONFIG.cornerFinishFee;
+      
+      // 상세모드: S/n + rL × Q(n)
+      if (options.useDetailedBond) {
+        const n = options.qty ?? 1;
+        const S = ADHESION_CONFIG.setupFee;
+        const r = ADHESION_CONFIG.bondRatePerM;
+        const L = options.joinLengthM ?? 0;
+        const Qn = volumeQ(n, ADHESION_CONFIG.kVolume);
+        const detailed = (S / n + r * L) * Qn * n;
+        cost45 += detailed;
+        cost90 += detailed;
+        breakdown.push({ label: `무기포 상세 보정(S/n + rL) × Q(n=${n.toLocaleString()})`, price: 0 });
+      }
+      
+      // 45° 베벨 정액
+      if (options.bevelLengthM && options.bevelFeePerM) {
+        const bevelAdd = options.bevelLengthM * options.bevelFeePerM;
+        cost45 += bevelAdd;
+        breakdown.push({ label: `45° 베벨 (+${bevelAdd.toLocaleString()}원)`, price: 0 });
+      }
+      
+      // 선택
+      let chosenCost = cost45;
+      let chosenLabel = `무기포 45° (×${f45})`;
+      
+      if (adhesion === 'bond-mugipo-90') {
+        chosenCost = cost90;
+        chosenLabel = `무기포 90° (×${f90}, 프리미엄×${ADHESION_CONFIG.laborPremium90}${(options.corners90 ?? 0) ? `, 코너 ${options.corners90}개` : ''})`;
+      } else if (adhesion === 'auto') {
+        if (cost90 < cost45) {
+          chosenCost = cost90;
+          chosenLabel = `무기포 90° (×${f90}, 프리미엄×${ADHESION_CONFIG.laborPremium90}${(options.corners90 ?? 0) ? `, 코너 ${options.corners90}개` : ''})`;
         }
       }
-    } else {
-      // 다른 가공 방식은 증분 방식 사용
-      const deltaResult = calcProcessingDelta(
-        materialCost,
-        thickness,
-        processing,
-        adhesion,
-        {
-          qty: options.qty,
-          isComplex: options.isComplex,
-          edgeRequested: options.edgeRequested,
-          bevelLengthM: options.bevelLengthM,
-          bevelFeePerM: options.bevelFeePerM,
-          laserHoles: options.laserHoles,
-          holeFee: options.holeFee,
-          corners90: options.corners90,
-          useDetailedBond: options.useDetailedBond,
-          joinLengthM: options.joinLengthM,
-          trayHeightMm: options.trayHeightMm,
-        }
-      );
-
-      // 증분 비용 추가
-      totalPrice += deltaResult.procCost;
       
-      // breakdown에 상세 설명 추가
-      deltaResult.descriptions.forEach(desc => {
-        breakdown.push({ label: desc, price: 0 }); // 개별 항목은 설명만, 총액은 아래에
-      });
-      
-      if (deltaResult.procCost > 0) {
-        // 접착이 포함된 경우에만 "가공/접착", 아니면 "가공"만 표시
-        const label = deltaResult.hasAdhesion ? '가공/접착 총 증분' : '가공 총 증분';
-        breakdown.push({ label, price: deltaResult.procCost });
-      }
+      breakdown.push({ label: chosenLabel, price: chosenCost });
+      totalPrice += chosenCost;
+    }
+    
+    // 5-4) 기타 정액 옵션
+    if ((options.laserHoles ?? 0) > 0 && (options.holeFee ?? 0) > 0) {
+      const add = (options.laserHoles! * options.holeFee!);
+      breakdown.push({ label: `레이저 타공 ${options.laserHoles}개 (+${add.toLocaleString()}원)`, price: add });
+      totalPrice += add;
     }
   }
   // 6) 레거시 방식 (processingType이 문자열로 전달된 경우)
