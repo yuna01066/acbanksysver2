@@ -53,9 +53,9 @@ const QuotesSummaryPage = () => {
     );
   };
 
-  const subtotal = getTotalPrice();
-  const tax = subtotal * 0.1; // 10% 부가세
-  const totalWithTax = getTotalPriceWithTax();
+  const subtotal = Math.round(getTotalPrice());
+  const tax = Math.round(subtotal * 0.1); // 10% 부가세
+  const totalWithTax = Math.round(getTotalPriceWithTax());
 
   const handlePrintPDF = () => {
     window.print();

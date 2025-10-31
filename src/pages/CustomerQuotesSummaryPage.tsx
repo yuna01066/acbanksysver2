@@ -39,9 +39,9 @@ const CustomerQuotesSummaryPage = () => {
       </div>;
   }
 
-  const subtotal = getTotalPrice();
-  const tax = subtotal * 0.1; // 10% 부가세
-  const totalWithTax = getTotalPriceWithTax();
+  const subtotal = Math.round(getTotalPrice());
+  const tax = Math.round(subtotal * 0.1); // 10% 부가세
+  const totalWithTax = Math.round(getTotalPriceWithTax());
 
   const handlePrintPDF = () => {
     window.print();
@@ -242,10 +242,10 @@ const CustomerQuotesSummaryPage = () => {
                     </thead>
                     <tbody>
                       {quotes.map((quote, index) => {
-                        const unitPrice = quote.totalPrice;
-                        const totalPrice = unitPrice * quote.quantity;
-                        const taxAmount = totalPrice * 0.1;
-                        const totalWithTax = totalPrice + taxAmount;
+                        const unitPrice = Math.round(quote.totalPrice);
+                        const totalPrice = Math.round(unitPrice * quote.quantity);
+                        const taxAmount = Math.round(totalPrice * 0.1);
+                        const totalWithTax = Math.round(totalPrice + taxAmount);
                         
                         const rowCount = quote.selectedColor ? 5 : 4;
                         return (
