@@ -493,61 +493,95 @@ const ProcessingOptionsManager = () => {
 
           <Separator />
 
-          {/* 전체 옵션 목록 */}
-          <div>
-            <h4 className="text-sm font-semibold mb-4">전체 가공 옵션 목록</h4>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>옵션 ID</TableHead>
-                    <TableHead>이름</TableHead>
-                    <TableHead>카테고리</TableHead>
-                    <TableHead>슬롯 타입</TableHead>
-                    <TableHead className="text-right">기본 비용</TableHead>
-                    <TableHead>활성화</TableHead>
-                    <TableHead className="text-right">작업</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {processingOptions?.map((option) => (
-                    <TableRow key={option.id}>
-                      <TableCell className="font-mono text-xs">{option.option_id}</TableCell>
-                      <TableCell>{option.name}</TableCell>
-                      <TableCell>{getCategoryBadge(option.category)}</TableCell>
-                      <TableCell>{getOptionTypeBadge(option.option_type)}</TableCell>
-                      <TableCell className="text-right">
-                        {option.base_cost ? `${option.base_cost.toLocaleString()}원` : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={option.is_active ? 'default' : 'secondary'}>
-                          {option.is_active ? '활성' : '비활성'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex gap-2 justify-end">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => startEdit(option)}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(option.id)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+          {/* 슬롯별 옵션 목록 */}
+          <div className="space-y-6">
+            <h4 className="text-sm font-semibold">슬롯별 옵션 관리</h4>
+            
+            {['slot1', 'slot2', 'slot3', 'slot4', 'additional'].map((slotType) => {
+              const slotOptions = processingOptions?.filter(opt => opt.option_type === slotType) || [];
+              const slotLabels: Record<string, string> = {
+                slot1: '선택 1',
+                slot2: '선택 2',
+                slot3: '선택 3',
+                slot4: '선택 4',
+                additional: '추가 옵션'
+              };
+              
+              return (
+                <Card key={slotType} className="border-2">
+                  <CardHeader className="pb-3 bg-muted/30">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      {getOptionTypeBadge(slotType)}
+                      <span className="text-muted-foreground text-sm ml-2">
+                        ({slotOptions.length}개)
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    {slotOptions.length === 0 ? (
+                      <div className="text-center py-6 text-muted-foreground text-sm">
+                        {slotLabels[slotType]}에 등록된 옵션이 없습니다.
+                      </div>
+                    ) : (
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>옵션 ID</TableHead>
+                              <TableHead>이름</TableHead>
+                              <TableHead>카테고리</TableHead>
+                              <TableHead>설명</TableHead>
+                              <TableHead className="text-right">기본 비용</TableHead>
+                              <TableHead>활성화</TableHead>
+                              <TableHead className="text-right">작업</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {slotOptions.map((option) => (
+                              <TableRow key={option.id}>
+                                <TableCell className="font-mono text-xs">{option.option_id}</TableCell>
+                                <TableCell className="font-medium">{option.name}</TableCell>
+                                <TableCell>{getCategoryBadge(option.category)}</TableCell>
+                                <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
+                                  {option.description || '-'}
+                                </TableCell>
+                                <TableCell className="text-right font-mono">
+                                  {option.base_cost ? `${option.base_cost.toLocaleString()}원` : '-'}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={option.is_active ? 'default' : 'secondary'}>
+                                    {option.is_active ? '활성' : '비활성'}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex gap-2 justify-end">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => startEdit(option)}
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDelete(option.id)}
+                                      className="text-destructive hover:text-destructive"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
