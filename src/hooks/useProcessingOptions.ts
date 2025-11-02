@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 export interface ProcessingOption {
   id: string;
   option_type: 'slot1' | 'slot2' | 'slot3' | 'slot4' | 'additional';
+  category: 'raw' | 'simple' | 'complex' | 'full' | 'adhesion' | 'additional';
   option_id: string;
   name: string;
   description?: string;

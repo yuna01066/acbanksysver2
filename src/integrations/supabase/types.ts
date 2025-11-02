@@ -241,6 +241,9 @@ export type Database = {
       processing_options: {
         Row: {
           base_cost: number | null
+          category:
+            | Database["public"]["Enums"]["processing_option_category"]
+            | null
           created_at: string | null
           description: string | null
           display_order: number | null
@@ -254,6 +257,9 @@ export type Database = {
         }
         Insert: {
           base_cost?: number | null
+          category?:
+            | Database["public"]["Enums"]["processing_option_category"]
+            | null
           created_at?: string | null
           description?: string | null
           display_order?: number | null
@@ -267,6 +273,9 @@ export type Database = {
         }
         Update: {
           base_cost?: number | null
+          category?:
+            | Database["public"]["Enums"]["processing_option_category"]
+            | null
           created_at?: string | null
           description?: string | null
           display_order?: number | null
@@ -296,6 +305,13 @@ export type Database = {
         | "satin-color"
         | "acrylic-mirror"
         | "astel-mirror"
+      processing_option_category:
+        | "raw"
+        | "simple"
+        | "complex"
+        | "full"
+        | "adhesion"
+        | "additional"
       processing_option_type:
         | "additional"
         | "processing"
@@ -440,6 +456,14 @@ export const Constants = {
         "satin-color",
         "acrylic-mirror",
         "astel-mirror",
+      ],
+      processing_option_category: [
+        "raw",
+        "simple",
+        "complex",
+        "full",
+        "adhesion",
+        "additional",
       ],
       processing_option_type: [
         "additional",
