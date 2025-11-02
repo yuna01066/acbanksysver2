@@ -41,9 +41,6 @@ interface AdvancedProcessingOptionsProps {
   
   trayHeightMm?: number;
   onTrayHeightChange?: (height: number) => void;
-  
-  edgeFinishing?: boolean;
-  onEdgeFinishingChange?: (enabled: boolean) => void;
 }
 
 type ProductType = 'flat' | 'tray' | 'box';
@@ -65,8 +62,6 @@ const AdvancedProcessingOptions = ({
   onJoinLengthChange,
   trayHeightMm,
   onTrayHeightChange,
-  edgeFinishing = false,
-  onEdgeFinishingChange,
 }: AdvancedProcessingOptionsProps) => {
   const [isOpen, setIsOpen] = React.useState(false);
   const [productType, setProductType] = React.useState<ProductType>('flat');
@@ -294,26 +289,6 @@ const AdvancedProcessingOptions = ({
                 복잡한 모양 (슬릿, 다공 등)
                 <p className="text-xs text-muted-foreground mt-1">
                   복잡도에 따라 레이저 complex 또는 CNC complex 가공이 선택됩니다
-                </p>
-              </Label>
-            </div>
-
-            <Separator />
-
-            {/* 엣지 격면 마감 옵션 */}
-            <div className="flex items-center space-x-3 p-4 bg-primary/5 rounded-lg border border-primary/20">
-              <Checkbox
-                id="edgeFinishing"
-                checked={edgeFinishing}
-                onCheckedChange={(checked) => onEdgeFinishingChange?.(checked as boolean)}
-              />
-              <Label
-                htmlFor="edgeFinishing"
-                className="text-sm font-medium cursor-pointer flex-1"
-              >
-                엣지 격면 마감
-                <p className="text-xs text-muted-foreground mt-1">
-                  엣지 연마 및 격면 마감 처리 (10T 이하: 자재비 증분 +80%, 10T 초과: +100%)
                 </p>
               </Label>
             </div>
