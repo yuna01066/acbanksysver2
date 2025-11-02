@@ -296,7 +296,15 @@ export type Database = {
         | "satin-color"
         | "acrylic-mirror"
         | "astel-mirror"
-      processing_option_type: "additional" | "processing" | "adhesion" | "raw"
+      processing_option_type:
+        | "additional"
+        | "processing"
+        | "adhesion"
+        | "raw"
+        | "slot1"
+        | "slot2"
+        | "slot3"
+        | "slot4"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -433,7 +441,16 @@ export const Constants = {
         "acrylic-mirror",
         "astel-mirror",
       ],
-      processing_option_type: ["additional", "processing", "adhesion", "raw"],
+      processing_option_type: [
+        "additional",
+        "processing",
+        "adhesion",
+        "raw",
+        "slot1",
+        "slot2",
+        "slot3",
+        "slot4",
+      ],
     },
   },
 } as const
