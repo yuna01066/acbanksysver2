@@ -355,6 +355,7 @@ export const usePriceCalculation = ({
         processing = 'none';
       }
 
+      // 접착 옵션 매핑 - DB option_id를 그대로 사용
       if (selectedAdhesion === 'bond-normal') {
         adhesion = 'bond-normal';
       } else if (selectedAdhesion === 'bond-mugipo-auto') {
@@ -363,16 +364,11 @@ export const usePriceCalculation = ({
         adhesion = 'bond-mugipo-45';
       } else if (selectedAdhesion === 'bond-mugipo-90') {
         adhesion = 'bond-mugipo-90';
-      } else if (selectedAdhesion === '45-normal') {
-        adhesion = '45-normal';
-      } else if (selectedAdhesion === '45-mugipo') {
-        adhesion = '45-mugipo';
-      } else if (selectedAdhesion === '90-normal') {
-        adhesion = '90-normal';
-      } else if (selectedAdhesion === '90-mugipo') {
-        adhesion = '90-mugipo';
       } else if (selectedAdhesion === 'none' || selectedAdhesion === '') {
         adhesion = 'none';
+      } else {
+        // 기타 DB의 접착 옵션들은 그대로 전달
+        adhesion = selectedAdhesion as any;
       }
 
         // 가격 계산
@@ -465,6 +461,7 @@ export const usePriceCalculation = ({
         processing = 'none';
       }
 
+      // 접착 옵션 매핑 - DB option_id를 그대로 사용
       if (selectedAdhesion === 'bond-normal') {
         adhesion = 'bond-normal';
       } else if (selectedAdhesion === 'bond-mugipo-auto') {
@@ -473,16 +470,11 @@ export const usePriceCalculation = ({
         adhesion = 'bond-mugipo-45';
       } else if (selectedAdhesion === 'bond-mugipo-90') {
         adhesion = 'bond-mugipo-90';
-      } else if (selectedAdhesion === '45-normal') {
-        adhesion = '45-normal';
-      } else if (selectedAdhesion === '45-mugipo') {
-        adhesion = '45-mugipo';
-      } else if (selectedAdhesion === '90-normal') {
-        adhesion = '90-normal';
-      } else if (selectedAdhesion === '90-mugipo') {
-        adhesion = '90-mugipo';
       } else if (selectedAdhesion === 'none' || selectedAdhesion === '') {
         adhesion = 'none';
+      } else {
+        // 기타 DB의 접착 옵션들은 그대로 전달
+        adhesion = selectedAdhesion as any;
       }
 
       const result = calculatePrice(
