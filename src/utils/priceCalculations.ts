@@ -397,26 +397,17 @@ export interface ProcessingCostCalculation {
 export const calculateProcessingCost = (
   basePrice: number,
   thickness: string,
-  processingType: string,
-  inquiryType: 'raw-only' | 'with-processing' = 'with-processing'
+  processingType: string
 ): ProcessingCostCalculation => {
   const thicknessValue = parseFloat(thickness.replace('T', ''));
   let baseMultiplier = 1;
   let additionalCost = 0;
   let description = '';
 
-  // 문의 유형에 따른 기본 계수 적용
-  if (inquiryType === 'raw-only') {
-    baseMultiplier = 1.3; // 원장만 문의
-    description = '원장 단독 구매';
-  } else {
-    baseMultiplier = 1.2; // 재단/가공 포함 문의
-  }
-
   // 가공 유형별 추가 계산
   switch (processingType) {
     case 'raw-only':
-      // 원장만 구매는 이미 위에서 처리됨
+      description = '원장 구매';
       break;
 
     case 'simple-cutting':
@@ -503,9 +494,8 @@ export const calculateProcessingCost = (
   };
 };
 
-// V2: 증분 방식 가격 계산 (문의 배수는 자재비에만, 가공/접착은 증분으로)
+// V2: 증분 방식 가격 계산
 export interface CalculatePriceV2Options {
-  inquiryType?: 'with-processing' | 'raw-only';  // 문의 유형
   processing?: ProcessingProfile;                 // 가공 프로필
   adhesion?: AdhesionProfile;                     // 접착 프로필
   qty?: number;                                   // 수량
@@ -669,21 +659,8 @@ export const calculatePrice = (
     basePrice += finalColorMixingCost;
   }
 
-  // 4) 문의 배수 적용 (자재비에만!)
-  let materialCost = basePrice;
-  const inquiryType = options?.inquiryType || (processingType === 'raw-only' ? 'raw-only' : 'with-processing');
-  
-  if (inquiryType === 'raw-only') {
-    const inquiryDelta = basePrice * 0.8; // ×1.8 → 증분 +80%
-    breakdown.push({ label: '원장 단독 구매 할증 (×1.8)', price: inquiryDelta });
-    materialCost += inquiryDelta;
-  } else {
-    const inquiryDelta = basePrice * 0.2; // ×1.2 → 증분 +20%
-    breakdown.push({ label: '가공 포함 문의 할증 (×1.2)', price: inquiryDelta });
-    materialCost += inquiryDelta;
-  }
-
-  let totalPrice = materialCost;
+  // 4) 기본 가격 설정
+  let totalPrice = basePrice;
 
   // 5) 배수 중첩 방식: 가공/접착 계산
   if (options && (options.processing || options.adhesion)) {
@@ -794,8 +771,7 @@ export const calculatePrice = (
   }
   // 6) 레거시 방식 (processingType이 문자열로 전달된 경우)
   else if (processingType && processingType !== 'raw-only') {
-    const inquiryTypeOld: 'raw-only' | 'with-processing' = 'with-processing';
-    const processingCost = calculateProcessingCost(totalPrice, thickness, processingType, inquiryTypeOld);
+    const processingCost = calculateProcessingCost(totalPrice, thickness, processingType);
     
     // 기본 계수 적용
     if (processingCost.baseMultiplier !== 1) {
@@ -826,7 +802,7 @@ export const calculatePrice = (
 
   if (options?.edgeFinishing) {
     const optionData = getOptionData('edgeFinishing', 0.5);
-    const cost = materialCost * optionData.multiplier + optionData.baseCost;
+    const cost = basePrice * optionData.multiplier + optionData.baseCost;
     breakdown.push({ 
       label: `${optionData.name} (원판×${optionData.multiplier})`, 
       price: cost 
@@ -836,7 +812,7 @@ export const calculatePrice = (
 
   if (options?.bulgwang) {
     const optionData = getOptionData('bulgwang', 0.5);
-    const cost = materialCost * optionData.multiplier + optionData.baseCost;
+    const cost = basePrice * optionData.multiplier + optionData.baseCost;
     breakdown.push({ 
       label: `${optionData.name} (원판×${optionData.multiplier})`, 
       price: cost 
@@ -846,7 +822,7 @@ export const calculatePrice = (
 
   if (options?.tapung) {
     const optionData = getOptionData('tapung', 0.2);
-    const cost = materialCost * optionData.multiplier + optionData.baseCost;
+    const cost = basePrice * optionData.multiplier + optionData.baseCost;
     breakdown.push({ 
       label: `${optionData.name} (원판×${optionData.multiplier})`, 
       price: cost 
@@ -856,7 +832,7 @@ export const calculatePrice = (
 
   if (options?.mugwangPainting) {
     const optionData = getOptionData('mugwangPainting', 2.0);
-    const cost = materialCost * optionData.multiplier + optionData.baseCost;
+    const cost = basePrice * optionData.multiplier + optionData.baseCost;
     breakdown.push({ 
       label: `${optionData.name} (원판×${optionData.multiplier})`, 
       price: cost 

@@ -304,14 +304,12 @@ export const usePriceCalculation = ({
         const sizeMatch = sizeSelection.size.match(/^([^\(]+)/);
         const actualSize = sizeMatch ? sizeMatch[1].trim() : sizeSelection.size;
 
-        // inquiryType 결정
-        let inquiryType: 'with-processing' | 'raw-only' = 'with-processing';
+        // 가공/접착 프로필 결정
         let processing: any = 'none';
         let adhesion: any = 'none';
         let edgeRequested = false;
         
         if (selectedProcessing === 'raw-only') {
-          inquiryType = 'raw-only';
           processing = 'none';
         } else if (selectedProcessing === 'auto') {
           processing = 'auto';
@@ -344,7 +342,7 @@ export const usePriceCalculation = ({
         adhesion = 'none';
       }
 
-        // 가격 계산 (inquiryType에 따라 할증 적용)
+        // 가격 계산
         const result = calculatePrice(
           selectedMaterial.id,
           selectedQuality.id,
@@ -355,7 +353,6 @@ export const usePriceCalculation = ({
           selectedProcessing || undefined,
           sizeColorMixingCost,
           {
-            inquiryType,
             processing,
             adhesion,
             qty: sizeSelection.quantity,
@@ -406,11 +403,9 @@ export const usePriceCalculation = ({
       
       let processing: any = 'none';
       let adhesion: any = 'none';
-      let inquiryType: 'with-processing' | 'raw-only' = 'with-processing';
       let edgeRequested = false;
       
       if (selectedProcessing === 'raw-only') {
-        inquiryType = 'raw-only';
         processing = 'none';
       } else if (selectedProcessing === 'auto') {
         processing = 'auto';
@@ -453,7 +448,6 @@ export const usePriceCalculation = ({
         selectedProcessing || undefined,
         colorMixingCost,
         {
-          inquiryType,
           processing,
           adhesion,
           qty,
