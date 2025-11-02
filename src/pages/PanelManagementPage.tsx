@@ -117,7 +117,18 @@ const PanelManagementPage = () => {
           )}
 
           {currentView === 'color' && selectedProduct && selectedMaterial && (
-            <ColorManager panelMasterId={selectedProduct.id} />
+            <div className="space-y-4">
+              <Button 
+                variant="outline" 
+                onClick={handleBackToOptions}
+                className="flex items-center gap-2"
+                size="sm"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                옵션 선택으로 돌아가기
+              </Button>
+              <ColorManager qualityId={selectedProduct.id} />
+            </div>
           )}
         </div>
       </div>

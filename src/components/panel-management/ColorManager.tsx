@@ -21,16 +21,37 @@ interface ColorOption {
 }
 
 interface ColorManagerProps {
-  panelMasterId: string;
+  panelMasterId?: string;  // UUID
+  qualityId?: string;       // 'glossy-color', 'astel-color', etc.
 }
 
-const ColorManager = ({ panelMasterId }: ColorManagerProps) => {
+const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorManagerProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<ColorOption>>({});
   const [isAdding, setIsAdding] = useState(false);
   const [newColor, setNewColor] = useState({ color_name: '', color_code: '' });
+
+  // panel_master_id 조회 (qualityId가 주어진 경우)
+  const { data: panelMaster } = useQuery({
+    queryKey: ['panel-master-for-color', qualityId],
+    queryFn: async () => {
+      if (!qualityId) return null;
+      
+      const { data, error } = await supabase
+        .from('panel_masters')
+        .select('*')
+        .eq('quality', qualityId as any)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!qualityId && !propPanelMasterId,
+  });
+
+  const panelMasterId = propPanelMasterId || panelMaster?.id;
 
   // 컬러 옵션 조회
   const { data: colors, isLoading } = useQuery({
