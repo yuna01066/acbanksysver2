@@ -806,91 +806,38 @@ export const calculatePrice = (
       totalPrice += edgeCost;
     }
     
-    // 5-3) 접착 배수 적용
-    if (adhesion === 'bond-normal') {
-      const multiplier = bondFactors.normal;
-      const adhesionCost = totalPrice * (multiplier - 1);
-      breakdown.push({ label: `일반 접착 (×${multiplier})`, price: adhesionCost });
-      totalPrice += adhesionCost;
-    } else if (adhesion === '45-normal') {
-      // 45° 절단면 가공 (원판금액 × 0.5) + 일반 접착 (원판금액 × 2.0)
-      const angle45Cost = basePrice * 0.5;
-      const normalAdhesionCost = basePrice * 2.0;
-      breakdown.push({ label: `45° 절단면 가공 (원판×0.5)`, price: angle45Cost });
-      breakdown.push({ label: `일반 접착 (원판×2.0)`, price: normalAdhesionCost });
-      totalPrice += angle45Cost + normalAdhesionCost;
-    } else if (adhesion === '45-mugipo') {
-      // 45° 절단면 가공 (원판금액 × 0.5) + 무기포 접착 (원판금액 × 3.0)
-      const angle45Cost = basePrice * 0.5;
-      const mugipoAdhesionCost = basePrice * 3.0;
-      breakdown.push({ label: `45° 절단면 가공 (원판×0.5)`, price: angle45Cost });
-      breakdown.push({ label: `무기포 접착 (원판×3.0)`, price: mugipoAdhesionCost });
-      totalPrice += angle45Cost + mugipoAdhesionCost;
-    } else if (adhesion === '90-normal') {
-      // 90° 절단면 가공 (원판금액 × 0.25) + 일반 접착 (원판금액 × 2.0)
-      const angle90Cost = basePrice * 0.25;
-      const normalAdhesionCost = basePrice * 2.0;
-      breakdown.push({ label: `90° 절단면 가공 (원판×0.25)`, price: angle90Cost });
-      breakdown.push({ label: `일반 접착 (원판×2.0)`, price: normalAdhesionCost });
-      totalPrice += angle90Cost + normalAdhesionCost;
-    } else if (adhesion === '90-mugipo') {
-      // 90° 절단면 가공 (원판금액 × 0.25) + 무기포 접착 (원판금액 × 3.0)
-      const angle90Cost = basePrice * 0.25;
-      const mugipoAdhesionCost = basePrice * 3.0;
-      breakdown.push({ label: `90° 절단면 가공 (원판×0.25)`, price: angle90Cost });
-      breakdown.push({ label: `무기포 접착 (원판×3.0)`, price: mugipoAdhesionCost });
-      totalPrice += angle90Cost + mugipoAdhesionCost;
-    } else if (adhesion === 'bond-mugipo-45' || adhesion === 'bond-mugipo-90' || adhesion === 'auto') {
-      // 45°와 90° 비교
-      const f45 = t < 10 
-        ? (options.trayHeightMm && options.trayHeightMm <= adhesionConfig.thinTrayMaxHeightMm ? 2.0 : bondFactors.mugipo45_thin)
-        : bondFactors.mugipo45_thick;
-      const f90 = bondFactors.mugipo90;
+    // 5-3) 접착 비용 적용 (고정 비용 덧셈 방식)
+    // DB의 processing_options에서 접착 관련 옵션 찾기
+    if (adhesion && adhesion !== 'none') {
+      const processingOptionsData = options?.processingOptionsData || [];
       
-      // 배수 기반 비용
-      let cost45 = totalPrice * (f45 - 1);
-      let cost90 = totalPrice * (f90 - 1);
-      
-      // 90°는 인건비 프리미엄 + 코너 마감비
-      cost90 = cost90 * adhesionConfig.laborPremium90
-             + (options.corners90 ?? 0) * adhesionConfig.cornerFinishFee;
-      
-      // 상세모드: S/n + rL × Q(n)
-      if (options.useDetailedBond) {
-        const n = options.qty ?? 1;
-        const S = adhesionConfig.setupFee;
-        const r = adhesionConfig.bondRatePerM;
-        const L = options.joinLengthM ?? 0;
-        const Qn = volumeQ(n, adhesionConfig.kVolume);
-        const detailed = (S / n + r * L) * Qn * n;
-        cost45 += detailed;
-        cost90 += detailed;
-        breakdown.push({ label: `무기포 상세 보정(S/n + rL) × Q(n=${n.toLocaleString()})`, price: 0 });
+      // 접착 옵션 ID 매핑
+      let adhesionOptionId = '';
+      if (adhesion === 'bond-normal') {
+        adhesionOptionId = 'bond-normal';
+      } else if (adhesion === '45-normal') {
+        adhesionOptionId = '45-normal';
+      } else if (adhesion === '45-mugipo') {
+        adhesionOptionId = '45-mugipo';
+      } else if (adhesion === '90-normal') {
+        adhesionOptionId = '90-normal';
+      } else if (adhesion === '90-mugipo') {
+        adhesionOptionId = '90-mugipo';
+      } else if (adhesion === 'bond-mugipo-45') {
+        adhesionOptionId = '45-mugipo';
+      } else if (adhesion === 'bond-mugipo-90') {
+        adhesionOptionId = '90-mugipo';
       }
       
-      // 45° 베벨 정액
-      if (options.bevelLengthM && options.bevelFeePerM) {
-        const bevelAdd = options.bevelLengthM * options.bevelFeePerM;
-        cost45 += bevelAdd;
-        breakdown.push({ label: `45° 베벨 (+${bevelAdd.toLocaleString()}원)`, price: 0 });
+      // DB에서 접착 옵션 찾기
+      const adhesionOption = processingOptionsData.find(
+        opt => opt.option_id === adhesionOptionId && opt.is_active
+      );
+      
+      if (adhesionOption && adhesionOption.base_cost) {
+        breakdown.push({ label: `${adhesionOption.name} (+${adhesionOption.base_cost.toLocaleString()}원)`, price: adhesionOption.base_cost });
+        totalPrice += adhesionOption.base_cost;
       }
-      
-      // 선택
-      let chosenCost = cost45;
-      let chosenLabel = `무기포 45° (×${f45})`;
-      
-      if (adhesion === 'bond-mugipo-90') {
-        chosenCost = cost90;
-        chosenLabel = `무기포 90° (×${f90}, 프리미엄×${adhesionConfig.laborPremium90}${(options.corners90 ?? 0) ? `, 코너 ${options.corners90}개` : ''})`;
-      } else if (adhesion === 'auto') {
-        if (cost90 < cost45) {
-          chosenCost = cost90;
-          chosenLabel = `무기포 90° (×${f90}, 프리미엄×${adhesionConfig.laborPremium90}${(options.corners90 ?? 0) ? `, 코너 ${options.corners90}개` : ''})`;
-        }
-      }
-      
-      breakdown.push({ label: chosenLabel, price: chosenCost });
-      totalPrice += chosenCost;
     }
     
     // 5-4) 기타 정액 옵션
