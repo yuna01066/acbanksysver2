@@ -51,6 +51,8 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     
     return processingOptions
       .filter(opt => opt.is_active)
+      // 'additional' 타입 제외 (베벨, 타공 등은 고급 옵션에서만 사용)
+      .filter(opt => opt.option_type !== 'additional')
       .map(opt => ({
         id: opt.option_id,
         option_id: opt.option_id,
