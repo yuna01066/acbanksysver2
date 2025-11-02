@@ -747,15 +747,13 @@ export const calculatePrice = (
 
   // 엣지 격면 마감 - 맨 마지막에 적용
   if (options?.edgeFinishing) {
-    const thicknessNum = parseFloat(thickness.replace('T', ''));
-    const edgeMultiplier = thicknessNum <= 10 ? 1.8 : 2.0;
-    const edgeFinishingCost = totalPrice * (edgeMultiplier - 1);
-    
+    // 원판금액(materialCost)의 0.5배를 단순 추가
+    const edgeCost = materialCost * 0.5;
     breakdown.push({ 
-      label: `엣지 격면 마감 (×${edgeMultiplier})`, 
-      price: edgeFinishingCost 
+      label: '엣지 격면 (원판×0.5)', 
+      price: edgeCost 
     });
-    totalPrice += edgeFinishingCost;
+    totalPrice += edgeCost;
   }
 
   return { totalPrice, breakdown };
