@@ -407,7 +407,8 @@ export const calculateProcessingCost = (
   // 가공 유형별 추가 계산
   switch (processingType) {
     case 'raw-only':
-      description = '원장 구매';
+      baseMultiplier = 1.8;
+      description = '원판 단독 구매 (자재비 ×1.8)';
       break;
 
     case 'simple-cutting':
