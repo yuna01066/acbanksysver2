@@ -116,6 +116,24 @@ export const usePriceCalculation = ({
     },
   });
 
+  // Fetch advanced processing settings (raw_only_multiplier 등)
+  const { data: advancedSettings } = useQuery({
+    queryKey: ['advanced-processing-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('advanced_processing_settings')
+        .select('*')
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('Error fetching advanced processing settings:', error);
+        return [];
+      }
+
+      return data;
+    },
+  });
+
   // Fetch active panel sizes
   const { data: activePanelSizes } = useQuery({
     queryKey: ['active-panel-sizes', panelMaster?.id, selectedThickness],
@@ -289,6 +307,9 @@ export const usePriceCalculation = ({
       adhesion: selectedAdhesion
     });
 
+    // 원판 단독 구매 할증률 가져오기
+    const rawOnlyMultiplier = advancedSettings?.find(s => s.setting_key === 'raw_only_multiplier')?.setting_value || 1.8;
+
     // 다중 선택된 사이즈가 있는 경우
     if (selectedMaterial && selectedQuality && selectedThickness && selectedSizes && selectedSizes.length > 0 && selectedFactory === 'jangwon') {
       let totalBasePrice = 0; // 할증 전 기본 가격 합계
@@ -375,6 +396,7 @@ export const usePriceCalculation = ({
               price: ps.price || undefined,
               is_active: ps.is_active
             })),
+            rawOnlyMultiplier, // DB에서 가져온 원판 단독 구매 할증률 전달
           }
         );
 
@@ -474,6 +496,7 @@ export const usePriceCalculation = ({
             price: ps.price || undefined,
             is_active: ps.is_active
           })),
+          rawOnlyMultiplier, // DB에서 가져온 원판 단독 구매 할증률 전달
         }
       );
       
@@ -506,7 +529,12 @@ export const usePriceCalculation = ({
     edgeFinishing,
     bulgwang,
     tapung,
-    mugwangPainting
+    mugwangPainting,
+    processingOptions,
+    colorMixingCosts,
+    adhesiveCosts,
+    activePanelSizes,
+    advancedSettings, // 관리자 설정 변경 시 재계산
   ]);
 
   return {

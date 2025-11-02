@@ -515,6 +515,7 @@ export interface CalculatePriceV2Options {
   tapung?: boolean;                               // 타공
   mugwangPainting?: boolean;                      // 무광 도장
   processingOptionsData?: ProcessingOptionData[]; // DB에서 가져온 가공 옵션 데이터
+  rawOnlyMultiplier?: number;                     // 원판 단독 구매 할증률 (DB에서 가져옴)
 }
 
 export interface ProcessingOptionData {
@@ -660,11 +661,19 @@ export const calculatePrice = (
     basePrice += finalColorMixingCost;
   }
 
-  // 4) 기본 가격 설정
+  // 4) 원판 단독 구매 할증 (processingType이 'raw-only'인 경우)
+  if (processingType === 'raw-only') {
+    const rawMultiplier = options?.rawOnlyMultiplier || 1.8;
+    const rawOnlyCharge = basePrice * (rawMultiplier - 1);
+    breakdown.push({ label: `원판 단독 구매 할증 (×${rawMultiplier})`, price: rawOnlyCharge });
+    basePrice += rawOnlyCharge;
+  }
+
+  // 5) 기본 가격 설정
   let totalPrice = basePrice;
 
-  // 5) 배수 중첩 방식: 가공/접착 계산
-  if (options && (options.processing || options.adhesion)) {
+  // 6) 배수 중첩 방식: 가공/접착 계산 (원판 단독 구매가 아닌 경우만)
+  if (processingType !== 'raw-only' && options && (options.processing || options.adhesion)) {
     const processing = options.processing || 'none';
     const adhesion = options.adhesion || 'none';
     const t = parseFloat(thickness.replace('T', ''));
