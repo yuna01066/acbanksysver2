@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pencil, Save, X, Trash2, Plus } from "lucide-react";
 import { useProcessingOptions, ProcessingOption } from "@/hooks/useProcessingOptions";
+import { useAdvancedProcessingSettings, AdvancedProcessingSetting } from "@/hooks/useAdvancedProcessingSettings";
 import { Badge } from "@/components/ui/badge";
 import { 
   AlertDialog,
@@ -20,11 +21,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
 
 const ProcessingOptionsManager = () => {
   const { processingOptions, isLoading, updateOption, deleteOption, createOption } = useProcessingOptions();
+  const { settings: advancedSettings, isLoading: isLoadingAdvanced, updateSetting } = useAdvancedProcessingSettings();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<ProcessingOption>>({});
+  const [editingSettingId, setEditingSettingId] = useState<string | null>(null);
+  const [editSettingForm, setEditSettingForm] = useState<Partial<AdvancedProcessingSetting>>({});
   const [isAdding, setIsAdding] = useState(false);
   const [newOptionForm, setNewOptionForm] = useState<Partial<ProcessingOption>>({
     option_type: 'processing',
@@ -90,6 +95,26 @@ const ProcessingOptionsManager = () => {
     });
   };
 
+  const startEditSetting = (setting: AdvancedProcessingSetting) => {
+    setEditingSettingId(setting.id);
+    setEditSettingForm(setting);
+  };
+
+  const cancelEditSetting = () => {
+    setEditingSettingId(null);
+    setEditSettingForm({});
+  };
+
+  const saveEditSetting = async () => {
+    if (editingSettingId && editSettingForm) {
+      await updateSetting.mutateAsync({
+        id: editingSettingId,
+        updates: editSettingForm,
+      });
+      cancelEditSetting();
+    }
+  };
+
   const getOptionTypeBadge = (type: string) => {
     const variants: Record<string, { label: string; variant: any }> = {
       additional: { label: '추가 옵션', variant: 'default' },
@@ -120,18 +145,110 @@ const ProcessingOptionsManager = () => {
     });
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingAdvanced) {
     return <div className="p-8 text-center">로딩 중...</div>;
   }
 
   return (
-    <>
+    <div className="space-y-6">
+      {/* 고급 옵션 단가 관리 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>고급 옵션 단가 설정</CardTitle>
+          <CardDescription>
+            베벨, 타공, 코너 마감 등 고급 옵션의 단가를 관리합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>설정 항목</TableHead>
+                  <TableHead>설명</TableHead>
+                  <TableHead className="text-right">단가</TableHead>
+                  <TableHead>단위</TableHead>
+                  <TableHead className="text-right">작업</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {advancedSettings?.map((setting) => {
+                  const isEditing = editingSettingId === setting.id;
+                  return (
+                    <TableRow key={setting.id}>
+                      <TableCell>
+                        <div className="font-medium">{setting.display_name}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm text-muted-foreground max-w-[300px]">
+                          {setting.description}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            step={setting.setting_key === 'volume_discount_factor' ? '0.01' : '100'}
+                            value={editSettingForm.setting_value || ''}
+                            onChange={(e) => setEditSettingForm({ 
+                              ...editSettingForm, 
+                              setting_value: e.target.value ? parseFloat(e.target.value) : 0 
+                            })}
+                            className="max-w-[150px] ml-auto"
+                          />
+                        ) : (
+                          <div className="font-mono">
+                            {setting.setting_value.toLocaleString()}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{setting.unit || '-'}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {isEditing ? (
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={saveEditSetting}
+                            >
+                              <Save className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={cancelEditSetting}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => startEditSetting(setting)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 기존 가공 옵션 관리 */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <div>
-            <CardTitle>가공 가격 관리</CardTitle>
+            <CardTitle>가공 방식 및 배수 관리</CardTitle>
             <CardDescription>
-              모든 가공 옵션의 설정을 관리하고 새로운 옵션을 추가할 수 있습니다.
+              가공 옵션의 배수 설정을 관리하고 새로운 옵션을 추가할 수 있습니다.
             </CardDescription>
           </div>
           <Button 
@@ -513,7 +630,7 @@ const ProcessingOptionsManager = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 };
 

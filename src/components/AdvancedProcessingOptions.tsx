@@ -16,6 +16,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useAdvancedProcessingSettings } from "@/hooks/useAdvancedProcessingSettings";
 
 interface AdvancedProcessingOptionsProps {
   qty?: number;
@@ -65,11 +66,17 @@ const AdvancedProcessingOptions = ({
 }: AdvancedProcessingOptionsProps) => {
   const [isOpen, setIsOpen] = React.useState(false);
   const [productType, setProductType] = React.useState<ProductType>('flat');
+  const { getSettingValue } = useAdvancedProcessingSettings();
   
   // 박스/트레이 치수
   const [boxWidth, setBoxWidth] = React.useState<number>(0);
   const [boxLength, setBoxLength] = React.useState<number>(0);
   const [boxHeight, setBoxHeight] = React.useState<number>(0);
+  
+  // DB에서 단가 가져오기
+  const bevelCostPerM = getSettingValue('bevel_cost_per_m');
+  const laserHoleCost = getSettingValue('laser_hole_cost');
+  const corner90Cost = getSettingValue('corner_90_cost');
   
   // 박스 치수 기반 자동 계산
   React.useEffect(() => {
@@ -304,7 +311,7 @@ const AdvancedProcessingOptions = ({
                 <Label htmlFor="bevelLength" className="text-sm font-semibold flex items-center gap-2">
                   45° 베벨 길이 (m)
                   <Badge variant="outline" className="text-xs">
-                    3,000원/m
+                    {bevelCostPerM.toLocaleString()}원/m
                   </Badge>
                 </Label>
                 <Input
@@ -324,7 +331,7 @@ const AdvancedProcessingOptions = ({
                 <Label htmlFor="laserHoles" className="text-sm font-semibold flex items-center gap-2">
                   레이저 타공 개수
                   <Badge variant="outline" className="text-xs">
-                    500원/개
+                    {laserHoleCost.toLocaleString()}원/개
                   </Badge>
                 </Label>
                 <Input
@@ -344,7 +351,7 @@ const AdvancedProcessingOptions = ({
                   <Label htmlFor="corners90" className="text-sm font-semibold flex items-center gap-2">
                     90° 코너 개수
                     <Badge variant="outline" className="text-xs">
-                      4,000원/개 마감비
+                      {corner90Cost.toLocaleString()}원/개 마감비
                     </Badge>
                   </Label>
                   <Input
