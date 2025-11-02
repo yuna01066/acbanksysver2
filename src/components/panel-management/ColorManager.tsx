@@ -73,15 +73,17 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
   const [activeTab, setActiveTab] = useState<'A' | 'B'>('A');
   
   const categoryAColors = colors?.filter(color => {
-    const name = color.color_name;
-    // 이름에 ' B'가 없는 경우 (예: AC-C011 연핑크, AC-B011 연핑크)
-    return !name.includes(' B');
+    const acCode = color.color_name.split(' ')[0];
+    const lastDigit = acCode.charAt(acCode.length - 1);
+    // 1, 2, 3, 4로 끝나는 경우
+    return ['1', '2', '3', '4'].includes(lastDigit);
   }) || [];
 
   const categoryBColors = colors?.filter(color => {
-    const name = color.color_name;
-    // 이름에 ' B'가 있는 경우 (예: AC-C006 브라운 B, AC-B016 연피치)
-    return name.includes(' B');
+    const acCode = color.color_name.split(' ')[0];
+    const lastDigit = acCode.charAt(acCode.length - 1);
+    // 6, 7, 8, 9로 끝나는 경우
+    return ['6', '7', '8', '9'].includes(lastDigit);
   }) || [];
 
   const displayColors = activeTab === 'A' ? categoryAColors : categoryBColors;
