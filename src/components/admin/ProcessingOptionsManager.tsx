@@ -150,12 +150,12 @@ const ProcessingOptionsManager = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-up">
       {/* 고급 옵션 단가 관리 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>고급 옵션 단가 설정</CardTitle>
-          <CardDescription>
+      <Card className="shadow-smooth">
+        <CardHeader className="border-b border-border/50">
+          <CardTitle className="text-xl">고급 옵션 단가 설정</CardTitle>
+          <CardDescription className="text-muted-foreground">
             베벨, 타공, 코너 마감 등 고급 옵션의 단가를 관리합니다.
           </CardDescription>
         </CardHeader>
@@ -243,29 +243,33 @@ const ProcessingOptionsManager = () => {
       </Card>
 
       {/* 기존 가공 옵션 관리 */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <div>
-            <CardTitle>가공 방식 및 배수 관리</CardTitle>
-            <CardDescription>
-              가공 옵션의 배수 설정을 관리하고 새로운 옵션을 추가할 수 있습니다.
-            </CardDescription>
+      <Card className="shadow-smooth">
+        <CardHeader className="border-b border-border/50">
+          <div className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-xl">가공 방식 및 배수 관리</CardTitle>
+              <CardDescription className="text-muted-foreground mt-2">
+                가공 옵션의 배수 설정을 관리하고 새로운 옵션을 추가할 수 있습니다.
+              </CardDescription>
+            </div>
+            <Button 
+              onClick={() => setIsAdding(!isAdding)}
+              variant={isAdding ? "outline" : "default"}
+              size="sm"
+              className="transition-all"
+            >
+              {isAdding ? <X className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              {isAdding ? '취소' : '새 옵션 추가'}
+            </Button>
           </div>
-          <Button 
-            onClick={() => setIsAdding(!isAdding)}
-            variant={isAdding ? "outline" : "default"}
-            size="sm"
-          >
-            {isAdding ? <X className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-            {isAdding ? '취소' : '새 옵션 추가'}
-          </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="mb-6 flex flex-wrap gap-2">
             <Button
               variant={selectedCategory === null ? "default" : "outline"}
               onClick={() => setSelectedCategory(null)}
               size="sm"
+              className="transition-all"
             >
               전체 보기
             </Button>
@@ -273,6 +277,7 @@ const ProcessingOptionsManager = () => {
               variant={selectedCategory === 'raw-only' ? "default" : "outline"}
               onClick={() => setSelectedCategory('raw-only')}
               size="sm"
+              className="transition-all"
             >
               원판 구매
             </Button>
@@ -280,6 +285,7 @@ const ProcessingOptionsManager = () => {
               variant={selectedCategory === 'cutting' ? "default" : "outline"}
               onClick={() => setSelectedCategory('cutting')}
               size="sm"
+              className="transition-all"
             >
               재단
             </Button>
@@ -287,6 +293,7 @@ const ProcessingOptionsManager = () => {
               variant={selectedCategory === 'complex' ? "default" : "outline"}
               onClick={() => setSelectedCategory('complex')}
               size="sm"
+              className="transition-all"
             >
               복잡한 모양 가공
             </Button>
@@ -294,6 +301,7 @@ const ProcessingOptionsManager = () => {
               variant={selectedCategory === 'adhesion' ? "default" : "outline"}
               onClick={() => setSelectedCategory('adhesion')}
               size="sm"
+              className="transition-all"
             >
               접착 가공
             </Button>
@@ -301,14 +309,15 @@ const ProcessingOptionsManager = () => {
               variant={selectedCategory === 'additional' ? "default" : "outline"}
               onClick={() => setSelectedCategory('additional')}
               size="sm"
+              className="transition-all"
             >
               추가 옵션
             </Button>
           </div>
 
           {isAdding && (
-            <Card className="mb-6 border-2 border-primary/30 bg-primary/5">
-              <CardHeader>
+            <Card className="mb-6 border-2 border-primary/30 bg-primary/5 shadow-smooth animate-scale-in">
+              <CardHeader className="border-b border-primary/20">
                 <CardTitle className="text-lg">새 가공 옵션 추가</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -397,10 +406,10 @@ const ProcessingOptionsManager = () => {
                 </div>
                 
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsAdding(false)}>
+                  <Button variant="outline" onClick={() => setIsAdding(false)} className="transition-all">
                     취소
                   </Button>
-                  <Button onClick={handleAddNew}>
+                  <Button onClick={handleAddNew} className="transition-all">
                     추가하기
                   </Button>
                 </div>
@@ -408,20 +417,20 @@ const ProcessingOptionsManager = () => {
             </Card>
           )}
 
-          <div className="rounded-md border">
+          <div className="rounded-xl border border-border/50 overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>타입</TableHead>
-                  <TableHead>카테고리</TableHead>
-                  <TableHead>옵션 ID</TableHead>
-                  <TableHead>이름</TableHead>
-                  <TableHead>설명</TableHead>
-                  <TableHead className="text-right">배수</TableHead>
-                  <TableHead className="text-right">고정 비용</TableHead>
-                  <TableHead className="text-center">순서</TableHead>
-                  <TableHead className="text-center">활성</TableHead>
-                  <TableHead className="text-right">작업</TableHead>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableHead className="font-semibold">타입</TableHead>
+                  <TableHead className="font-semibold">카테고리</TableHead>
+                  <TableHead className="font-semibold">옵션 ID</TableHead>
+                  <TableHead className="font-semibold">이름</TableHead>
+                  <TableHead className="font-semibold">설명</TableHead>
+                  <TableHead className="text-right font-semibold">배수</TableHead>
+                  <TableHead className="text-right font-semibold">고정 비용</TableHead>
+                  <TableHead className="text-center font-semibold">순서</TableHead>
+                  <TableHead className="text-center font-semibold">활성</TableHead>
+                  <TableHead className="text-right font-semibold">작업</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
