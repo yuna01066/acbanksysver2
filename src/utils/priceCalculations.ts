@@ -520,6 +520,9 @@ export interface CalculatePriceV2Options {
   joinLengthM?: number;                           // 접착선 길이
   trayHeightMm?: number;                          // 트레이 높이
   edgeFinishing?: boolean;                        // 엣지 격면 마감
+  bulgwang?: boolean;                             // 불광 마감
+  tapung?: boolean;                               // 타공
+  mugwangPainting?: boolean;                      // 무광 도장
 }
 
 export const calculatePrice = (
@@ -745,15 +748,45 @@ export const calculatePrice = (
     }
   }
 
-  // 엣지 격면 마감 - 맨 마지막에 적용
+  // 추가 옵션들 - 맨 마지막에 적용
   if (options?.edgeFinishing) {
-    // 원판금액(materialCost)의 0.5배를 단순 추가
+    // 엣지 격면 마감: 원판금액(materialCost)의 0.5배
     const edgeCost = materialCost * 0.5;
     breakdown.push({ 
       label: '엣지 격면 (원판×0.5)', 
       price: edgeCost 
     });
     totalPrice += edgeCost;
+  }
+
+  if (options?.bulgwang) {
+    // 불광 마감: 원판금액(materialCost)의 0.5배
+    const bulgwangCost = materialCost * 0.5;
+    breakdown.push({ 
+      label: '불광 마감 (원판×0.5)', 
+      price: bulgwangCost 
+    });
+    totalPrice += bulgwangCost;
+  }
+
+  if (options?.tapung) {
+    // 타공: 원판금액(materialCost)의 0.2배
+    const tapungCost = materialCost * 0.2;
+    breakdown.push({ 
+      label: '타공 (원판×0.2)', 
+      price: tapungCost 
+    });
+    totalPrice += tapungCost;
+  }
+
+  if (options?.mugwangPainting) {
+    // 무광 도장: 원판금액(materialCost)의 2배
+    const mugwangCost = materialCost * 2.0;
+    breakdown.push({ 
+      label: '무광 도장 (원판×2.0)', 
+      price: mugwangCost 
+    });
+    totalPrice += mugwangCost;
   }
 
   return { totalPrice, breakdown };

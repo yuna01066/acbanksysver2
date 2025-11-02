@@ -91,6 +91,9 @@ const PanelCalculator = () => {
   const [joinLengthM, setJoinLengthM] = useState<number>(0);
   const [trayHeightMm, setTrayHeightMm] = useState<number | undefined>(undefined);
   const [edgeFinishing, setEdgeFinishing] = useState<boolean>(false);
+  const [bulgwang, setBulgwang] = useState<boolean>(false);
+  const [tapung, setTapung] = useState<boolean>(false);
+  const [mugwangPainting, setMugwangPainting] = useState<boolean>(false);
   
   const {
     priceInfo,
@@ -116,7 +119,10 @@ const PanelCalculator = () => {
     useDetailedBond,
     joinLengthM,
     trayHeightMm,
-    edgeFinishing
+    edgeFinishing,
+    bulgwang,
+    tapung,
+    mugwangPainting
   });
 
   // 이전 단계로 돌아가기 버튼
@@ -583,11 +589,17 @@ const PanelCalculator = () => {
                 onComplexChange={setIsComplex}
               />
               
-              {/* 엣지 격면 마감 옵션 - 원판 구매 제외, 재단/복잡한 모양 가공 시 표시 */}
+              {/* 추가 옵션 - 원판 구매 제외, 재단/복잡한 모양 가공 시 표시 */}
               {(selectedProcessing && selectedProcessing !== 'raw-only' && !selectedAdhesion) && (
                 <EdgeFinishingOption
                   edgeFinishing={edgeFinishing}
                   onEdgeFinishingChange={setEdgeFinishing}
+                  bulgwang={bulgwang}
+                  onBulgwangChange={setBulgwang}
+                  tapung={tapung}
+                  onTapungChange={setTapung}
+                  mugwangPainting={mugwangPainting}
+                  onMugwangPaintingChange={setMugwangPainting}
                 />
               )}
               

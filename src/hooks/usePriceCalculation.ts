@@ -41,6 +41,9 @@ interface UsePriceCalculationProps {
   joinLengthM?: number;
   trayHeightMm?: number;
   edgeFinishing?: boolean;
+  bulgwang?: boolean;
+  tapung?: boolean;
+  mugwangPainting?: boolean;
 }
 
 export const usePriceCalculation = ({
@@ -64,7 +67,10 @@ export const usePriceCalculation = ({
   useDetailedBond = false,
   joinLengthM = 0,
   trayHeightMm,
-  edgeFinishing = false
+  edgeFinishing = false,
+  bulgwang = false,
+  tapung = false,
+  mugwangPainting = false
 }: UsePriceCalculationProps) => {
   const [priceInfo, setPriceInfo] = useState<{ totalPrice: number; breakdown: { label: string; price: number }[] }>({
     totalPrice: 0,
@@ -399,6 +405,9 @@ export const usePriceCalculation = ({
           joinLengthM,
           trayHeightMm,
           edgeFinishing,
+          bulgwang,
+          tapung,
+          mugwangPainting,
         }
       );
       
@@ -428,7 +437,10 @@ export const usePriceCalculation = ({
     useDetailedBond,
     joinLengthM,
     trayHeightMm,
-    edgeFinishing
+    edgeFinishing,
+    bulgwang,
+    tapung,
+    mugwangPainting
   ]);
 
   return {
