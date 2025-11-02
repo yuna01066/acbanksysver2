@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, Save, X, Trash2, Plus, Package, Scissors, Layers, Droplet, Settings } from "lucide-react";
+import { Pencil, Save, X, Trash2, Plus, Package, Scissors, Droplet, Settings } from "lucide-react";
 import { useProcessingOptions, ProcessingOption } from "@/hooks/useProcessingOptions";
 import { useAdvancedProcessingSettings, AdvancedProcessingSetting } from "@/hooks/useAdvancedProcessingSettings";
 import { Badge } from "@/components/ui/badge";
@@ -142,8 +142,7 @@ const ProcessingOptionsManager = () => {
     
     return processingOptions?.filter(option => {
       if (activeTab === 'raw-only') return option.option_id === 'raw-only';
-      if (activeTab === 'cutting') return option.option_id.includes('laser') || option.option_id.includes('cnc') || option.option_id.includes('cutting');
-      if (activeTab === 'complex') return option.option_id.includes('complex');
+      if (activeTab === 'cutting') return option.option_id.includes('laser') || option.option_id.includes('cnc') || option.option_id.includes('cutting') || option.option_id.includes('complex');
       if (activeTab === 'adhesion') return option.option_type === 'adhesion';
       if (activeTab === 'additional') return option.option_type === 'additional';
       return false;
@@ -270,7 +269,7 @@ const ProcessingOptionsManager = () => {
         </CardHeader>
         <CardContent className="pt-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-6 mb-6">
+            <TabsList className="grid w-full grid-cols-5 mb-6">
               <TabsTrigger value="all" className="transition-all">
                 전체
               </TabsTrigger>
@@ -281,10 +280,6 @@ const ProcessingOptionsManager = () => {
               <TabsTrigger value="cutting" className="transition-all">
                 <Scissors className="w-4 h-4 mr-2" />
                 재단
-              </TabsTrigger>
-              <TabsTrigger value="complex" className="transition-all">
-                <Layers className="w-4 h-4 mr-2" />
-                복잡 가공
               </TabsTrigger>
               <TabsTrigger value="adhesion" className="transition-all">
                 <Droplet className="w-4 h-4 mr-2" />
