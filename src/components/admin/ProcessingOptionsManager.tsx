@@ -62,8 +62,7 @@ const ProcessingOptionsManager = () => {
     option_id: '',
     multiplier: undefined,
     base_cost: undefined,
-    is_active: true,
-    display_order: 0
+    is_active: true
   });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   
@@ -145,8 +144,7 @@ const ProcessingOptionsManager = () => {
       option_id: '',
       multiplier: undefined,
       base_cost: undefined,
-      is_active: true,
-      display_order: 0
+      is_active: true
     });
   };
 
@@ -731,58 +729,62 @@ const ProcessingOptionsManager = () => {
                         </div>
                       ) : (
                         <div className="rounded-md border">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>옵션 ID</TableHead>
-                                <TableHead>이름</TableHead>
-                                <TableHead>카테고리</TableHead>
-                                <TableHead>설명</TableHead>
-                                <TableHead className="text-right">기본 비용</TableHead>
-                                <TableHead>활성화</TableHead>
-                                <TableHead className="text-right">작업</TableHead>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>옵션 ID</TableHead>
+                              <TableHead>이름</TableHead>
+                              <TableHead>카테고리</TableHead>
+                              <TableHead>설명</TableHead>
+                              <TableHead className="text-right">배수</TableHead>
+                              <TableHead className="text-right">기본 비용</TableHead>
+                              <TableHead>활성화</TableHead>
+                              <TableHead className="text-right">작업</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {slotOptions.map((option) => (
+                              <TableRow key={option.id}>
+                                <TableCell className="font-mono text-xs">{option.option_id}</TableCell>
+                                <TableCell className="font-medium">{option.name}</TableCell>
+                                <TableCell>{getCategoryBadge(option.category)}</TableCell>
+                                <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
+                                  {option.description || '-'}
+                                </TableCell>
+                                <TableCell className="text-right font-mono">
+                                  {option.multiplier ? `×${option.multiplier}` : '-'}
+                                </TableCell>
+                                <TableCell className="text-right font-mono">
+                                  {option.base_cost ? `${option.base_cost.toLocaleString()}원` : '-'}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={option.is_active ? 'default' : 'secondary'}>
+                                    {option.is_active ? '활성' : '비활성'}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex gap-2 justify-end">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => startEdit(option)}
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDelete(option.id)}
+                                      className="text-destructive hover:text-destructive"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
                               </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {slotOptions.map((option) => (
-                                <TableRow key={option.id}>
-                                  <TableCell className="font-mono text-xs">{option.option_id}</TableCell>
-                                  <TableCell className="font-medium">{option.name}</TableCell>
-                                  <TableCell>{getCategoryBadge(option.category)}</TableCell>
-                                  <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
-                                    {option.description || '-'}
-                                  </TableCell>
-                                  <TableCell className="text-right font-mono">
-                                    {option.base_cost ? `${option.base_cost.toLocaleString()}원` : '-'}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant={option.is_active ? 'default' : 'secondary'}>
-                                      {option.is_active ? '활성' : '비활성'}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <div className="flex gap-2 justify-end">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => startEdit(option)}
-                                      >
-                                        <Pencil className="w-4 h-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleDelete(option.id)}
-                                        className="text-destructive hover:text-destructive"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
+                            ))}
+                          </TableBody>
+                        </Table>
                         </div>
                       )}
                     </CardContent>
@@ -1022,6 +1024,18 @@ const ProcessingOptionsManager = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
+                <Label htmlFor="multiplier">배수 (×)</Label>
+                <Input
+                  id="multiplier"
+                  type="number"
+                  step="0.1"
+                  value={newOptionForm.multiplier || ''}
+                  onChange={(e) => setNewOptionForm({ ...newOptionForm, multiplier: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  placeholder="예: 1.8"
+                />
+                <p className="text-xs text-muted-foreground mt-1">원판 가격에 곱할 배수</p>
+              </div>
+              <div>
                 <Label htmlFor="base_cost">기본 비용 (원)</Label>
                 <Input
                   id="base_cost"
@@ -1030,15 +1044,7 @@ const ProcessingOptionsManager = () => {
                   onChange={(e) => setNewOptionForm({ ...newOptionForm, base_cost: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="0"
                 />
-              </div>
-              <div>
-                <Label htmlFor="display_order">표시 순서</Label>
-                <Input
-                  id="display_order"
-                  type="number"
-                  value={newOptionForm.display_order || 0}
-                  onChange={(e) => setNewOptionForm({ ...newOptionForm, display_order: parseInt(e.target.value) || 0 })}
-                />
+                <p className="text-xs text-muted-foreground mt-1">고정 추가 비용</p>
               </div>
             </div>
 
@@ -1141,6 +1147,18 @@ const ProcessingOptionsManager = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
+                <Label htmlFor="edit_multiplier">배수 (×)</Label>
+                <Input
+                  id="edit_multiplier"
+                  type="number"
+                  step="0.1"
+                  value={editForm.multiplier || ''}
+                  onChange={(e) => setEditForm({ ...editForm, multiplier: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  placeholder="예: 1.8"
+                />
+                <p className="text-xs text-muted-foreground mt-1">원판 가격에 곱할 배수</p>
+              </div>
+              <div>
                 <Label htmlFor="edit_base_cost">기본 비용 (원)</Label>
                 <Input
                   id="edit_base_cost"
@@ -1148,15 +1166,7 @@ const ProcessingOptionsManager = () => {
                   value={editForm.base_cost || ''}
                   onChange={(e) => setEditForm({ ...editForm, base_cost: e.target.value ? parseFloat(e.target.value) : undefined })}
                 />
-              </div>
-              <div>
-                <Label htmlFor="edit_display_order">표시 순서</Label>
-                <Input
-                  id="edit_display_order"
-                  type="number"
-                  value={editForm.display_order || 0}
-                  onChange={(e) => setEditForm({ ...editForm, display_order: parseInt(e.target.value) || 0 })}
-                />
+                <p className="text-xs text-muted-foreground mt-1">고정 추가 비용</p>
               </div>
             </div>
 
