@@ -305,7 +305,7 @@ export type Database = {
         | "satin-color"
         | "acrylic-mirror"
         | "astel-mirror"
-      processing_option_type: "additional" | "processing" | "adhesion"
+      processing_option_type: "additional" | "processing" | "adhesion" | "raw"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -442,7 +442,7 @@ export const Constants = {
         "acrylic-mirror",
         "astel-mirror",
       ],
-      processing_option_type: ["additional", "processing", "adhesion"],
+      processing_option_type: ["additional", "processing", "adhesion", "raw"],
     },
   },
 } as const
