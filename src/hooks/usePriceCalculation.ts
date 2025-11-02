@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Material, Quality } from "@/types/calculator";
-import { calculatePrice } from "@/utils/priceCalculations";
+import { calculatePrice, ProcessingOptionData } from "@/utils/priceCalculations";
 import { 
   glossyColorSinglePrices, 
   glossyStandardSinglePrices, 
@@ -88,11 +88,32 @@ export const usePriceCalculation = ({
         .select('*')
         .eq('quality', selectedQuality.id as any)
         .maybeSingle();
-      
-      if (error) throw error;
+
+      if (error) {
+        console.error('Error fetching panel master:', error);
+        return null;
+      }
+
       return data;
     },
-    enabled: !!selectedQuality?.id
+  });
+
+  // Fetch active processing options
+  const { data: processingOptions } = useQuery({
+    queryKey: ['processing-options', 'active'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('processing_options')
+        .select('option_id, name, multiplier, base_cost')
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('Error fetching processing options:', error);
+        return [];
+      }
+
+      return data as ProcessingOptionData[];
+    },
   });
 
   // Fetch active panel sizes
@@ -408,6 +429,7 @@ export const usePriceCalculation = ({
           bulgwang,
           tapung,
           mugwangPainting,
+          processingOptionsData: processingOptions || [],
         }
       );
       

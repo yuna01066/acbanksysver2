@@ -523,6 +523,14 @@ export interface CalculatePriceV2Options {
   bulgwang?: boolean;                             // 불광 마감
   tapung?: boolean;                               // 타공
   mugwangPainting?: boolean;                      // 무광 도장
+  processingOptionsData?: ProcessingOptionData[]; // DB에서 가져온 가공 옵션 데이터
+}
+
+export interface ProcessingOptionData {
+  option_id: string;
+  name: string;
+  multiplier?: number;
+  base_cost?: number;
 }
 
 export const calculatePrice = (
@@ -749,44 +757,56 @@ export const calculatePrice = (
   }
 
   // 추가 옵션들 - 맨 마지막에 적용
+  // DB에서 가져온 처리 옵션 데이터 사용 (있으면 우선 사용, 없으면 기본값)
+  const processingOptionsData = options?.processingOptionsData || [];
+  
+  const getOptionData = (optionId: string, defaultMultiplier: number) => {
+    const dbOption = processingOptionsData.find(opt => opt.option_id === optionId);
+    return {
+      multiplier: dbOption?.multiplier ?? defaultMultiplier,
+      baseCost: dbOption?.base_cost ?? 0,
+      name: dbOption?.name ?? optionId
+    };
+  };
+
   if (options?.edgeFinishing) {
-    // 엣지 격면 마감: 원판금액(materialCost)의 0.5배
-    const edgeCost = materialCost * 0.5;
+    const optionData = getOptionData('edgeFinishing', 0.5);
+    const cost = materialCost * optionData.multiplier + optionData.baseCost;
     breakdown.push({ 
-      label: '엣지 격면 (원판×0.5)', 
-      price: edgeCost 
+      label: `${optionData.name} (원판×${optionData.multiplier})`, 
+      price: cost 
     });
-    totalPrice += edgeCost;
+    totalPrice += cost;
   }
 
   if (options?.bulgwang) {
-    // 불광 마감: 원판금액(materialCost)의 0.5배
-    const bulgwangCost = materialCost * 0.5;
+    const optionData = getOptionData('bulgwang', 0.5);
+    const cost = materialCost * optionData.multiplier + optionData.baseCost;
     breakdown.push({ 
-      label: '불광 마감 (원판×0.5)', 
-      price: bulgwangCost 
+      label: `${optionData.name} (원판×${optionData.multiplier})`, 
+      price: cost 
     });
-    totalPrice += bulgwangCost;
+    totalPrice += cost;
   }
 
   if (options?.tapung) {
-    // 타공: 원판금액(materialCost)의 0.2배
-    const tapungCost = materialCost * 0.2;
+    const optionData = getOptionData('tapung', 0.2);
+    const cost = materialCost * optionData.multiplier + optionData.baseCost;
     breakdown.push({ 
-      label: '타공 (원판×0.2)', 
-      price: tapungCost 
+      label: `${optionData.name} (원판×${optionData.multiplier})`, 
+      price: cost 
     });
-    totalPrice += tapungCost;
+    totalPrice += cost;
   }
 
   if (options?.mugwangPainting) {
-    // 무광 도장: 원판금액(materialCost)의 2배
-    const mugwangCost = materialCost * 2.0;
+    const optionData = getOptionData('mugwangPainting', 2.0);
+    const cost = materialCost * optionData.multiplier + optionData.baseCost;
     breakdown.push({ 
-      label: '무광 도장 (원판×2.0)', 
-      price: mugwangCost 
+      label: `${optionData.name} (원판×${optionData.multiplier})`, 
+      price: cost 
     });
-    totalPrice += mugwangCost;
+    totalPrice += cost;
   }
 
   return { totalPrice, breakdown };

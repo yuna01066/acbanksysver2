@@ -161,6 +161,48 @@ export type Database = {
           },
         ]
       }
+      processing_options: {
+        Row: {
+          base_cost: number | null
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          multiplier: number | null
+          name: string
+          option_id: string
+          option_type: Database["public"]["Enums"]["processing_option_type"]
+          updated_at: string | null
+        }
+        Insert: {
+          base_cost?: number | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          multiplier?: number | null
+          name: string
+          option_id: string
+          option_type: Database["public"]["Enums"]["processing_option_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          base_cost?: number | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          multiplier?: number | null
+          name?: string
+          option_id?: string
+          option_type?: Database["public"]["Enums"]["processing_option_type"]
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -177,6 +219,7 @@ export type Database = {
         | "satin-color"
         | "acrylic-mirror"
         | "astel-mirror"
+      processing_option_type: "additional" | "processing" | "adhesion"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -313,6 +356,7 @@ export const Constants = {
         "acrylic-mirror",
         "astel-mirror",
       ],
+      processing_option_type: ["additional", "processing", "adhesion"],
     },
   },
 } as const
