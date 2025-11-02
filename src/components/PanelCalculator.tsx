@@ -583,25 +583,20 @@ const PanelCalculator = () => {
                 onProcessingSelect={handleProcessingSelect}
                 onAdhesionSelect={handleAdhesionSelect}
                 isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
+                selectedThickness={selectedThickness}
                 qty={qty}
                 onQtyChange={setQty}
                 isComplex={isComplex}
                 onComplexChange={setIsComplex}
+                edgeFinishing={edgeFinishing}
+                onEdgeFinishingChange={setEdgeFinishing}
+                bulgwang={bulgwang}
+                onBulgwangChange={setBulgwang}
+                tapung={tapung}
+                onTapungChange={setTapung}
+                mugwangPainting={mugwangPainting}
+                onMugwangPaintingChange={setMugwangPainting}
               />
-              
-              {/* 추가 옵션 - 가공 방식이나 접착 작업을 선택했을 때만 표시 */}
-              {selectedProcessing && selectedProcessing !== 'raw-only' && (
-                <EdgeFinishingOption
-                  edgeFinishing={edgeFinishing}
-                  onEdgeFinishingChange={setEdgeFinishing}
-                  bulgwang={bulgwang}
-                  onBulgwangChange={setBulgwang}
-                  tapung={tapung}
-                  onTapungChange={setTapung}
-                  mugwangPainting={mugwangPainting}
-                  onMugwangPaintingChange={setMugwangPainting}
-                />
-              )}
               
               {/* 고급 옵션 - 접착 작업 선택 시에만 표시 */}
               {selectedAdhesion && (

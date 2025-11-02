@@ -2,10 +2,11 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Package, Scissors, Cpu, Droplet, Sparkles, CheckCircle2, Settings } from "lucide-react";
+import { Package, Scissors, Layers, Zap, Droplet, Sparkles, CheckCircle2, Settings, ChevronRight } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useProcessingOptions } from "@/hooks/useProcessingOptions";
+import EdgeFinishingOption from "@/components/EdgeFinishingOption";
 
 interface ProcessingOption {
   id: string;
@@ -21,12 +22,27 @@ interface ProcessingOptionsProps {
   onProcessingSelect: (processingId: string) => void;
   onAdhesionSelect: (adhesionId: string) => void;
   isGlossyStandard: boolean;
-  // 수량 및 복잡도 관련 props 추가
+  selectedThickness: string;
+  // 수량 및 복잡도 관련 props
   qty?: number;
   onQtyChange?: (qty: number) => void;
   isComplex?: boolean;
   onComplexChange?: (isComplex: boolean) => void;
+  // 추가 옵션 props (EdgeFinishingOption용)
+  edgeFinishing?: boolean;
+  onEdgeFinishingChange?: (value: boolean) => void;
+  bulgwang?: boolean;
+  onBulgwangChange?: (value: boolean) => void;
+  tapung?: boolean;
+  onTapungChange?: (value: boolean) => void;
+  mugwangPainting?: boolean;
+  onMugwangPaintingChange?: (value: boolean) => void;
 }
+
+type MainCategory = 'raw' | 'simple' | 'complex' | 'full' | 'adhesion';
+type ProcessingMethod = 'auto' | 'laser' | 'cnc';
+type AdhesionAngle = '45' | '90';
+type AdhesionType = 'normal' | 'bubble-free';
 
 const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   selectedProcessing,
@@ -34,83 +50,113 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   onProcessingSelect,
   onAdhesionSelect,
   isGlossyStandard,
+  selectedThickness,
   qty = 1,
   onQtyChange,
   isComplex = false,
-  onComplexChange
+  onComplexChange,
+  edgeFinishing,
+  onEdgeFinishingChange,
+  bulgwang,
+  onBulgwangChange,
+  tapung,
+  onTapungChange,
+  mugwangPainting,
+  onMugwangPaintingChange
 }) => {
-  // 상단 카테고리 선택에 따라 표시할 카테고리 결정
-  const [selectedCategory, setSelectedCategory] = React.useState<'raw' | 'processing' | 'complex' | 'adhesion' | null>(null);
+  // 메인 카테고리 선택
+  const [mainCategory, setMainCategory] = React.useState<MainCategory | null>(null);
+  // 가공 방식 선택 (단순/복합/전체 재단 시)
+  const [processingMethod, setProcessingMethod] = React.useState<ProcessingMethod | null>(null);
+  // 접착 각도 선택
+  const [adhesionAngle, setAdhesionAngle] = React.useState<AdhesionAngle | null>(null);
+  // 접착 방식 선택
+  const [adhesionType, setAdhesionType] = React.useState<AdhesionType | null>(null);
   
-  // DB에서 가공 옵션 가져오기
-  const { processingOptions, isLoading } = useProcessingOptions();
+  const { isLoading } = useProcessingOptions();
   
-  // DB 데이터를 카테고리별로 매핑
-  const processedOptions = React.useMemo(() => {
-    if (!processingOptions) return [];
-    
-    return processingOptions
-      .filter(opt => opt.is_active)
-      // 'additional' 타입 제외 (베벨, 타공 등은 고급 옵션에서만 사용)
-      .filter(opt => opt.option_type !== 'additional')
-      .map(opt => ({
-        id: opt.option_id,
-        option_id: opt.option_id,
-        name: opt.name,
-        description: opt.description || '',
-        category: opt.option_id === 'raw-only' 
-          ? 'raw' as const
-          : opt.option_type === 'adhesion' 
-            ? 'adhesion' as const 
-            : 'processing' as const
-      }));
-  }, [processingOptions]);
+  // 두께에 따라 자동으로 레이저/CNC 선택
+  const getAutoMethod = (): 'laser' | 'cnc' => {
+    const thickness = parseFloat(selectedThickness.replace('T', ''));
+    return thickness <= 10 ? 'laser' : 'cnc';
+  };
 
-  const getCategoryIcon = (categoryId: string) => {
-    switch (categoryId) {
-      case 'raw': return Package;
-      case 'processing': return Scissors;
-      case 'adhesion': return Droplet;
-      default: return Sparkles;
+  // 가공 방식에 따라 실제 processing ID 매핑
+  const getProcessingId = (category: MainCategory, method: ProcessingMethod): string => {
+    const autoMethod = getAutoMethod();
+    const actualMethod = method === 'auto' ? autoMethod : method;
+    
+    if (category === 'simple') {
+      return actualMethod === 'laser' ? 'laser-simple' : 'cnc-simple';
+    } else if (category === 'complex') {
+      return actualMethod === 'laser' ? 'laser-complex' : 'cnc-complex';
+    } else if (category === 'full') {
+      return actualMethod === 'laser' ? 'laser-full' : 'cnc-full';
+    }
+    return '';
+  };
+
+  // 메인 카테고리 선택 핸들러
+  const handleMainCategorySelect = (category: MainCategory) => {
+    setMainCategory(category);
+    setProcessingMethod(null);
+    setAdhesionAngle(null);
+    setAdhesionType(null);
+    
+    if (category === 'raw') {
+      onProcessingSelect('raw-only');
+      onAdhesionSelect('');
+    } else {
+      onProcessingSelect('');
+      onAdhesionSelect('');
     }
   };
 
-  const allCategories = React.useMemo(() => [
-    { 
-      id: 'raw', 
-      name: '원판 구매', 
-      description: '가공 없이 원판만 구매하거나 기본 문의',
-      options: processedOptions.filter(opt => opt.category === 'raw')
-    },
-    { 
-      id: 'processing', 
-      name: '가공 방식', 
-      description: '레이저, CNC 등 가공 방법 선택 (택1)',
-      options: processedOptions.filter(opt => opt.category === 'processing')
-    },
-    { 
-      id: 'adhesion', 
-      name: '접착 작업', 
-      description: '무기포 및 일반 접착 선택 (택1)',
-      options: processedOptions.filter(opt => opt.category === 'adhesion')
+  // 가공 방식 선택 핸들러
+  const handleProcessingMethodSelect = (method: ProcessingMethod) => {
+    setProcessingMethod(method);
+    
+    if (mainCategory && mainCategory !== 'raw' && mainCategory !== 'adhesion') {
+      const processingId = getProcessingId(mainCategory, method);
+      onProcessingSelect(processingId);
+    } else if (mainCategory === 'adhesion') {
+      const processingId = getProcessingId('complex', method);
+      onProcessingSelect(processingId);
     }
-  ], [processedOptions]);
+  };
 
-  // 선택된 카테고리에 따라 표시할 카테고리 필터링
-  const categories = React.useMemo(() => {
-    if (!selectedCategory) return [];
+  // 접착 각도 선택 핸들러
+  const handleAdhesionAngleSelect = (angle: AdhesionAngle) => {
+    setAdhesionAngle(angle);
+  };
+
+  // 접착 방식 선택 핸들러
+  const handleAdhesionTypeSelect = (type: AdhesionType) => {
+    setAdhesionType(type);
     
-    if (selectedCategory === 'raw') {
-      return allCategories.filter(cat => cat.id === 'raw');
-    } else if (selectedCategory === 'processing' || selectedCategory === 'complex') {
-      return allCategories.filter(cat => cat.id === 'processing');
-    } else if (selectedCategory === 'adhesion') {
-      // 접착 가공은 가공 방식 + 접착 작업 둘 다 필요
-      return allCategories.filter(cat => cat.id === 'processing' || cat.id === 'adhesion');
+    if (type === 'normal') {
+      onAdhesionSelect('adhesion-normal');
+    } else if (type === 'bubble-free') {
+      onAdhesionSelect('adhesion-bubble-free');
+    }
+  };
+
+  // 선택 완료 여부 확인
+  const isSelectionComplete = (): boolean => {
+    if (!mainCategory) return false;
+    
+    if (mainCategory === 'raw') {
+      return true;
+    } else if (mainCategory === 'simple') {
+      return !!processingMethod;
+    } else if (mainCategory === 'complex' || mainCategory === 'full') {
+      return !!processingMethod;
+    } else if (mainCategory === 'adhesion') {
+      return !!processingMethod && !!adhesionAngle && !!adhesionType;
     }
     
-    return [];
-  }, [selectedCategory]);
+    return false;
+  };
 
   if (isLoading) {
     return (
@@ -123,260 +169,365 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="text-center space-y-3">
-        <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+        <h3 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
           가공 방법을 선택해주세요
         </h3>
         <p className="text-muted-foreground text-lg">
-          가공 카테고리를 선택하고, 구체적인 옵션을 선택하세요
+          단계별로 가공 옵션을 선택하세요
         </p>
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm">
-          <Sparkles className="w-4 h-4" />
-          <span>가공과 접착은 독립적으로 선택 가능</span>
-        </div>
       </div>
 
-      {/* 가공 카테고리 선택 섹션 */}
+      {/* STEP 1: 메인 카테고리 선택 */}
       <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Settings className="w-5 h-5 text-primary" />
-            가공 카테고리 설정
-            <Badge variant="secondary" className="ml-auto">필수</Badge>
+            가공 카테고리 선택
+            <Badge variant="secondary" className="ml-auto">STEP 1</Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* 원판구매 */}
-            <div 
-              className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
-                selectedCategory === 'raw' 
-                  ? 'bg-primary/10 border-primary' 
-                  : 'bg-background/80 border-border/50 hover:border-primary/30'
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+            {/* 원판 구매 */}
+            <button
+              onClick={() => handleMainCategorySelect('raw')}
+              className={`p-4 rounded-lg border-2 transition-all text-left ${
+                mainCategory === 'raw'
+                  ? 'bg-primary/10 border-primary shadow-md'
+                  : 'bg-background border-border hover:border-primary/30'
               }`}
-              onClick={() => {
-                setSelectedCategory('raw');
-                onProcessingSelect('');
-                onAdhesionSelect('');
-              }}
             >
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-2 mb-2">
                 <Package className="w-5 h-5 text-primary" />
-                <span className="font-semibold text-sm">원판구매</span>
-                {selectedCategory === 'raw' && (
-                  <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
-                )}
+                <span className="font-semibold text-sm">원판 구매</span>
+                {mainCategory === 'raw' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
               </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                가공 없이 원판만 구매 또는 기본 문의
+              <p className="text-xs text-muted-foreground">
+                가공 없이 원판만 구매
               </p>
-              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                하단 "원판 구매" 카테고리에서 선택
-              </div>
-            </div>
+            </button>
 
-            {/* 재단 */}
-            <div 
-              className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
-                selectedCategory === 'processing'
-                  ? 'bg-primary/10 border-primary' 
-                  : 'bg-background/80 border-border/50 hover:border-primary/30'
+            {/* 단순 재단 */}
+            <button
+              onClick={() => handleMainCategorySelect('simple')}
+              className={`p-4 rounded-lg border-2 transition-all text-left ${
+                mainCategory === 'simple'
+                  ? 'bg-primary/10 border-primary shadow-md'
+                  : 'bg-background border-border hover:border-primary/30'
               }`}
-              onClick={() => {
-                setSelectedCategory('processing');
-                onComplexChange?.(false);
-                onAdhesionSelect('');
-              }}
             >
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-2 mb-2">
                 <Scissors className="w-5 h-5 text-primary" />
-                <span className="font-semibold text-sm">재단</span>
-                {selectedCategory === 'processing' && (
-                  <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
-                )}
+                <span className="font-semibold text-sm">단순 재단</span>
+                {mainCategory === 'simple' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
               </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                단순 재단 또는 기본 가공
+              <p className="text-xs text-muted-foreground">
+                기본 재단 작업
               </p>
-              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                하단 "가공 방식"에서 구체적 방법 선택
-              </div>
-            </div>
+            </button>
 
-            {/* 복잡한 모양 가공 */}
-            <div 
-              className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
-                selectedCategory === 'complex' 
-                  ? 'bg-primary/10 border-primary' 
-                  : 'bg-background/80 border-border/50 hover:border-primary/30'
+            {/* 복합 재단 */}
+            <button
+              onClick={() => handleMainCategorySelect('complex')}
+              className={`p-4 rounded-lg border-2 transition-all text-left ${
+                mainCategory === 'complex'
+                  ? 'bg-primary/10 border-primary shadow-md'
+                  : 'bg-background border-border hover:border-primary/30'
               }`}
-              onClick={() => {
-                setSelectedCategory('complex');
-                onComplexChange?.(true);
-                onAdhesionSelect('');
-              }}
             >
-              <div className="flex items-center gap-3 mb-2">
-                <Cpu className="w-5 h-5 text-primary" />
-                <span className="font-semibold text-sm">복잡한 모양 가공</span>
-                {selectedCategory === 'complex' && (
-                  <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
-                )}
+              <div className="flex items-center gap-2 mb-2">
+                <Layers className="w-5 h-5 text-primary" />
+                <span className="font-semibold text-sm">복합 재단</span>
+                {mainCategory === 'complex' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
               </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                슬릿, 다공, 복잡한 형상 등 고급 가공
+              <p className="text-xs text-muted-foreground">
+                복합적인 재단 작업
               </p>
-              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                레이저 complex 또는 CNC complex 자동 분류
+            </button>
+
+            {/* 전체 재단 */}
+            <button
+              onClick={() => handleMainCategorySelect('full')}
+              className={`p-4 rounded-lg border-2 transition-all text-left ${
+                mainCategory === 'full'
+                  ? 'bg-primary/10 border-primary shadow-md'
+                  : 'bg-background border-border hover:border-primary/30'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="w-5 h-5 text-primary" />
+                <span className="font-semibold text-sm">전체 재단</span>
+                {mainCategory === 'full' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
               </div>
-            </div>
+              <p className="text-xs text-muted-foreground">
+                복잡한 모양 전체 가공
+              </p>
+            </button>
 
             {/* 접착 가공 */}
-            <div 
-              className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
-                selectedCategory === 'adhesion' 
-                  ? 'bg-primary/10 border-primary' 
-                  : 'bg-background/80 border-border/50 hover:border-primary/30'
+            <button
+              onClick={() => handleMainCategorySelect('adhesion')}
+              className={`p-4 rounded-lg border-2 transition-all text-left ${
+                mainCategory === 'adhesion'
+                  ? 'bg-primary/10 border-primary shadow-md'
+                  : 'bg-background border-border hover:border-primary/30'
               }`}
-              onClick={() => {
-                setSelectedCategory('adhesion');
-                onProcessingSelect('');
-              }}
             >
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-2 mb-2">
                 <Droplet className="w-5 h-5 text-primary" />
                 <span className="font-semibold text-sm">접착 가공</span>
-                {selectedCategory === 'adhesion' && (
-                  <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
-                )}
+                {mainCategory === 'adhesion' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
               </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                무기포 접착 및 일반 접착 작업
+              <p className="text-xs text-muted-foreground">
+                무기포/일반 접착
               </p>
-              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                하단 "접착 작업" 카테고리에서 선택
-              </div>
-            </div>
+            </button>
           </div>
         </CardContent>
       </Card>
 
-      <Separator className="my-8" />
-      
-      {selectedCategory && (
-        <div className="space-y-6">
-          <div className="text-center space-y-2">
-            <h4 className="text-2xl font-bold text-foreground">
-              {selectedCategory === 'raw' && '원판 구매 옵션'}
-              {(selectedCategory === 'processing' || selectedCategory === 'complex') && '가공 방식 선택'}
-              {selectedCategory === 'adhesion' && '접착 작업 선택'}
-            </h4>
-            <p className="text-muted-foreground">
-              원하시는 옵션을 선택해주세요
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 max-w-4xl mx-auto gap-6">
-            {categories.map((category, idx) => {
-              const isAdhesion = category.id === 'adhesion';
-              const selectedValue = isAdhesion ? selectedAdhesion : selectedProcessing;
-              const handleSelect = isAdhesion ? onAdhesionSelect : onProcessingSelect;
-              const CategoryIcon = getCategoryIcon(category.id);
-              const hasSelection = selectedValue && category.options.some(opt => opt.id === selectedValue);
-              
-              return (
-                <Card 
-                  key={category.id} 
-                  className={`border-2 transition-all duration-300 animate-fade-in ${
-                    hasSelection 
-                      ? 'border-primary bg-primary/5 shadow-lg' 
-                      : 'border-border hover:border-primary/30 hover:shadow-md'
+      {/* STEP 2: 가공 방식 선택 (단순/복합/전체 재단 및 접착 가공 시) */}
+      {mainCategory && mainCategory !== 'raw' && (
+        <>
+          <Separator />
+          <Card className="border-2 border-primary/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ChevronRight className="w-5 h-5 text-primary" />
+                가공 방식 선택
+                <Badge variant="secondary" className="ml-auto">STEP 2</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <button
+                  onClick={() => handleProcessingMethodSelect('auto')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    processingMethod === 'auto'
+                      ? 'bg-primary/10 border-primary shadow-md'
+                      : 'bg-background border-border hover:border-primary/30'
                   }`}
-                  style={{ animationDelay: `${idx * 100}ms` }}
                 >
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-3 rounded-xl transition-colors ${
-                        hasSelection ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                      }`}>
-                        <CategoryIcon className="w-6 h-6" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <CardTitle className="text-xl">{category.name}</CardTitle>
-                          {hasSelection && (
-                            <CheckCircle2 className="w-5 h-5 text-primary animate-scale-in" />
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">{category.description}</p>
-                      </div>
-                    </div>
-                  </CardHeader>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    <span className="font-semibold">자동 선택</span>
+                    {processingMethod === 'auto' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    두께 기준 자동 선택
+                    <br />
+                    (~10T: 레이저 / 10T~: CNC)
+                  </p>
+                </button>
 
-                  <CardContent className="space-y-4">
-                    {/* 접착 카테고리인 경우 수량 입력 추가 */}
-                    {isAdhesion && (
-                      <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
-                        <Label htmlFor="adhesion-qty" className="text-sm font-semibold flex items-center gap-2 mb-2">
-                          <Package className="w-4 h-4 text-primary" />
-                          제작 수량 (EA)
-                        </Label>
-                        <Input
-                          id="adhesion-qty"
-                          type="number"
-                          min="1"
-                          value={qty}
-                          onChange={(e) => onQtyChange?.(parseInt(e.target.value) || 1)}
-                          className="font-medium"
-                          placeholder="수량을 입력하세요"
-                        />
-                        <p className="text-xs text-muted-foreground mt-2">
-                          접착 제작 시 여러 개를 만드는 경우 수량을 입력하세요
-                        </p>
-                      </div>
-                    )}
-                    
-                    <div className="space-y-3">
-                      {category.options.map((option) => {
-                        const isSelected = selectedValue === option.id;
-                        return (
-                          <button
-                            key={option.id}
-                            onClick={() => handleSelect(option.id)}
-                            className={`w-full p-4 rounded-lg text-left transition-all duration-200 border-2 ${
-                              isSelected
-                                ? 'bg-primary text-primary-foreground border-primary shadow-md' 
-                                : 'bg-card hover:bg-accent border-border hover:border-primary/30'
-                            }`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className={`mt-1 transition-transform ${isSelected ? 'scale-110' : ''}`}>
-                                {isSelected ? (
-                                  <CheckCircle2 className="w-5 h-5" />
-                                ) : (
-                                  <div className="w-5 h-5 rounded-full border-2 border-current opacity-40" />
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0 space-y-1">
-                                <div className={`font-semibold text-base ${isSelected ? '' : 'text-foreground'}`}>
-                                  {option.name}
-                                </div>
-                                <div className={`text-sm leading-relaxed ${
-                                  isSelected ? 'opacity-95' : 'text-muted-foreground'
-                                }`}>
-                                  {option.description}
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
+                <button
+                  onClick={() => handleProcessingMethodSelect('laser')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    processingMethod === 'laser'
+                      ? 'bg-primary/10 border-primary shadow-md'
+                      : 'bg-background border-border hover:border-primary/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Zap className="w-5 h-5 text-primary" />
+                    <span className="font-semibold">레이저 {mainCategory === 'simple' ? '단순' : mainCategory === 'complex' ? '복합' : '전체'} 가공</span>
+                    {processingMethod === 'laser' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    레이저 장비 사용
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => handleProcessingMethodSelect('cnc')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    processingMethod === 'cnc'
+                      ? 'bg-primary/10 border-primary shadow-md'
+                      : 'bg-background border-border hover:border-primary/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Layers className="w-5 h-5 text-primary" />
+                    <span className="font-semibold">CNC {mainCategory === 'simple' ? '단순' : mainCategory === 'complex' ? '복합' : '전체'} 가공</span>
+                    {processingMethod === 'cnc' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    CNC 장비 사용
+                  </p>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* STEP 3: 수량 선택 (단순 재단 시) */}
+      {mainCategory === 'simple' && processingMethod && (
+        <>
+          <Separator />
+          <Card className="border-2 border-primary/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ChevronRight className="w-5 h-5 text-primary" />
+                수량 선택
+                <Badge variant="secondary" className="ml-auto">STEP 3</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                <Label htmlFor="qty" className="text-sm font-semibold flex items-center gap-2 mb-2">
+                  <Package className="w-4 h-4 text-primary" />
+                  제작 수량 (EA)
+                </Label>
+                <Input
+                  id="qty"
+                  type="number"
+                  min="1"
+                  value={qty}
+                  onChange={(e) => onQtyChange?.(parseInt(e.target.value) || 1)}
+                  className="font-medium"
+                  placeholder="수량을 입력하세요"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  수량에 따라 할증이 적용됩니다
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* STEP 3/4: 접착 각도 선택 (접착 가공 시) */}
+      {mainCategory === 'adhesion' && processingMethod && (
+        <>
+          <Separator />
+          <Card className="border-2 border-primary/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ChevronRight className="w-5 h-5 text-primary" />
+                접착 각도 선택
+                <Badge variant="secondary" className="ml-auto">STEP 3</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleAdhesionAngleSelect('45')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    adhesionAngle === '45'
+                      ? 'bg-primary/10 border-primary shadow-md'
+                      : 'bg-background border-border hover:border-primary/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-semibold">45도 접착</span>
+                    {adhesionAngle === '45' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    45도 각도로 접착 작업
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => handleAdhesionAngleSelect('90')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    adhesionAngle === '90'
+                      ? 'bg-primary/10 border-primary shadow-md'
+                      : 'bg-background border-border hover:border-primary/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-semibold">90도 접착</span>
+                    {adhesionAngle === '90' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    90도 각도로 접착 작업
+                  </p>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* STEP 4/5: 접착 방식 선택 (접착 가공 시) */}
+      {mainCategory === 'adhesion' && processingMethod && adhesionAngle && (
+        <>
+          <Separator />
+          <Card className="border-2 border-primary/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ChevronRight className="w-5 h-5 text-primary" />
+                접착 방식 선택
+                <Badge variant="secondary" className="ml-auto">STEP 4</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleAdhesionTypeSelect('normal')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    adhesionType === 'normal'
+                      ? 'bg-primary/10 border-primary shadow-md'
+                      : 'bg-background border-border hover:border-primary/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-semibold">일반 접착</span>
+                    {adhesionType === 'normal' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    표준 접착 방식
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => handleAdhesionTypeSelect('bubble-free')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    adhesionType === 'bubble-free'
+                      ? 'bg-primary/10 border-primary shadow-md'
+                      : 'bg-background border-border hover:border-primary/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-semibold">무기포 접착</span>
+                    {adhesionType === 'bubble-free' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    기포 없는 고급 접착
+                  </p>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* 추가 옵션 (선택 완료 후 표시) */}
+      {isSelectionComplete() && (
+        <>
+          <Separator className="my-8" />
+          <Card className="border-2 border-dashed border-primary/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                추가 옵션 (선택 사항)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EdgeFinishingOption
+                edgeFinishing={edgeFinishing || false}
+                onEdgeFinishingChange={onEdgeFinishingChange || (() => {})}
+                bulgwang={bulgwang || false}
+                onBulgwangChange={onBulgwangChange || (() => {})}
+                tapung={tapung || false}
+                onTapungChange={onTapungChange || (() => {})}
+                mugwangPainting={mugwangPainting || false}
+                onMugwangPaintingChange={onMugwangPaintingChange || (() => {})}
+              />
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );
