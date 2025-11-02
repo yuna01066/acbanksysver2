@@ -25,7 +25,7 @@ export const useSlotTypes = () => {
       const { data, error } = await supabase
         .from('slot_types')
         .select('*')
-        .order('display_order', { ascending: true });
+        .order('slot_key', { ascending: true });
 
       if (error) throw error;
       return data as SlotType[];
@@ -40,7 +40,7 @@ export const useSlotTypes = () => {
         .from('slot_types')
         .select('*')
         .eq('is_active', true)
-        .order('display_order', { ascending: true });
+        .order('slot_key', { ascending: true });
 
       if (error) throw error;
       return data as SlotType[];
