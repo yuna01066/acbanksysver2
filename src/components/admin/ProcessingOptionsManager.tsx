@@ -65,6 +65,11 @@ const ProcessingOptionsManager = () => {
   const [selectedMethod, setSelectedMethod] = useState<ProcessingMethod | null>(null);
   const [selectedAngle, setSelectedAngle] = useState<AdhesionAngle | null>(null);
   const [selectedAdhesionType, setSelectedAdhesionType] = useState<AdhesionType | null>(null);
+  
+  // 로직 공식 슬롯 선택 상태 (각 카테고리별로 최대 3개의 슬롯)
+  const [slot1, setSlot1] = useState<ProcessingOption | null>(null);
+  const [slot2, setSlot2] = useState<ProcessingOption | null>(null);
+  const [slot3, setSlot3] = useState<ProcessingOption | null>(null);
 
   const startEdit = (option: ProcessingOption) => {
     setEditingOption(option);
@@ -145,6 +150,31 @@ const ProcessingOptionsManager = () => {
     setSelectedMethod(null);
     setSelectedAngle(null);
     setSelectedAdhesionType(null);
+    // 슬롯 초기화
+    setSlot1(null);
+    setSlot2(null);
+    setSlot3(null);
+  };
+
+  const getAvailableOptionsForCategory = () => {
+    if (!selectedCategory) return [];
+    
+    return processingOptions?.filter(option => {
+      if (selectedCategory === 'raw') {
+        return option.option_type === 'raw';
+      } else if (selectedCategory === 'cutting') {
+        return option.option_type === 'processing' && 
+               (option.option_id.includes('simple') || 
+                option.option_id.includes('complex') || 
+                option.option_id.includes('full'));
+      } else if (selectedCategory === 'adhesion') {
+        return option.option_type === 'processing' && option.option_id.includes('complex') ||
+               option.option_type === 'adhesion';
+      } else if (selectedCategory === 'additional') {
+        return option.option_type === 'additional';
+      }
+      return false;
+    }) || [];
   };
 
   const getFilteredOptions = () => {
@@ -437,7 +467,7 @@ const ProcessingOptionsManager = () => {
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <Zap className="w-5 h-5 text-primary" />
-                      <span className="font-semibold text-sm">전체 재단</span>
+                      <span className="font-semibold text-sm">풀 재단</span>
                       {selectedCuttingType === 'full' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
                     </div>
                   </button>
@@ -492,8 +522,8 @@ const ProcessingOptionsManager = () => {
             </>
           )}
 
-          {/* 접착 가공 로직 구성 영역 */}
-          {selectedCategory === 'adhesion' && (
+          {/* 로직 공식 영역 - 모든 카테고리 (추가 옵션 제외) */}
+          {selectedCategory && selectedCategory !== 'additional' && (
             <>
               <Separator />
               <div className="space-y-6">
@@ -502,124 +532,120 @@ const ProcessingOptionsManager = () => {
                   <div className="mb-4">
                     <h4 className="text-sm font-semibold flex items-center gap-2">
                       <Layers className="w-4 h-4 text-primary" />
-                      접착 가공 로직 공식
+                      {selectedCategory === 'raw' && '원판 구매 로직 공식'}
+                      {selectedCategory === 'cutting' && '재단 가공 로직 공식'}
+                      {selectedCategory === 'adhesion' && '접착 가공 로직 공식'}
                     </h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      아래 옵션들을 선택하여 공식을 완성하세요
+                      아래 옵션들을 클릭하여 공식에 추가하세요
                     </p>
                   </div>
 
                   {/* 공식 슬롯 */}
                   <div className="p-6 bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg border-2 border-primary/30">
                     <div className="flex items-center justify-center gap-3 flex-wrap">
-                      {/* 원판 텍스트 */}
+                      {/* 원판 기본 */}
                       <div className="px-4 py-2 bg-background rounded-lg border-2 border-border">
-                        <span className="text-sm font-medium">원판</span>
+                        <span className="text-sm font-medium">원판 (원판+면수+조색비)</span>
                       </div>
 
-                      <span className="text-2xl font-bold text-primary">×</span>
+                      {/* 연산자 - 접착은 곱셈, 나머지는 덧셈 */}
+                      <span className="text-2xl font-bold text-primary">
+                        {selectedCategory === 'adhesion' ? '×' : '+'}
+                      </span>
 
-                      {/* 가공방식 슬롯 */}
+                      {/* 선택 슬롯 1 */}
                       <div className={`min-w-[180px] px-4 py-3 rounded-lg border-2 transition-all ${
-                        selectedMethod 
+                        slot1 
                           ? 'bg-primary text-primary-foreground border-primary shadow-md'
                           : 'bg-background border-dashed border-muted-foreground/30'
                       }`}>
-                        {selectedMethod ? (
+                        {slot1 ? (
                           <div className="text-center">
-                            <div className="text-sm font-medium">
-                              {selectedMethod === 'laser' ? '레이저 복합' : 'CNC 복합'}
-                            </div>
+                            <div className="text-sm font-medium">{slot1.name}</div>
                             <div className="text-xs mt-1 opacity-80">
-                              ×{processingOptions?.find(opt => 
-                                opt.option_type === 'processing' && 
-                                opt.option_id === `${selectedMethod}-complex`
-                              )?.multiplier || 1}
+                              {slot1.multiplier !== null && slot1.multiplier !== undefined && `×${slot1.multiplier}`}
+                              {slot1.base_cost !== null && slot1.base_cost !== undefined && `+${slot1.base_cost.toLocaleString()}원`}
                             </div>
                           </div>
                         ) : (
                           <div className="text-center text-sm text-muted-foreground">
-                            가공방식 선택
+                            선택 1
                           </div>
                         )}
                       </div>
 
-                      <span className="text-2xl font-bold text-primary">×</span>
+                      {/* 슬롯 2가 있을 때만 표시 */}
+                      {slot1 && (
+                        <>
+                          <span className="text-2xl font-bold text-primary">
+                            {selectedCategory === 'adhesion' ? '×' : '+'}
+                          </span>
+                          <div className={`min-w-[180px] px-4 py-3 rounded-lg border-2 transition-all ${
+                            slot2 
+                              ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                              : 'bg-background border-dashed border-muted-foreground/30'
+                          }`}>
+                            {slot2 ? (
+                              <div className="text-center">
+                                <div className="text-sm font-medium">{slot2.name}</div>
+                                <div className="text-xs mt-1 opacity-80">
+                                  {slot2.multiplier !== null && slot2.multiplier !== undefined && `×${slot2.multiplier}`}
+                                  {slot2.base_cost !== null && slot2.base_cost !== undefined && `+${slot2.base_cost.toLocaleString()}원`}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center text-sm text-muted-foreground">
+                                선택 2
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
 
-                      {/* 접착각도 슬롯 */}
-                      <div className={`min-w-[180px] px-4 py-3 rounded-lg border-2 transition-all ${
-                        selectedAngle
-                          ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                          : 'bg-background border-dashed border-muted-foreground/30'
-                      }`}>
-                        {selectedAngle ? (
-                          <div className="text-center">
-                            <div className="text-sm font-medium">
-                              {selectedAngle}도 접착
-                            </div>
-                            <div className="text-xs mt-1 opacity-80">
-                              ×{processingOptions?.find(opt => 
-                                opt.option_type === 'adhesion' && 
-                                opt.option_id.startsWith(selectedAngle)
-                              )?.multiplier || 1}
-                            </div>
+                      {/* 슬롯 3이 있을 때만 표시 */}
+                      {slot2 && (
+                        <>
+                          <span className="text-2xl font-bold text-primary">
+                            {selectedCategory === 'adhesion' ? '×' : '+'}
+                          </span>
+                          <div className={`min-w-[180px] px-4 py-3 rounded-lg border-2 transition-all ${
+                            slot3 
+                              ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                              : 'bg-background border-dashed border-muted-foreground/30'
+                          }`}>
+                            {slot3 ? (
+                              <div className="text-center">
+                                <div className="text-sm font-medium">{slot3.name}</div>
+                                <div className="text-xs mt-1 opacity-80">
+                                  {slot3.multiplier !== null && slot3.multiplier !== undefined && `×${slot3.multiplier}`}
+                                  {slot3.base_cost !== null && slot3.base_cost !== undefined && `+${slot3.base_cost.toLocaleString()}원`}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center text-sm text-muted-foreground">
+                                선택 3
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <div className="text-center text-sm text-muted-foreground">
-                            접착각도 선택
-                          </div>
-                        )}
+                        </>
+                      )}
+
+                      {/* 추가 옵션 */}
+                      <span className="text-2xl font-bold text-primary">+</span>
+                      <div className="px-4 py-2 bg-background rounded-lg border-2 border-border">
+                        <span className="text-sm font-medium">추가 옵션</span>
                       </div>
 
-                      <span className="text-2xl font-bold text-primary">×</span>
-
-                      {/* 접착타입 슬롯 */}
-                      <div className={`min-w-[180px] px-4 py-3 rounded-lg border-2 transition-all ${
-                        selectedAdhesionType
-                          ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                          : 'bg-background border-dashed border-muted-foreground/30'
-                      }`}>
-                        {selectedAdhesionType ? (
-                          <div className="text-center">
-                            <div className="text-sm font-medium">
-                              {selectedAdhesionType === 'normal' ? '일반 접착' : '무기포 접착'}
-                            </div>
-                            <div className="text-xs mt-1 opacity-80">
-                              ×{processingOptions?.find(opt => 
-                                opt.option_type === 'adhesion' && 
-                                opt.option_id === `${selectedAngle}-${selectedAdhesionType === 'normal' ? 'normal' : 'mugipo'}`
-                              )?.multiplier || 1}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-center text-sm text-muted-foreground">
-                            접착타입 선택
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 최종 배수 */}
-                      {selectedMethod && selectedAngle && selectedAdhesionType && (
+                      {/* 최종 결과 표시 */}
+                      {slot1 && (
                         <>
                           <span className="text-2xl font-bold text-primary">=</span>
                           <div className="px-6 py-3 bg-primary text-primary-foreground rounded-lg border-2 border-primary shadow-lg">
                             <div className="text-center">
-                              <div className="text-xs opacity-80">최종 배수</div>
-                              <div className="text-2xl font-bold">
-                                ×{(
-                                  (processingOptions?.find(opt => 
-                                    opt.option_type === 'processing' && 
-                                    opt.option_id === `${selectedMethod}-complex`
-                                  )?.multiplier || 1) *
-                                  (processingOptions?.find(opt => 
-                                    opt.option_type === 'adhesion' && 
-                                    opt.option_id.startsWith(selectedAngle)
-                                  )?.multiplier || 1) *
-                                  (processingOptions?.find(opt => 
-                                    opt.option_type === 'adhesion' && 
-                                    opt.option_id === `${selectedAngle}-${selectedAdhesionType === 'normal' ? 'normal' : 'mugipo'}`
-                                  )?.multiplier || 1)
-                                ).toFixed(2)}
+                              <div className="text-xs opacity-80">최종 로직</div>
+                              <div className="text-sm font-bold mt-1">
+                                {selectedCategory === 'adhesion' ? '곱셈 + 추가' : '합산'}
                               </div>
                             </div>
                           </div>
@@ -637,364 +663,149 @@ const ProcessingOptionsManager = () => {
                       옵션 선택 및 관리
                     </h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      각 옵션을 선택하여 공식에 적용하고 관리할 수 있습니다
+                      각 옵션을 클릭하여 공식 슬롯에 추가하세요
                     </p>
                   </div>
 
-                  <div className="space-y-6">
-                    {/* 가공방식 옵션 */}
-                    <div>
-                      <h5 className="text-sm font-medium mb-3 flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-primary" />
-                        가공방식
-                      </h5>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {processingOptions?.filter(opt => 
-                          opt.option_type === 'processing' && 
-                          opt.option_id.includes('complex')
-                        ).map(option => (
-                          <Card 
-                            key={option.id} 
-                            className={`relative overflow-hidden border-2 transition-all cursor-pointer ${
-                              selectedMethod === (option.option_id.includes('laser') ? 'laser' : 'cnc')
-                                ? 'border-primary shadow-md'
-                                : 'hover:border-primary/50'
-                            }`}
-                            onClick={() => setSelectedMethod(
-                              option.option_id.includes('laser') ? 'laser' : 'cnc'
-                            )}
-                          >
-                            <CardHeader className="pb-3">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <CardTitle className="text-base flex items-center gap-2">
-                                    {option.name}
-                                    {!option.is_active && (
-                                      <Badge variant="outline" className="text-xs">비활성</Badge>
-                                    )}
-                                    {selectedMethod === (option.option_id.includes('laser') ? 'laser' : 'cnc') && (
-                                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                                    )}
-                                  </CardTitle>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    ID: {option.option_id}
-                                  </p>
-                                </div>
-                                {getOptionTypeBadge(option.option_type)}
-                              </div>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                              {option.description && (
-                                <p className="text-sm text-muted-foreground line-clamp-2">
-                                  {option.description}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {getAvailableOptionsForCategory().map(option => (
+                      <Card 
+                        key={option.id} 
+                        className={`relative overflow-hidden border-2 transition-all cursor-pointer ${
+                          (slot1?.id === option.id || slot2?.id === option.id || slot3?.id === option.id)
+                            ? 'border-primary shadow-md'
+                            : 'hover:border-primary/50'
+                        }`}
+                        onClick={() => {
+                          if (!slot1) {
+                            setSlot1(option);
+                          } else if (!slot2) {
+                            setSlot2(option);
+                          } else if (!slot3) {
+                            setSlot3(option);
+                          } else {
+                            // 슬롯이 모두 차있으면 첫 번째 슬롯을 교체
+                            setSlot1(option);
+                            setSlot2(null);
+                            setSlot3(null);
+                          }
+                        }}
+                      >
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                {option.name}
+                                {!option.is_active && (
+                                  <Badge variant="outline" className="text-xs">비활성</Badge>
+                                )}
+                                {(slot1?.id === option.id || slot2?.id === option.id || slot3?.id === option.id) && (
+                                  <CheckCircle2 className="w-4 h-4 text-primary" />
+                                )}
+                              </CardTitle>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                ID: {option.option_id}
+                              </p>
+                            </div>
+                            {getOptionTypeBadge(option.option_type)}
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {option.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {option.description}
+                            </p>
+                          )}
+                          
+                          <div className="grid grid-cols-2 gap-3">
+                            {option.multiplier !== null && option.multiplier !== undefined && (
+                              <div className="p-3 bg-primary/5 rounded-lg">
+                                <p className="text-xs text-muted-foreground">배수</p>
+                                <p className="text-lg font-bold text-primary">
+                                  ×{option.multiplier}
                                 </p>
-                              )}
-                              
-                              <div className="grid grid-cols-2 gap-3">
-                                {option.multiplier !== null && option.multiplier !== undefined && (
-                                  <div className="p-3 bg-primary/5 rounded-lg">
-                                    <p className="text-xs text-muted-foreground">배수</p>
-                                    <p className="text-lg font-bold text-primary">
-                                      ×{option.multiplier}
-                                    </p>
-                                  </div>
-                                )}
-                                {option.base_cost !== null && option.base_cost !== undefined && (
-                                  <div className="p-3 bg-secondary/10 rounded-lg">
-                                    <p className="text-xs text-muted-foreground">고정 비용</p>
-                                    <p className="text-lg font-bold">
-                                      {option.base_cost.toLocaleString()}원
-                                    </p>
-                                  </div>
-                                )}
                               </div>
-
-                              <div className="flex items-center justify-between pt-2 border-t">
-                                <div className="flex items-center gap-2">
-                                  <Switch
-                                    checked={option.is_active}
-                                    onCheckedChange={(checked) => {
-                                      updateOption.mutateAsync({
-                                        id: option.id,
-                                        updates: { is_active: checked }
-                                      });
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                  <Label className="text-xs cursor-pointer">
-                                    {option.is_active ? '활성화' : '비활성'}
-                                  </Label>
-                                </div>
-                                
-                                <div className="flex gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      startEdit(option);
-                                    }}
-                                  >
-                                    <Pencil className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDelete(option.id);
-                                    }}
-                                    className="text-destructive hover:text-destructive"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* 접착각도 옵션 */}
-                    <div>
-                      <h5 className="text-sm font-medium mb-3 flex items-center gap-2">
-                        <Droplet className="w-4 h-4 text-primary" />
-                        접착각도
-                      </h5>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {processingOptions?.filter(opt => 
-                          opt.option_type === 'adhesion' && 
-                          (opt.option_id.startsWith('45') || opt.option_id.startsWith('90'))
-                        ).filter((opt, index, self) => 
-                          index === self.findIndex(o => o.option_id.startsWith(opt.option_id.split('-')[0]))
-                        ).map(option => (
-                          <Card 
-                            key={option.id} 
-                            className={`relative overflow-hidden border-2 transition-all cursor-pointer ${
-                              selectedAngle === (option.option_id.startsWith('45') ? '45' : '90')
-                                ? 'border-primary shadow-md'
-                                : 'hover:border-primary/50'
-                            }`}
-                            onClick={() => setSelectedAngle(
-                              option.option_id.startsWith('45') ? '45' : '90'
                             )}
-                          >
-                            <CardHeader className="pb-3">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <CardTitle className="text-base flex items-center gap-2">
-                                    {option.option_id.startsWith('45') ? '45도' : '90도'} 접착
-                                    {!option.is_active && (
-                                      <Badge variant="outline" className="text-xs">비활성</Badge>
-                                    )}
-                                    {selectedAngle === (option.option_id.startsWith('45') ? '45' : '90') && (
-                                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                                    )}
-                                  </CardTitle>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    ID: {option.option_id}
-                                  </p>
-                                </div>
-                                {getOptionTypeBadge(option.option_type)}
-                              </div>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                              {option.description && (
-                                <p className="text-sm text-muted-foreground line-clamp-2">
-                                  {option.description}
+                            {option.base_cost !== null && option.base_cost !== undefined && (
+                              <div className="p-3 bg-secondary/10 rounded-lg">
+                                <p className="text-xs text-muted-foreground">고정 비용</p>
+                                <p className="text-lg font-bold">
+                                  {option.base_cost.toLocaleString()}원
                                 </p>
-                              )}
-                              
-                              <div className="grid grid-cols-2 gap-3">
-                                {option.multiplier !== null && option.multiplier !== undefined && (
-                                  <div className="p-3 bg-primary/5 rounded-lg">
-                                    <p className="text-xs text-muted-foreground">배수</p>
-                                    <p className="text-lg font-bold text-primary">
-                                      ×{option.multiplier}
-                                    </p>
-                                  </div>
-                                )}
-                                {option.base_cost !== null && option.base_cost !== undefined && (
-                                  <div className="p-3 bg-secondary/10 rounded-lg">
-                                    <p className="text-xs text-muted-foreground">고정 비용</p>
-                                    <p className="text-lg font-bold">
-                                      {option.base_cost.toLocaleString()}원
-                                    </p>
-                                  </div>
-                                )}
                               </div>
+                            )}
+                          </div>
 
-                              <div className="flex items-center justify-between pt-2 border-t">
-                                <div className="flex items-center gap-2">
-                                  <Switch
-                                    checked={option.is_active}
-                                    onCheckedChange={(checked) => {
-                                      updateOption.mutateAsync({
-                                        id: option.id,
-                                        updates: { is_active: checked }
-                                      });
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                  <Label className="text-xs cursor-pointer">
-                                    {option.is_active ? '활성화' : '비활성'}
-                                  </Label>
-                                </div>
-                                
-                                <div className="flex gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      startEdit(option);
-                                    }}
-                                  >
-                                    <Pencil className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDelete(option.id);
-                                    }}
-                                    className="text-destructive hover:text-destructive"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* 접착타입 옵션 */}
-                    {selectedAngle && (
-                      <div>
-                        <h5 className="text-sm font-medium mb-3 flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-primary" />
-                          접착타입
-                        </h5>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {processingOptions?.filter(opt => 
-                            opt.option_type === 'adhesion' && 
-                            opt.option_id.startsWith(selectedAngle)
-                          ).map(option => (
-                            <Card 
-                              key={option.id} 
-                              className={`relative overflow-hidden border-2 transition-all cursor-pointer ${
-                                selectedAdhesionType === (option.option_id.includes('normal') ? 'normal' : 'bubble-free')
-                                  ? 'border-primary shadow-md'
-                                  : 'hover:border-primary/50'
-                              }`}
-                              onClick={() => setSelectedAdhesionType(
-                                option.option_id.includes('normal') ? 'normal' : 'bubble-free'
-                              )}
-                            >
-                              <CardHeader className="pb-3">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1">
-                                    <CardTitle className="text-base flex items-center gap-2">
-                                      {option.name}
-                                      {!option.is_active && (
-                                        <Badge variant="outline" className="text-xs">비활성</Badge>
-                                      )}
-                                      {selectedAdhesionType === (option.option_id.includes('normal') ? 'normal' : 'bubble-free') && (
-                                        <CheckCircle2 className="w-4 h-4 text-primary" />
-                                      )}
-                                    </CardTitle>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      ID: {option.option_id}
-                                    </p>
-                                  </div>
-                                  {getOptionTypeBadge(option.option_type)}
-                                </div>
-                              </CardHeader>
-                              <CardContent className="space-y-3">
-                                {option.description && (
-                                  <p className="text-sm text-muted-foreground line-clamp-2">
-                                    {option.description}
-                                  </p>
-                                )}
-                                
-                                <div className="grid grid-cols-2 gap-3">
-                                  {option.multiplier !== null && option.multiplier !== undefined && (
-                                    <div className="p-3 bg-primary/5 rounded-lg">
-                                      <p className="text-xs text-muted-foreground">배수</p>
-                                      <p className="text-lg font-bold text-primary">
-                                        ×{option.multiplier}
-                                      </p>
-                                    </div>
-                                  )}
-                                  {option.base_cost !== null && option.base_cost !== undefined && (
-                                    <div className="p-3 bg-secondary/10 rounded-lg">
-                                      <p className="text-xs text-muted-foreground">고정 비용</p>
-                                      <p className="text-lg font-bold">
-                                        {option.base_cost.toLocaleString()}원
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div className="flex items-center justify-between pt-2 border-t">
-                                  <div className="flex items-center gap-2">
-                                    <Switch
-                                      checked={option.is_active}
-                                      onCheckedChange={(checked) => {
-                                        updateOption.mutateAsync({
-                                          id: option.id,
-                                          updates: { is_active: checked }
-                                        });
-                                      }}
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                    <Label className="text-xs cursor-pointer">
-                                      {option.is_active ? '활성화' : '비활성'}
-                                    </Label>
-                                  </div>
-                                  
-                                  <div className="flex gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        startEdit(option);
-                                      }}
-                                    >
-                                      <Pencil className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDelete(option.id);
-                                      }}
-                                      className="text-destructive hover:text-destructive"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                          <div className="flex items-center justify-between pt-2 border-t">
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                checked={option.is_active}
+                                onCheckedChange={(checked) => {
+                                  updateOption.mutateAsync({
+                                    id: option.id,
+                                    updates: { is_active: checked }
+                                  });
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <Label className="text-xs cursor-pointer">
+                                {option.is_active ? '활성화' : '비활성'}
+                              </Label>
+                            </div>
+                            
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startEdit(option);
+                                }}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(option.id);
+                                }}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
+
+                  {/* 슬롯 초기화 버튼 */}
+                  {(slot1 || slot2 || slot3) && (
+                    <div className="mt-4 text-center">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setSlot1(null);
+                          setSlot2(null);
+                          setSlot3(null);
+                        }}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        슬롯 초기화
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </>
           )}
 
-          {/* 옵션 목록 표시 */}
-          {getFilteredOptions().length > 0 && (
+          {/* 추가 옵션 관리 */}
+          {selectedCategory === 'additional' && (
             <>
               <Separator />
               <div>
@@ -1090,7 +901,7 @@ const ProcessingOptionsManager = () => {
             </>
           )}
 
-          {selectedCategory && getFilteredOptions().length === 0 && (
+          {selectedCategory && getFilteredOptions().length === 0 && selectedCategory === 'additional' && (
             <div className="text-center py-12 text-muted-foreground">
               <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>선택한 조건에 해당하는 옵션이 없습니다.</p>
