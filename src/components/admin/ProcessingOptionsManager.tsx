@@ -551,10 +551,8 @@ const ProcessingOptionsManager = () => {
                       {/* 동적 슬롯 렌더링 */}
                       {formulaSlots.map((slot, index) => (
                         <React.Fragment key={index}>
-                          {/* 연산자 */}
-                          <span className="text-2xl font-bold text-primary">
-                            {selectedCategory === 'adhesion' ? '×' : '+'}
-                          </span>
+                          {/* 연산자 - 모두 덧셈 */}
+                          <span className="text-2xl font-bold text-primary">+</span>
 
                           {/* 슬롯 */}
                           <div className="relative group">
@@ -610,9 +608,7 @@ const ProcessingOptionsManager = () => {
                           <div className="px-6 py-3 bg-primary text-primary-foreground rounded-lg border-2 border-primary shadow-lg">
                             <div className="text-center">
                               <div className="text-xs opacity-80">최종 로직</div>
-                              <div className="text-sm font-bold mt-1">
-                                {selectedCategory === 'adhesion' ? '곱셈 + 추가' : '합산'}
-                              </div>
+                              <div className="text-sm font-bold mt-1">합산</div>
                             </div>
                           </div>
                         </>
