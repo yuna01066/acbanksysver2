@@ -468,11 +468,11 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="font-semibold">45도 절단면 가공</span>
+                    <span className="font-semibold">45° 절단면 가공</span>
                     {adhesionAngle === '45' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    45도 각도로 절단면을 가공하여 접착
+                    45° 각도로 절단면을 가공하여 접착
                   </p>
                 </button>
 
@@ -485,11 +485,11 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="font-semibold">90도 절단면 가공</span>
+                    <span className="font-semibold">90° 절단면 가공</span>
                     {adhesionAngle === '90' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    90도 각도로 절단면을 가공하여 접착
+                    90° 각도로 절단면을 가공하여 접착
                   </p>
                 </button>
               </div>
