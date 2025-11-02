@@ -1,10 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Database, DollarSign } from 'lucide-react';
+import { Database, Palette } from 'lucide-react';
 
 interface OptionSelectorProps {
   materialName: string;
-  onSelectOption: (option: 'size' | 'price') => void;
+  onSelectOption: (option: 'size' | 'color') => void;
   onBack: () => void;
 }
 
@@ -31,20 +31,20 @@ export function OptionSelector({ materialName, onSelectOption, onBack }: OptionS
           >
             <Database className="w-8 h-8" />
             <div className="text-center">
-              <div className="font-semibold text-lg">가용 사이즈 관리</div>
-              <div className="text-sm text-muted-foreground mt-1">원판의 가용 사이즈를 관리합니다</div>
+              <div className="font-semibold text-lg">사이즈 / 가격 관리</div>
+              <div className="text-sm text-muted-foreground mt-1">원판의 가용 사이즈와 가격을 관리합니다</div>
             </div>
           </Button>
           
           <Button
             variant="outline"
             className="h-32 flex flex-col items-center justify-center gap-3 hover:bg-accent"
-            onClick={() => onSelectOption('price')}
+            onClick={() => onSelectOption('color')}
           >
-            <DollarSign className="w-8 h-8" />
+            <Palette className="w-8 h-8" />
             <div className="text-center">
-              <div className="font-semibold text-lg">가격 관리</div>
-              <div className="text-sm text-muted-foreground mt-1">두께 x 사이즈 매트릭스로 가격을 관리합니다</div>
+              <div className="font-semibold text-lg">컬러 관리</div>
+              <div className="text-sm text-muted-foreground mt-1">재질별 컬러 옵션을 관리합니다</div>
             </div>
           </Button>
         </div>

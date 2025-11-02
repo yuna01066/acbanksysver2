@@ -49,6 +49,47 @@ export type Database = {
           },
         ]
       }
+      color_options: {
+        Row: {
+          color_code: string | null
+          color_name: string
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          panel_master_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          color_code?: string | null
+          color_name: string
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          panel_master_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          color_code?: string | null
+          color_name?: string
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          panel_master_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "color_options_panel_master_id_fkey"
+            columns: ["panel_master_id"]
+            isOneToOne: false
+            referencedRelation: "panel_masters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       panel_masters: {
         Row: {
           created_at: string | null
@@ -79,44 +120,6 @@ export type Database = {
         }
         Relationships: []
       }
-      panel_prices: {
-        Row: {
-          created_at: string | null
-          effective_from: string | null
-          effective_to: string | null
-          id: string
-          panel_size_id: string
-          price: number
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          effective_from?: string | null
-          effective_to?: string | null
-          id?: string
-          panel_size_id: string
-          price: number
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          effective_from?: string | null
-          effective_to?: string | null
-          id?: string
-          panel_size_id?: string
-          price?: number
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "panel_prices_panel_size_id_fkey"
-            columns: ["panel_size_id"]
-            isOneToOne: false
-            referencedRelation: "panel_sizes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       panel_sizes: {
         Row: {
           actual_height: number
@@ -125,6 +128,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           panel_master_id: string
+          price: number | null
           size_name: string
           thickness: string
           updated_at: string | null
@@ -136,6 +140,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           panel_master_id: string
+          price?: number | null
           size_name: string
           thickness: string
           updated_at?: string | null
@@ -147,6 +152,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           panel_master_id?: string
+          price?: number | null
           size_name?: string
           thickness?: string
           updated_at?: string | null

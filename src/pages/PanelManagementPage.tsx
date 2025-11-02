@@ -5,11 +5,11 @@ import { ArrowLeft } from "lucide-react";
 import { MaterialSelector } from "@/components/panel-management/MaterialSelector";
 import { ProductSelector } from "@/components/panel-management/ProductSelector";
 import { OptionSelector } from "@/components/panel-management/OptionSelector";
-import { PanelPriceMatrix } from "@/components/panel-management/PanelPriceMatrix";
-import { PanelSizeManager } from "@/components/panel-management/PanelSizeManager";
+import { PanelSizeManager } from "@/components/panel-management/UnifiedSizePriceManager";
+import ColorManager from "@/components/panel-management/ColorManager";
 
-type ViewLevel = 'material' | 'product' | 'option' | 'size' | 'price';
-type ManagementOption = 'size' | 'price';
+type ViewLevel = 'material' | 'product' | 'option' | 'size' | 'color';
+type ManagementOption = 'size' | 'color';
 
 const PanelManagementPage = () => {
   const navigate = useNavigate();
@@ -30,7 +30,7 @@ const PanelManagementPage = () => {
 
   const handleSelectOption = (option: ManagementOption) => {
     setSelectedOption(option);
-    setCurrentView(option === 'size' ? 'size' : 'price');
+    setCurrentView(option);
   };
 
   const handleBackToMaterials = () => {
@@ -79,7 +79,7 @@ const PanelManagementPage = () => {
           <div>
             <h1 className="text-3xl font-bold">원판 관리</h1>
             <p className="text-muted-foreground mt-2">
-              소재 → 재질 선택 후, 두께 x 사이즈 매트릭스로 가격을 관리합니다.
+              소재 → 재질 선택 후, 사이즈/가격 또는 컬러를 관리합니다.
             </p>
           </div>
 
@@ -116,12 +116,8 @@ const PanelManagementPage = () => {
             />
           )}
 
-          {currentView === 'price' && selectedProduct && (
-            <PanelPriceMatrix
-              qualityId={selectedProduct.id}
-              productName={selectedProduct.name}
-              onBack={handleBackToOptions}
-            />
+          {currentView === 'color' && selectedProduct && selectedMaterial && (
+            <ColorManager panelMasterId={selectedProduct.id} />
           )}
         </div>
       </div>
