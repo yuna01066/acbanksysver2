@@ -7,9 +7,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, Save, X, Trash2, Plus, Package, Scissors, Droplet, Settings, CheckCircle2, Sparkles, Layers, Zap } from "lucide-react";
+import { Pencil, Save, X, Trash2, Plus, Package, Scissors, Droplet, Settings, CheckCircle2, Layers, Zap, ListOrdered } from "lucide-react";
 import { useProcessingOptions, ProcessingOption } from "@/hooks/useProcessingOptions";
 import { useAdvancedProcessingSettings, AdvancedProcessingSetting } from "@/hooks/useAdvancedProcessingSettings";
+import { useSlotTypes, SlotType } from "@/hooks/useSlotTypes";
 import { Badge } from "@/components/ui/badge";
 import { 
   AlertDialog,
@@ -31,18 +32,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type MainCategory = 'raw' | 'simple' | 'complex' | 'full' | 'adhesion' | 'additional';
 type ProcessingOptionCategory = 'raw' | 'simple' | 'complex' | 'full' | 'adhesion' | 'additional';
 
 interface SlotConfig {
-  slotType: 'slot1' | 'slot2' | 'slot3' | 'slot4';
-  optionId: string;
+  slotKey: string;
+  optionIds: string[];
 }
 
 const ProcessingOptionsManager = () => {
   const { processingOptions, isLoading, updateOption, deleteOption, createOption } = useProcessingOptions();
   const { settings: advancedSettings, isLoading: isLoadingAdvanced, updateSetting } = useAdvancedProcessingSettings();
+  const { slotTypes, isLoading: isLoadingSlots, updateSlotType, createSlotType, deleteSlotType } = useSlotTypes();
   const { toast } = useToast();
   
   const [editingSettingId, setEditingSettingId] = useState<string | null>(null);
@@ -63,6 +66,21 @@ const ProcessingOptionsManager = () => {
     display_order: 0
   });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  
+  // 슬롯 타입 관리
+  const [isAddSlotDialogOpen, setIsAddSlotDialogOpen] = useState(false);
+  const [isEditSlotDialogOpen, setIsEditSlotDialogOpen] = useState(false);
+  const [editingSlot, setEditingSlot] = useState<SlotType | null>(null);
+  const [editSlotForm, setEditSlotForm] = useState<Partial<SlotType>>({});
+  const [newSlotForm, setNewSlotForm] = useState<Partial<SlotType>>({
+    slot_key: '',
+    label: '',
+    title: '',
+    description: '',
+    display_order: 0,
+    is_active: true
+  });
+  const [deleteSlotConfirmId, setDeleteSlotConfirmId] = useState<string | null>(null);
   
   const [selectedCategory, setSelectedCategory] = useState<MainCategory | null>(null);
   const [categorySlots, setCategorySlots] = useState<Record<MainCategory, SlotConfig[]>>({
@@ -109,7 +127,11 @@ const ProcessingOptionsManager = () => {
 
   const handleAddNew = async () => {
     if (!newOptionForm.name || !newOptionForm.option_id) {
-      alert('옵션 ID와 이름은 필수입니다.');
+      toast({
+        title: '입력 오류',
+        description: '옵션 ID와 이름은 필수입니다.',
+        variant: 'destructive',
+      });
       return;
     }
     
@@ -148,34 +170,116 @@ const ProcessingOptionsManager = () => {
     }
   };
 
+  // 슬롯 타입 관리 함수
+  const startEditSlot = (slot: SlotType) => {
+    setEditingSlot(slot);
+    setEditSlotForm(slot);
+    setIsEditSlotDialogOpen(true);
+  };
+
+  const cancelEditSlot = () => {
+    setIsEditSlotDialogOpen(false);
+    setEditingSlot(null);
+    setEditSlotForm({});
+  };
+
+  const saveEditSlot = async () => {
+    if (editingSlot && editSlotForm) {
+      await updateSlotType.mutateAsync({
+        id: editingSlot.id,
+        updates: editSlotForm,
+      });
+      cancelEditSlot();
+    }
+  };
+
+  const handleAddSlot = async () => {
+    if (!newSlotForm.slot_key || !newSlotForm.label) {
+      toast({
+        title: '입력 오류',
+        description: '슬롯 키와 레이블은 필수입니다.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    await createSlotType.mutateAsync(newSlotForm as Omit<SlotType, 'id' | 'created_at' | 'updated_at'>);
+    setIsAddSlotDialogOpen(false);
+    setNewSlotForm({
+      slot_key: '',
+      label: '',
+      title: '',
+      description: '',
+      display_order: 0,
+      is_active: true
+    });
+  };
+
+  const handleDeleteSlot = (id: string) => {
+    setDeleteSlotConfirmId(id);
+  };
+
+  const confirmDeleteSlot = async () => {
+    if (deleteSlotConfirmId) {
+      await deleteSlotType.mutateAsync(deleteSlotConfirmId);
+      setDeleteSlotConfirmId(null);
+    }
+  };
+
   const handleCategorySelect = (category: MainCategory) => {
     setSelectedCategory(category);
   };
 
-  const addSlotToCategory = (category: MainCategory) => {
+  const addSlotToLogic = (category: MainCategory) => {
+    const availableSlots = slotTypes?.filter(st => st.is_active) || [];
+    if (availableSlots.length === 0) {
+      toast({
+        title: '슬롯 없음',
+        description: '먼저 슬롯 타입을 추가해주세요.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setCategorySlots({
       ...categorySlots,
       [category]: [
         ...categorySlots[category],
-        { slotType: 'slot1', optionId: '' }
+        { slotKey: availableSlots[0].slot_key, optionIds: [] }
       ]
     });
   };
 
-  const removeSlot = (category: MainCategory, index: number) => {
+  const removeSlotFromLogic = (category: MainCategory, index: number) => {
     setCategorySlots({
       ...categorySlots,
       [category]: categorySlots[category].filter((_, i) => i !== index)
     });
   };
 
-  const updateSlot = (category: MainCategory, index: number, field: 'slotType' | 'optionId', value: string) => {
+  const updateLogicSlot = (category: MainCategory, index: number, slotKey: string) => {
     const newSlots = [...categorySlots[category]];
-    if (field === 'slotType') {
-      newSlots[index].slotType = value as 'slot1' | 'slot2' | 'slot3' | 'slot4';
-    } else {
-      newSlots[index].optionId = value;
+    newSlots[index].slotKey = slotKey;
+    setCategorySlots({
+      ...categorySlots,
+      [category]: newSlots
+    });
+  };
+
+  const addOptionToSlot = (category: MainCategory, slotIndex: number, optionId: string) => {
+    const newSlots = [...categorySlots[category]];
+    if (!newSlots[slotIndex].optionIds.includes(optionId)) {
+      newSlots[slotIndex].optionIds.push(optionId);
     }
+    setCategorySlots({
+      ...categorySlots,
+      [category]: newSlots
+    });
+  };
+
+  const removeOptionFromSlot = (category: MainCategory, slotIndex: number, optionId: string) => {
+    const newSlots = [...categorySlots[category]];
+    newSlots[slotIndex].optionIds = newSlots[slotIndex].optionIds.filter(id => id !== optionId);
     setCategorySlots({
       ...categorySlots,
       [category]: newSlots
@@ -189,13 +293,13 @@ const ProcessingOptionsManager = () => {
       const slots = categorySlots[selectedCategory];
       
       for (const slot of slots) {
-        if (slot.optionId) {
-          const option = processingOptions?.find(opt => opt.option_id === slot.optionId);
+        for (const optionId of slot.optionIds) {
+          const option = processingOptions?.find(opt => opt.option_id === optionId);
           if (option) {
             await updateOption.mutateAsync({
               id: option.id,
               updates: {
-                option_type: slot.slotType,
+                option_type: slot.slotKey,
                 category: selectedCategory as ProcessingOptionCategory,
               }
             });
@@ -218,19 +322,12 @@ const ProcessingOptionsManager = () => {
 
   const getAvailableOptions = () => {
     if (!selectedCategory || !processingOptions) return [];
-    return processingOptions.filter(opt => opt.category === selectedCategory || opt.category === 'additional');
+    return processingOptions.filter(opt => opt.is_active);
   };
 
-  const getOptionTypeBadge = (type: string) => {
-    const variants: Record<string, { label: string; variant: any }> = {
-      slot1: { label: '선택 1', variant: 'default' },
-      slot2: { label: '선택 2', variant: 'secondary' },
-      slot3: { label: '선택 3', variant: 'outline' },
-      slot4: { label: '선택 4', variant: 'destructive' },
-      additional: { label: '추가 옵션', variant: 'default' },
-    };
-    const config = variants[type] || { label: type, variant: 'default' };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+  const getSlotBadge = (slotKey: string) => {
+    const slot = slotTypes?.find(st => st.slot_key === slotKey);
+    return <Badge variant="default">{slot?.label || slotKey}</Badge>;
   };
 
   const getCategoryBadge = (category: string) => {
@@ -246,345 +343,601 @@ const ProcessingOptionsManager = () => {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  if (isLoading || isLoadingAdvanced) {
+  if (isLoading || isLoadingAdvanced || isLoadingSlots) {
     return <div className="p-8 text-center">로딩 중...</div>;
   }
 
   return (
     <div className="space-y-6 animate-fade-up">
-      {/* 고급 옵션 단가 관리 */}
-      <Card className="shadow-smooth">
-        <CardHeader className="border-b border-border/50">
-          <CardTitle className="text-xl">고급 옵션 단가 설정</CardTitle>
-          <CardDescription className="text-muted-foreground">
-            베벨, 타공, 코너 마감 등 고급 옵션의 단가를 관리합니다.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>설정 항목</TableHead>
-                  <TableHead>설명</TableHead>
-                  <TableHead className="text-right">단가</TableHead>
-                  <TableHead>단위</TableHead>
-                  <TableHead className="text-right">작업</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {advancedSettings?.map((setting) => {
-                  const isEditing = editingSettingId === setting.id;
-                  return (
-                    <TableRow key={setting.id}>
-                      <TableCell>
-                        <div className="font-medium">{setting.display_name}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm text-muted-foreground max-w-[300px]">
-                          {setting.description}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            step={setting.setting_key === 'volume_discount_factor' ? '0.01' : '100'}
-                            value={editSettingForm.setting_value || ''}
-                            onChange={(e) => setEditSettingForm({ 
-                              ...editSettingForm, 
-                              setting_value: e.target.value ? parseFloat(e.target.value) : 0 
-                            })}
-                            className="max-w-[150px] ml-auto"
-                          />
-                        ) : (
-                          <div className="font-mono">
-                            {setting.setting_value.toLocaleString()}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{setting.unit || '-'}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {isEditing ? (
+      <Tabs defaultValue="advanced" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="advanced">고급 옵션 단가</TabsTrigger>
+          <TabsTrigger value="slots">슬롯 타입 관리</TabsTrigger>
+          <TabsTrigger value="logic">가공 로직 & 옵션</TabsTrigger>
+        </TabsList>
+
+        {/* 고급 옵션 단가 설정 */}
+        <TabsContent value="advanced" className="space-y-4">
+          <Card className="shadow-smooth">
+            <CardHeader className="border-b border-border/50">
+              <CardTitle className="text-xl">고급 옵션 단가 설정</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                베벨, 타공, 코너 마감 등 고급 옵션의 단가를 관리합니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>설정 항목</TableHead>
+                      <TableHead>설명</TableHead>
+                      <TableHead className="text-right">단가</TableHead>
+                      <TableHead>단위</TableHead>
+                      <TableHead className="text-right">작업</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {advancedSettings?.map((setting) => {
+                      const isEditing = editingSettingId === setting.id;
+                      return (
+                        <TableRow key={setting.id}>
+                          <TableCell>
+                            <div className="font-medium">{setting.display_name}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm text-muted-foreground max-w-[300px]">
+                              {setting.description}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {isEditing ? (
+                              <Input
+                                type="number"
+                                step={setting.setting_key === 'volume_discount_factor' ? '0.01' : '100'}
+                                value={editSettingForm.setting_value || ''}
+                                onChange={(e) => setEditSettingForm({ 
+                                  ...editSettingForm, 
+                                  setting_value: e.target.value ? parseFloat(e.target.value) : 0 
+                                })}
+                                className="max-w-[150px] ml-auto"
+                              />
+                            ) : (
+                              <div className="font-mono">
+                                {setting.setting_value.toLocaleString()}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{setting.unit || '-'}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {isEditing ? (
+                              <div className="flex gap-2 justify-end">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={saveEditSetting}
+                                >
+                                  <Save className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={cancelEditSetting}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => startEditSetting(setting)}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 슬롯 타입 관리 */}
+        <TabsContent value="slots" className="space-y-4">
+          <Card className="shadow-smooth">
+            <CardHeader className="border-b border-border/50">
+              <div className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl">슬롯 타입 관리</CardTitle>
+                  <CardDescription className="text-muted-foreground mt-2">
+                    견적 계산기에 표시될 슬롯 타입을 추가하고 관리합니다.
+                  </CardDescription>
+                </div>
+                <Button 
+                  onClick={() => setIsAddSlotDialogOpen(true)}
+                  variant="default"
+                  size="sm"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  슬롯 추가
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>슬롯 키</TableHead>
+                      <TableHead>레이블</TableHead>
+                      <TableHead>제목 (계산기)</TableHead>
+                      <TableHead>설명 (계산기)</TableHead>
+                      <TableHead>순서</TableHead>
+                      <TableHead>활성화</TableHead>
+                      <TableHead className="text-right">작업</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {slotTypes?.map((slot) => (
+                      <TableRow key={slot.id}>
+                        <TableCell className="font-mono text-xs">{slot.slot_key}</TableCell>
+                        <TableCell>
+                          <Badge>{slot.label}</Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">{slot.title || '-'}</TableCell>
+                        <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
+                          {slot.description || '-'}
+                        </TableCell>
+                        <TableCell>{slot.display_order}</TableCell>
+                        <TableCell>
+                          <Badge variant={slot.is_active ? 'default' : 'secondary'}>
+                            {slot.is_active ? '활성' : '비활성'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={saveEditSetting}
+                              onClick={() => startEditSlot(slot)}
                             >
-                              <Save className="w-4 h-4" />
+                              <Pencil className="w-4 h-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={cancelEditSetting}
+                              onClick={() => handleDeleteSlot(slot.id)}
+                              className="text-destructive hover:text-destructive"
                             >
-                              <X className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => startEditSetting(setting)}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 가공 옵션 관리 */}
-      <Card className="shadow-smooth">
-        <CardHeader className="border-b border-border/50">
-          <div className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-xl">가공 로직 설정</CardTitle>
-              <CardDescription className="text-muted-foreground mt-2">
-                카테고리별 가공 로직을 설정하고 슬롯을 관리합니다.
-              </CardDescription>
-            </div>
-            <Button 
-              onClick={() => setIsAddDialogOpen(true)}
-              variant="default"
-              size="sm"
-              className="transition-all"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              새 옵션 추가
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-6 space-y-6">
-          {/* 카테고리 선택 */}
-          <div>
-            <div className="mb-4">
-              <h4 className="text-sm font-semibold flex items-center gap-2">
-                <Settings className="w-4 h-4 text-primary" />
-                가공 카테고리 선택
-              </h4>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              {[
-                { key: 'raw', icon: Package, label: '원판 구매' },
-                { key: 'simple', icon: Scissors, label: '단순 재단' },
-                { key: 'complex', icon: Layers, label: '복합 재단' },
-                { key: 'full', icon: Zap, label: '전체 재단' },
-                { key: 'adhesion', icon: Droplet, label: '접착 가공' },
-                { key: 'additional', icon: Settings, label: '추가 옵션' },
-              ].map(({ key, icon: Icon, label }) => (
-                <button
-                  key={key}
-                  onClick={() => handleCategorySelect(key as MainCategory)}
-                  className={`p-4 rounded-lg border-2 transition-all text-left ${
-                    selectedCategory === key
-                      ? 'bg-primary/10 border-primary shadow-md'
-                      : 'bg-background border-border hover:border-primary/30'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <Icon className="w-5 h-5 text-primary" />
-                    <span className="font-semibold text-sm">{label}</span>
-                    {selectedCategory === key && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 선택된 카테고리의 로직 설정 */}
-          {selectedCategory && selectedCategory !== 'additional' && (
-            <>
-              <Separator />
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-primary" />
-                    로직 슬롯 관리
-                  </h4>
-                  <Button 
-                    onClick={() => addSlotToCategory(selectedCategory)}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    슬롯 추가
-                  </Button>
-                </div>
-
-                {categorySlots[selectedCategory].length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    슬롯이 없습니다. "슬롯 추가" 버튼을 눌러 시작하세요.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {categorySlots[selectedCategory].map((slot, idx) => (
-                      <div key={idx} className="flex items-center gap-3 p-4 bg-muted/30 rounded-lg">
-                        <div className="w-32">
-                          <Label className="text-xs mb-1">슬롯 타입</Label>
-                          <Select
-                            value={slot.slotType}
-                            onValueChange={(value) => updateSlot(selectedCategory, idx, 'slotType', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="slot1">선택 1</SelectItem>
-                              <SelectItem value="slot2">선택 2</SelectItem>
-                              <SelectItem value="slot3">선택 3</SelectItem>
-                              <SelectItem value="slot4">선택 4</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="flex-1">
-                          <Label className="text-xs mb-1">옵션 선택</Label>
-                          <Select
-                            value={slot.optionId}
-                            onValueChange={(value) => updateSlot(selectedCategory, idx, 'optionId', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="옵션을 선택하세요" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {getAvailableOptions().map((opt) => (
-                                <SelectItem key={opt.id} value={opt.option_id}>
-                                  {opt.name} ({opt.option_id})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeSlot(selectedCategory, idx)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </div>
-                )}
-
-                <Button 
-                  onClick={saveCategoryLogic}
-                  className="w-full"
-                  disabled={categorySlots[selectedCategory].length === 0}
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  로직 저장 (견적 계산기에 반영)
-                </Button>
+                  </TableBody>
+                </Table>
               </div>
-            </>
-          )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <Separator />
+        {/* 가공 로직 & 옵션 관리 */}
+        <TabsContent value="logic" className="space-y-6">
+          {/* 로직 구성 */}
+          <Card className="shadow-smooth">
+            <CardHeader className="border-b border-border/50">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <ListOrdered className="w-5 h-5" />
+                로직 슬롯 관리
+              </CardTitle>
+              <CardDescription className="text-muted-foreground">
+                카테고리별로 슬롯 순서와 옵션을 구성합니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-6">
+              {/* 카테고리 선택 */}
+              <div>
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <Settings className="w-4 h-4 text-primary" />
+                    가공 카테고리 선택
+                  </h4>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {[
+                    { key: 'raw', icon: Package, label: '원판 구매' },
+                    { key: 'simple', icon: Scissors, label: '단순 재단' },
+                    { key: 'complex', icon: Layers, label: '복합 재단' },
+                    { key: 'full', icon: Zap, label: '전체 재단' },
+                    { key: 'adhesion', icon: Droplet, label: '접착 가공' },
+                    { key: 'additional', icon: Settings, label: '추가 옵션' },
+                  ].map(({ key, icon: Icon, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => handleCategorySelect(key as MainCategory)}
+                      className={`p-4 rounded-lg border-2 transition-all text-left ${
+                        selectedCategory === key
+                          ? 'bg-primary/10 border-primary shadow-md'
+                          : 'bg-background border-border hover:border-primary/30'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Icon className="w-5 h-5 text-primary" />
+                        <span className="font-semibold text-sm">{label}</span>
+                        {selectedCategory === key && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* 슬롯별 옵션 목록 */}
-          <div className="space-y-6">
-            <h4 className="text-sm font-semibold">슬롯별 옵션 관리</h4>
-            
-            {['slot1', 'slot2', 'slot3', 'slot4', 'additional'].map((slotType) => {
-              const slotOptions = processingOptions?.filter(opt => opt.option_type === slotType) || [];
-              const slotLabels: Record<string, string> = {
-                slot1: '선택 1',
-                slot2: '선택 2',
-                slot3: '선택 3',
-                slot4: '선택 4',
-                additional: '추가 옵션'
-              };
-              
-              return (
-                <Card key={slotType} className="border-2">
-                  <CardHeader className="pb-3 bg-muted/30">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      {getOptionTypeBadge(slotType)}
-                      <span className="text-muted-foreground text-sm ml-2">
-                        ({slotOptions.length}개)
-                      </span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-4">
-                    {slotOptions.length === 0 ? (
-                      <div className="text-center py-6 text-muted-foreground text-sm">
-                        {slotLabels[slotType]}에 등록된 옵션이 없습니다.
+              {/* 선택된 카테고리의 로직 설정 */}
+              {selectedCategory && (
+                <>
+                  <Separator />
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-primary" />
+                        로직 구성
+                      </h4>
+                      <Button 
+                        onClick={() => addSlotToLogic(selectedCategory)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        슬롯 추가
+                      </Button>
+                    </div>
+
+                    {categorySlots[selectedCategory].length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        슬롯이 없습니다. "슬롯 추가" 버튼을 눌러 로직을 구성하세요.
                       </div>
                     ) : (
-                      <div className="rounded-md border">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>옵션 ID</TableHead>
-                              <TableHead>이름</TableHead>
-                              <TableHead>카테고리</TableHead>
-                              <TableHead>설명</TableHead>
-                              <TableHead className="text-right">기본 비용</TableHead>
-                              <TableHead>활성화</TableHead>
-                              <TableHead className="text-right">작업</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {slotOptions.map((option) => (
-                              <TableRow key={option.id}>
-                                <TableCell className="font-mono text-xs">{option.option_id}</TableCell>
-                                <TableCell className="font-medium">{option.name}</TableCell>
-                                <TableCell>{getCategoryBadge(option.category)}</TableCell>
-                                <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
-                                  {option.description || '-'}
-                                </TableCell>
-                                <TableCell className="text-right font-mono">
-                                  {option.base_cost ? `${option.base_cost.toLocaleString()}원` : '-'}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant={option.is_active ? 'default' : 'secondary'}>
-                                    {option.is_active ? '활성' : '비활성'}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex gap-2 justify-end">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => startEdit(option)}
+                      <div className="space-y-3">
+                        {categorySlots[selectedCategory].map((slot, idx) => (
+                          <Card key={idx} className="border-2">
+                            <CardContent className="p-4">
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <Label className="text-sm font-semibold">슬롯 타입:</Label>
+                                    <Select
+                                      value={slot.slotKey}
+                                      onValueChange={(value) => updateLogicSlot(selectedCategory, idx, value)}
                                     >
-                                      <Pencil className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleDelete(option.id)}
-                                      className="text-destructive hover:text-destructive"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
+                                      <SelectTrigger className="w-[180px]">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {slotTypes?.filter(st => st.is_active).map(st => (
+                                          <SelectItem key={st.id} value={st.slot_key}>
+                                            {st.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                   </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeSlotFromLogic(selectedCategory, idx)}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+
+                                <div>
+                                  <Label className="text-sm mb-2 block">이 슬롯에 포함될 옵션들:</Label>
+                                  <div className="flex flex-wrap gap-2 mb-2">
+                                    {slot.optionIds.map(optId => {
+                                      const opt = processingOptions?.find(o => o.option_id === optId);
+                                      return opt ? (
+                                        <Badge key={optId} variant="secondary" className="flex items-center gap-1">
+                                          {opt.name}
+                                          <X 
+                                            className="w-3 h-3 cursor-pointer" 
+                                            onClick={() => removeOptionFromSlot(selectedCategory, idx, optId)}
+                                          />
+                                        </Badge>
+                                      ) : null;
+                                    })}
+                                  </div>
+                                  <Select
+                                    onValueChange={(value) => addOptionToSlot(selectedCategory, idx, value)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="옵션 추가..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {getAvailableOptions().map(opt => (
+                                        <SelectItem key={opt.id} value={opt.option_id}>
+                                          {opt.name} ({opt.option_id})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
                     )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+
+                    <Button 
+                      onClick={saveCategoryLogic}
+                      className="w-full"
+                      disabled={categorySlots[selectedCategory].length === 0}
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      로직 저장 (견적 계산기에 반영)
+                    </Button>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 슬롯별 옵션 관리 */}
+          <Card className="shadow-smooth">
+            <CardHeader className="border-b border-border/50">
+              <div className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl">슬롯별 옵션 관리</CardTitle>
+                  <CardDescription className="text-muted-foreground mt-2">
+                    각 슬롯 타입별로 등록된 모든 옵션을 확인하고 수정합니다.
+                  </CardDescription>
+                </div>
+                <Button 
+                  onClick={() => setIsAddDialogOpen(true)}
+                  variant="default"
+                  size="sm"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  새 옵션 추가
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-6">
+              {slotTypes?.filter(st => st.is_active).map((slotType) => {
+                const slotOptions = processingOptions?.filter(opt => opt.option_type === slotType.slot_key) || [];
+                
+                return (
+                  <Card key={slotType.id} className="border-2">
+                    <CardHeader className="pb-3 bg-muted/30">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        {getSlotBadge(slotType.slot_key)}
+                        <span className="text-muted-foreground text-sm ml-2">
+                          ({slotOptions.length}개)
+                        </span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      {slotOptions.length === 0 ? (
+                        <div className="text-center py-6 text-muted-foreground text-sm">
+                          {slotType.label}에 등록된 옵션이 없습니다.
+                        </div>
+                      ) : (
+                        <div className="rounded-md border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>옵션 ID</TableHead>
+                                <TableHead>이름</TableHead>
+                                <TableHead>카테고리</TableHead>
+                                <TableHead>설명</TableHead>
+                                <TableHead className="text-right">기본 비용</TableHead>
+                                <TableHead>활성화</TableHead>
+                                <TableHead className="text-right">작업</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {slotOptions.map((option) => (
+                                <TableRow key={option.id}>
+                                  <TableCell className="font-mono text-xs">{option.option_id}</TableCell>
+                                  <TableCell className="font-medium">{option.name}</TableCell>
+                                  <TableCell>{getCategoryBadge(option.category)}</TableCell>
+                                  <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
+                                    {option.description || '-'}
+                                  </TableCell>
+                                  <TableCell className="text-right font-mono">
+                                    {option.base_cost ? `${option.base_cost.toLocaleString()}원` : '-'}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={option.is_active ? 'default' : 'secondary'}>
+                                      {option.is_active ? '활성' : '비활성'}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex gap-2 justify-end">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => startEdit(option)}
+                                      >
+                                        <Pencil className="w-4 h-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleDelete(option.id)}
+                                        className="text-destructive hover:text-destructive"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* 슬롯 추가 다이얼로그 */}
+      <Dialog open={isAddSlotDialogOpen} onOpenChange={setIsAddSlotDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>새 슬롯 타입 추가</DialogTitle>
+            <DialogDescription>
+              새로운 슬롯 타입의 정보를 입력하세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="slot_key">슬롯 키 * (예: slot5, custom1)</Label>
+              <Input
+                id="slot_key"
+                value={newSlotForm.slot_key || ''}
+                onChange={(e) => setNewSlotForm({ ...newSlotForm, slot_key: e.target.value })}
+                placeholder="slot5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="label">레이블 * (관리자 화면)</Label>
+              <Input
+                id="label"
+                value={newSlotForm.label || ''}
+                onChange={(e) => setNewSlotForm({ ...newSlotForm, label: e.target.value })}
+                placeholder="선택 5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="title">제목 (견적 계산기)</Label>
+              <Input
+                id="title"
+                value={newSlotForm.title || ''}
+                onChange={(e) => setNewSlotForm({ ...newSlotForm, title: e.target.value })}
+                placeholder="추가 가공 옵션"
+              />
+            </div>
+            <div>
+              <Label htmlFor="description">설명 (견적 계산기)</Label>
+              <Textarea
+                id="description"
+                value={newSlotForm.description || ''}
+                onChange={(e) => setNewSlotForm({ ...newSlotForm, description: e.target.value })}
+                placeholder="추가적인 가공 옵션을 선택하세요"
+              />
+            </div>
+            <div>
+              <Label htmlFor="display_order">표시 순서</Label>
+              <Input
+                id="display_order"
+                type="number"
+                value={newSlotForm.display_order || 0}
+                onChange={(e) => setNewSlotForm({ ...newSlotForm, display_order: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={newSlotForm.is_active}
+                onCheckedChange={(checked) => setNewSlotForm({ ...newSlotForm, is_active: checked })}
+              />
+              <Label>활성화</Label>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddSlotDialogOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleAddSlot}>
+              추가
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 슬롯 수정 다이얼로그 */}
+      <Dialog open={isEditSlotDialogOpen} onOpenChange={setIsEditSlotDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>슬롯 타입 수정</DialogTitle>
+            <DialogDescription>
+              슬롯 타입의 정보를 수정하세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit_slot_key">슬롯 키</Label>
+              <Input
+                id="edit_slot_key"
+                value={editSlotForm.slot_key || ''}
+                onChange={(e) => setEditSlotForm({ ...editSlotForm, slot_key: e.target.value })}
+                disabled
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_label">레이블</Label>
+              <Input
+                id="edit_label"
+                value={editSlotForm.label || ''}
+                onChange={(e) => setEditSlotForm({ ...editSlotForm, label: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_title">제목 (견적 계산기)</Label>
+              <Input
+                id="edit_title"
+                value={editSlotForm.title || ''}
+                onChange={(e) => setEditSlotForm({ ...editSlotForm, title: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_description">설명 (견적 계산기)</Label>
+              <Textarea
+                id="edit_description"
+                value={editSlotForm.description || ''}
+                onChange={(e) => setEditSlotForm({ ...editSlotForm, description: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_display_order">표시 순서</Label>
+              <Input
+                id="edit_display_order"
+                type="number"
+                value={editSlotForm.display_order || 0}
+                onChange={(e) => setEditSlotForm({ ...editSlotForm, display_order: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={editSlotForm.is_active}
+                onCheckedChange={(checked) => setEditSlotForm({ ...editSlotForm, is_active: checked })}
+              />
+              <Label>활성화</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelEditSlot}>
+              취소
+            </Button>
+            <Button onClick={saveEditSlot}>
+              저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 새 옵션 추가 다이얼로그 */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -641,17 +994,17 @@ const ProcessingOptionsManager = () => {
                 <Label htmlFor="option_type">슬롯 타입</Label>
                 <Select
                   value={newOptionForm.option_type}
-                  onValueChange={(value) => setNewOptionForm({ ...newOptionForm, option_type: value as 'slot1' | 'slot2' | 'slot3' | 'slot4' | 'additional' })}
+                  onValueChange={(value) => setNewOptionForm({ ...newOptionForm, option_type: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="slot1">선택 1</SelectItem>
-                    <SelectItem value="slot2">선택 2</SelectItem>
-                    <SelectItem value="slot3">선택 3</SelectItem>
-                    <SelectItem value="slot4">선택 4</SelectItem>
-                    <SelectItem value="additional">추가 옵션</SelectItem>
+                    {slotTypes?.filter(st => st.is_active).map(st => (
+                      <SelectItem key={st.id} value={st.slot_key}>
+                        {st.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -761,17 +1114,17 @@ const ProcessingOptionsManager = () => {
                 <Label htmlFor="edit_option_type">슬롯 타입</Label>
                 <Select
                   value={editForm.option_type}
-                  onValueChange={(value) => setEditForm({ ...editForm, option_type: value as 'slot1' | 'slot2' | 'slot3' | 'slot4' | 'additional' })}
+                  onValueChange={(value) => setEditForm({ ...editForm, option_type: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="slot1">선택 1</SelectItem>
-                    <SelectItem value="slot2">선택 2</SelectItem>
-                    <SelectItem value="slot3">선택 3</SelectItem>
-                    <SelectItem value="slot4">선택 4</SelectItem>
-                    <SelectItem value="additional">추가 옵션</SelectItem>
+                    {slotTypes?.filter(st => st.is_active).map(st => (
+                      <SelectItem key={st.id} value={st.slot_key}>
+                        {st.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -826,7 +1179,7 @@ const ProcessingOptionsManager = () => {
         </DialogContent>
       </Dialog>
 
-      {/* 삭제 확인 다이얼로그 */}
+      {/* 옵션 삭제 확인 다이얼로그 */}
       <AlertDialog open={deleteConfirmId !== null} onOpenChange={() => setDeleteConfirmId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -838,6 +1191,22 @@ const ProcessingOptionsManager = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete}>삭제</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 슬롯 삭제 확인 다이얼로그 */}
+      <AlertDialog open={deleteSlotConfirmId !== null} onOpenChange={() => setDeleteSlotConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>정말 삭제하시겠습니까?</AlertDialogTitle>
+            <AlertDialogDescription>
+              이 작업은 되돌릴 수 없습니다. 이 슬롯 타입이 영구적으로 삭제됩니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteSlot}>삭제</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
