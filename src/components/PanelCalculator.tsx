@@ -89,6 +89,7 @@ const PanelCalculator = () => {
   const [useDetailedBond, setUseDetailedBond] = useState<boolean>(false);
   const [joinLengthM, setJoinLengthM] = useState<number>(0);
   const [trayHeightMm, setTrayHeightMm] = useState<number | undefined>(undefined);
+  const [edgeFinishing, setEdgeFinishing] = useState<boolean>(false);
   
   const {
     priceInfo,
@@ -580,8 +581,8 @@ const PanelCalculator = () => {
                 onComplexChange={setIsComplex}
               />
               
-              {/* 고급 옵션 - 무기포 접착 시에만 표시 */}
-              {(selectedAdhesion && selectedAdhesion.startsWith('bond-mugipo')) && (
+              {/* 고급 옵션 - 원판 구매 제외, 재단/복잡한 모양/접착 가공 선택 시 표시 */}
+              {(selectedProcessing && selectedProcessing !== 'raw-only') || selectedAdhesion ? (
                 <AdvancedProcessingOptions
                   qty={qty}
                   onQtyChange={setQty}
@@ -599,8 +600,10 @@ const PanelCalculator = () => {
                   onJoinLengthChange={setJoinLengthM}
                   trayHeightMm={trayHeightMm}
                   onTrayHeightChange={setTrayHeightMm}
+                  edgeFinishing={edgeFinishing}
+                  onEdgeFinishingChange={setEdgeFinishing}
                 />
-              )}
+              ) : null}
             </>
           )}
 
