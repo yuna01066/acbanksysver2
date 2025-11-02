@@ -84,123 +84,125 @@ const AdminSettingsPage = () => {
   }
 
   return (
-    <div className="min-h-screen p-6">
-      <Card className="w-full max-w-4xl mx-auto border-border/50 shadow-smooth animate-fade-up">
-        <CardHeader className="text-center pb-8 border-b border-border/50">
-          <div className="flex justify-between items-center mb-6">
-            <Button 
-              onClick={() => navigate('/')}
-              variant="outline"
-              size="sm"
-              className="animate-fade-up"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              홈으로
-            </Button>
-          </div>
-          <CardTitle className="flex items-center justify-center gap-3 mb-3">
-            <Settings className="w-7 h-7 text-primary" />
-            <div className="text-2xl">
-              <span className="font-bold">관리자 설정</span>
-            </div>
-          </CardTitle>
-          <p className="text-body text-muted-foreground">계산기 관리 및 설정</p>
-        </CardHeader>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 p-4">
+      <div className="w-full max-w-6xl mx-auto">
+        <div className="mb-6">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2"
+            size="sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            홈으로 돌아가기
+          </Button>
+        </div>
         
-        <CardContent className="p-8 space-y-6">
-          <div className="grid gap-4">
-            <div className="border rounded-3xl p-6 bg-card/60 backdrop-blur-sm hover:bg-accent/5 hover:shadow-smooth transition-all duration-300">
-              <h3 className="font-semibold mb-2 flex items-center gap-2 text-lg">
-                <Code className="w-5 h-5 text-primary" />
-                위젯 관리
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                외부 사이트에 임베드할 수 있는 위젯 코드를 관리합니다.
-              </p>
-              <Button
-                onClick={() => navigate('/embed-code')}
-                variant="outline"
-                className="w-full"
-              >
-                <Code className="w-4 h-4 mr-2" />
-                위젯 코드 생성
-              </Button>
-            </div>
-            
-            <div className="border rounded-3xl p-6 bg-card/60 backdrop-blur-sm hover:bg-accent/5 hover:shadow-smooth transition-all duration-300">
-              <h3 className="font-semibold mb-2 flex items-center gap-2 text-lg">
-                <Settings className="w-5 h-5 text-primary" />
-                원판 관리
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                원판 사이즈, 두께, 가격을 관리합니다. 견적 계산기와 수율 계산기에서 공유됩니다.
-              </p>
-              <Button
-                onClick={() => navigate('/panel-management')}
-                variant="outline"
-                className="w-full"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                원판 관리
-              </Button>
-            </div>
+        <Card className="w-full">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Settings className="w-6 h-6" />
+              관리자 설정
+            </CardTitle>
+            <p className="text-muted-foreground">
+              계산기 관리 및 설정을 할 수 있습니다.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4">
+              <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
+                <h3 className="font-medium mb-2 flex items-center gap-2">
+                  <Code className="w-4 h-4" />
+                  위젯 관리
+                </h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  외부 사이트에 임베드할 수 있는 위젯 코드를 관리합니다.
+                </p>
+                <Button
+                  onClick={() => navigate('/embed-code')}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Code className="w-4 h-4" />
+                  위젯 코드 생성
+                </Button>
+              </div>
+              
+              <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
+                <h3 className="font-medium mb-2 flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  원판 관리
+                </h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  원판 사이즈, 두께, 가격을 관리합니다. 견적 계산기와 수율 계산기에서 공유됩니다.
+                </p>
+                <Button
+                  onClick={() => navigate('/panel-management')}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Settings className="w-4 h-4" />
+                  원판 관리
+                </Button>
+              </div>
 
-            <div className="border rounded-3xl p-6 bg-card/60 backdrop-blur-sm hover:bg-accent/5 hover:shadow-smooth transition-all duration-300">
-              <h3 className="font-semibold mb-2 flex items-center gap-2 text-lg">
-                <Wrench className="w-5 h-5 text-primary" />
-                가공 가격 관리
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                추가 옵션 및 가공 방식의 배수와 활성화 상태를 관리합니다.
-              </p>
-              <Button
-                onClick={() => navigate('/processing-price-management')}
-                variant="outline"
-                className="w-full"
-              >
-                <Wrench className="w-4 h-4 mr-2" />
-                가공 가격 설정
-              </Button>
+              <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
+                <h3 className="font-medium mb-2 flex items-center gap-2">
+                  <Wrench className="w-4 h-4" />
+                  가공 가격 관리
+                </h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  추가 옵션 및 가공 방식의 배수와 활성화 상태를 관리합니다.
+                </p>
+                <Button
+                  onClick={() => navigate('/processing-price-management')}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Wrench className="w-4 h-4" />
+                  가공 가격 설정
+                </Button>
+              </div>
+              
+              <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
+                <h3 className="font-medium mb-2 flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  가격 관리 (구버전)
+                </h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  제품별 가격을 설정하고 관리합니다.
+                </p>
+                <Button
+                  onClick={() => navigate('/price-management')}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Settings className="w-4 h-4" />
+                  가격 설정
+                </Button>
+              </div>
+              
+              <div className="border rounded-lg p-4 bg-muted/50">
+                <h3 className="font-medium mb-2 flex items-center gap-2 text-muted-foreground">
+                  <Settings className="w-4 h-4" />
+                  사용자 관리
+                </h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  사용자 권한 및 접근을 관리합니다. (준비중)
+                </p>
+                <Button
+                  variant="outline"
+                  disabled
+                  className="flex items-center gap-2"
+                >
+                  <Settings className="w-4 h-4" />
+                  사용자 설정 (준비중)
+                </Button>
+              </div>
             </div>
-            
-            <div className="border rounded-3xl p-6 bg-card/60 backdrop-blur-sm hover:bg-accent/5 hover:shadow-smooth transition-all duration-300">
-              <h3 className="font-semibold mb-2 flex items-center gap-2 text-lg">
-                <Settings className="w-5 h-5 text-primary" />
-                가격 관리 (구버전)
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                제품별 가격을 설정하고 관리합니다.
-              </p>
-              <Button
-                onClick={() => navigate('/price-management')}
-                variant="outline"
-                className="w-full"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                가격 설정
-              </Button>
-            </div>
-            
-            <div className="border rounded-3xl p-6 bg-muted/30 backdrop-blur-sm">
-              <h3 className="font-semibold mb-2 flex items-center gap-2 text-lg text-muted-foreground">
-                <Settings className="w-5 h-5" />
-                사용자 관리
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                사용자 권한 및 접근을 관리합니다. (준비중)
-              </p>
-              <Button
-                variant="outline"
-                disabled
-                className="w-full"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                사용자 설정 (준비중)
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
