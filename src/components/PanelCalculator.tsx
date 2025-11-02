@@ -619,6 +619,20 @@ const PanelCalculator = () => {
                   onTrayHeightChange={setTrayHeightMm}
                 />
               )}
+              
+              {/* 추가 옵션 - 접착 작업 선택 시 고급 옵션 하단에 표시 */}
+              {selectedAdhesion && (
+                <EdgeFinishingOption
+                  edgeFinishing={edgeFinishing}
+                  onEdgeFinishingChange={setEdgeFinishing}
+                  bulgwang={bulgwang}
+                  onBulgwangChange={setBulgwang}
+                  tapung={tapung}
+                  onTapungChange={setTapung}
+                  mugwangPainting={mugwangPainting}
+                  onMugwangPaintingChange={setMugwangPainting}
+                />
+              )}
             </>
           )}
 

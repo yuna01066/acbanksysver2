@@ -6,7 +6,6 @@ import { Package, Scissors, Layers, Zap, Droplet, Sparkles, CheckCircle2, Settin
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useProcessingOptions } from "@/hooks/useProcessingOptions";
-import EdgeFinishingOption from "@/components/EdgeFinishingOption";
 
 interface ProcessingOption {
   id: string;
@@ -552,32 +551,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         </>
       )}
 
-      {/* 추가 옵션 (선택 완료 후 표시) */}
-      {isSelectionComplete() && (
-        <>
-          <Separator className="my-8" />
-          <Card className="border-2 border-dashed border-primary/30">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />
-                추가 옵션 (선택 사항)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <EdgeFinishingOption
-                edgeFinishing={edgeFinishing || false}
-                onEdgeFinishingChange={onEdgeFinishingChange || (() => {})}
-                bulgwang={bulgwang || false}
-                onBulgwangChange={onBulgwangChange || (() => {})}
-                tapung={tapung || false}
-                onTapungChange={onTapungChange || (() => {})}
-                mugwangPainting={mugwangPainting || false}
-                onMugwangPaintingChange={onMugwangPaintingChange || (() => {})}
-              />
-            </CardContent>
-          </Card>
-        </>
-      )}
+      {/* 추가 옵션은 PanelCalculator에서 별도로 표시 */}
     </div>
   );
 };
