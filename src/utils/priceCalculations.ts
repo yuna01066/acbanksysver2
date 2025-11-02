@@ -533,6 +533,16 @@ export interface ProcessingOptionData {
   base_cost?: number;
 }
 
+export interface ColorMixingCostData {
+  thickness: string;
+  cost: number;
+}
+
+export interface AdhesiveCostData {
+  thickness: string;
+  cost: number;
+}
+
 export const calculatePrice = (
   materialId: string,
   qualityId: string,
@@ -542,7 +552,10 @@ export const calculatePrice = (
   colorType?: string,
   processingType?: string,
   colorMixingCost: number = 0,
-  options?: CalculatePriceV2Options
+  options?: CalculatePriceV2Options & {
+    colorMixingCostsData?: ColorMixingCostData[];
+    adhesiveCostsData?: AdhesiveCostData[];
+  }
 ): { totalPrice: number; breakdown: { label: string; price: number }[] } => {
   const breakdown: { label: string; price: number }[] = [];
   
@@ -594,24 +607,45 @@ export const calculatePrice = (
   if (surface === '양면') {
     let doubleSidePrice = 0;
     
-    if (qualityId === 'astel-color') {
-      doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
-      breakdown.push({ label: '양면 테이프 추가금액', price: doubleSidePrice });
-    } else if (qualityId === 'satin-color') {
-      doubleSidePrice = satinDoubleSideSurcharge[sizeKey as keyof typeof satinDoubleSideSurcharge] || 0;
-      breakdown.push({ label: '사틴 양면 추가금액', price: doubleSidePrice });
+    // DB에서 가져온 양면 테이프 비용이 있으면 우선 사용
+    const adhesiveCostsData = options?.adhesiveCostsData || [];
+    const dbAdhesiveCost = adhesiveCostsData.find(c => c.thickness === thickness);
+    
+    if (dbAdhesiveCost && dbAdhesiveCost.cost > 0) {
+      doubleSidePrice = dbAdhesiveCost.cost;
+      breakdown.push({ label: '양면 테이프 추가금액 (DB)', price: doubleSidePrice });
     } else {
-      doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
-      breakdown.push({ label: '양면 테이프 추가금액', price: doubleSidePrice });
+      // DB에 없으면 기존 하드코딩된 값 사용
+      if (qualityId === 'astel-color') {
+        doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
+        breakdown.push({ label: '양면 테이프 추가금액', price: doubleSidePrice });
+      } else if (qualityId === 'satin-color') {
+        doubleSidePrice = satinDoubleSideSurcharge[sizeKey as keyof typeof satinDoubleSideSurcharge] || 0;
+        breakdown.push({ label: '사틴 양면 추가금액', price: doubleSidePrice });
+      } else {
+        doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
+        breakdown.push({ label: '양면 테이프 추가금액', price: doubleSidePrice });
+      }
     }
     
     basePrice += doubleSidePrice;
   }
 
   // 3) 조색비 추가 (자재비에 포함)
-  if (colorMixingCost > 0) {
-    breakdown.push({ label: '조색비', price: colorMixingCost });
-    basePrice += colorMixingCost;
+  let finalColorMixingCost = colorMixingCost;
+  
+  // DB에서 가져온 조색비가 있으면 우선 사용
+  const colorMixingCostsData = options?.colorMixingCostsData || [];
+  const dbColorMixingCost = colorMixingCostsData.find(c => c.thickness === thickness);
+  
+  if (dbColorMixingCost && dbColorMixingCost.cost > 0 && colorMixingCost === 0) {
+    finalColorMixingCost = dbColorMixingCost.cost;
+  }
+  
+  if (finalColorMixingCost > 0) {
+    const label = dbColorMixingCost ? '조색비 (DB)' : '조색비';
+    breakdown.push({ label, price: finalColorMixingCost });
+    basePrice += finalColorMixingCost;
   }
 
   // 4) 문의 배수 적용 (자재비에만!)
