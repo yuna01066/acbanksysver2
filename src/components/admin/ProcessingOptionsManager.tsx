@@ -66,10 +66,8 @@ const ProcessingOptionsManager = () => {
   const [selectedAngle, setSelectedAngle] = useState<AdhesionAngle | null>(null);
   const [selectedAdhesionType, setSelectedAdhesionType] = useState<AdhesionType | null>(null);
   
-  // 로직 공식 슬롯 선택 상태 (각 카테고리별로 최대 3개의 슬롯)
-  const [slot1, setSlot1] = useState<ProcessingOption | null>(null);
-  const [slot2, setSlot2] = useState<ProcessingOption | null>(null);
-  const [slot3, setSlot3] = useState<ProcessingOption | null>(null);
+  // 로직 공식 슬롯 선택 상태 (동적 배열로 관리)
+  const [formulaSlots, setFormulaSlots] = useState<(ProcessingOption | null)[]>([]);
 
   const startEdit = (option: ProcessingOption) => {
     setEditingOption(option);
@@ -151,9 +149,21 @@ const ProcessingOptionsManager = () => {
     setSelectedAngle(null);
     setSelectedAdhesionType(null);
     // 슬롯 초기화
-    setSlot1(null);
-    setSlot2(null);
-    setSlot3(null);
+    setFormulaSlots([]);
+  };
+
+  const addFormulaSlot = () => {
+    setFormulaSlots([...formulaSlots, null]);
+  };
+
+  const removeFormulaSlot = (index: number) => {
+    setFormulaSlots(formulaSlots.filter((_, i) => i !== index));
+  };
+
+  const updateFormulaSlot = (index: number, option: ProcessingOption) => {
+    const newSlots = [...formulaSlots];
+    newSlots[index] = option;
+    setFormulaSlots(newSlots);
   };
 
   const getAvailableOptionsForCategory = () => {
@@ -538,87 +548,54 @@ const ProcessingOptionsManager = () => {
                         <span className="text-sm font-medium">원판 (원판+면수+조색비)</span>
                       </div>
 
-                      {/* 연산자 - 접착은 곱셈, 나머지는 덧셈 */}
-                      <span className="text-2xl font-bold text-primary">
-                        {selectedCategory === 'adhesion' ? '×' : '+'}
-                      </span>
+                      {/* 동적 슬롯 렌더링 */}
+                      {formulaSlots.map((slot, index) => (
+                        <React.Fragment key={index}>
+                          {/* 연산자 */}
+                          <span className="text-2xl font-bold text-primary">
+                            {selectedCategory === 'adhesion' ? '×' : '+'}
+                          </span>
 
-                      {/* 선택 슬롯 1 */}
-                      <div className={`min-w-[180px] px-4 py-3 rounded-lg border-2 transition-all ${
-                        slot1 
-                          ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                          : 'bg-background border-dashed border-muted-foreground/30'
-                      }`}>
-                        {slot1 ? (
-                          <div className="text-center">
-                            <div className="text-sm font-medium">{slot1.name}</div>
-                            <div className="text-xs mt-1 opacity-80">
-                              {slot1.multiplier !== null && slot1.multiplier !== undefined && `×${slot1.multiplier}`}
-                              {slot1.base_cost !== null && slot1.base_cost !== undefined && `+${slot1.base_cost.toLocaleString()}원`}
+                          {/* 슬롯 */}
+                          <div className="relative group">
+                            <div className={`min-w-[180px] px-4 py-3 rounded-lg border-2 transition-all ${
+                              slot 
+                                ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                                : 'bg-background border-dashed border-muted-foreground/30'
+                            }`}>
+                              {slot ? (
+                                <div className="text-center">
+                                  <div className="text-sm font-medium">{slot.name}</div>
+                                  <div className="text-xs mt-1 opacity-80">
+                                    {slot.multiplier !== null && slot.multiplier !== undefined && `×${slot.multiplier}`}
+                                    {slot.base_cost !== null && slot.base_cost !== undefined && `+${slot.base_cost.toLocaleString()}원`}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-center text-sm text-muted-foreground">
+                                  선택 {index + 1}
+                                </div>
+                              )}
                             </div>
+                            {/* 삭제 버튼 */}
+                            <button
+                              onClick={() => removeFormulaSlot(index)}
+                              className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-destructive/90"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
                           </div>
-                        ) : (
-                          <div className="text-center text-sm text-muted-foreground">
-                            선택 1
-                          </div>
-                        )}
-                      </div>
+                        </React.Fragment>
+                      ))}
 
-                      {/* 슬롯 2가 있을 때만 표시 */}
-                      {slot1 && (
-                        <>
-                          <span className="text-2xl font-bold text-primary">
-                            {selectedCategory === 'adhesion' ? '×' : '+'}
-                          </span>
-                          <div className={`min-w-[180px] px-4 py-3 rounded-lg border-2 transition-all ${
-                            slot2 
-                              ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                              : 'bg-background border-dashed border-muted-foreground/30'
-                          }`}>
-                            {slot2 ? (
-                              <div className="text-center">
-                                <div className="text-sm font-medium">{slot2.name}</div>
-                                <div className="text-xs mt-1 opacity-80">
-                                  {slot2.multiplier !== null && slot2.multiplier !== undefined && `×${slot2.multiplier}`}
-                                  {slot2.base_cost !== null && slot2.base_cost !== undefined && `+${slot2.base_cost.toLocaleString()}원`}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="text-center text-sm text-muted-foreground">
-                                선택 2
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      )}
-
-                      {/* 슬롯 3이 있을 때만 표시 */}
-                      {slot2 && (
-                        <>
-                          <span className="text-2xl font-bold text-primary">
-                            {selectedCategory === 'adhesion' ? '×' : '+'}
-                          </span>
-                          <div className={`min-w-[180px] px-4 py-3 rounded-lg border-2 transition-all ${
-                            slot3 
-                              ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                              : 'bg-background border-dashed border-muted-foreground/30'
-                          }`}>
-                            {slot3 ? (
-                              <div className="text-center">
-                                <div className="text-sm font-medium">{slot3.name}</div>
-                                <div className="text-xs mt-1 opacity-80">
-                                  {slot3.multiplier !== null && slot3.multiplier !== undefined && `×${slot3.multiplier}`}
-                                  {slot3.base_cost !== null && slot3.base_cost !== undefined && `+${slot3.base_cost.toLocaleString()}원`}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="text-center text-sm text-muted-foreground">
-                                선택 3
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      )}
+                      {/* 슬롯 추가 버튼 */}
+                      <button
+                        onClick={addFormulaSlot}
+                        className="min-w-[180px] px-4 py-3 rounded-lg border-2 border-dashed border-primary/50 bg-background hover:bg-primary/5 transition-all flex items-center justify-center gap-2 text-primary"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span className="text-sm font-medium">슬롯 추가</span>
+                      </button>
 
                       {/* 추가 옵션 */}
                       <span className="text-2xl font-bold text-primary">+</span>
@@ -627,7 +604,7 @@ const ProcessingOptionsManager = () => {
                       </div>
 
                       {/* 최종 결과 표시 */}
-                      {slot1 && (
+                      {formulaSlots.length > 0 && (
                         <>
                           <span className="text-2xl font-bold text-primary">=</span>
                           <div className="px-6 py-3 bg-primary text-primary-foreground rounded-lg border-2 border-primary shadow-lg">
@@ -657,48 +634,44 @@ const ProcessingOptionsManager = () => {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {getAvailableOptionsForCategory().map(option => (
-                      <Card 
-                        key={option.id} 
-                        className={`relative overflow-hidden border-2 transition-all cursor-pointer ${
-                          (slot1?.id === option.id || slot2?.id === option.id || slot3?.id === option.id)
-                            ? 'border-primary shadow-md'
-                            : 'hover:border-primary/50'
-                        }`}
-                        onClick={() => {
-                          if (!slot1) {
-                            setSlot1(option);
-                          } else if (!slot2) {
-                            setSlot2(option);
-                          } else if (!slot3) {
-                            setSlot3(option);
-                          } else {
-                            // 슬롯이 모두 차있으면 첫 번째 슬롯을 교체
-                            setSlot1(option);
-                            setSlot2(null);
-                            setSlot3(null);
-                          }
-                        }}
-                      >
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <CardTitle className="text-base flex items-center gap-2">
-                                {option.name}
-                                {!option.is_active && (
-                                  <Badge variant="outline" className="text-xs">비활성</Badge>
-                                )}
-                                {(slot1?.id === option.id || slot2?.id === option.id || slot3?.id === option.id) && (
-                                  <CheckCircle2 className="w-4 h-4 text-primary" />
-                                )}
-                              </CardTitle>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                ID: {option.option_id}
-                              </p>
+                    {getAvailableOptionsForCategory().map(option => {
+                      const isSelected = formulaSlots.some(slot => slot?.id === option.id);
+                      
+                      return (
+                        <Card 
+                          key={option.id} 
+                          className={`relative overflow-hidden border-2 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-primary shadow-md'
+                              : 'hover:border-primary/50'
+                          }`}
+                          onClick={() => {
+                            // 빈 슬롯 찾기
+                            const emptySlotIndex = formulaSlots.findIndex(slot => slot === null);
+                            if (emptySlotIndex !== -1) {
+                              updateFormulaSlot(emptySlotIndex, option);
+                            }
+                          }}
+                        >
+                          <CardHeader className="pb-3">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                  {option.name}
+                                  {!option.is_active && (
+                                    <Badge variant="outline" className="text-xs">비활성</Badge>
+                                  )}
+                                  {isSelected && (
+                                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                                  )}
+                                </CardTitle>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  ID: {option.option_id}
+                                </p>
+                              </div>
+                              {getOptionTypeBadge(option.option_type)}
                             </div>
-                            {getOptionTypeBadge(option.option_type)}
-                          </div>
-                        </CardHeader>
+                          </CardHeader>
                         <CardContent className="space-y-3">
                           {option.description && (
                             <p className="text-sm text-muted-foreground line-clamp-2">
@@ -768,23 +741,20 @@ const ProcessingOptionsManager = () => {
                           </div>
                         </CardContent>
                       </Card>
-                    ))}
+                    );
+                    })}
                   </div>
 
                   {/* 슬롯 초기화 버튼 */}
-                  {(slot1 || slot2 || slot3) && (
+                  {formulaSlots.length > 0 && (
                     <div className="mt-4 text-center">
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => {
-                          setSlot1(null);
-                          setSlot2(null);
-                          setSlot3(null);
-                        }}
+                        onClick={() => setFormulaSlots([])}
                       >
                         <X className="w-4 h-4 mr-2" />
-                        슬롯 초기화
+                        모든 슬롯 초기화
                       </Button>
                     </div>
                   )}
