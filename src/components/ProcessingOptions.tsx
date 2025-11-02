@@ -34,13 +34,7 @@ const PROCESSING_OPTIONS: ProcessingOption[] = [
     description: '기본 직선 재단 (10T 미만: 자재비 증분 +20%, 10T 이상: +80%)', 
     category: 'processing' 
   },
-  { 
-    id: 'edge-finishing', 
-    name: '엣지 격면 마감', 
-    description: '엣지 연마 및 격면 마감 처리 (10T 이하: 자재비 증분 +80%, 10T 초과: +100%)', 
-    category: 'processing' 
-  },
-  { 
+  {
     id: 'laser-simple', 
     name: '레이저 단순 가공', 
     description: '10T 미만 적합, 단순 모양 레이저 커팅 (배수 1.7 × 두께계수)', 
