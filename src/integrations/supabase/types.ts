@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      adhesive_costs: {
+        Row: {
+          cost: number
+          created_at: string | null
+          id: string
+          panel_master_id: string
+          thickness: string
+          updated_at: string | null
+        }
+        Insert: {
+          cost?: number
+          created_at?: string | null
+          id?: string
+          panel_master_id: string
+          thickness: string
+          updated_at?: string | null
+        }
+        Update: {
+          cost?: number
+          created_at?: string | null
+          id?: string
+          panel_master_id?: string
+          thickness?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adhesive_costs_panel_master_id_fkey"
+            columns: ["panel_master_id"]
+            isOneToOne: false
+            referencedRelation: "panel_masters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       color_mixing_costs: {
         Row: {
           cost: number

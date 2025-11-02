@@ -34,6 +34,8 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
   const [editingWidth, setEditingWidth] = useState<string>('');
   const [editingHeight, setEditingHeight] = useState<string>('');
   const [editingPrice, setEditingPrice] = useState<string>('');
+  const [editingCost, setEditingCost] = useState<{ type: 'color' | 'adhesive', thickness: string } | null>(null);
+  const [editCostValue, setEditCostValue] = useState<string>('');
   
   const quality = CASTING_QUALITIES.find(q => q.id === qualityId);
   const thicknesses = quality?.thicknesses || [];
@@ -66,6 +68,38 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
       
       if (error) throw error;
       return data as PanelSizeWithPrice[];
+    },
+    enabled: !!panelMaster?.id
+  });
+
+  const { data: colorMixingData } = useQuery({
+    queryKey: ['color-mixing-costs', panelMaster?.id],
+    queryFn: async () => {
+      if (!panelMaster?.id) return [];
+
+      const { data, error } = await supabase
+        .from('color_mixing_costs')
+        .select('*')
+        .eq('panel_master_id', panelMaster.id);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!panelMaster?.id
+  });
+
+  const { data: adhesiveData } = useQuery({
+    queryKey: ['adhesive-costs', panelMaster?.id],
+    queryFn: async () => {
+      if (!panelMaster?.id) return [];
+
+      const { data, error } = await supabase
+        .from('adhesive_costs')
+        .select('*')
+        .eq('panel_master_id', panelMaster.id);
+      
+      if (error) throw error;
+      return data || [];
     },
     enabled: !!panelMaster?.id
   });
@@ -220,6 +254,72 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
       panelSizeId: cellData.id,
       isActive: !cellData.is_active
     });
+  };
+
+  const saveCostMutation = useMutation({
+    mutationFn: async ({ 
+      type, 
+      thickness, 
+      cost 
+    }: { 
+      type: 'color' | 'adhesive'; 
+      thickness: string; 
+      cost: number;
+    }) => {
+      const tableName = type === 'color' ? 'color_mixing_costs' : 'adhesive_costs';
+      
+      const { error } = await supabase
+        .from(tableName)
+        .upsert({
+          panel_master_id: panelMaster!.id,
+          thickness,
+          cost,
+        }, {
+          onConflict: 'panel_master_id,thickness'
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: [variables.type === 'color' ? 'color-mixing-costs' : 'adhesive-costs'] });
+      setEditingCost(null);
+      setEditCostValue('');
+      toast.success('저장되었습니다');
+    },
+    onError: (error) => {
+      toast.error(`저장 실패: ${error.message}`);
+    }
+  });
+
+  const handleSaveCost = (type: 'color' | 'adhesive', thickness: string) => {
+    const cost = parseFloat(editCostValue);
+    
+    if (isNaN(cost) || cost < 0) {
+      toast.error('올바른 금액을 입력해주세요');
+      return;
+    }
+
+    saveCostMutation.mutate({ type, thickness, cost });
+  };
+
+  const handleEditCostStart = (type: 'color' | 'adhesive', thickness: string, currentCost: number = 0) => {
+    setEditingCost({ type, thickness });
+    setEditCostValue(currentCost.toString());
+  };
+
+  const handleEditCostCancel = () => {
+    setEditingCost(null);
+    setEditCostValue('');
+  };
+
+  const getColorMixingCost = (thickness: string): number => {
+    const cost = colorMixingData?.find(c => c.thickness === thickness);
+    return cost?.cost || 0;
+  };
+
+  const getAdhesiveCost = (thickness: string): number => {
+    const cost = adhesiveData?.find(c => c.thickness === thickness);
+    return cost?.cost || 0;
   };
 
   if (isLoading) {
@@ -377,12 +477,131 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
             </TableBody>
           </Table>
         </div>
+
+        {/* Color Mixing & Adhesive Costs */}
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="border rounded-lg p-4">
+            <h4 className="font-semibold text-sm mb-3">조색비 (두께별)</h4>
+            <div className="space-y-2">
+              {thicknesses.map(thickness => {
+                const currentCost = getColorMixingCost(thickness);
+                const isEditing = editingCost?.type === 'color' && editingCost?.thickness === thickness;
+                
+                return (
+                  <div key={`color-${thickness}`} className="flex items-center justify-between p-2 border rounded bg-background">
+                    <span className="font-medium text-sm">{thickness}</span>
+                    {isEditing ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={editCostValue}
+                          onChange={(e) => setEditCostValue(e.target.value)}
+                          className="w-24 h-8 text-sm"
+                          placeholder="금액"
+                          autoFocus
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveCost('color', thickness)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleEditCostCancel}
+                          className="h-8 w-8 p-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono">
+                          ₩{currentCost.toLocaleString()}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEditCostStart('color', thickness, currentCost)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="border rounded-lg p-4">
+            <h4 className="font-semibold text-sm mb-3">양면 테이프 (두께별)</h4>
+            <div className="space-y-2">
+              {thicknesses.map(thickness => {
+                const currentCost = getAdhesiveCost(thickness);
+                const isEditing = editingCost?.type === 'adhesive' && editingCost?.thickness === thickness;
+                
+                return (
+                  <div key={`adhesive-${thickness}`} className="flex items-center justify-between p-2 border rounded bg-background">
+                    <span className="font-medium text-sm">{thickness}</span>
+                    {isEditing ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={editCostValue}
+                          onChange={(e) => setEditCostValue(e.target.value)}
+                          className="w-24 h-8 text-sm"
+                          placeholder="금액"
+                          autoFocus
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveCost('adhesive', thickness)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleEditCostCancel}
+                          className="h-8 w-8 p-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono">
+                          ₩{currentCost.toLocaleString()}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEditCostStart('adhesive', thickness, currentCost)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-2">
           <h4 className="font-semibold text-sm">안내</h4>
           <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
             <li>셀을 클릭하여 사이즈와 가격을 입력할 수 있습니다</li>
             <li>스위치를 통해 각 사이즈의 활성화/비활성화를 관리할 수 있습니다</li>
             <li>비활성화된 사이즈는 계산기에 표시되지 않습니다</li>
+            <li>조색비와 양면 테이프 비용은 두께별로 관리됩니다</li>
           </ul>
         </div>
       </CardContent>
