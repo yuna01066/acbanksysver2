@@ -250,7 +250,15 @@ const ProcessingOptionsManager = () => {
               </TableHeader>
               <TableBody>
                 {processingOptions
-                  ?.sort((a, b) => a.display_order - b.display_order)
+                  ?.sort((a, b) => {
+                    // 옵션 타입 우선순위: processing > adhesion > additional
+                    const typeOrder = { processing: 1, adhesion: 2, additional: 3 };
+                    const typeA = typeOrder[a.option_type as keyof typeof typeOrder] || 4;
+                    const typeB = typeOrder[b.option_type as keyof typeof typeOrder] || 4;
+                    
+                    if (typeA !== typeB) return typeA - typeB;
+                    return a.display_order - b.display_order;
+                  })
                   .map((option) => {
                   const isEditing = editingId === option.id;
 
