@@ -37,6 +37,7 @@ const ProcessingOptionsManager = () => {
     display_order: 0
   });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const startEdit = (option: ProcessingOption) => {
     setEditingId(option.id);
@@ -106,6 +107,19 @@ const ProcessingOptionsManager = () => {
     return '기타';
   };
 
+  const getFilteredOptions = () => {
+    if (!selectedCategory) return processingOptions;
+    
+    return processingOptions?.filter(option => {
+      if (selectedCategory === 'raw-only') return option.option_id === 'raw-only';
+      if (selectedCategory === 'cutting') return option.option_id.includes('laser') || option.option_id.includes('cnc') || option.option_id.includes('cutting');
+      if (selectedCategory === 'complex') return option.option_id.includes('complex');
+      if (selectedCategory === 'adhesion') return option.option_type === 'adhesion';
+      if (selectedCategory === 'additional') return option.option_type === 'additional';
+      return false;
+    });
+  };
+
   if (isLoading) {
     return <div className="p-8 text-center">로딩 중...</div>;
   }
@@ -130,6 +144,51 @@ const ProcessingOptionsManager = () => {
           </Button>
         </CardHeader>
         <CardContent>
+          <div className="mb-6 flex flex-wrap gap-2">
+            <Button
+              variant={selectedCategory === null ? "default" : "outline"}
+              onClick={() => setSelectedCategory(null)}
+              size="sm"
+            >
+              전체 보기
+            </Button>
+            <Button
+              variant={selectedCategory === 'raw-only' ? "default" : "outline"}
+              onClick={() => setSelectedCategory('raw-only')}
+              size="sm"
+            >
+              원판 구매
+            </Button>
+            <Button
+              variant={selectedCategory === 'cutting' ? "default" : "outline"}
+              onClick={() => setSelectedCategory('cutting')}
+              size="sm"
+            >
+              재단
+            </Button>
+            <Button
+              variant={selectedCategory === 'complex' ? "default" : "outline"}
+              onClick={() => setSelectedCategory('complex')}
+              size="sm"
+            >
+              복잡한 모양 가공
+            </Button>
+            <Button
+              variant={selectedCategory === 'adhesion' ? "default" : "outline"}
+              onClick={() => setSelectedCategory('adhesion')}
+              size="sm"
+            >
+              접착 가공
+            </Button>
+            <Button
+              variant={selectedCategory === 'additional' ? "default" : "outline"}
+              onClick={() => setSelectedCategory('additional')}
+              size="sm"
+            >
+              추가 옵션
+            </Button>
+          </div>
+
           {isAdding && (
             <Card className="mb-6 border-2 border-primary/30 bg-primary/5">
               <CardHeader>
@@ -249,7 +308,7 @@ const ProcessingOptionsManager = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {processingOptions
+                {getFilteredOptions()
                   ?.sort((a, b) => {
                     // 옵션 타입 우선순위: processing > adhesion > additional
                     const typeOrder = { processing: 1, adhesion: 2, additional: 3 };
