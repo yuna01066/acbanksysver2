@@ -39,7 +39,6 @@ type ProcessingOptionCategory = 'raw' | 'simple' | 'complex' | 'full' | 'adhesio
 
 interface SlotConfig {
   slotKey: string;
-  optionIds: string[];
 }
 
 const ProcessingOptionsManager = () => {
@@ -243,7 +242,7 @@ const ProcessingOptionsManager = () => {
       ...categorySlots,
       [category]: [
         ...categorySlots[category],
-        { slotKey: availableSlots[0].slot_key, optionIds: [] }
+        { slotKey: availableSlots[0].slot_key }
       ]
     });
   };
@@ -264,55 +263,18 @@ const ProcessingOptionsManager = () => {
     });
   };
 
-  const addOptionToSlot = (category: MainCategory, slotIndex: number, optionId: string) => {
-    const newSlots = [...categorySlots[category]];
-    if (!newSlots[slotIndex].optionIds.includes(optionId)) {
-      newSlots[slotIndex].optionIds.push(optionId);
-    }
-    setCategorySlots({
-      ...categorySlots,
-      [category]: newSlots
-    });
-  };
-
-  const removeOptionFromSlot = (category: MainCategory, slotIndex: number, optionId: string) => {
-    const newSlots = [...categorySlots[category]];
-    newSlots[slotIndex].optionIds = newSlots[slotIndex].optionIds.filter(id => id !== optionId);
-    setCategorySlots({
-      ...categorySlots,
-      [category]: newSlots
-    });
-  };
-
   const saveCategoryLogic = async () => {
     if (!selectedCategory) return;
 
     try {
-      const slots = categorySlots[selectedCategory];
-      
-      for (const slot of slots) {
-        for (const optionId of slot.optionIds) {
-          const option = processingOptions?.find(opt => opt.option_id === optionId);
-          if (option) {
-            await updateOption.mutateAsync({
-              id: option.id,
-              updates: {
-                option_type: slot.slotKey,
-                category: selectedCategory as ProcessingOptionCategory,
-              }
-            });
-          }
-        }
-      }
-      
       toast({
         title: '저장 완료',
-        description: '가공 로직이 저장되어 견적 계산기에 반영됩니다.',
+        description: '카테고리 로직이 저장되었습니다.',
       });
     } catch (error) {
       toast({
         title: '저장 실패',
-        description: '가공 로직 저장에 실패했습니다.',
+        description: '로직 저장에 실패했습니다.',
         variant: 'destructive',
       });
     }
@@ -603,67 +565,42 @@ const ProcessingOptionsManager = () => {
                         {categorySlots[selectedCategory].map((slot, idx) => (
                           <Card key={idx} className="border-2">
                             <CardContent className="p-4">
-                              <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <Label className="text-sm font-semibold">슬롯 타입:</Label>
-                                    <Select
-                                      value={slot.slotKey}
-                                      onValueChange={(value) => updateLogicSlot(selectedCategory, idx, value)}
-                                    >
-                                      <SelectTrigger className="w-[180px]">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {slotTypes?.filter(st => st.is_active).map(st => (
-                                          <SelectItem key={st.id} value={st.slot_key}>
-                                            {st.label}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => removeSlotFromLogic(selectedCategory, idx)}
-                                    className="text-destructive hover:text-destructive"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-
-                                <div>
-                                  <Label className="text-sm mb-2 block">이 슬롯에 포함될 옵션들:</Label>
-                                  <div className="flex flex-wrap gap-2 mb-2">
-                                    {slot.optionIds.map(optId => {
-                                      const opt = processingOptions?.find(o => o.option_id === optId);
-                                      return opt ? (
-                                        <Badge key={optId} variant="secondary" className="flex items-center gap-1">
-                                          {opt.name}
-                                          <X 
-                                            className="w-3 h-3 cursor-pointer" 
-                                            onClick={() => removeOptionFromSlot(selectedCategory, idx, optId)}
-                                          />
-                                        </Badge>
-                                      ) : null;
-                                    })}
-                                  </div>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3 flex-1">
+                                  <Badge variant="outline" className="text-lg px-3 py-1">
+                                    {idx + 1}
+                                  </Badge>
                                   <Select
-                                    onValueChange={(value) => addOptionToSlot(selectedCategory, idx, value)}
+                                    value={slot.slotKey}
+                                    onValueChange={(value) => updateLogicSlot(selectedCategory, idx, value)}
                                   >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="옵션 추가..." />
+                                    <SelectTrigger className="w-[280px]">
+                                      <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {getAvailableOptions().map(opt => (
-                                        <SelectItem key={opt.id} value={opt.option_id}>
-                                          {opt.name} ({opt.option_id})
+                                      {slotTypes?.filter(st => st.is_active).map(st => (
+                                        <SelectItem key={st.id} value={st.slot_key}>
+                                          {st.label} - {st.title}
                                         </SelectItem>
                                       ))}
                                     </SelectContent>
                                   </Select>
+                                  <span className="text-sm text-muted-foreground">
+                                    ({processingOptions?.filter(opt => 
+                                      opt.option_type === slot.slotKey && 
+                                      opt.category === selectedCategory &&
+                                      opt.is_active
+                                    ).length || 0}개 옵션)
+                                  </span>
                                 </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeSlotFromLogic(selectedCategory, idx)}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
                               </div>
                             </CardContent>
                           </Card>
@@ -677,7 +614,7 @@ const ProcessingOptionsManager = () => {
                       disabled={categorySlots[selectedCategory].length === 0}
                     >
                       <Save className="w-4 h-4 mr-2" />
-                      로직 저장 (견적 계산기에 반영)
+                      로직 저장
                     </Button>
                   </div>
                 </>
