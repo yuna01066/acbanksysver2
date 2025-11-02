@@ -350,9 +350,8 @@ const ProcessingOptionsManager = () => {
   return (
     <div className="space-y-6 animate-fade-up">
       <Tabs defaultValue="advanced" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="advanced">고급 옵션 단가</TabsTrigger>
-          <TabsTrigger value="slots">슬롯 타입 관리</TabsTrigger>
           <TabsTrigger value="logic">가공 로직 & 옵션</TabsTrigger>
         </TabsList>
 
@@ -449,8 +448,9 @@ const ProcessingOptionsManager = () => {
           </Card>
         </TabsContent>
 
-        {/* 슬롯 타입 관리 */}
-        <TabsContent value="slots" className="space-y-4">
+        {/* 가공 로직 & 옵션 관리 */}
+        <TabsContent value="logic" className="space-y-6">
+          {/* 슬롯 타입 관리 */}
           <Card className="shadow-smooth">
             <CardHeader className="border-b border-border/50">
               <div className="flex flex-row items-center justify-between">
@@ -527,10 +527,7 @@ const ProcessingOptionsManager = () => {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* 가공 로직 & 옵션 관리 */}
-        <TabsContent value="logic" className="space-y-6">
           {/* 로직 구성 */}
           <Card className="shadow-smooth">
             <CardHeader className="border-b border-border/50">
