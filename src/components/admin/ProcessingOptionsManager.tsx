@@ -716,6 +716,9 @@ const ProcessingOptionsManager = () => {
                     <CardHeader className="pb-3 bg-muted/30">
                       <CardTitle className="text-base flex items-center gap-2">
                         {getSlotBadge(slotType.slot_key)}
+                        <span className="font-medium text-foreground ml-2">
+                          {slotType.title || slotType.label}
+                        </span>
                         <span className="text-muted-foreground text-sm ml-2">
                           ({slotOptions.length}개)
                         </span>
