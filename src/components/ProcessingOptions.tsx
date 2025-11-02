@@ -445,7 +445,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         </>
       )}
 
-      {/* STEP 3/4: 접착 각도 선택 (접착 가공 시) */}
+      {/* STEP 3: 접착 가공 선택 (접착 가공 시) */}
       {mainCategory === 'adhesion' && processingMethod && (
         <>
           <Separator />
@@ -453,7 +453,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <ChevronRight className="w-5 h-5 text-primary" />
-                접착 각도 선택
+                접착 가공 선택
                 <Badge variant="secondary" className="ml-auto">STEP 3</Badge>
               </CardTitle>
             </CardHeader>
@@ -468,11 +468,11 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="font-semibold">45도 접착</span>
+                    <span className="font-semibold">45도 절단면 가공</span>
                     {adhesionAngle === '45' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    45도 각도로 접착 작업
+                    45도 각도로 절단면을 가공하여 접착
                   </p>
                 </button>
 
@@ -485,11 +485,11 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="font-semibold">90도 접착</span>
+                    <span className="font-semibold">90도 절단면 가공</span>
                     {adhesionAngle === '90' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    90도 각도로 접착 작업
+                    90도 각도로 절단면을 가공하여 접착
                   </p>
                 </button>
               </div>
