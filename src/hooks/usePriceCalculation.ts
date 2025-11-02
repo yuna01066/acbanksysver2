@@ -40,6 +40,7 @@ interface UsePriceCalculationProps {
   useDetailedBond?: boolean;
   joinLengthM?: number;
   trayHeightMm?: number;
+  edgeFinishing?: boolean;
 }
 
 export const usePriceCalculation = ({
@@ -62,7 +63,8 @@ export const usePriceCalculation = ({
   corners90 = 0,
   useDetailedBond = false,
   joinLengthM = 0,
-  trayHeightMm
+  trayHeightMm,
+  edgeFinishing = false
 }: UsePriceCalculationProps) => {
   const [priceInfo, setPriceInfo] = useState<{ totalPrice: number; breakdown: { label: string; price: number }[] }>({
     totalPrice: 0,
@@ -306,6 +308,7 @@ export const usePriceCalculation = ({
             useDetailedBond,
             joinLengthM,
             trayHeightMm,
+            edgeFinishing,
           }
         );
 
@@ -395,6 +398,7 @@ export const usePriceCalculation = ({
           useDetailedBond,
           joinLengthM,
           trayHeightMm,
+          edgeFinishing,
         }
       );
       
@@ -423,7 +427,8 @@ export const usePriceCalculation = ({
     corners90,
     useDetailedBond,
     joinLengthM,
-    trayHeightMm
+    trayHeightMm,
+    edgeFinishing
   ]);
 
   return {

@@ -115,7 +115,8 @@ const PanelCalculator = () => {
     corners90,
     useDetailedBond,
     joinLengthM,
-    trayHeightMm
+    trayHeightMm,
+    edgeFinishing
   });
 
   // 이전 단계로 돌아가기 버튼

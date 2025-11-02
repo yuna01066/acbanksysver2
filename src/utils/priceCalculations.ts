@@ -519,6 +519,7 @@ export interface CalculatePriceV2Options {
   useDetailedBond?: boolean;                      // 상세 접착 계산
   joinLengthM?: number;                           // 접착선 길이
   trayHeightMm?: number;                          // 트레이 높이
+  edgeFinishing?: boolean;                        // 엣지 격면 마감
 }
 
 export const calculatePrice = (
@@ -742,6 +743,19 @@ export const calculatePrice = (
       breakdown.push({ label: `${processingCost.description} 추가비용`, price: processingCost.additionalCost });
       totalPrice += processingCost.additionalCost;
     }
+  }
+
+  // 엣지 격면 마감 - 맨 마지막에 적용
+  if (options?.edgeFinishing) {
+    const thicknessNum = parseFloat(thickness.replace('T', ''));
+    const edgeMultiplier = thicknessNum <= 10 ? 1.8 : 2.0;
+    const edgeFinishingCost = totalPrice * (edgeMultiplier - 1);
+    
+    breakdown.push({ 
+      label: `엣지 격면 마감 (×${edgeMultiplier})`, 
+      price: edgeFinishingCost 
+    });
+    totalPrice += edgeFinishingCost;
   }
 
   return { totalPrice, breakdown };
