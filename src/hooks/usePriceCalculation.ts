@@ -104,7 +104,7 @@ export const usePriceCalculation = ({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('processing_options')
-        .select('option_id, name, multiplier, base_cost, apply_thickness_factor, min_thickness, max_thickness')
+        .select('option_id, name, multiplier, base_cost')
         .eq('is_active', true);
 
       if (error) {

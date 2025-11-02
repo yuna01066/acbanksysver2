@@ -130,8 +130,9 @@ const ProcessingOptionsManager = () => {
   const getOptionTypeBadge = (type: string) => {
     const variants: Record<string, { label: string; variant: any }> = {
       additional: { label: '추가 옵션', variant: 'default' },
-      processing: { label: '가공 방식', variant: 'secondary' },
-      adhesion: { label: '접착 방식', variant: 'outline' },
+      processing: { label: '재단', variant: 'secondary' },
+      adhesion: { label: '접착', variant: 'outline' },
+      raw: { label: '원판', variant: 'destructive' },
     };
     const config = variants[type] || { label: type, variant: 'default' };
     return <Badge variant={config.variant}>{config.label}</Badge>;
@@ -141,8 +142,8 @@ const ProcessingOptionsManager = () => {
     if (activeTab === 'all') return processingOptions;
     
     return processingOptions?.filter(option => {
-      if (activeTab === 'raw-only') return option.option_id === 'raw-only';
-      if (activeTab === 'cutting') return option.option_id.includes('laser') || option.option_id.includes('cnc') || option.option_id.includes('cutting') || option.option_id.includes('complex');
+      if (activeTab === 'raw-only') return option.option_type === 'raw';
+      if (activeTab === 'cutting') return option.option_type === 'processing';
       if (activeTab === 'adhesion') return option.option_type === 'adhesion';
       if (activeTab === 'additional') return option.option_type === 'additional';
       return false;
@@ -327,9 +328,6 @@ const ProcessingOptionsManager = () => {
                               <p className="text-lg font-bold text-primary">
                                 ×{option.multiplier}
                               </p>
-                              {option.apply_thickness_factor === false && (
-                                <p className="text-xs text-muted-foreground mt-1">두께계수 미적용</p>
-                              )}
                             </div>
                           )}
                           {option.base_cost !== null && option.base_cost !== undefined && (
@@ -341,15 +339,6 @@ const ProcessingOptionsManager = () => {
                             </div>
                           )}
                         </div>
-
-                        {(option.min_thickness !== null || option.max_thickness !== null) && (
-                          <div className="p-3 bg-muted/50 rounded-lg">
-                            <p className="text-xs text-muted-foreground mb-1">적용 두께 범위</p>
-                            <p className="text-sm font-medium">
-                              {option.min_thickness || '0'}T ~ {option.max_thickness || '∞'}T
-                            </p>
-                          </div>
-                        )}
 
                         <div className="flex items-center justify-between pt-2 border-t">
                           <div className="flex items-center gap-2">
@@ -422,8 +411,9 @@ const ProcessingOptionsManager = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="processing">가공 옵션</SelectItem>
-                    <SelectItem value="adhesion">접착 옵션</SelectItem>
+                    <SelectItem value="raw">원판</SelectItem>
+                    <SelectItem value="processing">재단</SelectItem>
+                    <SelectItem value="adhesion">접착</SelectItem>
                     <SelectItem value="additional">추가 옵션</SelectItem>
                   </SelectContent>
                 </Select>
@@ -487,37 +477,6 @@ const ProcessingOptionsManager = () => {
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>최소 두께 (T)</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={newOptionForm.min_thickness || ''}
-                  onChange={(e) => setNewOptionForm({...newOptionForm, min_thickness: e.target.value ? parseFloat(e.target.value) : undefined})}
-                  placeholder="예: 1"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>최대 두께 (T)</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={newOptionForm.max_thickness || ''}
-                  onChange={(e) => setNewOptionForm({...newOptionForm, max_thickness: e.target.value ? parseFloat(e.target.value) : undefined})}
-                  placeholder="예: 10"
-                />
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={newOptionForm.apply_thickness_factor !== false}
-                onCheckedChange={(checked) => setNewOptionForm({...newOptionForm, apply_thickness_factor: checked})}
-              />
-              <Label>두께계수 적용 (체크 해제 시 원판 × 배수만 적용)</Label>
-            </div>
-            
             <div className="flex items-center gap-2">
               <Switch
                 checked={newOptionForm.is_active}
@@ -558,8 +517,9 @@ const ProcessingOptionsManager = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="processing">가공 옵션</SelectItem>
-                    <SelectItem value="adhesion">접착 옵션</SelectItem>
+                    <SelectItem value="raw">원판</SelectItem>
+                    <SelectItem value="processing">재단</SelectItem>
+                    <SelectItem value="adhesion">접착</SelectItem>
                     <SelectItem value="additional">추가 옵션</SelectItem>
                   </SelectContent>
                 </Select>
@@ -621,37 +581,6 @@ const ProcessingOptionsManager = () => {
                   onChange={(e) => setEditForm({...editForm, display_order: parseInt(e.target.value) || 0})}
                 />
               </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>최소 두께 (T)</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={editForm.min_thickness || ''}
-                  onChange={(e) => setEditForm({...editForm, min_thickness: e.target.value ? parseFloat(e.target.value) : undefined})}
-                  placeholder="예: 1"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>최대 두께 (T)</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={editForm.max_thickness || ''}
-                  onChange={(e) => setEditForm({...editForm, max_thickness: e.target.value ? parseFloat(e.target.value) : undefined})}
-                  placeholder="예: 10"
-                />
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={editForm.apply_thickness_factor !== false}
-                onCheckedChange={(checked) => setEditForm({...editForm, apply_thickness_factor: checked})}
-              />
-              <Label>두께계수 적용 (체크 해제 시 원판 × 배수만 적용)</Label>
             </div>
             
             <div className="flex items-center gap-2">

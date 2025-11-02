@@ -4,7 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export interface ProcessingOption {
   id: string;
-  option_type: 'additional' | 'processing' | 'adhesion';
+  option_type: 'additional' | 'processing' | 'adhesion' | 'raw';
   option_id: string;
   name: string;
   description?: string;
@@ -12,9 +12,6 @@ export interface ProcessingOption {
   base_cost?: number;
   is_active: boolean;
   display_order: number;
-  min_thickness?: number;
-  max_thickness?: number;
-  apply_thickness_factor?: boolean;
 }
 
 export const useProcessingOptions = () => {
