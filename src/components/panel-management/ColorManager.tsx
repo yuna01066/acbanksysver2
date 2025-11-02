@@ -69,6 +69,23 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
     enabled: !!panelMasterId,
   });
 
+  // A와 B 카테고리 분리
+  const [activeTab, setActiveTab] = useState<'A' | 'B'>('A');
+  
+  const categoryAColors = colors?.filter(color => {
+    const name = color.color_name;
+    // 이름에 ' B'가 없는 경우 (예: AC-C011 연핑크, AC-B011 연핑크)
+    return !name.includes(' B');
+  }) || [];
+
+  const categoryBColors = colors?.filter(color => {
+    const name = color.color_name;
+    // 이름에 ' B'가 있는 경우 (예: AC-C006 브라운 B, AC-B016 연피치)
+    return name.includes(' B');
+  }) || [];
+
+  const displayColors = activeTab === 'A' ? categoryAColors : categoryBColors;
+
   // 컬러 업데이트
   const updateColor = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<ColorOption> }) => {
@@ -215,6 +232,30 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
           </div>
         )}
 
+        {/* A/B 카테고리 탭 */}
+        <div className="flex gap-2 border-b mb-4">
+          <button
+            onClick={() => setActiveTab('A')}
+            className={`px-4 py-2 font-medium transition-colors ${
+              activeTab === 'A'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            카테고리 A ({categoryAColors.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('B')}
+            className={`px-4 py-2 font-medium transition-colors ${
+              activeTab === 'B'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            카테고리 B ({categoryBColors.length})
+          </button>
+        </div>
+
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -226,8 +267,8 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
               </TableRow>
             </TableHeader>
             <TableBody>
-              {colors && colors.length > 0 ? (
-                colors.map((color) => {
+              {displayColors && displayColors.length > 0 ? (
+                displayColors.map((color) => {
                   const isEditing = editingId === color.id;
                   return (
                     <TableRow key={color.id}>
@@ -305,7 +346,7 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
               ) : (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-muted-foreground">
-                    등록된 컬러가 없습니다
+                    {activeTab === 'A' ? '카테고리 A' : '카테고리 B'}에 등록된 컬러가 없습니다
                   </TableCell>
                 </TableRow>
               )}
