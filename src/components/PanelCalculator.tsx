@@ -589,8 +589,8 @@ const PanelCalculator = () => {
                 onComplexChange={setIsComplex}
               />
               
-              {/* 추가 옵션 - 원판 구매 제외, 재단/복잡한 모양 가공 시 표시 */}
-              {(selectedProcessing && selectedProcessing !== 'raw-only' && !selectedAdhesion) && (
+              {/* 추가 옵션 - 가공 방식 선택 시 표시 (원판 구매 제외) */}
+              {(selectedProcessing && selectedProcessing !== 'raw-only') && (
                 <EdgeFinishingOption
                   edgeFinishing={edgeFinishing}
                   onEdgeFinishingChange={setEdgeFinishing}
