@@ -26,6 +26,7 @@ import { usePriceCalculation } from "@/hooks/usePriceCalculation";
 import { Input } from "@/components/ui/input";
 import YieldCalculator from "./YieldCalculator";
 import AdvancedProcessingOptions from "./AdvancedProcessingOptions";
+import EdgeFinishingOption from "./EdgeFinishingOption";
 const PROCESSING_OPTIONS = [{
   id: 'raw-only',
   name: '원판 단독 구매'
@@ -581,8 +582,16 @@ const PanelCalculator = () => {
                 onComplexChange={setIsComplex}
               />
               
-              {/* 고급 옵션 - 원판 구매 제외, 재단/복잡한 모양/접착 가공 선택 시 표시 */}
-              {(selectedProcessing && selectedProcessing !== 'raw-only') || selectedAdhesion ? (
+              {/* 엣지 격면 마감 옵션 - 원판 구매 제외, 재단/복잡한 모양 가공 시 표시 */}
+              {(selectedProcessing && selectedProcessing !== 'raw-only' && !selectedAdhesion) && (
+                <EdgeFinishingOption
+                  edgeFinishing={edgeFinishing}
+                  onEdgeFinishingChange={setEdgeFinishing}
+                />
+              )}
+              
+              {/* 고급 옵션 - 접착 작업 선택 시에만 표시 */}
+              {selectedAdhesion && (
                 <AdvancedProcessingOptions
                   qty={qty}
                   onQtyChange={setQty}
@@ -600,10 +609,8 @@ const PanelCalculator = () => {
                   onJoinLengthChange={setJoinLengthM}
                   trayHeightMm={trayHeightMm}
                   onTrayHeightChange={setTrayHeightMm}
-                  edgeFinishing={edgeFinishing}
-                  onEdgeFinishingChange={setEdgeFinishing}
                 />
-              ) : null}
+              )}
             </>
           )}
 

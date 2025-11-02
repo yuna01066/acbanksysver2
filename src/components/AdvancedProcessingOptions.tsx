@@ -41,9 +41,6 @@ interface AdvancedProcessingOptionsProps {
   
   trayHeightMm?: number;
   onTrayHeightChange?: (height: number) => void;
-  
-  edgeFinishing?: boolean;
-  onEdgeFinishingChange?: (enabled: boolean) => void;
 }
 
 type ProductType = 'flat' | 'tray' | 'box';
@@ -65,8 +62,6 @@ const AdvancedProcessingOptions = ({
   onJoinLengthChange,
   trayHeightMm,
   onTrayHeightChange,
-  edgeFinishing = false,
-  onEdgeFinishingChange,
 }: AdvancedProcessingOptionsProps) => {
   const [isOpen, setIsOpen] = React.useState(false);
   const [productType, setProductType] = React.useState<ProductType>('flat');
@@ -363,31 +358,6 @@ const AdvancedProcessingOptions = ({
                   />
                 </div>
               )}
-            </div>
-
-            <Separator />
-
-            {/* 엣지 격면 마감 옵션 */}
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3 p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-900">
-                <Checkbox
-                  id="edgeFinishing"
-                  checked={edgeFinishing}
-                  onCheckedChange={(checked) => onEdgeFinishingChange?.(checked as boolean)}
-                />
-                <Label
-                  htmlFor="edgeFinishing"
-                  className="text-sm font-medium cursor-pointer flex-1"
-                >
-                  엣지 격면 마감 (엣지 연마 및 격면 마감 처리)
-                  <p className="text-xs text-muted-foreground mt-1">
-                    10T 이하: 자재비 증분 +80% | 10T 초과: +100%
-                  </p>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 font-semibold">
-                    ※ 재단, 복잡한 모양 가공, 접착 가공 선택 시 적용 가능 (원판 구매 제외)
-                  </p>
-                </Label>
-              </div>
             </div>
 
             <Separator />
