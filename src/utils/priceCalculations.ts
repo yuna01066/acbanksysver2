@@ -164,8 +164,10 @@ export type ProcessingProfile =
   | 'simple-cutting' 
   | 'laser-simple' 
   | 'laser-complex' 
+  | 'laser-full'
   | 'cnc-simple' 
-  | 'cnc-complex' 
+  | 'cnc-complex'
+  | 'cnc-full'
   | 'none';
 
 export type AdhesionProfile = 
@@ -194,8 +196,10 @@ export const DEFAULT_PROCESS_FACTORS: ProcessFactorsData = {
   'simple-cutting': 0,
   'laser-simple': 1.7,
   'laser-complex': 2.0,
+  'laser-full': 2.5,
   'cnc-simple': 1.8,
   'cnc-complex': 2.5,
+  'cnc-full': 3.0,
   'none': 1.0,
 };
 
@@ -222,8 +226,10 @@ export interface ProcessFactorsData {
   'simple-cutting': number;
   'laser-simple': number;
   'laser-complex': number;
+  'laser-full': number;
   'cnc-simple': number;
   'cnc-complex': number;
+  'cnc-full': number;
   'none': number;
 }
 
@@ -604,6 +610,9 @@ export interface ProcessingOptionData {
   multiplier?: number;
   base_cost?: number;
   is_active?: boolean;
+  apply_thickness_factor?: boolean;
+  min_thickness?: number;
+  max_thickness?: number;
 }
 
 export interface ColorMixingCostData {
@@ -770,25 +779,44 @@ export const calculatePrice = (
       const processingCost = totalPrice * (multiplier - 1);
       breakdown.push({ label: `단순 재단 (×${multiplier})`, price: processingCost });
       totalPrice += processingCost;
-    } else if (processing === 'laser-simple' || processing === 'laser-complex' || 
-               processing === 'cnc-simple' || processing === 'cnc-complex') {
-      const baseF = processFactors[processing];
-      const tf = thicknessFactor(t);
-      const multiplier = baseF * tf;
-      const processingCost = totalPrice * (multiplier - 1);
-      breakdown.push({ label: `${processing} (×${multiplier.toFixed(2)})`, price: processingCost });
-      totalPrice += processingCost;
-    } else if (processing === 'auto') {
-      const isComplex = options.isComplex || false;
-      const autoProcessing = t < 10 
-        ? (isComplex ? 'laser-complex' : 'laser-simple')
-        : (isComplex ? 'cnc-complex' : 'cnc-simple');
-      const baseF = processFactors[autoProcessing];
-      const tf = thicknessFactor(t);
-      const multiplier = baseF * tf;
-      const processingCost = totalPrice * (multiplier - 1);
-      breakdown.push({ label: `${autoProcessing} (×${multiplier.toFixed(2)})`, price: processingCost });
-      totalPrice += processingCost;
+  } else if (processing === 'laser-simple' || processing === 'laser-complex' || 
+             processing === 'cnc-simple' || processing === 'cnc-complex' ||
+             processing === 'laser-full' || processing === 'cnc-full') {
+    const baseF = processFactors[processing];
+    
+    // DB에서 해당 옵션의 두께계수 적용 여부 확인
+    const optionData = options?.processingOptionsData?.find(opt => opt.option_id === processing);
+    const applyThicknessFactor = optionData?.apply_thickness_factor !== false;
+    
+    // 두께계수 적용 여부에 따라 최종 배수 계산
+    const multiplier = applyThicknessFactor ? baseF * thicknessFactor(t) : baseF;
+    
+    const processingCost = totalPrice * (multiplier - 1);
+    const label = applyThicknessFactor 
+      ? `${processing} (×${multiplier.toFixed(2)} = 배수 ${baseF} × 두께계수 ${thicknessFactor(t)})`
+      : `${processing} (×${multiplier.toFixed(2)})`;
+    breakdown.push({ label, price: processingCost });
+    totalPrice += processingCost;
+  } else if (processing === 'auto') {
+    const isComplex = options.isComplex || false;
+    const autoProcessing = t < 10 
+      ? (isComplex ? 'laser-complex' : 'laser-simple')
+      : (isComplex ? 'cnc-complex' : 'cnc-simple');
+    const baseF = processFactors[autoProcessing];
+    
+    // DB에서 해당 옵션의 두께계수 적용 여부 확인
+    const optionData = options?.processingOptionsData?.find(opt => opt.option_id === autoProcessing);
+    const applyThicknessFactor = optionData?.apply_thickness_factor !== false;
+    
+    // 두께계수 적용 여부에 따라 최종 배수 계산
+    const multiplier = applyThicknessFactor ? baseF * thicknessFactor(t) : baseF;
+    
+    const processingCost = totalPrice * (multiplier - 1);
+    const label = applyThicknessFactor 
+      ? `${autoProcessing} (×${multiplier.toFixed(2)} = 배수 ${baseF} × 두께계수 ${thicknessFactor(t)})`
+      : `${autoProcessing} (×${multiplier.toFixed(2)})`;
+    breakdown.push({ label, price: processingCost });
+    totalPrice += processingCost;
     }
     
     // 5-2) 엣지 요청 (접착 포함 전에 처리)

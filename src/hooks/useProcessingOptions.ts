@@ -12,6 +12,9 @@ export interface ProcessingOption {
   base_cost?: number;
   is_active: boolean;
   display_order: number;
+  min_thickness?: number;
+  max_thickness?: number;
+  apply_thickness_factor?: boolean;
 }
 
 export const useProcessingOptions = () => {

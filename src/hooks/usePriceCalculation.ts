@@ -104,7 +104,7 @@ export const usePriceCalculation = ({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('processing_options')
-        .select('option_id, name, multiplier, base_cost')
+        .select('option_id, name, multiplier, base_cost, apply_thickness_factor, min_thickness, max_thickness')
         .eq('is_active', true);
 
       if (error) {
@@ -339,17 +339,21 @@ export const usePriceCalculation = ({
         } else if (selectedProcessing === 'edge-finishing') {
           processing = 'none';
           edgeRequested = true;
-        } else if (selectedProcessing === 'laser-simple') {
-          processing = 'laser-simple';
-        } else if (selectedProcessing === 'laser-complex') {
-          processing = 'laser-complex';
-        } else if (selectedProcessing === 'cnc-simple') {
-          processing = 'cnc-simple';
-        } else if (selectedProcessing === 'cnc-complex') {
-          processing = 'cnc-complex';
-        } else if (selectedProcessing === 'none' || selectedProcessing === '') {
-          processing = 'none';
-        }
+      } else if (selectedProcessing === 'laser-simple') {
+        processing = 'laser-simple';
+      } else if (selectedProcessing === 'laser-complex') {
+        processing = 'laser-complex';
+      } else if (selectedProcessing === 'laser-full') {
+        processing = 'laser-full';
+      } else if (selectedProcessing === 'cnc-simple') {
+        processing = 'cnc-simple';
+      } else if (selectedProcessing === 'cnc-complex') {
+        processing = 'cnc-complex';
+      } else if (selectedProcessing === 'cnc-full') {
+        processing = 'cnc-full';
+      } else if (selectedProcessing === 'none' || selectedProcessing === '') {
+        processing = 'none';
+      }
 
       if (selectedAdhesion === 'bond-normal') {
         adhesion = 'bond-normal';
@@ -404,6 +408,7 @@ export const usePriceCalculation = ({
               price: ps.price || undefined,
               is_active: ps.is_active
             })),
+            processingOptionsData: processingOptions, // DB에서 가져온 가공 옵션 전달
             rawOnlyMultiplier, // DB에서 가져온 원판 단독 구매 할증률 전달
           }
         );
@@ -448,10 +453,14 @@ export const usePriceCalculation = ({
         processing = 'laser-simple';
       } else if (selectedProcessing === 'laser-complex') {
         processing = 'laser-complex';
+      } else if (selectedProcessing === 'laser-full') {
+        processing = 'laser-full';
       } else if (selectedProcessing === 'cnc-simple') {
         processing = 'cnc-simple';
       } else if (selectedProcessing === 'cnc-complex') {
         processing = 'cnc-complex';
+      } else if (selectedProcessing === 'cnc-full') {
+        processing = 'cnc-full';
       } else if (selectedProcessing === 'none' || selectedProcessing === '') {
         processing = 'none';
       }

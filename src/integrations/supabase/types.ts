@@ -240,12 +240,15 @@ export type Database = {
       }
       processing_options: {
         Row: {
+          apply_thickness_factor: boolean | null
           base_cost: number | null
           created_at: string | null
           description: string | null
           display_order: number | null
           id: string
           is_active: boolean | null
+          max_thickness: number | null
+          min_thickness: number | null
           multiplier: number | null
           name: string
           option_id: string
@@ -253,12 +256,15 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          apply_thickness_factor?: boolean | null
           base_cost?: number | null
           created_at?: string | null
           description?: string | null
           display_order?: number | null
           id?: string
           is_active?: boolean | null
+          max_thickness?: number | null
+          min_thickness?: number | null
           multiplier?: number | null
           name: string
           option_id: string
@@ -266,12 +272,15 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          apply_thickness_factor?: boolean | null
           base_cost?: number | null
           created_at?: string | null
           description?: string | null
           display_order?: number | null
           id?: string
           is_active?: boolean | null
+          max_thickness?: number | null
+          min_thickness?: number | null
           multiplier?: number | null
           name?: string
           option_id?: string
