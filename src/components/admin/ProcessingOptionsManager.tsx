@@ -12,6 +12,7 @@ import { useProcessingOptions, ProcessingOption } from "@/hooks/useProcessingOpt
 import { useAdvancedProcessingSettings, AdvancedProcessingSetting } from "@/hooks/useAdvancedProcessingSettings";
 import { useSlotTypes, SlotType } from "@/hooks/useSlotTypes";
 import { useCategoryLogic } from "@/hooks/useCategoryLogic";
+import { useThicknessList } from "@/hooks/useThicknessList";
 import { Badge } from "@/components/ui/badge";
 import { 
   AlertDialog,
@@ -47,6 +48,7 @@ const ProcessingOptionsManager = () => {
   const { settings: advancedSettings, isLoading: isLoadingAdvanced, updateSetting } = useAdvancedProcessingSettings();
   const { slotTypes, isLoading: isLoadingSlots, updateSlotType, createSlotType, deleteSlotType } = useSlotTypes();
   const { categoryLogic, isLoading: isLoadingLogic, getCategorySlots, saveCategoryLogic: saveCategoryLogicMutation } = useCategoryLogic();
+  const { thicknessList, isLoading: isLoadingThickness } = useThicknessList();
   const { toast } = useToast();
   
   const [editingSettingId, setEditingSettingId] = useState<string | null>(null);
@@ -63,7 +65,7 @@ const ProcessingOptionsManager = () => {
     multiplier: undefined,
     base_cost: undefined,
     is_active: true,
-    applicable_thicknesses: ['3T', '5T', '6T', '8T', '10T', '12T', '15T', '18T', '20T']
+    applicable_thicknesses: []
   });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   
@@ -168,7 +170,7 @@ const ProcessingOptionsManager = () => {
       multiplier: undefined,
       base_cost: undefined,
       is_active: true,
-      applicable_thicknesses: ['3T', '5T', '6T', '8T', '10T', '12T', '15T', '18T', '20T']
+      applicable_thicknesses: []
     });
   };
 
@@ -320,7 +322,7 @@ const ProcessingOptionsManager = () => {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  if (isLoading || isLoadingAdvanced || isLoadingSlots || isLoadingLogic) {
+  if (isLoading || isLoadingAdvanced || isLoadingSlots || isLoadingLogic || isLoadingThickness) {
     return <div className="p-8 text-center">로딩 중...</div>;
   }
 
@@ -974,8 +976,8 @@ const ProcessingOptionsManager = () => {
 
             <div>
               <Label>적용 가능한 두께</Label>
-              <div className="grid grid-cols-3 gap-2 mt-2">
-                {['3T', '5T', '6T', '8T', '10T', '12T', '15T', '18T', '20T'].map((thickness) => (
+              <div className="grid grid-cols-4 gap-2 mt-2 max-h-[200px] overflow-y-auto">
+                {thicknessList.map((thickness) => (
                   <div key={thickness} className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -1004,7 +1006,7 @@ const ProcessingOptionsManager = () => {
                 ))}
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                이 옵션이 적용 가능한 원판 두께를 선택하세요
+                이 옵션이 적용 가능한 원판 두께를 선택하세요 (비어있으면 모든 두께에 적용)
               </p>
             </div>
 
@@ -1111,8 +1113,8 @@ const ProcessingOptionsManager = () => {
 
             <div>
               <Label>적용 가능한 두께</Label>
-              <div className="grid grid-cols-3 gap-2 mt-2">
-                {['3T', '5T', '6T', '8T', '10T', '12T', '15T', '18T', '20T'].map((thickness) => (
+              <div className="grid grid-cols-4 gap-2 mt-2 max-h-[200px] overflow-y-auto">
+                {thicknessList.map((thickness) => (
                   <div key={thickness} className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -1141,7 +1143,7 @@ const ProcessingOptionsManager = () => {
                 ))}
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                이 옵션이 적용 가능한 원판 두께를 선택하세요
+                이 옵션이 적용 가능한 원판 두께를 선택하세요 (비어있으면 모든 두께에 적용)
               </p>
             </div>
 
