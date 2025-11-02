@@ -286,6 +286,41 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         </CardContent>
       </Card>
 
+      {/* STEP 2: 원판 구매 옵션 (원판 구매 선택 시) */}
+      {mainCategory === 'raw' && (
+        <>
+          <Separator />
+          <Card className="border-2 border-primary/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ChevronRight className="w-5 h-5 text-primary" />
+                원판 구매 옵션
+                <Badge variant="secondary" className="ml-auto">STEP 2</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <button
+                onClick={() => onProcessingSelect('raw-only')}
+                className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                  selectedProcessing === 'raw-only'
+                    ? 'bg-primary/10 border-primary shadow-md'
+                    : 'bg-background border-border hover:border-primary/30'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Package className="w-5 h-5 text-primary" />
+                  <span className="font-semibold">원판 단독 구매</span>
+                  {selectedProcessing === 'raw-only' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  가공 없이 원판만 구매합니다
+                </p>
+              </button>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
       {/* STEP 2: 가공 방식 선택 (단순/복합/전체 재단 및 접착 가공 시) */}
       {mainCategory && mainCategory !== 'raw' && (
         <>
