@@ -543,6 +543,13 @@ export interface AdhesiveCostData {
   cost: number;
 }
 
+export interface PanelSizeData {
+  size_name: string;
+  thickness: string;
+  price?: number;
+  is_active: boolean;
+}
+
 export const calculatePrice = (
   materialId: string,
   qualityId: string,
@@ -555,6 +562,7 @@ export const calculatePrice = (
   options?: CalculatePriceV2Options & {
     colorMixingCostsData?: ColorMixingCostData[];
     adhesiveCostsData?: AdhesiveCostData[];
+    panelSizesData?: PanelSizeData[];
   }
 ): { totalPrice: number; breakdown: { label: string; price: number }[] } => {
   const breakdown: { label: string; price: number }[] = [];
@@ -569,36 +577,49 @@ export const calculatePrice = (
   // 1) 기본 단면 가격 가져오기 (원자재 비용)
   let basePrice = 0;
   
-  if (qualityId === 'glossy-color') {
-    const prices = glossyColorSinglePrices[thickness as keyof typeof glossyColorSinglePrices];
-    basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
-    breakdown.push({ label: '유광 색상판 기본가', price: basePrice });
-  } else if (qualityId === 'astel-color') {
-    const prices = astelColorSinglePrices[thickness as keyof typeof astelColorSinglePrices];
-    basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
-    breakdown.push({ label: '아스텔 색상판 기본가', price: basePrice });
-    
-    // 아스텔 추가금액
-    const astelSurcharge = astelDoubleSideSurcharge[sizeKey as keyof typeof astelDoubleSideSurcharge] || 0;
-    if (astelSurcharge > 0) {
-      breakdown.push({ label: '아스텔 추가금액', price: astelSurcharge });
-      basePrice += astelSurcharge;
-    }
-  } else if (qualityId === 'satin-color') {
-    const prices = satinColorSinglePrices[thickness as keyof typeof satinColorSinglePrices];
-    basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
-    breakdown.push({ label: '사틴 색상판 기본가', price: basePrice });
-  } else if (qualityId === 'glossy-standard') {
-    const prices = glossyStandardSinglePrices[thickness as keyof typeof glossyStandardSinglePrices];
-    basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
-    breakdown.push({ label: '유광 보급판 기본가', price: basePrice });
-    
-    // 진백 추가금액
-    if (colorType === '진백') {
-      const jinbaekPrice = jinbaekPrices[sizeKey as keyof typeof jinbaekPrices] || 0;
-      if (jinbaekPrice > 0) {
-        breakdown.push({ label: '진백 추가금액', price: jinbaekPrice });
-        basePrice += jinbaekPrice;
+  // DB에서 가져온 panel_sizes 데이터를 우선 사용
+  const panelSizesData = options?.panelSizesData || [];
+  const dbPanelSize = panelSizesData.find(
+    ps => ps.size_name === sizeKey && ps.thickness === thickness && ps.is_active
+  );
+  
+  // DB에 가격이 있으면 우선 사용
+  if (dbPanelSize?.price && dbPanelSize.price > 0) {
+    basePrice = dbPanelSize.price;
+    breakdown.push({ label: `${qualityId} 기본가 (DB)`, price: basePrice });
+  } else {
+    // DB에 없으면 하드코딩된 값 사용 (fallback)
+    if (qualityId === 'glossy-color') {
+      const prices = glossyColorSinglePrices[thickness as keyof typeof glossyColorSinglePrices];
+      basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
+      breakdown.push({ label: '유광 색상판 기본가', price: basePrice });
+    } else if (qualityId === 'astel-color') {
+      const prices = astelColorSinglePrices[thickness as keyof typeof astelColorSinglePrices];
+      basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
+      breakdown.push({ label: '아스텔 색상판 기본가', price: basePrice });
+      
+      // 아스텔 추가금액
+      const astelSurcharge = astelDoubleSideSurcharge[sizeKey as keyof typeof astelDoubleSideSurcharge] || 0;
+      if (astelSurcharge > 0) {
+        breakdown.push({ label: '아스텔 추가금액', price: astelSurcharge });
+        basePrice += astelSurcharge;
+      }
+    } else if (qualityId === 'satin-color') {
+      const prices = satinColorSinglePrices[thickness as keyof typeof satinColorSinglePrices];
+      basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
+      breakdown.push({ label: '사틴 색상판 기본가', price: basePrice });
+    } else if (qualityId === 'glossy-standard') {
+      const prices = glossyStandardSinglePrices[thickness as keyof typeof glossyStandardSinglePrices];
+      basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
+      breakdown.push({ label: '유광 보급판 기본가', price: basePrice });
+      
+      // 진백 추가금액
+      if (colorType === '진백') {
+        const jinbaekPrice = jinbaekPrices[sizeKey as keyof typeof jinbaekPrices] || 0;
+        if (jinbaekPrice > 0) {
+          breakdown.push({ label: '진백 추가금액', price: jinbaekPrice });
+          basePrice += jinbaekPrice;
+        }
       }
     }
   }

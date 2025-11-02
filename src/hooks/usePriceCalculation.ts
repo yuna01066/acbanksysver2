@@ -372,6 +372,12 @@ export const usePriceCalculation = ({
             edgeFinishing,
             colorMixingCostsData: colorMixingCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
             adhesiveCostsData: adhesiveCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
+            panelSizesData: activePanelSizes?.map(ps => ({
+              size_name: ps.size_name,
+              thickness: ps.thickness,
+              price: ps.price || undefined,
+              is_active: ps.is_active
+            })),
           }
         );
 
@@ -468,6 +474,12 @@ export const usePriceCalculation = ({
           processingOptionsData: processingOptions || [],
           colorMixingCostsData: colorMixingCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
           adhesiveCostsData: adhesiveCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
+          panelSizesData: activePanelSizes?.map(ps => ({
+            size_name: ps.size_name,
+            thickness: ps.thickness,
+            price: ps.price || undefined,
+            is_active: ps.is_active
+          })),
         }
       );
       
