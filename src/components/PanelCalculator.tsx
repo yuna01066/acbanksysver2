@@ -589,8 +589,8 @@ const PanelCalculator = () => {
                 onComplexChange={setIsComplex}
               />
               
-              {/* 추가 옵션 - 가공 방식 선택 시 표시 (원판 구매 제외) */}
-              {(selectedProcessing && selectedProcessing !== 'raw-only') && (
+              {/* 추가 옵션 - 가공 방식이나 접착 작업을 선택했을 때만 표시 */}
+              {selectedProcessing && selectedProcessing !== 'raw-only' && (
                 <EdgeFinishingOption
                   edgeFinishing={edgeFinishing}
                   onEdgeFinishingChange={setEdgeFinishing}
