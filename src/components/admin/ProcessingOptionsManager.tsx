@@ -55,7 +55,6 @@ const ProcessingOptionsManager = () => {
   const [editForm, setEditForm] = useState<Partial<ProcessingOption>>({});
   const [newOptionForm, setNewOptionForm] = useState<Partial<ProcessingOption>>({
     option_type: 'slot1',
-    category: 'raw',
     name: '',
     description: '',
     option_id: '',
@@ -136,7 +135,6 @@ const ProcessingOptionsManager = () => {
     setIsAddDialogOpen(false);
     setNewOptionForm({
       option_type: 'slot1',
-      category: 'raw',
       name: '',
       description: '',
       option_id: '',
@@ -585,7 +583,6 @@ const ProcessingOptionsManager = () => {
                                   <span className="text-sm text-muted-foreground">
                                     ({processingOptions?.filter(opt => 
                                       opt.option_type === slot.slotKey && 
-                                      opt.category === selectedCategory &&
                                       opt.is_active
                                     ).length || 0}개 옵션)
                                   </span>
@@ -668,7 +665,6 @@ const ProcessingOptionsManager = () => {
                             <TableRow>
                               <TableHead>옵션 ID</TableHead>
                               <TableHead>이름</TableHead>
-                              <TableHead>카테고리</TableHead>
                               <TableHead>설명</TableHead>
                               <TableHead className="text-right">배수</TableHead>
                               <TableHead className="text-right">기본 비용</TableHead>
@@ -681,7 +677,6 @@ const ProcessingOptionsManager = () => {
                               <TableRow key={option.id}>
                                 <TableCell className="font-mono text-xs">{option.option_id}</TableCell>
                                 <TableCell className="font-medium">{option.name}</TableCell>
-                                <TableCell>{getCategoryBadge(option.category)}</TableCell>
                                 <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
                                   {option.description || '-'}
                                 </TableCell>
@@ -888,44 +883,23 @@ const ProcessingOptionsManager = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="category">카테고리</Label>
-                <Select
-                  value={newOptionForm.category}
-                  onValueChange={(value) => setNewOptionForm({ ...newOptionForm, category: value as ProcessingOptionCategory })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="raw">원판구매</SelectItem>
-                    <SelectItem value="simple">단순재단</SelectItem>
-                    <SelectItem value="complex">복합재단</SelectItem>
-                    <SelectItem value="full">전체재단</SelectItem>
-                    <SelectItem value="adhesion">접착가공</SelectItem>
-                    <SelectItem value="additional">추가옵션</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="option_type">슬롯 타입</Label>
-                <Select
-                  value={newOptionForm.option_type}
-                  onValueChange={(value) => setNewOptionForm({ ...newOptionForm, option_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {slotTypes?.filter(st => st.is_active).map(st => (
-                      <SelectItem key={st.id} value={st.slot_key}>
-                        {st.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label htmlFor="option_type">슬롯 타입</Label>
+              <Select
+                value={newOptionForm.option_type}
+                onValueChange={(value) => setNewOptionForm({ ...newOptionForm, option_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {slotTypes?.filter(st => st.is_active).map(st => (
+                    <SelectItem key={st.id} value={st.slot_key}>
+                      {st.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
@@ -1012,44 +986,23 @@ const ProcessingOptionsManager = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="edit_category">카테고리</Label>
-                <Select
-                  value={editForm.category}
-                  onValueChange={(value) => setEditForm({ ...editForm, category: value as ProcessingOptionCategory })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="raw">원판구매</SelectItem>
-                    <SelectItem value="simple">단순재단</SelectItem>
-                    <SelectItem value="complex">복합재단</SelectItem>
-                    <SelectItem value="full">전체재단</SelectItem>
-                    <SelectItem value="adhesion">접착가공</SelectItem>
-                    <SelectItem value="additional">추가옵션</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="edit_option_type">슬롯 타입</Label>
-                <Select
-                  value={editForm.option_type}
-                  onValueChange={(value) => setEditForm({ ...editForm, option_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {slotTypes?.filter(st => st.is_active).map(st => (
-                      <SelectItem key={st.id} value={st.slot_key}>
-                        {st.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label htmlFor="edit_option_type">슬롯 타입</Label>
+              <Select
+                value={editForm.option_type}
+                onValueChange={(value) => setEditForm({ ...editForm, option_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {slotTypes?.filter(st => st.is_active).map(st => (
+                    <SelectItem key={st.id} value={st.slot_key}>
+                      {st.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
