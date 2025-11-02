@@ -492,135 +492,221 @@ const ProcessingOptionsManager = () => {
             </>
           )}
 
-          {/* STEP 2: 접착 가공 방식 선택 */}
+          {/* 접착 가공 로직 구성 영역 */}
           {selectedCategory === 'adhesion' && (
             <>
               <Separator />
-              <div>
+              <div className="space-y-4">
                 <div className="mb-4">
                   <h4 className="text-sm font-semibold flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-primary" />
-                    STEP 2: 가공 방식 선택
+                    <Layers className="w-4 h-4 text-primary" />
+                    접착 가공 로직 구성
                   </h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    각 단계의 옵션을 선택하여 최종 배수를 계산합니다
+                  </p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setSelectedMethod('laser')}
-                    className={`p-4 rounded-lg border-2 transition-all text-left ${
-                      selectedMethod === 'laser'
-                        ? 'bg-primary/10 border-primary shadow-md'
-                        : 'bg-background border-border hover:border-primary/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Zap className="w-5 h-5 text-primary" />
-                      <span className="font-semibold text-sm">레이저 복합 가공</span>
-                      {selectedMethod === 'laser' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
-                    </div>
-                  </button>
 
-                  <button
-                    onClick={() => setSelectedMethod('cnc')}
-                    className={`p-4 rounded-lg border-2 transition-all text-left ${
-                      selectedMethod === 'cnc'
-                        ? 'bg-primary/10 border-primary shadow-md'
-                        : 'bg-background border-border hover:border-primary/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Layers className="w-5 h-5 text-primary" />
-                      <span className="font-semibold text-sm">CNC 복합 가공</span>
-                      {selectedMethod === 'cnc' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
+                {/* 레고 블록 스타일 로직 구성 */}
+                <div className="space-y-3 p-4 bg-muted/30 rounded-lg border-2 border-dashed border-primary/20">
+                  {/* 1. 가공 방식 */}
+                  <Card className="border-2 border-primary/30">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Zap className="w-4 h-4" />
+                        1단계: 가공 방식
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => setSelectedMethod('laser')}
+                          className={`p-3 rounded-lg border-2 transition-all ${
+                            selectedMethod === 'laser'
+                              ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                              : 'bg-background border-border hover:border-primary/50'
+                          }`}
+                        >
+                          <div className="text-sm font-medium">레이저 복합</div>
+                        </button>
+                        <button
+                          onClick={() => setSelectedMethod('cnc')}
+                          className={`p-3 rounded-lg border-2 transition-all ${
+                            selectedMethod === 'cnc'
+                              ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                              : 'bg-background border-border hover:border-primary/50'
+                          }`}
+                        >
+                          <div className="text-sm font-medium">CNC 복합</div>
+                        </button>
+                      </div>
+                      {selectedMethod && (
+                        <div className="p-3 bg-primary/10 rounded-lg flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">선택된 배수:</span>
+                          <span className="text-lg font-bold text-primary">
+                            ×{processingOptions?.find(opt => 
+                              opt.option_type === 'processing' && 
+                              opt.option_id === `${selectedMethod}-complex`
+                            )?.multiplier || 1}
+                          </span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
-          {/* STEP 3: 접착 각도 선택 */}
-          {selectedCategory === 'adhesion' && selectedMethod && (
-            <>
-              <Separator />
-              <div>
-                <div className="mb-4">
-                  <h4 className="text-sm font-semibold flex items-center gap-2">
-                    <Droplet className="w-4 h-4 text-primary" />
-                    STEP 3: 접착 각도 선택
-                  </h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setSelectedAngle('45')}
-                    className={`p-4 rounded-lg border-2 transition-all text-left ${
-                      selectedAngle === '45'
-                        ? 'bg-primary/10 border-primary shadow-md'
-                        : 'bg-background border-border hover:border-primary/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-semibold text-sm">45도 접착</span>
-                      {selectedAngle === '45' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                  {/* × 기호 */}
+                  {selectedMethod && (
+                    <div className="flex justify-center">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+                        ×
+                      </div>
                     </div>
-                  </button>
+                  )}
 
-                  <button
-                    onClick={() => setSelectedAngle('90')}
-                    className={`p-4 rounded-lg border-2 transition-all text-left ${
-                      selectedAngle === '90'
-                        ? 'bg-primary/10 border-primary shadow-md'
-                        : 'bg-background border-border hover:border-primary/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-semibold text-sm">90도 접착</span>
-                      {selectedAngle === '90' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
+                  {/* 2. 접착 각도 */}
+                  {selectedMethod && (
+                    <Card className="border-2 border-primary/30">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Droplet className="w-4 h-4" />
+                          2단계: 접착 각도
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => setSelectedAngle('45')}
+                            className={`p-3 rounded-lg border-2 transition-all ${
+                              selectedAngle === '45'
+                                ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                                : 'bg-background border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="text-sm font-medium">45도 접착</div>
+                          </button>
+                          <button
+                            onClick={() => setSelectedAngle('90')}
+                            className={`p-3 rounded-lg border-2 transition-all ${
+                              selectedAngle === '90'
+                                ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                                : 'bg-background border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="text-sm font-medium">90도 접착</div>
+                          </button>
+                        </div>
+                        {selectedAngle && (
+                          <div className="p-3 bg-primary/10 rounded-lg flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">선택된 배수:</span>
+                            <span className="text-lg font-bold text-primary">
+                              ×{processingOptions?.find(opt => 
+                                opt.option_type === 'adhesion' && 
+                                opt.option_id.startsWith(selectedAngle)
+                              )?.multiplier || 1}
+                            </span>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
 
-          {/* STEP 4: 접착 타입 선택 */}
-          {selectedCategory === 'adhesion' && selectedMethod && selectedAngle && (
-            <>
-              <Separator />
-              <div>
-                <div className="mb-4">
-                  <h4 className="text-sm font-semibold flex items-center gap-2">
-                    <Droplet className="w-4 h-4 text-primary" />
-                    STEP 4: 접착 타입 선택
-                  </h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setSelectedAdhesionType('normal')}
-                    className={`p-4 rounded-lg border-2 transition-all text-left ${
-                      selectedAdhesionType === 'normal'
-                        ? 'bg-primary/10 border-primary shadow-md'
-                        : 'bg-background border-border hover:border-primary/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-semibold text-sm">일반 접착</span>
-                      {selectedAdhesionType === 'normal' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                  {/* × 기호 */}
+                  {selectedAngle && (
+                    <div className="flex justify-center">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+                        ×
+                      </div>
                     </div>
-                  </button>
+                  )}
 
-                  <button
-                    onClick={() => setSelectedAdhesionType('bubble-free')}
-                    className={`p-4 rounded-lg border-2 transition-all text-left ${
-                      selectedAdhesionType === 'bubble-free'
-                        ? 'bg-primary/10 border-primary shadow-md'
-                        : 'bg-background border-border hover:border-primary/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-semibold text-sm">무기포 접착</span>
-                      {selectedAdhesionType === 'bubble-free' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
-                    </div>
-                  </button>
+                  {/* 3. 접착 타입 */}
+                  {selectedAngle && (
+                    <Card className="border-2 border-primary/30">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Sparkles className="w-4 h-4" />
+                          3단계: 접착 타입
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => setSelectedAdhesionType('normal')}
+                            className={`p-3 rounded-lg border-2 transition-all ${
+                              selectedAdhesionType === 'normal'
+                                ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                                : 'bg-background border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="text-sm font-medium">일반 접착</div>
+                          </button>
+                          <button
+                            onClick={() => setSelectedAdhesionType('bubble-free')}
+                            className={`p-3 rounded-lg border-2 transition-all ${
+                              selectedAdhesionType === 'bubble-free'
+                                ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                                : 'bg-background border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="text-sm font-medium">무기포 접착</div>
+                          </button>
+                        </div>
+                        {selectedAdhesionType && (
+                          <div className="p-3 bg-primary/10 rounded-lg flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">선택된 배수:</span>
+                            <span className="text-lg font-bold text-primary">
+                              ×{processingOptions?.find(opt => 
+                                opt.option_type === 'adhesion' && 
+                                opt.option_id === `${selectedAngle}-${selectedAdhesionType === 'normal' ? 'normal' : 'mugipo'}`
+                              )?.multiplier || 1}
+                            </span>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* 최종 배수 계산 */}
+                  {selectedMethod && selectedAngle && selectedAdhesionType && (
+                    <>
+                      <Separator className="my-4" />
+                      <div className="p-4 bg-primary/10 rounded-lg border-2 border-primary">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">최종 적용 배수</p>
+                            <p className="text-xs text-muted-foreground">
+                              {processingOptions?.find(opt => 
+                                opt.option_type === 'processing' && 
+                                opt.option_id === `${selectedMethod}-complex`
+                              )?.multiplier || 1} × {processingOptions?.find(opt => 
+                                opt.option_type === 'adhesion' && 
+                                opt.option_id.startsWith(selectedAngle)
+                              )?.multiplier || 1} × {processingOptions?.find(opt => 
+                                opt.option_type === 'adhesion' && 
+                                opt.option_id === `${selectedAngle}-${selectedAdhesionType === 'normal' ? 'normal' : 'mugipo'}`
+                              )?.multiplier || 1}
+                            </p>
+                          </div>
+                          <div className="text-3xl font-bold text-primary">
+                            ×{(
+                              (processingOptions?.find(opt => 
+                                opt.option_type === 'processing' && 
+                                opt.option_id === `${selectedMethod}-complex`
+                              )?.multiplier || 1) *
+                              (processingOptions?.find(opt => 
+                                opt.option_type === 'adhesion' && 
+                                opt.option_id.startsWith(selectedAngle)
+                              )?.multiplier || 1) *
+                              (processingOptions?.find(opt => 
+                                opt.option_type === 'adhesion' && 
+                                opt.option_id === `${selectedAngle}-${selectedAdhesionType === 'normal' ? 'normal' : 'mugipo'}`
+                              )?.multiplier || 1)
+                            ).toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </>
