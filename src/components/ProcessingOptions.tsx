@@ -1,22 +1,88 @@
 import React from 'react';
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Package, Scissors, Cpu, Droplet, Sparkles, CheckCircle2, Settings } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 
 interface ProcessingOption {
   id: string;
-  option_id: string;
   name: string;
   description: string;
-  option_type: 'additional' | 'processing' | 'adhesion';
-  is_active: boolean;
-  display_order: number;
+  category: 'raw' | 'processing' | 'adhesion';
 }
+
+const PROCESSING_OPTIONS: ProcessingOption[] = [
+  { 
+    id: 'raw-only', 
+    name: '원판 단독 구매', 
+    description: '가공 없이 원판만 구매 (자재비에만 ×1.8 적용)', 
+    category: 'raw' 
+  },
+  { 
+    id: 'auto', 
+    name: '자동 선택 (권장)', 
+    description: '두께와 복잡도에 따라 최적 가공 방식 자동 선택 (10T 미만: 레이저, 10T 이상: CNC)', 
+    category: 'processing' 
+  },
+  { 
+    id: 'simple-cutting', 
+    name: '단순 재단', 
+    description: '기본 직선 재단 (10T 미만: 자재비 증분 +20%, 10T 이상: +80%)', 
+    category: 'processing' 
+  },
+  {
+    id: 'laser-simple', 
+    name: '레이저 단순 가공', 
+    description: '10T 미만 적합, 단순 모양 레이저 커팅 (배수 1.7 × 두께계수)', 
+    category: 'processing' 
+  },
+  { 
+    id: 'laser-complex', 
+    name: '레이저 복합 가공', 
+    description: '10T 미만 적합, 복잡한 모양 레이저 커팅 (배수 2.0 × 두께계수)', 
+    category: 'processing' 
+  },
+  { 
+    id: 'cnc-simple', 
+    name: 'CNC 단순 가공', 
+    description: '10T 이상 적합, 단순 CNC 가공 (배수 1.8 × 두께계수)', 
+    category: 'processing' 
+  },
+  { 
+    id: 'cnc-complex', 
+    name: 'CNC 복합 가공', 
+    description: '10T 이상 적합, 복잡한 CNC 가공 (배수 2.5 × 두께계수)', 
+    category: 'processing' 
+  },
+  { 
+    id: 'bond-normal', 
+    name: '일반 접착', 
+    description: '기본 접착 작업 (자재비 증분 +100%)', 
+    category: 'adhesion' 
+  },
+  { 
+    id: 'bond-mugipo-auto', 
+    name: '무기포 접착 (자동)', 
+    description: '45°와 90° 중 더 저렴한 방식 자동 선택 (얕은 트레이는 45° 우대)', 
+    category: 'adhesion' 
+  },
+  { 
+    id: 'bond-mugipo-45', 
+    name: '무기포 접착 45°', 
+    description: '45° 무기포 접착, 레이저/엣지 포함 (10T 미만: 배수 2.2, 10T 이상: 2.3)', 
+    category: 'adhesion' 
+  },
+  { 
+    id: 'bond-mugipo-90', 
+    name: '무기포 접착 90°', 
+    description: '90° 무기포 접착, 레이저/엣지 포함 + 인건비 프리미엄 (배수 2.3 × 1.12)', 
+    category: 'adhesion' 
+  }
+];
 
 interface ProcessingOptionsProps {
   selectedProcessing: string;
@@ -45,22 +111,6 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   // 상단 카테고리 선택에 따라 표시할 카테고리 결정
   const [selectedCategory, setSelectedCategory] = React.useState<'raw' | 'processing' | 'complex' | 'adhesion' | null>(null);
 
-  // DB에서 가공 옵션 조회
-  const { data: dbOptions, isLoading } = useQuery({
-    queryKey: ['processing-options'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('processing_options')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
-
-      if (error) throw error;
-      return data as ProcessingOption[];
-    },
-    refetchOnWindowFocus: true,
-  });
-
   const getCategoryIcon = (categoryId: string) => {
     switch (categoryId) {
       case 'raw': return Package;
@@ -70,44 +120,26 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     }
   };
 
-  // DB 옵션을 카테고리별로 그룹화
-  const allCategories = React.useMemo(() => {
-    if (!dbOptions) return [];
-
-    // processing 타입을 "raw"로 간주할 옵션 ID들 (원판 구매 관련)
-    const rawOptionIds = ['raw-only'];
-    
-    const processingOptions = dbOptions.filter(opt => 
-      opt.option_type === 'processing' && !rawOptionIds.includes(opt.option_id)
-    );
-    
-    const rawOptions = dbOptions.filter(opt => 
-      opt.option_type === 'processing' && rawOptionIds.includes(opt.option_id)
-    );
-    
-    const adhesionOptions = dbOptions.filter(opt => opt.option_type === 'adhesion');
-
-    return [
-      { 
-        id: 'raw', 
-        name: '원판 구매', 
-        description: '가공 없이 원판만 구매하거나 기본 문의',
-        options: rawOptions
-      },
-      { 
-        id: 'processing', 
-        name: '가공 방식', 
-        description: '레이저, CNC 등 가공 방법 선택 (택1)',
-        options: processingOptions
-      },
-      { 
-        id: 'adhesion', 
-        name: '접착 작업', 
-        description: '무기포 및 일반 접착 선택 (택1)',
-        options: adhesionOptions
-      }
-    ];
-  }, [dbOptions]);
+  const allCategories = [
+    { 
+      id: 'raw', 
+      name: '원판 구매', 
+      description: '가공 없이 원판만 구매하거나 기본 문의',
+      options: PROCESSING_OPTIONS.filter(opt => opt.category === 'raw')
+    },
+    { 
+      id: 'processing', 
+      name: '가공 방식', 
+      description: '레이저, CNC 등 가공 방법 선택 (택1)',
+      options: PROCESSING_OPTIONS.filter(opt => opt.category === 'processing')
+    },
+    { 
+      id: 'adhesion', 
+      name: '접착 작업', 
+      description: '무기포 및 일반 접착 선택 (택1)',
+      options: PROCESSING_OPTIONS.filter(opt => opt.category === 'adhesion')
+    }
+  ];
 
   // 선택된 카테고리에 따라 표시할 카테고리 필터링
   const categories = React.useMemo(() => {
@@ -123,16 +155,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     }
     
     return [];
-  }, [selectedCategory, allCategories]);
-
-  if (isLoading) {
-    return (
-      <div className="text-center py-8">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        <p className="mt-2 text-muted-foreground">가공 옵션 로딩 중...</p>
-      </div>
-    );
-  }
+  }, [selectedCategory]);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -295,7 +318,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
               const selectedValue = isAdhesion ? selectedAdhesion : selectedProcessing;
               const handleSelect = isAdhesion ? onAdhesionSelect : onProcessingSelect;
               const CategoryIcon = getCategoryIcon(category.id);
-              const hasSelection = selectedValue && category.options.some(opt => opt.option_id === selectedValue);
+              const hasSelection = selectedValue && category.options.some(opt => opt.id === selectedValue);
               
               return (
                 <Card 
@@ -351,11 +374,11 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                     
                     <div className="space-y-3">
                       {category.options.map((option) => {
-                        const isSelected = selectedValue === option.option_id;
+                        const isSelected = selectedValue === option.id;
                         return (
                           <button
                             key={option.id}
-                            onClick={() => handleSelect(option.option_id)}
+                            onClick={() => handleSelect(option.id)}
                             className={`w-full p-4 rounded-lg text-left transition-all duration-200 border-2 ${
                               isSelected
                                 ? 'bg-primary text-primary-foreground border-primary shadow-md' 
