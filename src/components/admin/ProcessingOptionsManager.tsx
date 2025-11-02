@@ -30,12 +30,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
 type MainCategory = 'raw' | 'simple' | 'complex' | 'full' | 'adhesion' | 'additional';
+type ProcessingOptionCategory = 'raw' | 'simple' | 'complex' | 'full' | 'adhesion' | 'additional';
+
+interface SlotConfig {
+  slotType: 'slot1' | 'slot2' | 'slot3' | 'slot4';
+  optionId: string;
+}
 
 const ProcessingOptionsManager = () => {
   const { processingOptions, isLoading, updateOption, deleteOption, createOption } = useProcessingOptions();
   const { settings: advancedSettings, isLoading: isLoadingAdvanced, updateSetting } = useAdvancedProcessingSettings();
+  const { toast } = useToast();
+  
   const [editingSettingId, setEditingSettingId] = useState<string | null>(null);
   const [editSettingForm, setEditSettingForm] = useState<Partial<AdvancedProcessingSetting>>({});
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -55,11 +64,15 @@ const ProcessingOptionsManager = () => {
   });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   
-  // 선택된 카테고리
   const [selectedCategory, setSelectedCategory] = useState<MainCategory | null>(null);
-  
-  // 로직 공식 슬롯 선택 상태 (동적 배열로 관리)
-  const [formulaSlots, setFormulaSlots] = useState<(ProcessingOption | null)[]>([]);
+  const [categorySlots, setCategorySlots] = useState<Record<MainCategory, SlotConfig[]>>({
+    raw: [],
+    simple: [],
+    complex: [],
+    full: [],
+    adhesion: [],
+    additional: []
+  });
 
   const startEdit = (option: ProcessingOption) => {
     setEditingOption(option);
@@ -137,35 +150,75 @@ const ProcessingOptionsManager = () => {
 
   const handleCategorySelect = (category: MainCategory) => {
     setSelectedCategory(category);
-    // 슬롯 초기화
-    setFormulaSlots([]);
   };
 
-  const addFormulaSlot = () => {
-    setFormulaSlots([...formulaSlots, null]);
+  const addSlotToCategory = (category: MainCategory) => {
+    setCategorySlots({
+      ...categorySlots,
+      [category]: [
+        ...categorySlots[category],
+        { slotType: 'slot1', optionId: '' }
+      ]
+    });
   };
 
-  const removeFormulaSlot = (index: number) => {
-    setFormulaSlots(formulaSlots.filter((_, i) => i !== index));
+  const removeSlot = (category: MainCategory, index: number) => {
+    setCategorySlots({
+      ...categorySlots,
+      [category]: categorySlots[category].filter((_, i) => i !== index)
+    });
   };
 
-  const updateFormulaSlot = (index: number, option: ProcessingOption) => {
-    const newSlots = [...formulaSlots];
-    newSlots[index] = option;
-    setFormulaSlots(newSlots);
+  const updateSlot = (category: MainCategory, index: number, field: 'slotType' | 'optionId', value: string) => {
+    const newSlots = [...categorySlots[category]];
+    if (field === 'slotType') {
+      newSlots[index].slotType = value as 'slot1' | 'slot2' | 'slot3' | 'slot4';
+    } else {
+      newSlots[index].optionId = value;
+    }
+    setCategorySlots({
+      ...categorySlots,
+      [category]: newSlots
+    });
   };
 
-  const getAvailableOptionsForCategory = () => {
-    if (!selectedCategory) return [];
-    
-    return processingOptions?.filter(option => {
-      return option.category === selectedCategory;
-    }) || [];
+  const saveCategoryLogic = async () => {
+    if (!selectedCategory) return;
+
+    try {
+      const slots = categorySlots[selectedCategory];
+      
+      for (const slot of slots) {
+        if (slot.optionId) {
+          const option = processingOptions?.find(opt => opt.option_id === slot.optionId);
+          if (option) {
+            await updateOption.mutateAsync({
+              id: option.id,
+              updates: {
+                option_type: slot.slotType,
+                category: selectedCategory as ProcessingOptionCategory,
+              }
+            });
+          }
+        }
+      }
+      
+      toast({
+        title: '저장 완료',
+        description: '가공 로직이 저장되어 견적 계산기에 반영됩니다.',
+      });
+    } catch (error) {
+      toast({
+        title: '저장 실패',
+        description: '가공 로직 저장에 실패했습니다.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const getFilteredOptions = () => {
-    if (!selectedCategory) return [];
-    return getAvailableOptionsForCategory();
+  const getAvailableOptions = () => {
+    if (!selectedCategory || !processingOptions) return [];
+    return processingOptions.filter(opt => opt.category === selectedCategory || opt.category === 'additional');
   };
 
   const getOptionTypeBadge = (type: string) => {
@@ -295,9 +348,9 @@ const ProcessingOptionsManager = () => {
         <CardHeader className="border-b border-border/50">
           <div className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-xl">가공 방식 및 배수 관리</CardTitle>
+              <CardTitle className="text-xl">가공 로직 설정</CardTitle>
               <CardDescription className="text-muted-foreground mt-2">
-                카테고리별로 가공 옵션을 선택하여 관리할 수 있습니다.
+                카테고리별 가공 로직을 설정하고 슬롯을 관리합니다.
               </CardDescription>
             </div>
             <Button 
@@ -312,454 +365,194 @@ const ProcessingOptionsManager = () => {
           </div>
         </CardHeader>
         <CardContent className="pt-6 space-y-6">
-          {/* STEP 1: 카테고리 선택 */}
+          {/* 카테고리 선택 */}
           <div>
             <div className="mb-4">
               <h4 className="text-sm font-semibold flex items-center gap-2">
                 <Settings className="w-4 h-4 text-primary" />
-                STEP 1: 가공 카테고리 선택
+                가공 카테고리 선택
               </h4>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              <button
-                onClick={() => handleCategorySelect('raw')}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
-                  selectedCategory === 'raw'
-                    ? 'bg-primary/10 border-primary shadow-md'
-                    : 'bg-background border-border hover:border-primary/30'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Package className="w-5 h-5 text-primary" />
-                  <span className="font-semibold text-sm">원판 구매</span>
-                  {selectedCategory === 'raw' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleCategorySelect('simple')}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
-                  selectedCategory === 'simple'
-                    ? 'bg-primary/10 border-primary shadow-md'
-                    : 'bg-background border-border hover:border-primary/30'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Scissors className="w-5 h-5 text-primary" />
-                  <span className="font-semibold text-sm">단순 재단</span>
-                  {selectedCategory === 'simple' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleCategorySelect('complex')}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
-                  selectedCategory === 'complex'
-                    ? 'bg-primary/10 border-primary shadow-md'
-                    : 'bg-background border-border hover:border-primary/30'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Layers className="w-5 h-5 text-primary" />
-                  <span className="font-semibold text-sm">복합 재단</span>
-                  {selectedCategory === 'complex' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleCategorySelect('full')}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
-                  selectedCategory === 'full'
-                    ? 'bg-primary/10 border-primary shadow-md'
-                    : 'bg-background border-border hover:border-primary/30'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-5 h-5 text-primary" />
-                  <span className="font-semibold text-sm">전체 재단</span>
-                  {selectedCategory === 'full' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleCategorySelect('adhesion')}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
-                  selectedCategory === 'adhesion'
-                    ? 'bg-primary/10 border-primary shadow-md'
-                    : 'bg-background border-border hover:border-primary/30'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Droplet className="w-5 h-5 text-primary" />
-                  <span className="font-semibold text-sm">접착 가공</span>
-                  {selectedCategory === 'adhesion' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleCategorySelect('additional')}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
-                  selectedCategory === 'additional'
-                    ? 'bg-primary/10 border-primary shadow-md'
-                    : 'bg-background border-border hover:border-primary/30'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Settings className="w-5 h-5 text-primary" />
-                  <span className="font-semibold text-sm">추가 옵션</span>
-                  {selectedCategory === 'additional' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
-                </div>
-              </button>
+              {[
+                { key: 'raw', icon: Package, label: '원판 구매' },
+                { key: 'simple', icon: Scissors, label: '단순 재단' },
+                { key: 'complex', icon: Layers, label: '복합 재단' },
+                { key: 'full', icon: Zap, label: '전체 재단' },
+                { key: 'adhesion', icon: Droplet, label: '접착 가공' },
+                { key: 'additional', icon: Settings, label: '추가 옵션' },
+              ].map(({ key, icon: Icon, label }) => (
+                <button
+                  key={key}
+                  onClick={() => handleCategorySelect(key as MainCategory)}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    selectedCategory === key
+                      ? 'bg-primary/10 border-primary shadow-md'
+                      : 'bg-background border-border hover:border-primary/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon className="w-5 h-5 text-primary" />
+                    <span className="font-semibold text-sm">{label}</span>
+                    {selectedCategory === key && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* 로직 공식 영역 - 추가 옵션 제외 */}
+          {/* 선택된 카테고리의 로직 설정 */}
           {selectedCategory && selectedCategory !== 'additional' && (
             <>
               <Separator />
-              <div className="space-y-6">
-                {/* 로직 공식 영역 */}
-                <div>
-                  <div className="mb-4">
-                    <h4 className="text-sm font-semibold flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-primary" />
-                      {selectedCategory === 'raw' && '원판 구매 로직 공식'}
-                      {selectedCategory === 'simple' && '단순 재단 로직 공식'}
-                      {selectedCategory === 'complex' && '복합 재단 로직 공식'}
-                      {selectedCategory === 'full' && '전체 재단 로직 공식'}
-                      {selectedCategory === 'adhesion' && '접착 가공 로직 공식'}
-                    </h4>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      아래 옵션들을 클릭하여 공식에 추가하세요
-                    </p>
-                  </div>
-
-                  {/* 공식 슬롯 */}
-                  <div className="p-6 bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg border-2 border-primary/30">
-                    <div className="flex items-center justify-center gap-3 flex-wrap">
-                      {/* 원판 기본 */}
-                      <div className="px-4 py-2 bg-background rounded-lg border-2 border-border">
-                        <span className="text-sm font-medium">원판 (원판+면수+조색비)</span>
-                      </div>
-
-                      {/* 동적 슬롯 렌더링 */}
-                      {formulaSlots.map((slot, index) => (
-                        <React.Fragment key={index}>
-                          {/* 연산자 - 모두 덧셈 */}
-                          <span className="text-2xl font-bold text-primary">+</span>
-
-                          {/* 슬롯 */}
-                          <div className="relative group">
-                            <div className={`min-w-[180px] px-4 py-3 rounded-lg border-2 transition-all ${
-                              slot 
-                                ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                                : 'bg-background border-dashed border-muted-foreground/30'
-                            }`}>
-                              {slot ? (
-                                <div className="text-center">
-                                  <div className="text-sm font-medium">{slot.name}</div>
-                                  <div className="text-xs mt-1 opacity-80">
-                                    {slot.multiplier !== null && slot.multiplier !== undefined && `×${slot.multiplier}`}
-                                    {slot.base_cost !== null && slot.base_cost !== undefined && `+${slot.base_cost.toLocaleString()}원`}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="text-center text-sm text-muted-foreground">
-                                  선택 {index + 1}
-                                </div>
-                              )}
-                            </div>
-                            {/* 삭제 버튼 */}
-                            <button
-                              onClick={() => removeFormulaSlot(index)}
-                              className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-destructive/90"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </React.Fragment>
-                      ))}
-
-                      {/* 슬롯 추가 버튼 */}
-                      <button
-                        onClick={addFormulaSlot}
-                        className="min-w-[180px] px-4 py-3 rounded-lg border-2 border-dashed border-primary/50 bg-background hover:bg-primary/5 transition-all flex items-center justify-center gap-2 text-primary"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span className="text-sm font-medium">슬롯 추가</span>
-                      </button>
-
-                      {/* 추가 옵션 */}
-                      <span className="text-2xl font-bold text-primary">+</span>
-                      <div className="px-4 py-2 bg-background rounded-lg border-2 border-border">
-                        <span className="text-sm font-medium">추가 옵션</span>
-                      </div>
-
-                      {/* 최종 결과 표시 */}
-                      {formulaSlots.length > 0 && (
-                        <>
-                          <span className="text-2xl font-bold text-primary">=</span>
-                          <div className="px-6 py-3 bg-primary text-primary-foreground rounded-lg border-2 border-primary shadow-lg">
-                            <div className="text-center">
-                              <div className="text-xs opacity-80">최종 로직</div>
-                              <div className="text-sm font-bold mt-1">합산</div>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-primary" />
+                    로직 슬롯 관리
+                  </h4>
+                  <Button 
+                    onClick={() => addSlotToCategory(selectedCategory)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    슬롯 추가
+                  </Button>
                 </div>
 
-                {/* 옵션 선택 영역 */}
-                <div>
-                  <div className="mb-4">
-                    <h4 className="text-sm font-semibold flex items-center gap-2">
-                      <Settings className="w-4 h-4 text-primary" />
-                      옵션 선택 및 관리
-                    </h4>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      각 옵션을 클릭하여 공식 슬롯에 추가하세요
-                    </p>
+                {categorySlots[selectedCategory].length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    슬롯이 없습니다. "슬롯 추가" 버튼을 눌러 시작하세요.
                   </div>
+                ) : (
+                  <div className="space-y-3">
+                    {categorySlots[selectedCategory].map((slot, idx) => (
+                      <div key={idx} className="flex items-center gap-3 p-4 bg-muted/30 rounded-lg">
+                        <div className="w-32">
+                          <Label className="text-xs mb-1">슬롯 타입</Label>
+                          <Select
+                            value={slot.slotType}
+                            onValueChange={(value) => updateSlot(selectedCategory, idx, 'slotType', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="slot1">선택 1</SelectItem>
+                              <SelectItem value="slot2">선택 2</SelectItem>
+                              <SelectItem value="slot3">선택 3</SelectItem>
+                              <SelectItem value="slot4">선택 4</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {getAvailableOptionsForCategory().map(option => {
-                      const isSelected = formulaSlots.some(slot => slot?.id === option.id);
-                      
-                      return (
-                        <Card 
-                          key={option.id} 
-                          className={`relative overflow-hidden border-2 transition-all cursor-pointer ${
-                            isSelected
-                              ? 'border-primary shadow-md'
-                              : 'hover:border-primary/50'
-                          }`}
-                          onClick={() => {
-                            // 빈 슬롯 찾기
-                            const emptySlotIndex = formulaSlots.findIndex(slot => slot === null);
-                            if (emptySlotIndex !== -1) {
-                              updateFormulaSlot(emptySlotIndex, option);
-                            }
-                          }}
+                        <div className="flex-1">
+                          <Label className="text-xs mb-1">옵션 선택</Label>
+                          <Select
+                            value={slot.optionId}
+                            onValueChange={(value) => updateSlot(selectedCategory, idx, 'optionId', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="옵션을 선택하세요" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {getAvailableOptions().map((opt) => (
+                                <SelectItem key={opt.id} value={opt.option_id}>
+                                  {opt.name} ({opt.option_id})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeSlot(selectedCategory, idx)}
+                          className="text-destructive hover:text-destructive"
                         >
-                          <CardHeader className="pb-3">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <CardTitle className="text-base flex items-center gap-2">
-                                  {option.name}
-                                  {!option.is_active && (
-                                    <Badge variant="outline" className="text-xs">비활성</Badge>
-                                  )}
-                                  {isSelected && (
-                                    <CheckCircle2 className="w-4 h-4 text-primary" />
-                                  )}
-                                </CardTitle>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  ID: {option.option_id}
-                                </p>
-                              </div>
-                              {getOptionTypeBadge(option.option_type)}
-                            </div>
-                          </CardHeader>
-                          <CardContent className="space-y-3">
-                            {option.description && (
-                              <p className="text-sm text-muted-foreground line-clamp-2">
-                                {option.description}
-                              </p>
-                            )}
-                            
-                            <div className="grid grid-cols-2 gap-3">
-                              {option.multiplier !== null && option.multiplier !== undefined && (
-                                <div className="p-3 bg-primary/5 rounded-lg">
-                                  <p className="text-xs text-muted-foreground">배수</p>
-                                  <p className="text-lg font-bold text-primary">
-                                    ×{option.multiplier}
-                                  </p>
-                                </div>
-                              )}
-                              {option.base_cost !== null && option.base_cost !== undefined && (
-                                <div className="p-3 bg-secondary/10 rounded-lg">
-                                  <p className="text-xs text-muted-foreground">고정 비용</p>
-                                  <p className="text-lg font-bold">
-                                    {option.base_cost.toLocaleString()}원
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="flex items-center justify-between pt-2 border-t">
-                              <div className="flex items-center gap-2">
-                                <Switch
-                                  checked={option.is_active}
-                                  onCheckedChange={(checked) => {
-                                    updateOption.mutateAsync({
-                                      id: option.id,
-                                      updates: { is_active: checked }
-                                    });
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                                <Label className="text-xs cursor-pointer">
-                                  {option.is_active ? '활성화' : '비활성'}
-                                </Label>
-                              </div>
-                              
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    startEdit(option);
-                                  }}
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete(option.id);
-                                  }}
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-
-                  {/* 슬롯 초기화 버튼 */}
-                  {formulaSlots.length > 0 && (
-                    <div className="mt-4 text-center">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setFormulaSlots([])}
-                      >
-                        <X className="w-4 h-4 mr-2" />
-                        모든 슬롯 초기화
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* 추가 옵션 관리 */}
-          {selectedCategory === 'additional' && (
-            <>
-              <Separator />
-              <div>
-                <div className="mb-4">
-                  <h4 className="text-sm font-semibold">관리할 옵션</h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {getFilteredOptions()
-                    .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
-                    .map((option) => (
-                      <Card key={option.id} className="relative overflow-hidden border-2 hover:border-primary/50 transition-all">
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <CardTitle className="text-base flex items-center gap-2">
-                                {option.name}
-                                {!option.is_active && (
-                                  <Badge variant="outline" className="text-xs">비활성</Badge>
-                                )}
-                              </CardTitle>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                ID: {option.option_id}
-                              </p>
-                            </div>
-                            {getOptionTypeBadge(option.option_type)}
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          {option.description && (
-                            <p className="text-sm text-muted-foreground line-clamp-2">
-                              {option.description}
-                            </p>
-                          )}
-                          
-                          <div className="grid grid-cols-2 gap-3">
-                            {option.multiplier !== null && option.multiplier !== undefined && (
-                              <div className="p-3 bg-primary/5 rounded-lg">
-                                <p className="text-xs text-muted-foreground">배수</p>
-                                <p className="text-lg font-bold text-primary">
-                                  ×{option.multiplier}
-                                </p>
-                              </div>
-                            )}
-                            {option.base_cost !== null && option.base_cost !== undefined && (
-                              <div className="p-3 bg-secondary/10 rounded-lg">
-                                <p className="text-xs text-muted-foreground">고정 비용</p>
-                                <p className="text-lg font-bold">
-                                  {option.base_cost.toLocaleString()}원
-                                </p>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex items-center justify-between pt-2 border-t">
-                            <div className="flex items-center gap-2">
-                              <Switch
-                                checked={option.is_active}
-                                onCheckedChange={(checked) => {
-                                  updateOption.mutateAsync({
-                                    id: option.id,
-                                    updates: { is_active: checked }
-                                  });
-                                }}
-                              />
-                              <Label className="text-xs cursor-pointer">
-                                {option.is_active ? '활성화' : '비활성'}
-                              </Label>
-                            </div>
-                            
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => startEdit(option)}
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(option.id)}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     ))}
-                </div>
+                  </div>
+                )}
+
+                <Button 
+                  onClick={saveCategoryLogic}
+                  className="w-full"
+                  disabled={categorySlots[selectedCategory].length === 0}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  로직 저장 (견적 계산기에 반영)
+                </Button>
               </div>
             </>
           )}
 
-          {!selectedCategory && (
-            <div className="text-center py-12 text-muted-foreground">
-              <Settings className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>카테고리를 선택하여 옵션을 관리하세요.</p>
+          <Separator />
+
+          {/* 전체 옵션 목록 */}
+          <div>
+            <h4 className="text-sm font-semibold mb-4">전체 가공 옵션 목록</h4>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>옵션 ID</TableHead>
+                    <TableHead>이름</TableHead>
+                    <TableHead>카테고리</TableHead>
+                    <TableHead>슬롯 타입</TableHead>
+                    <TableHead className="text-right">기본 비용</TableHead>
+                    <TableHead>활성화</TableHead>
+                    <TableHead className="text-right">작업</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {processingOptions?.map((option) => (
+                    <TableRow key={option.id}>
+                      <TableCell className="font-mono text-xs">{option.option_id}</TableCell>
+                      <TableCell>{option.name}</TableCell>
+                      <TableCell>{getCategoryBadge(option.category)}</TableCell>
+                      <TableCell>{getOptionTypeBadge(option.option_type)}</TableCell>
+                      <TableCell className="text-right">
+                        {option.base_cost ? `${option.base_cost.toLocaleString()}원` : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={option.is_active ? 'default' : 'secondary'}>
+                          {option.is_active ? '활성' : '비활성'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => startEdit(option)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(option.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* 추가 다이얼로그 */}
+      {/* 새 옵션 추가 다이얼로그 */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -768,13 +561,34 @@ const ProcessingOptionsManager = () => {
               새로운 가공 옵션의 정보를 입력하세요.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>카테고리</Label>
+              <div>
+                <Label htmlFor="option_id">옵션 ID *</Label>
+                <Input
+                  id="option_id"
+                  value={newOptionForm.option_id || ''}
+                  onChange={(e) => setNewOptionForm({ ...newOptionForm, option_id: e.target.value })}
+                  placeholder="예: laser-simple"
+                />
+              </div>
+              <div>
+                <Label htmlFor="name">이름 *</Label>
+                <Input
+                  id="name"
+                  value={newOptionForm.name || ''}
+                  onChange={(e) => setNewOptionForm({ ...newOptionForm, name: e.target.value })}
+                  placeholder="예: 레이저 단순 가공"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="category">카테고리</Label>
                 <Select
                   value={newOptionForm.category}
-                  onValueChange={(value: any) => setNewOptionForm({...newOptionForm, category: value})}
+                  onValueChange={(value) => setNewOptionForm({ ...newOptionForm, category: value as ProcessingOptionCategory })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -789,11 +603,11 @@ const ProcessingOptionsManager = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>옵션 타입</Label>
+              <div>
+                <Label htmlFor="option_type">슬롯 타입</Label>
                 <Select
                   value={newOptionForm.option_type}
-                  onValueChange={(value: any) => setNewOptionForm({...newOptionForm, option_type: value})}
+                  onValueChange={(value) => setNewOptionForm({ ...newOptionForm, option_type: value as 'slot1' | 'slot2' | 'slot3' | 'slot4' | 'additional' })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -809,68 +623,42 @@ const ProcessingOptionsManager = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>옵션 ID (고유 식별자)</Label>
-              <Input
-                value={newOptionForm.option_id}
-                onChange={(e) => setNewOptionForm({...newOptionForm, option_id: e.target.value})}
-                placeholder="예: cnc-premium"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>옵션 이름</Label>
-              <Input
-                value={newOptionForm.name}
-                onChange={(e) => setNewOptionForm({...newOptionForm, name: e.target.value})}
-                placeholder="예: CNC 프리미엄 가공"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>설명</Label>
+            <div>
+              <Label htmlFor="description">설명</Label>
               <Textarea
+                id="description"
                 value={newOptionForm.description || ''}
-                onChange={(e) => setNewOptionForm({...newOptionForm, description: e.target.value})}
-                placeholder="가공 옵션에 대한 자세한 설명을 입력하세요"
-                rows={3}
+                onChange={(e) => setNewOptionForm({ ...newOptionForm, description: e.target.value })}
+                placeholder="옵션에 대한 설명을 입력하세요"
               />
             </div>
-            
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>배수 (Multiplier)</Label>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="base_cost">기본 비용 (원)</Label>
                 <Input
-                  type="number"
-                  step="0.1"
-                  value={newOptionForm.multiplier || ''}
-                  onChange={(e) => setNewOptionForm({...newOptionForm, multiplier: e.target.value ? parseFloat(e.target.value) : undefined})}
-                  placeholder="예: 1.5"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>기본 비용</Label>
-                <Input
+                  id="base_cost"
                   type="number"
                   value={newOptionForm.base_cost || ''}
-                  onChange={(e) => setNewOptionForm({...newOptionForm, base_cost: e.target.value ? parseFloat(e.target.value) : undefined})}
-                  placeholder="원 단위"
+                  onChange={(e) => setNewOptionForm({ ...newOptionForm, base_cost: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  placeholder="0"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>표시 순서</Label>
+              <div>
+                <Label htmlFor="display_order">표시 순서</Label>
                 <Input
+                  id="display_order"
                   type="number"
                   value={newOptionForm.display_order || 0}
-                  onChange={(e) => setNewOptionForm({...newOptionForm, display_order: parseInt(e.target.value) || 0})}
+                  onChange={(e) => setNewOptionForm({ ...newOptionForm, display_order: parseInt(e.target.value) || 0 })}
                 />
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <Switch
                 checked={newOptionForm.is_active}
-                onCheckedChange={(checked) => setNewOptionForm({...newOptionForm, is_active: checked})}
+                onCheckedChange={(checked) => setNewOptionForm({ ...newOptionForm, is_active: checked })}
               />
               <Label>활성화</Label>
             </div>
@@ -880,13 +668,13 @@ const ProcessingOptionsManager = () => {
               취소
             </Button>
             <Button onClick={handleAddNew}>
-              추가하기
+              추가
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 수정 다이얼로그 */}
+      {/* 옵션 수정 다이얼로그 */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -895,13 +683,32 @@ const ProcessingOptionsManager = () => {
               가공 옵션의 정보를 수정하세요.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>카테고리</Label>
+              <div>
+                <Label htmlFor="edit_option_id">옵션 ID</Label>
+                <Input
+                  id="edit_option_id"
+                  value={editForm.option_id || ''}
+                  onChange={(e) => setEditForm({ ...editForm, option_id: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_name">이름</Label>
+                <Input
+                  id="edit_name"
+                  value={editForm.name || ''}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit_category">카테고리</Label>
                 <Select
                   value={editForm.category}
-                  onValueChange={(value: any) => setEditForm({...editForm, category: value})}
+                  onValueChange={(value) => setEditForm({ ...editForm, category: value as ProcessingOptionCategory })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -916,11 +723,11 @@ const ProcessingOptionsManager = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>옵션 타입</Label>
+              <div>
+                <Label htmlFor="edit_option_type">슬롯 타입</Label>
                 <Select
                   value={editForm.option_type}
-                  onValueChange={(value: any) => setEditForm({...editForm, option_type: value})}
+                  onValueChange={(value) => setEditForm({ ...editForm, option_type: value as 'slot1' | 'slot2' | 'slot3' | 'slot4' | 'additional' })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -936,68 +743,40 @@ const ProcessingOptionsManager = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>옵션 ID (고유 식별자)</Label>
-              <Input
-                value={editForm.option_id}
-                onChange={(e) => setEditForm({...editForm, option_id: e.target.value})}
-                placeholder="예: cnc-premium"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>옵션 이름</Label>
-              <Input
-                value={editForm.name}
-                onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                placeholder="예: CNC 프리미엄 가공"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>설명</Label>
+            <div>
+              <Label htmlFor="edit_description">설명</Label>
               <Textarea
+                id="edit_description"
                 value={editForm.description || ''}
-                onChange={(e) => setEditForm({...editForm, description: e.target.value})}
-                placeholder="가공 옵션에 대한 자세한 설명을 입력하세요"
-                rows={3}
+                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
               />
             </div>
-            
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>배수 (Multiplier)</Label>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit_base_cost">기본 비용 (원)</Label>
                 <Input
-                  type="number"
-                  step="0.1"
-                  value={editForm.multiplier || ''}
-                  onChange={(e) => setEditForm({...editForm, multiplier: e.target.value ? parseFloat(e.target.value) : undefined})}
-                  placeholder="예: 1.5"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>기본 비용</Label>
-                <Input
+                  id="edit_base_cost"
                   type="number"
                   value={editForm.base_cost || ''}
-                  onChange={(e) => setEditForm({...editForm, base_cost: e.target.value ? parseFloat(e.target.value) : undefined})}
-                  placeholder="원 단위"
+                  onChange={(e) => setEditForm({ ...editForm, base_cost: e.target.value ? parseFloat(e.target.value) : undefined })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label>표시 순서</Label>
+              <div>
+                <Label htmlFor="edit_display_order">표시 순서</Label>
                 <Input
+                  id="edit_display_order"
                   type="number"
                   value={editForm.display_order || 0}
-                  onChange={(e) => setEditForm({...editForm, display_order: parseInt(e.target.value) || 0})}
+                  onChange={(e) => setEditForm({ ...editForm, display_order: parseInt(e.target.value) || 0 })}
                 />
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <Switch
                 checked={editForm.is_active}
-                onCheckedChange={(checked) => setEditForm({...editForm, is_active: checked})}
+                onCheckedChange={(checked) => setEditForm({ ...editForm, is_active: checked })}
               />
               <Label>활성화</Label>
             </div>
@@ -1014,19 +793,17 @@ const ProcessingOptionsManager = () => {
       </Dialog>
 
       {/* 삭제 확인 다이얼로그 */}
-      <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
+      <AlertDialog open={deleteConfirmId !== null} onOpenChange={() => setDeleteConfirmId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>정말로 삭제하시겠습니까?</AlertDialogTitle>
+            <AlertDialogTitle>정말 삭제하시겠습니까?</AlertDialogTitle>
             <AlertDialogDescription>
-              이 작업은 되돌릴 수 없습니다. 가공 옵션이 영구적으로 삭제됩니다.
+              이 작업은 되돌릴 수 없습니다. 이 가공 옵션이 영구적으로 삭제됩니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              삭제
-            </AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete}>삭제</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
