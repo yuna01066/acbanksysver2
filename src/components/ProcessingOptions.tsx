@@ -365,7 +365,14 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <Zap className="w-5 h-5 text-primary" />
-                    <span className="font-semibold">레이저 {mainCategory === 'simple' ? '단순' : mainCategory === 'complex' ? '복합' : '전체'} 가공</span>
+                    <span className="font-semibold">
+                      레이저 {
+                        mainCategory === 'simple' ? '단순' : 
+                        mainCategory === 'complex' ? '복합' : 
+                        mainCategory === 'full' ? '전체' :
+                        mainCategory === 'adhesion' ? '복합' : ''
+                      } 가공
+                    </span>
                     {processingMethod === 'laser' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -383,7 +390,14 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <Layers className="w-5 h-5 text-primary" />
-                    <span className="font-semibold">CNC {mainCategory === 'simple' ? '단순' : mainCategory === 'complex' ? '복합' : '전체'} 가공</span>
+                    <span className="font-semibold">
+                      CNC {
+                        mainCategory === 'simple' ? '단순' : 
+                        mainCategory === 'complex' ? '복합' : 
+                        mainCategory === 'full' ? '전체' :
+                        mainCategory === 'adhesion' ? '복합' : ''
+                      } 가공
+                    </span>
                     {processingMethod === 'cnc' && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
                   </div>
                   <p className="text-xs text-muted-foreground">
