@@ -75,15 +75,32 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
     enabled: !!panelMaster?.id,
   });
 
-  // 검색 필터링
-  const filteredColors = colors?.filter(color => {
+  // 검색 필터링 및 카테고리 분리
+  const [activeTab, setActiveTab] = React.useState<'A' | 'B'>('A');
+  
+  const categoryAColors = colors?.filter(color => {
+    const acCode = color.color_name.split(' ')[0];
+    const lastDigit = acCode.charAt(acCode.length - 1);
+    return ['1', '2', '3', '4'].includes(lastDigit);
+  }) || [];
+
+  const categoryBColors = colors?.filter(color => {
+    const acCode = color.color_name.split(' ')[0];
+    const lastDigit = acCode.charAt(acCode.length - 1);
+    return ['6', '7', '8', '9'].includes(lastDigit);
+  }) || [];
+
+  const displayColors = activeTab === 'A' ? categoryAColors : categoryBColors;
+  
+  const filteredColors = displayColors.filter(color => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
+    const acCode = color.color_name.split(' ')[0] || '';
     return (
-      color.color_name.toLowerCase().includes(search) ||
-      color.color_code.toLowerCase().includes(search)
+      acCode.toLowerCase().includes(search) ||
+      color.color_code?.toLowerCase().includes(search)
     );
-  }) || [];
+  });
 
   const handleCustomColorApply = () => {
     if (!customColorName.trim()) {
@@ -215,6 +232,30 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
         </Dialog>
       </div>
 
+      {/* A/B 카테고리 탭 */}
+      <div className="flex gap-2 border-b mb-4">
+        <button
+          onClick={() => setActiveTab('A')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeTab === 'A'
+              ? 'border-b-2 border-primary text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          카테고리 A ({categoryAColors.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('B')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeTab === 'B'
+              ? 'border-b-2 border-primary text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          카테고리 B ({categoryBColors.length})
+        </button>
+      </div>
+
       {/* 색상 그리드 */}
       <div className="space-y-4">
         {filteredColors.length > 0 ? (
@@ -222,13 +263,12 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
             {filteredColors.map((color) => {
               const isSelected = selectedColor === color.id;
               const acCode = color.color_name.split(' ')[0] || '';
-              const colorName = color.color_name.split(' ').slice(1).join(' ') || color.color_name;
               
               return (
                 <div
                   key={color.id}
                   className="relative group cursor-pointer"
-                  onClick={() => onColorSelect(color.id, { acCode, hexCode: color.color_code })}
+                  onClick={() => onColorSelect(color.id, { acCode, hexCode: color.color_code || '' })}
                 >
                   <div className={`aspect-square rounded-lg border-2 transition-all ${
                     isSelected 
@@ -245,7 +285,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                       {acCode}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
-                      {colorName}
+                      {color.color_code}
                     </div>
                   </div>
                 </div>
@@ -255,7 +295,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
         ) : (
           <div className="text-center py-12 bg-muted/50 rounded-lg">
             <p className="text-muted-foreground">
-              {searchTerm ? '검색 결과가 없습니다.' : '등록된 컬러가 없습니다.'}
+              {searchTerm ? '검색 결과가 없습니다.' : `카테고리 ${activeTab}에 등록된 컬러가 없습니다.`}
             </p>
           </div>
         )}
