@@ -48,7 +48,7 @@ const ProcessingOptionsManager = () => {
   const [editingOption, setEditingOption] = useState<ProcessingOption | null>(null);
   const [editForm, setEditForm] = useState<Partial<ProcessingOption>>({});
   const [newOptionForm, setNewOptionForm] = useState<Partial<ProcessingOption>>({
-    option_type: 'processing',
+    option_type: 'slot1',
     name: '',
     description: '',
     option_id: '',
@@ -113,7 +113,7 @@ const ProcessingOptionsManager = () => {
     await createOption.mutateAsync(newOptionForm as Omit<ProcessingOption, 'id'>);
     setIsAddDialogOpen(false);
     setNewOptionForm({
-      option_type: 'processing',
+      option_type: 'slot1',
       name: '',
       description: '',
       option_id: '',
@@ -161,15 +161,11 @@ const ProcessingOptionsManager = () => {
     
     return processingOptions?.filter(option => {
       if (selectedCategory === 'raw') {
-        return option.option_type === 'raw';
+        return option.option_type === 'slot1';
       } else if (selectedCategory === 'cutting') {
-        return option.option_type === 'processing' && 
-               (option.option_id.includes('simple') || 
-                option.option_id.includes('complex') || 
-                option.option_id.includes('full'));
+        return option.option_type === 'slot2';
       } else if (selectedCategory === 'adhesion') {
-        return option.option_type === 'processing' && option.option_id.includes('complex') ||
-               option.option_type === 'adhesion';
+        return option.option_type === 'slot3';
       } else if (selectedCategory === 'additional') {
         return option.option_type === 'additional';
       }
@@ -182,19 +178,11 @@ const ProcessingOptionsManager = () => {
     
     return processingOptions?.filter(option => {
       if (selectedCategory === 'raw') {
-        return option.option_type === 'raw';
+        return option.option_type === 'slot1';
       } else if (selectedCategory === 'cutting') {
-        if (!selectedCuttingType || !selectedMethod) return false;
-        const expectedId = `${selectedMethod}-${selectedCuttingType}`;
-        return option.option_type === 'processing' && option.option_id === expectedId;
+        return option.option_type === 'slot2';
       } else if (selectedCategory === 'adhesion') {
-        if (!selectedMethod || !selectedAngle || !selectedAdhesionType) return false;
-        const methodPart = selectedMethod;
-        const anglePart = selectedAngle === '45' ? '45' : '90';
-        const typePart = selectedAdhesionType === 'normal' ? 'normal' : 'mugipo';
-        
-        return option.option_type === 'processing' && option.option_id === `${methodPart}-complex` ||
-               option.option_type === 'adhesion' && option.option_id === `${anglePart}-${typePart}`;
+        return option.option_type === 'slot3';
       } else if (selectedCategory === 'additional') {
         return option.option_type === 'additional';
       }
@@ -204,10 +192,11 @@ const ProcessingOptionsManager = () => {
 
   const getOptionTypeBadge = (type: string) => {
     const variants: Record<string, { label: string; variant: any }> = {
+      slot1: { label: '선택 1', variant: 'default' },
+      slot2: { label: '선택 2', variant: 'secondary' },
+      slot3: { label: '선택 3', variant: 'outline' },
+      slot4: { label: '선택 4', variant: 'destructive' },
       additional: { label: '추가 옵션', variant: 'default' },
-      processing: { label: '재단', variant: 'secondary' },
-      adhesion: { label: '접착', variant: 'outline' },
-      raw: { label: '원판', variant: 'destructive' },
     };
     const config = variants[type] || { label: type, variant: 'default' };
     return <Badge variant={config.variant}>{config.label}</Badge>;
@@ -938,9 +927,10 @@ const ProcessingOptionsManager = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="raw">원판</SelectItem>
-                    <SelectItem value="processing">재단</SelectItem>
-                    <SelectItem value="adhesion">접착</SelectItem>
+                    <SelectItem value="slot1">선택 1</SelectItem>
+                    <SelectItem value="slot2">선택 2</SelectItem>
+                    <SelectItem value="slot3">선택 3</SelectItem>
+                    <SelectItem value="slot4">선택 4</SelectItem>
                     <SelectItem value="additional">추가 옵션</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1044,9 +1034,10 @@ const ProcessingOptionsManager = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="raw">원판</SelectItem>
-                    <SelectItem value="processing">재단</SelectItem>
-                    <SelectItem value="adhesion">접착</SelectItem>
+                    <SelectItem value="slot1">선택 1</SelectItem>
+                    <SelectItem value="slot2">선택 2</SelectItem>
+                    <SelectItem value="slot3">선택 3</SelectItem>
+                    <SelectItem value="slot4">선택 4</SelectItem>
                     <SelectItem value="additional">추가 옵션</SelectItem>
                   </SelectContent>
                 </Select>
