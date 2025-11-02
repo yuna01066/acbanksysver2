@@ -75,7 +75,6 @@ const ProcessingOptionsManager = () => {
     label: '',
     title: '',
     description: '',
-    display_order: 0,
     is_active: true
   });
   const [deleteSlotConfirmId, setDeleteSlotConfirmId] = useState<string | null>(null);
@@ -439,7 +438,6 @@ const ProcessingOptionsManager = () => {
                       <TableHead>레이블</TableHead>
                       <TableHead>제목 (계산기)</TableHead>
                       <TableHead>설명 (계산기)</TableHead>
-                      <TableHead>순서</TableHead>
                       <TableHead>활성화</TableHead>
                       <TableHead className="text-right">작업</TableHead>
                     </TableRow>
@@ -455,7 +453,6 @@ const ProcessingOptionsManager = () => {
                         <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
                           {slot.description || '-'}
                         </TableCell>
-                        <TableCell>{slot.display_order}</TableCell>
                         <TableCell>
                           <Badge variant={slot.is_active ? 'default' : 'secondary'}>
                             {slot.is_active ? '활성' : '비활성'}
@@ -779,15 +776,6 @@ const ProcessingOptionsManager = () => {
                 placeholder="추가적인 가공 옵션을 선택하세요"
               />
             </div>
-            <div>
-              <Label htmlFor="display_order">표시 순서</Label>
-              <Input
-                id="display_order"
-                type="number"
-                value={newSlotForm.display_order || 0}
-                onChange={(e) => setNewSlotForm({ ...newSlotForm, display_order: parseInt(e.target.value) || 0 })}
-              />
-            </div>
             <div className="flex items-center gap-2">
               <Switch
                 checked={newSlotForm.is_active}
@@ -848,15 +836,6 @@ const ProcessingOptionsManager = () => {
                 id="edit_description"
                 value={editSlotForm.description || ''}
                 onChange={(e) => setEditSlotForm({ ...editSlotForm, description: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit_display_order">표시 순서</Label>
-              <Input
-                id="edit_display_order"
-                type="number"
-                value={editSlotForm.display_order || 0}
-                onChange={(e) => setEditSlotForm({ ...editSlotForm, display_order: parseInt(e.target.value) || 0 })}
               />
             </div>
             <div className="flex items-center gap-2">
