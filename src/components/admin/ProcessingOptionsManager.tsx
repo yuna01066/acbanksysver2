@@ -11,6 +11,7 @@ import { Pencil, Save, X, Trash2, Plus, Package, Scissors, Droplet, Settings, Ch
 import { useProcessingOptions, ProcessingOption } from "@/hooks/useProcessingOptions";
 import { useAdvancedProcessingSettings, AdvancedProcessingSetting } from "@/hooks/useAdvancedProcessingSettings";
 import { useSlotTypes, SlotType } from "@/hooks/useSlotTypes";
+import { useCategoryLogic } from "@/hooks/useCategoryLogic";
 import { Badge } from "@/components/ui/badge";
 import { 
   AlertDialog,
@@ -45,6 +46,7 @@ const ProcessingOptionsManager = () => {
   const { processingOptions, isLoading, updateOption, deleteOption, createOption } = useProcessingOptions();
   const { settings: advancedSettings, isLoading: isLoadingAdvanced, updateSetting } = useAdvancedProcessingSettings();
   const { slotTypes, isLoading: isLoadingSlots, updateSlotType, createSlotType, deleteSlotType } = useSlotTypes();
+  const { categoryLogic, isLoading: isLoadingLogic, getCategorySlots, saveCategoryLogic: saveCategoryLogicMutation } = useCategoryLogic();
   const { toast } = useToast();
   
   const [editingSettingId, setEditingSettingId] = useState<string | null>(null);
@@ -87,6 +89,30 @@ const ProcessingOptionsManager = () => {
     adhesion: [],
     additional: []
   });
+
+  // 로직 데이터가 로드되면 상태에 반영
+  React.useEffect(() => {
+    if (categoryLogic) {
+      const newCategorySlots: Record<MainCategory, SlotConfig[]> = {
+        raw: [],
+        simple: [],
+        complex: [],
+        full: [],
+        adhesion: [],
+        additional: []
+      };
+
+      categoryLogic.forEach(slot => {
+        if (newCategorySlots[slot.category as MainCategory]) {
+          newCategorySlots[slot.category as MainCategory].push({
+            slotKey: slot.slot_key
+          });
+        }
+      });
+
+      setCategorySlots(newCategorySlots);
+    }
+  }, [categoryLogic]);
 
   const startEdit = (option: ProcessingOption) => {
     setEditingOption(option);
@@ -263,18 +289,10 @@ const ProcessingOptionsManager = () => {
   const saveCategoryLogic = async () => {
     if (!selectedCategory) return;
 
-    try {
-      toast({
-        title: '저장 완료',
-        description: '카테고리 로직이 저장되었습니다.',
-      });
-    } catch (error) {
-      toast({
-        title: '저장 실패',
-        description: '로직 저장에 실패했습니다.',
-        variant: 'destructive',
-      });
-    }
+    await saveCategoryLogicMutation.mutateAsync({
+      category: selectedCategory,
+      slots: categorySlots[selectedCategory]
+    });
   };
 
   const getAvailableOptions = () => {
@@ -300,7 +318,7 @@ const ProcessingOptionsManager = () => {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  if (isLoading || isLoadingAdvanced || isLoadingSlots) {
+  if (isLoading || isLoadingAdvanced || isLoadingSlots || isLoadingLogic) {
     return <div className="p-8 text-center">로딩 중...</div>;
   }
 

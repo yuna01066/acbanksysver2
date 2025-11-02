@@ -85,6 +85,33 @@ export type Database = {
         }
         Relationships: []
       }
+      category_logic_slots: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          slot_key: string
+          slot_order: number
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          slot_key: string
+          slot_order: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          slot_key?: string
+          slot_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       color_mixing_costs: {
         Row: {
           cost: number
