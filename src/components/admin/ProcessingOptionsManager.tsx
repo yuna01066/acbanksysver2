@@ -62,7 +62,8 @@ const ProcessingOptionsManager = () => {
     option_id: '',
     multiplier: undefined,
     base_cost: undefined,
-    is_active: true
+    is_active: true,
+    applicable_thicknesses: ['3T', '5T', '6T', '8T', '10T', '12T', '15T', '18T', '20T']
   });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   
@@ -166,7 +167,8 @@ const ProcessingOptionsManager = () => {
       option_id: '',
       multiplier: undefined,
       base_cost: undefined,
-      is_active: true
+      is_active: true,
+      applicable_thicknesses: ['3T', '5T', '6T', '8T', '10T', '12T', '15T', '18T', '20T']
     });
   };
 
@@ -683,6 +685,7 @@ const ProcessingOptionsManager = () => {
                             <TableRow>
                               <TableHead>옵션 ID</TableHead>
                               <TableHead>이름</TableHead>
+                              <TableHead>적용 두께</TableHead>
                               <TableHead>설명</TableHead>
                               <TableHead className="text-right">배수</TableHead>
                               <TableHead className="text-right">기본 비용</TableHead>
@@ -695,6 +698,19 @@ const ProcessingOptionsManager = () => {
                               <TableRow key={option.id}>
                                 <TableCell className="font-mono text-xs">{option.option_id}</TableCell>
                                 <TableCell className="font-medium">{option.name}</TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap gap-1">
+                                    {option.applicable_thicknesses && option.applicable_thicknesses.length > 0 ? (
+                                      option.applicable_thicknesses.map(t => (
+                                        <Badge key={t} variant="outline" className="text-xs">
+                                          {t}
+                                        </Badge>
+                                      ))
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">모든 두께</span>
+                                    )}
+                                  </div>
+                                </TableCell>
                                 <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
                                   {option.description || '-'}
                                 </TableCell>
@@ -956,6 +972,42 @@ const ProcessingOptionsManager = () => {
               </div>
             </div>
 
+            <div>
+              <Label>적용 가능한 두께</Label>
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {['3T', '5T', '6T', '8T', '10T', '12T', '15T', '18T', '20T'].map((thickness) => (
+                  <div key={thickness} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id={`new-thickness-${thickness}`}
+                      checked={newOptionForm.applicable_thicknesses?.includes(thickness) || false}
+                      onChange={(e) => {
+                        const currentThicknesses = newOptionForm.applicable_thicknesses || [];
+                        if (e.target.checked) {
+                          setNewOptionForm({
+                            ...newOptionForm,
+                            applicable_thicknesses: [...currentThicknesses, thickness]
+                          });
+                        } else {
+                          setNewOptionForm({
+                            ...newOptionForm,
+                            applicable_thicknesses: currentThicknesses.filter(t => t !== thickness)
+                          });
+                        }
+                      }}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor={`new-thickness-${thickness}`} className="text-sm font-normal cursor-pointer">
+                      {thickness}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                이 옵션이 적용 가능한 원판 두께를 선택하세요
+              </p>
+            </div>
+
             <div className="flex items-center gap-2">
               <Switch
                 checked={newOptionForm.is_active}
@@ -1055,6 +1107,42 @@ const ProcessingOptionsManager = () => {
                 />
                 <p className="text-xs text-muted-foreground mt-1">고정 추가 비용</p>
               </div>
+            </div>
+
+            <div>
+              <Label>적용 가능한 두께</Label>
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {['3T', '5T', '6T', '8T', '10T', '12T', '15T', '18T', '20T'].map((thickness) => (
+                  <div key={thickness} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id={`edit-thickness-${thickness}`}
+                      checked={editForm.applicable_thicknesses?.includes(thickness) || false}
+                      onChange={(e) => {
+                        const currentThicknesses = editForm.applicable_thicknesses || [];
+                        if (e.target.checked) {
+                          setEditForm({
+                            ...editForm,
+                            applicable_thicknesses: [...currentThicknesses, thickness]
+                          });
+                        } else {
+                          setEditForm({
+                            ...editForm,
+                            applicable_thicknesses: currentThicknesses.filter(t => t !== thickness)
+                          });
+                        }
+                      }}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor={`edit-thickness-${thickness}`} className="text-sm font-normal cursor-pointer">
+                      {thickness}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                이 옵션이 적용 가능한 원판 두께를 선택하세요
+              </p>
             </div>
 
             <div className="flex items-center gap-2">

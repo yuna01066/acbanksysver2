@@ -76,6 +76,14 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     return slots;
   };
 
+  // 옵션이 선택된 두께에 적용 가능한지 확인
+  const isOptionApplicable = (option: any): boolean => {
+    if (!option.applicable_thicknesses || option.applicable_thicknesses.length === 0) {
+      return true; // 두께 제한이 없으면 항상 적용 가능
+    }
+    return option.applicable_thicknesses.includes(selectedThickness);
+  };
+
   // 메인 카테고리 선택
   const handleMainCategorySelect = (category: MainCategory) => {
     setMainCategory(category);
@@ -188,32 +196,43 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {options.map((option) => (
-                      <button
-                        key={option.id}
-                        onClick={() => handleSlotSelect(slotType, option.option_id)}
-                        className={`p-4 rounded-lg border-2 transition-all text-left ${
-                          selectedSlots[slotType] === option.option_id
-                            ? 'bg-primary/10 border-primary shadow-md'
-                            : 'bg-background border-border hover:border-primary/30'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-semibold">{option.name}</span>
-                          {selectedSlots[slotType] === option.option_id && (
-                            <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
+                    {options.map((option) => {
+                      const isApplicable = isOptionApplicable(option);
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => isApplicable && handleSlotSelect(slotType, option.option_id)}
+                          disabled={!isApplicable}
+                          className={`p-4 rounded-lg border-2 transition-all text-left ${
+                            !isApplicable
+                              ? 'bg-muted/50 border-muted cursor-not-allowed opacity-50'
+                              : selectedSlots[slotType] === option.option_id
+                              ? 'bg-primary/10 border-primary shadow-md'
+                              : 'bg-background border-border hover:border-primary/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-semibold">{option.name}</span>
+                            {!isApplicable && (
+                              <Badge variant="destructive" className="text-xs">
+                                {selectedThickness} 불가
+                              </Badge>
+                            )}
+                            {selectedSlots[slotType] === option.option_id && isApplicable && (
+                              <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
+                            )}
+                          </div>
+                          {option.description && (
+                            <p className="text-xs text-muted-foreground">{option.description}</p>
                           )}
-                        </div>
-                        {option.description && (
-                          <p className="text-xs text-muted-foreground">{option.description}</p>
-                        )}
-                        {option.base_cost && (
-                          <p className="text-xs text-primary font-semibold mt-1">
-                            +{option.base_cost.toLocaleString()}원
-                          </p>
-                        )}
-                      </button>
-                    ))}
+                          {option.base_cost && (
+                            <p className="text-xs text-primary font-semibold mt-1">
+                              +{option.base_cost.toLocaleString()}원
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>

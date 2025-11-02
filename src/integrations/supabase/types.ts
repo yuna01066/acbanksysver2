@@ -267,6 +267,7 @@ export type Database = {
       }
       processing_options: {
         Row: {
+          applicable_thicknesses: string[] | null
           base_cost: number | null
           category:
             | Database["public"]["Enums"]["processing_option_category"]
@@ -283,6 +284,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          applicable_thicknesses?: string[] | null
           base_cost?: number | null
           category?:
             | Database["public"]["Enums"]["processing_option_category"]
@@ -299,6 +301,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          applicable_thicknesses?: string[] | null
           base_cost?: number | null
           category?:
             | Database["public"]["Enums"]["processing_option_category"]
