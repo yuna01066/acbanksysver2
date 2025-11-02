@@ -634,110 +634,359 @@ const ProcessingOptionsManager = () => {
                   <div className="mb-4">
                     <h4 className="text-sm font-semibold flex items-center gap-2">
                       <Settings className="w-4 h-4 text-primary" />
-                      옵션 선택
+                      옵션 선택 및 관리
                     </h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      각 카테고리에서 옵션을 선택하여 공식에 적용하세요
+                      각 옵션을 선택하여 공식에 적용하고 관리할 수 있습니다
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-6">
                     {/* 가공방식 옵션 */}
-                    <div className="space-y-2">
-                      <h5 className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1">
-                        <Zap className="w-3 h-3" />
+                    <div>
+                      <h5 className="text-sm font-medium mb-3 flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-primary" />
                         가공방식
                       </h5>
-                      <div className="space-y-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {processingOptions?.filter(opt => 
                           opt.option_type === 'processing' && 
                           opt.option_id.includes('complex')
                         ).map(option => (
-                          <button
-                            key={option.id}
+                          <Card 
+                            key={option.id} 
+                            className={`relative overflow-hidden border-2 transition-all cursor-pointer ${
+                              selectedMethod === (option.option_id.includes('laser') ? 'laser' : 'cnc')
+                                ? 'border-primary shadow-md'
+                                : 'hover:border-primary/50'
+                            }`}
                             onClick={() => setSelectedMethod(
                               option.option_id.includes('laser') ? 'laser' : 'cnc'
                             )}
-                            className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
-                              selectedMethod === (option.option_id.includes('laser') ? 'laser' : 'cnc')
-                                ? 'bg-primary/10 border-primary'
-                                : 'bg-card border-border hover:border-primary/50'
-                            }`}
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">{option.name}</span>
-                              <Badge variant="outline">×{option.multiplier}</Badge>
-                            </div>
-                          </button>
+                            <CardHeader className="pb-3">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <CardTitle className="text-base flex items-center gap-2">
+                                    {option.name}
+                                    {!option.is_active && (
+                                      <Badge variant="outline" className="text-xs">비활성</Badge>
+                                    )}
+                                    {selectedMethod === (option.option_id.includes('laser') ? 'laser' : 'cnc') && (
+                                      <CheckCircle2 className="w-4 h-4 text-primary" />
+                                    )}
+                                  </CardTitle>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    ID: {option.option_id}
+                                  </p>
+                                </div>
+                                {getOptionTypeBadge(option.option_type)}
+                              </div>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                              {option.description && (
+                                <p className="text-sm text-muted-foreground line-clamp-2">
+                                  {option.description}
+                                </p>
+                              )}
+                              
+                              <div className="grid grid-cols-2 gap-3">
+                                {option.multiplier !== null && option.multiplier !== undefined && (
+                                  <div className="p-3 bg-primary/5 rounded-lg">
+                                    <p className="text-xs text-muted-foreground">배수</p>
+                                    <p className="text-lg font-bold text-primary">
+                                      ×{option.multiplier}
+                                    </p>
+                                  </div>
+                                )}
+                                {option.base_cost !== null && option.base_cost !== undefined && (
+                                  <div className="p-3 bg-secondary/10 rounded-lg">
+                                    <p className="text-xs text-muted-foreground">고정 비용</p>
+                                    <p className="text-lg font-bold">
+                                      {option.base_cost.toLocaleString()}원
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex items-center justify-between pt-2 border-t">
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    checked={option.is_active}
+                                    onCheckedChange={(checked) => {
+                                      updateOption.mutateAsync({
+                                        id: option.id,
+                                        updates: { is_active: checked }
+                                      });
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                  <Label className="text-xs cursor-pointer">
+                                    {option.is_active ? '활성화' : '비활성'}
+                                  </Label>
+                                </div>
+                                
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      startEdit(option);
+                                    }}
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDelete(option.id);
+                                    }}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
                         ))}
                       </div>
                     </div>
 
                     {/* 접착각도 옵션 */}
-                    <div className="space-y-2">
-                      <h5 className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1">
-                        <Droplet className="w-3 h-3" />
+                    <div>
+                      <h5 className="text-sm font-medium mb-3 flex items-center gap-2">
+                        <Droplet className="w-4 h-4 text-primary" />
                         접착각도
                       </h5>
-                      <div className="space-y-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {processingOptions?.filter(opt => 
                           opt.option_type === 'adhesion' && 
                           (opt.option_id.startsWith('45') || opt.option_id.startsWith('90'))
                         ).filter((opt, index, self) => 
                           index === self.findIndex(o => o.option_id.startsWith(opt.option_id.split('-')[0]))
                         ).map(option => (
-                          <button
-                            key={option.id}
+                          <Card 
+                            key={option.id} 
+                            className={`relative overflow-hidden border-2 transition-all cursor-pointer ${
+                              selectedAngle === (option.option_id.startsWith('45') ? '45' : '90')
+                                ? 'border-primary shadow-md'
+                                : 'hover:border-primary/50'
+                            }`}
                             onClick={() => setSelectedAngle(
                               option.option_id.startsWith('45') ? '45' : '90'
                             )}
-                            className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
-                              selectedAngle === (option.option_id.startsWith('45') ? '45' : '90')
-                                ? 'bg-primary/10 border-primary'
-                                : 'bg-card border-border hover:border-primary/50'
-                            }`}
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">
-                                {option.option_id.startsWith('45') ? '45도' : '90도'} 접착
-                              </span>
-                              <Badge variant="outline">×{option.multiplier}</Badge>
-                            </div>
-                          </button>
+                            <CardHeader className="pb-3">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <CardTitle className="text-base flex items-center gap-2">
+                                    {option.option_id.startsWith('45') ? '45도' : '90도'} 접착
+                                    {!option.is_active && (
+                                      <Badge variant="outline" className="text-xs">비활성</Badge>
+                                    )}
+                                    {selectedAngle === (option.option_id.startsWith('45') ? '45' : '90') && (
+                                      <CheckCircle2 className="w-4 h-4 text-primary" />
+                                    )}
+                                  </CardTitle>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    ID: {option.option_id}
+                                  </p>
+                                </div>
+                                {getOptionTypeBadge(option.option_type)}
+                              </div>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                              {option.description && (
+                                <p className="text-sm text-muted-foreground line-clamp-2">
+                                  {option.description}
+                                </p>
+                              )}
+                              
+                              <div className="grid grid-cols-2 gap-3">
+                                {option.multiplier !== null && option.multiplier !== undefined && (
+                                  <div className="p-3 bg-primary/5 rounded-lg">
+                                    <p className="text-xs text-muted-foreground">배수</p>
+                                    <p className="text-lg font-bold text-primary">
+                                      ×{option.multiplier}
+                                    </p>
+                                  </div>
+                                )}
+                                {option.base_cost !== null && option.base_cost !== undefined && (
+                                  <div className="p-3 bg-secondary/10 rounded-lg">
+                                    <p className="text-xs text-muted-foreground">고정 비용</p>
+                                    <p className="text-lg font-bold">
+                                      {option.base_cost.toLocaleString()}원
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex items-center justify-between pt-2 border-t">
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    checked={option.is_active}
+                                    onCheckedChange={(checked) => {
+                                      updateOption.mutateAsync({
+                                        id: option.id,
+                                        updates: { is_active: checked }
+                                      });
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                  <Label className="text-xs cursor-pointer">
+                                    {option.is_active ? '활성화' : '비활성'}
+                                  </Label>
+                                </div>
+                                
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      startEdit(option);
+                                    }}
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDelete(option.id);
+                                    }}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
                         ))}
                       </div>
                     </div>
 
                     {/* 접착타입 옵션 */}
-                    <div className="space-y-2">
-                      <h5 className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1">
-                        <Sparkles className="w-3 h-3" />
-                        접착타입
-                      </h5>
-                      <div className="space-y-2">
-                        {selectedAngle && processingOptions?.filter(opt => 
-                          opt.option_type === 'adhesion' && 
-                          opt.option_id.startsWith(selectedAngle)
-                        ).map(option => (
-                          <button
-                            key={option.id}
-                            onClick={() => setSelectedAdhesionType(
-                              option.option_id.includes('normal') ? 'normal' : 'bubble-free'
-                            )}
-                            className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
-                              selectedAdhesionType === (option.option_id.includes('normal') ? 'normal' : 'bubble-free')
-                                ? 'bg-primary/10 border-primary'
-                                : 'bg-card border-border hover:border-primary/50'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">{option.name}</span>
-                              <Badge variant="outline">×{option.multiplier}</Badge>
-                            </div>
-                          </button>
-                        ))}
+                    {selectedAngle && (
+                      <div>
+                        <h5 className="text-sm font-medium mb-3 flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          접착타입
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {processingOptions?.filter(opt => 
+                            opt.option_type === 'adhesion' && 
+                            opt.option_id.startsWith(selectedAngle)
+                          ).map(option => (
+                            <Card 
+                              key={option.id} 
+                              className={`relative overflow-hidden border-2 transition-all cursor-pointer ${
+                                selectedAdhesionType === (option.option_id.includes('normal') ? 'normal' : 'bubble-free')
+                                  ? 'border-primary shadow-md'
+                                  : 'hover:border-primary/50'
+                              }`}
+                              onClick={() => setSelectedAdhesionType(
+                                option.option_id.includes('normal') ? 'normal' : 'bubble-free'
+                              )}
+                            >
+                              <CardHeader className="pb-3">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                      {option.name}
+                                      {!option.is_active && (
+                                        <Badge variant="outline" className="text-xs">비활성</Badge>
+                                      )}
+                                      {selectedAdhesionType === (option.option_id.includes('normal') ? 'normal' : 'bubble-free') && (
+                                        <CheckCircle2 className="w-4 h-4 text-primary" />
+                                      )}
+                                    </CardTitle>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      ID: {option.option_id}
+                                    </p>
+                                  </div>
+                                  {getOptionTypeBadge(option.option_type)}
+                                </div>
+                              </CardHeader>
+                              <CardContent className="space-y-3">
+                                {option.description && (
+                                  <p className="text-sm text-muted-foreground line-clamp-2">
+                                    {option.description}
+                                  </p>
+                                )}
+                                
+                                <div className="grid grid-cols-2 gap-3">
+                                  {option.multiplier !== null && option.multiplier !== undefined && (
+                                    <div className="p-3 bg-primary/5 rounded-lg">
+                                      <p className="text-xs text-muted-foreground">배수</p>
+                                      <p className="text-lg font-bold text-primary">
+                                        ×{option.multiplier}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {option.base_cost !== null && option.base_cost !== undefined && (
+                                    <div className="p-3 bg-secondary/10 rounded-lg">
+                                      <p className="text-xs text-muted-foreground">고정 비용</p>
+                                      <p className="text-lg font-bold">
+                                        {option.base_cost.toLocaleString()}원
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center justify-between pt-2 border-t">
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      checked={option.is_active}
+                                      onCheckedChange={(checked) => {
+                                        updateOption.mutateAsync({
+                                          id: option.id,
+                                          updates: { is_active: checked }
+                                        });
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                    <Label className="text-xs cursor-pointer">
+                                      {option.is_active ? '활성화' : '비활성'}
+                                    </Label>
+                                  </div>
+                                  
+                                  <div className="flex gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        startEdit(option);
+                                      }}
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDelete(option.id);
+                                      }}
+                                      className="text-destructive hover:text-destructive"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
