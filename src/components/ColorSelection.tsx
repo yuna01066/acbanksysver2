@@ -54,7 +54,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
 
   // DB에서 컬러 옵션 조회
   const { data: colors, isLoading } = useQuery({
-    queryKey: ['color-options-for-selection', panelMaster?.id],
+    queryKey: ['color-options', panelMaster?.id],
     queryFn: async () => {
       if (!panelMaster?.id) return [];
       
@@ -73,6 +73,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
       return data as ColorOption[];
     },
     enabled: !!panelMaster?.id,
+    refetchOnWindowFocus: true, // 윈도우 포커스 시 자동 새로고침
   });
 
   // 검색 필터링 및 카테고리 분리
