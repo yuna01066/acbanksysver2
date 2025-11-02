@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -7,311 +9,21 @@ import { Search, Palette } from "lucide-react";
 
 interface ColorOption {
   id: string;
-  name: string;
-  acCode: string;
-  hexCode: string;
-  category: 'clear-a' | 'clear-b' | 'bright-a' | 'bright-b';
-  isEmpty?: boolean; // 빈 색상 표시용
+  color_name: string;
+  color_code: string;
+  is_active: boolean;
 }
-
-const COLOR_OPTIONS: ColorOption[] = [
-  // 클리어 A 색상
-  { id: 'pink-light', name: '연핑크', acCode: 'AC-C011', hexCode: '#fcafc0', category: 'clear-a' },
-  { id: 'pink-standard', name: '핑크', acCode: 'AC-C012', hexCode: '#fb637e', category: 'clear-a' },
-  { id: 'red', name: '레드', acCode: 'AC-C013', hexCode: '#ef3340', category: 'clear-a' },
-  { id: 'maroon', name: '마룬', acCode: 'AC-C014', hexCode: '#a4343a', category: 'clear-a' },
-  { id: 'peach', name: '피치', acCode: 'AC-C021', hexCode: '#ffb3ab', category: 'clear-a' },
-  { id: 'coral', name: '코랄', acCode: 'AC-C022', hexCode: '#ff5c39', category: 'clear-a' },
-  { id: 'orange-red', name: '오렌지 레드', acCode: 'AC-C023', hexCode: '#fa4616', category: 'clear-a' },
-  { id: 'rust', name: '러스트', acCode: 'AC-C024', hexCode: '#963821', category: 'clear-a' },
-  { id: 'salmon', name: '살몬', acCode: 'AC-C031', hexCode: '#ffbe9f', category: 'clear-a' },
-  { id: 'tangerine', name: '탠저린', acCode: 'AC-C032', hexCode: '#ff7f32', category: 'clear-a' },
-  { id: 'flame', name: '플레임', acCode: 'AC-C033', hexCode: '#ff6720', category: 'clear-a' },
-  { id: 'brick', name: '브릭', acCode: 'AC-C034', hexCode: '#be531c', category: 'clear-a' },
-  { id: 'orange-light', name: '연오렌지', acCode: 'AC-C041', hexCode: '#fecb8b', category: 'clear-a' },
-  { id: 'orange-standard', name: '오렌지', acCode: 'AC-C042', hexCode: '#ffb25b', category: 'clear-a' },
-  { id: 'orange-dark', name: '진오렌지', acCode: 'AC-C043', hexCode: '#ff8200', category: 'clear-a' },
-  { id: 'brown', name: '브라운', acCode: 'AC-C044', hexCode: '#be6a14', category: 'clear-a' },
-  { id: 'yellow-light', name: '연노랑', acCode: 'AC-C051', hexCode: '#f8e08e', category: 'clear-a' },
-  { id: 'yellow-standard', name: '노랑', acCode: 'AC-C052', hexCode: '#ffc72c', category: 'clear-a' },
-  { id: 'orange-bright', name: '브라이트 오렌지', acCode: 'AC-C053', hexCode: '#ffa300', category: 'clear-a' },
-  { id: 'amber', name: '앰버', acCode: 'AC-C054', hexCode: '#b58500', category: 'clear-a' },
-  { id: 'lemon', name: '레몬', acCode: 'AC-C061', hexCode: '#f6eb61', category: 'clear-a' },
-  { id: 'gold', name: '골드', acCode: 'AC-C062', hexCode: '#fae053', category: 'clear-a' },
-  { id: 'sunshine', name: '선샤인', acCode: 'AC-C063', hexCode: '#fedd00', category: 'clear-a' },
-  { id: 'mustard', name: '머스타드', acCode: 'AC-C064', hexCode: '#af9800', category: 'clear-a' },
-  { id: 'lime-light', name: '연라임', acCode: 'AC-C071', hexCode: '#aed000', category: 'clear-a' },
-  { id: 'lime-standard', name: '라임', acCode: 'AC-C072', hexCode: '#79c300', category: 'clear-a' },
-  { id: 'green-dark', name: '진그린', acCode: 'AC-C073', hexCode: '#1fa824', category: 'clear-a' },
-  { id: 'olive', name: '올리브', acCode: 'AC-C074', hexCode: '#5e7930', category: 'clear-a' },
-  { id: 'mint', name: '민트', acCode: 'AC-C081', hexCode: '#26d07c', category: 'clear-a' },
-  { id: 'green-standard', name: '그린', acCode: 'AC-C082', hexCode: '#00bb31', category: 'clear-a' },
-  { id: 'forest-green', name: '포레스트 그린', acCode: 'AC-C083', hexCode: '#00b74f', category: 'clear-a' },
-  { id: 'pine-green', name: '파인 그린', acCode: 'AC-C084', hexCode: '#275d38', category: 'clear-a' },
-  { id: 'sea-green', name: '시 그린', acCode: 'AC-C091', hexCode: '#47d7ac', category: 'clear-a' },
-  { id: 'emerald', name: '에메랄드', acCode: 'AC-C092', hexCode: '#00aa63', category: 'clear-a' },
-  { id: 'jade', name: '제이드', acCode: 'AC-C093', hexCode: '#00af66', category: 'clear-a' },
-  { id: 'forest', name: '포레스트', acCode: 'AC-C094', hexCode: '#007749', category: 'clear-a' },
-  { id: 'cyan-light', name: '연시안', acCode: 'AC-C101', hexCode: '#88dbdf', category: 'clear-a' },
-  { id: 'cyan-standard', name: '시안', acCode: 'AC-C102', hexCode: '#2dccd3', category: 'clear-a' },
-  { id: 'teal', name: '틸', acCode: 'AC-C103', hexCode: '#009ca6', category: 'clear-a' },
-  { id: 'navy', name: '네이비', acCode: 'AC-C104', hexCode: '#007377', category: 'clear-a' },
-  { id: 'sky-blue', name: '하늘색', acCode: 'AC-C111', hexCode: '#6ad1e3', category: 'clear-a' },
-  { id: 'turquoise', name: '터키석', acCode: 'AC-C112', hexCode: '#05c3dd', category: 'clear-a' },
-  { id: 'ocean-blue', name: '오션 블루', acCode: 'AC-C113', hexCode: '#00a9ce', category: 'clear-a' },
-  { id: 'steel-blue', name: '스틸 블루', acCode: 'AC-C114', hexCode: '#0092bc', category: 'clear-a' },
-  { id: 'powder-blue', name: '파우더 블루', acCode: 'AC-C121', hexCode: '#92c1e9', category: 'clear-a' },
-  { id: 'cerulean', name: '세룰리안', acCode: 'AC-C122', hexCode: '#00b5e2', category: 'clear-a' },
-  { id: 'sapphire', name: '사파이어', acCode: 'AC-C123', hexCode: '#0085ca', category: 'clear-a' },
-  { id: 'midnight', name: '미드나잇', acCode: 'AC-C124', hexCode: '#00587c', category: 'clear-a' },
-  { id: 'blue-light', name: '연블루', acCode: 'AC-C131', hexCode: '#a7c6ed', category: 'clear-a' },
-  { id: 'blue-standard', name: '블루', acCode: 'AC-C132', hexCode: '#307fe2', category: 'clear-a' },
-  { id: 'blue-dark', name: '진블루', acCode: 'AC-C133', hexCode: '#0032a0', category: 'clear-a' },
-  { id: 'indigo', name: '인디고', acCode: 'AC-C134', hexCode: '#10069f', category: 'clear-a' },
-  { id: 'lavender', name: '라벤더', acCode: 'AC-C141', hexCode: '#ad96dc', category: 'clear-a' },
-  { id: 'violet', name: '바이올렛', acCode: 'AC-C142', hexCode: '#7d55c7', category: 'clear-a' },
-  { id: 'royal-purple', name: '로얄 퍼플', acCode: 'AC-C143', hexCode: '#6244bb', category: 'clear-a' },
-  { id: 'deep-purple', name: '딥 퍼플', acCode: 'AC-C144', hexCode: '#440099', category: 'clear-a' },
-  { id: 'lilac', name: '라일락', acCode: 'AC-C151', hexCode: '#c1a7e2', category: 'clear-a' },
-  { id: 'amethyst', name: '자수정', acCode: 'AC-C152', hexCode: '#9063cd', category: 'clear-a' },
-  { id: 'orchid', name: '오키드', acCode: 'AC-C153', hexCode: '#753bbd', category: 'clear-a' },
-  { id: 'eggplant', name: '에그플랜트', acCode: 'AC-C154', hexCode: '#5f249f', category: 'clear-a' },
-  { id: 'purple-light', name: '연퍼플', acCode: 'AC-C161', hexCode: '#dd9cdf', category: 'clear-a' },
-  { id: 'purple-standard', name: '퍼플', acCode: 'AC-C162', hexCode: '#c964cf', category: 'clear-a' },
-  { id: 'purple-dark', name: '진퍼플', acCode: 'AC-C163', hexCode: '#bb29bb', category: 'clear-a' },
-  { id: 'wine', name: '와인', acCode: 'AC-C164', hexCode: '#981e97', category: 'clear-a' },
-  { id: 'pink-pastel', name: '파스텔 핑크', acCode: 'AC-C171', hexCode: '#f4a6d7', category: 'clear-a' },
-  { id: 'magenta', name: '마젠타', acCode: 'AC-C172', hexCode: '#f277c6', category: 'clear-a' },
-  { id: 'hot-pink', name: '핫 핑크', acCode: 'AC-C173', hexCode: '#e10098', category: 'clear-a' },
-  { id: 'berry', name: '베리', acCode: 'AC-C174', hexCode: '#a20067', category: 'clear-a' },
-  { id: 'light-gray', name: '라이트 그레이', acCode: 'AC-C181', hexCode: '#9d9994', category: 'clear-a' },
-  { id: 'charcoal', name: '차콜', acCode: 'AC-C182', hexCode: '#4c4e56', category: 'clear-a' },
-  { id: 'jet-black', name: '제트 블랙', acCode: 'AC-C183', hexCode: '#25282a', category: 'clear-a' },
-  { id: 'black', name: '블랙', acCode: 'AC-C184', hexCode: '#2d2c2f', category: 'clear-a' },
-  { id: 'fluorescent-red', name: '형광 레드', acCode: 'AC-C191', hexCode: '#ff5555', category: 'clear-a' },
-  { id: 'fluorescent-orange', name: '형광 오렌지', acCode: 'AC-C192', hexCode: '#fc8427', category: 'clear-a' },
-  { id: 'fluorescent-yellow', name: '형광 노랑', acCode: 'AC-C193', hexCode: '#ffcf00', category: 'clear-a' },
-  { id: 'neon-yellow', name: '네온 노랑', acCode: 'AC-C194', hexCode: '#ffdf5e', category: 'clear-a' },
-  { id: 'neon-green', name: '네온 그린', acCode: 'AC-C195', hexCode: '#c8ff00', category: 'clear-a' },
-  { id: 'fluorescent-pink', name: '형광 핑크', acCode: 'AC-C196', hexCode: '#fe1493', category: 'clear-a' },
-
-  // 클리어 B 색상
-  { id: 'brown-clear-b', name: '브라운 B', acCode: 'AC-C006', hexCode: '#ae8a79', category: 'clear-b' },
-  { id: 'rust-clear-b', name: '러스트 B', acCode: 'AC-C007', hexCode: '#a9431e', category: 'clear-b' },
-  { id: 'burgundy-clear-b', name: '버건디 B', acCode: 'AC-C008', hexCode: '#8a2a2b', category: 'clear-b' },
-  { id: 'empty-009', name: '', acCode: 'AC-C009', hexCode: '', category: 'clear-b', isEmpty: true },
-  { id: 'pastel-pink-clear-b', name: '파스텔 핑크 B', acCode: 'AC-C016', hexCode: '#fcafc0', category: 'clear-b' },
-  { id: 'rose-clear-b', name: '로즈 B', acCode: 'AC-C017', hexCode: '#ff8da1', category: 'clear-b' },
-  { id: 'maroon-clear-b', name: '마룬 B', acCode: 'AC-C018', hexCode: '#6d3332', category: 'clear-b' },
-  { id: 'empty-019', name: '', acCode: 'AC-C019', hexCode: '', category: 'clear-b', isEmpty: true },
-  { id: 'peach-clear-b', name: '피치 B', acCode: 'AC-C026', hexCode: '#ffa38b', category: 'clear-b' },
-  { id: 'orange-red-clear-b', name: '오렌지 레드 B', acCode: 'AC-C027', hexCode: '#fa4616', category: 'clear-b' },
-  { id: 'crimson-clear-b', name: '크림슨 B', acCode: 'AC-C028', hexCode: '#af272f', category: 'clear-b' },
-  { id: 'empty-029', name: '', acCode: 'AC-C029', hexCode: '', category: 'clear-b', isEmpty: true },
-  { id: 'light-orange-clear-b', name: '연오렌지 B', acCode: 'AC-C036', hexCode: '#ffb990', category: 'clear-b' },
-  { id: 'dark-orange-clear-b', name: '다크 오렌지 B', acCode: 'AC-C037', hexCode: '#fc4c02', category: 'clear-b' },
-  { id: 'warm-red-clear-b', name: '웜 레드 B', acCode: 'AC-C038', hexCode: '#f9423a', category: 'clear-b' },
-  { id: 'empty-039', name: '', acCode: 'AC-C039', hexCode: '', category: 'clear-b', isEmpty: true },
-  { id: 'light-peach-clear-b', name: '연피치 B', acCode: 'AC-C046', hexCode: '#fecb8b', category: 'clear-b' },
-  { id: 'golden-orange-clear-b', name: '골든 오렌지 B', acCode: 'AC-C047', hexCode: '#ffad00', category: 'clear-b' },
-  { id: 'burnt-orange-clear-b', name: '번트 오렌지 B', acCode: 'AC-C048', hexCode: '#e57200', category: 'clear-b' },
-  { id: 'rust-orange-clear-b', name: '러스트 오렌지 B', acCode: 'AC-C049', hexCode: '#dc4405', category: 'clear-b' },
-  { id: 'bright-yellow-clear-b', name: '브라이트 옐로우 B', acCode: 'AC-C056', hexCode: '#fedb00', category: 'clear-b' },
-  { id: 'golden-yellow-clear-b', name: '골든 옐로우 B', acCode: 'AC-C057', hexCode: '#f2ca00', category: 'clear-b' },
-  { id: 'olive-yellow-clear-b', name: '올리브 옐로우 B', acCode: 'AC-C058', hexCode: '#a76d11', category: 'clear-b' },
-  { id: 'empty-059', name: '', acCode: 'AC-C059', hexCode: '', category: 'clear-b', isEmpty: true },
-  { id: 'lime-yellow-clear-b', name: '라임 옐로우 B', acCode: 'AC-C066', hexCode: '#f3e500', category: 'clear-b' },
-  { id: 'bright-lime-clear-b', name: '브라이트 라임 B', acCode: 'AC-C067', hexCode: '#fdda24', category: 'clear-b' },
-  { id: 'olive-green-clear-b', name: '올리브 그린 B', acCode: 'AC-C068', hexCode: '#af9800', category: 'clear-b' },
-  { id: 'dark-olive-clear-b', name: '다크 올리브 B', acCode: 'AC-C069', hexCode: '#897a27', category: 'clear-b' },
-  { id: 'lime-green-clear-b', name: '라임 그린 B', acCode: 'AC-C076', hexCode: '#c0df16', category: 'clear-b' },
-  { id: 'bright-green-clear-b', name: '브라이트 그린 B', acCode: 'AC-C077', hexCode: '#44d62c', category: 'clear-b' },
-  { id: 'forest-green-clear-b', name: '포레스트 그린 B', acCode: 'AC-C078', hexCode: '#97d700', category: 'clear-b' },
-  { id: 'moss-green-clear-b', name: '모스 그린 B', acCode: 'AC-C079', hexCode: '#79863c', category: 'clear-b' },
-  { id: 'emerald-green-clear-b', name: '에메랄드 그린 B', acCode: 'AC-C086', hexCode: '#00bf6f', category: 'clear-b' },
-  { id: 'jade-green-clear-b', name: '제이드 그린 B', acCode: 'AC-C087', hexCode: '#00b140', category: 'clear-b' },
-  { id: 'pine-green-clear-b', name: '파인 그린 B', acCode: 'AC-C088', hexCode: '#44883e', category: 'clear-b' },
-  { id: 'empty-089', name: '', acCode: 'AC-C089', hexCode: '', category: 'clear-b', isEmpty: true },
-  { id: 'teal-clear-b', name: '틸 B', acCode: 'AC-C096', hexCode: '#49c5b1', category: 'clear-b' },
-  { id: 'turquoise-clear-b', name: '터키석 B', acCode: 'AC-C097', hexCode: '#00b388', category: 'clear-b' },
-  { id: 'sea-green-clear-b', name: '시 그린 B', acCode: 'AC-C098', hexCode: '#00ab84', category: 'clear-b' },
-  { id: 'empty-099', name: '', acCode: 'AC-C099', hexCode: '', category: 'clear-b', isEmpty: true },
-  { id: 'light-cyan-clear-b', name: '연시안 B', acCode: 'AC-C106', hexCode: '#a4dbe8', category: 'clear-b' },
-  { id: 'bright-cyan-clear-b', name: '브라이트 시안 B', acCode: 'AC-C107', hexCode: '#00b398', category: 'clear-b' },
-  { id: 'dark-cyan-clear-b', name: '다크 시안 B', acCode: 'AC-C108', hexCode: '#009681', category: 'clear-b' },
-  { id: 'empty-109', name: '', acCode: 'AC-C109', hexCode: '', category: 'clear-b', isEmpty: true },
-  { id: 'light-blue-clear-b', name: '연블루 B', acCode: 'AC-C116', hexCode: '#b9d9eb', category: 'clear-b' },
-  { id: 'sky-blue-clear-b', name: '하늘색 B', acCode: 'AC-C117', hexCode: '#4ec3e0', category: 'clear-b' },
-  { id: 'ocean-blue-clear-b', name: '오션 블루 B', acCode: 'AC-C118', hexCode: '#00a9ce', category: 'clear-b' },
-  { id: 'empty-119', name: '', acCode: 'AC-C119', hexCode: '', category: 'clear-b', isEmpty: true },
-  { id: 'powder-blue-clear-b', name: '파우더 블루 B', acCode: 'AC-C126', hexCode: '#c3d7ee', category: 'clear-b' },
-  { id: 'cornflower-clear-b', name: '콘플라워 B', acCode: 'AC-C127', hexCode: '#69b3e7', category: 'clear-b' },
-  { id: 'royal-blue-clear-b', name: '로얄 블루 B', acCode: 'AC-C128', hexCode: '#0077c8', category: 'clear-b' },
-  { id: 'navy-blue-clear-b', name: '네이비 블루 B', acCode: 'AC-C129', hexCode: '#007fa3', category: 'clear-b' },
-  { id: 'periwinkle-clear-b', name: '페리윙클 B', acCode: 'AC-C136', hexCode: '#cbd3eb', category: 'clear-b' },
-  { id: 'bright-blue-clear-b', name: '브라이트 블루 B', acCode: 'AC-C137', hexCode: '#00a9e0', category: 'clear-b' },
-  { id: 'deep-blue-clear-b', name: '딥 블루 B', acCode: 'AC-C138', hexCode: '#0033a0', category: 'clear-b' },
-  { id: 'indigo-clear-b', name: '인디고 B', acCode: 'AC-C139', hexCode: '#10069f', category: 'clear-b' },
-  { id: 'lavender-clear-b', name: '라벤더 B', acCode: 'AC-C146', hexCode: '#ad96dc', category: 'clear-b' },
-  { id: 'violet-clear-b', name: '바이올렛 B', acCode: 'AC-C147', hexCode: '#7d55c7', category: 'clear-b' },
-  { id: 'deep-purple-clear-b', name: '딥 퍼플 B', acCode: 'AC-C148', hexCode: '#330072', category: 'clear-b' },
-  { id: 'empty-149', name: '', acCode: 'AC-C149', hexCode: '', category: 'clear-b', isEmpty: true },
-  { id: 'empty-206', name: '', acCode: 'AC-C206', hexCode: '', category: 'clear-b', isEmpty: true },
-  { id: 'silver-gray-clear-b', name: '실버 그레이 B', acCode: 'AC-C207', hexCode: '#b3b0c4', category: 'clear-b' },
-  { id: 'steel-gray-clear-b', name: '스틸 그레이 B', acCode: 'AC-C208', hexCode: '#1f2a44', category: 'clear-b' },
-  { id: 'charcoal-gray-clear-b', name: '차콜 그레이 B', acCode: 'AC-C209', hexCode: '#13294b', category: 'clear-b' },
-
-  // 브라이트 A 색상
-  { id: 'bright-pink-light', name: '연핑크', acCode: 'AC-B011', hexCode: '#ffb1bb', category: 'bright-a' },
-  { id: 'bright-pink-standard', name: '핑크', acCode: 'AC-B012', hexCode: '#f67599', category: 'bright-a' },
-  { id: 'bright-red', name: '레드', acCode: 'AC-B013', hexCode: '#e4002b', category: 'bright-a' },
-  { id: 'bright-maroon', name: '마룬', acCode: 'AC-B014', hexCode: '#a4343a', category: 'bright-a' },
-  { id: 'bright-peach', name: '피치', acCode: 'AC-B021', hexCode: '#ffb3ab', category: 'bright-a' },
-  { id: 'bright-coral', name: '코랄', acCode: 'AC-B022', hexCode: '#ff7f41', category: 'bright-a' },
-  { id: 'bright-orange-red', name: '오렌지 레드', acCode: 'AC-B023', hexCode: '#eb3300', category: 'bright-a' },
-  { id: 'bright-rust', name: '러스트', acCode: 'AC-B024', hexCode: '#963821', category: 'bright-a' },
-  { id: 'bright-salmon', name: '살몬', acCode: 'AC-B031', hexCode: '#ffbe9f', category: 'bright-a' },
-  { id: 'bright-tangerine', name: '탠저린', acCode: 'AC-B032', hexCode: '#ff9800', category: 'bright-a' },
-  { id: 'bright-flame', name: '플레임', acCode: 'AC-B033', hexCode: '#ff7500', category: 'bright-a' },
-  { id: 'bright-brick', name: '브릭', acCode: 'AC-B034', hexCode: '#be531c', category: 'bright-a' },
-  { id: 'bright-orange-light', name: '연오렌지', acCode: 'AC-B041', hexCode: '#ffc27b', category: 'bright-a' },
-  { id: 'bright-orange-standard', name: '오렌지', acCode: 'AC-B042', hexCode: '#ffad00', category: 'bright-a' },
-  { id: 'bright-orange-dark', name: '진오렌지', acCode: 'AC-B043', hexCode: '#ff8200', category: 'bright-a' },
-  { id: 'bright-brown', name: '브라운', acCode: 'AC-B044', hexCode: '#be6a14', category: 'bright-a' },
-  { id: 'bright-yellow-light', name: '연노랑', acCode: 'AC-B051', hexCode: '#f8e08e', category: 'bright-a' },
-  { id: 'bright-yellow-standard', name: '노랑', acCode: 'AC-B052', hexCode: '#ffc72c', category: 'bright-a' },
-  { id: 'bright-orange-bright', name: '브라이트 오렌지', acCode: 'AC-B053', hexCode: '#ffb600', category: 'bright-a' },
-  { id: 'bright-amber', name: '앰버', acCode: 'AC-B054', hexCode: '#ad841f', category: 'bright-a' },
-  { id: 'bright-lemon', name: '레몬', acCode: 'AC-B061', hexCode: '#ebe49a', category: 'bright-a' },
-  { id: 'bright-gold', name: '골드', acCode: 'AC-B062', hexCode: '#e1cd00', category: 'bright-a' },
-  { id: 'bright-sunshine', name: '선샤인', acCode: 'AC-B063', hexCode: '#fedb00', category: 'bright-a' },
-  { id: 'bright-mustard', name: '머스타드', acCode: 'AC-B064', hexCode: '#af9800', category: 'bright-a' },
-  { id: 'bright-lime-light', name: '연라임', acCode: 'AC-B071', hexCode: '#d4ec8e', category: 'bright-a' },
-  { id: 'bright-lime-standard', name: '라임', acCode: 'AC-B072', hexCode: '#93c90f', category: 'bright-a' },
-  { id: 'bright-green-dark', name: '진그린', acCode: 'AC-B073', hexCode: '#79c300', category: 'bright-a' },
-  { id: 'bright-olive', name: '올리브', acCode: 'AC-B074', hexCode: '#79863c', category: 'bright-a' },
-  { id: 'bright-mint', name: '민트', acCode: 'AC-B081', hexCode: '#bde9c9', category: 'bright-a' },
-  { id: 'bright-green-standard', name: '그린', acCode: 'AC-B082', hexCode: '#2cc84d', category: 'bright-a' },
-  { id: 'bright-forest-green', name: '포레스트 그린', acCode: 'AC-B083', hexCode: '#009739', category: 'bright-a' },
-  { id: 'bright-pine-green', name: '파인 그린', acCode: 'AC-B084', hexCode: '#275d38', category: 'bright-a' },
-  { id: 'bright-sea-green', name: '시 그린', acCode: 'AC-B091', hexCode: '#9be3bf', category: 'bright-a' },
-  { id: 'bright-emerald', name: '에메랄드', acCode: 'AC-B092', hexCode: '#48d597', category: 'bright-a' },
-  { id: 'bright-jade', name: '제이드', acCode: 'AC-B093', hexCode: '#009a44', category: 'bright-a' },
-  { id: 'bright-forest', name: '포레스트', acCode: 'AC-B094', hexCode: '#046a38', category: 'bright-a' },
-  { id: 'bright-cyan-light', name: '연시안', acCode: 'AC-B101', hexCode: '#9bd3dd', category: 'bright-a' },
-  { id: 'bright-cyan-standard', name: '시안', acCode: 'AC-B102', hexCode: '#00b7bd', category: 'bright-a' },
-  { id: 'bright-teal', name: '틸', acCode: 'AC-B103', hexCode: '#008578', category: 'bright-a' },
-  { id: 'bright-navy', name: '네이비', acCode: 'AC-B104', hexCode: '#005f61', category: 'bright-a' },
-  { id: 'bright-sky-blue', name: '하늘색', acCode: 'AC-B111', hexCode: '#a4dbe8', category: 'bright-a' },
-  { id: 'bright-turquoise', name: '터키석', acCode: 'AC-B112', hexCode: '#05c3dd', category: 'bright-a' },
-  { id: 'bright-ocean-blue', name: '오션 블루', acCode: 'AC-B113', hexCode: '#00a9ce', category: 'bright-a' },
-  { id: 'bright-steel-blue', name: '스틸 블루', acCode: 'AC-B114', hexCode: '#0092bc', category: 'bright-a' },
-  { id: 'bright-powder-blue', name: '파우더 블루', acCode: 'AC-B121', hexCode: '#99d6ea', category: 'bright-a' },
-  { id: 'bright-cerulean', name: '세룰리안', acCode: 'AC-B122', hexCode: '#56b7e6', category: 'bright-a' },
-  { id: 'bright-sapphire', name: '사파이어', acCode: 'AC-B123', hexCode: '#0085ca', category: 'bright-a' },
-  { id: 'bright-midnight', name: '미드나잇', acCode: 'AC-B124', hexCode: '#00617f', category: 'bright-a' },
-  { id: 'bright-blue-light', name: '연블루', acCode: 'AC-B131', hexCode: '#becae9', category: 'bright-a' },
-  { id: 'bright-blue-standard', name: '블루', acCode: 'AC-B132', hexCode: '#5c88da', category: 'bright-a' },
-  { id: 'bright-blue-dark', name: '진블루', acCode: 'AC-B133', hexCode: '#0047bb', category: 'bright-a' },
-  { id: 'bright-indigo', name: '인디고', acCode: 'AC-B134', hexCode: '#002d72', category: 'bright-a' },
-  { id: 'bright-lavender', name: '라벤더', acCode: 'AC-B141', hexCode: '#c5b4e3', category: 'bright-a' },
-  { id: 'bright-violet', name: '바이올렛', acCode: 'AC-B142', hexCode: '#9b7dd4', category: 'bright-a' },
-  { id: 'bright-royal-purple', name: '로얄 퍼플', acCode: 'AC-B143', hexCode: '#6638b6', category: 'bright-a' },
-  { id: 'bright-deep-purple', name: '딥 퍼플', acCode: 'AC-B144', hexCode: '#483698', category: 'bright-a' },
-  { id: 'bright-lilac', name: '라일락', acCode: 'AC-B151', hexCode: '#c7b2de', category: 'bright-a' },
-  { id: 'bright-amethyst', name: '자수정', acCode: 'AC-B152', hexCode: '#9063cd', category: 'bright-a' },
-  { id: 'bright-orchid', name: '오키드', acCode: 'AC-B153', hexCode: '#753bbd', category: 'bright-a' },
-  { id: 'bright-eggplant', name: '에그플랜트', acCode: 'AC-B154', hexCode: '#582c83', category: 'bright-a' },
-  { id: 'bright-lilac-light', name: '연라일락', acCode: 'AC-B161', hexCode: '#dd9cdf', category: 'bright-a' },
-  { id: 'bright-purple-medium', name: '미디엄 퍼플', acCode: 'AC-B162', hexCode: '#c964cf', category: 'bright-a' },
-  { id: 'bright-purple-vivid', name: '비비드 퍼플', acCode: 'AC-B163', hexCode: '#bb29bb', category: 'bright-a' },
-  { id: 'bright-purple-deep', name: '딥 퍼플', acCode: 'AC-B164', hexCode: '#77246c', category: 'bright-a' },
-  { id: 'bright-pink-soft', name: '소프트 핑크', acCode: 'AC-B171', hexCode: '#eab8e4', category: 'bright-a' },
-  { id: 'bright-hot-pink', name: '핫 핑크', acCode: 'AC-B172', hexCode: '#e93cac', category: 'bright-a' },
-  { id: 'bright-wine-deep', name: '딥 와인', acCode: 'AC-B173', hexCode: '#72246c', category: 'bright-a' },
-  { id: 'bright-berry-dark', name: '다크 베리', acCode: 'AC-B174', hexCode: '#80225f', category: 'bright-a' },
-
-  // 브라이트 B 색상
-  { id: 'bright-b-peach-light', name: '연피치', acCode: 'AC-B016', hexCode: '#ffa28b', category: 'bright-b' },
-  { id: 'bright-b-coral', name: '코랄', acCode: 'AC-B017', hexCode: '#ff6a39', category: 'bright-b' },
-  { id: 'bright-b-red', name: '레드', acCode: 'AC-B018', hexCode: '#e4002b', category: 'bright-b' },
-  { id: 'bright-b-maroon', name: '마룬', acCode: 'AC-B019', hexCode: '#9d2235', category: 'bright-b' },
-  { id: 'bright-b-salmon', name: '살몬', acCode: 'AC-B026', hexCode: '#ffbe9f', category: 'bright-b' },
-  { id: 'bright-b-tangerine', name: '탠저린', acCode: 'AC-B027', hexCode: '#ffa06a', category: 'bright-b' },
-  { id: 'bright-b-flame', name: '플레임', acCode: 'AC-B028', hexCode: '#f9423a', category: 'bright-b' },
-  { id: 'bright-b-brick', name: '브릭', acCode: 'AC-B029', hexCode: '#73381d', category: 'bright-b' },
-  { id: 'bright-b-orange-light', name: '연오렌지', acCode: 'AC-B036', hexCode: '#ffb990', category: 'bright-b' },
-  { id: 'bright-b-orange-standard', name: '오렌지', acCode: 'AC-B037', hexCode: '#ff6a13', category: 'bright-b' },
-  { id: 'bright-b-orange-dark', name: '진오렌지', acCode: 'AC-B038', hexCode: '#fa4616', category: 'bright-b' },
-  { id: 'bright-b-brown', name: '브라운', acCode: 'AC-B039', hexCode: '#7b4d35', category: 'bright-b' },
-  { id: 'bright-b-yellow-light', name: '연노랑', acCode: 'AC-B046', hexCode: '#f5e1a4', category: 'bright-b' },
-  { id: 'bright-b-yellow-standard', name: '노랑', acCode: 'AC-B047', hexCode: '#f3d54e', category: 'bright-b' },
-  { id: 'bright-b-orange-bright', name: '브라이트 오렌지', acCode: 'AC-B048', hexCode: '#f3d03e', category: 'bright-b' },
-  { id: 'bright-b-amber', name: '앰버', acCode: 'AC-B049', hexCode: '#c67d30', category: 'bright-b' },
-  { id: 'bright-b-lemon', name: '레몬', acCode: 'AC-B056', hexCode: '#f6eb61', category: 'bright-b' },
-  { id: 'bright-b-gold', name: '골드', acCode: 'AC-B057', hexCode: '#fdda24', category: 'bright-b' },
-  { id: 'bright-b-sunshine', name: '선샤인', acCode: 'AC-B058', hexCode: '#ffd100', category: 'bright-b' },
-  { id: 'bright-b-mustard', name: '머스타드', acCode: 'AC-B059', hexCode: '#db8a06', category: 'bright-b' },
-  { id: 'bright-b-lime-light', name: '연라임', acCode: 'AC-B066', hexCode: '#e0e27c', category: 'bright-b' },
-  { id: 'bright-b-lime-standard', name: '라임', acCode: 'AC-B067', hexCode: '#e0ec89', category: 'bright-b' },
-  { id: 'bright-b-green-dark', name: '진그린', acCode: 'AC-B068', hexCode: '#fd6e865', category: 'bright-b' },
-  { id: 'bright-b-olive', name: '올리브', acCode: 'AC-B069', hexCode: '#d7c826', category: 'bright-b' },
-  { id: 'bright-b-lime-bright', name: '브라이트 라임', acCode: 'AC-B076', hexCode: '#cedc00', category: 'bright-b' },
-  { id: 'bright-b-lime-green', name: '라임 그린', acCode: 'AC-B077', hexCode: '#c4d600', category: 'bright-b' },
-  { id: 'bright-b-green-standard', name: '그린', acCode: 'AC-B078', hexCode: '#6cc24a', category: 'bright-b' },
-  { id: 'bright-b-pine-green', name: '파인 그린', acCode: 'AC-B079', hexCode: '#00bb31', category: 'bright-b' },
-  { id: 'bright-b-mint', name: '민트', acCode: 'AC-B086', hexCode: '#addfb3', category: 'bright-b' },
-  { id: 'bright-b-emerald', name: '에메랄드', acCode: 'AC-B087', hexCode: '#00ad50', category: 'bright-b' },
-  { id: 'bright-b-jade', name: '제이드', acCode: 'AC-B088', hexCode: '#00ad6f', category: 'bright-b' },
-  { id: 'bright-b-forest', name: '포레스트', acCode: 'AC-B089', hexCode: '#009c4f', category: 'bright-b' },
-  { id: 'bright-b-sea-green', name: '시 그린', acCode: 'AC-B096', hexCode: '#b1e4e3', category: 'bright-b' },
-  { id: 'bright-b-turquoise', name: '터키석', acCode: 'AC-B097', hexCode: '#2dccd3', category: 'bright-b' },
-  { id: 'bright-b-teal', name: '틸', acCode: 'AC-B098', hexCode: '#00a3ad', category: 'bright-b' },
-  { id: 'bright-b-navy-green', name: '네이비 그린', acCode: 'AC-B099', hexCode: '#008c95', category: 'bright-b' },
-  { id: 'bright-b-cyan-light', name: '연시안', acCode: 'AC-B106', hexCode: '#6ad1e3', category: 'bright-b' },
-  { id: 'bright-b-cyan-standard', name: '시안', acCode: 'AC-B107', hexCode: '#6ad1e3', category: 'bright-b' },
-  { id: 'bright-b-ocean-blue', name: '오션 블루', acCode: 'AC-B108', hexCode: '#007396', category: 'bright-b' },
-  { id: 'bright-b-navy', name: '네이비', acCode: 'AC-B109', hexCode: '#005f83', category: 'bright-b' },
-  { id: 'bright-b-powder-blue', name: '파우더 블루', acCode: 'AC-B116', hexCode: '#b9d9eb', category: 'bright-b' },
-  { id: 'bright-b-sky-blue', name: '하늘색', acCode: 'AC-B117', hexCode: '#00a9e0', category: 'bright-b' },
-  { id: 'bright-b-steel-blue', name: '스틸 블루', acCode: 'AC-B118', hexCode: '#00558c', category: 'bright-b' },
-  { id: 'bright-b-midnight', name: '미드나잇', acCode: 'AC-B119', hexCode: '#003e51', category: 'bright-b' },
-  { id: 'bright-b-blue-light', name: '연블루', acCode: 'AC-B126', hexCode: '#abcae9', category: 'bright-b' },
-  { id: 'bright-b-blue-standard', name: '블루', acCode: 'AC-B127', hexCode: '#418fde', category: 'bright-b' },
-  { id: 'bright-b-sapphire', name: '사파이어', acCode: 'AC-B128', hexCode: '#0085ca', category: 'bright-b' },
-  { id: 'bright-b-navy-blue', name: '네이비 블루', acCode: 'AC-B129', hexCode: '#00617f', category: 'bright-b' },
-  { id: 'bright-b-periwinkle', name: '페리윙클', acCode: 'AC-B136', hexCode: '#b1c9e8', category: 'bright-b' },
-  { id: 'bright-b-blue-bright', name: '브라이트 블루', acCode: 'AC-B137', hexCode: '#606eb2', category: 'bright-b' },
-  { id: 'bright-b-indigo', name: '인디고', acCode: 'AC-B138', hexCode: '#1e22aa', category: 'bright-b' },
-  { id: 'bright-b-deep-blue', name: '딥 블루', acCode: 'AC-B139', hexCode: '#10069f', category: 'bright-b' },
-  { id: 'bright-b-lavender', name: '라벤더', acCode: 'AC-B146', hexCode: '#9faee5', category: 'bright-b' },
-  { id: 'bright-b-violet', name: '바이올렛', acCode: 'AC-B147', hexCode: '#6f7bd4', category: 'bright-b' },
-  { id: 'bright-b-royal-purple', name: '로얄 퍼플', acCode: 'AC-B148', hexCode: '#6a5d9d', category: 'bright-b' },
-  { id: 'bright-b-deep-purple', name: '딥 퍼플', acCode: 'AC-B149', hexCode: '#3f3a60', category: 'bright-b' },
-  { id: 'bright-b-lilac', name: '라일락', acCode: 'AC-B156', hexCode: '#c1a7e2', category: 'bright-b' },
-  { id: 'bright-b-amethyst', name: '자수정', acCode: 'AC-B157', hexCode: '#9063cd', category: 'bright-b' },
-  { id: 'bright-b-orchid', name: '오키드', acCode: 'AC-B158', hexCode: '#5f259f', category: 'bright-b' },
-  { id: 'bright-b-eggplant', name: '에그플랜트', acCode: 'AC-B159', hexCode: '#512d6d', category: 'bright-b' },
-  { id: 'bright-b-purple-light', name: '연퍼플', acCode: 'AC-B166', hexCode: '#dd9cdf', category: 'bright-b' },
-  { id: 'bright-b-purple-standard', name: '퍼플', acCode: 'AC-B167', hexCode: '#b288b9', category: 'bright-b' },
-  { id: 'bright-b-purple-dark', name: '진퍼플', acCode: 'AC-B168', hexCode: '#9b26b6', category: 'bright-b' },
-  { id: 'bright-b-wine', name: '와인', acCode: 'AC-B169', hexCode: '#8e3a80', category: 'bright-b' },
-  { id: 'bright-b-pink-pastel', name: '파스텔 핑크', acCode: 'AC-B176', hexCode: '#e7bae4', category: 'bright-b' },
-  { id: 'bright-b-magenta', name: '마젠타', acCode: 'AC-B177', hexCode: '#f277c6', category: 'bright-b' },
-  { id: 'bright-b-hot-pink', name: '핫 핑크', acCode: 'AC-B178', hexCode: '#e93cac', category: 'bright-b' },
-  { id: 'bright-b-berry', name: '베리', acCode: 'AC-B179', hexCode: '#d0006f', category: 'bright-b' }
-];
 
 interface ColorSelectionProps {
   selectedColor: string;
+  onColorSelect: (id: string, extraInfo?: { acCode: string; hexCode: string }) => void;
   selectedQuality?: { id: string; name: string } | null;
-  onColorSelect: (colorId: string, colorInfo: { acCode: string; hexCode: string }) => void;
 }
 
-const ColorSelection: React.FC<ColorSelectionProps> = ({
-  selectedColor,
-  selectedQuality,
-  onColorSelect
+const ColorSelection: React.FC<ColorSelectionProps> = ({ 
+  selectedColor, 
+  onColorSelect, 
+  selectedQuality 
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [customColor, setCustomColor] = useState('#ffffff');
@@ -319,76 +31,59 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
   const [customOpacity, setCustomOpacity] = useState('');
   const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false);
 
-  // AC 코드 숫자 순서로 정렬
-  const sortedColors = [...COLOR_OPTIONS].sort((a, b) => {
-    const aCode = parseInt(a.acCode.replace('AC-C', ''));
-    const bCode = parseInt(b.acCode.replace('AC-C', ''));
-    return aCode - bCode;
+  // panel_master 조회
+  const { data: panelMaster } = useQuery({
+    queryKey: ['panel-master-for-colors', selectedQuality?.id],
+    queryFn: async () => {
+      if (!selectedQuality?.id) return null;
+      
+      const { data, error } = await supabase
+        .from('panel_masters')
+        .select('*')
+        .eq('quality', selectedQuality.id as any)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching panel master:', error);
+        return null;
+      }
+      return data;
+    },
+    enabled: !!selectedQuality?.id,
   });
 
-  // 카테고리별 분류 - 재질에 따른 필터링
-  const getFilteredCategories = () => {
-    const allCategories = [
-      {
-        id: 'clear-a',
-        name: '클리어 A',
-        description: '클리어 A 색상 팔레트',
-        colors: sortedColors.filter(color => color.category === 'clear-a')
-      },
-      {
-        id: 'clear-b',
-        name: '클리어 B',
-        description: '클리어 B 색상 팔레트',
-        colors: sortedColors.filter(color => color.category === 'clear-b')
-      },
-      {
-        id: 'bright-a',
-        name: '브라이트 A',
-        description: '브라이트 A 색상 팔레트',
-        colors: sortedColors.filter(color => color.category === 'bright-a')
-      },
-      {
-        id: 'bright-b',
-        name: '브라이트 B',
-        description: '브라이트 B 색상 팔레트',
-        colors: sortedColors.filter(color => color.category === 'bright-b')
+  // DB에서 컬러 옵션 조회
+  const { data: colors, isLoading } = useQuery({
+    queryKey: ['color-options-for-selection', panelMaster?.id],
+    queryFn: async () => {
+      if (!panelMaster?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('color_options')
+        .select('*')
+        .eq('panel_master_id', panelMaster.id)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching colors:', error);
+        return [];
       }
-    ];
+      
+      return data as ColorOption[];
+    },
+    enabled: !!panelMaster?.id,
+  });
 
-    // 재질에 따른 필터링
-    if (selectedQuality?.id === 'glossy-color') {
-      // 클리어를 선택한 경우 클리어 A, B만 표시
-      return allCategories.filter(cat => cat.id === 'clear-a' || cat.id === 'clear-b');
-    } else if (selectedQuality?.id === 'satin-color') {
-      // 브라이트를 선택한 경우 브라이트 A, B만 표시
-      return allCategories.filter(cat => cat.id === 'bright-a' || cat.id === 'bright-b');
-    }
-    
-    // 다른 재질의 경우 모든 카테고리 표시 (기본값)
-    return allCategories;
-  };
-
-  const categories = getFilteredCategories();
-
-  // 검색 결과 필터링
-  const getFilteredColors = () => {
-    if (!searchTerm) {
-      return categories;
-    }
-    
-    return categories.map(category => ({
-      ...category,
-      colors: category.colors.filter(color => 
-        !color.isEmpty && (
-          color.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          color.acCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          color.hexCode.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      )
-    })).filter(category => category.colors.length > 0);
-  };
-
-  const displayCategories = getFilteredColors();
+  // 검색 필터링
+  const filteredColors = colors?.filter(color => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      color.color_name.toLowerCase().includes(search) ||
+      color.color_code.toLowerCase().includes(search)
+    );
+  }) || [];
 
   const handleCustomColorApply = () => {
     if (!customColorName.trim()) {
@@ -402,12 +97,22 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
       hexCode: customColor 
     });
     
-    // 다이얼로그 닫기 및 상태 초기화
     setIsCustomDialogOpen(false);
     setCustomColorName('');
     setCustomOpacity('');
     setCustomColor('#ffffff');
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">색상을 선택해주세요</h3>
+          <p className="text-gray-600">컬러 옵션을 로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -438,36 +143,38 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
               커스텀 조색
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md bg-white">
+          <DialogContent className="sm:max-w-md bg-background">
             <DialogHeader>
               <DialogTitle>커스텀 색상 설정</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="color-picker">색상 선택</Label>
-                <div className="flex gap-3 items-center">
+                <div className="flex items-center gap-3">
                   <input
                     id="color-picker"
                     type="color"
                     value={customColor}
                     onChange={(e) => setCustomColor(e.target.value)}
-                    className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
+                    className="w-20 h-12 rounded border border-gray-300 cursor-pointer"
                   />
-                  <Input
-                    type="text"
-                    placeholder="#ffffff"
-                    value={customColor}
-                    onChange={(e) => setCustomColor(e.target.value)}
-                    className="flex-1"
-                  />
+                  <div className="flex-1">
+                    <Input
+                      type="text"
+                      value={customColor}
+                      onChange={(e) => setCustomColor(e.target.value)}
+                      placeholder="#FFFFFF"
+                      className="font-mono"
+                    />
+                  </div>
                 </div>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="opacity">투명도(스리) 선택</Label>
+                <Label htmlFor="opacity">투명도 선택 (선택사항)</Label>
                 <select
                   id="opacity"
-                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-background"
                   value={customOpacity}
                   onChange={(e) => setCustomOpacity(e.target.value)}
                 >
@@ -508,103 +215,51 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
         </Dialog>
       </div>
 
-      {/* 색상 카테고리별 표시 */}
-      {!searchTerm ? (
-        <div className="space-y-8">
-          {categories.map((category) => (
-            <div key={category.id} className="space-y-4">
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900">{category.name}</h4>
-                <p className="text-sm text-gray-600">{category.description}</p>
-              </div>
-              <div className="grid grid-cols-4 gap-4">
-                {category.colors.map((color) => (
-                  <div
-                    key={color.id}
-                    className={`relative group ${
-                      color.isEmpty 
-                        ? 'cursor-not-allowed opacity-50' 
-                        : 'cursor-pointer'
-                    } ${
-                      selectedColor === color.id ? 'ring-2 ring-primary ring-offset-2' : ''
-                    }`}
-                    onClick={() => !color.isEmpty && onColorSelect(color.id, { acCode: color.acCode, hexCode: color.hexCode })}
-                  >
+      {/* 색상 그리드 */}
+      <div className="space-y-4">
+        {filteredColors.length > 0 ? (
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+            {filteredColors.map((color) => {
+              const isSelected = selectedColor === color.id;
+              const acCode = color.color_name.split(' ')[0] || '';
+              const colorName = color.color_name.split(' ').slice(1).join(' ') || color.color_name;
+              
+              return (
+                <div
+                  key={color.id}
+                  className="relative group cursor-pointer"
+                  onClick={() => onColorSelect(color.id, { acCode, hexCode: color.color_code })}
+                >
+                  <div className={`aspect-square rounded-lg border-2 transition-all ${
+                    isSelected 
+                      ? 'border-primary shadow-lg scale-105' 
+                      : 'border-border hover:border-primary/50 hover:shadow-md'
+                  }`}>
                     <div 
-                      className={`w-full h-20 rounded-lg border border-gray-200 transition-all duration-200 ${
-                        color.isEmpty 
-                          ? 'bg-gray-100 border-dashed' 
-                          : 'shadow-sm group-hover:shadow-md'
-                      }`}
-                      style={!color.isEmpty ? { backgroundColor: color.hexCode } : {}}
+                      className="w-full h-full rounded-md"
+                      style={{ backgroundColor: color.color_code }}
                     />
-                    <div className="mt-2 text-center">
-                      <div className="text-sm font-bold text-gray-500">{color.acCode}</div>
-                      {!color.isEmpty && (
-                        <div className="text-xs text-gray-400">{color.hexCode}</div>
-                      )}
-                    </div>
-                    {selectedColor === color.id && !color.isEmpty && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-6 h-6 bg-white rounded-full shadow-md flex items-center justify-center">
-                          <div className="w-3 h-3 bg-primary rounded-full"></div>
-                        </div>
-                      </div>
-                    )}
                   </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        /* 검색 결과 표시 */
-        <div className="space-y-8">
-          {displayCategories.map((category) => (
-            <div key={category.id} className="space-y-4">
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900">{category.name}</h4>
-                <p className="text-sm text-gray-600">검색 결과: {category.colors.length}개</p>
-              </div>
-              <div className="grid grid-cols-4 gap-4">
-                {category.colors.map((color) => (
-                  <div
-                    key={color.id}
-                    className={`relative cursor-pointer group ${
-                      selectedColor === color.id ? 'ring-2 ring-primary ring-offset-2' : ''
-                    }`}
-                    onClick={() => onColorSelect(color.id, { acCode: color.acCode, hexCode: color.hexCode })}
-                  >
-                    <div 
-                      className="w-full h-20 rounded-lg border border-gray-200 shadow-sm group-hover:shadow-md transition-all duration-200"
-                      style={{ backgroundColor: color.hexCode }}
-                    />
-                    <div className="mt-2 text-center">
-                      <div className="text-sm font-bold text-gray-500">{color.acCode}</div>
-                      <div className="text-xs text-gray-400">{color.hexCode}</div>
+                  <div className="mt-1 text-center">
+                    <div className="text-xs font-medium text-foreground truncate">
+                      {acCode}
                     </div>
-                    {selectedColor === color.id && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-6 h-6 bg-white rounded-full shadow-md flex items-center justify-center">
-                          <div className="w-3 h-3 bg-primary rounded-full"></div>
-                        </div>
-                      </div>
-                    )}
+                    <div className="text-xs text-muted-foreground truncate">
+                      {colorName}
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 검색 결과 없음 메시지 */}
-      {searchTerm && displayCategories.length === 0 && (
-        <div className="text-center py-8">
-          <p className="text-gray-500">검색 결과가 없습니다.</p>
-          <p className="text-sm text-gray-400 mt-1">다른 검색어를 시도해보세요.</p>
-        </div>
-      )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-muted/50 rounded-lg">
+            <p className="text-muted-foreground">
+              {searchTerm ? '검색 결과가 없습니다.' : '등록된 컬러가 없습니다.'}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
