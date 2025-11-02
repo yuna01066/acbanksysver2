@@ -9,7 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pencil, Save, X, Trash2, Plus } from "lucide-react";
 import { useProcessingOptions, ProcessingOption } from "@/hooks/useProcessingOptions";
+import { useAdhesiveCosts } from "@/hooks/useAdhesiveCosts";
 import { Badge } from "@/components/ui/badge";
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +26,7 @@ import {
 
 const ProcessingOptionsManager = () => {
   const { processingOptions, isLoading, updateOption, deleteOption, createOption } = useProcessingOptions();
+  const { adhesiveCosts, isLoading: isLoadingCosts, updateCost, createCost, deleteCost } = useAdhesiveCosts();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<ProcessingOption>>({});
   const [isAdding, setIsAdding] = useState(false);
@@ -38,6 +42,33 @@ const ProcessingOptionsManager = () => {
   });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  
+  // 접착 비용 관리 상태
+  const [editingCostId, setEditingCostId] = useState<string | null>(null);
+  const [editCostForm, setEditCostForm] = useState<{ cost: number }>({ cost: 0 });
+  const [isAddingCost, setIsAddingCost] = useState(false);
+  const [newCostForm, setNewCostForm] = useState<{
+    panel_master_id: string;
+    thickness: string;
+    cost: number;
+  }>({
+    panel_master_id: '',
+    thickness: '',
+    cost: 0
+  });
+
+  // 패널 마스터 목록 조회
+  const { data: panelMasters } = useQuery({
+    queryKey: ['panel-masters'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('panel_masters')
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      return data;
+    }
+  });
 
   const startEdit = (option: ProcessingOption) => {
     setEditingId(option.id);
@@ -118,6 +149,48 @@ const ProcessingOptionsManager = () => {
       if (selectedCategory === 'additional') return option.option_type === 'additional';
       return false;
     });
+  };
+
+  // 접착 비용 관리 함수들
+  const startEditCost = (costId: string, currentCost: number) => {
+    setEditingCostId(costId);
+    setEditCostForm({ cost: currentCost });
+  };
+
+  const cancelEditCost = () => {
+    setEditingCostId(null);
+    setEditCostForm({ cost: 0 });
+  };
+
+  const saveEditCost = async () => {
+    if (editingCostId) {
+      await updateCost.mutateAsync({
+        id: editingCostId,
+        cost: editCostForm.cost,
+      });
+      cancelEditCost();
+    }
+  };
+
+  const handleAddNewCost = async () => {
+    if (!newCostForm.panel_master_id || !newCostForm.thickness) {
+      alert('패널 마스터와 두께는 필수입니다.');
+      return;
+    }
+    
+    await createCost.mutateAsync(newCostForm);
+    setIsAddingCost(false);
+    setNewCostForm({
+      panel_master_id: '',
+      thickness: '',
+      cost: 0
+    });
+  };
+
+  const handleDeleteCost = async (id: string) => {
+    if (confirm('정말 삭제하시겠습니까?')) {
+      await deleteCost.mutateAsync(id);
+    }
   };
 
   if (isLoading) {
@@ -468,6 +541,181 @@ const ProcessingOptionsManager = () => {
               </TableBody>
             </Table>
           </div>
+
+          {/* 접착 가공 선택 시 접착 비용 관리 섹션 표시 */}
+          {selectedCategory === 'adhesion' && (
+            <div className="mt-8">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                  <div>
+                    <CardTitle className="text-lg">접착 고급 옵션 (두께별 비용)</CardTitle>
+                    <CardDescription>
+                      패널 재질별, 두께별 접착 비용을 관리합니다.
+                    </CardDescription>
+                  </div>
+                  <Button 
+                    onClick={() => setIsAddingCost(!isAddingCost)}
+                    variant={isAddingCost ? "outline" : "default"}
+                    size="sm"
+                  >
+                    {isAddingCost ? <X className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                    {isAddingCost ? '취소' : '새 비용 추가'}
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {isAddingCost && (
+                    <Card className="mb-6 border-2 border-primary/30 bg-primary/5">
+                      <CardHeader>
+                        <CardTitle className="text-base">새 접착 비용 추가</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-3 gap-4">
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">패널 재질</label>
+                            <Select
+                              value={newCostForm.panel_master_id}
+                              onValueChange={(value) => setNewCostForm({...newCostForm, panel_master_id: value})}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="선택..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {panelMasters?.map(master => (
+                                  <SelectItem key={master.id} value={master.id}>
+                                    {master.name} ({master.material} - {master.quality})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">두께</label>
+                            <Select
+                              value={newCostForm.thickness}
+                              onValueChange={(value) => setNewCostForm({...newCostForm, thickness: value})}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="선택..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="2T">2T</SelectItem>
+                                <SelectItem value="3T">3T</SelectItem>
+                                <SelectItem value="5T">5T</SelectItem>
+                                <SelectItem value="8T">8T</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">비용 (원)</label>
+                            <Input
+                              type="number"
+                              value={newCostForm.cost}
+                              onChange={(e) => setNewCostForm({...newCostForm, cost: parseFloat(e.target.value) || 0})}
+                              placeholder="10000"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => setIsAddingCost(false)}>
+                            취소
+                          </Button>
+                          <Button onClick={handleAddNewCost}>
+                            추가하기
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>패널 재질</TableHead>
+                          <TableHead>소재</TableHead>
+                          <TableHead>품질</TableHead>
+                          <TableHead>두께</TableHead>
+                          <TableHead className="text-right">비용</TableHead>
+                          <TableHead className="text-right">작업</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {adhesiveCosts?.map((cost: any) => {
+                          const isEditing = editingCostId === cost.id;
+                          return (
+                            <TableRow key={cost.id}>
+                              <TableCell className="font-medium">
+                                {cost.panel_masters?.name}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{cost.panel_masters?.material}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="secondary">{cost.panel_masters?.quality}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge>{cost.thickness}</Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {isEditing ? (
+                                  <Input
+                                    type="number"
+                                    value={editCostForm.cost}
+                                    onChange={(e) => setEditCostForm({ cost: parseFloat(e.target.value) || 0 })}
+                                    className="max-w-[150px] ml-auto"
+                                  />
+                                ) : (
+                                  <div className="font-mono">₩{cost.cost.toLocaleString()}</div>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {isEditing ? (
+                                  <div className="flex items-center justify-end gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      onClick={saveEditCost}
+                                    >
+                                      <Save className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={cancelEditCost}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-end gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => startEditCost(cost.id, cost.cost)}
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleDeleteCost(cost.id)}
+                                      className="text-destructive hover:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           <div className="mt-6 space-y-4">
             <h4 className="font-semibold text-base">가공 옵션 설정 안내</h4>
