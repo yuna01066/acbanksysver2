@@ -359,6 +359,14 @@ export const usePriceCalculation = ({
         adhesion = 'bond-mugipo-45';
       } else if (selectedAdhesion === 'bond-mugipo-90') {
         adhesion = 'bond-mugipo-90';
+      } else if (selectedAdhesion === '45-normal') {
+        adhesion = '45-normal';
+      } else if (selectedAdhesion === '45-mugipo') {
+        adhesion = '45-mugipo';
+      } else if (selectedAdhesion === '90-normal') {
+        adhesion = '90-normal';
+      } else if (selectedAdhesion === '90-mugipo') {
+        adhesion = '90-mugipo';
       } else if (selectedAdhesion === 'none' || selectedAdhesion === '') {
         adhesion = 'none';
       }
@@ -456,6 +464,14 @@ export const usePriceCalculation = ({
         adhesion = 'bond-mugipo-45';
       } else if (selectedAdhesion === 'bond-mugipo-90') {
         adhesion = 'bond-mugipo-90';
+      } else if (selectedAdhesion === '45-normal') {
+        adhesion = '45-normal';
+      } else if (selectedAdhesion === '45-mugipo') {
+        adhesion = '45-mugipo';
+      } else if (selectedAdhesion === '90-normal') {
+        adhesion = '90-normal';
+      } else if (selectedAdhesion === '90-mugipo') {
+        adhesion = '90-mugipo';
       } else if (selectedAdhesion === 'none' || selectedAdhesion === '') {
         adhesion = 'none';
       }

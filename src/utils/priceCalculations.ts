@@ -172,7 +172,11 @@ export type AdhesionProfile =
   | 'auto'              // 45° vs 90° 자동 비교 후 더 저렴한 쪽
   | 'bond-normal' 
   | 'bond-mugipo-45' 
-  | 'bond-mugipo-90' 
+  | 'bond-mugipo-90'
+  | '45-normal'         // 45° 절단면 가공 + 일반 접착
+  | '45-mugipo'         // 45° 절단면 가공 + 무기포 접착
+  | '90-normal'         // 90° 절단면 가공 + 일반 접착
+  | '90-mugipo'         // 90° 절단면 가공 + 무기포 접착
   | 'none';
 
 export const ADHESION_CONFIG = {
@@ -719,6 +723,34 @@ export const calculatePrice = (
       const adhesionCost = totalPrice * (multiplier - 1);
       breakdown.push({ label: `일반 접착 (×${multiplier})`, price: adhesionCost });
       totalPrice += adhesionCost;
+    } else if (adhesion === '45-normal') {
+      // 45° 절단면 가공 (원판금액 × 0.5) + 일반 접착 (원판금액 × 2.0)
+      const angle45Cost = basePrice * 0.5;
+      const normalAdhesionCost = basePrice * 2.0;
+      breakdown.push({ label: `45° 절단면 가공 (원판×0.5)`, price: angle45Cost });
+      breakdown.push({ label: `일반 접착 (원판×2.0)`, price: normalAdhesionCost });
+      totalPrice += angle45Cost + normalAdhesionCost;
+    } else if (adhesion === '45-mugipo') {
+      // 45° 절단면 가공 (원판금액 × 0.5) + 무기포 접착 (원판금액 × 3.0)
+      const angle45Cost = basePrice * 0.5;
+      const mugipoAdhesionCost = basePrice * 3.0;
+      breakdown.push({ label: `45° 절단면 가공 (원판×0.5)`, price: angle45Cost });
+      breakdown.push({ label: `무기포 접착 (원판×3.0)`, price: mugipoAdhesionCost });
+      totalPrice += angle45Cost + mugipoAdhesionCost;
+    } else if (adhesion === '90-normal') {
+      // 90° 절단면 가공 (원판금액 × 0.25) + 일반 접착 (원판금액 × 2.0)
+      const angle90Cost = basePrice * 0.25;
+      const normalAdhesionCost = basePrice * 2.0;
+      breakdown.push({ label: `90° 절단면 가공 (원판×0.25)`, price: angle90Cost });
+      breakdown.push({ label: `일반 접착 (원판×2.0)`, price: normalAdhesionCost });
+      totalPrice += angle90Cost + normalAdhesionCost;
+    } else if (adhesion === '90-mugipo') {
+      // 90° 절단면 가공 (원판금액 × 0.25) + 무기포 접착 (원판금액 × 3.0)
+      const angle90Cost = basePrice * 0.25;
+      const mugipoAdhesionCost = basePrice * 3.0;
+      breakdown.push({ label: `90° 절단면 가공 (원판×0.25)`, price: angle90Cost });
+      breakdown.push({ label: `무기포 접착 (원판×3.0)`, price: mugipoAdhesionCost });
+      totalPrice += angle90Cost + mugipoAdhesionCost;
     } else if (adhesion === 'bond-mugipo-45' || adhesion === 'bond-mugipo-90' || adhesion === 'auto') {
       // 45°와 90° 비교
       const f45 = t < 10 

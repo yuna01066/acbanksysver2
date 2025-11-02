@@ -127,16 +127,20 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   // 접착 각도 선택 핸들러
   const handleAdhesionAngleSelect = (angle: AdhesionAngle) => {
     setAdhesionAngle(angle);
+    // 각도와 방식이 모두 선택되면 onAdhesionSelect 호출
+    if (adhesionType) {
+      const adhesionValue = `${angle === '45' ? '45' : '90'}-${adhesionType === 'normal' ? 'normal' : 'mugipo'}`;
+      onAdhesionSelect(adhesionValue);
+    }
   };
 
   // 접착 방식 선택 핸들러
   const handleAdhesionTypeSelect = (type: AdhesionType) => {
     setAdhesionType(type);
-    
-    if (type === 'normal') {
-      onAdhesionSelect('adhesion-normal');
-    } else if (type === 'bubble-free') {
-      onAdhesionSelect('adhesion-bubble-free');
+    // 각도와 방식이 모두 선택되면 onAdhesionSelect 호출
+    if (adhesionAngle) {
+      const adhesionValue = `${adhesionAngle === '45' ? '45' : '90'}-${type === 'normal' ? 'normal' : 'mugipo'}`;
+      onAdhesionSelect(adhesionValue);
     }
   };
 
