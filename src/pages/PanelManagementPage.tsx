@@ -52,33 +52,24 @@ const PanelManagementPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="w-full max-w-7xl mx-auto">
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/admin-settings')}
-              className="flex items-center gap-2"
-              size="sm"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              관리자 설정으로 돌아가기
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/')}
-              size="sm"
-            >
-              홈으로 가기
-            </Button>
-          </div>
+    <div className="min-h-screen p-6">
+      <div className="w-full max-w-6xl mx-auto">
+        <div className="mb-6 flex gap-2">
+          <Button 
+            onClick={() => navigate('/admin-settings')}
+            variant="outline"
+            size="sm"
+            className="animate-fade-up"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            관리자 설정으로
+          </Button>
         </div>
 
         <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold">원판 관리</h1>
-            <p className="text-muted-foreground mt-2">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold mb-2">원판 관리</h1>
+            <p className="text-muted-foreground">
               소재 → 재질 선택 후, 사이즈/가격 또는 컬러를 관리합니다.
             </p>
           </div>

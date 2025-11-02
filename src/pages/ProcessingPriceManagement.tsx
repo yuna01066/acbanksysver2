@@ -8,17 +8,17 @@ const ProcessingPriceManagement = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 p-4">
-      <div className="w-full max-w-6xl mx-auto">
+    <div className="min-h-screen p-6">
+      <div className="w-full max-w-4xl mx-auto">
         <div className="mb-6">
           <Button 
-            variant="outline" 
             onClick={() => navigate('/admin-settings')}
-            className="flex items-center gap-2"
+            variant="outline"
             size="sm"
+            className="animate-fade-up"
           >
             <ArrowLeft className="w-4 h-4" />
-            관리자 설정으로 돌아가기
+            관리자 설정으로
           </Button>
         </div>
         
