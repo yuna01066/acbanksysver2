@@ -105,7 +105,11 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   // initialType이 있으면 자동으로 계산기 타입 선택 단계를 건너뛰기
   useEffect(() => {
     if (initialType && calculatorType === initialType && currentStep === 0) {
-      setCurrentStep(1);
+      if (initialType === 'yield') {
+        setCurrentStep(-1); // 수율 계산기는 -1 단계
+      } else {
+        setCurrentStep(1); // 견적 계산기는 1단계부터 시작
+      }
     }
   }, [initialType, calculatorType, currentStep]);
   
