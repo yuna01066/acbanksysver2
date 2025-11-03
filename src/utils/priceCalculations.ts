@@ -768,8 +768,8 @@ export const calculatePrice = (
   
   console.log('원장 기준:', { wonJang, basePrice, totalWonJangBase: options?.totalWonJangBase });
   
-  // 6) processingType이 복합 ID 형식인 경우 (예: "slot1-option|slot2-option|slot3-option")
-  if (processingType && processingType !== 'raw-only' && processingType.includes('|')) {
+  // 6) processingType이 복합 ID 형식인 경우 또는 단일 raw-only인 경우
+  if (processingType && (processingType.includes('|') || processingType === 'raw-only')) {
     const processingOptionsData = options?.processingOptionsData || [];
     const selectedOptionIds = processingType.split('|');
     
@@ -797,8 +797,19 @@ export const calculatePrice = (
         // 수량 정보 확인 (기본값 1)
         const quantity = additionalOptionsQuantities[optionId] || 1;
         
-        // multiplier가 있으면 "원장 × 배수" 계산
-        if (option.multiplier !== undefined && option.multiplier !== null && option.multiplier !== 0) {
+        // raw-only 옵션 특별 처리: 원판에 대한 할증
+        if (option.option_id === 'raw-only' && option.multiplier) {
+          // 원판 할증 = 원장 × (배수 - 1)
+          const rawOnlyCharge = wonJang * (option.multiplier - 1);
+          breakdown.push({ 
+            label: `원판 단독 구매 할증 (×${option.multiplier})`, 
+            price: rawOnlyCharge 
+          });
+          totalPrice += rawOnlyCharge;
+          console.log(`Applied raw-only surcharge: ${rawOnlyCharge} (원장: ${wonJang} × (${option.multiplier} - 1))`);
+        }
+        // 일반 가공 옵션: multiplier가 있으면 "원장 × 배수" 계산
+        else if (option.multiplier !== undefined && option.multiplier !== null && option.multiplier !== 0) {
           // 원장 기준으로 multiplier 적용
           const optionCost = wonJang * option.multiplier * quantity;
           const label = quantity > 1 
