@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useProcessingOptions } from "@/hooks/useProcessingOptions";
 import { useSlotTypes } from "@/hooks/useSlotTypes";
+import { useCategoryLogic } from "@/hooks/useCategoryLogic";
 
 interface ProcessingOptionsProps {
   selectedProcessing: string;
@@ -60,6 +61,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   
   const { processingOptions, activeAdditionalOptions, isLoading } = useProcessingOptions();
   const { slotTypes, isLoading: isLoadingSlots } = useSlotTypes();
+  const { getCategorySlots: getCategoryLogicSlots, isLoading: isLoadingLogic } = useCategoryLogic();
 
   // 카테고리별 슬롯 옵션 가져오기
   const getCategorySlots = (category: MainCategory) => {
@@ -118,7 +120,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     return requiredSlots.every(slot => selectedSlots[slot]);
   };
 
-  if (isLoading || isLoadingSlots) {
+  if (isLoading || isLoadingSlots || isLoadingLogic) {
     return (
       <div className="space-y-8 animate-fade-in">
         <div className="text-center">로딩 중...</div>
@@ -176,10 +178,14 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
       {/* 동적 슬롯 렌더링 */}
       {mainCategory && mainCategory !== 'raw' && (() => {
         const slots = getCategorySlots(mainCategory);
-        const sortedSlotTypes = Object.keys(slots).sort((a, b) => {
-          const order = ['slot1', 'slot2', 'slot3', 'slot4', 'additional'];
-          return order.indexOf(a) - order.indexOf(b);
-        });
+        
+        // 관리자 설정에서 정의한 슬롯 로직 가져오기
+        const logicSlots = getCategoryLogicSlots(mainCategory);
+        
+        // 로직에 정의된 순서대로 슬롯 정렬, 정의되지 않은 슬롯은 제외
+        const sortedSlotTypes = logicSlots
+          .map(logic => logic.slot_key)
+          .filter(slotKey => slots[slotKey] && slots[slotKey].length > 0);
 
         return sortedSlotTypes.map((slotType, stepIndex) => {
           const options = slots[slotType];
@@ -189,7 +195,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
           const slotDescription = slotTypeInfo?.description;
           
           return (
-            <React.Fragment key={slotType}>
+            <div key={slotType}>
               <Separator />
               <Card className="border-2 border-primary/20">
                 <CardHeader className="pb-3">
@@ -244,7 +250,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                   </div>
                 </CardContent>
               </Card>
-            </React.Fragment>
+            </div>
           );
         });
       })()}
