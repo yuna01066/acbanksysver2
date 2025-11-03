@@ -251,8 +251,12 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         });
       })()}
 
-      {/* 추가 옵션 (모든 카테고리에서 표시) */}
-      {mainCategory && isSelectionComplete() && activeAdditionalOptions && activeAdditionalOptions.length > 0 && (
+      {/* 추가 옵션 (카테고리 로직에 정의된 경우만 표시) */}
+      {mainCategory && isSelectionComplete() && (() => {
+        const logicSlots = getCategoryLogicSlots(mainCategory);
+        const hasAdditionalSlot = logicSlots.some(logic => logic.slot_key === 'additional');
+        return hasAdditionalSlot && activeAdditionalOptions && activeAdditionalOptions.length > 0;
+      })() && (
         <>
           <Separator />
           <Card className="border-2 border-accent/20">
