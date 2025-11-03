@@ -33,6 +33,11 @@ interface SavedQuote {
   recipient_address: string | null;
   recipient_memo: string | null;
   desired_delivery_date: string | null;
+  issuer_name: string | null;
+  issuer_email: string | null;
+  issuer_phone: string | null;
+  issuer_department: string | null;
+  issuer_position: string | null;
   items: any;
   subtotal: number;
   tax: number;
@@ -603,6 +608,8 @@ const SavedQuoteDetailPage = () => {
                       <div><strong>주소:</strong> 경기도 포천시 소흘읍 호국로 287번길 15, 나동 1층 101호 (동행빌딩)</div>
                       <div><strong>업태:</strong> 제조업 / 도매 및 소매업</div>
                       <div><strong>종목:</strong> 아크릴 가공 외</div>
+                      <div><strong>연락처:</strong> 070-7666-9828</div>
+                      <div><strong>이메일:</strong> acbank@acbank.co.kr</div>
                     </div>
                   </div>
 
@@ -610,9 +617,11 @@ const SavedQuoteDetailPage = () => {
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <h4 className="font-semibold text-slate-800 mb-3">담당자 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
-                      <div><strong>담당자:</strong> 작성</div>
-                      <div><strong>연락처:</strong> 070-7666-9828</div>
-                      <div><strong>이메일:</strong> acbank@acbank.co.kr</div>
+                      <div><strong>담당자:</strong> {quote.issuer_name || '작성'}</div>
+                      {quote.issuer_email && <div><strong>이메일:</strong> {quote.issuer_email}</div>}
+                      {quote.issuer_phone && <div><strong>연락처:</strong> {quote.issuer_phone}</div>}
+                      {quote.issuer_department && <div><strong>부서:</strong> {quote.issuer_department}</div>}
+                      {quote.issuer_position && <div><strong>직급:</strong> {quote.issuer_position}</div>}
                     </div>
                   </div>
                   

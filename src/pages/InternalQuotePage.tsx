@@ -287,6 +287,8 @@ const InternalQuotePage = () => {
                       <div><strong>주소:</strong> 경기도 포천시 소흘읍 호국로 287번길 15, 나동 1층 101호 (동행빌딩)</div>
                       <div><strong>업태:</strong> 제조업 / 도매 및 소매업</div>
                       <div><strong>종목:</strong> 아크릴 가공 외</div>
+                      <div><strong>연락처:</strong> 070-7666-9828</div>
+                      <div><strong>이메일:</strong> acbank@acbank.co.kr</div>
                     </div>
                   </div>
 
@@ -294,9 +296,11 @@ const InternalQuotePage = () => {
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <h4 className="font-semibold text-slate-800 mb-3">담당자 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
-                      <div><strong>담당자:</strong> 작성</div>
-                      <div><strong>연락처:</strong> 070-7666-9828</div>
-                      <div><strong>이메일:</strong> acbank@acbank.co.kr</div>
+                      <div><strong>담당자:</strong> {recipient?.issuerName || '작성'}</div>
+                      {recipient?.issuerEmail && <div><strong>이메일:</strong> {recipient.issuerEmail}</div>}
+                      {recipient?.issuerPhone && <div><strong>연락처:</strong> {recipient.issuerPhone}</div>}
+                      {recipient?.issuerDepartment && <div><strong>부서:</strong> {recipient.issuerDepartment}</div>}
+                      {recipient?.issuerPosition && <div><strong>직급:</strong> {recipient.issuerPosition}</div>}
                     </div>
                   </div>
                   
