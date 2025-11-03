@@ -137,17 +137,19 @@ const SavedQuotesPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
+        <div className="mb-8">
+          <div className="flex justify-end mb-4">
+            <Button onClick={() => navigate('/')} variant="outline">
+              <Home className="w-4 h-4 mr-2" />
+              홈으로
+            </Button>
+          </div>
+          <div className="text-center">
             <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">
               발행 견적서 목록
             </h1>
             <p className="text-muted-foreground">저장된 견적서를 확인하고 관리합니다</p>
           </div>
-          <Button onClick={() => navigate('/')} variant="outline">
-            <Home className="w-4 h-4 mr-2" />
-            홈으로
-          </Button>
         </div>
 
         {/* Search and Filter */}
