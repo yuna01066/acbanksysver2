@@ -48,10 +48,9 @@ interface UserWithRole extends UserProfile {
   roles: string[];
 }
 
-const ADMIN_PASSWORD = 'acbank2024!';
+const ADMIN_PASSWORD = '4999';
 
 const UserManagementPage = () => {
-  const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,30 +69,23 @@ const UserManagementPage = () => {
 
   useEffect(() => {
     // Check session storage for authentication
-    const adminAuth = sessionStorage.getItem('admin_authenticated');
+    const adminAuth = sessionStorage.getItem('user_management_authenticated');
     if (adminAuth === 'true') {
       setIsAuthenticated(true);
     }
   }, []);
 
   useEffect(() => {
-    if (!authLoading && (!user || !isAdmin)) {
-      navigate('/');
-      toast.error('관리자 권한이 필요합니다.');
-    }
-  }, [user, isAdmin, authLoading, navigate]);
-
-  useEffect(() => {
-    if (user && isAdmin && isAuthenticated) {
+    if (isAuthenticated) {
       fetchUsers();
     }
-  }, [user, isAdmin, isAuthenticated]);
+  }, [isAuthenticated]);
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
-      sessionStorage.setItem('admin_authenticated', 'true');
+      sessionStorage.setItem('user_management_authenticated', 'true');
       setPasswordError('');
     } else {
       setPasswordError('비밀번호가 올바르지 않습니다.');
@@ -201,10 +193,6 @@ const UserManagementPage = () => {
     }
     setDeleteUserId(null);
   };
-
-  if (authLoading || !user || !isAdmin) {
-    return <div className="min-h-screen flex items-center justify-center">로딩 중...</div>;
-  }
 
   if (!isAuthenticated) {
     return (
