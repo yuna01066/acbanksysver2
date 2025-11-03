@@ -86,8 +86,14 @@ const Home = () => {
           </div>
 
           {/* Footer */}
-          <div className="mt-16 text-center text-sm text-muted-foreground">
-            <p>@2025 ACBANK. All rights reserved.</p>
+          <div className="mt-16 text-center space-y-4">
+            <div className="p-4 bg-muted/50 rounded-lg border border-border/50">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                본 프로그램은 아크뱅크 내부용 시스템 프로그램으로, 무단 복제 및 배포, 유출을 금지하고 있습니다.<br />
+                위반 시 법적인 책임을 질 수 있습니다.
+              </p>
+            </div>
+            <p className="text-sm text-muted-foreground">@2025 ACBANK. All rights reserved.</p>
           </div>
         </div>
       </div>
