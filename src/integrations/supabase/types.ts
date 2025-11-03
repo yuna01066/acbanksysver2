@@ -361,12 +361,50 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string | null
+          department: string | null
+          email: string
+          full_name: string
+          id: string
+          phone: string | null
+          position: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          department?: string | null
+          email: string
+          full_name: string
+          id: string
+          phone?: string | null
+          position?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          department?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          phone?: string | null
+          position?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       saved_quotes: {
         Row: {
           created_at: string
           delivery_period: string | null
           desired_delivery_date: string | null
           id: string
+          issuer_department: string | null
+          issuer_email: string | null
+          issuer_name: string | null
+          issuer_phone: string | null
+          issuer_position: string | null
           items: Json
           payment_condition: string | null
           project_name: string | null
@@ -383,6 +421,7 @@ export type Database = {
           tax: number
           total: number
           updated_at: string
+          user_id: string | null
           valid_until: string | null
         }
         Insert: {
@@ -390,6 +429,11 @@ export type Database = {
           delivery_period?: string | null
           desired_delivery_date?: string | null
           id?: string
+          issuer_department?: string | null
+          issuer_email?: string | null
+          issuer_name?: string | null
+          issuer_phone?: string | null
+          issuer_position?: string | null
           items: Json
           payment_condition?: string | null
           project_name?: string | null
@@ -406,6 +450,7 @@ export type Database = {
           tax: number
           total: number
           updated_at?: string
+          user_id?: string | null
           valid_until?: string | null
         }
         Update: {
@@ -413,6 +458,11 @@ export type Database = {
           delivery_period?: string | null
           desired_delivery_date?: string | null
           id?: string
+          issuer_department?: string | null
+          issuer_email?: string | null
+          issuer_name?: string | null
+          issuer_phone?: string | null
+          issuer_position?: string | null
           items?: Json
           payment_condition?: string | null
           project_name?: string | null
@@ -429,6 +479,7 @@ export type Database = {
           tax?: number
           total?: number
           updated_at?: string
+          user_id?: string | null
           valid_until?: string | null
         }
         Relationships: []
@@ -469,14 +520,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "admin" | "user"
       panel_material: "acrylic" | "pet"
       panel_quality:
         | "glossy-color"
@@ -631,6 +707,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "user"],
       panel_material: ["acrylic", "pet"],
       panel_quality: [
         "glossy-color",

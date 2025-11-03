@@ -181,6 +181,50 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
         </div>
       </div>
 
+      {/* 발신 담당자 정보 */}
+      <div className="mb-8 p-4 bg-muted/30 rounded-lg">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">발신 담당자 정보</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="issuerName">담당자</Label>
+            <Input
+              id="issuerName"
+              value={recipientData.issuerName || ''}
+              onChange={(e) => onChange('issuerName', e.target.value)}
+              placeholder="담당자명"
+            />
+          </div>
+          <div>
+            <Label htmlFor="issuerEmail">이메일</Label>
+            <Input
+              id="issuerEmail"
+              type="email"
+              value={recipientData.issuerEmail || ''}
+              onChange={(e) => onChange('issuerEmail', e.target.value)}
+              placeholder="이메일"
+            />
+          </div>
+          <div>
+            <Label htmlFor="issuerPhone">연락처</Label>
+            <Input
+              id="issuerPhone"
+              value={recipientData.issuerPhone || ''}
+              onChange={(e) => onChange('issuerPhone', e.target.value)}
+              placeholder="연락처"
+            />
+          </div>
+          <div>
+            <Label htmlFor="issuerDepartment">부서</Label>
+            <Input
+              id="issuerDepartment"
+              value={recipientData.issuerDepartment || ''}
+              onChange={(e) => onChange('issuerDepartment', e.target.value)}
+              placeholder="부서"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* 클라이언트 요청사항 (선택적) */}
       {showClientMemo && (
         <div className="mb-8">

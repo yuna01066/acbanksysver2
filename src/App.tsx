@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QuoteProvider } from "@/contexts/QuoteContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Calculator from "./pages/Calculator";
 import NotFound from "./pages/NotFound";
@@ -20,6 +21,9 @@ import PanelManagementPage from "./pages/PanelManagementPage";
 import ProcessingPriceManagement from "./pages/ProcessingPriceManagement";
 import SavedQuotesPage from "./pages/SavedQuotesPage";
 import SavedQuoteDetailPage from "./pages/SavedQuoteDetailPage";
+import AuthPage from "./pages/AuthPage";
+import MyPage from "./pages/MyPage";
+import UserManagementPage from "./pages/UserManagementPage";
 
 const queryClient = new QueryClient();
 
@@ -29,8 +33,9 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <QuoteProvider>
-          <Routes>
+        <AuthProvider>
+          <QuoteProvider>
+            <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/quote" element={<QuotePage />} />
@@ -45,10 +50,14 @@ const App = () => (
             <Route path="/processing-price-management" element={<ProcessingPriceManagement />} />
             <Route path="/saved-quotes" element={<SavedQuotesPage />} />
             <Route path="/saved-quotes/:id" element={<SavedQuoteDetailPage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/my-page" element={<MyPage />} />
+            <Route path="/user-management" element={<UserManagementPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </QuoteProvider>
+            </Routes>
+          </QuoteProvider>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

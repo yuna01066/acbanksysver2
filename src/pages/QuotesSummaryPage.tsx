@@ -11,6 +11,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calculator, ShoppingCart, Home, Download, FileText, Calendar as CalendarIcon, Plus, Trash2, Send } from "lucide-react";
 import { useQuotes, QuoteRecipient } from "@/contexts/QuoteContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import QuoteCard from "@/components/QuoteCard";
@@ -20,6 +21,7 @@ import RecipientInfoForm from "@/components/RecipientInfoForm";
 
 const QuotesSummaryPage = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const { quotes, recipient, removeQuote, updateQuoteQuantity, clearQuotes, getTotalPrice, getTotalPriceWithTax, updateRecipient, generateQuoteNumber } = useQuotes();
   
   const [recipientData, setRecipientData] = React.useState<QuoteRecipient>({
@@ -35,7 +37,13 @@ const QuotesSummaryPage = () => {
     email: recipient?.email || '',
     desiredDeliveryDate: recipient?.desiredDeliveryDate || null,
     deliveryAddress: recipient?.deliveryAddress || '',
-    clientMemo: recipient?.clientMemo || ''
+    clientMemo: recipient?.clientMemo || '',
+    // 로그인한 사용자 정보 자동 입력
+    issuerName: recipient?.issuerName || profile?.full_name || '',
+    issuerEmail: recipient?.issuerEmail || profile?.email || '',
+    issuerPhone: recipient?.issuerPhone || profile?.phone || '',
+    issuerDepartment: recipient?.issuerDepartment || profile?.department || '',
+    issuerPosition: recipient?.issuerPosition || profile?.position || ''
   });
 
   if (quotes.length === 0) {

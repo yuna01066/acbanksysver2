@@ -1,8 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut } from "lucide-react";
+import { useAuth } from '@/contexts/AuthContext';
 const Home = () => {
   const navigate = useNavigate();
+  const { user, profile, signOut } = useAuth();
   const links = [{
     title: "홈페이지",
     icon: HomeIcon,
@@ -61,6 +65,27 @@ const Home = () => {
   return <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-6xl mx-auto">
+          {/* User Info / Login Button */}
+          <div className="flex justify-end items-center gap-4 mb-8">
+            {user ? (
+              <>
+                <Button variant="outline" onClick={() => navigate('/my-page')} className="gap-2">
+                  <User className="h-4 w-4" />
+                  {profile?.full_name || user.email}
+                </Button>
+                <Button variant="ghost" onClick={signOut} className="gap-2">
+                  <LogOut className="h-4 w-4" />
+                  로그아웃
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => navigate('/auth')} className="gap-2">
+                <LogIn className="h-4 w-4" />
+                로그인
+              </Button>
+            )}
+          </div>
+
           {/* Header */}
           <div className="text-center mb-16 animate-fade-up">
             <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">ACBANK</h1>

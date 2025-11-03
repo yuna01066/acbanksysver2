@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Code, Settings, Lock, Wrench } from "lucide-react";
+import { ArrowLeft, Code, Settings, Lock, Wrench, UserCog } from "lucide-react";
 
 const ADMIN_PASSWORD = "4999";
 
@@ -182,21 +182,21 @@ const AdminSettingsPage = () => {
                 </Button>
               </div>
               
-              <div className="border rounded-lg p-4 bg-muted/50">
-                <h3 className="font-medium mb-2 flex items-center gap-2 text-muted-foreground">
-                  <Settings className="w-4 h-4" />
-                  사용자 관리
+              <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
+                <h3 className="font-medium mb-2 flex items-center gap-2">
+                  <UserCog className="w-4 h-4" />
+                  담당자 관리
                 </h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  사용자 권한 및 접근을 관리합니다. (준비중)
+                  사용자 계정 및 권한을 관리합니다.
                 </p>
                 <Button
+                  onClick={() => navigate('/user-management')}
                   variant="outline"
-                  disabled
                   className="flex items-center gap-2"
                 >
-                  <Settings className="w-4 h-4" />
-                  사용자 설정 (준비중)
+                  <UserCog className="w-4 h-4" />
+                  담당자 관리
                 </Button>
               </div>
             </div>
