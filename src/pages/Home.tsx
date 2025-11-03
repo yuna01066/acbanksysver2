@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings } from "lucide-react";
 const Home = () => {
   const navigate = useNavigate();
   const links = [{
@@ -39,6 +39,12 @@ const Home = () => {
     description: "저장된 견적서 관리",
     url: "/saved-quotes",
     action: () => navigate("/saved-quotes")
+  }, {
+    title: "관리자 설정",
+    icon: Settings,
+    description: "가격 및 옵션 관리",
+    url: "/admin-settings",
+    action: () => navigate("/admin-settings")
   }, {
     title: "아크뱅크 노션 페이지",
     icon: BookOpen,
