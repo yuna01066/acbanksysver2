@@ -315,33 +315,79 @@ export const usePriceCalculation = ({
 
     // 다중 선택된 사이즈가 있는 경우
     if (selectedMaterial && selectedQuality && selectedThickness && selectedSizes && selectedSizes.length > 0 && selectedFactory === 'jangwon') {
-      let totalBasePrice = 0; // 할증 전 기본 가격 합계
-      let allBreakdown: { label: string; price: number }[] = [];
-      let inquiryMultiplier = 0; // 할증 배수
-
-      // 각 사이즈별로 기본 가격 계산 (할증 제외)
+      // 1단계: 모든 원장 비용 계산 (원판금액 + 면수 + 조색비)
+      let totalWonJang = 0;
+      const wonJangBreakdown: { label: string; price: number }[] = [];
+      
       selectedSizes.forEach((sizeSelection, index) => {
         const surface = sizeSelection.surface || '단면';
         const sizeColorMixingCost = sizeSelection.colorMixingCost || 0;
         
-        // 사이즈 문자열에서 실제 사이즈 부분만 추출
         const sizeMatch = sizeSelection.size.match(/^([^\(]+)/);
         const actualSize = sizeMatch ? sizeMatch[1].trim() : sizeSelection.size;
 
-        // 가공/접착 프로필 결정
-        let processing: any = 'none';
-        let adhesion: any = 'none';
-        let edgeRequested = false;
+        // 각 원장의 기본 비용만 계산 (가공 옵션 제외)
+        const result = calculatePrice(
+          selectedMaterial.id,
+          selectedQuality.id,
+          selectedThickness,
+          actualSize,
+          surface,
+          selectedColorType || undefined,
+          'raw-only', // 원장만 계산하기 위해 raw-only 제외
+          sizeColorMixingCost,
+          {
+            processing: 'none',
+            adhesion: 'none',
+            qty: sizeSelection.quantity,
+            colorMixingCostsData: colorMixingCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
+            adhesiveCostsData: adhesiveCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
+            panelSizesData: activePanelSizes?.map(ps => ({
+              size_name: ps.size_name,
+              thickness: ps.thickness,
+              price: ps.price || undefined,
+              is_active: ps.is_active
+            })),
+            processingOptionsData: [],
+            rawOnlyMultiplier: 1.0, // 원장 계산시에는 할증 제외
+          }
+        );
+
+        // 원장 비용만 추출 (원판 + 테이프 + 조색비)
+        const wonJangPrice = result.breakdown
+          .filter(item => 
+            !item.label.includes('할증') && 
+            !item.label.includes('가공') && 
+            !item.label.includes('접착')
+          )
+          .reduce((sum, item) => sum + item.price, 0);
+
+        totalWonJang += wonJangPrice;
         
-        if (selectedProcessing === 'raw-only') {
-          processing = 'none';
-        } else if (selectedProcessing === 'auto') {
-          processing = 'auto';
-        } else if (selectedProcessing === 'simple-cutting') {
-          processing = 'simple-cutting';
-        } else if (selectedProcessing === 'edge-finishing') {
-          processing = 'none';
-          edgeRequested = true;
+        wonJangBreakdown.push({
+          label: `원장 #${index + 1} (${actualSize}, ${surface})`,
+          price: wonJangPrice
+        });
+      });
+
+      // 2단계: 가공 옵션 비용 계산 (총 원장 기준)
+      let totalPrice = totalWonJang;
+      const allBreakdown: { label: string; price: number }[] = [...wonJangBreakdown];
+
+      // 가공/접착 프로필 결정
+      let processing: any = 'none';
+      let adhesion: any = 'none';
+      let edgeRequested = false;
+      
+      if (selectedProcessing === 'raw-only') {
+        processing = 'none';
+      } else if (selectedProcessing === 'auto') {
+        processing = 'auto';
+      } else if (selectedProcessing === 'simple-cutting') {
+        processing = 'simple-cutting';
+      } else if (selectedProcessing === 'edge-finishing') {
+        processing = 'none';
+        edgeRequested = true;
       } else if (selectedProcessing === 'laser-simple') {
         processing = 'laser-simple';
       } else if (selectedProcessing === 'laser-complex') {
@@ -378,61 +424,55 @@ export const usePriceCalculation = ({
         adhesion = 'none';
       }
 
-        // 가격 계산
-        const result = calculatePrice(
-          selectedMaterial.id,
-          selectedQuality.id,
-          selectedThickness,
-          actualSize,
-          surface,
-          selectedColorType || undefined,
-          selectedProcessing || undefined,
-          sizeColorMixingCost,
-          {
-            processing,
-            adhesion,
-            qty: sizeSelection.quantity,
-            isComplex,
-            edgeRequested,
-            bevelLengthM,
-            bevelFeePerM: bevelLengthM > 0 ? 3000 : undefined,
-            laserHoles,
-            holeFee: laserHoles > 0 ? 500 : undefined,
-            corners90,
-            useDetailedBond,
-            joinLengthM,
-            trayHeightMm,
-            edgeFinishing,
-            colorMixingCostsData: colorMixingCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
-            adhesiveCostsData: adhesiveCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
-            panelSizesData: activePanelSizes?.map(ps => ({
-              size_name: ps.size_name,
-              thickness: ps.thickness,
-              price: ps.price || undefined,
-              is_active: ps.is_active
-            })),
-            processingOptionsData: processingOptions, // DB에서 가져온 가공 옵션 전달
-            rawOnlyMultiplier, // DB에서 가져온 원판 단독 구매 할증률 전달
-          }
-        );
+      // 더미 사이즈로 가공 옵션 비용만 계산 (총 원장 기준)
+      const optionsResult = calculatePrice(
+        selectedMaterial.id,
+        selectedQuality.id,
+        selectedThickness,
+        '소3*6', // 더미 사이즈
+        '단면', // 더미 surface
+        selectedColorType || undefined,
+        selectedProcessing || undefined,
+        0, // 조색비 0
+        {
+          processing,
+          adhesion,
+          qty: 1,
+          isComplex,
+          edgeRequested,
+          bevelLengthM,
+          bevelFeePerM: bevelLengthM > 0 ? 3000 : undefined,
+          laserHoles,
+          holeFee: laserHoles > 0 ? 500 : undefined,
+          corners90,
+          useDetailedBond,
+          joinLengthM,
+          trayHeightMm,
+          edgeFinishing,
+          processingOptionsData: processingOptions,
+          rawOnlyMultiplier,
+          selectedAdditionalOptions,
+          // 총 원장을 기준가격으로 전달
+          totalWonJangBase: totalWonJang,
+        }
+      );
 
-        // 개별 breakdown에 사이즈 정보 추가
-        const labeledBreakdown = result.breakdown.map(item => ({
-          label: `[${actualSize} #${index + 1}] ${item.label}`,
-          price: item.price
-        }));
+      // 가공 옵션 breakdown만 추출
+      const optionsBreakdown = optionsResult.breakdown.filter(item => 
+        !item.label.includes('기본가') && 
+        !item.label.includes('테이프') &&
+        !item.label.includes('조색비') &&
+        !item.label.includes('추가금액')
+      );
 
-        allBreakdown.push(...labeledBreakdown);
-        
-        // 전체 가격 합산
-        const itemTotal = result.breakdown.reduce((sum, item) => sum + item.price, 0);
-        totalBasePrice += itemTotal;
+      allBreakdown.push(...optionsBreakdown);
+      totalPrice += optionsBreakdown.reduce((sum, item) => sum + item.price, 0);
+
+      console.log('Multi-size price calculation result:', { 
+        totalWonJang, 
+        totalPrice, 
+        breakdown: allBreakdown 
       });
-
-      // 최종 총 가격
-      let totalPrice = totalBasePrice;
-
-      console.log('Multi-size price calculation result:', { totalPrice, breakdown: allBreakdown });
       setPriceInfo({ totalPrice, breakdown: allBreakdown });
     }
     // 단일 선택된 사이즈가 있는 경우 (하위 호환성)

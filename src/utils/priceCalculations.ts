@@ -603,6 +603,7 @@ export interface CalculatePriceV2Options {
   processFactors?: ProcessFactorsData;            // 가공 배수 (DB)
   bondFactors?: BondFactorsData;                  // 접착 배수 (DB)
   selectedAdditionalOptions?: Record<string, number>; // 추가 옵션 수량
+  totalWonJangBase?: number; // 여러 원장의 합계 (옵션 계산 시 기준가)
 }
 
 export interface ProcessingOptionData {
@@ -762,7 +763,10 @@ export const calculatePrice = (
 
   // ===== 원장 금액 계산 완료 =====
   // 원장 = 원판금액 + 면수(테이프) + 조색비
-  const wonJang = basePrice;
+  // 여러 원장인 경우, totalWonJangBase로 전달된 값을 사용
+  const wonJang = options?.totalWonJangBase || basePrice;
+  
+  console.log('원장 기준:', { wonJang, basePrice, totalWonJangBase: options?.totalWonJangBase });
   
   // 6) processingType이 복합 ID 형식인 경우 (예: "slot1-option|slot2-option|slot3-option")
   if (processingType && processingType !== 'raw-only' && processingType.includes('|')) {
