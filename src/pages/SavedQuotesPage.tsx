@@ -8,9 +8,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import CustomerQuoteCard from '@/components/CustomerQuoteCard';
 import QuoteCard from '@/components/QuoteCard';
-import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 
 interface SavedQuote {
   id: string;
@@ -29,6 +31,8 @@ interface SavedQuote {
   total: number;
 }
 
+type SortOption = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'number-desc' | 'number-asc';
+
 const SavedQuotesPage = () => {
   const navigate = useNavigate();
   const [quotes, setQuotes] = useState<SavedQuote[]>([]);
@@ -38,6 +42,7 @@ const SavedQuotesPage = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const ITEMS_PER_PAGE = 50;
 
   useEffect(() => {
@@ -46,7 +51,7 @@ const SavedQuotesPage = () => {
 
   useEffect(() => {
     filterQuotes();
-  }, [searchTerm, dateFilter, quotes]);
+  }, [searchTerm, dateFilter, quotes, sortBy]);
 
   useEffect(() => {
     setCurrentPage(1); // 검색어 변경 시 첫 페이지로
@@ -94,7 +99,8 @@ const SavedQuotesPage = () => {
       filtered = filtered.filter(quote => 
         quote.quote_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
         quote.recipient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        quote.recipient_company?.toLowerCase().includes(searchTerm.toLowerCase())
+        quote.recipient_company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        quote.project_name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -103,6 +109,26 @@ const SavedQuotesPage = () => {
         quote.quote_date.startsWith(dateFilter)
       );
     }
+
+    // 정렬 적용
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'date-desc':
+          return new Date(b.quote_date).getTime() - new Date(a.quote_date).getTime();
+        case 'date-asc':
+          return new Date(a.quote_date).getTime() - new Date(b.quote_date).getTime();
+        case 'amount-desc':
+          return b.total - a.total;
+        case 'amount-asc':
+          return a.total - b.total;
+        case 'number-desc':
+          return b.quote_number.localeCompare(a.quote_number);
+        case 'number-asc':
+          return a.quote_number.localeCompare(b.quote_number);
+        default:
+          return 0;
+      }
+    });
 
     setFilteredQuotes(filtered);
   };
@@ -153,14 +179,14 @@ const SavedQuotesPage = () => {
           </div>
         </div>
 
-        {/* Search and Filter */}
+        {/* Search, Filter and Sort */}
         <Card className="mb-6">
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="견적번호, 업체명, 담당자로 검색..."
+                  placeholder="견적번호, 프로젝트명, 업체명, 담당자로 검색..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -175,6 +201,22 @@ const SavedQuotesPage = () => {
                   className="pl-10"
                 />
               </div>
+              <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+                <SelectTrigger>
+                  <div className="flex items-center gap-2">
+                    <ArrowUpDown className="w-4 h-4" />
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date-desc">최신 날짜순</SelectItem>
+                  <SelectItem value="date-asc">오래된 날짜순</SelectItem>
+                  <SelectItem value="amount-desc">금액 높은순</SelectItem>
+                  <SelectItem value="amount-asc">금액 낮은순</SelectItem>
+                  <SelectItem value="number-desc">견적번호 내림차순</SelectItem>
+                  <SelectItem value="number-asc">견적번호 오름차순</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -195,42 +237,72 @@ const SavedQuotesPage = () => {
           </Card>
         ) : (
           <>
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {filteredQuotes.map((quote) => (
-                <Card key={quote.id} className="hover:shadow-lg transition-shadow">
+                <Card key={quote.id} className="hover:shadow-lg transition-all hover:scale-[1.02] border-l-4 border-l-primary">
                   <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
-                        <h3 className="text-xl font-semibold mb-2">{quote.quote_number}</h3>
-                        {quote.project_name && (
-                          <p className="text-base font-medium text-foreground mb-3">{quote.project_name}</p>
-                        )}
-                        <div className="space-y-1 text-sm text-muted-foreground">
-                          <p>날짜: {new Date(quote.quote_date).toLocaleDateString('ko-KR')}</p>
-                          {quote.recipient_company && <p>업체: {quote.recipient_company}</p>}
-                          {quote.recipient_name && <p>담당자: {quote.recipient_name}</p>}
-                          <p className="text-lg font-semibold text-foreground mt-2">
-                            총 금액: <span className="text-primary">{formatPrice(quote.total)}</span>
-                          </p>
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileText className="w-5 h-5 text-primary" />
+                          <h3 className="text-lg font-bold">{quote.quote_number}</h3>
                         </div>
+                        {quote.project_name && (
+                          <p className="text-base font-semibold text-foreground mb-2">{quote.project_name}</p>
+                        )}
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => navigate(`/saved-quotes/${quote.id}`)}
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          상세보기
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDeleteQuote(quote.id)}
-                        >
-                          삭제
-                        </Button>
+                      <Badge variant="outline" className="text-xs">
+                        {new Date(quote.quote_date).toLocaleDateString('ko-KR', { 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })}
+                      </Badge>
+                    </div>
+
+                    {/* Info Grid */}
+                    <div className="space-y-3 mb-4">
+                      {quote.recipient_company && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-muted-foreground truncate">{quote.recipient_company}</span>
+                        </div>
+                      )}
+                      {quote.recipient_name && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-muted-foreground">{quote.recipient_name}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Price */}
+                    <div className="bg-muted/50 rounded-lg p-3 mb-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">총 금액</span>
+                        <span className="text-xl font-bold text-primary">{formatPrice(quote.total)}</span>
                       </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => navigate(`/saved-quotes/${quote.id}`)}
+                        className="flex-1"
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        상세보기
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteQuote(quote.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
