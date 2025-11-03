@@ -161,182 +161,189 @@ const SavedQuotesPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-12 max-w-7xl">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
+      <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-12">
-          <div className="flex justify-end mb-6">
-            <Button onClick={() => navigate('/')} variant="ghost" size="sm" className="gap-2">
-              <Home className="w-4 h-4" />
-              홈
+        <div className="mb-8">
+          <div className="flex justify-end mb-4">
+            <Button onClick={() => navigate('/')} variant="outline">
+              <Home className="w-4 h-4 mr-2" />
+              홈으로
             </Button>
           </div>
-          <div className="text-center space-y-3">
-            <h1 className="text-3xl font-bold tracking-tight">
-              발행 견적서
+          <div className="text-center">
+            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">
+              발행 견적서 목록
             </h1>
-            <p className="text-sm text-muted-foreground">저장된 견적서를 확인하고 관리합니다</p>
+            <p className="text-muted-foreground">저장된 견적서를 확인하고 관리합니다</p>
           </div>
         </div>
 
         {/* Search, Filter and Sort */}
-        <div className="mb-8 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="검색..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-10 border-0 bg-muted/50"
-              />
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="견적번호, 프로젝트명, 업체명, 담당자로 검색..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+                <SelectTrigger>
+                  <div className="flex items-center gap-2">
+                    <ArrowUpDown className="w-4 h-4" />
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date-desc">최신 날짜순</SelectItem>
+                  <SelectItem value="date-asc">오래된 날짜순</SelectItem>
+                  <SelectItem value="amount-desc">금액 높은순</SelectItem>
+                  <SelectItem value="amount-asc">금액 낮은순</SelectItem>
+                  <SelectItem value="number-desc">견적번호 내림차순</SelectItem>
+                  <SelectItem value="number-asc">견적번호 오름차순</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="pl-10 h-10 border-0 bg-muted/50"
-              />
-            </div>
-            <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
-              <SelectTrigger className="h-10 border-0 bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <ArrowUpDown className="w-4 h-4" />
-                  <SelectValue />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date-desc">최신순</SelectItem>
-                <SelectItem value="date-asc">오래된순</SelectItem>
-                <SelectItem value="amount-desc">금액 높은순</SelectItem>
-                <SelectItem value="amount-asc">금액 낮은순</SelectItem>
-                <SelectItem value="number-desc">견적번호 ↓</SelectItem>
-                <SelectItem value="number-asc">견적번호 ↑</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Quotes List */}
         {filteredQuotes.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-muted-foreground mb-6">
-              {quotes.length === 0 
-                ? '저장된 견적서가 없습니다.' 
-                : '검색 결과가 없습니다.'}
-            </p>
-            <Button onClick={() => navigate('/calculator')} variant="outline" size="sm">
-              견적서 작성하기
-            </Button>
-          </div>
+          <Card>
+            <CardContent className="p-12 text-center">
+              <p className="text-muted-foreground mb-4">
+                {quotes.length === 0 
+                  ? '저장된 견적서가 없습니다.' 
+                  : '검색 결과가 없습니다.'}
+              </p>
+              <Button onClick={() => navigate('/calculator')} variant="outline">
+                견적서 작성하기
+              </Button>
+            </CardContent>
+          </Card>
         ) : (
           <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filteredQuotes.map((quote, index) => (
-                <div
-                  key={quote.id}
-                  className="group relative bg-card border border-border/40 rounded-xl p-5 hover:border-border transition-all duration-300 hover:shadow-sm animate-fade-in"
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-mono text-muted-foreground">
-                          {quote.quote_number}
-                        </span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {filteredQuotes.map((quote) => (
+                <Card key={quote.id} className="hover:shadow-lg transition-all hover:scale-[1.02] border-l-4 border-l-primary">
+                  <CardContent className="p-6">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileText className="w-5 h-5 text-primary" />
+                          <h3 className="text-lg font-bold">{quote.quote_number}</h3>
+                        </div>
+                        {quote.project_name && (
+                          <p className="text-base font-semibold text-foreground mb-2">{quote.project_name}</p>
+                        )}
                       </div>
-                      {quote.project_name && (
-                        <h3 className="font-semibold text-base truncate mb-2">
-                          {quote.project_name}
-                        </h3>
+                      <Badge variant="outline" className="text-xs">
+                        {new Date(quote.quote_date).toLocaleDateString('ko-KR', { 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })}
+                      </Badge>
+                    </div>
+
+                    {/* Info Grid */}
+                    <div className="space-y-3 mb-4">
+                      {quote.recipient_company && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-muted-foreground truncate">{quote.recipient_company}</span>
+                        </div>
+                      )}
+                      {quote.recipient_name && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-muted-foreground">{quote.recipient_name}</span>
+                        </div>
                       )}
                     </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                      {new Date(quote.quote_date).toLocaleDateString('ko-KR', { 
-                        month: 'numeric', 
-                        day: 'numeric' 
-                      })}
-                    </span>
-                  </div>
 
-                  {/* Info */}
-                  <div className="space-y-2 mb-4 text-sm">
-                    {quote.recipient_company && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="truncate">{quote.recipient_company}</span>
+                    {/* Price */}
+                    <div className="bg-muted/50 rounded-lg p-3 mb-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">총 금액</span>
+                        <span className="text-xl font-bold text-primary">{formatPrice(quote.total)}</span>
                       </div>
-                    )}
-                    {quote.recipient_name && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <User className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="truncate">{quote.recipient_name}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Price */}
-                  <div className="pt-4 border-t border-border/40 mb-4">
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-xs text-muted-foreground">총액</span>
-                      <span className="text-lg font-bold">{formatPrice(quote.total)}</span>
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate(`/saved-quotes/${quote.id}`)}
-                      className="flex-1 h-9 text-xs"
-                    >
-                      <Eye className="w-3.5 h-3.5 mr-1.5" />
-                      상세보기
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteQuote(quote.id)}
-                      className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => navigate(`/saved-quotes/${quote.id}`)}
+                        className="flex-1"
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        상세보기
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteQuote(quote.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
 
             {/* Pagination */}
             {!searchTerm && !dateFilter && totalCount > ITEMS_PER_PAGE && (
-              <div className="mt-8 flex items-center justify-center gap-6">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="gap-1"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  이전
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  {currentPage} / {Math.ceil(totalCount / ITEMS_PER_PAGE)}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalCount / ITEMS_PER_PAGE), p + 1))}
-                  disabled={currentPage >= Math.ceil(totalCount / ITEMS_PER_PAGE)}
-                  className="gap-1"
-                >
-                  다음
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
+              <Card className="mt-6">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      총 {totalCount}개 중 {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-
+                      {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}개 표시
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="w-4 h-4 mr-1" />
+                        이전
+                      </Button>
+                      <div className="text-sm font-medium px-4">
+                        {currentPage} / {Math.ceil(totalCount / ITEMS_PER_PAGE)}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalCount / ITEMS_PER_PAGE), p + 1))}
+                        disabled={currentPage >= Math.ceil(totalCount / ITEMS_PER_PAGE)}
+                      >
+                        다음
+                        <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </>
         )}
