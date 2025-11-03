@@ -96,13 +96,25 @@ const PanelCalculator = () => {
   const [mugwangPainting, setMugwangPainting] = useState<boolean>(false);
   const [selectedAdditionalOptions, setSelectedAdditionalOptions] = useState<Record<string, number>>({});
   
-  // Convert selectedAdditionalOptions to processingType format for price calculation
+  // Convert all selected options (main slots + additional options) to processingType format
   const getProcessingTypeFromOptions = () => {
-    const optionIds = Object.entries(selectedAdditionalOptions)
+    const allOptionIds: string[] = [];
+    
+    // 메인 슬롯에서 선택된 옵션들 추가 (selectedProcessing이 이미 "|"로 조합된 형태)
+    if (selectedProcessing && selectedProcessing.includes('|')) {
+      allOptionIds.push(...selectedProcessing.split('|'));
+    } else if (selectedProcessing && selectedProcessing !== '' && selectedProcessing !== 'raw-only') {
+      allOptionIds.push(selectedProcessing);
+    }
+    
+    // 추가 옵션에서 수량이 있는 것들 추가
+    const additionalIds = Object.entries(selectedAdditionalOptions)
       .filter(([_, quantity]) => quantity > 0)
       .map(([optionId, _]) => optionId);
     
-    return optionIds.length > 0 ? optionIds.join('|') : undefined;
+    allOptionIds.push(...additionalIds);
+    
+    return allOptionIds.length > 0 ? allOptionIds.join('|') : selectedProcessing;
   };
   
   const {
