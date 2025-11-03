@@ -121,6 +121,10 @@ const SavedQuoteDetailPage = () => {
     setRecipientData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleBulkRecipientChange = (updates: Partial<QuoteRecipient>) => {
+    setRecipientData(prev => ({ ...prev, ...updates }));
+  };
+
   const handleSaveEdit = async () => {
     if (!id) return;
 
@@ -549,6 +553,7 @@ const SavedQuoteDetailPage = () => {
                   <RecipientInfoForm
                     recipientData={recipientData}
                     onChange={handleRecipientChange}
+                    onBulkChange={handleBulkRecipientChange}
                     showClientMemo={true}
                   />
                 </div>

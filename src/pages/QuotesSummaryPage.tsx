@@ -80,6 +80,12 @@ const QuotesSummaryPage = () => {
     updateRecipient(newRecipientData);
   };
 
+  const handleBulkRecipientChange = (updates: Partial<QuoteRecipient>) => {
+    const newRecipientData = { ...recipientData, ...updates };
+    setRecipientData(newRecipientData);
+    updateRecipient(newRecipientData);
+  };
+
   const handleViewCustomerQuote = () => {
     navigate('/customer-quotes-summary');
   };
@@ -224,6 +230,7 @@ const QuotesSummaryPage = () => {
               <RecipientInfoForm
                 recipientData={recipientData}
                 onChange={handleRecipientChange}
+                onBulkChange={handleBulkRecipientChange}
                 showClientMemo={true}
               />
 

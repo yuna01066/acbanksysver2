@@ -38,12 +38,14 @@ interface SavedRecipient {
 interface RecipientInfoFormProps {
   recipientData: QuoteRecipient;
   onChange: (field: keyof QuoteRecipient, value: any) => void;
+  onBulkChange?: (updates: Partial<QuoteRecipient>) => void;
   showClientMemo?: boolean;
 }
 
 const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
   recipientData,
   onChange,
+  onBulkChange,
   showClientMemo = false
 }) => {
   const { user } = useAuth();
@@ -102,11 +104,25 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
   const handleSelectRecipient = (recipient: SavedRecipient) => {
     console.log('선택된 담당자:', recipient);
     console.log('현재 recipientData:', recipientData);
-    onChange('companyName', recipient.company);
-    onChange('contactPerson', recipient.name);
-    onChange('phoneNumber', recipient.phone);
-    onChange('email', recipient.email);
-    onChange('deliveryAddress', recipient.address);
+    
+    if (onBulkChange) {
+      // 여러 필드를 한 번에 업데이트
+      onBulkChange({
+        companyName: recipient.company,
+        contactPerson: recipient.name,
+        phoneNumber: recipient.phone,
+        email: recipient.email,
+        deliveryAddress: recipient.address
+      });
+    } else {
+      // fallback: 하나씩 업데이트 (비권장)
+      onChange('companyName', recipient.company);
+      onChange('contactPerson', recipient.name);
+      onChange('phoneNumber', recipient.phone);
+      onChange('email', recipient.email);
+      onChange('deliveryAddress', recipient.address);
+    }
+    
     setIsDialogOpen(false);
     console.log('양식 채우기 완료');
   };
