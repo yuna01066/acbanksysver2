@@ -182,7 +182,7 @@ const SavedQuoteDetailPage = () => {
         @media print {
           @page {
             size: A4;
-            margin: 10mm 15mm 25mm 15mm;
+            margin: 20mm 15mm 20mm 15mm;
           }
           
           * {
@@ -194,14 +194,15 @@ const SavedQuoteDetailPage = () => {
           body {
             margin: 0;
             padding: 0;
-            width: 210mm;
+            background: white !important;
             font-size: 9pt;
           }
           
           .print-container {
             max-width: none;
             margin: 0;
-            padding: 0 0 25mm 0;
+            padding: 0;
+            background: white !important;
           }
           
           .page-break {
@@ -212,6 +213,31 @@ const SavedQuoteDetailPage = () => {
           .page-break-avoid {
             page-break-inside: avoid;
             break-inside: avoid;
+          }
+          
+          /* 배경색 제거 및 테두리만 표시 */
+          .print\\:bg-white {
+            background: white !important;
+          }
+          
+          .print\\:outline-only {
+            background: transparent !important;
+            border: 1.5px solid #94a3b8 !important;
+          }
+          
+          .print\\:outline-slate {
+            background: transparent !important;
+            border: 1.5px solid #cbd5e1 !important;
+          }
+          
+          .print\\:outline-blue {
+            background: transparent !important;
+            border: 1.5px solid #93c5fd !important;
+          }
+          
+          .print\\:outline-amber {
+            background: transparent !important;
+            border: 1.5px solid #fbbf24 !important;
           }
           
           /* 헤더 카드 압축 */
@@ -356,7 +382,7 @@ const SavedQuoteDetailPage = () => {
         <span>{quote.project_name || '프로젝트명 없음'}</span>
         <span className="page-number"></span>
       </div>
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gray-50 p-4 print:bg-white print:p-0">
         <div className="w-full max-w-4xl mx-auto print-container">
           <div className="mb-6 print:hidden">
             <Button 
@@ -452,18 +478,18 @@ const SavedQuoteDetailPage = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* 견적 기본 정보 */}
                     <div className="space-y-3">
-                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 print:bg-transparent print:border-gray-300">
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 print:outline-only print:rounded-none">
                         <p className="text-xs text-gray-500 mb-1">견적번호</p>
                         <p className="text-sm font-semibold text-gray-900">{quote.quote_number}</p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 print:bg-transparent print:border-gray-300">
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 print:outline-only print:rounded-none">
                         <p className="text-xs text-gray-500 mb-1">작성일</p>
                         <p className="text-sm font-semibold text-gray-900">{currentDate}</p>
                       </div>
                     </div>
                     
                     {/* 견적 항목 */}
-                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 flex flex-col justify-center print:bg-transparent print:border-gray-300">
+                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 flex flex-col justify-center print:outline-only print:rounded-none">
                       <p className="text-xs text-gray-500 mb-1">견적 항목 수</p>
                       <div className="flex items-baseline gap-1">
                         <p className="text-2xl font-bold text-gray-900">{items.length}</p>
@@ -472,7 +498,7 @@ const SavedQuoteDetailPage = () => {
                     </div>
                     
                     {/* 금액 정보 */}
-                    <div className="space-y-2 bg-gray-50 rounded-lg p-3 border border-gray-100 print:bg-transparent print:border-gray-300">
+                    <div className="space-y-2 bg-gray-50 rounded-lg p-3 border border-gray-100 print:outline-only print:rounded-none">
                       <div className="flex justify-between items-center pb-2 border-b border-gray-200">
                         <p className="text-xs text-gray-500">공급가</p>
                         <p className="text-sm font-semibold text-gray-900">{subtotal.toLocaleString()}원</p>
@@ -508,7 +534,7 @@ const SavedQuoteDetailPage = () => {
                   <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 수신</h3>
                   
                   {/* 프로젝트 기본 정보 */}
-                  <div className="p-4 bg-slate-50 rounded-lg print:bg-transparent print:border print:border-gray-300">
+                  <div className="p-4 bg-slate-50 rounded-lg print:outline-slate print:rounded-none">
                     <h4 className="font-semibold text-slate-800 mb-3">프로젝트 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
                       <div><strong>프로젝트명:</strong> {quote.project_name || '-'}</div>
@@ -521,7 +547,7 @@ const SavedQuoteDetailPage = () => {
                   </div>
 
                   {/* 담당자 및 납기 정보 */}
-                  <div className="p-4 bg-gray-50 rounded-lg print:bg-transparent print:border print:border-gray-300">
+                  <div className="p-4 bg-gray-50 rounded-lg print:outline-only print:rounded-none">
                     <h4 className="font-semibold text-slate-800 mb-3">담당자 및 납기 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
                       <div><strong>회사명:</strong> {quote.recipient_company || '-'}</div>
@@ -534,7 +560,7 @@ const SavedQuoteDetailPage = () => {
                   </div>
 
                   {quote.recipient_memo && (
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg print:bg-transparent print:border-gray-300">
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg print:outline-amber print:rounded-none">
                       <h4 className="font-semibold text-amber-900 mb-2">클라이언트 요청사항</h4>
                       <p className="text-sm text-amber-800 whitespace-pre-wrap">{quote.recipient_memo}</p>
                     </div>
@@ -546,7 +572,7 @@ const SavedQuoteDetailPage = () => {
                   <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 발신</h3>
                   
                   {/* 회사 기본 정보 */}
-                  <div className="p-4 bg-slate-50 rounded-lg print:bg-transparent print:border print:border-gray-300">
+                  <div className="p-4 bg-slate-50 rounded-lg print:outline-slate print:rounded-none">
                     <h4 className="font-semibold text-slate-800 mb-3">회사 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
                       <div><strong>상호:</strong> (주)아크뱅크</div>
@@ -559,7 +585,7 @@ const SavedQuoteDetailPage = () => {
                   </div>
 
                   {/* 담당자 정보 */}
-                  <div className="p-4 bg-gray-50 rounded-lg print:bg-transparent print:border print:border-gray-300">
+                  <div className="p-4 bg-gray-50 rounded-lg print:outline-only print:rounded-none">
                     <h4 className="font-semibold text-slate-800 mb-3">담당자 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
                       <div><strong>담당자:</strong> 작성</div>
@@ -568,7 +594,7 @@ const SavedQuoteDetailPage = () => {
                     </div>
                   </div>
                   
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg print:bg-transparent print:border print:border-gray-300">
+                  <div className="mt-6 p-4 bg-blue-50 rounded-lg print:outline-blue print:rounded-none">
                     <h4 className="font-semibold text-blue-800 mb-2">입금 계좌</h4>
                     <div className="text-sm text-blue-700">
                       <div>신한은행 140-014-544315 (주)아크뱅크</div>
