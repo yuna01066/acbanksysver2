@@ -98,24 +98,27 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
             <div className="text-xs text-gray-600 mb-1">두께</div>
             <div className="font-semibold text-gray-900 text-sm">{quote.thickness}</div>
           </div>
-        </div>
-
-        {!isCustomerView && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-xs text-gray-600 mb-1">사이즈</div>
-              <div className="font-semibold text-gray-900 text-sm">{quote.size}</div>
-            </div>
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-xs text-gray-600 mb-1">면수</div>
-              <div className="font-semibold text-gray-900 text-sm">{quote.surface}</div>
-            </div>
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-xs text-gray-600 mb-1">사이즈</div>
+            <div className="font-semibold text-gray-900 text-sm">{quote.size}</div>
+          </div>
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-xs text-gray-600 mb-1">면수</div>
+            <div className="font-semibold text-gray-900 text-sm">{quote.surface}</div>
+          </div>
+          {quote.processing && (
+            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 md:col-span-2">
               <div className="text-xs text-gray-600 mb-1">가공방법</div>
               <div className="font-semibold text-gray-900 text-sm">{quote.processingName}</div>
             </div>
-          </div>
-        )}
+          )}
+          {quote.serialNumber && (
+            <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+              <div className="text-xs text-yellow-700 mb-1">클라이언트 요청사항</div>
+              <div className="font-semibold text-yellow-900 text-sm">{quote.serialNumber}</div>
+            </div>
+          )}
+        </div>
 
         {/* 가격 세부 내역 (단가) */}
         {quote.breakdown && quote.breakdown.length > 0 && (

@@ -263,8 +263,8 @@ const InternalQuotePage = () => {
               </div>
 
 
-              {/* 내부용 견적 목록 - print 시에만 숨김 */}
-              <div className="print:hidden mb-8">
+              {/* 내부용 견적 목록 */}
+              <div className="mb-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                   <Calculator className="w-5 h-5" />
                   견적 목록 ({quotes.length}개) - 내부 관리용
