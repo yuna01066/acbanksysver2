@@ -10,11 +10,11 @@ const Home = () => {
     url: "https://acbank.co.kr",
     action: () => window.open("https://acbank.co.kr", "_blank")
   }, {
-    title: "인스타그램",
-    icon: Instagram,
-    description: "소셜 미디어 팔로우",
-    url: "https://www.instagram.com/acbank.co.kr/",
-    action: () => window.open("https://www.instagram.com/acbank.co.kr/", "_blank")
+    title: "클라이언트 상담폼",
+    icon: FileText,
+    description: "상담 신청하기",
+    url: "https://acbank.co.kr/acbankform",
+    action: () => window.open("https://acbank.co.kr/acbankform", "_blank")
   }, {
     title: "채널톡",
     icon: MessageCircle,
@@ -22,11 +22,11 @@ const Home = () => {
     url: "https://acbank.channel.io",
     action: () => window.open("https://acbank.channel.io", "_blank")
   }, {
-    title: "클라이언트 상담폼",
-    icon: FileText,
-    description: "상담 신청하기",
-    url: "https://acbank.co.kr/acbankform",
-    action: () => window.open("https://acbank.co.kr/acbankform", "_blank")
+    title: "수율 계산기",
+    icon: TrendingUp,
+    description: "패널 수율 최적화",
+    url: "/calculator?type=yield",
+    action: () => navigate("/calculator?type=yield")
   }, {
     title: "견적 계산기",
     icon: Calculator,
@@ -34,29 +34,29 @@ const Home = () => {
     url: "/calculator?type=quote",
     action: () => navigate("/calculator?type=quote")
   }, {
-    title: "수율 계산기",
-    icon: TrendingUp,
-    description: "패널 수율 최적화",
-    url: "/calculator?type=yield",
-    action: () => navigate("/calculator?type=yield")
-  }, {
     title: "발행 견적서 확인",
     icon: FileSpreadsheet,
     description: "저장된 견적서 관리",
     url: "/saved-quotes",
     action: () => navigate("/saved-quotes")
   }, {
-    title: "관리자 설정",
-    icon: Settings,
-    description: "가격 및 옵션 관리",
-    url: "/admin-settings",
-    action: () => navigate("/admin-settings")
+    title: "인스타그램",
+    icon: Instagram,
+    description: "소셜 미디어 팔로우",
+    url: "https://www.instagram.com/acbank.co.kr/",
+    action: () => window.open("https://www.instagram.com/acbank.co.kr/", "_blank")
   }, {
     title: "아크뱅크 노션 페이지",
     icon: BookOpen,
     description: "문서 및 가이드",
     url: "https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link",
     action: () => window.open("https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link", "_blank")
+  }, {
+    title: "관리자 설정",
+    icon: Settings,
+    description: "가격 및 옵션 관리",
+    url: "/admin-settings",
+    action: () => navigate("/admin-settings")
   }];
   return <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <div className="container mx-auto px-4 py-16">
