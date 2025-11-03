@@ -141,9 +141,12 @@ const CustomerQuotesSummaryPage = () => {
                         <p className="text-xs text-gray-500">부가세</p>
                         <p className="text-sm font-semibold text-gray-900">{tax.toLocaleString()}원</p>
                       </div>
-                      <div className="flex justify-between items-center pt-1">
+                      <div className="flex justify-between items-center pt-1 pb-2">
                         <p className="text-sm font-semibold text-gray-900">최종 금액</p>
                         <p className="text-base font-bold text-gray-900">{totalWithTax.toLocaleString()}원</p>
+                      </div>
+                      <div className="pt-2 border-t border-gray-200">
+                        <p className="text-xs text-gray-600">* 배송비는 별도 입니다.</p>
                       </div>
                     </div>
                   </div>
