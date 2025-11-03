@@ -27,6 +27,9 @@ const QuotePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const quoteData = location.state as QuoteData;
+  
+  // 견적번호 생성
+  const quoteNumber = `QT-${Date.now().toString().slice(-6)}`;
 
   if (!quoteData) {
     return (
@@ -54,8 +57,59 @@ const QuotePage = () => {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="w-full max-w-4xl mx-auto">
+    <>
+      <style>{`
+        @media print {
+          @page {
+            size: A4;
+            margin: 15mm 15mm 25mm 15mm;
+          }
+          
+          body {
+            margin: 0;
+            padding: 0;
+            width: 210mm;
+            height: 297mm;
+          }
+          
+          .print-container {
+            max-width: none;
+            margin: 0;
+            padding: 0;
+            page-break-after: auto;
+          }
+          
+          /* 푸터 스타일 */
+          .print-footer {
+            position: fixed;
+            bottom: 10mm;
+            left: 15mm;
+            right: 15mm;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-top: 1px solid #ccc;
+            font-size: 10pt;
+            color: #666;
+          }
+          
+          .print-footer::after {
+            counter-increment: page;
+            content: "Page " counter(page);
+          }
+        }
+      `}</style>
+      
+      {/* Print Footer */}
+      <div className="print-footer hidden print:flex">
+        <span>견적번호: {quoteNumber}</span>
+        <span>내부용 견적서</span>
+        <span></span>
+      </div>
+      
+      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="w-full max-w-4xl mx-auto print-container">
         {/* 상단 액션 버튼들 */}
         <div className="flex justify-between items-center mb-6 print:hidden">
           <Button 
@@ -93,7 +147,7 @@ const QuotePage = () => {
                   <span>{currentDate}</span>
                 </div>
                 <Badge className="bg-white/20 text-white border-0 px-4 py-2 text-lg font-bold">
-                  견적번호: QT-{Date.now().toString().slice(-6)}
+                  견적번호: {quoteNumber}
                 </Badge>
               </div>
             </div>
@@ -195,6 +249,7 @@ const QuotePage = () => {
         </Card>
       </div>
     </div>
+    </>
   );
 };
 

@@ -64,20 +64,53 @@ const CustomerQuotesSummaryPage = () => {
     <>
       <style>{`
         @media print {
+          @page {
+            size: A4;
+            margin: 15mm 15mm 25mm 15mm;
+          }
+          
           body {
-            transform: scale(0.8);
-            transform-origin: top left;
-            width: 125%; /* 100% / 0.8 to maintain full page width */
             margin: 0;
             padding: 0;
+            width: 210mm;
+            height: 297mm;
           }
+          
           .print-container {
             max-width: none;
             margin: 0;
-            padding: 10px;
+            padding: 0;
+            page-break-after: auto;
+          }
+          
+          /* 푸터 스타일 */
+          .print-footer {
+            position: fixed;
+            bottom: 10mm;
+            left: 15mm;
+            right: 15mm;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-top: 1px solid #ccc;
+            font-size: 10pt;
+            color: #666;
+          }
+          
+          .print-footer::after {
+            counter-increment: page;
+            content: "Page " counter(page);
           }
         }
       `}</style>
+      
+      {/* Print Footer */}
+      <div className="print-footer hidden print:flex">
+        <span>견적번호: {quoteNumber}</span>
+        <span>{recipient?.projectName || '프로젝트명 없음'}</span>
+        <span></span>
+      </div>
       <div className="min-h-screen bg-gray-50 p-4">
         <div className="w-full max-w-4xl mx-auto print-container">
           <div className="mb-6 print:hidden">
