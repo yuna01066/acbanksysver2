@@ -477,32 +477,6 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
           );
         });
       })()}
-
-      {/* 수량 입력 (단순 재단) */}
-      {mainCategory === 'simple' && isSelectionComplete() && (
-        <>
-          <Separator />
-          <Card className="border-2 border-primary/20">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Package className="w-5 h-5 text-primary" />
-                수량 선택
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Label htmlFor="qty">제작 수량 (EA)</Label>
-              <Input
-                id="qty"
-                type="number"
-                min="1"
-                value={qty}
-                onChange={(e) => onQtyChange?.(parseInt(e.target.value) || 1)}
-                className="mt-2"
-              />
-            </CardContent>
-          </Card>
-        </>
-      )}
     </div>
   );
 };
