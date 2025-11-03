@@ -207,7 +207,6 @@ const ProcessingOptionsManager = () => {
     category_key: '',
     category_name: '',
     icon_name: 'Package',
-    display_order: 0,
     is_active: true
   });
   const [deleteCategoryConfirmId, setDeleteCategoryConfirmId] = useState<string | null>(null);
@@ -404,13 +403,19 @@ const ProcessingOptionsManager = () => {
       return;
     }
     
-    await createCategory.mutateAsync(newCategoryForm as Omit<ProcessingCategory, 'id' | 'created_at' | 'updated_at'>);
+    // 자동으로 마지막 순서로 설정
+    const maxOrder = Math.max(...(categories?.map(c => c.display_order) || [0]), 0);
+    const categoryToAdd = {
+      ...newCategoryForm,
+      display_order: maxOrder + 1
+    };
+    
+    await createCategory.mutateAsync(categoryToAdd as Omit<ProcessingCategory, 'id' | 'created_at' | 'updated_at'>);
     setIsAddCategoryDialogOpen(false);
     setNewCategoryForm({
       category_key: '',
       category_name: '',
       icon_name: 'Package',
-      display_order: 0,
       is_active: true
     });
   };
@@ -1589,15 +1594,6 @@ const ProcessingOptionsManager = () => {
                 ))}
               </div>
             </div>
-            <div>
-              <Label htmlFor="display_order">표시 순서</Label>
-              <Input
-                id="display_order"
-                type="number"
-                value={newCategoryForm.display_order || 0}
-                onChange={(e) => setNewCategoryForm({ ...newCategoryForm, display_order: parseInt(e.target.value) || 0 })}
-              />
-            </div>
             <div className="flex items-center gap-2">
               <Switch
                 checked={newCategoryForm.is_active}
@@ -1663,15 +1659,6 @@ const ProcessingOptionsManager = () => {
                   </button>
                 ))}
               </div>
-            </div>
-            <div>
-              <Label htmlFor="edit_display_order">표시 순서</Label>
-              <Input
-                id="edit_display_order"
-                type="number"
-                value={editCategoryForm.display_order || 0}
-                onChange={(e) => setEditCategoryForm({ ...editCategoryForm, display_order: parseInt(e.target.value) || 0 })}
-              />
             </div>
             <div className="flex items-center gap-2">
               <Switch
