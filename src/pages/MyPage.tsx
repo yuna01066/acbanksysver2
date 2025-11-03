@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2 } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -21,6 +21,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface SavedQuote {
   id: string;
@@ -28,9 +36,21 @@ interface SavedQuote {
   quote_date: string;
   recipient_company: string;
   recipient_name: string;
+  recipient_phone: string;
+  recipient_email: string;
+  recipient_address: string;
   total: number;
   items: any;
   desired_delivery_date: string | null;
+}
+
+interface RecipientInfo {
+  company: string;
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  quoteCount: number;
 }
 
 const MyPage = () => {
@@ -117,6 +137,30 @@ const MyPage = () => {
     }).length;
 
     return { totalQuotes, totalAmount, avgAmount, thisMonth };
+  };
+
+  const getUniqueRecipients = (): RecipientInfo[] => {
+    const recipientsMap = new Map<string, RecipientInfo>();
+    
+    quotes.forEach((quote) => {
+      const key = `${quote.recipient_company}-${quote.recipient_name}-${quote.recipient_email}`;
+      
+      if (recipientsMap.has(key)) {
+        const existing = recipientsMap.get(key)!;
+        existing.quoteCount += 1;
+      } else {
+        recipientsMap.set(key, {
+          company: quote.recipient_company || '-',
+          name: quote.recipient_name || '-',
+          phone: quote.recipient_phone || '-',
+          email: quote.recipient_email || '-',
+          address: quote.recipient_address || '-',
+          quoteCount: 1
+        });
+      }
+    });
+
+    return Array.from(recipientsMap.values()).sort((a, b) => b.quoteCount - a.quoteCount);
   };
 
   const stats = calculateStats();
@@ -267,26 +311,51 @@ const MyPage = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>수신 담당자 통계</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  수신 담당자 리스트
+                </CardTitle>
+                <CardDescription>
+                  견적서에 등록된 수신 담당자 목록입니다.
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {Array.from(
-                    quotes.reduce((acc, quote) => {
-                      const key = `${quote.recipient_company} - ${quote.recipient_name}`;
-                      acc.set(key, (acc.get(key) || 0) + 1);
-                      return acc;
-                    }, new Map<string, number>())
-                  )
-                    .sort(([, a], [, b]) => b - a)
-                    .slice(0, 10)
-                    .map(([name, count]) => (
-                      <div key={name} className="flex justify-between items-center p-2 border rounded">
-                        <span>{name}</span>
-                        <span className="font-semibold">{count}건</span>
-                      </div>
-                    ))}
-                </div>
+                {getUniqueRecipients().length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">
+                    등록된 수신 담당자가 없습니다.
+                  </p>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>회사명</TableHead>
+                          <TableHead>담당자</TableHead>
+                          <TableHead>연락처</TableHead>
+                          <TableHead>이메일</TableHead>
+                          <TableHead>주소</TableHead>
+                          <TableHead className="text-right">견적서 수</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {getUniqueRecipients().map((recipient, index) => (
+                          <TableRow key={index}>
+                            <TableCell className="font-medium">{recipient.company}</TableCell>
+                            <TableCell>{recipient.name}</TableCell>
+                            <TableCell>{recipient.phone}</TableCell>
+                            <TableCell>{recipient.email}</TableCell>
+                            <TableCell className="max-w-xs truncate" title={recipient.address}>
+                              {recipient.address}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className="font-semibold text-primary">{recipient.quoteCount}건</span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
