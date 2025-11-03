@@ -185,6 +185,12 @@ const SavedQuoteDetailPage = () => {
             margin: 10mm 15mm 20mm 15mm;
           }
           
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+          
           body {
             margin: 0;
             padding: 0;

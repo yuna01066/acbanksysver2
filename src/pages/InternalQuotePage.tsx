@@ -107,7 +107,13 @@ const InternalQuotePage = () => {
         @media print {
           @page {
             size: A4;
-            margin: 15mm 15mm 25mm 15mm;
+            margin: 10mm 15mm 20mm 15mm;
+          }
+          
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
           }
           
           body {
@@ -115,6 +121,7 @@ const InternalQuotePage = () => {
             padding: 0;
             width: 210mm;
             height: 297mm;
+            font-size: 9pt;
           }
           
           .print-container {
