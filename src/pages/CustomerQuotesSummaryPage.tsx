@@ -234,6 +234,10 @@ const CustomerQuotesSummaryPage = () => {
                         <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">분류</th>
                         <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">세부 내용</th>
                         <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">수량</th>
+                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">단가(원)</th>
+                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">공급가(원)</th>
+                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">세액계</th>
+                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">합계</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -251,28 +255,48 @@ const CustomerQuotesSummaryPage = () => {
                               <td className="border border-slate-300 px-4 py-3 text-sm">소재</td>
                               <td className="border border-slate-300 px-4 py-3 text-sm font-medium">{quote.material}</td>
                               <td className="border border-slate-300 px-4 py-3 text-sm text-center">1</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
                             </tr>
                             <tr className="hover:bg-slate-50">
                               <td className="border border-slate-300 px-4 py-3 text-sm">두께</td>
                               <td className="border border-slate-300 px-4 py-3 text-sm font-medium">{quote.thickness}</td>
                               <td className="border border-slate-300 px-4 py-3 text-sm text-center">1</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
                             </tr>
                             <tr className="hover:bg-slate-50">
                               <td className="border border-slate-300 px-4 py-3 text-sm">사이즈</td>
                               <td className="border border-slate-300 px-4 py-3 text-sm font-medium">{quote.size}</td>
                               <td className="border border-slate-300 px-4 py-3 text-sm text-center font-semibold text-blue-600">{quote.quantity}</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
                             </tr>
                             {quote.selectedColor && (
                               <tr className="hover:bg-slate-50">
                                 <td className="border border-slate-300 px-4 py-3 text-sm">컬러</td>
                                 <td className="border border-slate-300 px-4 py-3 text-sm font-medium">{quote.selectedColor}</td>
                                 <td className="border border-slate-300 px-4 py-3 text-sm text-center">1</td>
+                                <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                                <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                                <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
+                                <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
                               </tr>
                             )}
                             <tr className="bg-blue-50 hover:bg-blue-100 font-medium">
                               <td className="border border-slate-300 px-4 py-3 text-sm">가공</td>
                               <td className="border border-slate-300 px-4 py-3 text-sm font-semibold">{quote.processingName}</td>
                               <td className="border border-slate-300 px-4 py-3 text-sm text-center">1</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right font-semibold">{unitPrice.toLocaleString()}</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right font-semibold">{totalPrice.toLocaleString()}</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right font-semibold">{taxAmount.toLocaleString()}</td>
+                              <td className="border border-slate-300 px-4 py-3 text-sm text-right font-bold text-blue-600">{totalWithTax.toLocaleString()}</td>
                             </tr>
                           </React.Fragment>
                         );
