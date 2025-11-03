@@ -802,16 +802,16 @@ export const calculatePrice = (
           totalPrice += rawOnlyCharge;
           console.log(`Applied raw-only surcharge: ${rawOnlyCharge} (원장: ${wonJang} × (${option.multiplier} - 1))`);
         }
-        // 일반 가공 옵션: multiplier가 있으면 "원장 × 배수" 계산
+        // 일반 가공 옵션: multiplier가 있으면 할증 금액 계산
         else if (option.multiplier !== undefined && option.multiplier !== null && option.multiplier !== 0) {
-          // 원장 기준으로 multiplier 적용
-          const optionCost = wonJang * option.multiplier * quantity;
+          // 가공 비용 = 원장 × (배수 - 1)
+          const optionCost = wonJang * (option.multiplier - 1) * quantity;
           const label = quantity > 1 
-            ? `${option.name} (원장×${option.multiplier}) x${quantity}개`
-            : `${option.name} (원장×${option.multiplier})`;
+            ? `${option.name} (×${option.multiplier}) x${quantity}개`
+            : `${option.name} (×${option.multiplier})`;
           breakdown.push({ label, price: optionCost });
           totalPrice += optionCost;
-          console.log(`Applied multiplier for ${option.name}: ${optionCost} (원장: ${wonJang} × ${option.multiplier} × ${quantity})`);
+          console.log(`Applied multiplier for ${option.name}: ${optionCost} (원장: ${wonJang} × (${option.multiplier} - 1) × ${quantity})`);
         }
         
         // base_cost가 있으면 "기본 비용" 적용
