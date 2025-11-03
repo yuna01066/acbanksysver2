@@ -331,9 +331,14 @@ export type Database = {
       saved_quotes: {
         Row: {
           created_at: string
+          delivery_period: string | null
+          desired_delivery_date: string | null
           id: string
           items: Json
+          payment_condition: string | null
+          project_name: string | null
           quote_date: string
+          quote_date_display: string | null
           quote_number: string
           recipient_address: string | null
           recipient_company: string | null
@@ -345,12 +350,18 @@ export type Database = {
           tax: number
           total: number
           updated_at: string
+          valid_until: string | null
         }
         Insert: {
           created_at?: string
+          delivery_period?: string | null
+          desired_delivery_date?: string | null
           id?: string
           items: Json
+          payment_condition?: string | null
+          project_name?: string | null
           quote_date?: string
+          quote_date_display?: string | null
           quote_number: string
           recipient_address?: string | null
           recipient_company?: string | null
@@ -362,12 +373,18 @@ export type Database = {
           tax: number
           total: number
           updated_at?: string
+          valid_until?: string | null
         }
         Update: {
           created_at?: string
+          delivery_period?: string | null
+          desired_delivery_date?: string | null
           id?: string
           items?: Json
+          payment_condition?: string | null
+          project_name?: string | null
           quote_date?: string
+          quote_date_display?: string | null
           quote_number?: string
           recipient_address?: string | null
           recipient_company?: string | null
@@ -379,6 +396,7 @@ export type Database = {
           tax?: number
           total?: number
           updated_at?: string
+          valid_until?: string | null
         }
         Relationships: []
       }

@@ -19,12 +19,18 @@ interface SavedQuote {
   id: string;
   quote_number: string;
   quote_date: string;
+  project_name: string | null;
+  quote_date_display: string | null;
+  valid_until: string | null;
+  delivery_period: string | null;
+  payment_condition: string | null;
   recipient_name: string | null;
   recipient_company: string | null;
   recipient_phone: string | null;
   recipient_email: string | null;
   recipient_address: string | null;
   recipient_memo: string | null;
+  desired_delivery_date: string | null;
   items: any;
   subtotal: number;
   tax: number;
@@ -342,17 +348,29 @@ const SavedQuoteDetailPage = () => {
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 수신</h3>
                   
-                  {/* 고객 정보 */}
+                  {/* 프로젝트 기본 정보 */}
                   <div className="p-4 bg-slate-50 rounded-lg">
-                    <h4 className="font-semibold text-slate-800 mb-3">고객 정보</h4>
+                    <h4 className="font-semibold text-slate-800 mb-3">프로젝트 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
-                      <div><strong>업체명:</strong> {quote.recipient_company || '-'}</div>
+                      <div><strong>프로젝트명:</strong> {quote.project_name || '-'}</div>
+                      <div><strong>견적번호:</strong> {quote.quote_number}</div>
+                      <div><strong>견적일자:</strong> {quote.quote_date_display ? new Date(quote.quote_date_display).toLocaleDateString('ko-KR') : currentDate}</div>
+                      <div><strong>유효기간:</strong> {quote.valid_until || '-'}</div>
+                      <div><strong>납기:</strong> {quote.delivery_period || '-'}</div>
+                      <div><strong>지불 조건:</strong> {quote.payment_condition || '-'}</div>
+                    </div>
+                  </div>
+
+                  {/* 담당자 및 납기 정보 */}
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-semibold text-slate-800 mb-3">담당자 및 납기 정보</h4>
+                    <div className="space-y-2 text-sm text-slate-700">
+                      <div><strong>회사명:</strong> {quote.recipient_company || '-'}</div>
                       <div><strong>담당자:</strong> {quote.recipient_name || '-'}</div>
                       <div><strong>연락처:</strong> {quote.recipient_phone || '-'}</div>
                       <div><strong>이메일:</strong> {quote.recipient_email || '-'}</div>
-                      {quote.recipient_address && (
-                        <div><strong>배송지:</strong> {quote.recipient_address}</div>
-                      )}
+                      <div><strong>납기 희망일:</strong> {quote.desired_delivery_date ? new Date(quote.desired_delivery_date).toLocaleDateString('ko-KR') : '-'}</div>
+                      <div><strong>납기현장 주소:</strong> {quote.recipient_address || '-'}</div>
                     </div>
                   </div>
 
@@ -368,13 +386,33 @@ const SavedQuoteDetailPage = () => {
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 발신</h3>
                   
+                  {/* 회사 기본 정보 */}
                   <div className="p-4 bg-slate-50 rounded-lg">
-                    <h4 className="font-semibold text-slate-800 mb-3">아크뱅크</h4>
+                    <h4 className="font-semibold text-slate-800 mb-3">회사 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
-                      <div><strong>대표:</strong> 주혜옥</div>
-                      <div><strong>연락처:</strong> 010-8892-8858</div>
+                      <div><strong>상호:</strong> (주)아크뱅크</div>
+                      <div><strong>사업자번호:</strong> 299-87-02991</div>
+                      <div><strong>웹사이트:</strong> acbank.co.kr</div>
+                      <div><strong>주소:</strong> 경기도 포천시 소흘읍 호국로 287번길 15, 나동 1층 101호 (동행빌딩)</div>
+                      <div><strong>업태:</strong> 제조업 / 도매 및 소매업</div>
+                      <div><strong>종목:</strong> 아크릴 가공 외</div>
+                    </div>
+                  </div>
+
+                  {/* 담당자 정보 */}
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-semibold text-slate-800 mb-3">담당자 정보</h4>
+                    <div className="space-y-2 text-sm text-slate-700">
+                      <div><strong>담당자:</strong> 작성</div>
+                      <div><strong>연락처:</strong> 070-7666-9828</div>
                       <div><strong>이메일:</strong> acbank@acbank.co.kr</div>
-                      <div><strong>사업자등록번호:</strong> 000-00-00000</div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-semibold text-blue-800 mb-2">입금 계좌</h4>
+                    <div className="text-sm text-blue-700">
+                      <div>신한은행 140-014-544315 (주)아크뱅크</div>
                     </div>
                   </div>
                 </div>
@@ -434,75 +472,63 @@ const SavedQuoteDetailPage = () => {
 
               <Separator className="my-8" />
 
-              {/* 특이사항 및 안내사항 */}
-              <div className="mb-8">
-                <h3 className="text-lg font-bold mb-4 text-gray-900 border-b-2 border-gray-300 pb-2">특이사항 및 안내사항</h3>
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <ul className="space-y-2 text-sm text-yellow-900">
-                    <li className="flex items-start gap-2">
-                      <span className="text-yellow-600">•</span>
-                      <span>상기 금액은 부가세 포함 금액입니다.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-yellow-600">•</span>
-                      <span>견적 유효기간은 견적일로부터 30일입니다.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-yellow-600">•</span>
-                      <span>최종 금액은 실측 후 조정될 수 있습니다.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-yellow-600">•</span>
-                      <span>배송 및 설치 비용은 별도 협의가 필요합니다.</span>
-                    </li>
+              {/* 특이사항 및 상담내용 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div>
+                  <h3 className="text-lg font-bold mb-3">특 이 사 항 :</h3>
+                  <ul className="text-sm space-y-1">
+                    <li>- 견적서의 유효기간은 발행일로부터 14일 입니다.</li>
+                    <li>- 운송비 및 부가세는 별도 입니다.</li>
                   </ul>
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-bold mb-3">상 담 내 용 :</h3>
+                  <div className="text-sm space-y-1">
+                    <p>안녕하세요</p>
+                    <p>견적 문의해 주셔서 감사합니다.</p>
+                    <p>상세한 제작 요구사항이 있으시면 담당자에게 연락 부탁드립니다.</p>
+                  </div>
                 </div>
               </div>
 
-              <Separator className="my-8" />
-
-              {/* 상담 및 문의 */}
-              <div className="mb-8">
-                <h3 className="text-lg font-bold mb-4 text-gray-900 border-b-2 border-gray-300 pb-2">상담 및 문의</h3>
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-900">
-                    <div>
-                      <p className="font-semibold mb-2">연락처</p>
-                      <p>전화: 010-8892-8858</p>
-                      <p>이메일: acbank@acbank.co.kr</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold mb-2">소셜 미디어</p>
-                      <p>카카오톡: @아크뱅크</p>
-                      <p>인스타그램: @acbank.co.kr</p>
-                    </div>
+              {/* 연락처 정보 */}
+              <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-slate-50 border border-blue-200 rounded-xl shadow-sm">
+                <h4 className="font-bold text-slate-800 mb-4 text-lg">문의 및 주문</h4>
+                <div className="text-sm text-slate-700 space-y-2">
+                  <p className="mb-3">견적 관련 문의사항이나 주문을 원하시면 아래 연락처로 문의해주세요.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <p className="font-semibold bg-white px-3 py-2 rounded-lg">📞 전화: 070-7537-3680</p>
+                    <p className="font-semibold bg-white px-3 py-2 rounded-lg">📧 이메일: acbank@acbank.co.kr</p>
                   </div>
                 </div>
               </div>
 
               <Separator className="my-8" />
 
-              {/* 첨부 서류 */}
+              {/* 첨부 서류 - A5 사이즈 */}
               <div>
-                <h3 className="text-lg font-bold mb-4 text-gray-900 border-b-2 border-gray-300 pb-2">첨부 서류</h3>
+                <h3 className="text-xl font-bold mb-6 text-slate-800">첨부 서류</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-gray-700">사업자등록증</p>
-                    <div className="border-2 border-gray-300 rounded-lg overflow-hidden">
+                  <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm">
+                    <h4 className="font-semibold text-slate-700 mb-3 text-center">사업자등록증</h4>
+                    <div className="flex justify-center">
                       <img 
                         src={businessRegistration} 
-                        alt="사업자등록증" 
-                        className="w-full h-auto"
+                        alt="아크뱅크 사업자등록증" 
+                        className="w-full max-w-[420px] h-auto border border-gray-300 rounded shadow-sm"
+                        style={{ aspectRatio: '148/210' }}
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-gray-700">입금 계좌</p>
-                    <div className="border-2 border-gray-300 rounded-lg overflow-hidden">
+                  <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm">
+                    <h4 className="font-semibold text-slate-700 mb-3 text-center">통장사본</h4>
+                    <div className="flex justify-center">
                       <img 
                         src={bankAccount} 
-                        alt="입금계좌" 
-                        className="w-full h-auto"
+                        alt="아크뱅크 통장사본" 
+                        className="w-full max-w-[420px] h-auto border border-gray-300 rounded shadow-sm"
+                        style={{ aspectRatio: '148/210' }}
                       />
                     </div>
                   </div>
