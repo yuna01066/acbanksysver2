@@ -18,6 +18,7 @@ import AdminSettingsPage from "./pages/AdminSettingsPage";
 import PriceManagement from "./pages/PriceManagement";
 import PanelManagementPage from "./pages/PanelManagementPage";
 import ProcessingPriceManagement from "./pages/ProcessingPriceManagement";
+import SavedQuotesPage from "./pages/SavedQuotesPage";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/price-management" element={<PriceManagement />} />
             <Route path="/panel-management" element={<PanelManagementPage />} />
             <Route path="/processing-price-management" element={<ProcessingPriceManagement />} />
+            <Route path="/saved-quotes" element={<SavedQuotesPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

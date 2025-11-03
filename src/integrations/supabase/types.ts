@@ -328,6 +328,60 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_quotes: {
+        Row: {
+          created_at: string
+          id: string
+          items: Json
+          quote_date: string
+          quote_number: string
+          recipient_address: string | null
+          recipient_company: string | null
+          recipient_email: string | null
+          recipient_memo: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
+          subtotal: number
+          tax: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          items: Json
+          quote_date?: string
+          quote_number: string
+          recipient_address?: string | null
+          recipient_company?: string | null
+          recipient_email?: string | null
+          recipient_memo?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          subtotal: number
+          tax: number
+          total: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          items?: Json
+          quote_date?: string
+          quote_number?: string
+          recipient_address?: string | null
+          recipient_company?: string | null
+          recipient_email?: string | null
+          recipient_memo?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          subtotal?: number
+          tax?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       slot_types: {
         Row: {
           created_at: string | null

@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Calculator, ShoppingCart, Home } from "lucide-react";
+import { Calculator, ShoppingCart, Home, Save } from "lucide-react";
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { useQuotes } from "@/contexts/QuoteContext";
 import QuoteSummaryHeader from "@/components/QuoteSummaryHeader";
 import QuoteCard from "@/components/QuoteCard";
@@ -12,6 +14,7 @@ import bankAccount from "@/assets/arcbank-bank-account.jpg";
 
 const InternalQuotePage = () => {
   const navigate = useNavigate();
+  const [isSaving, setIsSaving] = useState(false);
   const {
     quotes,
     recipient,
@@ -47,6 +50,40 @@ const InternalQuotePage = () => {
 
   const handleViewCustomerQuote = () => {
     navigate('/customer-quotes-summary');
+  };
+
+  const handleSaveQuote = async () => {
+    setIsSaving(true);
+    try {
+      const subtotal = getTotalPrice();
+      const tax = subtotal * 0.1;
+      const total = getTotalPriceWithTax();
+
+      const { error } = await supabase.from('saved_quotes').insert([{
+        quote_number: quoteNumber,
+        quote_date: new Date().toISOString(),
+        recipient_name: recipient?.contactPerson || null,
+        recipient_company: recipient?.companyName || null,
+        recipient_phone: recipient?.phoneNumber || null,
+        recipient_email: recipient?.email || null,
+        recipient_address: recipient?.deliveryAddress || null,
+        recipient_memo: recipient?.clientMemo || null,
+        items: quotes as any,
+        subtotal,
+        tax,
+        total
+      }]);
+
+      if (error) throw error;
+
+      toast.success('견적서가 저장되었습니다.');
+      navigate('/saved-quotes');
+    } catch (error) {
+      console.error('Error saving quote:', error);
+      toast.error('견적서 저장에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const currentDate = new Date().toLocaleDateString('ko-KR', {
@@ -94,8 +131,10 @@ const InternalQuotePage = () => {
             onClearQuotes={clearQuotes}
             onPrintPDF={handlePrintPDF}
             onViewCustomerQuote={handleViewCustomerQuote}
+            onSaveQuote={handleSaveQuote}
             currentDate={currentDate}
             quoteNumber={quoteNumber}
+            isSaving={isSaving}
           />
 
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">

@@ -3,20 +3,24 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, FileText, Calendar, Trash2, Users, Building2, Home } from "lucide-react";
+import { ArrowLeft, Download, FileText, Calendar, Trash2, Users, Building2, Home, Save } from "lucide-react";
 interface QuoteSummaryHeaderProps {
   onClearQuotes: () => void;
   onPrintPDF: () => void;
   onViewCustomerQuote?: () => void;
+  onSaveQuote?: () => void;
   currentDate: string;
   quoteNumber: string;
+  isSaving?: boolean;
 }
 const QuoteSummaryHeader = ({
   onClearQuotes,
   onPrintPDF,
   onViewCustomerQuote,
+  onSaveQuote,
   currentDate,
-  quoteNumber
+  quoteNumber,
+  isSaving = false
 }: QuoteSummaryHeaderProps) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -37,6 +41,10 @@ const QuoteSummaryHeader = ({
                   <Users className="w-4 h-4" />
                   고객용 견적서
                 </>}
+            </Button>}
+          {onSaveQuote && <Button variant="outline" onClick={onSaveQuote} disabled={isSaving} className="flex items-center gap-2 text-green-600 border-green-600 hover:bg-green-50">
+              <Save className="w-4 h-4" />
+              {isSaving ? '저장 중...' : '견적서 저장'}
             </Button>}
           <Button variant="outline" onClick={onClearQuotes} className="flex items-center gap-2 text-red-600 border-red-600 hover:bg-red-50">
             <Trash2 className="w-4 h-4" />
