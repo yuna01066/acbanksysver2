@@ -144,6 +144,29 @@ const CustomerQuotePage = () => {
 
             <Separator className="my-8" />
 
+            {/* 견적 구성 항목 - 금액 없이 */}
+            {quoteData.breakdown && quoteData.breakdown.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  견적 구성 항목
+                </h3>
+                <div className="space-y-2">
+                  {quoteData.breakdown.map((item, index) => (
+                    <div 
+                      key={index} 
+                      className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200"
+                    >
+                      <div className="w-2 h-2 rounded-full bg-slate-900 flex-shrink-0"></div>
+                      <span className="text-gray-900">{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Separator className="my-8" />
+
             {/* 최종 견적 금액 - 가격 상세 내역 제외 */}
             <div className="bg-slate-900 rounded-xl p-6 text-white">
               <div className="flex justify-between items-center">
