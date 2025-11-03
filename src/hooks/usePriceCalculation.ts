@@ -319,55 +319,61 @@ export const usePriceCalculation = ({
       let totalWonJang = 0;
       const wonJangBreakdown: { label: string; price: number }[] = [];
       
-      selectedSizes.forEach((sizeSelection, index) => {
+      let globalIndex = 0; // 전체 원판 순서
+      selectedSizes.forEach((sizeSelection) => {
         const surface = sizeSelection.surface || '단면';
         const sizeColorMixingCost = sizeSelection.colorMixingCost || 0;
         
         const sizeMatch = sizeSelection.size.match(/^([^\(]+)/);
         const actualSize = sizeMatch ? sizeMatch[1].trim() : sizeSelection.size;
 
-        // 각 원장의 기본 비용만 계산 (가공 옵션 제외)
-        const result = calculatePrice(
-          selectedMaterial.id,
-          selectedQuality.id,
-          selectedThickness,
-          actualSize,
-          surface,
-          selectedColorType || undefined,
-          'raw-only', // 원장만 계산하기 위해 raw-only 제외
-          sizeColorMixingCost,
-          {
-            processing: 'none',
-            adhesion: 'none',
-            qty: sizeSelection.quantity,
-            colorMixingCostsData: colorMixingCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
-            adhesiveCostsData: adhesiveCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
-            panelSizesData: activePanelSizes?.map(ps => ({
-              size_name: ps.size_name,
-              thickness: ps.thickness,
-              price: ps.price || undefined,
-              is_active: ps.is_active
-            })),
-            processingOptionsData: [],
-            rawOnlyMultiplier: 1.0, // 원장 계산시에는 할증 제외
-          }
-        );
+        // 각 수량만큼 반복하여 원장 계산
+        for (let i = 0; i < sizeSelection.quantity; i++) {
 
-        // 원장 비용만 추출 (원판 + 테이프 + 조색비)
-        const wonJangPrice = result.breakdown
-          .filter(item => 
-            !item.label.includes('할증') && 
-            !item.label.includes('가공') && 
-            !item.label.includes('접착')
-          )
-          .reduce((sum, item) => sum + item.price, 0);
+          // 각 원장의 기본 비용만 계산 (가공 옵션 제외)
+          const result = calculatePrice(
+            selectedMaterial.id,
+            selectedQuality.id,
+            selectedThickness,
+            actualSize,
+            surface,
+            selectedColorType || undefined,
+            'raw-only', // 원장만 계산하기 위해 raw-only 제외
+            sizeColorMixingCost,
+            {
+              processing: 'none',
+              adhesion: 'none',
+              qty: 1, // 각 원판은 1개씩 계산
+              colorMixingCostsData: colorMixingCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
+              adhesiveCostsData: adhesiveCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
+              panelSizesData: activePanelSizes?.map(ps => ({
+                size_name: ps.size_name,
+                thickness: ps.thickness,
+                price: ps.price || undefined,
+                is_active: ps.is_active
+              })),
+              processingOptionsData: [],
+              rawOnlyMultiplier: 1.0, // 원장 계산시에는 할증 제외
+            }
+          );
 
-        totalWonJang += wonJangPrice;
-        
-        wonJangBreakdown.push({
-          label: `원장 #${index + 1} (${actualSize}, ${surface})`,
-          price: wonJangPrice
-        });
+          // 원장 비용만 추출 (원판 + 테이프 + 조색비)
+          const wonJangPrice = result.breakdown
+            .filter(item => 
+              !item.label.includes('할증') && 
+              !item.label.includes('가공') && 
+              !item.label.includes('접착')
+            )
+            .reduce((sum, item) => sum + item.price, 0);
+
+          totalWonJang += wonJangPrice;
+          globalIndex++;
+          
+          wonJangBreakdown.push({
+            label: `원장 #${globalIndex} (${actualSize}, ${surface})`,
+            price: wonJangPrice
+          });
+        }
       });
 
       // 2단계: 가공 옵션 비용 계산 (총 원장 기준)

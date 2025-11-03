@@ -106,74 +106,76 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
           <div className="space-y-2">
             <h5 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
               <Layers className="w-4 h-4" />
-              선택된 원판 ({selectedSizes.length}개)
+              선택된 원판 ({selectedSizes.reduce((sum, s) => sum + s.quantity, 0)}개)
             </h5>
             <div className="space-y-3">
-              {selectedSizes.map((sizeItem, index) => {
+              {selectedSizes.map((sizeItem, sizeIndex) => {
                 const baseName = getSizeBaseName(sizeItem.size);
                 const itemColorMixingCost = sizeItem.colorMixingCost || 0;
-                const surfaceAdditionalCost = sizeItem.surfaceAdditionalCost || 0;
                 
-                // priceInfo.breakdown에서 해당 원판의 금액 찾기
-                const wonJangLabel = `원장 #${index + 1}`;
-                const wonJangItem = priceInfo?.breakdown.find(item => item.label.includes(wonJangLabel));
-                const wonJangTotal = wonJangItem?.price || 0;
-                
-                return (
-                  <Card key={index} className="border-2 border-primary/20 bg-gradient-to-br from-background to-muted/30">
-                    <CardContent className="p-4 space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="font-semibold text-lg mb-1">원판 #{index + 1}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {baseName}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {sizeItem.size}
+                // 각 수량만큼 반복하여 표시
+                return Array.from({ length: sizeItem.quantity }, (_, qtyIndex) => {
+                  // 전체 원판 순서 계산
+                  const globalIndex = selectedSizes.slice(0, sizeIndex).reduce((sum, s) => sum + s.quantity, 0) + qtyIndex;
+                  
+                  // priceInfo.breakdown에서 해당 원판의 금액 찾기
+                  const wonJangLabel = `원장 #${globalIndex + 1}`;
+                  const wonJangItem = priceInfo?.breakdown.find(item => item.label.includes(wonJangLabel));
+                  const wonJangTotal = wonJangItem?.price || 0;
+                  
+                  return (
+                    <Card key={`${sizeIndex}-${qtyIndex}`} className="border-2 border-primary/20 bg-gradient-to-br from-background to-muted/30">
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="font-semibold text-lg mb-1">원판 #{globalIndex + 1}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {baseName}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {sizeItem.size}
+                            </div>
                           </div>
                         </div>
-                        <Badge variant="default" className="ml-2">
-                          {sizeItem.quantity}EA
-                        </Badge>
-                      </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        {sizeItem.surface && (
+                        <div className="grid grid-cols-2 gap-2">
+                          {sizeItem.surface && (
+                            <div className="p-2 bg-muted/50 rounded border border-border/50">
+                              <div className="text-xs text-muted-foreground">면수</div>
+                              <div className="font-medium text-sm">{sizeItem.surface}</div>
+                            </div>
+                          )}
                           <div className="p-2 bg-muted/50 rounded border border-border/50">
-                            <div className="text-xs text-muted-foreground">면수</div>
-                            <div className="font-medium text-sm">{sizeItem.surface}</div>
-                          </div>
-                        )}
-                        <div className="p-2 bg-muted/50 rounded border border-border/50">
-                          <div className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Palette className="w-3 h-3" />
-                            조색비
-                          </div>
-                          <div className="font-medium text-sm text-primary">
-                            {formatPrice(itemColorMixingCost)}
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Palette className="w-3 h-3" />
+                              조색비
+                            </div>
+                            <div className="font-medium text-sm text-primary">
+                              {formatPrice(itemColorMixingCost)}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* 원판 금액 상세 */}
-                      <div className="pt-3 border-t-2 border-primary/20">
-                        <div className="bg-primary/5 rounded-lg p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-muted-foreground">
-                              원판 금액
-                            </span>
-                            <span className="font-semibold text-lg text-primary">
-                              {formatPrice(wonJangTotal)}
-                            </span>
-                          </div>
-                          <div className="text-xs text-muted-foreground pt-1 border-t border-border/30">
-                            원판 + 면수(테이프) + 조색비 포함
+                        {/* 원판 금액 상세 */}
+                        <div className="pt-3 border-t-2 border-primary/20">
+                          <div className="bg-primary/5 rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-muted-foreground">
+                                원판 금액
+                              </span>
+                              <span className="font-semibold text-lg text-primary">
+                                {formatPrice(wonJangTotal)}
+                              </span>
+                            </div>
+                            <div className="text-xs text-muted-foreground pt-1 border-t border-border/30">
+                              원판 + 면수(테이프) + 조색비 포함
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
+                      </CardContent>
+                    </Card>
+                  );
+                });
               })}
             </div>
           </div>
