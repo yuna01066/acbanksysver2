@@ -98,15 +98,19 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
             <div className="text-xs text-gray-600 mb-1">두께</div>
             <div className="font-semibold text-gray-900 text-sm">{quote.thickness}</div>
           </div>
-          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-xs text-gray-600 mb-1">사이즈</div>
-            <div className="font-semibold text-gray-900 text-sm">{quote.size}</div>
-          </div>
-          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-xs text-gray-600 mb-1">면수</div>
-            <div className="font-semibold text-gray-900 text-sm">{quote.surface}</div>
-          </div>
-          {quote.processing && (
+          {!isCustomerView && (
+            <>
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="text-xs text-gray-600 mb-1">사이즈</div>
+                <div className="font-semibold text-gray-900 text-sm">{quote.size}</div>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="text-xs text-gray-600 mb-1">면수</div>
+                <div className="font-semibold text-gray-900 text-sm">{quote.surface}</div>
+              </div>
+            </>
+          )}
+          {quote.processing && !isCustomerView && (
             <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 md:col-span-2">
               <div className="text-xs text-gray-600 mb-1">가공방법</div>
               <div className="font-semibold text-gray-900 text-sm">{quote.processingName}</div>
