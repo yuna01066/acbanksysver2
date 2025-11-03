@@ -768,11 +768,20 @@ export const calculatePrice = (
     selectedOptionIds.forEach(optionId => {
       const option = processingOptionsData.find(opt => opt.option_id === optionId && opt.is_active);
       if (option) {
-        // multiplier 적용
-        if (option.multiplier && option.multiplier !== 1) {
-          const multiplierCost = totalPrice * (option.multiplier - 1);
-          breakdown.push({ label: `${option.name} (×${option.multiplier})`, price: multiplierCost });
-          totalPrice += multiplierCost;
+        // multiplier가 있으면 적용 (0이 아니고, 값이 존재하는 경우)
+        if (option.multiplier !== undefined && option.multiplier !== null && option.multiplier !== 0) {
+          // multiplier가 1보다 작으면 할인, 1보다 크면 할증
+          const multiplierCost = totalPrice * option.multiplier;
+          if (option.multiplier >= 1) {
+            // 할증인 경우: (multiplier - 1)만큼 추가
+            const additionalCost = totalPrice * (option.multiplier - 1);
+            breakdown.push({ label: `${option.name} (×${option.multiplier})`, price: additionalCost });
+            totalPrice += additionalCost;
+          } else {
+            // multiplier가 1보다 작은 경우: 원가에 곱하기
+            breakdown.push({ label: `${option.name} (원가×${option.multiplier})`, price: multiplierCost });
+            totalPrice += multiplierCost;
+          }
         }
         // base_cost 적용
         if (option.base_cost && option.base_cost > 0) {
