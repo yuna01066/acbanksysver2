@@ -449,11 +449,12 @@ const ProcessingOptionsManager = () => {
 
     const reorderedCategories = arrayMove(categories, oldIndex, newIndex);
 
-    // 각 카테고리의 display_order 업데이트
+    // 각 카테고리의 display_order 업데이트 (silent mode로 개별 알림 표시 안 함)
     const updatePromises = reorderedCategories.map((category, index) =>
       updateCategory.mutateAsync({
         id: category.id,
-        updates: { display_order: index + 1 }
+        updates: { display_order: index + 1 },
+        silent: true
       })
     );
 

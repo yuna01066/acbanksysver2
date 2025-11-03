@@ -50,7 +50,7 @@ export const useProcessingCategories = () => {
   });
 
   const updateCategory = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<ProcessingCategory> }) => {
+    mutationFn: async ({ id, updates, silent }: { id: string; updates: Partial<ProcessingCategory>; silent?: boolean }) => {
       const { data, error } = await supabase
         .from('processing_categories')
         .update(updates)
@@ -59,11 +59,13 @@ export const useProcessingCategories = () => {
         .single();
 
       if (error) throw error;
-      return data;
+      return { data, silent };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['processing_categories'] });
-      toast.success('카테고리가 수정되었습니다.');
+      if (!result.silent) {
+        toast.success('카테고리가 수정되었습니다.');
+      }
     },
     onError: (error: any) => {
       toast.error('카테고리 수정 실패: ' + error.message);
