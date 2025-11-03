@@ -602,6 +602,7 @@ export interface CalculatePriceV2Options {
   adhesionConfig?: AdhesionConfigData;            // 접착 설정 (DB)
   processFactors?: ProcessFactorsData;            // 가공 배수 (DB)
   bondFactors?: BondFactorsData;                  // 접착 배수 (DB)
+  selectedAdditionalOptions?: Record<string, number>; // 추가 옵션 수량
 }
 
 export interface ProcessingOptionData {
@@ -775,34 +776,51 @@ export const calculatePrice = (
       }))
     });
     
+    // 추가 옵션 수량 정보 가져오기 (V2 형식)
+    const additionalOptionsQuantities = (options as any)?.selectedAdditionalOptions || {};
+    
     // 선택된 각 옵션의 multiplier와 base_cost 적용
     selectedOptionIds.forEach(optionId => {
       const option = processingOptionsData.find(opt => opt.option_id === optionId && opt.is_active);
       console.log(`Looking for option: ${optionId}`, option);
       
       if (option) {
+        // 수량 정보 확인 (기본값 1)
+        const quantity = additionalOptionsQuantities[optionId] || 1;
+        
         // multiplier가 있으면 적용 (0이 아니고, 값이 존재하는 경우)
         if (option.multiplier !== undefined && option.multiplier !== null && option.multiplier !== 0) {
           // multiplier가 1보다 작으면 할인, 1보다 크면 할증
           const multiplierCost = totalPrice * option.multiplier;
           if (option.multiplier >= 1) {
             // 할증인 경우: (multiplier - 1)만큼 추가
-            const additionalCost = totalPrice * (option.multiplier - 1);
-            breakdown.push({ label: `${option.name} (×${option.multiplier})`, price: additionalCost });
+            const additionalCost = totalPrice * (option.multiplier - 1) * quantity;
+            const label = quantity > 1 
+              ? `${option.name} (×${option.multiplier}) x${quantity}개`
+              : `${option.name} (×${option.multiplier})`;
+            breakdown.push({ label, price: additionalCost });
             totalPrice += additionalCost;
             console.log(`Applied multiplier for ${option.name}: ${additionalCost}`);
           } else {
             // multiplier가 1보다 작은 경우: 원가에 곱하기
-            breakdown.push({ label: `${option.name} (원가×${option.multiplier})`, price: multiplierCost });
-            totalPrice += multiplierCost;
-            console.log(`Applied multiplier (< 1) for ${option.name}: ${multiplierCost}`);
+            const cost = multiplierCost * quantity;
+            const label = quantity > 1
+              ? `${option.name} (원가×${option.multiplier}) x${quantity}개`
+              : `${option.name} (원가×${option.multiplier})`;
+            breakdown.push({ label, price: cost });
+            totalPrice += cost;
+            console.log(`Applied multiplier (< 1) for ${option.name}: ${cost}`);
           }
         }
         // base_cost 적용
         if (option.base_cost && option.base_cost > 0) {
-          breakdown.push({ label: `${option.name} 추가비용`, price: option.base_cost });
-          totalPrice += option.base_cost;
-          console.log(`Applied base_cost for ${option.name}: ${option.base_cost}`);
+          const baseCostTotal = option.base_cost * quantity;
+          const label = quantity > 1
+            ? `${option.name} 추가비용 x${quantity}개`
+            : `${option.name} 추가비용`;
+          breakdown.push({ label, price: baseCostTotal });
+          totalPrice += baseCostTotal;
+          console.log(`Applied base_cost for ${option.name}: ${baseCostTotal}`);
         }
       } else {
         console.warn(`Option not found: ${optionId}`);

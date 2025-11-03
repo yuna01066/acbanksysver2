@@ -31,6 +31,7 @@ interface UsePriceCalculationProps {
   colorMixingCost: number;
   selectedProcessing: string;
   selectedAdhesion: string;
+  selectedAdditionalOptions?: Record<string, number>; // 추가 옵션 수량
   // V2 고급 옵션
   qty?: number;
   isComplex?: boolean;
@@ -58,6 +59,7 @@ export const usePriceCalculation = ({
   colorMixingCost,
   selectedProcessing,
   selectedAdhesion,
+  selectedAdditionalOptions = {},
   // V2 고급 옵션
   qty = 1,
   isComplex = false,

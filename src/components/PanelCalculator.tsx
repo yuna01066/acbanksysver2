@@ -96,6 +96,15 @@ const PanelCalculator = () => {
   const [mugwangPainting, setMugwangPainting] = useState<boolean>(false);
   const [selectedAdditionalOptions, setSelectedAdditionalOptions] = useState<Record<string, number>>({});
   
+  // Convert selectedAdditionalOptions to processingType format for price calculation
+  const getProcessingTypeFromOptions = () => {
+    const optionIds = Object.entries(selectedAdditionalOptions)
+      .filter(([_, quantity]) => quantity > 0)
+      .map(([optionId, _]) => optionId);
+    
+    return optionIds.length > 0 ? optionIds.join('|') : undefined;
+  };
+  
   const {
     priceInfo,
     getAvailableSizes
@@ -109,8 +118,9 @@ const PanelCalculator = () => {
     selectedColorType,
     selectedSurface,
     colorMixingCost,
-    selectedProcessing,
+    selectedProcessing: getProcessingTypeFromOptions() || selectedProcessing,
     selectedAdhesion,
+    selectedAdditionalOptions,
     // V2 고급 옵션
     qty,
     isComplex,
