@@ -108,17 +108,29 @@ const MyPage = () => {
   };
 
   const handleDeleteQuote = async () => {
-    if (!deleteQuoteId) return;
+    if (!deleteQuoteId || !user) return;
 
-    const { error } = await supabase
-      .from('saved_quotes')
-      .delete()
-      .eq('id', deleteQuoteId);
+    try {
+      const { data, error } = await supabase
+        .from('saved_quotes')
+        .delete()
+        .eq('id', deleteQuoteId)
+        .eq('user_id', user.id)
+        .select();
 
-    if (!error) {
+      if (error) throw error;
+
+      // 실제로 삭제된 행이 있는지 확인
+      if (!data || data.length === 0) {
+        toast.error('견적서를 삭제할 권한이 없습니다.');
+        setDeleteQuoteId(null);
+        return;
+      }
+
       toast.success('견적서가 삭제되었습니다.');
       fetchMyQuotes();
-    } else {
+    } catch (error) {
+      console.error('Error deleting quote:', error);
       toast.error('견적서 삭제에 실패했습니다.');
     }
     setDeleteQuoteId(null);

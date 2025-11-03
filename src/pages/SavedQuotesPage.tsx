@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,7 @@ type SortOption = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'num
 
 const SavedQuotesPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [quotes, setQuotes] = useState<SavedQuote[]>([]);
   const [filteredQuotes, setFilteredQuotes] = useState<SavedQuote[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,7 +49,7 @@ const SavedQuotesPage = () => {
 
   useEffect(() => {
     fetchQuotes();
-  }, [currentPage]);
+  }, [currentPage, user]);
 
   useEffect(() => {
     filterQuotes();
@@ -58,22 +60,29 @@ const SavedQuotesPage = () => {
   }, [searchTerm, dateFilter]);
 
   const fetchQuotes = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      // 총 개수 가져오기
+      // 총 개수 가져오기 (현재 사용자의 견적서만)
       const { count, error: countError } = await supabase
         .from('saved_quotes')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
 
       if (countError) throw countError;
       setTotalCount(count || 0);
 
-      // 페이지네이션된 데이터 가져오기
+      // 페이지네이션된 데이터 가져오기 (현재 사용자의 견적서만)
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
 
       const { data, error } = await supabase
         .from('saved_quotes')
         .select('*')
+        .eq('user_id', user.id)
         .order('quote_date', { ascending: false })
         .range(from, to);
 
@@ -136,13 +145,26 @@ const SavedQuotesPage = () => {
   const handleDeleteQuote = async (quoteId: string) => {
     if (!confirm('이 견적서를 삭제하시겠습니까?')) return;
 
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('saved_quotes')
         .delete()
-        .eq('id', quoteId);
+        .eq('id', quoteId)
+        .eq('user_id', user.id)
+        .select();
 
       if (error) throw error;
+      
+      // 실제로 삭제된 행이 있는지 확인
+      if (!data || data.length === 0) {
+        toast.error('견적서를 삭제할 권한이 없습니다.');
+        return;
+      }
       
       toast.success('견적서가 삭제되었습니다.');
       fetchQuotes();
