@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 const Home = () => {
   const navigate = useNavigate();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, isAdmin, isModerator } = useAuth();
   const links = [{
     title: "홈페이지",
     icon: HomeIcon,
@@ -71,7 +71,14 @@ const Home = () => {
     description: "가격 및 옵션 관리",
     url: "/admin-settings",
     requiresAuth: true,
-    action: () => navigate("/admin-settings")
+    requiresAdmin: true, // admin과 moderator만 접근
+    action: () => {
+      if (isAdmin || isModerator) {
+        navigate("/admin-settings");
+      } else {
+        toast.error('관리자 또는 중간관리자만 접근할 수 있습니다.');
+      }
+    }
   }];
 
   const handleCardClick = (link: typeof links[0]) => {
@@ -117,11 +124,12 @@ const Home = () => {
             {links.map((link, index) => {
             const Icon = link.icon;
             const isLocked = link.requiresAuth && !user;
+            const isAdminOnly = link.requiresAdmin && !isAdmin && !isModerator;
             return <Card 
               key={index} 
               className={cn(
                 "cursor-pointer group transition-all duration-300",
-                isLocked 
+                (isLocked || isAdminOnly)
                   ? "opacity-60 hover:opacity-70 cursor-not-allowed" 
                   : "hover:scale-105"
               )} 
@@ -135,16 +143,23 @@ const Home = () => {
                         </Badge>
                       </div>
                     )}
+                    {isAdminOnly && (
+                      <div className="absolute top-2 right-2">
+                        <Badge variant="secondary" className="text-xs">
+                          관리자 전용
+                        </Badge>
+                      </div>
+                    )}
                     <div className="mb-4 flex justify-center">
                       <div className={cn(
                         "w-16 h-16 rounded-2xl bg-gradient-to-br flex items-center justify-center transition-all duration-300",
-                        isLocked 
+                        (isLocked || isAdminOnly)
                           ? "from-muted/20 to-muted/30" 
                           : "from-primary/20 to-accent/20 group-hover:from-primary/30 group-hover:to-accent/30"
                       )}>
                         <Icon className={cn(
                           "w-8 h-8",
-                          isLocked ? "text-muted-foreground" : "text-primary"
+                          (isLocked || isAdminOnly) ? "text-muted-foreground" : "text-primary"
                         )} />
                       </div>
                     </div>

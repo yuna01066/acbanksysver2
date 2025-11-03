@@ -65,7 +65,9 @@ const UserManagementPage = () => {
   const [editPhone, setEditPhone] = useState('');
   const [editDepartment, setEditDepartment] = useState('');
   const [editPosition, setEditPosition] = useState('');
-  const [editRole, setEditRole] = useState<'admin' | 'user'>('user');
+  const [editRole, setEditRole] = useState<'admin' | 'moderator' | 'user'>('user');
+  
+  const { userRole } = useAuth();
 
   useEffect(() => {
     // Check session storage for authentication
@@ -136,7 +138,11 @@ const UserManagementPage = () => {
     setEditPhone(user.phone || '');
     setEditDepartment(user.department || '');
     setEditPosition(user.position || '');
-    setEditRole(user.roles.includes('admin') ? 'admin' : 'user');
+    
+    // 역할 우선순위: admin > moderator > user
+    if (user.roles.includes('admin')) setEditRole('admin');
+    else if (user.roles.includes('moderator')) setEditRole('moderator');
+    else setEditRole('user');
   };
 
   const handleUpdateUser = async (e: React.FormEvent) => {
@@ -160,7 +166,10 @@ const UserManagementPage = () => {
     }
 
     // Update role if changed
-    const currentRole = editingUser.roles.includes('admin') ? 'admin' : 'user';
+    const currentRole = editingUser.roles.includes('admin') ? 'admin' 
+                      : editingUser.roles.includes('moderator') ? 'moderator'
+                      : 'user';
+    
     if (currentRole !== editRole) {
       // Remove old role
       await supabase
@@ -272,10 +281,15 @@ const UserManagementPage = () => {
                                 <Shield className="h-3 w-3" />
                                 관리자
                               </Badge>
+                            ) : user.roles.includes('moderator') ? (
+                              <Badge variant="outline" className="gap-1">
+                                <Shield className="h-3 w-3" />
+                                중간관리자
+                              </Badge>
                             ) : (
                               <Badge variant="secondary" className="gap-1">
                                 <User className="h-3 w-3" />
-                                사용자
+                                담당자
                               </Badge>
                             )}
                           </div>
@@ -294,13 +308,16 @@ const UserManagementPage = () => {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setDeleteUserId(user.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {/* moderator는 삭제 불가 */}
+                          {userRole === 'admin' && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setDeleteUserId(user.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -357,15 +374,27 @@ const UserManagementPage = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-role">권한</Label>
-              <Select value={editRole} onValueChange={(v) => setEditRole(v as 'admin' | 'user')}>
+              <Select 
+                value={editRole} 
+                onValueChange={(v) => setEditRole(v as 'admin' | 'moderator' | 'user')}
+                disabled={userRole === 'moderator'} // moderator는 권한 변경 불가
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">사용자</SelectItem>
-                  <SelectItem value="admin">관리자</SelectItem>
+                  <SelectItem value="user">담당자</SelectItem>
+                  <SelectItem value="moderator">중간관리자</SelectItem>
+                  {userRole === 'admin' && (
+                    <SelectItem value="admin">관리자</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
+              {userRole === 'moderator' && (
+                <p className="text-xs text-muted-foreground">
+                  중간관리자는 권한을 변경할 수 없습니다.
+                </p>
+              )}
             </div>
             <div className="flex gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setEditingUser(null)} className="flex-1">

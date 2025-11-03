@@ -17,6 +17,9 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   isAdmin: boolean;
+  isModerator: boolean;
+  isUser: boolean;
+  userRole: 'admin' | 'moderator' | 'user' | null;
   loading: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -31,6 +34,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isModerator, setIsModerator] = useState(false);
+  const [isUser, setIsUser] = useState(false);
+  const [userRole, setUserRole] = useState<'admin' | 'moderator' | 'user' | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
@@ -45,15 +51,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const checkAdminRole = async (userId: string) => {
+  const checkUserRole = async (userId: string) => {
     const { data } = await supabase
       .from('user_roles')
       .select('role')
-      .eq('user_id', userId)
-      .eq('role', 'admin')
-      .single();
+      .eq('user_id', userId);
 
-    setIsAdmin(!!data);
+    if (data && data.length > 0) {
+      const roles = data.map(r => r.role);
+      const admin = roles.includes('admin');
+      const moderator = roles.includes('moderator');
+      const user = roles.includes('user');
+      
+      setIsAdmin(admin);
+      setIsModerator(moderator);
+      setIsUser(user);
+      
+      // 우선순위: admin > moderator > user
+      if (admin) setUserRole('admin');
+      else if (moderator) setUserRole('moderator');
+      else if (user) setUserRole('user');
+      else setUserRole(null);
+    } else {
+      setIsAdmin(false);
+      setIsModerator(false);
+      setIsUser(false);
+      setUserRole(null);
+    }
   };
 
   useEffect(() => {
@@ -66,11 +90,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           setTimeout(async () => {
             await fetchProfile(session.user.id);
-            await checkAdminRole(session.user.id);
+            await checkUserRole(session.user.id);
           }, 0);
         } else {
           setProfile(null);
           setIsAdmin(false);
+          setIsModerator(false);
+          setIsUser(false);
+          setUserRole(null);
         }
       }
     );
@@ -82,7 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (session?.user) {
         await fetchProfile(session.user.id);
-        await checkAdminRole(session.user.id);
+        await checkUserRole(session.user.id);
       }
       setLoading(false);
     });
@@ -130,6 +157,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null);
     setProfile(null);
     setIsAdmin(false);
+    setIsModerator(false);
+    setIsUser(false);
+    setUserRole(null);
     toast.success('로그아웃되었습니다!');
     window.location.href = '/';
   };
@@ -157,6 +187,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         session,
         profile,
         isAdmin,
+        isModerator,
+        isUser,
+        userRole,
         loading,
         signUp,
         signIn,
