@@ -79,7 +79,7 @@ const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-2xl font-bold mb-2">6. 각 판재의 면수를 선택해주세요</h3>
+        <h3 className="text-2xl font-bold mb-2">각 판재의 면수를 선택해 주세요</h3>
         <p className="text-muted-foreground">
           선택한 각 사이즈별로 단면 또는 양면을 설정하세요
         </p>
