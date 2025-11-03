@@ -60,12 +60,8 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
   }, [isDialogOpen, user]);
 
   const fetchSavedRecipients = async () => {
-    if (!user) {
-      console.log('user가 없습니다');
-      return;
-    }
+    if (!user) return;
 
-    console.log('저장된 담당자 조회 시작, user.id:', user.id);
     const { data, error } = await supabase
       .from('saved_quotes')
       .select('recipient_company, recipient_name, recipient_phone, recipient_email, recipient_address')
@@ -77,8 +73,6 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
       console.error('담당자 조회 에러:', error);
       return;
     }
-
-    console.log('조회된 데이터:', data);
 
     if (data) {
       // Remove duplicates based on company + name + email
@@ -95,16 +89,11 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
           });
         }
       });
-      const recipients = Array.from(uniqueRecipients.values());
-      console.log('중복 제거 후 담당자 수:', recipients.length);
-      setSavedRecipients(recipients);
+      setSavedRecipients(Array.from(uniqueRecipients.values()));
     }
   };
 
   const handleSelectRecipient = (recipient: SavedRecipient) => {
-    console.log('선택된 담당자:', recipient);
-    console.log('현재 recipientData:', recipientData);
-    
     if (onBulkChange) {
       // 여러 필드를 한 번에 업데이트
       onBulkChange({
@@ -124,7 +113,6 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
     }
     
     setIsDialogOpen(false);
-    console.log('양식 채우기 완료');
   };
 
   const filteredRecipients = savedRecipients.filter((recipient) => {

@@ -421,7 +421,7 @@ export type Database = {
           tax: number
           total: number
           updated_at: string
-          user_id: string | null
+          user_id: string
           valid_until: string | null
         }
         Insert: {
@@ -450,7 +450,7 @@ export type Database = {
           tax: number
           total: number
           updated_at?: string
-          user_id?: string | null
+          user_id: string
           valid_until?: string | null
         }
         Update: {
@@ -479,7 +479,7 @@ export type Database = {
           tax?: number
           total?: number
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
           valid_until?: string | null
         }
         Relationships: []
