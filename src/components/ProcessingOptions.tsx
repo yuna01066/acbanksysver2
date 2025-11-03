@@ -6,6 +6,7 @@ import { Package, Scissors, Layers, Zap, Droplet, Settings, ChevronRight, CheckC
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useProcessingOptions } from "@/hooks/useProcessingOptions";
+import { useSlotTypes } from "@/hooks/useSlotTypes";
 
 interface ProcessingOptionsProps {
   selectedProcessing: string;
@@ -58,6 +59,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   const [selectedSlots, setSelectedSlots] = React.useState<Record<string, string>>({});
   
   const { processingOptions, activeAdditionalOptions, isLoading } = useProcessingOptions();
+  const { slotTypes, isLoading: isLoadingSlots } = useSlotTypes();
 
   // 카테고리별 슬롯 옵션 가져오기
   const getCategorySlots = (category: MainCategory) => {
@@ -116,7 +118,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     return requiredSlots.every(slot => selectedSlots[slot]);
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingSlots) {
     return (
       <div className="space-y-8 animate-fade-in">
         <div className="text-center">로딩 중...</div>
@@ -181,7 +183,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
 
         return sortedSlotTypes.map((slotType, stepIndex) => {
           const options = slots[slotType];
-          const slotLabel = slotType === 'additional' ? '추가 옵션' : `선택 ${slotType.replace('slot', '')}`;
+          // 슬롯 타입 정보에서 title을 가져오거나, 없으면 기본값 사용
+          const slotTypeInfo = slotTypes?.find(st => st.slot_key === slotType);
+          const slotLabel = slotTypeInfo?.title || (slotType === 'additional' ? '추가 옵션' : `선택 ${slotType.replace('slot', '')}`);
+          const slotDescription = slotTypeInfo?.description;
           
           return (
             <React.Fragment key={slotType}>
@@ -193,6 +198,9 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                     {slotLabel}
                     <Badge variant="secondary" className="ml-auto">STEP {stepIndex + 2}</Badge>
                   </CardTitle>
+                  {slotDescription && (
+                    <p className="text-sm text-muted-foreground mt-2">{slotDescription}</p>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
