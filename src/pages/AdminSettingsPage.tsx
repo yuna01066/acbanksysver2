@@ -166,19 +166,19 @@ const AdminSettingsPage = () => {
               
               <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
                 <h3 className="font-medium mb-2 flex items-center gap-2">
-                  <Settings className="w-4 h-4" />
-                  가격 관리 (구버전)
+                  <UserCog className="w-4 h-4" />
+                  담당자별 통계
                 </h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  제품별 가격을 설정하고 관리합니다.
+                  각 담당자별 견적 현황 및 통계를 확인합니다.
                 </p>
                 <Button
-                  onClick={() => navigate('/price-management')}
+                  onClick={() => navigate('/user-statistics')}
                   variant="outline"
                   className="flex items-center gap-2"
                 >
-                  <Settings className="w-4 h-4" />
-                  가격 설정
+                  <UserCog className="w-4 h-4" />
+                  통계 보기
                 </Button>
               </div>
               

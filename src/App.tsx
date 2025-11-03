@@ -24,6 +24,7 @@ import SavedQuoteDetailPage from "./pages/SavedQuoteDetailPage";
 import AuthPage from "./pages/AuthPage";
 import MyPage from "./pages/MyPage";
 import UserManagementPage from "./pages/UserManagementPage";
+import UserStatisticsPage from "./pages/UserStatisticsPage";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/my-page" element={<MyPage />} />
             <Route path="/user-management" element={<UserManagementPage />} />
+            <Route path="/user-statistics" element={<UserStatisticsPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
             </Routes>
