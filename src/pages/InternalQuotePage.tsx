@@ -7,6 +7,7 @@ import { Calculator, ShoppingCart, Home, Save } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQuotes } from "@/contexts/QuoteContext";
+import { useAuth } from "@/contexts/AuthContext";
 import QuoteSummaryHeader from "@/components/QuoteSummaryHeader";
 import QuoteCard from "@/components/QuoteCard";
 import businessRegistration from "@/assets/arcbank-business-registration.jpg";
@@ -14,6 +15,7 @@ import bankAccount from "@/assets/arcbank-bank-account.jpg";
 
 const InternalQuotePage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const {
     quotes,
@@ -53,6 +55,12 @@ const InternalQuotePage = () => {
   };
 
   const handleSaveQuote = async () => {
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      navigate('/auth');
+      return;
+    }
+
     setIsSaving(true);
     try {
       const subtotal = getTotalPrice();
@@ -60,6 +68,7 @@ const InternalQuotePage = () => {
       const total = getTotalPriceWithTax();
 
       const { error } = await supabase.from('saved_quotes').insert([{
+        user_id: user.id,
         quote_number: quoteNumber,
         quote_date: new Date().toISOString(),
         project_name: recipient?.projectName || null,
