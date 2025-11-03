@@ -77,6 +77,7 @@ const PanelCalculator = () => {
   const [selectedSurface, setSelectedSurface] = useState<string>('');
   const [colorMixingCost, setColorMixingCost] = useState<number>(20000);
   const [selectedProcessing, setSelectedProcessing] = useState<string>('');
+  const [selectedProcessingName, setSelectedProcessingName] = useState<string>('');
   const [selectedAdhesion, setSelectedAdhesion] = useState<string>('');
   const [selectedFilm, setSelectedFilm] = useState<string>('');
   const [selectedBaseType, setSelectedBaseType] = useState<string>(''); // 필름 아크릴 기본 재질 (Clear/Bright/Astel)
@@ -161,6 +162,7 @@ const PanelCalculator = () => {
       setSelectedSurface('');
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedProcessingName('');
       setSelectedAdhesion('');
       setCurrentStep(0);
     } else if (step <= 1) {
@@ -174,6 +176,7 @@ const PanelCalculator = () => {
       setSelectedSurface('');
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedProcessingName('');
       setSelectedAdhesion('');
       setCurrentStep(1);
     } else if (step <= 2) {
@@ -186,6 +189,7 @@ const PanelCalculator = () => {
       setSelectedSurface('');
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedProcessingName('');
       setSelectedAdhesion('');
       setCurrentStep(2);
     } else if (step <= 3) {
@@ -198,6 +202,7 @@ const PanelCalculator = () => {
       setSelectedSurface('');
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedProcessingName('');
       setSelectedAdhesion('');
       setCurrentStep(3);
     } else if (step <= 4) {
@@ -207,6 +212,7 @@ const PanelCalculator = () => {
       setSelectedSurface('');
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedProcessingName('');
       setSelectedAdhesion('');
       setCurrentStep(4);
     } else if (step <= 5) {
@@ -215,17 +221,20 @@ const PanelCalculator = () => {
       setSelectedSurface('');
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedProcessingName('');
       setSelectedAdhesion('');
       setCurrentStep(5);
     } else if (step <= 6) {
       setSelectedSurface('');
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedProcessingName('');
       setSelectedAdhesion('');
       setCurrentStep(6);
     } else if (step <= 7) {
       setColorMixingCost(20000);
       setSelectedProcessing('');
+      setSelectedProcessingName('');
       setSelectedAdhesion('');
       setCurrentStep(7);
     } else if (step <= 8) {
@@ -233,6 +242,7 @@ const PanelCalculator = () => {
       setQty(1);
       setIsComplex(false);
       setSelectedProcessing('');
+      setSelectedProcessingName('');
       setSelectedAdhesion('');
       setCurrentStep(8);
     }
@@ -320,9 +330,12 @@ const PanelCalculator = () => {
       return newCost;
     });
   };
-  const handleProcessingSelect = (processingId: string) => {
-    console.log('Processing selected:', processingId);
+  const handleProcessingSelect = (processingId: string, processingName?: string) => {
+    console.log('Processing selected:', processingId, processingName);
     setSelectedProcessing(processingId);
+    if (processingName) {
+      setSelectedProcessingName(processingName);
+    }
   };
 
   const handleAdhesionSelect = (adhesionId: string) => {
@@ -377,7 +390,7 @@ const PanelCalculator = () => {
       return;
     }
 
-    const processingName = PROCESSING_OPTIONS.find(p => p.id === selectedProcessing)?.name || '';
+    const processingName = selectedProcessingName || PROCESSING_OPTIONS.find(p => p.id === selectedProcessing)?.name || '';
     
     // 다중 선택된 사이즈를 하나의 견적으로 처리 (총 가격은 priceInfo.totalPrice)
     const quoteData = {
@@ -412,8 +425,9 @@ const PanelCalculator = () => {
     setSelectedColorType('');
     setSelectedSurface('');
     setColorMixingCost(20000);
-    setSelectedProcessing('');
-    setSelectedAdhesion('');
+      setSelectedProcessing('');
+      setSelectedProcessingName('');
+      setSelectedAdhesion('');
     setSelectedFilm('');
     setSelectedBaseType('');
     alert('견적이 추가되었습니다!');

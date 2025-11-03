@@ -13,7 +13,7 @@ import { useCategoryLogic } from "@/hooks/useCategoryLogic";
 interface ProcessingOptionsProps {
   selectedProcessing: string;
   selectedAdhesion: string;
-  onProcessingSelect: (processingId: string) => void;
+  onProcessingSelect: (processingId: string, processingName?: string) => void;
   onAdhesionSelect: (adhesionId: string) => void;
   isGlossyStandard: boolean;
   selectedThickness: string;
@@ -124,7 +124,14 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     
     // 선택된 모든 옵션 ID를 조합하여 processingId 생성
     const selectedIds = Object.values(newSlots).join('|');
-    onProcessingSelect(selectedIds);
+    
+    // 선택된 옵션들의 이름도 조합
+    const selectedNames = Object.entries(newSlots).map(([key, value]) => {
+      const option = processingOptions?.find(opt => opt.option_id === value);
+      return option?.name || '';
+    }).filter(Boolean).join(' + ');
+    
+    onProcessingSelect(selectedIds, selectedNames);
   };
 
   // 선택 완료 여부 확인 (메인 슬롯만, advanced_pricing과 additional 제외)
