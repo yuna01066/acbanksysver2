@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import CustomerQuoteCard from '@/components/CustomerQuoteCard';
 import QuoteCard from '@/components/QuoteCard';
-import { Home, Search, Calendar, Eye } from 'lucide-react';
+import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 
@@ -35,21 +35,41 @@ const SavedQuotesPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const ITEMS_PER_PAGE = 50;
 
   useEffect(() => {
     fetchQuotes();
-  }, []);
+  }, [currentPage]);
 
   useEffect(() => {
     filterQuotes();
   }, [searchTerm, dateFilter, quotes]);
 
+  useEffect(() => {
+    setCurrentPage(1); // 검색어 변경 시 첫 페이지로
+  }, [searchTerm, dateFilter]);
+
   const fetchQuotes = async () => {
     try {
+      // 총 개수 가져오기
+      const { count, error: countError } = await supabase
+        .from('saved_quotes')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) throw countError;
+      setTotalCount(count || 0);
+
+      // 페이지네이션된 데이터 가져오기
+      const from = (currentPage - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+
       const { data, error } = await supabase
         .from('saved_quotes')
         .select('*')
-        .order('quote_date', { ascending: false });
+        .order('quote_date', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
       
@@ -171,44 +191,83 @@ const SavedQuotesPage = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-6">
-            {filteredQuotes.map((quote) => (
-              <Card key={quote.id} className="hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-semibold mb-2">{quote.quote_number}</h3>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <p>날짜: {new Date(quote.quote_date).toLocaleDateString('ko-KR')}</p>
-                        {quote.recipient_company && <p>업체: {quote.recipient_company}</p>}
-                        {quote.recipient_name && <p>담당자: {quote.recipient_name}</p>}
-                        <p className="text-lg font-semibold text-foreground mt-2">
-                          총 금액: <span className="text-primary">{formatPrice(quote.total)}</span>
-                        </p>
+          <>
+            <div className="space-y-6">
+              {filteredQuotes.map((quote) => (
+                <Card key={quote.id} className="hover:shadow-lg transition-shadow">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex-1">
+                        <h3 className="text-xl font-semibold mb-2">{quote.quote_number}</h3>
+                        <div className="space-y-1 text-sm text-muted-foreground">
+                          <p>날짜: {new Date(quote.quote_date).toLocaleDateString('ko-KR')}</p>
+                          {quote.recipient_company && <p>업체: {quote.recipient_company}</p>}
+                          {quote.recipient_name && <p>담당자: {quote.recipient_name}</p>}
+                          <p className="text-lg font-semibold text-foreground mt-2">
+                            총 금액: <span className="text-primary">{formatPrice(quote.total)}</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => navigate(`/saved-quotes/${quote.id}`)}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          상세보기
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteQuote(quote.id)}
+                        >
+                          삭제
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {!searchTerm && !dateFilter && totalCount > ITEMS_PER_PAGE && (
+              <Card className="mt-6">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      총 {totalCount}개 중 {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-
+                      {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}개 표시
+                    </div>
+                    <div className="flex items-center gap-2">
                       <Button
-                        variant="default"
+                        variant="outline"
                         size="sm"
-                        onClick={() => navigate(`/saved-quotes/${quote.id}`)}
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
                       >
-                        <Eye className="w-4 h-4 mr-1" />
-                        상세보기
+                        <ChevronLeft className="w-4 h-4 mr-1" />
+                        이전
                       </Button>
+                      <div className="text-sm font-medium px-4">
+                        {currentPage} / {Math.ceil(totalCount / ITEMS_PER_PAGE)}
+                      </div>
                       <Button
-                        variant="destructive"
+                        variant="outline"
                         size="sm"
-                        onClick={() => handleDeleteQuote(quote.id)}
+                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalCount / ITEMS_PER_PAGE), p + 1))}
+                        disabled={currentPage >= Math.ceil(totalCount / ITEMS_PER_PAGE)}
                       >
-                        삭제
+                        다음
+                        <ChevronRight className="w-4 h-4 ml-1" />
                       </Button>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>
