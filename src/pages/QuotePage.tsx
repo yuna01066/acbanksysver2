@@ -79,6 +79,14 @@ const QuotePage = () => {
             page-break-after: auto;
           }
           
+          /* 2열 레이아웃 유지 */
+          .grid.grid-cols-1.md\\:grid-cols-2,
+          .grid.grid-cols-2.md\\:grid-cols-3 {
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 1rem !important;
+          }
+          
           /* 푸터 스타일 */
           .print-footer {
             position: fixed;
