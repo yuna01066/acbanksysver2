@@ -182,7 +182,7 @@ const SavedQuoteDetailPage = () => {
         @media print {
           @page {
             size: A4;
-            margin: 15mm 15mm 25mm 15mm;
+            margin: 10mm 15mm 20mm 15mm;
           }
           
           body {
@@ -190,6 +190,7 @@ const SavedQuoteDetailPage = () => {
             padding: 0;
             width: 210mm;
             height: 297mm;
+            font-size: 9pt;
           }
           
           .print-container {
@@ -199,25 +200,104 @@ const SavedQuoteDetailPage = () => {
             page-break-after: auto;
           }
           
-          /* 2열 레이아웃 유지 */
+          /* 헤더 카드 압축 */
+          .bg-white.border-b {
+            padding: 12px 16px !important;
+          }
+          
+          h1 {
+            font-size: 18pt !important;
+            margin-bottom: 4px !important;
+          }
+          
+          h2 {
+            font-size: 11pt !important;
+            margin-bottom: 8px !important;
+          }
+          
+          h3 {
+            font-size: 10pt !important;
+            margin-bottom: 6px !important;
+            padding-bottom: 4px !important;
+          }
+          
+          h4 {
+            font-size: 9pt !important;
+            margin-bottom: 4px !important;
+          }
+          
+          /* 견적 요약 섹션 압축 */
+          .border.border-gray-200.rounded-lg {
+            margin-bottom: 12px !important;
+          }
+          
+          .border.border-gray-200.rounded-lg .p-6 {
+            padding: 12px !important;
+          }
+          
+          .grid.grid-cols-1.md\\:grid-cols-3 {
+            gap: 8px !important;
+          }
+          
+          .bg-gray-50.rounded-lg {
+            padding: 8px !important;
+          }
+          
+          /* 2열 레이아웃 유지 및 간격 줄이기 */
           .grid.grid-cols-1.md\\:grid-cols-2 {
             display: grid !important;
             grid-template-columns: repeat(2, 1fr) !important;
-            gap: 2rem !important;
+            gap: 12px !important;
+            margin-bottom: 12px !important;
+          }
+          
+          /* 수신/발신 섹션 압축 */
+          .space-y-4 {
+            gap: 8px !important;
+          }
+          
+          .p-4 {
+            padding: 8px !important;
+          }
+          
+          .space-y-2 {
+            gap: 4px !important;
+          }
+          
+          .text-sm {
+            font-size: 8pt !important;
+            line-height: 1.3 !important;
+          }
+          
+          .text-xs {
+            font-size: 7pt !important;
+          }
+          
+          .mb-8, .my-8 {
+            margin-bottom: 12px !important;
+            margin-top: 12px !important;
+          }
+          
+          .mb-6 {
+            margin-bottom: 10px !important;
+          }
+          
+          .p-8 {
+            padding: 16px !important;
           }
           
           /* 푸터 스타일 */
           .print-footer {
             position: fixed;
-            bottom: 10mm;
+            bottom: 8mm;
             left: 15mm;
             right: 15mm;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 8px 0;
+            padding: 6px 0;
             border-top: 1px solid #ccc;
-            font-size: 10pt;
+            font-size: 8pt;
             color: #666;
           }
           
