@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, Save, X, Trash2, Plus, Package, Scissors, Droplet, Settings, CheckCircle2, Layers, Zap, ListOrdered, GripVertical, FolderCog, Box, Boxes, Wrench, Hammer, Cog, GitBranch, PaintBucket, Sparkles, Star, Crown, Award, Target } from "lucide-react";
+import { Pencil, Save, X, Trash2, Plus, Package, Scissors, Droplet, Settings, CheckCircle2, Layers, Zap, ListOrdered, GripVertical, Box, PaintBucket, Sparkles, Star, Circle, Square, Grid, Folder, FileText } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -588,19 +588,15 @@ const ProcessingOptionsManager = () => {
       Zap,
       Droplet,
       Settings,
-      FolderCog,
       Box,
-      Boxes,
-      Wrench,
-      Hammer,
-      Cog,
-      GitBranch,
       PaintBucket,
       Sparkles,
       Star,
-      Crown,
-      Award,
-      Target,
+      Circle,
+      Square,
+      Grid,
+      Folder,
+      FileText,
     };
     return iconMap[iconName] || Package;
   };
@@ -613,15 +609,15 @@ const ProcessingOptionsManager = () => {
     { name: 'Zap', icon: Zap },
     { name: 'Droplet', icon: Droplet },
     { name: 'Settings', icon: Settings },
-    { name: 'FolderCog', icon: FolderCog },
     { name: 'Box', icon: Box },
-    { name: 'Boxes', icon: Boxes },
-    { name: 'Wrench', icon: Wrench },
-    { name: 'Hammer', icon: Hammer },
-    { name: 'Cog', icon: Cog },
     { name: 'PaintBucket', icon: PaintBucket },
     { name: 'Sparkles', icon: Sparkles },
     { name: 'Star', icon: Star },
+    { name: 'Circle', icon: Circle },
+    { name: 'Square', icon: Square },
+    { name: 'Grid', icon: Grid },
+    { name: 'Folder', icon: Folder },
+    { name: 'FileText', icon: FileText },
   ];
 
   return (
