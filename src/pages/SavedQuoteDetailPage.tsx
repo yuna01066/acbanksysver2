@@ -421,9 +421,10 @@ const SavedQuoteDetailPage = () => {
               <Separator className="my-8" />
 
               {/* 견적 상세 내역 */}
-              <div className="mb-8">
-                <h3 className="text-lg font-bold mb-6 text-gray-900 border-b-2 border-gray-300 pb-2">견적 상세 내역</h3>
-                
+              <div className="print:hidden mb-8">
+                <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                  견적 목록 ({items.length}개) - 내부 관리용
+                </h3>
                 <div className="space-y-6">
                   {items.map((item: any, index: number) => (
                     viewMode === 'customer' ? (
