@@ -279,7 +279,7 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
       {/* 발신 담당자 정보 */}
       <div className="mb-8 p-4 bg-muted/30 rounded-lg">
         <h3 className="text-xl font-bold text-gray-900 mb-4">발신 담당자 정보</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label htmlFor="issuerName">담당자</Label>
             <Input
@@ -306,15 +306,6 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
               value={recipientData.issuerPhone || ''}
               onChange={(e) => onChange('issuerPhone', e.target.value)}
               placeholder="연락처"
-            />
-          </div>
-          <div>
-            <Label htmlFor="issuerDepartment">부서</Label>
-            <Input
-              id="issuerDepartment"
-              value={recipientData.issuerDepartment || ''}
-              onChange={(e) => onChange('issuerDepartment', e.target.value)}
-              placeholder="부서"
             />
           </div>
         </div>
