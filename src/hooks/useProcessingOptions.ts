@@ -14,6 +14,9 @@ export interface ProcessingOption {
   is_active: boolean;
   display_order: number;
   applicable_thicknesses?: string[];
+  min_quantity?: number;
+  max_quantity?: number;
+  allow_multiple?: boolean;
 }
 
 export const useProcessingOptions = () => {

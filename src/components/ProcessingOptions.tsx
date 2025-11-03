@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Package, Scissors, Layers, Zap, Droplet, Settings, ChevronRight, CheckCircle2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -28,6 +29,9 @@ interface ProcessingOptionsProps {
   onTapungChange?: (value: boolean) => void;
   mugwangPainting?: boolean;
   onMugwangPaintingChange?: (value: boolean) => void;
+  // 다중 선택된 옵션과 수량
+  selectedAdditionalOptions?: Record<string, number>; // { option_id: quantity }
+  onAdditionalOptionsChange?: (options: Record<string, number>) => void;
 }
 
 type MainCategory = 'raw' | 'simple' | 'complex' | 'full' | 'adhesion';
@@ -54,10 +58,13 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   tapung,
   onTapungChange,
   mugwangPainting,
-  onMugwangPaintingChange
+  onMugwangPaintingChange,
+  selectedAdditionalOptions = {},
+  onAdditionalOptionsChange,
 }) => {
   const [mainCategory, setMainCategory] = React.useState<MainCategory | null>(null);
   const [selectedSlots, setSelectedSlots] = React.useState<Record<string, string>>({});
+  const [optionQuantities, setOptionQuantities] = React.useState<Record<string, number>>(selectedAdditionalOptions);
   
   const { processingOptions, activeAdditionalOptions, isLoading } = useProcessingOptions();
   const { slotTypes, isLoading: isLoadingSlots } = useSlotTypes();
@@ -311,6 +318,9 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
           
           console.log('Rendering additional slot:', { slotType, slotLabel, optionsCount: options.length });
           
+          // 다중 선택 가능한지 확인
+          const hasMultipleOptions = options.some(opt => opt.allow_multiple);
+          
           return (
             <div key={slotType}>
               <Separator />
@@ -326,42 +336,117 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                   )}
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="space-y-3">
                     {options.map((option) => {
                       const isApplicable = isOptionApplicable(option);
+                      const isSelected = optionQuantities[option.option_id] > 0;
+                      const quantity = optionQuantities[option.option_id] || 0;
+                      
                       return (
-                        <button
+                        <div
                           key={option.id}
-                          onClick={() => isApplicable && handleSlotSelect(slotType, option.option_id)}
-                          disabled={!isApplicable}
-                          className={`p-4 rounded-lg border-2 transition-all text-left ${
+                          className={`p-4 rounded-lg border-2 transition-all ${
                             !isApplicable
-                              ? 'bg-muted/50 border-muted cursor-not-allowed opacity-50'
-                              : selectedSlots[slotType] === option.option_id
-                              ? 'bg-primary/10 border-primary shadow-md'
+                              ? 'bg-muted/50 border-muted opacity-50'
+                              : isSelected
+                              ? 'bg-primary/10 border-primary shadow-sm'
                               : 'bg-background border-border hover:border-primary/30'
                           }`}
                         >
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="font-semibold">{option.name}</span>
-                            {!isApplicable && (
-                              <Badge variant="destructive" className="text-xs">
-                                {selectedThickness} 불가
-                              </Badge>
-                            )}
-                            {selectedSlots[slotType] === option.option_id && isApplicable && (
-                              <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="font-semibold">{option.name}</span>
+                                {!isApplicable && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    {selectedThickness} 불가
+                                  </Badge>
+                                )}
+                                {isSelected && isApplicable && (
+                                  <CheckCircle2 className="w-4 h-4 text-primary" />
+                                )}
+                              </div>
+                              {option.description && (
+                                <p className="text-xs text-muted-foreground mb-2">{option.description}</p>
+                              )}
+                              {option.base_cost && (
+                                <p className="text-xs text-primary font-semibold">
+                                  +{option.base_cost.toLocaleString()}원
+                                </p>
+                              )}
+                            </div>
+                            
+                            {/* 수량 조절 UI */}
+                            {isApplicable && (
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  disabled={quantity <= 0}
+                                  onClick={() => {
+                                    const minQty = option.min_quantity ?? 0;
+                                    const newQty = Math.max(minQty, quantity - 1);
+                                    const newQuantities = { ...optionQuantities };
+                                    
+                                    if (newQty === 0) {
+                                      delete newQuantities[option.option_id];
+                                    } else {
+                                      newQuantities[option.option_id] = newQty;
+                                    }
+                                    
+                                    setOptionQuantities(newQuantities);
+                                    onAdditionalOptionsChange?.(newQuantities);
+                                  }}
+                                >
+                                  -
+                                </Button>
+                                <Input
+                                  type="number"
+                                  min={option.min_quantity ?? 0}
+                                  max={option.max_quantity}
+                                  value={quantity}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 0;
+                                    const minQty = option.min_quantity ?? 0;
+                                    const maxQty = option.max_quantity;
+                                    let newQty = Math.max(minQty, val);
+                                    if (maxQty) newQty = Math.min(newQty, maxQty);
+                                    
+                                    const newQuantities = { ...optionQuantities };
+                                    if (newQty === 0) {
+                                      delete newQuantities[option.option_id];
+                                    } else {
+                                      newQuantities[option.option_id] = newQty;
+                                    }
+                                    
+                                    setOptionQuantities(newQuantities);
+                                    onAdditionalOptionsChange?.(newQuantities);
+                                  }}
+                                  className="w-16 text-center h-8"
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  disabled={option.max_quantity !== undefined && option.max_quantity !== null && quantity >= option.max_quantity}
+                                  onClick={() => {
+                                    const maxQty = option.max_quantity;
+                                    const newQty = quantity + 1;
+                                    
+                                    if (maxQty === undefined || maxQty === null || newQty <= maxQty) {
+                                      const newQuantities = { ...optionQuantities, [option.option_id]: newQty };
+                                      setOptionQuantities(newQuantities);
+                                      onAdditionalOptionsChange?.(newQuantities);
+                                    }
+                                  }}
+                                >
+                                  +
+                                </Button>
+                              </div>
                             )}
                           </div>
-                          {option.description && (
-                            <p className="text-xs text-muted-foreground">{option.description}</p>
-                          )}
-                          {option.base_cost && (
-                            <p className="text-xs text-primary font-semibold mt-1">
-                              +{option.base_cost.toLocaleString()}원
-                            </p>
-                          )}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>

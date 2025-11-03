@@ -1010,6 +1010,42 @@ const ProcessingOptionsManager = () => {
               </p>
             </div>
 
+            {/* 수량 및 다중 선택 설정 */}
+            <Separator />
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold">수량 및 다중 선택 설정</h4>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="min_quantity">최소 수량</Label>
+                  <Input
+                    id="min_quantity"
+                    type="number"
+                    min="0"
+                    value={newOptionForm.min_quantity ?? 0}
+                    onChange={(e) => setNewOptionForm({ ...newOptionForm, min_quantity: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="max_quantity">최대 수량</Label>
+                  <Input
+                    id="max_quantity"
+                    type="number"
+                    min="0"
+                    value={newOptionForm.max_quantity ?? ''}
+                    onChange={(e) => setNewOptionForm({ ...newOptionForm, max_quantity: e.target.value ? parseInt(e.target.value) : undefined })}
+                    placeholder="무제한"
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-6">
+                  <Switch
+                    checked={newOptionForm.allow_multiple ?? false}
+                    onCheckedChange={(checked) => setNewOptionForm({ ...newOptionForm, allow_multiple: checked })}
+                  />
+                  <Label>다중 선택</Label>
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-center gap-2">
               <Switch
                 checked={newOptionForm.is_active}
@@ -1145,6 +1181,42 @@ const ProcessingOptionsManager = () => {
               <p className="text-xs text-muted-foreground mt-2">
                 이 옵션이 적용 가능한 원판 두께를 선택하세요 (비어있으면 모든 두께에 적용)
               </p>
+            </div>
+
+            {/* 수량 및 다중 선택 설정 */}
+            <Separator />
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold">수량 및 다중 선택 설정</h4>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="edit_min_quantity">최소 수량</Label>
+                  <Input
+                    id="edit_min_quantity"
+                    type="number"
+                    min="0"
+                    value={editForm.min_quantity ?? 0}
+                    onChange={(e) => setEditForm({ ...editForm, min_quantity: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit_max_quantity">최대 수량</Label>
+                  <Input
+                    id="edit_max_quantity"
+                    type="number"
+                    min="0"
+                    value={editForm.max_quantity ?? ''}
+                    onChange={(e) => setEditForm({ ...editForm, max_quantity: e.target.value ? parseInt(e.target.value) : undefined })}
+                    placeholder="무제한"
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-6">
+                  <Switch
+                    checked={editForm.allow_multiple ?? false}
+                    onCheckedChange={(checked) => setEditForm({ ...editForm, allow_multiple: checked })}
+                  />
+                  <Label>다중 선택</Label>
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">

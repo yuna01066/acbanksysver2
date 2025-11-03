@@ -94,6 +94,7 @@ const PanelCalculator = () => {
   const [bulgwang, setBulgwang] = useState<boolean>(false);
   const [tapung, setTapung] = useState<boolean>(false);
   const [mugwangPainting, setMugwangPainting] = useState<boolean>(false);
+  const [selectedAdditionalOptions, setSelectedAdditionalOptions] = useState<Record<string, number>>({});
   
   const {
     priceInfo,
@@ -595,6 +596,8 @@ const PanelCalculator = () => {
               onTapungChange={setTapung}
               mugwangPainting={mugwangPainting}
               onMugwangPaintingChange={setMugwangPainting}
+              selectedAdditionalOptions={selectedAdditionalOptions}
+              onAdditionalOptionsChange={setSelectedAdditionalOptions}
             />
           )}
 

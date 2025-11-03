@@ -267,6 +267,7 @@ export type Database = {
       }
       processing_options: {
         Row: {
+          allow_multiple: boolean | null
           applicable_thicknesses: string[] | null
           base_cost: number | null
           category:
@@ -277,6 +278,8 @@ export type Database = {
           display_order: number | null
           id: string
           is_active: boolean | null
+          max_quantity: number | null
+          min_quantity: number | null
           multiplier: number | null
           name: string
           option_id: string
@@ -284,6 +287,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          allow_multiple?: boolean | null
           applicable_thicknesses?: string[] | null
           base_cost?: number | null
           category?:
@@ -294,6 +298,8 @@ export type Database = {
           display_order?: number | null
           id?: string
           is_active?: boolean | null
+          max_quantity?: number | null
+          min_quantity?: number | null
           multiplier?: number | null
           name: string
           option_id: string
@@ -301,6 +307,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          allow_multiple?: boolean | null
           applicable_thicknesses?: string[] | null
           base_cost?: number | null
           category?:
@@ -311,6 +318,8 @@ export type Database = {
           display_order?: number | null
           id?: string
           is_active?: boolean | null
+          max_quantity?: number | null
+          min_quantity?: number | null
           multiplier?: number | null
           name?: string
           option_id?: string
