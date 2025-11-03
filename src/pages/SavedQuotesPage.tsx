@@ -16,6 +16,7 @@ interface SavedQuote {
   id: string;
   quote_number: string;
   quote_date: string;
+  project_name: string | null;
   recipient_name: string | null;
   recipient_company: string | null;
   recipient_phone: string | null;
@@ -201,6 +202,9 @@ const SavedQuotesPage = () => {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex-1">
                         <h3 className="text-xl font-semibold mb-2">{quote.quote_number}</h3>
+                        {quote.project_name && (
+                          <p className="text-base font-medium text-foreground mb-3">{quote.project_name}</p>
+                        )}
                         <div className="space-y-1 text-sm text-muted-foreground">
                           <p>날짜: {new Date(quote.quote_date).toLocaleDateString('ko-KR')}</p>
                           {quote.recipient_company && <p>업체: {quote.recipient_company}</p>}
