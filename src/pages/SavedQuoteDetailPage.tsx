@@ -417,8 +417,8 @@ const SavedQuoteDetailPage = () => {
           </div>
 
           {/* Quote Header Card */}
-          <Card className="shadow-sm border border-gray-200 rounded-xl overflow-hidden bg-white mb-6 page-break-avoid">
-            <div className="bg-white border-b border-gray-100 p-8">
+          <Card className="shadow-sm border border-gray-200 rounded-xl overflow-hidden bg-white mb-6 print:shadow-none print:border-0">
+            <div className="bg-white border-b border-gray-100 p-8 print:border-0">
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-3xl font-bold flex items-center gap-3 mb-2 text-gray-900">
@@ -440,10 +440,10 @@ const SavedQuoteDetailPage = () => {
             </div>
           </Card>
 
-          <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white page-break-avoid">
-            <CardContent className="p-8">
+          <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white print:shadow-none print:bg-transparent">
+            <CardContent className="p-8 print:p-0">
               {/* 견적 요약 정보 */}
-              <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm page-break-avoid">
+              <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm page-break-avoid print:border-gray-300 print:shadow-none">
                 <div className="p-6">
                   <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
                     <h2 className="text-lg font-semibold text-gray-900">견적 요약</h2>
@@ -452,18 +452,18 @@ const SavedQuoteDetailPage = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* 견적 기본 정보 */}
                     <div className="space-y-3">
-                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 print:bg-transparent print:border-gray-300">
                         <p className="text-xs text-gray-500 mb-1">견적번호</p>
                         <p className="text-sm font-semibold text-gray-900">{quote.quote_number}</p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 print:bg-transparent print:border-gray-300">
                         <p className="text-xs text-gray-500 mb-1">작성일</p>
                         <p className="text-sm font-semibold text-gray-900">{currentDate}</p>
                       </div>
                     </div>
                     
                     {/* 견적 항목 */}
-                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 flex flex-col justify-center">
+                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 flex flex-col justify-center print:bg-transparent print:border-gray-300">
                       <p className="text-xs text-gray-500 mb-1">견적 항목 수</p>
                       <div className="flex items-baseline gap-1">
                         <p className="text-2xl font-bold text-gray-900">{items.length}</p>
@@ -472,7 +472,7 @@ const SavedQuoteDetailPage = () => {
                     </div>
                     
                     {/* 금액 정보 */}
-                    <div className="space-y-2 bg-gray-50 rounded-lg p-3 border border-gray-100">
+                    <div className="space-y-2 bg-gray-50 rounded-lg p-3 border border-gray-100 print:bg-transparent print:border-gray-300">
                       <div className="flex justify-between items-center pb-2 border-b border-gray-200">
                         <p className="text-xs text-gray-500">공급가</p>
                         <p className="text-sm font-semibold text-gray-900">{subtotal.toLocaleString()}원</p>
@@ -502,13 +502,13 @@ const SavedQuoteDetailPage = () => {
               )}
 
               {/* 회사 정보 섹션 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 page-break page-break-avoid">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 page-break-avoid">
                 {/* 견적서 수신 */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 수신</h3>
                   
                   {/* 프로젝트 기본 정보 */}
-                  <div className="p-4 bg-slate-50 rounded-lg">
+                  <div className="p-4 bg-slate-50 rounded-lg print:bg-transparent print:border print:border-gray-300">
                     <h4 className="font-semibold text-slate-800 mb-3">프로젝트 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
                       <div><strong>프로젝트명:</strong> {quote.project_name || '-'}</div>
@@ -521,7 +521,7 @@ const SavedQuoteDetailPage = () => {
                   </div>
 
                   {/* 담당자 및 납기 정보 */}
-                  <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="p-4 bg-gray-50 rounded-lg print:bg-transparent print:border print:border-gray-300">
                     <h4 className="font-semibold text-slate-800 mb-3">담당자 및 납기 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
                       <div><strong>회사명:</strong> {quote.recipient_company || '-'}</div>
@@ -534,7 +534,7 @@ const SavedQuoteDetailPage = () => {
                   </div>
 
                   {quote.recipient_memo && (
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg print:bg-transparent print:border-gray-300">
                       <h4 className="font-semibold text-amber-900 mb-2">클라이언트 요청사항</h4>
                       <p className="text-sm text-amber-800 whitespace-pre-wrap">{quote.recipient_memo}</p>
                     </div>
@@ -546,7 +546,7 @@ const SavedQuoteDetailPage = () => {
                   <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 발신</h3>
                   
                   {/* 회사 기본 정보 */}
-                  <div className="p-4 bg-slate-50 rounded-lg">
+                  <div className="p-4 bg-slate-50 rounded-lg print:bg-transparent print:border print:border-gray-300">
                     <h4 className="font-semibold text-slate-800 mb-3">회사 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
                       <div><strong>상호:</strong> (주)아크뱅크</div>
@@ -559,7 +559,7 @@ const SavedQuoteDetailPage = () => {
                   </div>
 
                   {/* 담당자 정보 */}
-                  <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="p-4 bg-gray-50 rounded-lg print:bg-transparent print:border print:border-gray-300">
                     <h4 className="font-semibold text-slate-800 mb-3">담당자 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
                       <div><strong>담당자:</strong> 작성</div>
@@ -568,7 +568,7 @@ const SavedQuoteDetailPage = () => {
                     </div>
                   </div>
                   
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                  <div className="mt-6 p-4 bg-blue-50 rounded-lg print:bg-transparent print:border print:border-gray-300">
                     <h4 className="font-semibold text-blue-800 mb-2">입금 계좌</h4>
                     <div className="text-sm text-blue-700">
                       <div>신한은행 140-014-544315 (주)아크뱅크</div>
@@ -580,7 +580,7 @@ const SavedQuoteDetailPage = () => {
               <Separator className="my-8" />
 
               {/* 견적 상세 내역 */}
-              <div className="mb-8 page-break page-break-avoid">
+              <div className="mb-8 page-break-avoid">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                   견적 목록 ({items.length}개) - 내부 관리용
                 </h3>
@@ -645,7 +645,7 @@ const SavedQuoteDetailPage = () => {
               <Separator className="my-8" />
 
               {/* 첨부 서류 - A5 사이즈 */}
-              <div className="page-break">
+              <div className="page-break page-break-avoid">
                 <h3 className="text-xl font-bold mb-6 text-slate-800">첨부 서류</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 page-break-avoid">
                   <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm page-break-avoid">
