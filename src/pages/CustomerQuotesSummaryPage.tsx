@@ -237,6 +237,7 @@ const CustomerQuotesSummaryPage = () => {
                       index={index}
                       onRemove={removeQuote}
                       onUpdateQuantity={updateQuoteQuantity}
+                      isCustomerView={true}
                     />
                   ))}
                 </div>

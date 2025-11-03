@@ -12,9 +12,10 @@ interface CustomerQuoteCardProps {
   index: number;
   onRemove: (id: string) => void;
   onUpdateQuantity: (id: string, quantity: number) => void;
+  isCustomerView?: boolean;
 }
 
-const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity }: CustomerQuoteCardProps) => {
+const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustomerView = false }: CustomerQuoteCardProps) => {
   const handleQuantityChange = (newQuantity: number) => {
     if (newQuantity >= 1) {
       onUpdateQuantity(quote.id, newQuantity);
@@ -114,14 +115,24 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity }: Custome
         {/* 가격 세부 내역 (단가) */}
         {quote.breakdown && quote.breakdown.length > 0 && (
           <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-sm font-semibold text-gray-900 mb-3">가격 세부 내역 (단가)</div>
+            <div className="text-sm font-semibold text-gray-900 mb-3">
+              {isCustomerView ? '세부 내역' : '가격 세부 내역 (단가)'}
+            </div>
             <div className="space-y-2">
               {quote.breakdown.map((item, idx) => (
                 <div key={idx} className="flex justify-between items-center text-sm">
                   <span className="text-gray-700">{item.label}</span>
-                  <span className="font-semibold text-gray-900">{formatPrice(item.price)}</span>
+                  {!isCustomerView && (
+                    <span className="font-semibold text-gray-900">{formatPrice(item.price)}</span>
+                  )}
                 </div>
               ))}
+              {isCustomerView && (
+                <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200">
+                  <span className="text-gray-700 font-medium">합계금액 (단가)</span>
+                  <span className="font-semibold text-gray-900">{formatPrice(unitPrice)}</span>
+                </div>
+              )}
             </div>
           </div>
         )}
