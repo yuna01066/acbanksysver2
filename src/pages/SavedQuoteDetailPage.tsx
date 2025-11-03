@@ -636,6 +636,35 @@ const SavedQuoteDetailPage = () => {
                 </div>
               </div>
 
+              {/* 합계 섹션 */}
+              <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm page-break-avoid print:border-gray-300 print:shadow-none">
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
+                    <h2 className="text-lg font-semibold text-gray-900">견적 합계</h2>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* 공급가 */}
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                      <p className="text-sm text-gray-500 mb-2">공급가</p>
+                      <p className="text-2xl font-bold text-gray-900">{subtotal.toLocaleString()}<span className="text-base font-normal text-gray-600 ml-1">원</span></p>
+                    </div>
+                    
+                    {/* 부가세 */}
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                      <p className="text-sm text-gray-500 mb-2">부가세 (10%)</p>
+                      <p className="text-2xl font-bold text-gray-900">{tax.toLocaleString()}<span className="text-base font-normal text-gray-600 ml-1">원</span></p>
+                    </div>
+                    
+                    {/* 최종 합계 */}
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                      <p className="text-sm text-blue-700 mb-2 font-semibold">최종 합계</p>
+                      <p className="text-2xl font-bold text-blue-900">{totalWithTax.toLocaleString()}<span className="text-base font-normal text-blue-700 ml-1">원</span></p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* 특이사항 및 상담내용 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 page-break-avoid">
                 <div>
