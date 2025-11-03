@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, TrendingUp, Lock, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Table,
   TableBody,
@@ -14,8 +15,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-const ADMIN_PASSWORD = '4999';
 
 interface UserStatistics {
   user_id: string;
@@ -28,38 +27,23 @@ interface UserStatistics {
 
 const UserStatisticsPage = () => {
   const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
+  const { userRole, loading: authLoading } = useAuth();
   const [statistics, setStatistics] = useState<UserStatistics[]>([]);
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
   useEffect(() => {
-    const authStatus = sessionStorage.getItem('user_statistics_authenticated');
-    if (authStatus === 'true') {
-      setIsAuthenticated(true);
+    if (!authLoading && userRole !== 'admin' && userRole !== 'moderator') {
+      navigate('/');
     }
-  }, []);
+  }, [authLoading, userRole, navigate]);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!authLoading && (userRole === 'admin' || userRole === 'moderator')) {
       fetchStatistics();
     }
-  }, [isAuthenticated]);
-
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      sessionStorage.setItem('user_statistics_authenticated', 'true');
-      setPasswordError('');
-    } else {
-      setPasswordError('비밀번호가 올바르지 않습니다.');
-      setPassword('');
-    }
-  };
+  }, [authLoading, userRole]);
 
   const fetchStatistics = async () => {
     setLoading(true);
@@ -151,49 +135,37 @@ const UserStatisticsPage = () => {
     setTimeout(() => fetchStatistics(), 0);
   };
 
-  if (!isAuthenticated) {
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="text-muted-foreground">로딩 중...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (userRole !== 'admin' && userRole !== 'moderator') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Lock className="w-6 h-6 text-primary" />
+            <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+              <Lock className="w-6 h-6 text-destructive" />
             </div>
-            <CardTitle>담당자별 통계 접근 인증</CardTitle>
+            <CardTitle>접근 권한 없음</CardTitle>
             <p className="text-sm text-muted-foreground mt-2">
-              통계 페이지에 접근하려면 비밀번호를 입력하세요.
+              이 페이지에 접근할 권한이 없습니다.
             </p>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handlePasswordSubmit} className="space-y-4">
-              <div>
-                <Input
-                  type="password"
-                  placeholder="비밀번호 입력"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="text-center"
-                  autoFocus
-                />
-                {passwordError && (
-                  <p className="text-sm text-destructive mt-2">{passwordError}</p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/admin-settings')}
-                  className="flex-1"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  돌아가기
-                </Button>
-                <Button type="submit" className="flex-1">
-                  확인
-                </Button>
-              </div>
-            </form>
+            <Button
+              onClick={() => navigate('/admin-settings')}
+              className="w-full"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              관리자 설정으로 돌아가기
+            </Button>
           </CardContent>
         </Card>
       </div>

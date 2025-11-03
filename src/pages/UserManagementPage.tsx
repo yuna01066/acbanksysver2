@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Edit, Trash2, Shield, User } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Shield, User, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -48,17 +48,13 @@ interface UserWithRole extends UserProfile {
   roles: string[];
 }
 
-const ADMIN_PASSWORD = '4999';
-
 const UserManagementPage = () => {
   const navigate = useNavigate();
+  const { userRole, loading: authLoading, session } = useAuth();
   const [users, setUsers] = useState<UserWithRole[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
 
   // Edit form state
   const [editFullName, setEditFullName] = useState('');
@@ -66,33 +62,18 @@ const UserManagementPage = () => {
   const [editDepartment, setEditDepartment] = useState('');
   const [editPosition, setEditPosition] = useState('');
   const [editRole, setEditRole] = useState<'admin' | 'moderator' | 'user'>('user');
-  
-  const { userRole } = useAuth();
 
   useEffect(() => {
-    // Check session storage for authentication
-    const adminAuth = sessionStorage.getItem('user_management_authenticated');
-    if (adminAuth === 'true') {
-      setIsAuthenticated(true);
+    if (!authLoading && userRole !== 'admin') {
+      navigate('/');
     }
-  }, []);
+  }, [authLoading, userRole, navigate]);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!authLoading && userRole === 'admin') {
       fetchUsers();
     }
-  }, [isAuthenticated]);
-
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      sessionStorage.setItem('user_management_authenticated', 'true');
-      setPasswordError('');
-    } else {
-      setPasswordError('비밀번호가 올바르지 않습니다.');
-    }
-  };
+  }, [authLoading, userRole]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -189,54 +170,58 @@ const UserManagementPage = () => {
   };
 
   const handleDeleteUser = async () => {
-    if (!deleteUserId) return;
+    if (!deleteUserId || !session) return;
 
-    // Delete from auth.users (cascade will handle profiles and roles)
-    const { error } = await supabase.auth.admin.deleteUser(deleteUserId);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { userId: deleteUserId },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
 
-    if (!error) {
+      if (error) throw error;
+
       toast.success('사용자가 삭제되었습니다.');
+      setDeleteUserId(null);
       fetchUsers();
-    } else {
-      toast.error('사용자 삭제에 실패했습니다.');
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast.error('사용자 삭제에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
     }
-    setDeleteUserId(null);
   };
 
-  if (!isAuthenticated) {
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-primary/5 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="text-muted-foreground">로딩 중...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (userRole !== 'admin') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-primary/5 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>관리자 인증</CardTitle>
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+              <Lock className="w-6 h-6 text-destructive" />
+            </div>
+            <CardTitle>접근 권한 없음</CardTitle>
             <CardDescription>
-              담당자 관리 페이지에 접근하려면 관리자 비밀번호를 입력하세요.
+              관리자만 이 페이지에 접근할 수 있습니다.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handlePasswordSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="admin-password">관리자 비밀번호</Label>
-                <Input
-                  id="admin-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="비밀번호를 입력하세요"
-                />
-                {passwordError && (
-                  <p className="text-sm text-destructive">{passwordError}</p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => navigate('/')} className="flex-1">
-                  취소
-                </Button>
-                <Button type="submit" className="flex-1">
-                  확인
-                </Button>
-              </div>
-            </form>
+            <Button
+              onClick={() => navigate('/admin-settings')}
+              className="w-full"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              관리자 설정으로 돌아가기
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -308,16 +293,13 @@ const UserManagementPage = () => {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          {/* moderator는 삭제 불가 */}
-                          {userRole === 'admin' && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => setDeleteUserId(user.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setDeleteUserId(user.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     </CardContent>
@@ -377,7 +359,6 @@ const UserManagementPage = () => {
               <Select 
                 value={editRole} 
                 onValueChange={(v) => setEditRole(v as 'admin' | 'moderator' | 'user')}
-                disabled={userRole === 'moderator'} // moderator는 권한 변경 불가
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -385,16 +366,9 @@ const UserManagementPage = () => {
                 <SelectContent>
                   <SelectItem value="user">담당자</SelectItem>
                   <SelectItem value="moderator">중간관리자</SelectItem>
-                  {userRole === 'admin' && (
-                    <SelectItem value="admin">관리자</SelectItem>
-                  )}
+                  <SelectItem value="admin">관리자</SelectItem>
                 </SelectContent>
               </Select>
-              {userRole === 'moderator' && (
-                <p className="text-xs text-muted-foreground">
-                  중간관리자는 권한을 변경할 수 없습니다.
-                </p>
-              )}
             </div>
             <div className="flex gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setEditingUser(null)} className="flex-1">
