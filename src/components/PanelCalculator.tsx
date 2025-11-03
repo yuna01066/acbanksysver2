@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -101,6 +101,13 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [tapung, setTapung] = useState<boolean>(false);
   const [mugwangPainting, setMugwangPainting] = useState<boolean>(false);
   const [selectedAdditionalOptions, setSelectedAdditionalOptions] = useState<Record<string, number>>({});
+  
+  // initialType이 있으면 자동으로 계산기 타입 선택 단계를 건너뛰기
+  useEffect(() => {
+    if (initialType && calculatorType === initialType && currentStep === 0) {
+      setCurrentStep(1);
+    }
+  }, [initialType, calculatorType, currentStep]);
   
   // Convert all selected options (main slots + additional options) to processingType format
   const getProcessingTypeFromOptions = () => {
