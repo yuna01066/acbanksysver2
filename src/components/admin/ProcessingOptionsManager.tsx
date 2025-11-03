@@ -7,7 +7,24 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, Save, X, Trash2, Plus, Package, Scissors, Droplet, Settings, CheckCircle2, Layers, Zap, ListOrdered } from "lucide-react";
+import { Pencil, Save, X, Trash2, Plus, Package, Scissors, Droplet, Settings, CheckCircle2, Layers, Zap, ListOrdered, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useProcessingOptions, ProcessingOption } from "@/hooks/useProcessingOptions";
 import { useAdvancedProcessingSettings, AdvancedProcessingSetting } from "@/hooks/useAdvancedProcessingSettings";
 import { useSlotTypes, SlotType } from "@/hooks/useSlotTypes";
@@ -43,6 +60,94 @@ interface SlotConfig {
   slotKey: string;
 }
 
+// 드래그 가능한 행 컴포넌트
+const SortableOptionRow = ({ 
+  option, 
+  onEdit, 
+  onDelete 
+}: { 
+  option: ProcessingOption; 
+  onEdit: (option: ProcessingOption) => void; 
+  onDelete: (id: string) => void;
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: option.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <TableRow ref={setNodeRef} style={style}>
+      <TableCell>
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted/50 rounded inline-flex"
+        >
+          <GripVertical className="w-4 h-4 text-muted-foreground" />
+        </div>
+      </TableCell>
+      <TableCell className="font-mono text-xs">{option.option_id}</TableCell>
+      <TableCell className="font-medium">{option.name}</TableCell>
+      <TableCell>
+        <div className="flex flex-wrap gap-1">
+          {option.applicable_thicknesses && option.applicable_thicknesses.length > 0 ? (
+            option.applicable_thicknesses.map(t => (
+              <Badge key={t} variant="outline" className="text-xs">
+                {t}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-xs text-muted-foreground">모든 두께</span>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
+        {option.description || '-'}
+      </TableCell>
+      <TableCell className="text-right font-mono">
+        {option.multiplier ? `×${option.multiplier}` : '-'}
+      </TableCell>
+      <TableCell className="text-right font-mono">
+        {option.base_cost ? `${option.base_cost.toLocaleString()}원` : '-'}
+      </TableCell>
+      <TableCell>
+        <Badge variant={option.is_active ? 'default' : 'secondary'}>
+          {option.is_active ? '활성' : '비활성'}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex gap-2 justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onEdit(option)}
+          >
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDelete(option.id)}
+            className="text-destructive hover:text-destructive"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+};
+
 const ProcessingOptionsManager = () => {
   const { processingOptions, isLoading, updateOption, deleteOption, createOption } = useProcessingOptions();
   const { settings: advancedSettings, isLoading: isLoadingAdvanced, updateSetting } = useAdvancedProcessingSettings();
@@ -50,6 +155,14 @@ const ProcessingOptionsManager = () => {
   const { categoryLogic, isLoading: isLoadingLogic, getCategorySlots, saveCategoryLogic: saveCategoryLogicMutation } = useCategoryLogic();
   const { thicknessList, isLoading: isLoadingThickness } = useThicknessList();
   const { toast } = useToast();
+  
+  // 드래그 앤 드롭 센서
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
   
   const [editingSettingId, setEditingSettingId] = useState<string | null>(null);
   const [editSettingForm, setEditSettingForm] = useState<Partial<AdvancedProcessingSetting>>({});
@@ -320,6 +433,45 @@ const ProcessingOptionsManager = () => {
     };
     const config = variants[category] || { label: category, variant: 'default' };
     return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
+
+  // 드래그 앤 드롭 핸들러
+  const handleDragEnd = async (event: DragEndEvent, slotKey: string) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const optionsForSlot = processingOptions?.filter(opt => opt.option_type === slotKey) || [];
+    const oldIndex = optionsForSlot.findIndex(opt => opt.id === active.id);
+    const newIndex = optionsForSlot.findIndex(opt => opt.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reorderedOptions = arrayMove(optionsForSlot, oldIndex, newIndex);
+
+    // 각 옵션의 display_order 업데이트
+    const updatePromises = reorderedOptions.map((option, index) =>
+      updateOption.mutateAsync({
+        id: option.id,
+        updates: { display_order: index }
+      })
+    );
+
+    try {
+      await Promise.all(updatePromises);
+      toast({
+        title: '순서 변경 완료',
+        description: '옵션 순서가 업데이트되었습니다.',
+      });
+    } catch (error) {
+      toast({
+        title: '순서 변경 실패',
+        description: '옵션 순서 변경 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+    }
   };
 
   if (isLoading || isLoadingAdvanced || isLoadingSlots || isLoadingLogic || isLoadingThickness) {
@@ -681,76 +833,44 @@ const ProcessingOptionsManager = () => {
                           {slotType.label}에 등록된 옵션이 없습니다.
                         </div>
                       ) : (
-                        <div className="rounded-md border">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>옵션 ID</TableHead>
-                              <TableHead>이름</TableHead>
-                              <TableHead>적용 두께</TableHead>
-                              <TableHead>설명</TableHead>
-                              <TableHead className="text-right">배수</TableHead>
-                              <TableHead className="text-right">기본 비용</TableHead>
-                              <TableHead>활성화</TableHead>
-                              <TableHead className="text-right">작업</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {slotOptions.map((option) => (
-                              <TableRow key={option.id}>
-                                <TableCell className="font-mono text-xs">{option.option_id}</TableCell>
-                                <TableCell className="font-medium">{option.name}</TableCell>
-                                <TableCell>
-                                  <div className="flex flex-wrap gap-1">
-                                    {option.applicable_thicknesses && option.applicable_thicknesses.length > 0 ? (
-                                      option.applicable_thicknesses.map(t => (
-                                        <Badge key={t} variant="outline" className="text-xs">
-                                          {t}
-                                        </Badge>
-                                      ))
-                                    ) : (
-                                      <span className="text-xs text-muted-foreground">모든 두께</span>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
-                                  {option.description || '-'}
-                                </TableCell>
-                                <TableCell className="text-right font-mono">
-                                  {option.multiplier ? `×${option.multiplier}` : '-'}
-                                </TableCell>
-                                <TableCell className="text-right font-mono">
-                                  {option.base_cost ? `${option.base_cost.toLocaleString()}원` : '-'}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant={option.is_active ? 'default' : 'secondary'}>
-                                    {option.is_active ? '활성' : '비활성'}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex gap-2 justify-end">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => startEdit(option)}
-                                    >
-                                      <Pencil className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleDelete(option.id)}
-                                      className="text-destructive hover:text-destructive"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                        </div>
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={(event) => handleDragEnd(event, slotType.slot_key)}
+                        >
+                          <div className="rounded-md border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-12"></TableHead>
+                                  <TableHead>옵션 ID</TableHead>
+                                  <TableHead>이름</TableHead>
+                                  <TableHead>적용 두께</TableHead>
+                                  <TableHead>설명</TableHead>
+                                  <TableHead className="text-right">배수</TableHead>
+                                  <TableHead className="text-right">기본 비용</TableHead>
+                                  <TableHead>활성화</TableHead>
+                                  <TableHead className="text-right">작업</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                <SortableContext
+                                  items={slotOptions.map(opt => opt.id)}
+                                  strategy={verticalListSortingStrategy}
+                                >
+                                  {slotOptions.map((option) => (
+                                    <SortableOptionRow
+                                      key={option.id}
+                                      option={option}
+                                      onEdit={startEdit}
+                                      onDelete={handleDelete}
+                                    />
+                                  ))}
+                                </SortableContext>
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </DndContext>
                       )}
                     </CardContent>
                   </Card>
