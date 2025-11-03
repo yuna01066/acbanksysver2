@@ -156,7 +156,7 @@ const ProcessingOptionsManager = () => {
   const { categoryLogic, isLoading: isLoadingLogic, getCategorySlots, saveCategoryLogic: saveCategoryLogicMutation } = useCategoryLogic();
   const { thicknessList, isLoading: isLoadingThickness } = useThicknessList();
   const { categories, isLoading: isLoadingCategories, createCategory, updateCategory, deleteCategory } = useProcessingCategories();
-  const { toast } = useToast();
+  const { toast, dismiss } = useToast();
   
   // 드래그 앤 드롭 센서
   const sensors = useSensors(
@@ -272,6 +272,7 @@ const ProcessingOptionsManager = () => {
 
   const handleAddNew = async () => {
     if (!newOptionForm.name || !newOptionForm.option_id) {
+      dismiss();
       toast({
         title: '입력 오류',
         description: '옵션 ID와 이름은 필수입니다.',
@@ -339,6 +340,7 @@ const ProcessingOptionsManager = () => {
 
   const handleAddSlot = async () => {
     if (!newSlotForm.slot_key || !newSlotForm.label) {
+      dismiss();
       toast({
         title: '입력 오류',
         description: '슬롯 키와 레이블은 필수입니다.',
@@ -395,6 +397,7 @@ const ProcessingOptionsManager = () => {
 
   const handleAddCategory = async () => {
     if (!newCategoryForm.category_key || !newCategoryForm.category_name) {
+      dismiss();
       toast({
         title: '입력 오류',
         description: '카테고리 키와 이름은 필수입니다.',
@@ -456,11 +459,13 @@ const ProcessingOptionsManager = () => {
 
     try {
       await Promise.all(updatePromises);
+      dismiss();
       toast({
         title: '순서 변경 완료',
         description: '카테고리 순서가 업데이트되었습니다.',
       });
     } catch (error) {
+      dismiss();
       toast({
         title: '순서 변경 실패',
         description: '카테고리 순서 변경 중 오류가 발생했습니다.',
@@ -476,6 +481,7 @@ const ProcessingOptionsManager = () => {
   const addSlotToLogic = (category: string) => {
     const availableSlots = slotTypes?.filter(st => st.is_active) || [];
     if (availableSlots.length === 0) {
+      dismiss();
       toast({
         title: '슬롯 없음',
         description: '먼저 슬롯 타입을 추가해주세요.',
@@ -567,11 +573,13 @@ const ProcessingOptionsManager = () => {
 
     try {
       await Promise.all(updatePromises);
+      dismiss();
       toast({
         title: '순서 변경 완료',
         description: '옵션 순서가 업데이트되었습니다.',
       });
     } catch (error) {
+      dismiss();
       toast({
         title: '순서 변경 실패',
         description: '옵션 순서 변경 중 오류가 발생했습니다.',
