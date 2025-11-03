@@ -182,7 +182,7 @@ const SavedQuoteDetailPage = () => {
         @media print {
           @page {
             size: A4;
-            margin: 10mm 15mm 20mm 15mm;
+            margin: 10mm 15mm 25mm 15mm;
           }
           
           * {
@@ -195,15 +195,23 @@ const SavedQuoteDetailPage = () => {
             margin: 0;
             padding: 0;
             width: 210mm;
-            height: 297mm;
             font-size: 9pt;
           }
           
           .print-container {
             max-width: none;
             margin: 0;
-            padding: 0;
-            page-break-after: auto;
+            padding: 0 0 25mm 0;
+          }
+          
+          .page-break {
+            page-break-after: always;
+            break-after: page;
+          }
+          
+          .page-break-avoid {
+            page-break-inside: avoid;
+            break-inside: avoid;
           }
           
           /* 헤더 카드 압축 */
@@ -319,22 +327,23 @@ const SavedQuoteDetailPage = () => {
             padding: 16px !important;
           }
           
-          /* 푸터 스타일 */
+          /* 푸터 스타일 - 모든 페이지 하단에 표시 */
           .print-footer {
             position: fixed;
-            bottom: 8mm;
+            bottom: 0;
             left: 15mm;
             right: 15mm;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 6px 0;
+            padding: 8px 0;
             border-top: 1px solid #ccc;
             font-size: 8pt;
             color: #666;
+            background: white;
           }
           
-          .print-footer::after {
+          .print-footer .page-number::after {
             counter-increment: page;
             content: "Page " counter(page);
           }
@@ -345,7 +354,7 @@ const SavedQuoteDetailPage = () => {
       <div className="print-footer hidden print:flex">
         <span>견적번호: {quote.quote_number}</span>
         <span>{quote.project_name || '프로젝트명 없음'}</span>
-        <span></span>
+        <span className="page-number"></span>
       </div>
       <div className="min-h-screen bg-gray-50 p-4">
         <div className="w-full max-w-4xl mx-auto print-container">
@@ -408,7 +417,7 @@ const SavedQuoteDetailPage = () => {
           </div>
 
           {/* Quote Header Card */}
-          <Card className="shadow-sm border border-gray-200 rounded-xl overflow-hidden bg-white mb-6">
+          <Card className="shadow-sm border border-gray-200 rounded-xl overflow-hidden bg-white mb-6 page-break-avoid">
             <div className="bg-white border-b border-gray-100 p-8">
               <div className="flex items-center justify-between">
                 <div>
@@ -431,10 +440,10 @@ const SavedQuoteDetailPage = () => {
             </div>
           </Card>
 
-          <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
+          <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white page-break-avoid">
             <CardContent className="p-8">
               {/* 견적 요약 정보 */}
-              <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm">
+              <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm page-break-avoid">
                 <div className="p-6">
                   <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
                     <h2 className="text-lg font-semibold text-gray-900">견적 요약</h2>
@@ -493,7 +502,7 @@ const SavedQuoteDetailPage = () => {
               )}
 
               {/* 회사 정보 섹션 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 page-break page-break-avoid">
                 {/* 견적서 수신 */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 수신</h3>
@@ -571,38 +580,38 @@ const SavedQuoteDetailPage = () => {
               <Separator className="my-8" />
 
               {/* 견적 상세 내역 */}
-              <div className="mb-8">
+              <div className="mb-8 page-break page-break-avoid">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                   견적 목록 ({items.length}개) - 내부 관리용
                 </h3>
                 <div className="space-y-6">
                   {items.map((item: any, index: number) => (
-                    viewMode === 'customer' ? (
-                      <CustomerQuoteCard
-                        key={index}
-                        quote={item}
-                        index={index}
-                        onRemove={() => {}}
-                        onUpdateQuantity={() => {}}
-                        isCustomerView={true}
-                        readOnly={true}
-                      />
-                    ) : (
-                      <QuoteCard
-                        key={index}
-                        quote={item}
-                        index={index}
-                        onRemove={() => {}}
-                        onUpdateQuantity={() => {}}
-                        readOnly={true}
-                      />
-                    )
+                    <div key={index} className="page-break-avoid">
+                      {viewMode === 'customer' ? (
+                        <CustomerQuoteCard
+                          quote={item}
+                          index={index}
+                          onRemove={() => {}}
+                          onUpdateQuantity={() => {}}
+                          isCustomerView={true}
+                          readOnly={true}
+                        />
+                      ) : (
+                        <QuoteCard
+                          quote={item}
+                          index={index}
+                          onRemove={() => {}}
+                          onUpdateQuantity={() => {}}
+                          readOnly={true}
+                        />
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
 
               {/* 특이사항 및 상담내용 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 page-break-avoid">
                 <div>
                   <h3 className="text-lg font-bold mb-3">특 이 사 항 :</h3>
                   <ul className="text-sm space-y-1">
@@ -636,10 +645,10 @@ const SavedQuoteDetailPage = () => {
               <Separator className="my-8" />
 
               {/* 첨부 서류 - A5 사이즈 */}
-              <div>
+              <div className="page-break">
                 <h3 className="text-xl font-bold mb-6 text-slate-800">첨부 서류</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 page-break-avoid">
+                  <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm page-break-avoid">
                     <h4 className="font-semibold text-slate-700 mb-3 text-center">사업자등록증</h4>
                     <div className="flex justify-center">
                       <img 
@@ -650,7 +659,7 @@ const SavedQuoteDetailPage = () => {
                       />
                     </div>
                   </div>
-                  <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm">
+                  <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm page-break-avoid">
                     <h4 className="font-semibold text-slate-700 mb-3 text-center">통장사본</h4>
                     <div className="flex justify-center">
                       <img 
