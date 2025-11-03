@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, Save, X, Trash2, Plus, Package, Scissors, Droplet, Settings, CheckCircle2, Layers, Zap, ListOrdered, GripVertical, FolderCog } from "lucide-react";
+import { Pencil, Save, X, Trash2, Plus, Package, Scissors, Droplet, Settings, CheckCircle2, Layers, Zap, ListOrdered, GripVertical, FolderCog, Box, Boxes, Wrench, Hammer, Cog, GitBranch, PaintBucket, Sparkles, Star, Crown, Award, Target } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -550,9 +550,40 @@ const ProcessingOptionsManager = () => {
       Droplet,
       Settings,
       FolderCog,
+      Box,
+      Boxes,
+      Wrench,
+      Hammer,
+      Cog,
+      GitBranch,
+      PaintBucket,
+      Sparkles,
+      Star,
+      Crown,
+      Award,
+      Target,
     };
     return iconMap[iconName] || Package;
   };
+
+  // 사용 가능한 아이콘 목록
+  const availableIcons = [
+    { name: 'Package', icon: Package },
+    { name: 'Scissors', icon: Scissors },
+    { name: 'Layers', icon: Layers },
+    { name: 'Zap', icon: Zap },
+    { name: 'Droplet', icon: Droplet },
+    { name: 'Settings', icon: Settings },
+    { name: 'FolderCog', icon: FolderCog },
+    { name: 'Box', icon: Box },
+    { name: 'Boxes', icon: Boxes },
+    { name: 'Wrench', icon: Wrench },
+    { name: 'Hammer', icon: Hammer },
+    { name: 'Cog', icon: Cog },
+    { name: 'PaintBucket', icon: PaintBucket },
+    { name: 'Sparkles', icon: Sparkles },
+    { name: 'Star', icon: Star },
+  ];
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -1518,24 +1549,24 @@ const ProcessingOptionsManager = () => {
               />
             </div>
             <div>
-              <Label htmlFor="icon_name">아이콘 이름</Label>
-              <Select
-                value={newCategoryForm.icon_name}
-                onValueChange={(value) => setNewCategoryForm({ ...newCategoryForm, icon_name: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Package">Package</SelectItem>
-                  <SelectItem value="Scissors">Scissors</SelectItem>
-                  <SelectItem value="Layers">Layers</SelectItem>
-                  <SelectItem value="Zap">Zap</SelectItem>
-                  <SelectItem value="Droplet">Droplet</SelectItem>
-                  <SelectItem value="Settings">Settings</SelectItem>
-                  <SelectItem value="FolderCog">FolderCog</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>아이콘 선택 *</Label>
+              <div className="grid grid-cols-5 gap-2 mt-2">
+                {availableIcons.map(({ name, icon: Icon }) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setNewCategoryForm({ ...newCategoryForm, icon_name: name })}
+                    className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${
+                      newCategoryForm.icon_name === name
+                        ? 'bg-primary/10 border-primary shadow-md'
+                        : 'bg-background border-border hover:border-primary/30'
+                    }`}
+                  >
+                    <Icon className="w-6 h-6" />
+                    <span className="text-xs">{name}</span>
+                  </button>
+                ))}
+              </div>
             </div>
             <div>
               <Label htmlFor="display_order">표시 순서</Label>
@@ -1593,24 +1624,24 @@ const ProcessingOptionsManager = () => {
               />
             </div>
             <div>
-              <Label htmlFor="edit_icon_name">아이콘 이름</Label>
-              <Select
-                value={editCategoryForm.icon_name}
-                onValueChange={(value) => setEditCategoryForm({ ...editCategoryForm, icon_name: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Package">Package</SelectItem>
-                  <SelectItem value="Scissors">Scissors</SelectItem>
-                  <SelectItem value="Layers">Layers</SelectItem>
-                  <SelectItem value="Zap">Zap</SelectItem>
-                  <SelectItem value="Droplet">Droplet</SelectItem>
-                  <SelectItem value="Settings">Settings</SelectItem>
-                  <SelectItem value="FolderCog">FolderCog</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>아이콘 선택</Label>
+              <div className="grid grid-cols-5 gap-2 mt-2">
+                {availableIcons.map(({ name, icon: Icon }) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setEditCategoryForm({ ...editCategoryForm, icon_name: name })}
+                    className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${
+                      editCategoryForm.icon_name === name
+                        ? 'bg-primary/10 border-primary shadow-md'
+                        : 'bg-background border-border hover:border-primary/30'
+                    }`}
+                  >
+                    <Icon className="w-6 h-6" />
+                    <span className="text-xs">{name}</span>
+                  </button>
+                ))}
+              </div>
             </div>
             <div>
               <Label htmlFor="edit_display_order">표시 순서</Label>

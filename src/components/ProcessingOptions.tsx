@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Package, Scissors, Layers, Zap, Droplet, Settings, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Package, Scissors, Layers, Zap, Droplet, Settings, ChevronRight, CheckCircle2, Box, Boxes, Wrench, Hammer, Cog, GitBranch, PaintBucket, Sparkles, Star } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useProcessingOptions } from "@/hooks/useProcessingOptions";
@@ -43,6 +43,15 @@ const ICON_MAP: Record<string, any> = {
   Zap,
   Droplet,
   Settings,
+  Box,
+  Boxes,
+  Wrench,
+  Hammer,
+  Cog,
+  GitBranch,
+  PaintBucket,
+  Sparkles,
+  Star,
 };
 
 const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
