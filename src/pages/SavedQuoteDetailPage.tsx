@@ -622,7 +622,7 @@ const SavedQuoteDetailPage = () => {
               </div>
 
               {/* 연락처 정보 */}
-              <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-slate-50 border border-blue-200 rounded-xl shadow-sm print:hidden">
+              <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-slate-50 border border-blue-200 rounded-xl shadow-sm">
                 <h4 className="font-bold text-slate-800 mb-4 text-lg">문의 및 주문</h4>
                 <div className="text-sm text-slate-700 space-y-2">
                   <p className="mb-3">견적 관련 문의사항이나 주문을 원하시면 아래 연락처로 문의해주세요.</p>
