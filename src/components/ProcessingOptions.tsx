@@ -264,23 +264,29 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
       })()}
 
       {/* 고급 가격 설정 및 추가 옵션 동적 렌더링 */}
-      {mainCategory && isSelectionComplete() && (() => {
+      {mainCategory && (() => {
+        const isComplete = isSelectionComplete();
         const logicSlots = getCategoryLogicSlots(mainCategory);
         const slots = getCategorySlots(mainCategory);
+        
+        console.log('Additional slots check:', {
+          mainCategory,
+          isComplete,
+          logicSlots,
+          slots
+        });
         
         // 고급 가격 설정과 추가 옵션 슬롯만 필터링
         const additionalSlotTypes = logicSlots
           .filter(logic => logic.slot_key === 'advanced_pricing' || logic.slot_key === 'additional')
           .filter(logic => slots[logic.slot_key] && slots[logic.slot_key].length > 0);
         
-        return additionalSlotTypes.length > 0;
-      })() && (() => {
-        const logicSlots = getCategoryLogicSlots(mainCategory);
-        const slots = getCategorySlots(mainCategory);
+        console.log('Additional slot types:', additionalSlotTypes);
         
-        const additionalSlotTypes = logicSlots
-          .filter(logic => logic.slot_key === 'advanced_pricing' || logic.slot_key === 'additional')
-          .filter(logic => slots[logic.slot_key] && slots[logic.slot_key].length > 0);
+        if (!isComplete || additionalSlotTypes.length === 0) {
+          console.log('Not showing additional slots:', { isComplete, additionalSlotsCount: additionalSlotTypes.length });
+          return null;
+        }
         
         return additionalSlotTypes.map((logicSlot, idx) => {
           const slotType = logicSlot.slot_key;
@@ -288,6 +294,8 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
           const slotTypeInfo = slotTypes?.find(st => st.slot_key === slotType);
           const slotLabel = slotTypeInfo?.title || (slotType === 'additional' ? '추가 옵션' : slotType === 'advanced_pricing' ? '고급 가격 설정' : `선택 ${slotType}`);
           const slotDescription = slotTypeInfo?.description;
+          
+          console.log('Rendering additional slot:', { slotType, slotLabel, optionsCount: options.length });
           
           return (
             <div key={slotType}>
