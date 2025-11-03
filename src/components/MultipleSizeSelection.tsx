@@ -152,7 +152,7 @@ const MultipleSizeSelection: React.FC<MultipleSizeSelectionProps> = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-2xl font-bold mb-2">5. 판재 사이즈를 선택해주세요</h3>
+        <h3 className="text-2xl font-bold mb-2">판재 사이즈를 선택해 주세요</h3>
         <p className="text-muted-foreground">
           여러 사이즈를 선택하고 각각의 수량을 설정할 수 있습니다
         </p>
