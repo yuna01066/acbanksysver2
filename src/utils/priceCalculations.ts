@@ -844,7 +844,14 @@ export const calculatePrice = (
   } else if (processing === 'laser-simple' || processing === 'laser-complex' || 
              processing === 'cnc-simple' || processing === 'cnc-complex' ||
              processing === 'laser-full' || processing === 'cnc-full') {
-    const baseF = processFactors[processing];
+    // DB에서 가공 옵션 찾기
+    const processingOptionsData = options?.processingOptionsData || [];
+    const processingOption = processingOptionsData.find(
+      opt => opt.option_id === processing && opt.is_active
+    );
+    
+    // DB에 있으면 DB 값 사용, 없으면 기본값 사용
+    const baseF = processingOption?.multiplier ?? processFactors[processing];
     const multiplier = baseF; // 두께계수 제거: 배수만 적용
     
     const processingCost = totalPrice * (multiplier - 1);
@@ -855,7 +862,15 @@ export const calculatePrice = (
     const autoProcessing = t < 10 
       ? (isComplex ? 'laser-complex' : 'laser-simple')
       : (isComplex ? 'cnc-complex' : 'cnc-simple');
-    const baseF = processFactors[autoProcessing];
+    
+    // DB에서 가공 옵션 찾기
+    const processingOptionsData = options?.processingOptionsData || [];
+    const processingOption = processingOptionsData.find(
+      opt => opt.option_id === autoProcessing && opt.is_active
+    );
+    
+    // DB에 있으면 DB 값 사용, 없으면 기본값 사용
+    const baseF = processingOption?.multiplier ?? processFactors[autoProcessing];
     const multiplier = baseF; // 두께계수 제거: 배수만 적용
     
     const processingCost = totalPrice * (multiplier - 1);
