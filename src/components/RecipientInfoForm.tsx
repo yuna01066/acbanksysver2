@@ -1,14 +1,39 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { QuoteRecipient } from "@/contexts/QuoteContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+interface SavedRecipient {
+  company: string;
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+}
 
 interface RecipientInfoFormProps {
   recipientData: QuoteRecipient;
@@ -21,6 +46,64 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
   onChange,
   showClientMemo = false
 }) => {
+  const { user } = useAuth();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [savedRecipients, setSavedRecipients] = useState<SavedRecipient[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    if (isDialogOpen && user) {
+      fetchSavedRecipients();
+    }
+  }, [isDialogOpen, user]);
+
+  const fetchSavedRecipients = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('saved_quotes')
+      .select('recipient_company, recipient_name, recipient_phone, recipient_email, recipient_address')
+      .eq('user_id', user.id)
+      .not('recipient_company', 'is', null)
+      .not('recipient_name', 'is', null);
+
+    if (!error && data) {
+      // Remove duplicates based on company + name + email
+      const uniqueRecipients = new Map<string, SavedRecipient>();
+      data.forEach((item) => {
+        const key = `${item.recipient_company}-${item.recipient_name}-${item.recipient_email}`;
+        if (!uniqueRecipients.has(key)) {
+          uniqueRecipients.set(key, {
+            company: item.recipient_company || '',
+            name: item.recipient_name || '',
+            phone: item.recipient_phone || '',
+            email: item.recipient_email || '',
+            address: item.recipient_address || ''
+          });
+        }
+      });
+      setSavedRecipients(Array.from(uniqueRecipients.values()));
+    }
+  };
+
+  const handleSelectRecipient = (recipient: SavedRecipient) => {
+    onChange('companyName', recipient.company);
+    onChange('contactPerson', recipient.name);
+    onChange('phoneNumber', recipient.phone);
+    onChange('email', recipient.email);
+    onChange('deliveryAddress', recipient.address);
+    setIsDialogOpen(false);
+  };
+
+  const filteredRecipients = savedRecipients.filter((recipient) => {
+    const search = searchTerm.toLowerCase();
+    return (
+      recipient.company.toLowerCase().includes(search) ||
+      recipient.name.toLowerCase().includes(search) ||
+      recipient.email.toLowerCase().includes(search)
+    );
+  });
+
   return (
     <div>
       {/* 견적 수신 섹션 */}
@@ -106,12 +189,24 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
           <div className="space-y-4">
             <div>
               <Label htmlFor="companyName">회사명</Label>
-              <Input
-                id="companyName"
-                value={recipientData.companyName}
-                onChange={(e) => onChange('companyName', e.target.value)}
-                placeholder="회사명을 입력하세요"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="companyName"
+                  value={recipientData.companyName}
+                  onChange={(e) => onChange('companyName', e.target.value)}
+                  placeholder="회사명을 입력하세요"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsDialogOpen(true)}
+                  title="저장된 담당자 검색"
+                >
+                  <Search className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <div>
               <Label htmlFor="contactPerson">담당자 *</Label>
@@ -241,6 +336,66 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
           />
         </div>
       )}
+
+      {/* 저장된 담당자 검색 Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>저장된 수신 담당자 검색</DialogTitle>
+            <DialogDescription>
+              이전에 사용한 수신 담당자를 선택하여 정보를 자동으로 채울 수 있습니다.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Input
+                placeholder="회사명, 담당자명, 이메일로 검색..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {filteredRecipients.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {searchTerm ? '검색 결과가 없습니다.' : '저장된 담당자가 없습니다.'}
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>회사명</TableHead>
+                      <TableHead>담당자</TableHead>
+                      <TableHead>연락처</TableHead>
+                      <TableHead>이메일</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRecipients.map((recipient, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{recipient.company}</TableCell>
+                        <TableCell>{recipient.name}</TableCell>
+                        <TableCell>{recipient.phone}</TableCell>
+                        <TableCell>{recipient.email}</TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            onClick={() => handleSelectRecipient(recipient)}
+                          >
+                            선택
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
