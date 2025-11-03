@@ -58,8 +58,12 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
   }, [isDialogOpen, user]);
 
   const fetchSavedRecipients = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('user가 없습니다');
+      return;
+    }
 
+    console.log('저장된 담당자 조회 시작, user.id:', user.id);
     const { data, error } = await supabase
       .from('saved_quotes')
       .select('recipient_company, recipient_name, recipient_phone, recipient_email, recipient_address')
@@ -67,7 +71,14 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
       .not('recipient_company', 'is', null)
       .not('recipient_name', 'is', null);
 
-    if (!error && data) {
+    if (error) {
+      console.error('담당자 조회 에러:', error);
+      return;
+    }
+
+    console.log('조회된 데이터:', data);
+
+    if (data) {
       // Remove duplicates based on company + name + email
       const uniqueRecipients = new Map<string, SavedRecipient>();
       data.forEach((item) => {
@@ -82,17 +93,22 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
           });
         }
       });
-      setSavedRecipients(Array.from(uniqueRecipients.values()));
+      const recipients = Array.from(uniqueRecipients.values());
+      console.log('중복 제거 후 담당자 수:', recipients.length);
+      setSavedRecipients(recipients);
     }
   };
 
   const handleSelectRecipient = (recipient: SavedRecipient) => {
+    console.log('선택된 담당자:', recipient);
+    console.log('현재 recipientData:', recipientData);
     onChange('companyName', recipient.company);
     onChange('contactPerson', recipient.name);
     onChange('phoneNumber', recipient.phone);
     onChange('email', recipient.email);
     onChange('deliveryAddress', recipient.address);
     setIsDialogOpen(false);
+    console.log('양식 채우기 완료');
   };
 
   const filteredRecipients = savedRecipients.filter((recipient) => {
