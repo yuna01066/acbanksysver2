@@ -215,6 +215,28 @@ const SavedQuoteDetailPage = () => {
             break-inside: avoid;
           }
           
+          /* 그리드 레이아웃 유지 */
+          .grid {
+            display: grid !important;
+          }
+          
+          .grid-cols-2 {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+          
+          .md\\:grid-cols-4 {
+            grid-template-columns: repeat(4, 1fr) !important;
+          }
+          
+          .md\\:col-span-2 {
+            grid-column: span 2 / span 2 !important;
+          }
+          
+          /* 견적 카드 간격 조정 */
+          .space-y-6 > * + * {
+            margin-top: 12px !important;
+          }
+          
           /* 배경색 제거 및 테두리만 표시 */
           .print\\:bg-white {
             background: white !important;
