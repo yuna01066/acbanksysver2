@@ -31,6 +31,7 @@ import { useSlotTypes, SlotType } from "@/hooks/useSlotTypes";
 import { useCategoryLogic } from "@/hooks/useCategoryLogic";
 import { useThicknessList } from "@/hooks/useThicknessList";
 import { useProcessingCategories, ProcessingCategory } from "@/hooks/useProcessingCategories";
+import { SortableCategoryItem } from "./SortableCategoryItem";
 import { Badge } from "@/components/ui/badge";
 import { 
   AlertDialog,
@@ -425,6 +426,44 @@ const ProcessingOptionsManager = () => {
     }
   };
 
+  // 카테고리 순서 변경 핸들러
+  const handleCategoryDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id || !categories) {
+      return;
+    }
+
+    const oldIndex = categories.findIndex(cat => cat.id === active.id);
+    const newIndex = categories.findIndex(cat => cat.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reorderedCategories = arrayMove(categories, oldIndex, newIndex);
+
+    // 각 카테고리의 display_order 업데이트
+    const updatePromises = reorderedCategories.map((category, index) =>
+      updateCategory.mutateAsync({
+        id: category.id,
+        updates: { display_order: index + 1 }
+      })
+    );
+
+    try {
+      await Promise.all(updatePromises);
+      toast({
+        title: '순서 변경 완료',
+        description: '카테고리 순서가 업데이트되었습니다.',
+      });
+    } catch (error) {
+      toast({
+        title: '순서 변경 실패',
+        description: '카테고리 순서 변경 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category);
   };
@@ -792,47 +831,33 @@ const ProcessingOptionsManager = () => {
                     카테고리 추가
                   </Button>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {categories?.filter(c => c.is_active).map((category) => {
-                    const Icon = getIconComponent(category.icon_name);
-                    return (
-                      <div key={category.id} className="relative group">
-                        <button
-                          onClick={() => handleCategorySelect(category.category_key)}
-                          className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
-                            selectedCategory === category.category_key
-                              ? 'bg-primary/10 border-primary shadow-md'
-                              : 'bg-background border-border hover:border-primary/30'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 mb-2">
-                            <Icon className="w-5 h-5 text-primary" />
-                            <span className="font-semibold text-sm">{category.category_name}</span>
-                            {selectedCategory === category.category_key && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
-                          </div>
-                        </button>
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={() => startEditCategory(category)}
-                          >
-                            <Pencil className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                            onClick={() => handleDeleteCategory(category.id)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleCategoryDragEnd}
+                >
+                  <SortableContext
+                    items={categories?.filter(c => c.is_active).map(c => c.id) || []}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                      {categories?.filter(c => c.is_active).map((category) => {
+                        const Icon = getIconComponent(category.icon_name);
+                        return (
+                          <SortableCategoryItem
+                            key={category.id}
+                            category={category}
+                            isSelected={selectedCategory === category.category_key}
+                            Icon={Icon}
+                            onSelect={handleCategorySelect}
+                            onEdit={startEditCategory}
+                            onDelete={handleDeleteCategory}
+                          />
+                        );
+                      })}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               </div>
 
               {/* 선택된 카테고리의 로직 설정 */}
