@@ -43,8 +43,6 @@ const MyPage = () => {
   // Profile edit state
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [department, setDepartment] = useState('');
-  const [position, setPosition] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -56,8 +54,6 @@ const MyPage = () => {
     if (profile) {
       setFullName(profile.full_name);
       setPhone(profile.phone || '');
-      setDepartment(profile.department || '');
-      setPosition(profile.position || '');
     }
   }, [profile]);
 
@@ -104,9 +100,7 @@ const MyPage = () => {
     e.preventDefault();
     await updateProfile({
       full_name: fullName,
-      phone,
-      department,
-      position
+      phone
     });
   };
 
@@ -331,24 +325,6 @@ const MyPage = () => {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="010-1234-5678"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="department">부서</Label>
-                    <Input
-                      id="department"
-                      value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
-                      placeholder="영업팀"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="position">직급</Label>
-                    <Input
-                      id="position"
-                      value={position}
-                      onChange={(e) => setPosition(e.target.value)}
-                      placeholder="대리"
                     />
                   </div>
                   <Button type="submit" className="w-full">
