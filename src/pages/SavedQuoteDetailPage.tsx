@@ -232,15 +232,42 @@ const SavedQuoteDetailPage = () => {
           }
           
           .border.border-gray-200.rounded-lg .p-6 {
-            padding: 12px !important;
+            padding: 8px 12px !important;
           }
           
           .grid.grid-cols-1.md\\:grid-cols-3 {
-            gap: 8px !important;
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 6px !important;
+          }
+          
+          .grid.grid-cols-1.md\\:grid-cols-3 > div {
+            padding: 6px !important;
           }
           
           .bg-gray-50.rounded-lg {
-            padding: 8px !important;
+            padding: 6px !important;
+          }
+          
+          .space-y-3 {
+            gap: 4px !important;
+          }
+          
+          /* 견적 요약 내부 텍스트 크기 조정 */
+          .grid.grid-cols-1.md\\:grid-cols-3 .text-xs {
+            font-size: 7pt !important;
+          }
+          
+          .grid.grid-cols-1.md\\:grid-cols-3 .text-sm {
+            font-size: 7.5pt !important;
+          }
+          
+          .grid.grid-cols-1.md\\:grid-cols-3 .text-2xl {
+            font-size: 14pt !important;
+          }
+          
+          .grid.grid-cols-1.md\\:grid-cols-3 .text-base {
+            font-size: 9pt !important;
           }
           
           /* 2열 레이아웃 유지 및 간격 줄이기 */
