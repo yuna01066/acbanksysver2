@@ -298,6 +298,23 @@ const CustomerQuotesSummaryPage = () => {
                               <td className="border border-slate-300 px-4 py-3 text-sm text-right font-semibold">{taxAmount.toLocaleString()}</td>
                               <td className="border border-slate-300 px-4 py-3 text-sm text-right font-bold text-blue-600">{totalWithTax.toLocaleString()}</td>
                             </tr>
+                            {/* 가격 세부 내역 (단가) - 금액 제외 */}
+                            {quote.breakdown && quote.breakdown.length > 0 && (
+                              <tr>
+                                <td colSpan={8} className="border border-slate-300 px-4 py-4 bg-gray-50">
+                                  <div className="text-sm">
+                                    <div className="font-semibold text-gray-900 mb-2">가격 세부 내역 (단가):</div>
+                                    <div className="space-y-1 ml-4">
+                                      {quote.breakdown.map((item, idx) => (
+                                        <div key={idx} className="text-gray-700">
+                                          • {item.label}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
                           </React.Fragment>
                         );
                       })}
