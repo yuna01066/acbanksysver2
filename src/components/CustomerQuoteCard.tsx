@@ -119,14 +119,21 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
               {isCustomerView ? '세부 내역' : '가격 세부 내역 (단가)'}
             </div>
             <div className="space-y-2">
-              {quote.breakdown.map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center text-sm">
-                  <span className="text-gray-700">{item.label}</span>
-                  {!isCustomerView && (
-                    <span className="font-semibold text-gray-900">{formatPrice(item.price)}</span>
-                  )}
-                </div>
-              ))}
+              {quote.breakdown.map((item, idx) => {
+                // 고객용일 때 괄호와 그 안의 내용 제거
+                const displayLabel = isCustomerView 
+                  ? item.label.replace(/\s*\([^)]*\)/g, '').trim()
+                  : item.label;
+                
+                return (
+                  <div key={idx} className="flex justify-between items-center text-sm">
+                    <span className="text-gray-700">{displayLabel}</span>
+                    {!isCustomerView && (
+                      <span className="font-semibold text-gray-900">{formatPrice(item.price)}</span>
+                    )}
+                  </div>
+                );
+              })}
               {isCustomerView && (
                 <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200">
                   <span className="text-gray-700 font-medium">합계금액 (단가)</span>
