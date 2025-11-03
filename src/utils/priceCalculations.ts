@@ -762,8 +762,8 @@ export const calculatePrice = (
   
   console.log('원장 기준:', { wonJang, basePrice, totalWonJangBase: options?.totalWonJangBase });
   
-  // 6) processingType이 복합 ID 형식인 경우 또는 단일 raw-only인 경우
-  if (processingType && (processingType.includes('|') || processingType === 'raw-only')) {
+  // 6) processingType이 있는 경우 슬롯 기반 처리
+  if (processingType && processingType !== '' && options?.processingOptionsData) {
     const processingOptionsData = options?.processingOptionsData || [];
     const selectedOptionIds = processingType.split('|');
     
