@@ -93,10 +93,6 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     setMainCategory(category);
     setSelectedSlots({});
     onProcessingSelect('');
-    
-    if (category === 'raw') {
-      onProcessingSelect('raw-only');
-    }
   };
 
   // 슬롯 선택
@@ -112,10 +108,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   // 선택 완료 여부 확인
   const isSelectionComplete = (): boolean => {
     if (!mainCategory) return false;
-    if (mainCategory === 'raw') return true;
     
     const slots = getCategorySlots(mainCategory);
-    const requiredSlots = Object.keys(slots).filter(key => key !== 'additional');
+    const logicSlots = getCategoryLogicSlots(mainCategory);
+    const requiredSlots = logicSlots.map(logic => logic.slot_key).filter(key => key !== 'additional');
     
     return requiredSlots.every(slot => selectedSlots[slot]);
   };
@@ -176,7 +172,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
       </Card>
 
       {/* 동적 슬롯 렌더링 */}
-      {mainCategory && mainCategory !== 'raw' && (() => {
+      {mainCategory && (() => {
         const slots = getCategorySlots(mainCategory);
         
         // 관리자 설정에서 정의한 슬롯 로직 가져오기
