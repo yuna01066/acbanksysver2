@@ -760,6 +760,10 @@ export const calculatePrice = (
   // 5) 기본 가격 설정
   let totalPrice = basePrice;
 
+  // ===== 원장 금액 계산 완료 =====
+  // 원장 = 원판금액 + 면수(테이프) + 조색비
+  const wonJang = basePrice;
+  
   // 6) processingType이 복합 ID 형식인 경우 (예: "slot1-option|slot2-option|slot3-option")
   if (processingType && processingType !== 'raw-only' && processingType.includes('|')) {
     const processingOptionsData = options?.processingOptionsData || [];
@@ -768,6 +772,7 @@ export const calculatePrice = (
     console.log('Processing multiple options:', {
       processingType,
       selectedOptionIds,
+      wonJang,
       availableOptions: processingOptionsData.map(opt => ({
         id: opt.option_id,
         name: opt.name,
@@ -776,7 +781,7 @@ export const calculatePrice = (
       }))
     });
     
-    // 추가 옵션 수량 정보 가져오기 (V2 형식)
+    // 추가 옵션 수량 정보 가져오기
     const additionalOptionsQuantities = (options as any)?.selectedAdditionalOptions || {};
     
     // 선택된 각 옵션의 multiplier와 base_cost 적용
@@ -788,36 +793,24 @@ export const calculatePrice = (
         // 수량 정보 확인 (기본값 1)
         const quantity = additionalOptionsQuantities[optionId] || 1;
         
-        // multiplier가 있으면 적용 (0이 아니고, 값이 존재하는 경우)
+        // multiplier가 있으면 "원장 × 배수" 계산
         if (option.multiplier !== undefined && option.multiplier !== null && option.multiplier !== 0) {
-          // multiplier가 1보다 작으면 할인, 1보다 크면 할증
-          const multiplierCost = totalPrice * option.multiplier;
-          if (option.multiplier >= 1) {
-            // 할증인 경우: (multiplier - 1)만큼 추가
-            const additionalCost = totalPrice * (option.multiplier - 1) * quantity;
-            const label = quantity > 1 
-              ? `${option.name} (×${option.multiplier}) x${quantity}개`
-              : `${option.name} (×${option.multiplier})`;
-            breakdown.push({ label, price: additionalCost });
-            totalPrice += additionalCost;
-            console.log(`Applied multiplier for ${option.name}: ${additionalCost}`);
-          } else {
-            // multiplier가 1보다 작은 경우: 원가에 곱하기
-            const cost = multiplierCost * quantity;
-            const label = quantity > 1
-              ? `${option.name} (원가×${option.multiplier}) x${quantity}개`
-              : `${option.name} (원가×${option.multiplier})`;
-            breakdown.push({ label, price: cost });
-            totalPrice += cost;
-            console.log(`Applied multiplier (< 1) for ${option.name}: ${cost}`);
-          }
+          // 원장 기준으로 multiplier 적용
+          const optionCost = wonJang * option.multiplier * quantity;
+          const label = quantity > 1 
+            ? `${option.name} (원장×${option.multiplier}) x${quantity}개`
+            : `${option.name} (원장×${option.multiplier})`;
+          breakdown.push({ label, price: optionCost });
+          totalPrice += optionCost;
+          console.log(`Applied multiplier for ${option.name}: ${optionCost} (원장: ${wonJang} × ${option.multiplier} × ${quantity})`);
         }
-        // base_cost 적용
+        
+        // base_cost가 있으면 "기본 비용" 적용
         if (option.base_cost && option.base_cost > 0) {
           const baseCostTotal = option.base_cost * quantity;
           const label = quantity > 1
-            ? `${option.name} 추가비용 x${quantity}개`
-            : `${option.name} 추가비용`;
+            ? `${option.name} x${quantity}개`
+            : `${option.name}`;
           breakdown.push({ label, price: baseCostTotal });
           totalPrice += baseCostTotal;
           console.log(`Applied base_cost for ${option.name}: ${baseCostTotal}`);
