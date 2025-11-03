@@ -759,8 +759,31 @@ export const calculatePrice = (
   // 5) 기본 가격 설정
   let totalPrice = basePrice;
 
-  // 6) 배수 중첩 방식: 가공/접착 계산 (원판 단독 구매가 아닌 경우만)
-  if (processingType !== 'raw-only' && options && (options.processing || options.adhesion)) {
+  // 6) processingType이 복합 ID 형식인 경우 (예: "slot1-option|slot2-option|slot3-option")
+  if (processingType && processingType !== 'raw-only' && processingType.includes('|')) {
+    const processingOptionsData = options?.processingOptionsData || [];
+    const selectedOptionIds = processingType.split('|');
+    
+    // 선택된 각 옵션의 multiplier와 base_cost 적용
+    selectedOptionIds.forEach(optionId => {
+      const option = processingOptionsData.find(opt => opt.option_id === optionId && opt.is_active);
+      if (option) {
+        // multiplier 적용
+        if (option.multiplier && option.multiplier !== 1) {
+          const multiplierCost = totalPrice * (option.multiplier - 1);
+          breakdown.push({ label: `${option.name} (×${option.multiplier})`, price: multiplierCost });
+          totalPrice += multiplierCost;
+        }
+        // base_cost 적용
+        if (option.base_cost && option.base_cost > 0) {
+          breakdown.push({ label: `${option.name} 추가비용`, price: option.base_cost });
+          totalPrice += option.base_cost;
+        }
+      }
+    });
+  }
+  // 배수 중첩 방식: 가공/접착 계산 (원판 단독 구매가 아닌 경우만)
+  else if (processingType !== 'raw-only' && options && (options.processing || options.adhesion)) {
     const processing = options.processing || 'none';
     const adhesion = options.adhesion || 'none';
     const t = parseFloat(thickness.replace('T', ''));
