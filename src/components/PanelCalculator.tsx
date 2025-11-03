@@ -58,14 +58,19 @@ const PROCESSING_OPTIONS = [{
   id: 'complex-shapes',
   name: '복잡한 모양 가공'
 }];
-const PanelCalculator = () => {
+
+interface PanelCalculatorProps {
+  initialType?: 'quote' | 'yield' | null;
+}
+
+const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const navigate = useNavigate();
   const {
     addQuote,
     quotes
   } = useQuotes();
   const [currentStep, setCurrentStep] = useState(0);
-  const [calculatorType, setCalculatorType] = useState<'quote' | 'yield' | null>(null);
+  const [calculatorType, setCalculatorType] = useState<'quote' | 'yield' | null>(initialType);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [selectedQuality, setSelectedQuality] = useState<Quality | null>(null);
   const [selectedThickness, setSelectedThickness] = useState<string>('');

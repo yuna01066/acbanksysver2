@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
 import PanelCalculator from './PanelCalculator';
 
-const CalculatorWidget = () => {
+interface CalculatorWidgetProps {
+  initialType?: 'quote' | 'yield' | null;
+}
+
+const CalculatorWidget = ({ initialType = null }: CalculatorWidgetProps) => {
   const navigate = useNavigate();
 
   return (
@@ -21,7 +25,7 @@ const CalculatorWidget = () => {
           관리자 설정
         </Button>
       </div>
-      <PanelCalculator />
+      <PanelCalculator initialType={initialType} />
     </div>
   );
 };

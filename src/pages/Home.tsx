@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp } from "lucide-react";
 const Home = () => {
   const navigate = useNavigate();
   const links = [{
@@ -28,11 +28,17 @@ const Home = () => {
     url: "https://acbank.co.kr/acbankform",
     action: () => window.open("https://acbank.co.kr/acbankform", "_blank")
   }, {
-    title: "견적 및 계산기",
+    title: "견적 계산기",
     icon: Calculator,
     description: "스마트 판재 견적",
-    url: "/calculator",
-    action: () => navigate("/calculator")
+    url: "/calculator?type=quote",
+    action: () => navigate("/calculator?type=quote")
+  }, {
+    title: "수율 계산기",
+    icon: TrendingUp,
+    description: "패널 수율 최적화",
+    url: "/calculator?type=yield",
+    action: () => navigate("/calculator?type=yield")
   }, {
     title: "발행 견적서 확인",
     icon: FileSpreadsheet,
