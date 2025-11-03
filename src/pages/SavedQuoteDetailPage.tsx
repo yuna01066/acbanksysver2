@@ -435,6 +435,7 @@ const SavedQuoteDetailPage = () => {
                         onRemove={() => {}}
                         onUpdateQuantity={() => {}}
                         isCustomerView={true}
+                        readOnly={true}
                       />
                     ) : (
                       <QuoteCard
@@ -443,6 +444,7 @@ const SavedQuoteDetailPage = () => {
                         index={index}
                         onRemove={() => {}}
                         onUpdateQuantity={() => {}}
+                        readOnly={true}
                       />
                     )
                   ))}

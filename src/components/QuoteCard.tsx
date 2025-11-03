@@ -13,9 +13,10 @@ interface QuoteCardProps {
   index: number;
   onRemove: (id: string) => void;
   onUpdateQuantity: (id: string, quantity: number) => void;
+  readOnly?: boolean;
 }
 
-const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity }: QuoteCardProps) => {
+const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false }: QuoteCardProps) => {
   const navigate = useNavigate();
 
   const handleQuantityChange = (newQuantity: number) => {
@@ -52,50 +53,52 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity }: QuoteCardProps)
       <CardHeader className="pb-4 bg-gray-50">
         <div className="flex justify-between items-center">
           <CardTitle className="text-lg">견적 #{index + 1}</CardTitle>
-          <div className="flex items-center gap-3">
-            {/* 수량 조절 */}
-            <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-300 px-3 py-2">
+          {!readOnly && (
+            <div className="flex items-center gap-3">
+              {/* 수량 조절 */}
+              <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-300 px-3 py-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuantityChange(quote.quantity - 1)}
+                  className="w-8 h-8 p-0 border-0 hover:bg-gray-100"
+                >
+                  <Minus className="w-4 h-4" />
+                </Button>
+                <Input
+                  type="number"
+                  value={quote.quantity}
+                  onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
+                  className="w-16 text-center border-0 h-8 p-0 text-sm font-semibold"
+                  min="1"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuantityChange(quote.quantity + 1)}
+                  className="w-8 h-8 p-0 border-0 hover:bg-gray-100"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleQuantityChange(quote.quantity - 1)}
-                className="w-8 h-8 p-0 border-0 hover:bg-gray-100"
+                onClick={handleEditQuote}
+                className="text-blue-600 border-blue-600 hover:bg-blue-50 print:hidden"
               >
-                <Minus className="w-4 h-4" />
+                <Edit className="w-4 h-4" />
               </Button>
-              <Input
-                type="number"
-                value={quote.quantity}
-                onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
-                className="w-16 text-center border-0 h-8 p-0 text-sm font-semibold"
-                min="1"
-              />
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleQuantityChange(quote.quantity + 1)}
-                className="w-8 h-8 p-0 border-0 hover:bg-gray-100"
+                onClick={() => onRemove(quote.id)}
+                className="text-red-600 border-red-600 hover:bg-red-50 print:hidden"
               >
-                <Plus className="w-4 h-4" />
+                <Trash2 className="w-4 h-4" />
               </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleEditQuote}
-              className="text-blue-600 border-blue-600 hover:bg-blue-50 print:hidden"
-            >
-              <Edit className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onRemove(quote.id)}
-              className="text-red-600 border-red-600 hover:bg-red-50 print:hidden"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="pt-4">
