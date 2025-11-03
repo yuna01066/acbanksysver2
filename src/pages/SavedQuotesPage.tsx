@@ -239,7 +239,7 @@ const SavedQuotesPage = () => {
           <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {filteredQuotes.map((quote) => (
-                <Card key={quote.id} className="hover:shadow-lg transition-all hover:scale-[1.02] border-l-4 border-l-primary">
+                <Card key={quote.id} className="hover:shadow-lg transition-all hover:scale-[1.02]">
                   <CardContent className="p-6">
                     {/* Header */}
                     <div className="flex items-start justify-between mb-4">
@@ -280,14 +280,14 @@ const SavedQuotesPage = () => {
                     <div className="bg-muted/50 rounded-lg p-3 mb-4">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">총 금액</span>
-                        <span className="text-xl font-bold text-primary">{formatPrice(quote.total)}</span>
+                        <span className="text-xl font-bold text-muted-foreground">{formatPrice(quote.total)}</span>
                       </div>
                     </div>
 
                     {/* Actions */}
                     <div className="flex gap-2">
                       <Button
-                        variant="default"
+                        variant="outline"
                         size="sm"
                         onClick={() => navigate(`/saved-quotes/${quote.id}`)}
                         className="flex-1"
