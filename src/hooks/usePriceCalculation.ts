@@ -98,13 +98,13 @@ export const usePriceCalculation = ({
     },
   });
 
-  // Fetch active processing options
+  // Fetch active processing options (모든 필드 가져오기)
   const { data: processingOptions } = useQuery({
     queryKey: ['processing-options', 'active'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('processing_options')
-        .select('option_id, name, multiplier, base_cost')
+        .select('*')
         .eq('is_active', true);
 
       if (error) {
@@ -112,6 +112,7 @@ export const usePriceCalculation = ({
         return [];
       }
 
+      console.log('Loaded processing options:', data);
       return data as ProcessingOptionData[];
     },
   });
