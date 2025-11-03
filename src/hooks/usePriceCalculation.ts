@@ -485,55 +485,6 @@ export const usePriceCalculation = ({
     else if (selectedMaterial && selectedQuality && selectedThickness && selectedSize && selectedFactory === 'jangwon') {
       const surface = selectedSurface || '단면';
       
-      let processing: any = 'none';
-      let adhesion: any = 'none';
-      let edgeRequested = false;
-      
-      if (selectedProcessing === 'raw-only') {
-        processing = 'none';
-      } else if (selectedProcessing === 'auto') {
-        processing = 'auto';
-      } else if (selectedProcessing === 'simple-cutting') {
-        processing = 'simple-cutting';
-      } else if (selectedProcessing === 'edge-finishing') {
-        processing = 'none';
-        edgeRequested = true;
-      } else if (selectedProcessing === 'laser-simple') {
-        processing = 'laser-simple';
-      } else if (selectedProcessing === 'laser-complex') {
-        processing = 'laser-complex';
-      } else if (selectedProcessing === 'laser-full') {
-        processing = 'laser-full';
-      } else if (selectedProcessing === 'cnc-simple') {
-        processing = 'cnc-simple';
-      } else if (selectedProcessing === 'cnc-complex') {
-        processing = 'cnc-complex';
-      } else if (selectedProcessing === 'cnc-full') {
-        processing = 'cnc-full';
-      } else if (selectedProcessing === 'none' || selectedProcessing === '') {
-        processing = 'none';
-      }
-
-      if (selectedAdhesion === 'bond-normal') {
-        adhesion = 'bond-normal';
-      } else if (selectedAdhesion === 'bond-mugipo-auto') {
-        adhesion = 'auto';
-      } else if (selectedAdhesion === 'bond-mugipo-45') {
-        adhesion = 'bond-mugipo-45';
-      } else if (selectedAdhesion === 'bond-mugipo-90') {
-        adhesion = 'bond-mugipo-90';
-      } else if (selectedAdhesion === '45-normal') {
-        adhesion = '45-normal';
-      } else if (selectedAdhesion === '45-mugipo') {
-        adhesion = '45-mugipo';
-      } else if (selectedAdhesion === '90-normal') {
-        adhesion = '90-normal';
-      } else if (selectedAdhesion === '90-mugipo') {
-        adhesion = '90-mugipo';
-      } else if (selectedAdhesion === 'none' || selectedAdhesion === '') {
-        adhesion = 'none';
-      }
-
       const result = calculatePrice(
         selectedMaterial.id,
         selectedQuality.id,
@@ -544,23 +495,6 @@ export const usePriceCalculation = ({
         selectedProcessing || undefined,
         colorMixingCost,
         {
-          processing,
-          adhesion,
-          qty,
-          isComplex,
-          edgeRequested,
-          bevelLengthM,
-          bevelFeePerM: bevelLengthM > 0 ? 3000 : undefined,
-          laserHoles,
-          holeFee: laserHoles > 0 ? 500 : undefined,
-          corners90,
-          useDetailedBond,
-          joinLengthM,
-          trayHeightMm,
-          edgeFinishing,
-          bulgwang,
-          tapung,
-          mugwangPainting,
           processingOptionsData: processingOptions || [],
           colorMixingCostsData: colorMixingCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
           adhesiveCostsData: adhesiveCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
@@ -570,7 +504,8 @@ export const usePriceCalculation = ({
             price: ps.price || undefined,
             is_active: ps.is_active
           })),
-          rawOnlyMultiplier, // DB에서 가져온 원판 단독 구매 할증률 전달
+          rawOnlyMultiplier,
+          selectedAdditionalOptions,
         }
       );
       
