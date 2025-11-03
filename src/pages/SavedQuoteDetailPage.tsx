@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { List, Save, Edit, X, Download, Users, Building2, Calendar, FileText } from "lucide-react";
+import { List, Save, Edit, X, Download, Users, Building2, Calendar, FileText, Home } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import QuoteCard from "@/components/QuoteCard";
@@ -155,12 +155,12 @@ const SavedQuoteDetailPage = () => {
           <div className="mb-6 print:hidden">
             <Button 
               variant="outline" 
-              onClick={() => navigate('/saved-quotes')}
+              onClick={() => navigate('/')}
               className="flex items-center gap-2"
               size="sm"
             >
-              <List className="w-4 h-4" />
-              발행 견적서 목록
+              <Home className="w-4 h-4" />
+              홈으로
             </Button>
           </div>
 
