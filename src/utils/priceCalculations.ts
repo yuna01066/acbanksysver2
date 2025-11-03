@@ -764,9 +764,22 @@ export const calculatePrice = (
     const processingOptionsData = options?.processingOptionsData || [];
     const selectedOptionIds = processingType.split('|');
     
+    console.log('Processing multiple options:', {
+      processingType,
+      selectedOptionIds,
+      availableOptions: processingOptionsData.map(opt => ({
+        id: opt.option_id,
+        name: opt.name,
+        multiplier: opt.multiplier,
+        base_cost: opt.base_cost
+      }))
+    });
+    
     // 선택된 각 옵션의 multiplier와 base_cost 적용
     selectedOptionIds.forEach(optionId => {
       const option = processingOptionsData.find(opt => opt.option_id === optionId && opt.is_active);
+      console.log(`Looking for option: ${optionId}`, option);
+      
       if (option) {
         // multiplier가 있으면 적용 (0이 아니고, 값이 존재하는 경우)
         if (option.multiplier !== undefined && option.multiplier !== null && option.multiplier !== 0) {
@@ -777,17 +790,22 @@ export const calculatePrice = (
             const additionalCost = totalPrice * (option.multiplier - 1);
             breakdown.push({ label: `${option.name} (×${option.multiplier})`, price: additionalCost });
             totalPrice += additionalCost;
+            console.log(`Applied multiplier for ${option.name}: ${additionalCost}`);
           } else {
             // multiplier가 1보다 작은 경우: 원가에 곱하기
             breakdown.push({ label: `${option.name} (원가×${option.multiplier})`, price: multiplierCost });
             totalPrice += multiplierCost;
+            console.log(`Applied multiplier (< 1) for ${option.name}: ${multiplierCost}`);
           }
         }
         // base_cost 적용
         if (option.base_cost && option.base_cost > 0) {
           breakdown.push({ label: `${option.name} 추가비용`, price: option.base_cost });
           totalPrice += option.base_cost;
+          console.log(`Applied base_cost for ${option.name}: ${option.base_cost}`);
         }
+      } else {
+        console.warn(`Option not found: ${optionId}`);
       }
     });
   }
