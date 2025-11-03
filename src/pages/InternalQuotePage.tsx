@@ -237,13 +237,6 @@ const InternalQuotePage = () => {
                 </div>
               </div>
 
-              {/* 총합계 금액 박스 */}
-              <div className="text-center p-8 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl mb-8 text-white shadow-lg">
-                <div className="text-2xl font-bold">
-                  합계 금액: 일금 {totalWithTax.toLocaleString()}원 정 ( ₩ {totalWithTax.toLocaleString()} ) / 배송비 별도
-                </div>
-              </div>
-
               {/* 특이사항 및 상담내용 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <div>
