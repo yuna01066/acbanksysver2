@@ -90,12 +90,13 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
       // 나머지는 활성화 상태만 체크 (category_logic에 정의되어 있으면 category와 무관하게 표시)
       return opt.is_active;
     })
-      .forEach(opt => {
-        if (!slots[opt.option_type]) {
-          slots[opt.option_type] = [];
-        }
-        slots[opt.option_type].push(opt);
-      });
+    .sort((a, b) => (a.display_order || 0) - (b.display_order || 0)) // display_order로 정렬
+    .forEach(opt => {
+      if (!slots[opt.option_type]) {
+        slots[opt.option_type] = [];
+      }
+      slots[opt.option_type].push(opt);
+    });
     
     console.log('getCategorySlots result:', { category, allowedSlotKeys, slots });
     return slots;

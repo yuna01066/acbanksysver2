@@ -1,6 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+// 두께를 숫자 크기 순으로 정렬하는 함수
+const sortThicknesses = (thicknesses: string[]): string[] => {
+  return thicknesses.sort((a, b) => {
+    // "T" 문자를 제거하고 숫자로 변환하여 비교
+    const numA = parseFloat(a.replace('T', ''));
+    const numB = parseFloat(b.replace('T', ''));
+    return numA - numB;
+  });
+};
+
 export const useThicknessList = () => {
   const { data: thicknessList, isLoading } = useQuery({
     queryKey: ['thickness-list'],
@@ -12,9 +22,9 @@ export const useThicknessList = () => {
 
       if (error) throw error;
       
-      // 중복 제거하고 정렬
+      // 중복 제거하고 두께 크기 순으로 정렬
       const uniqueThicknesses = [...new Set(data.map(item => item.thickness))];
-      return uniqueThicknesses;
+      return sortThicknesses(uniqueThicknesses);
     },
   });
 
