@@ -265,6 +265,39 @@ export type Database = {
           },
         ]
       }
+      processing_categories: {
+        Row: {
+          category_key: string
+          category_name: string
+          created_at: string
+          display_order: number
+          icon_name: string
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          category_key: string
+          category_name: string
+          created_at?: string
+          display_order?: number
+          icon_name?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          category_key?: string
+          category_name?: string
+          created_at?: string
+          display_order?: number
+          icon_name?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       processing_options: {
         Row: {
           allow_multiple: boolean | null

@@ -11,8 +11,6 @@ export interface CategoryLogicSlot {
   updated_at?: string;
 }
 
-type MainCategory = 'raw' | 'simple' | 'complex' | 'full' | 'adhesion' | 'additional';
-
 export const useCategoryLogic = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -39,7 +37,7 @@ export const useCategoryLogic = () => {
 
   // 카테고리 로직 저장 (기존 것 삭제 후 새로 삽입)
   const saveCategoryLogic = useMutation({
-    mutationFn: async ({ category, slots }: { category: MainCategory; slots: { slotKey: string }[] }) => {
+    mutationFn: async ({ category, slots }: { category: string; slots: { slotKey: string }[] }) => {
       // 1. 해당 카테고리의 기존 로직 삭제
       const { error: deleteError } = await supabase
         .from('category_logic_slots')

@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, Save, X, Trash2, Plus, Package, Scissors, Droplet, Settings, CheckCircle2, Layers, Zap, ListOrdered, GripVertical } from "lucide-react";
+import { Pencil, Save, X, Trash2, Plus, Package, Scissors, Droplet, Settings, CheckCircle2, Layers, Zap, ListOrdered, GripVertical, FolderCog } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -30,6 +30,7 @@ import { useAdvancedProcessingSettings, AdvancedProcessingSetting } from "@/hook
 import { useSlotTypes, SlotType } from "@/hooks/useSlotTypes";
 import { useCategoryLogic } from "@/hooks/useCategoryLogic";
 import { useThicknessList } from "@/hooks/useThicknessList";
+import { useProcessingCategories, ProcessingCategory } from "@/hooks/useProcessingCategories";
 import { Badge } from "@/components/ui/badge";
 import { 
   AlertDialog,
@@ -53,7 +54,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-type MainCategory = 'raw' | 'simple' | 'complex' | 'full' | 'adhesion' | 'additional';
 type ProcessingOptionCategory = 'raw' | 'simple' | 'complex' | 'full' | 'adhesion' | 'additional';
 
 interface SlotConfig {
@@ -154,6 +154,7 @@ const ProcessingOptionsManager = () => {
   const { slotTypes, isLoading: isLoadingSlots, updateSlotType, createSlotType, deleteSlotType } = useSlotTypes();
   const { categoryLogic, isLoading: isLoadingLogic, getCategorySlots, saveCategoryLogic: saveCategoryLogicMutation } = useCategoryLogic();
   const { thicknessList, isLoading: isLoadingThickness } = useThicknessList();
+  const { categories, isLoading: isLoadingCategories, createCategory, updateCategory, deleteCategory } = useProcessingCategories();
   const { toast } = useToast();
   
   // 드래그 앤 드롭 센서
@@ -196,39 +197,45 @@ const ProcessingOptionsManager = () => {
   });
   const [deleteSlotConfirmId, setDeleteSlotConfirmId] = useState<string | null>(null);
   
-  const [selectedCategory, setSelectedCategory] = useState<MainCategory | null>(null);
-  const [categorySlots, setCategorySlots] = useState<Record<MainCategory, SlotConfig[]>>({
-    raw: [],
-    simple: [],
-    complex: [],
-    full: [],
-    adhesion: [],
-    additional: []
+  // 카테고리 관리
+  const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false);
+  const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<ProcessingCategory | null>(null);
+  const [editCategoryForm, setEditCategoryForm] = useState<Partial<ProcessingCategory>>({});
+  const [newCategoryForm, setNewCategoryForm] = useState<Partial<ProcessingCategory>>({
+    category_key: '',
+    category_name: '',
+    icon_name: 'Package',
+    display_order: 0,
+    is_active: true
   });
+  const [deleteCategoryConfirmId, setDeleteCategoryConfirmId] = useState<string | null>(null);
+  
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categorySlots, setCategorySlots] = useState<Record<string, SlotConfig[]>>({});
 
   // 로직 데이터가 로드되면 상태에 반영
   React.useEffect(() => {
-    if (categoryLogic) {
-      const newCategorySlots: Record<MainCategory, SlotConfig[]> = {
-        raw: [],
-        simple: [],
-        complex: [],
-        full: [],
-        adhesion: [],
-        additional: []
-      };
+    if (categoryLogic && categories) {
+      const newCategorySlots: Record<string, SlotConfig[]> = {};
+      
+      // Initialize all active categories
+      categories.filter(c => c.is_active).forEach(cat => {
+        newCategorySlots[cat.category_key] = [];
+      });
 
       categoryLogic.forEach(slot => {
-        if (newCategorySlots[slot.category as MainCategory]) {
-          newCategorySlots[slot.category as MainCategory].push({
-            slotKey: slot.slot_key
-          });
+        if (!newCategorySlots[slot.category]) {
+          newCategorySlots[slot.category] = [];
         }
+        newCategorySlots[slot.category].push({
+          slotKey: slot.slot_key
+        });
       });
 
       setCategorySlots(newCategorySlots);
     }
-  }, [categoryLogic]);
+  }, [categoryLogic, categories]);
 
   const startEdit = (option: ProcessingOption) => {
     setEditingOption(option);
@@ -363,11 +370,66 @@ const ProcessingOptionsManager = () => {
     }
   };
 
-  const handleCategorySelect = (category: MainCategory) => {
+  // 카테고리 관리 함수
+  const startEditCategory = (category: ProcessingCategory) => {
+    setEditingCategory(category);
+    setEditCategoryForm(category);
+    setIsEditCategoryDialogOpen(true);
+  };
+
+  const cancelEditCategory = () => {
+    setIsEditCategoryDialogOpen(false);
+    setEditingCategory(null);
+    setEditCategoryForm({});
+  };
+
+  const saveEditCategory = async () => {
+    if (editingCategory && editCategoryForm) {
+      await updateCategory.mutateAsync({
+        id: editingCategory.id,
+        updates: editCategoryForm,
+      });
+      cancelEditCategory();
+    }
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCategoryForm.category_key || !newCategoryForm.category_name) {
+      toast({
+        title: '입력 오류',
+        description: '카테고리 키와 이름은 필수입니다.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    await createCategory.mutateAsync(newCategoryForm as Omit<ProcessingCategory, 'id' | 'created_at' | 'updated_at'>);
+    setIsAddCategoryDialogOpen(false);
+    setNewCategoryForm({
+      category_key: '',
+      category_name: '',
+      icon_name: 'Package',
+      display_order: 0,
+      is_active: true
+    });
+  };
+
+  const handleDeleteCategory = (id: string) => {
+    setDeleteCategoryConfirmId(id);
+  };
+
+  const confirmDeleteCategory = async () => {
+    if (deleteCategoryConfirmId) {
+      await deleteCategory.mutateAsync(deleteCategoryConfirmId);
+      setDeleteCategoryConfirmId(null);
+    }
+  };
+
+  const handleCategorySelect = (category: string) => {
     setSelectedCategory(category);
   };
 
-  const addSlotToLogic = (category: MainCategory) => {
+  const addSlotToLogic = (category: string) => {
     const availableSlots = slotTypes?.filter(st => st.is_active) || [];
     if (availableSlots.length === 0) {
       toast({
@@ -387,14 +449,14 @@ const ProcessingOptionsManager = () => {
     });
   };
 
-  const removeSlotFromLogic = (category: MainCategory, index: number) => {
+  const removeSlotFromLogic = (category: string, index: number) => {
     setCategorySlots({
       ...categorySlots,
       [category]: categorySlots[category].filter((_, i) => i !== index)
     });
   };
 
-  const updateLogicSlot = (category: MainCategory, index: number, slotKey: string) => {
+  const updateLogicSlot = (category: string, index: number, slotKey: string) => {
     const newSlots = [...categorySlots[category]];
     newSlots[index].slotKey = slotKey;
     setCategorySlots({
@@ -474,9 +536,23 @@ const ProcessingOptionsManager = () => {
     }
   };
 
-  if (isLoading || isLoadingAdvanced || isLoadingSlots || isLoadingLogic || isLoadingThickness) {
+  if (isLoading || isLoadingAdvanced || isLoadingSlots || isLoadingLogic || isLoadingThickness || isLoadingCategories) {
     return <div className="p-8 text-center">로딩 중...</div>;
   }
+
+  // 아이콘 이름으로 컴포넌트 매핑
+  const getIconComponent = (iconName: string) => {
+    const iconMap: Record<string, any> = {
+      Package,
+      Scissors,
+      Layers,
+      Zap,
+      Droplet,
+      Settings,
+      FolderCog,
+    };
+    return iconMap[iconName] || Package;
+  };
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -671,37 +747,60 @@ const ProcessingOptionsManager = () => {
             <CardContent className="pt-6 space-y-6">
               {/* 카테고리 선택 */}
               <div>
-                <div className="mb-4">
+                <div className="mb-4 flex items-center justify-between">
                   <h4 className="text-sm font-semibold flex items-center gap-2">
                     <Settings className="w-4 h-4 text-primary" />
                     가공 카테고리 선택
                   </h4>
+                  <Button
+                    onClick={() => setIsAddCategoryDialogOpen(true)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    카테고리 추가
+                  </Button>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {[
-                    { key: 'raw', icon: Package, label: '원판 구매' },
-                    { key: 'simple', icon: Scissors, label: '단순 재단' },
-                    { key: 'complex', icon: Layers, label: '복합 재단' },
-                    { key: 'full', icon: Zap, label: '전체 재단' },
-                    { key: 'adhesion', icon: Droplet, label: '접착 가공' },
-                    { key: 'additional', icon: Settings, label: '추가 옵션' },
-                  ].map(({ key, icon: Icon, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => handleCategorySelect(key as MainCategory)}
-                      className={`p-4 rounded-lg border-2 transition-all text-left ${
-                        selectedCategory === key
-                          ? 'bg-primary/10 border-primary shadow-md'
-                          : 'bg-background border-border hover:border-primary/30'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <Icon className="w-5 h-5 text-primary" />
-                        <span className="font-semibold text-sm">{label}</span>
-                        {selectedCategory === key && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                  {categories?.filter(c => c.is_active).map((category) => {
+                    const Icon = getIconComponent(category.icon_name);
+                    return (
+                      <div key={category.id} className="relative group">
+                        <button
+                          onClick={() => handleCategorySelect(category.category_key)}
+                          className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                            selectedCategory === category.category_key
+                              ? 'bg-primary/10 border-primary shadow-md'
+                              : 'bg-background border-border hover:border-primary/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <Icon className="w-5 h-5 text-primary" />
+                            <span className="font-semibold text-sm">{category.category_name}</span>
+                            {selectedCategory === category.category_key && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                          </div>
+                        </button>
+                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => startEditCategory(category)}
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteCategory(category.id)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1386,6 +1485,173 @@ const ProcessingOptionsManager = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteSlot}>삭제</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 카테고리 추가 다이얼로그 */}
+      <Dialog open={isAddCategoryDialogOpen} onOpenChange={setIsAddCategoryDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>새 카테고리 추가</DialogTitle>
+            <DialogDescription>
+              새로운 가공 카테고리의 정보를 입력하세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="category_key">카테고리 키 * (예: custom1)</Label>
+              <Input
+                id="category_key"
+                value={newCategoryForm.category_key || ''}
+                onChange={(e) => setNewCategoryForm({ ...newCategoryForm, category_key: e.target.value })}
+                placeholder="custom1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="category_name">카테고리 이름 *</Label>
+              <Input
+                id="category_name"
+                value={newCategoryForm.category_name || ''}
+                onChange={(e) => setNewCategoryForm({ ...newCategoryForm, category_name: e.target.value })}
+                placeholder="커스텀 가공"
+              />
+            </div>
+            <div>
+              <Label htmlFor="icon_name">아이콘 이름</Label>
+              <Select
+                value={newCategoryForm.icon_name}
+                onValueChange={(value) => setNewCategoryForm({ ...newCategoryForm, icon_name: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Package">Package</SelectItem>
+                  <SelectItem value="Scissors">Scissors</SelectItem>
+                  <SelectItem value="Layers">Layers</SelectItem>
+                  <SelectItem value="Zap">Zap</SelectItem>
+                  <SelectItem value="Droplet">Droplet</SelectItem>
+                  <SelectItem value="Settings">Settings</SelectItem>
+                  <SelectItem value="FolderCog">FolderCog</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="display_order">표시 순서</Label>
+              <Input
+                id="display_order"
+                type="number"
+                value={newCategoryForm.display_order || 0}
+                onChange={(e) => setNewCategoryForm({ ...newCategoryForm, display_order: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={newCategoryForm.is_active}
+                onCheckedChange={(checked) => setNewCategoryForm({ ...newCategoryForm, is_active: checked })}
+              />
+              <Label>활성화</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddCategoryDialogOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleAddCategory}>
+              추가
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 카테고리 수정 다이얼로그 */}
+      <Dialog open={isEditCategoryDialogOpen} onOpenChange={setIsEditCategoryDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>카테고리 수정</DialogTitle>
+            <DialogDescription>
+              카테고리의 정보를 수정하세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit_category_key">카테고리 키</Label>
+              <Input
+                id="edit_category_key"
+                value={editCategoryForm.category_key || ''}
+                onChange={(e) => setEditCategoryForm({ ...editCategoryForm, category_key: e.target.value })}
+                disabled
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_category_name">카테고리 이름</Label>
+              <Input
+                id="edit_category_name"
+                value={editCategoryForm.category_name || ''}
+                onChange={(e) => setEditCategoryForm({ ...editCategoryForm, category_name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_icon_name">아이콘 이름</Label>
+              <Select
+                value={editCategoryForm.icon_name}
+                onValueChange={(value) => setEditCategoryForm({ ...editCategoryForm, icon_name: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Package">Package</SelectItem>
+                  <SelectItem value="Scissors">Scissors</SelectItem>
+                  <SelectItem value="Layers">Layers</SelectItem>
+                  <SelectItem value="Zap">Zap</SelectItem>
+                  <SelectItem value="Droplet">Droplet</SelectItem>
+                  <SelectItem value="Settings">Settings</SelectItem>
+                  <SelectItem value="FolderCog">FolderCog</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit_display_order">표시 순서</Label>
+              <Input
+                id="edit_display_order"
+                type="number"
+                value={editCategoryForm.display_order || 0}
+                onChange={(e) => setEditCategoryForm({ ...editCategoryForm, display_order: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={editCategoryForm.is_active}
+                onCheckedChange={(checked) => setEditCategoryForm({ ...editCategoryForm, is_active: checked })}
+              />
+              <Label>활성화</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelEditCategory}>
+              취소
+            </Button>
+            <Button onClick={saveEditCategory}>
+              저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 카테고리 삭제 확인 다이얼로그 */}
+      <AlertDialog open={deleteCategoryConfirmId !== null} onOpenChange={() => setDeleteCategoryConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>정말 삭제하시겠습니까?</AlertDialogTitle>
+            <AlertDialogDescription>
+              이 작업은 되돌릴 수 없습니다. 이 카테고리가 영구적으로 삭제됩니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteCategory}>삭제</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
