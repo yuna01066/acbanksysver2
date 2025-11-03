@@ -510,7 +510,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
           
           {/* 견적 계산기 단계들 */}
           {currentStep >= 0 && <>
-              <StepIndicator currentStep={currentStep + 1} maxSteps={maxSteps} />
+              <StepIndicator currentStep={currentStep} maxSteps={maxSteps} />
           
           {/* 선택된 옵션 요약 및 가격 계산 결과 - Step 0에서는 숨김 */}
           {currentStep > 0 && <SelectionSummary 
