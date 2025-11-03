@@ -238,7 +238,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
         )}
 
         {/* 가격 계산 결과 */}
-        {priceInfo && priceInfo.totalPrice > 0 && (
+        {priceInfo && priceInfo.breakdown && priceInfo.breakdown.length > 0 && (
           <div className="space-y-2 mt-6 pt-6 border-t-2 border-primary/30">
             <h5 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
               <Calculator className="w-5 h-5 text-primary" />
