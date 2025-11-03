@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, FileText, Calendar, Trash2, Users, Building2, Home, Save } from "lucide-react";
+import { ArrowLeft, Download, FileText, Calendar, Trash2, Users, Building2, Home, Save, List } from "lucide-react";
 interface QuoteSummaryHeaderProps {
   onClearQuotes: () => void;
   onPrintPDF: () => void;
@@ -28,9 +28,9 @@ const QuoteSummaryHeader = ({
   return <>
       {/* 상단 액션 버튼들 */}
       <div className="flex justify-between items-center mb-6 print:hidden">
-        <Button variant="outline" onClick={() => navigate('/')} className="flex items-center gap-2">
-          <Home className="w-4 h-4" />
-          홈으로 돌아가기
+        <Button variant="outline" onClick={() => navigate('/saved-quotes')} className="flex items-center gap-2">
+          <List className="w-4 h-4" />
+          발행 견적서 목록
         </Button>
         <div className="flex gap-2">
           {onViewCustomerQuote && <Button variant="outline" onClick={onViewCustomerQuote} className={`flex items-center gap-2 ${isCustomerView ? 'text-blue-600 border-blue-600 hover:bg-blue-50' : 'text-green-600 border-green-600 hover:bg-green-50'}`}>
