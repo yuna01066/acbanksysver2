@@ -64,9 +64,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user.id);
-            checkAdminRole(session.user.id);
+          setTimeout(async () => {
+            await fetchProfile(session.user.id);
+            await checkAdminRole(session.user.id);
           }, 0);
         } else {
           setProfile(null);
@@ -76,13 +76,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchProfile(session.user.id);
-        checkAdminRole(session.user.id);
+        await fetchProfile(session.user.id);
+        await checkAdminRole(session.user.id);
       }
       setLoading(false);
     });
