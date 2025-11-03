@@ -750,13 +750,7 @@ export const calculatePrice = (
     basePrice += finalColorMixingCost;
   }
 
-  // 4) 원판 단독 구매 할증 (processingType이 'raw-only'인 경우)
-  if (processingType === 'raw-only') {
-    const rawMultiplier = options?.rawOnlyMultiplier || 1.8;
-    const rawOnlyCharge = basePrice * (rawMultiplier - 1);
-    breakdown.push({ label: `원판 단독 구매 할증 (×${rawMultiplier})`, price: rawOnlyCharge });
-    basePrice += rawOnlyCharge;
-  }
+  // 4) 원판 단독 구매 할증은 슬롯 기반 로직(771번 이후)에서 처리됨
 
   // 5) 기본 가격 설정
   let totalPrice = basePrice;
