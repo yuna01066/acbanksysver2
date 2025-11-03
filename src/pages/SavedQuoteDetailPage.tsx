@@ -418,7 +418,7 @@ const SavedQuoteDetailPage = () => {
               <Separator className="my-8" />
 
               {/* 견적 상세 내역 */}
-              <div className="print:hidden mb-8">
+              <div className="mb-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                   견적 목록 ({items.length}개) - 내부 관리용
                 </h3>
