@@ -29,6 +29,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface SavedQuote {
   id: string;
@@ -59,6 +66,7 @@ const MyPage = () => {
   const [quotes, setQuotes] = useState<SavedQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteQuoteId, setDeleteQuoteId] = useState<string | null>(null);
+  const [selectedRecipient, setSelectedRecipient] = useState<RecipientInfo | null>(null);
   
   // Profile edit state
   const [fullName, setFullName] = useState('');
@@ -161,6 +169,14 @@ const MyPage = () => {
     });
 
     return Array.from(recipientsMap.values()).sort((a, b) => b.quoteCount - a.quoteCount);
+  };
+
+  const getQuotesByRecipient = (recipient: RecipientInfo): SavedQuote[] => {
+    return quotes.filter(quote => 
+      quote.recipient_company === recipient.company &&
+      quote.recipient_name === recipient.name &&
+      quote.recipient_email === recipient.email
+    );
   };
 
   const stats = calculateStats();
@@ -339,7 +355,11 @@ const MyPage = () => {
                       </TableHeader>
                       <TableBody>
                         {getUniqueRecipients().map((recipient, index) => (
-                          <TableRow key={index}>
+                          <TableRow 
+                            key={index}
+                            className="cursor-pointer hover:bg-accent/50 transition-colors"
+                            onClick={() => setSelectedRecipient(recipient)}
+                          >
                             <TableCell className="font-medium">{recipient.company}</TableCell>
                             <TableCell>{recipient.name}</TableCell>
                             <TableCell>{recipient.phone}</TableCell>
@@ -420,6 +440,93 @@ const MyPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!selectedRecipient} onOpenChange={() => setSelectedRecipient(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              {selectedRecipient?.name}님 견적서 목록
+            </DialogTitle>
+            <DialogDescription>
+              {selectedRecipient?.company} - 총 {selectedRecipient?.quoteCount}건의 견적서
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedRecipient && (
+            <div className="space-y-4">
+              <Card className="bg-muted/30">
+                <CardContent className="pt-6">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">회사명:</span>
+                      <span className="ml-2 font-medium">{selectedRecipient.company}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">담당자:</span>
+                      <span className="ml-2 font-medium">{selectedRecipient.name}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">연락처:</span>
+                      <span className="ml-2 font-medium">{selectedRecipient.phone}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">이메일:</span>
+                      <span className="ml-2 font-medium">{selectedRecipient.email}</span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground">주소:</span>
+                      <span className="ml-2 font-medium">{selectedRecipient.address}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm text-muted-foreground">발행 견적서</h3>
+                {getQuotesByRecipient(selectedRecipient).map((quote) => (
+                  <Card key={quote.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold">{quote.quote_number}</h4>
+                            <span className="text-sm text-muted-foreground">
+                              {format(new Date(quote.quote_date), 'yyyy년 MM월 dd일', { locale: ko })}
+                            </span>
+                          </div>
+                          <div className="text-sm space-y-1">
+                            <p className="font-semibold text-primary">
+                              총액: {quote.total.toLocaleString()}원
+                            </p>
+                            {quote.desired_delivery_date && (
+                              <p className="text-muted-foreground">
+                                납기희망일: {format(new Date(quote.desired_delivery_date), 'yyyy-MM-dd')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRecipient(null);
+                              navigate(`/saved-quotes/${quote.id}`);
+                            }}
+                          >
+                            상세보기
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
