@@ -85,12 +85,18 @@ const SavedQuoteDetailPage = () => {
       const { error } = await supabase
         .from('saved_quotes')
         .update({
+          project_name: editForm.project_name,
+          quote_date_display: editForm.quote_date_display,
+          valid_until: editForm.valid_until,
+          delivery_period: editForm.delivery_period,
+          payment_condition: editForm.payment_condition,
           recipient_name: editForm.recipient_name,
           recipient_company: editForm.recipient_company,
           recipient_phone: editForm.recipient_phone,
           recipient_email: editForm.recipient_email,
           recipient_address: editForm.recipient_address,
-          recipient_memo: editForm.recipient_memo
+          recipient_memo: editForm.recipient_memo,
+          desired_delivery_date: editForm.desired_delivery_date
         })
         .eq('id', id);
 
@@ -286,57 +292,134 @@ const SavedQuoteDetailPage = () => {
 
               {/* Edit Form */}
               {isEditing && (
-                <div className="mb-8 p-6 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h3 className="text-lg font-semibold mb-4 text-gray-900">수신자 정보 수정</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-gray-700">업체명</Label>
-                      <Input
-                        value={editForm.recipient_company || ''}
-                        onChange={(e) => setEditForm({ ...editForm, recipient_company: e.target.value })}
-                        className="mt-1"
-                      />
+                <div className="mb-8 space-y-6">
+                  {/* 프로젝트 정보 수정 */}
+                  <div className="p-6 bg-slate-50 border border-slate-200 rounded-lg">
+                    <h3 className="text-lg font-semibold mb-4 text-slate-900 flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      프로젝트 정보
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-slate-700 font-medium">프로젝트명</Label>
+                        <Input
+                          value={editForm.project_name || ''}
+                          onChange={(e) => setEditForm({ ...editForm, project_name: e.target.value })}
+                          placeholder="프로젝트명을 입력하세요"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-slate-700 font-medium">견적일자</Label>
+                        <Input
+                          type="date"
+                          value={editForm.quote_date_display ? new Date(editForm.quote_date_display).toISOString().split('T')[0] : ''}
+                          onChange={(e) => setEditForm({ ...editForm, quote_date_display: e.target.value })}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-slate-700 font-medium">유효기간</Label>
+                        <Input
+                          value={editForm.valid_until || ''}
+                          onChange={(e) => setEditForm({ ...editForm, valid_until: e.target.value })}
+                          placeholder="예: 견적일로부터 30일"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-slate-700 font-medium">납기</Label>
+                        <Input
+                          value={editForm.delivery_period || ''}
+                          onChange={(e) => setEditForm({ ...editForm, delivery_period: e.target.value })}
+                          placeholder="예: 계약 후 2주"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label className="text-slate-700 font-medium">지불 조건</Label>
+                        <Input
+                          value={editForm.payment_condition || ''}
+                          onChange={(e) => setEditForm({ ...editForm, payment_condition: e.target.value })}
+                          placeholder="예: 계약금 50%, 잔금 50%"
+                          className="mt-1"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-gray-700">담당자</Label>
-                      <Input
-                        value={editForm.recipient_name || ''}
-                        onChange={(e) => setEditForm({ ...editForm, recipient_name: e.target.value })}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">연락처</Label>
-                      <Input
-                        value={editForm.recipient_phone || ''}
-                        onChange={(e) => setEditForm({ ...editForm, recipient_phone: e.target.value })}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">이메일</Label>
-                      <Input
-                        value={editForm.recipient_email || ''}
-                        onChange={(e) => setEditForm({ ...editForm, recipient_email: e.target.value })}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label className="text-gray-700">배송지</Label>
-                      <Input
-                        value={editForm.recipient_address || ''}
-                        onChange={(e) => setEditForm({ ...editForm, recipient_address: e.target.value })}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label className="text-gray-700">메모</Label>
-                      <Textarea
-                        value={editForm.recipient_memo || ''}
-                        onChange={(e) => setEditForm({ ...editForm, recipient_memo: e.target.value })}
-                        rows={3}
-                        className="mt-1"
-                      />
+                  </div>
+
+                  {/* 담당자 및 납기 정보 수정 */}
+                  <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h3 className="text-lg font-semibold mb-4 text-blue-900 flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      담당자 및 납기 정보
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-blue-900 font-medium">회사명</Label>
+                        <Input
+                          value={editForm.recipient_company || ''}
+                          onChange={(e) => setEditForm({ ...editForm, recipient_company: e.target.value })}
+                          placeholder="회사명을 입력하세요"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-blue-900 font-medium">담당자</Label>
+                        <Input
+                          value={editForm.recipient_name || ''}
+                          onChange={(e) => setEditForm({ ...editForm, recipient_name: e.target.value })}
+                          placeholder="담당자명을 입력하세요"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-blue-900 font-medium">연락처</Label>
+                        <Input
+                          value={editForm.recipient_phone || ''}
+                          onChange={(e) => setEditForm({ ...editForm, recipient_phone: e.target.value })}
+                          placeholder="010-0000-0000"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-blue-900 font-medium">이메일</Label>
+                        <Input
+                          type="email"
+                          value={editForm.recipient_email || ''}
+                          onChange={(e) => setEditForm({ ...editForm, recipient_email: e.target.value })}
+                          placeholder="email@example.com"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-blue-900 font-medium">납기 희망일</Label>
+                        <Input
+                          type="date"
+                          value={editForm.desired_delivery_date ? new Date(editForm.desired_delivery_date).toISOString().split('T')[0] : ''}
+                          onChange={(e) => setEditForm({ ...editForm, desired_delivery_date: e.target.value })}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label className="text-blue-900 font-medium">납기현장 주소</Label>
+                        <Input
+                          value={editForm.recipient_address || ''}
+                          onChange={(e) => setEditForm({ ...editForm, recipient_address: e.target.value })}
+                          placeholder="배송지 주소를 입력하세요"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label className="text-blue-900 font-medium">클라이언트 요청사항</Label>
+                        <Textarea
+                          value={editForm.recipient_memo || ''}
+                          onChange={(e) => setEditForm({ ...editForm, recipient_memo: e.target.value })}
+                          rows={3}
+                          placeholder="특이사항이나 요청사항을 입력하세요"
+                          className="mt-1"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
