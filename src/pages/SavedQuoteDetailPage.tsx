@@ -620,8 +620,6 @@ const SavedQuoteDetailPage = () => {
                       <div><strong>담당자:</strong> {quote.issuer_name || '작성'}</div>
                       {quote.issuer_email && <div><strong>이메일:</strong> {quote.issuer_email}</div>}
                       {quote.issuer_phone && <div><strong>연락처:</strong> {quote.issuer_phone}</div>}
-                      {quote.issuer_department && <div><strong>부서:</strong> {quote.issuer_department}</div>}
-                      {quote.issuer_position && <div><strong>직급:</strong> {quote.issuer_position}</div>}
                     </div>
                   </div>
                   
@@ -719,11 +717,25 @@ const SavedQuoteDetailPage = () => {
               {/* 연락처 정보 */}
               <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-slate-50 border border-blue-200 rounded-xl shadow-sm print:hidden">
                 <h4 className="font-bold text-slate-800 mb-4 text-lg">문의 및 주문</h4>
-                <div className="text-sm text-slate-700 space-y-2">
+                <div className="text-sm text-slate-700 space-y-3">
                   <p className="mb-3">견적 관련 문의사항이나 주문을 원하시면 아래 연락처로 문의해주세요.</p>
+                  
+                  {/* 담당자 정보 */}
+                  {quote.issuer_name && (
+                    <div className="bg-white p-3 rounded-lg border border-blue-100">
+                      <p className="font-semibold text-blue-900 mb-2">담당자</p>
+                      <div className="space-y-1">
+                        <p className="font-medium">👤 {quote.issuer_name}</p>
+                        {quote.issuer_phone && <p className="font-medium">📞 {quote.issuer_phone}</p>}
+                        {quote.issuer_email && <p className="font-medium">📧 {quote.issuer_email}</p>}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* 회사 대표 연락처 */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <p className="font-semibold bg-white px-3 py-2 rounded-lg">📞 전화: 070-7537-3680</p>
-                    <p className="font-semibold bg-white px-3 py-2 rounded-lg">📧 이메일: acbank@acbank.co.kr</p>
+                    <p className="font-semibold bg-white px-3 py-2 rounded-lg">📞 대표전화: 070-7537-3680</p>
+                    <p className="font-semibold bg-white px-3 py-2 rounded-lg">📧 대표이메일: acbank@acbank.co.kr</p>
                   </div>
                 </div>
               </div>

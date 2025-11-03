@@ -259,8 +259,8 @@ const CustomerQuotePage = () => {
               <h4 className="font-semibold text-gray-800 mb-3">문의 및 주문</h4>
               <div className="text-sm text-gray-700 space-y-1">
                 <p>견적 관련 문의사항이나 주문을 원하시면 아래 연락처로 문의해주세요.</p>
-                <p className="font-medium">• 전화: 000-0000-0000</p>
-                <p className="font-medium">• 이메일: contact@company.com</p>
+                <p className="font-medium">• 전화: 070-7537-3680</p>
+                <p className="font-medium">• 이메일: acbank@acbank.co.kr</p>
               </div>
             </div>
           </CardContent>
