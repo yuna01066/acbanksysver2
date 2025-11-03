@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useProcessingOptions } from "@/hooks/useProcessingOptions";
 import { useSlotTypes } from "@/hooks/useSlotTypes";
 import { useCategoryLogic } from "@/hooks/useCategoryLogic";
+import { useProcessingCategories } from "@/hooks/useProcessingCategories";
 
 interface ProcessingOptionsProps {
   selectedProcessing: string;
@@ -34,14 +35,14 @@ interface ProcessingOptionsProps {
   onAdditionalOptionsChange?: (options: Record<string, number>) => void;
 }
 
-type MainCategory = 'raw' | 'simple' | 'complex' | 'full' | 'adhesion';
-
-const CATEGORY_INFO = {
-  raw: { icon: Package, label: '원판 구매', description: '가공 없이 원판만 구매' },
-  simple: { icon: Scissors, label: '단순 재단', description: '기본 재단 작업' },
-  complex: { icon: Layers, label: '복합 재단', description: '복합적인 재단 작업' },
-  full: { icon: Zap, label: '전체 재단', description: '복잡한 모양 전체 가공' },
-  adhesion: { icon: Droplet, label: '접착 가공', description: '무기포/일반 접착' },
+// 아이콘 매핑
+const ICON_MAP: Record<string, any> = {
+  Package,
+  Scissors,
+  Layers,
+  Zap,
+  Droplet,
+  Settings,
 };
 
 const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
@@ -62,16 +63,17 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   selectedAdditionalOptions = {},
   onAdditionalOptionsChange,
 }) => {
-  const [mainCategory, setMainCategory] = React.useState<MainCategory | null>(null);
+  const [mainCategory, setMainCategory] = React.useState<string | null>(null);
   const [selectedSlots, setSelectedSlots] = React.useState<Record<string, string>>({});
   const [optionQuantities, setOptionQuantities] = React.useState<Record<string, number>>(selectedAdditionalOptions);
   
   const { processingOptions, activeAdditionalOptions, isLoading } = useProcessingOptions();
   const { slotTypes, isLoading: isLoadingSlots } = useSlotTypes();
   const { getCategorySlots: getCategoryLogicSlots, isLoading: isLoadingLogic } = useCategoryLogic();
+  const { categories, isLoading: isLoadingCategories } = useProcessingCategories();
 
   // 카테고리별 슬롯 옵션 가져오기
-  const getCategorySlots = (category: MainCategory) => {
+  const getCategorySlots = (category: string) => {
     if (!processingOptions) return {};
     
     // 해당 카테고리에 정의된 슬롯 키 가져오기
@@ -111,7 +113,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   };
 
   // 메인 카테고리 선택
-  const handleMainCategorySelect = (category: MainCategory) => {
+  const handleMainCategorySelect = (category: string) => {
     setMainCategory(category);
     setSelectedSlots({});
     onProcessingSelect('');
@@ -150,13 +152,16 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     return isComplete;
   };
 
-  if (isLoading || isLoadingSlots || isLoadingLogic) {
+  if (isLoading || isLoadingSlots || isLoadingLogic || isLoadingCategories) {
     return (
       <div className="space-y-8 animate-fade-in">
         <div className="text-center">로딩 중...</div>
       </div>
     );
   }
+
+  // 활성화된 카테고리만 필터링
+  const activeCategories = categories?.filter(c => c.is_active) || [];
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -180,24 +185,23 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-            {(Object.keys(CATEGORY_INFO) as MainCategory[]).map((category) => {
-              const { icon: Icon, label, description } = CATEGORY_INFO[category];
+            {activeCategories.map((category) => {
+              const Icon = ICON_MAP[category.icon_name] || Package;
               return (
                 <button
-                  key={category}
-                  onClick={() => handleMainCategorySelect(category)}
+                  key={category.id}
+                  onClick={() => handleMainCategorySelect(category.category_key)}
                   className={`p-4 rounded-lg border-2 transition-all text-left ${
-                    mainCategory === category
+                    mainCategory === category.category_key
                       ? 'bg-primary/10 border-primary shadow-md'
                       : 'bg-background border-border hover:border-primary/30'
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <Icon className="w-5 h-5 text-primary" />
-                    <span className="font-semibold text-sm">{label}</span>
-                    {mainCategory === category && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                    <span className="font-semibold text-sm">{category.category_name}</span>
+                    {mainCategory === category.category_key && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
                   </div>
-                  <p className="text-xs text-muted-foreground">{description}</p>
                 </button>
               );
             })}
