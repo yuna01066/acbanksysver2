@@ -400,8 +400,8 @@ const SavedQuoteDetailPage = () => {
       
       {/* Print Footer */}
       <div className="print-footer hidden print:flex">
+        <span className="font-semibold">{viewMode === 'internal' ? '내부용 견적서' : '고객용 견적서'}</span>
         <span>견적번호: {quote.quote_number}</span>
-        <span>{quote.project_name || '프로젝트명 없음'}</span>
         <span className="page-number"></span>
       </div>
       <div className="min-h-screen bg-gray-50 p-4 print:bg-white print:p-0">
