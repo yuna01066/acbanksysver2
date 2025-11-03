@@ -63,6 +63,9 @@ const AuthPage = () => {
       } else {
         toast.error('로그인에 실패했습니다. 다시 시도해주세요.');
       }
+    } else {
+      // 로그인 성공 시 홈으로 이동
+      navigate('/');
     }
     
     setLoading(false);
