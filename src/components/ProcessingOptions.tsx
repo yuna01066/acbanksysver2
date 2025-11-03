@@ -251,73 +251,92 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         });
       })()}
 
-      {/* 추가 옵션 (카테고리 로직에 정의된 경우만 표시) */}
+      {/* 고급 가격 설정 및 추가 옵션 동적 렌더링 */}
       {mainCategory && isSelectionComplete() && (() => {
         const logicSlots = getCategoryLogicSlots(mainCategory);
-        const hasAdditionalSlot = logicSlots.some(logic => logic.slot_key === 'additional');
-        return hasAdditionalSlot && activeAdditionalOptions && activeAdditionalOptions.length > 0;
-      })() && (
-        <>
-          <Separator />
-          <Card className="border-2 border-accent/20">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Settings className="w-5 h-5 text-accent" />
-                추가 옵션
-                <Badge variant="outline" className="ml-auto">선택사항</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {edgeFinishing !== undefined && (
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <span className="font-medium">엣지 마감</span>
-                    <input
-                      type="checkbox"
-                      checked={edgeFinishing}
-                      onChange={(e) => onEdgeFinishingChange?.(e.target.checked)}
-                      className="w-5 h-5"
-                    />
+        const slots = getCategorySlots(mainCategory);
+        
+        // 고급 가격 설정과 추가 옵션 슬롯만 필터링
+        const additionalSlotTypes = logicSlots
+          .filter(logic => logic.slot_key === 'advanced_pricing' || logic.slot_key === 'additional')
+          .filter(logic => slots[logic.slot_key] && slots[logic.slot_key].length > 0);
+        
+        return additionalSlotTypes.length > 0;
+      })() && (() => {
+        const logicSlots = getCategoryLogicSlots(mainCategory);
+        const slots = getCategorySlots(mainCategory);
+        
+        const additionalSlotTypes = logicSlots
+          .filter(logic => logic.slot_key === 'advanced_pricing' || logic.slot_key === 'additional')
+          .filter(logic => slots[logic.slot_key] && slots[logic.slot_key].length > 0);
+        
+        return additionalSlotTypes.map((logicSlot, idx) => {
+          const slotType = logicSlot.slot_key;
+          const options = slots[slotType];
+          const slotTypeInfo = slotTypes?.find(st => st.slot_key === slotType);
+          const slotLabel = slotTypeInfo?.title || (slotType === 'additional' ? '추가 옵션' : slotType === 'advanced_pricing' ? '고급 가격 설정' : `선택 ${slotType}`);
+          const slotDescription = slotTypeInfo?.description;
+          
+          return (
+            <div key={slotType}>
+              <Separator />
+              <Card className="border-2 border-accent/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Settings className="w-5 h-5 text-accent" />
+                    {slotLabel}
+                    <Badge variant="outline" className="ml-auto">선택사항</Badge>
+                  </CardTitle>
+                  {slotDescription && (
+                    <p className="text-sm text-muted-foreground mt-2">{slotDescription}</p>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {options.map((option) => {
+                      const isApplicable = isOptionApplicable(option);
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => isApplicable && handleSlotSelect(slotType, option.option_id)}
+                          disabled={!isApplicable}
+                          className={`p-4 rounded-lg border-2 transition-all text-left ${
+                            !isApplicable
+                              ? 'bg-muted/50 border-muted cursor-not-allowed opacity-50'
+                              : selectedSlots[slotType] === option.option_id
+                              ? 'bg-primary/10 border-primary shadow-md'
+                              : 'bg-background border-border hover:border-primary/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-semibold">{option.name}</span>
+                            {!isApplicable && (
+                              <Badge variant="destructive" className="text-xs">
+                                {selectedThickness} 불가
+                              </Badge>
+                            )}
+                            {selectedSlots[slotType] === option.option_id && isApplicable && (
+                              <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
+                            )}
+                          </div>
+                          {option.description && (
+                            <p className="text-xs text-muted-foreground">{option.description}</p>
+                          )}
+                          {option.base_cost && (
+                            <p className="text-xs text-primary font-semibold mt-1">
+                              +{option.base_cost.toLocaleString()}원
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
-                {bulgwang !== undefined && (
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <span className="font-medium">불광</span>
-                    <input
-                      type="checkbox"
-                      checked={bulgwang}
-                      onChange={(e) => onBulgwangChange?.(e.target.checked)}
-                      className="w-5 h-5"
-                    />
-                  </div>
-                )}
-                {tapung !== undefined && (
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <span className="font-medium">타펑</span>
-                    <input
-                      type="checkbox"
-                      checked={tapung}
-                      onChange={(e) => onTapungChange?.(e.target.checked)}
-                      className="w-5 h-5"
-                    />
-                  </div>
-                )}
-                {mugwangPainting !== undefined && (
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <span className="font-medium">무광 도장</span>
-                    <input
-                      type="checkbox"
-                      checked={mugwangPainting}
-                      onChange={(e) => onMugwangPaintingChange?.(e.target.checked)}
-                      className="w-5 h-5"
-                    />
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
+                </CardContent>
+              </Card>
+            </div>
+          );
+        });
+      })()}
 
       {/* 수량 입력 (단순 재단) */}
       {mainCategory === 'simple' && isSelectionComplete() && (

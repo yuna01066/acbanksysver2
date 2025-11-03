@@ -576,64 +576,26 @@ const PanelCalculator = () => {
           {/* Step 8 또는 9: 가공 선택 (수량 및 복잡도 포함) */}
           {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic') || 
             (currentStep === 9 && selectedQuality?.id === 'film-acrylic')) && (
-            <>
-              <ProcessingOptions 
-                selectedProcessing={selectedProcessing}
-                selectedAdhesion={selectedAdhesion}
-                onProcessingSelect={handleProcessingSelect}
-                onAdhesionSelect={handleAdhesionSelect}
-                isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
-                selectedThickness={selectedThickness}
-                qty={qty}
-                onQtyChange={setQty}
-                isComplex={isComplex}
-                onComplexChange={setIsComplex}
-                edgeFinishing={edgeFinishing}
-                onEdgeFinishingChange={setEdgeFinishing}
-                bulgwang={bulgwang}
-                onBulgwangChange={setBulgwang}
-                tapung={tapung}
-                onTapungChange={setTapung}
-                mugwangPainting={mugwangPainting}
-                onMugwangPaintingChange={setMugwangPainting}
-              />
-              
-              {/* 고급 옵션 - 접착 작업 선택 시에만 표시 */}
-              {selectedAdhesion && (
-                <AdvancedProcessingOptions
-                  qty={qty}
-                  onQtyChange={setQty}
-                  isComplex={isComplex}
-                  onComplexChange={setIsComplex}
-                  bevelLengthM={bevelLengthM}
-                  onBevelLengthChange={setBevelLengthM}
-                  laserHoles={laserHoles}
-                  onLaserHolesChange={setLaserHoles}
-                  corners90={corners90}
-                  onCorners90Change={setCorners90}
-                  useDetailedBond={useDetailedBond}
-                  onDetailedBondChange={setUseDetailedBond}
-                  joinLengthM={joinLengthM}
-                  onJoinLengthChange={setJoinLengthM}
-                  trayHeightMm={trayHeightMm}
-                  onTrayHeightChange={setTrayHeightMm}
-                />
-              )}
-              
-              {/* 추가 옵션 - 접착 작업 선택 시 고급 옵션 하단에 표시 */}
-              {selectedAdhesion && (
-                <EdgeFinishingOption
-                  edgeFinishing={edgeFinishing}
-                  onEdgeFinishingChange={setEdgeFinishing}
-                  bulgwang={bulgwang}
-                  onBulgwangChange={setBulgwang}
-                  tapung={tapung}
-                  onTapungChange={setTapung}
-                  mugwangPainting={mugwangPainting}
-                  onMugwangPaintingChange={setMugwangPainting}
-                />
-              )}
-            </>
+            <ProcessingOptions 
+              selectedProcessing={selectedProcessing}
+              selectedAdhesion={selectedAdhesion}
+              onProcessingSelect={handleProcessingSelect}
+              onAdhesionSelect={handleAdhesionSelect}
+              isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
+              selectedThickness={selectedThickness}
+              qty={qty}
+              onQtyChange={setQty}
+              isComplex={isComplex}
+              onComplexChange={setIsComplex}
+              edgeFinishing={edgeFinishing}
+              onEdgeFinishingChange={setEdgeFinishing}
+              bulgwang={bulgwang}
+              onBulgwangChange={setBulgwang}
+              tapung={tapung}
+              onTapungChange={setTapung}
+              mugwangPainting={mugwangPainting}
+              onMugwangPaintingChange={setMugwangPainting}
+            />
           )}
 
           {/* 견적 추가 버튼 */}
