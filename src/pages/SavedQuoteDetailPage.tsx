@@ -449,30 +449,6 @@ const SavedQuoteDetailPage = () => {
                 </div>
               </div>
 
-              <Separator className="my-8" />
-
-              {/* 총 금액 */}
-              <div className="bg-gray-50 rounded-lg p-6 border-2 border-gray-300">
-                <div className="flex justify-end">
-                  <div className="w-full md:w-1/2 space-y-3">
-                    <div className="flex justify-between items-center text-lg pb-2 border-b border-gray-300">
-                      <span className="text-gray-600 font-medium">공급가:</span>
-                      <span className="font-bold text-gray-900">{subtotal.toLocaleString()}원</span>
-                    </div>
-                    <div className="flex justify-between items-center text-lg pb-2 border-b border-gray-300">
-                      <span className="text-gray-600 font-medium">부가세 (10%):</span>
-                      <span className="font-bold text-gray-900">{tax.toLocaleString()}원</span>
-                    </div>
-                    <div className="flex justify-between items-center text-2xl pt-2">
-                      <span className="font-bold text-gray-900">최종 금액:</span>
-                      <span className="font-bold text-blue-600">{totalWithTax.toLocaleString()}원</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <Separator className="my-8" />
-
               {/* 특이사항 및 상담내용 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <div>
