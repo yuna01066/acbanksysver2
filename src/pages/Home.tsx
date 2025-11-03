@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 const Home = () => {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
@@ -12,56 +14,74 @@ const Home = () => {
     icon: HomeIcon,
     description: "공식 웹사이트 방문",
     url: "https://acbank.co.kr",
+    requiresAuth: false,
     action: () => window.open("https://acbank.co.kr", "_blank")
   }, {
     title: "클라이언트 상담폼",
     icon: FileText,
     description: "상담 신청하기",
     url: "https://acbank.co.kr/acbankform",
+    requiresAuth: true,
     action: () => window.open("https://acbank.co.kr/acbankform", "_blank")
   }, {
     title: "채널톡",
     icon: MessageCircle,
     description: "실시간 상담",
     url: "https://acbank.channel.io",
+    requiresAuth: true,
     action: () => window.open("https://acbank.channel.io", "_blank")
   }, {
     title: "수율 계산기",
     icon: TrendingUp,
     description: "패널 수율 최적화",
     url: "/calculator?type=yield",
+    requiresAuth: true,
     action: () => navigate("/calculator?type=yield")
   }, {
     title: "견적 계산기",
     icon: Calculator,
     description: "스마트 판재 견적",
     url: "/calculator?type=quote",
+    requiresAuth: true,
     action: () => navigate("/calculator?type=quote")
   }, {
     title: "발행 견적서 확인",
     icon: FileSpreadsheet,
     description: "저장된 견적서 관리",
     url: "/saved-quotes",
+    requiresAuth: true,
     action: () => navigate("/saved-quotes")
   }, {
     title: "인스타그램",
     icon: Instagram,
     description: "소셜 미디어 팔로우",
     url: "https://www.instagram.com/acbank.co.kr/",
+    requiresAuth: true,
     action: () => window.open("https://www.instagram.com/acbank.co.kr/", "_blank")
   }, {
     title: "아크뱅크 노션 페이지",
     icon: BookOpen,
     description: "문서 및 가이드",
     url: "https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link",
+    requiresAuth: true,
     action: () => window.open("https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link", "_blank")
   }, {
     title: "관리자 설정",
     icon: Settings,
     description: "가격 및 옵션 관리",
     url: "/admin-settings",
+    requiresAuth: true,
     action: () => navigate("/admin-settings")
   }];
+
+  const handleCardClick = (link: typeof links[0]) => {
+    if (link.requiresAuth && !user) {
+      toast.error('로그인이 필요한 서비스입니다.');
+      navigate('/auth');
+      return;
+    }
+    link.action();
+  };
   return <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-6xl mx-auto">
@@ -96,11 +116,36 @@ const Home = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {links.map((link, index) => {
             const Icon = link.icon;
-            return <Card key={index} className="cursor-pointer group hover:scale-105 transition-all duration-300" onClick={link.action}>
-                  <CardContent className="p-8 text-center">
+            const isLocked = link.requiresAuth && !user;
+            return <Card 
+              key={index} 
+              className={cn(
+                "cursor-pointer group transition-all duration-300",
+                isLocked 
+                  ? "opacity-60 hover:opacity-70 cursor-not-allowed" 
+                  : "hover:scale-105"
+              )} 
+              onClick={() => handleCardClick(link)}
+            >
+                  <CardContent className="p-8 text-center relative">
+                    {isLocked && (
+                      <div className="absolute top-2 right-2">
+                        <Badge variant="secondary" className="text-xs">
+                          로그인 필요
+                        </Badge>
+                      </div>
+                    )}
                     <div className="mb-4 flex justify-center">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center group-hover:from-primary/30 group-hover:to-accent/30 transition-all duration-300">
-                        <Icon className="w-8 h-8 text-primary" />
+                      <div className={cn(
+                        "w-16 h-16 rounded-2xl bg-gradient-to-br flex items-center justify-center transition-all duration-300",
+                        isLocked 
+                          ? "from-muted/20 to-muted/30" 
+                          : "from-primary/20 to-accent/20 group-hover:from-primary/30 group-hover:to-accent/30"
+                      )}>
+                        <Icon className={cn(
+                          "w-8 h-8",
+                          isLocked ? "text-muted-foreground" : "text-primary"
+                        )} />
                       </div>
                     </div>
                     <h3 className="text-xl font-semibold mb-2">{link.title}</h3>
