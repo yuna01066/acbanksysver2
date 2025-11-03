@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 interface Profile {
@@ -33,7 +32,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
@@ -121,7 +119,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!error) {
       toast.success('로그인되었습니다!');
-      navigate('/');
     }
 
     return { error };
@@ -134,7 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(null);
     setIsAdmin(false);
     toast.success('로그아웃되었습니다!');
-    navigate('/');
+    window.location.href = '/';
   };
 
   const updateProfile = async (data: Partial<Profile>) => {
