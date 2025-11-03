@@ -67,9 +67,22 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   const getCategorySlots = (category: MainCategory) => {
     if (!processingOptions) return {};
     
+    // 해당 카테고리에 정의된 슬롯 키 가져오기
+    const logicSlots = getCategoryLogicSlots(category);
+    const allowedSlotKeys = logicSlots.map(logic => logic.slot_key);
+    
     const slots: Record<string, any[]> = {};
     processingOptions
-      .filter(opt => opt.category === category && opt.is_active)
+      .filter(opt => {
+        // option_type이 허용된 슬롯 키에 포함되어야 함
+        if (!allowedSlotKeys.includes(opt.option_type)) return false;
+        
+        // additional과 advanced_pricing 타입은 항상 포함
+        if (opt.option_type === 'additional' || opt.option_type === 'advanced_pricing') return opt.is_active;
+        
+        // 나머지는 category가 일치해야 함
+        return opt.category === category && opt.is_active;
+      })
       .forEach(opt => {
         if (!slots[opt.option_type]) {
           slots[opt.option_type] = [];
@@ -77,6 +90,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         slots[opt.option_type].push(opt);
       });
     
+    console.log('getCategorySlots result:', { category, allowedSlotKeys, slots });
     return slots;
   };
 
