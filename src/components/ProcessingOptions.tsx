@@ -105,15 +105,20 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     onProcessingSelect(selectedIds);
   };
 
-  // 선택 완료 여부 확인
+  // 선택 완료 여부 확인 (메인 슬롯만, advanced_pricing과 additional 제외)
   const isSelectionComplete = (): boolean => {
     if (!mainCategory) return false;
     
     const slots = getCategorySlots(mainCategory);
     const logicSlots = getCategoryLogicSlots(mainCategory);
-    const requiredSlots = logicSlots.map(logic => logic.slot_key).filter(key => key !== 'additional');
+    const requiredSlots = logicSlots
+      .filter(logic => logic.slot_key !== 'advanced_pricing' && logic.slot_key !== 'additional')
+      .map(logic => logic.slot_key)
+      .filter(key => slots[key] && slots[key].length > 0);
     
-    return requiredSlots.every(slot => selectedSlots[slot]);
+    const isComplete = requiredSlots.every(slot => selectedSlots[slot]);
+    console.log('Selection complete check:', { requiredSlots, selectedSlots, isComplete });
+    return isComplete;
   };
 
   if (isLoading || isLoadingSlots || isLoadingLogic) {
@@ -178,16 +183,23 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         // 관리자 설정에서 정의한 슬롯 로직 가져오기
         const logicSlots = getCategoryLogicSlots(mainCategory);
         
-        // 로직에 정의된 순서대로 슬롯 정렬, 정의되지 않은 슬롯은 제외
-        const sortedSlotTypes = logicSlots
+        console.log('Current category:', mainCategory);
+        console.log('Logic slots:', logicSlots);
+        console.log('Available slots:', slots);
+        
+        // 로직에 정의된 순서대로 슬롯 정렬, advanced_pricing과 additional 제외
+        const mainSlotTypes = logicSlots
+          .filter(logic => logic.slot_key !== 'advanced_pricing' && logic.slot_key !== 'additional')
           .map(logic => logic.slot_key)
           .filter(slotKey => slots[slotKey] && slots[slotKey].length > 0);
+        
+        console.log('Main slot types to render:', mainSlotTypes);
 
-        return sortedSlotTypes.map((slotType, stepIndex) => {
+        return mainSlotTypes.map((slotType, stepIndex) => {
           const options = slots[slotType];
           // 슬롯 타입 정보에서 title을 가져오거나, 없으면 기본값 사용
           const slotTypeInfo = slotTypes?.find(st => st.slot_key === slotType);
-          const slotLabel = slotTypeInfo?.title || (slotType === 'additional' ? '추가 옵션' : `선택 ${slotType.replace('slot', '')}`);
+          const slotLabel = slotTypeInfo?.title || slotType;
           const slotDescription = slotTypeInfo?.description;
           
           return (
