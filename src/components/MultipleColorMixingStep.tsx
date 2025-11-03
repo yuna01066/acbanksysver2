@@ -58,7 +58,7 @@ const MultipleColorMixingStep: React.FC<MultipleColorMixingStepProps> = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-2xl font-bold mb-2">7. 각 판재의 조색비를 설정해주세요</h3>
+        <h3 className="text-2xl font-bold mb-2">각 판재의 조색비를 설정해 주세요</h3>
         <p className="text-muted-foreground">
           선택한 각 사이즈별로 조색비를 설정하세요 (기본: 20,000원)
         </p>
