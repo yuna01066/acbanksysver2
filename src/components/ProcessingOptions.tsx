@@ -78,18 +78,18 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     const logicSlots = getCategoryLogicSlots(category);
     const allowedSlotKeys = logicSlots.map(logic => logic.slot_key);
     
-    const slots: Record<string, any[]> = {};
-    processingOptions
-      .filter(opt => {
-        // option_type이 허용된 슬롯 키에 포함되어야 함
-        if (!allowedSlotKeys.includes(opt.option_type)) return false;
-        
-        // additional과 advanced_pricing 타입은 항상 포함
-        if (opt.option_type === 'additional' || opt.option_type === 'advanced_pricing') return opt.is_active;
-        
-        // 나머지는 category가 일치해야 함
-        return opt.category === category && opt.is_active;
-      })
+  const slots: Record<string, any[]> = {};
+  processingOptions
+    .filter(opt => {
+      // option_type이 허용된 슬롯 키에 포함되어야 함
+      if (!allowedSlotKeys.includes(opt.option_type)) return false;
+      
+      // additional과 advanced_pricing 타입은 항상 포함
+      if (opt.option_type === 'additional' || opt.option_type === 'advanced_pricing') return opt.is_active;
+      
+      // 나머지는 활성화 상태만 체크 (category_logic에 정의되어 있으면 category와 무관하게 표시)
+      return opt.is_active;
+    })
       .forEach(opt => {
         if (!slots[opt.option_type]) {
           slots[opt.option_type] = [];
