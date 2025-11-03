@@ -220,106 +220,22 @@ const CustomerQuotesSummaryPage = () => {
               </div>
 
 
-              {/* 견적 상세 내역 테이블 */}
+              {/* 견적 상세 내역 - 카드 형식 */}
               <div className="mb-8">
                 <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800">
                   <Calculator className="w-5 h-5" />
                   견적 상세 내역
                 </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse border border-slate-300 rounded-lg overflow-hidden shadow-sm">
-                    <thead>
-                      <tr className="bg-slate-100">
-                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">Component No.</th>
-                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">분류</th>
-                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">세부 내용</th>
-                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">수량</th>
-                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">단가(원)</th>
-                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">공급가(원)</th>
-                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">세액계</th>
-                        <th className="border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700">합계</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {quotes.map((quote, index) => {
-                        const unitPrice = Math.round(quote.totalPrice);
-                        const totalPrice = Math.round(unitPrice * quote.quantity);
-                        const taxAmount = Math.round(totalPrice * 0.1);
-                        const totalWithTax = Math.round(totalPrice + taxAmount);
-                        
-                        const rowCount = quote.selectedColor ? 5 : 4;
-                        return (
-                          <React.Fragment key={quote.id}>
-                            <tr className="hover:bg-slate-50">
-                              <td className="border border-slate-300 px-4 py-3 text-sm font-bold text-left bg-slate-50 align-top" rowSpan={rowCount}>{index + 1}.</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm">소재</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm font-medium">{quote.material}</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-center">1</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                            </tr>
-                            <tr className="hover:bg-slate-50">
-                              <td className="border border-slate-300 px-4 py-3 text-sm">두께</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm font-medium">{quote.thickness}</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-center">1</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                            </tr>
-                            <tr className="hover:bg-slate-50">
-                              <td className="border border-slate-300 px-4 py-3 text-sm">사이즈</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm font-medium">{quote.size}</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-center font-semibold text-blue-600">{quote.quantity}</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                            </tr>
-                            {quote.selectedColor && (
-                              <tr className="hover:bg-slate-50">
-                                <td className="border border-slate-300 px-4 py-3 text-sm">컬러</td>
-                                <td className="border border-slate-300 px-4 py-3 text-sm font-medium">{quote.selectedColor}</td>
-                                <td className="border border-slate-300 px-4 py-3 text-sm text-center">1</td>
-                                <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                                <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                                <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                                <td className="border border-slate-300 px-4 py-3 text-sm text-right">0</td>
-                              </tr>
-                            )}
-                            <tr className="bg-blue-50 hover:bg-blue-100 font-medium">
-                              <td className="border border-slate-300 px-4 py-3 text-sm">가공</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm font-semibold">{quote.processingName}</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-center">1</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right font-semibold">{unitPrice.toLocaleString()}</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right font-semibold">{totalPrice.toLocaleString()}</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right font-semibold">{taxAmount.toLocaleString()}</td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm text-right font-bold text-blue-600">{totalWithTax.toLocaleString()}</td>
-                            </tr>
-                            {/* 가격 세부 내역 (단가) - 금액 제외 */}
-                            {quote.breakdown && quote.breakdown.length > 0 && (
-                              <tr>
-                                <td colSpan={8} className="border border-slate-300 px-4 py-4 bg-gray-50">
-                                  <div className="text-sm">
-                                    <div className="font-semibold text-gray-900 mb-2">가격 세부 내역 (단가):</div>
-                                    <div className="space-y-1 ml-4">
-                                      {quote.breakdown.map((item, idx) => (
-                                        <div key={idx} className="text-gray-700">
-                                          • {item.label}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                <div className="space-y-4">
+                  {quotes.map((quote, index) => (
+                    <CustomerQuoteCard
+                      key={quote.id}
+                      quote={quote}
+                      index={index}
+                      onRemove={removeQuote}
+                      onUpdateQuantity={updateQuoteQuantity}
+                    />
+                  ))}
                 </div>
               </div>
 

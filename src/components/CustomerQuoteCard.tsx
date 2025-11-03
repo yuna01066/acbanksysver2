@@ -68,39 +68,65 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity }: Custome
         </div>
       </CardHeader>
       <CardContent className="pt-4">
-        {/* 선택한 옵션들 표시 - 재질, 소재, 색상, 가공방법만 */}
+        {/* 선택한 옵션들 표시 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-xs text-gray-600 mb-1">재질</div>
-            <div className="font-semibold text-gray-900 text-sm">{quote.quality}</div>
+            <div className="text-xs text-gray-600 mb-1">색상</div>
+            <div className="flex items-center gap-2">
+              {quote.selectedColorHex && (
+                <div 
+                  className="w-4 h-4 rounded border border-gray-300"
+                  style={{ backgroundColor: quote.selectedColorHex }}
+                />
+              )}
+              <span className="font-semibold text-gray-900 text-sm">{quote.selectedColor || '-'}</span>
+            </div>
           </div>
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
             <div className="text-xs text-gray-600 mb-1">소재</div>
             <div className="font-semibold text-gray-900 text-sm">{quote.material}</div>
           </div>
-          {quote.selectedColor && (
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-xs text-gray-600 mb-1">색상</div>
-              <div className="flex items-center gap-2">
-                {quote.selectedColorHex && (
-                  <div 
-                    className="w-4 h-4 rounded border border-gray-300"
-                    style={{ backgroundColor: quote.selectedColorHex }}
-                  />
-                )}
-                <span className="font-semibold text-gray-900 text-sm">{quote.selectedColor}</span>
-              </div>
-            </div>
-          )}
-          {quote.processing && (
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-xs text-gray-600 mb-1">가공방법</div>
-              <div className="font-semibold text-gray-900 text-sm">{quote.processingName}</div>
-            </div>
-          )}
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-xs text-gray-600 mb-1">재질</div>
+            <div className="font-semibold text-gray-900 text-sm">{quote.quality}</div>
+          </div>
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-xs text-gray-600 mb-1">두께</div>
+            <div className="font-semibold text-gray-900 text-sm">{quote.thickness}</div>
+          </div>
         </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-xs text-gray-600 mb-1">사이즈</div>
+            <div className="font-semibold text-gray-900 text-sm">{quote.size}</div>
+          </div>
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-xs text-gray-600 mb-1">면수</div>
+            <div className="font-semibold text-gray-900 text-sm">{quote.surface}</div>
+          </div>
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-xs text-gray-600 mb-1">가공방법</div>
+            <div className="font-semibold text-gray-900 text-sm">{quote.processingName}</div>
+          </div>
+        </div>
+
+        {/* 가격 세부 내역 (단가) */}
+        {quote.breakdown && quote.breakdown.length > 0 && (
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-sm font-semibold text-gray-900 mb-3">가격 세부 내역 (단가)</div>
+            <div className="space-y-2">
+              {quote.breakdown.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-center text-sm">
+                  <span className="text-gray-700">{item.label}</span>
+                  <span className="font-semibold text-gray-900">{formatPrice(item.price)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
-        {/* 가격 정보 - 상세 내역 없이 단가와 총가격만 */}
+        {/* 가격 정보 */}
         <div className="space-y-2 pt-3 border-t border-gray-200">
           <div className="flex justify-between items-center">
             <span className="text-gray-600">단가</span>
