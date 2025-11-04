@@ -192,12 +192,12 @@ const CustomerQuotesSummaryPage = () => {
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* 견적 기본 정보 */}
-                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 flex flex-col justify-center space-y-4">
-                      <div>
+                    <div className="space-y-3">
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
                         <p className="text-xs text-gray-500 mb-1">견적번호</p>
                         <p className="text-sm font-semibold text-gray-900">{quoteNumber}</p>
                       </div>
-                      <div>
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
                         <p className="text-xs text-gray-500 mb-1">작성일</p>
                         <p className="text-sm font-semibold text-gray-900">{currentDate}</p>
                       </div>
