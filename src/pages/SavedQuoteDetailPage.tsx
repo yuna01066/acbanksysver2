@@ -452,13 +452,13 @@ const SavedQuoteDetailPage = () => {
                   <p className="mb-3">견적 관련 문의사항이나 주문을 원하시면 아래 연락처로 문의해주세요.</p>
                   
                   {/* 담당자 정보 */}
-                  {quote.issuer_name && (
+                  {recipientData.issuerName && (
                     <div className="bg-white p-3 rounded-lg border border-blue-100">
                       <p className="font-semibold text-blue-900 mb-2">담당자</p>
                       <div className="space-y-1">
-                        <p className="font-medium">👤 {quote.issuer_name}</p>
-                        {quote.issuer_phone && <p className="font-medium">📞 {quote.issuer_phone}</p>}
-                        {quote.issuer_email && <p className="font-medium">📧 {quote.issuer_email}</p>}
+                        <p className="font-medium">👤 {recipientData.issuerName}</p>
+                        {recipientData.issuerPhone && <p className="font-medium">📞 {recipientData.issuerPhone}</p>}
+                        {recipientData.issuerEmail && <p className="font-medium">📧 {recipientData.issuerEmail}</p>}
                       </div>
                     </div>
                   )}
