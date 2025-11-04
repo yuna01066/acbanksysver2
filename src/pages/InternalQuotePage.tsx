@@ -425,7 +425,7 @@ const InternalQuotePage = () => {
               <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm print-total">
                 <div className="p-4">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-base font-semibold text-gray-900">총 견적 금액</h2>
+                    <h2 className="text-xl font-bold text-gray-900">총 견적 금액</h2>
                     <div className="flex items-center gap-6">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-600">소계 (부가세 별도)</span>
@@ -435,9 +435,9 @@ const InternalQuotePage = () => {
                         <span className="text-xs text-gray-600">부가세 (10%)</span>
                         <span className="text-sm font-semibold text-gray-900">{Math.round(tax).toLocaleString()}원</span>
                       </div>
-                      <div className="flex items-center gap-2 pl-6 border-l border-gray-200">
-                        <span className="text-sm font-bold text-gray-900">총 합계</span>
-                        <span className="text-xl font-bold text-gray-900">{Math.round(totalWithTax).toLocaleString()}원</span>
+                      <div className="flex items-center gap-3 px-4 py-2 bg-slate-900 rounded-lg">
+                        <span className="text-sm font-bold text-white">총 합계</span>
+                        <span className="text-xl font-bold text-white">{Math.round(totalWithTax).toLocaleString()}원</span>
                       </div>
                     </div>
                   </div>
