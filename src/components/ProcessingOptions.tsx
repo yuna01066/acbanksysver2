@@ -398,7 +398,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                             </div>
                             
                             {/* 수량 조절 UI */}
-                            {isApplicable && (
+                            {isApplicable && option.allow_multiple && (
                               <div className="flex items-center gap-2">
                                 <Button
                                   variant="outline"
