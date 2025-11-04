@@ -49,7 +49,7 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
   const totalPrice = unitPrice * quote.quantity;
 
   return (
-    <Card className="border border-gray-200">
+    <Card className="border border-gray-200 shadow-none hover:shadow-none transition-none hover:border-gray-200">
       <CardHeader className="pb-4 bg-gray-100 text-gray-900 print:bg-gray-100">
         <div className="flex justify-between items-center">
           <div>
