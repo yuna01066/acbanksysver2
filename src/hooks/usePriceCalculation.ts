@@ -527,6 +527,7 @@ export const usePriceCalculation = ({
     colorMixingCost, 
     selectedProcessing, 
     selectedAdhesion,
+    selectedAdditionalOptions,
     qty,
     isComplex,
     bevelLengthM,
