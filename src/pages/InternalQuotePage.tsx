@@ -424,7 +424,7 @@ const InternalQuotePage = () => {
               {/* 견적 총 합계 */}
               <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm print-total">
                 <div className="p-4">
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-center justify-between">
                     <h2 className="text-xl font-bold text-gray-900">총 견적 금액</h2>
                     <div className="flex flex-col items-end gap-2">
                       <div className="flex items-center gap-6">
