@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import QuoteCard from "@/components/QuoteCard";
 import CustomerQuoteCard from "@/components/CustomerQuoteCard";
 import QuoteSummaryHeader from "@/components/QuoteSummaryHeader";
+import PrintStyles from "@/components/PrintStyles";
 import businessRegistration from "@/assets/arcbank-business-registration.jpg";
 import bankAccount from "@/assets/arcbank-bank-account.jpg";
 import arcbankLogo from "@/assets/arcbank-logo.png";
@@ -188,150 +189,7 @@ const SavedQuoteDetailPage = () => {
 
   return (
     <>
-      <style>{`
-        @media print {
-          @page {
-            size: A4;
-            margin: 10mm 15mm 20mm 15mm;
-          }
-          
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
-          }
-          
-          body {
-            margin: 0;
-            padding: 0;
-            width: 210mm;
-            height: 297mm;
-            font-size: 8pt;
-          }
-          
-          .print-container {
-            max-width: none;
-            margin: 0;
-            padding: 0;
-            page-break-after: auto;
-          }
-          
-          /* 견적 요약 섹션 크기 조정 */
-          .print-summary {
-            padding: 8px !important;
-            margin-bottom: 12px !important;
-          }
-          
-          .print-summary > div {
-            padding: 10px !important;
-          }
-          
-          .print-summary h2 {
-            font-size: 10pt !important;
-            margin-bottom: 6px !important;
-            padding-bottom: 4px !important;
-          }
-          
-          .print-summary .grid {
-            gap: 6px !important;
-            grid-template-columns: repeat(3, 1fr) !important;
-          }
-          
-          .print-summary .bg-gray-50 {
-            padding: 6px !important;
-          }
-          
-          .print-summary .text-xs {
-            font-size: 6pt !important;
-          }
-          
-          .print-summary .text-sm {
-            font-size: 7pt !important;
-          }
-          
-          .print-summary .text-2xl {
-            font-size: 12pt !important;
-          }
-          
-          .print-summary .text-base {
-            font-size: 8pt !important;
-          }
-          
-          /* 총 견적 금액 섹션 크기 조정 */
-          .print-total {
-            padding: 8px !important;
-            margin-bottom: 12px !important;
-          }
-          
-          .print-total > div {
-            padding: 10px !important;
-          }
-          
-          .print-total h2 {
-            font-size: 10pt !important;
-            margin-bottom: 6px !important;
-            padding-bottom: 4px !important;
-          }
-          
-          .print-total .bg-gray-50 {
-            padding: 8px !important;
-          }
-          
-          .print-total .text-sm {
-            font-size: 7pt !important;
-          }
-          
-          .print-total .text-lg {
-            font-size: 9pt !important;
-          }
-          
-          .print-total .text-base {
-            font-size: 8pt !important;
-          }
-          
-          .print-total .text-2xl, .print-total .text-xl {
-            font-size: 11pt !important;
-          }
-          
-          .print-total .text-xs {
-            font-size: 6pt !important;
-          }
-          
-          /* 2열 레이아웃 유지 */
-          .grid.grid-cols-1.md\\:grid-cols-2 {
-            display: grid !important;
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 1.5rem !important;
-          }
-          
-          /* 푸터 스타일 */
-          .print-footer {
-            position: fixed;
-            bottom: 10mm;
-            left: 15mm;
-            right: 15mm;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border-top: 1px solid #ccc;
-            font-size: 8pt;
-            color: #666;
-          }
-          
-          .print-footer::after {
-            counter-increment: page;
-            content: "Page " counter(page);
-          }
-        }
-      `}</style>
-      
-      {/* Print Footer */}
-      <div className="print-footer hidden print:flex">
-        <span>견적번호: {quote.quote_number}</span>
-        <span>{quote.project_name || '프로젝트명 없음'}</span>
-        <span></span>
-      </div>
+      <PrintStyles quoteNumber={quote.quote_number} projectName={quote.project_name} />
       <div className="min-h-screen bg-gray-50 p-4">
         <div className="w-full max-w-4xl mx-auto print-container">
           <div className="mb-6 print:hidden">
