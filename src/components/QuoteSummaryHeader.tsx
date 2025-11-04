@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Download, FileText, Calendar, Trash2, Users, Building2, Home, Save, List } from "lucide-react";
+import arcbankLogo from "@/assets/arcbank-logo.png";
 interface QuoteSummaryHeaderProps {
   onClearQuotes: () => void;
   onPrintPDF: () => void;
@@ -63,7 +64,7 @@ const QuoteSummaryHeader = ({
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-3xl font-bold flex items-center gap-3 mb-2 text-gray-900">
-                <FileText className="w-8 h-8 text-gray-700" />
+                <img src={arcbankLogo} alt="아크뱅크 로고" className="w-8 h-8 object-contain" />
                 아크뱅크 견적서
               </CardTitle>
               <p className="text-gray-500 text-lg font-light">ACBANK Quotation</p>
