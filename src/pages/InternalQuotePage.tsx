@@ -441,7 +441,7 @@ const InternalQuotePage = () => {
                       </div>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">* 전체 {quotes.length}개 견적의 합계입니다.</p>
+                  <p className="text-xs text-gray-500 mt-2">* 배송비는 별도 입니다.</p>
                 </div>
               </div>
 
