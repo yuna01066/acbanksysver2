@@ -86,9 +86,23 @@ const SavedQuoteDetailPage = () => {
         items: Array.isArray(data.items) ? data.items : []
       };
       
+      // 현재 로그인한 사용자의 프로필 정보 가져오기
+      const { data: { user } } = await supabase.auth.getUser();
+      let profileData = null;
+      
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, email, phone, department, position')
+          .eq('id', user.id)
+          .single();
+        
+        profileData = profile;
+      }
+      
       setQuote(formattedData);
       
-      // RecipientData 설정
+      // RecipientData 설정 - issuer 정보는 profiles에서 가져오거나 saved_quotes에 저장된 값 사용
       setRecipientData({
         projectName: formattedData.project_name || '',
         quoteNumber: formattedData.quote_number || '',
@@ -103,9 +117,9 @@ const SavedQuoteDetailPage = () => {
         desiredDeliveryDate: formattedData.desired_delivery_date ? new Date(formattedData.desired_delivery_date) : null,
         deliveryAddress: formattedData.recipient_address || '',
         clientMemo: formattedData.recipient_memo || '',
-        issuerName: formattedData.issuer_name || '',
-        issuerEmail: formattedData.issuer_email || '',
-        issuerPhone: formattedData.issuer_phone || ''
+        issuerName: formattedData.issuer_name || profileData?.full_name || '',
+        issuerEmail: formattedData.issuer_email || profileData?.email || '',
+        issuerPhone: formattedData.issuer_phone || profileData?.phone || ''
       });
     } catch (error) {
       console.error('Error fetching quote:', error);
@@ -377,9 +391,9 @@ const SavedQuoteDetailPage = () => {
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <h4 className="font-semibold text-slate-800 mb-3">담당자 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
-                      <div><strong>담당자:</strong> {quote.issuer_name || '작성'}</div>
-                      {quote.issuer_email && <div><strong>이메일:</strong> {quote.issuer_email}</div>}
-                      {quote.issuer_phone && <div><strong>연락처:</strong> {quote.issuer_phone}</div>}
+                      <div><strong>담당자:</strong> {recipientData.issuerName || '작성'}</div>
+                      {recipientData.issuerEmail && <div><strong>이메일:</strong> {recipientData.issuerEmail}</div>}
+                      {recipientData.issuerPhone && <div><strong>연락처:</strong> {recipientData.issuerPhone}</div>}
                     </div>
                   </div>
                   
