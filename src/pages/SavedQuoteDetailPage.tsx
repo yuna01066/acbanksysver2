@@ -219,57 +219,18 @@ const SavedQuoteDetailPage = () => {
             </Button>
           </div>
 
-          {/* Header Actions */}
-          <div className="flex justify-between items-center mb-6 print:hidden">
-            <Button variant="outline" onClick={() => navigate('/saved-quotes')} className="flex items-center gap-2">
-              <List className="w-4 h-4" />
-              발행 견적서 목록
-            </Button>
-            <div className="flex gap-2">
-              {isEditing ? (
-                <>
-                  <Button variant="outline" onClick={handleSaveEdit} className="text-green-600 border-green-600">
-                    <Save className="w-4 h-4 mr-2" />
-                    저장
-                  </Button>
-                  <Button variant="outline" onClick={() => setIsEditing(false)}>
-                    <X className="w-4 h-4 mr-2" />
-                    취소
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button variant="outline" onClick={() => setIsEditing(true)} className="text-blue-600 border-blue-600">
-                    <Edit className="w-4 h-4 mr-2" />
-                    수정
-                  </Button>
-                  <Button variant="outline" onClick={toggleViewMode} className={`flex items-center gap-2 ${viewMode === 'customer' ? 'text-blue-600 border-blue-600 hover:bg-blue-50' : 'text-green-600 border-green-600 hover:bg-green-50'}`}>
-                    {viewMode === 'internal' ? (
-                      <>
-                        <Users className="w-4 h-4" />
-                        고객용 견적서
-                      </>
-                    ) : (
-                      <>
-                        <Building2 className="w-4 h-4" />
-                        내부용 견적서
-                      </>
-                    )}
-                  </Button>
-                  <Button onClick={handlePrintPDF} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
-                    <Download className="w-4 h-4" />
-                    PDF 출력
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-          
           <QuoteSummaryHeader 
             onClearQuotes={() => {}}
             onPrintPDF={handlePrintPDF}
             currentDate={currentDate}
             quoteNumber={quote.quote_number}
+            isEditMode={isEditing}
+            onEdit={() => setIsEditing(true)}
+            onSaveEdit={handleSaveEdit}
+            onCancelEdit={() => setIsEditing(false)}
+            onToggleViewMode={toggleViewMode}
+            viewMode={viewMode}
+            showSavedQuoteActions={true}
           />
 
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
