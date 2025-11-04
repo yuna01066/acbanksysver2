@@ -18,6 +18,7 @@ import QuoteCard from "@/components/QuoteCard";
 import TotalPricingSummary from "@/components/TotalPricingSummary";
 import QuoteWarningNote from "@/components/QuoteWarningNote";
 import RecipientInfoForm from "@/components/RecipientInfoForm";
+import PrintStyles from "@/components/PrintStyles";
 
 const QuotesSummaryPage = () => {
   const navigate = useNavigate();
@@ -98,61 +99,7 @@ const QuotesSummaryPage = () => {
 
   return (
     <>
-      <style>{`
-        @media print {
-          @page {
-            size: A4;
-            margin: 15mm 15mm 25mm 15mm;
-          }
-          
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
-          }
-          
-          body {
-            margin: 0;
-            padding: 0;
-            width: 210mm;
-            height: 297mm;
-          }
-          
-          .print-container {
-            max-width: none;
-            margin: 0;
-            padding: 0;
-            page-break-after: auto;
-          }
-          
-          /* 2열 레이아웃 유지 */
-          .grid.grid-cols-1.md\\:grid-cols-2 {
-            display: grid !important;
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 2rem !important;
-          }
-          
-          /* 푸터 스타일 */
-          .print-footer {
-            position: fixed;
-            bottom: 10mm;
-            left: 15mm;
-            right: 15mm;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border-top: 1px solid #ccc;
-            font-size: 10pt;
-            color: #666;
-          }
-          
-          .print-footer::after {
-            counter-increment: page;
-            content: "Page " counter(page);
-          }
-        }
-      `}</style>
+      <PrintStyles quoteNumber={recipientData.quoteNumber} projectName={recipientData.projectName} companyName={recipientData.companyName} />
       
       {/* Print Footer */}
       <div className="print-footer hidden print:flex">
@@ -200,15 +147,16 @@ const QuotesSummaryPage = () => {
           </div>
 
           {/* 헤더 카드 */}
-          <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white mb-6">
-            <CardHeader className="bg-slate-900 text-white p-8">
+          <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white mb-6 print:shadow-none">
+            <CardHeader className="bg-gradient-to-r from-slate-900 to-slate-700 text-white p-8 print:bg-slate-900">
               <div className="flex items-center justify-between">
                 <div>
+                  <div className="text-sm text-slate-300 mb-2">ARCBANK QUOTATION</div>
                   <CardTitle className="text-3xl font-bold flex items-center gap-3 mb-2">
                     <FileText className="w-8 h-8" />
-                    견적서 작성하기
+                    아크뱅크 견적서
                   </CardTitle>
-                  <p className="text-slate-200 text-lg">Create Panel Material Quotation</p>
+                  <p className="text-slate-200 text-lg">Panel Material Quotation</p>
                 </div>
                 <div className="text-right">
                   <div className="flex items-center gap-2 text-slate-200 mb-2">

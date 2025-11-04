@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Download, FileText, Calendar } from "lucide-react";
 import { formatPrice } from "@/utils/priceCalculations";
+import PrintStyles from "@/components/PrintStyles";
 
 interface QuoteData {
   factory?: string;
@@ -58,62 +59,7 @@ const CustomerQuotePage = () => {
 
   return (
     <>
-      <style>{`
-        @media print {
-          @page {
-            size: A4;
-            margin: 15mm 15mm 25mm 15mm;
-          }
-          
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
-          }
-          
-          body {
-            margin: 0;
-            padding: 0;
-            width: 210mm;
-            height: 297mm;
-          }
-          
-          .print-container {
-            max-width: none;
-            margin: 0;
-            padding: 0;
-            page-break-after: auto;
-          }
-          
-          /* 2열 레이아웃 유지 */
-          .grid.grid-cols-1.md\\:grid-cols-2,
-          .grid.grid-cols-2.md\\:grid-cols-3 {
-            display: grid !important;
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 1rem !important;
-          }
-          
-          /* 푸터 스타일 */
-          .print-footer {
-            position: fixed;
-            bottom: 10mm;
-            left: 15mm;
-            right: 15mm;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border-top: 1px solid #ccc;
-            font-size: 10pt;
-            color: #666;
-          }
-          
-          .print-footer::after {
-            counter-increment: page;
-            content: "Page " counter(page);
-          }
-        }
-      `}</style>
+      <PrintStyles quoteNumber={quoteNumber} projectName="고객용 견적서" />
       
       {/* Print Footer */}
       <div className="print-footer hidden print:flex">
@@ -144,14 +90,15 @@ const CustomerQuotePage = () => {
         </div>
 
         {/* 견적서 메인 카드 */}
-        <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
+        <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white print:shadow-none">
           {/* 헤더 */}
-          <CardHeader className="bg-slate-900 text-white p-8">
+          <CardHeader className="bg-gradient-to-r from-slate-900 to-slate-700 text-white p-8 print:bg-slate-900">
             <div className="flex items-center justify-between">
               <div>
+                <div className="text-sm text-slate-300 mb-2">ARCBANK QUOTATION</div>
                 <CardTitle className="text-3xl font-bold flex items-center gap-3 mb-2">
                   <FileText className="w-8 h-8" />
-                  판재 견적서
+                  아크뱅크 견적서
                 </CardTitle>
                 <p className="text-slate-200 text-lg">Panel Material Quotation</p>
               </div>

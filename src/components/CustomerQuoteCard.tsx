@@ -28,9 +28,12 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
 
   return (
     <Card className="border border-gray-200">
-      <CardHeader className="pb-4 bg-gray-50">
+      <CardHeader className="pb-4 bg-gradient-to-r from-slate-900 to-slate-700 text-white print:bg-slate-900">
         <div className="flex justify-between items-center">
-          <CardTitle className="text-lg">견적 #{index + 1}</CardTitle>
+          <div>
+            <div className="text-xs text-slate-300 mb-1">아크뱅크 견적서</div>
+            <CardTitle className="text-lg">견적 #{index + 1}</CardTitle>
+          </div>
           {!readOnly && (
             <div className="flex items-center gap-3">
               {/* 수량 조절 */}
