@@ -2,18 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { List, Save, Edit, X, Download, Users, Building2, Calendar, FileText, Home } from "lucide-react";
+import { List, Save, Edit, X, Download, Users, Building2, Home, Calculator } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import QuoteCard from "@/components/QuoteCard";
 import CustomerQuoteCard from "@/components/CustomerQuoteCard";
+import QuoteSummaryHeader from "@/components/QuoteSummaryHeader";
 import businessRegistration from "@/assets/arcbank-business-registration.jpg";
 import bankAccount from "@/assets/arcbank-bank-account.jpg";
+import arcbankLogo from "@/assets/arcbank-logo.png";
 import RecipientInfoForm from "@/components/RecipientInfoForm";
 import { QuoteRecipient } from "@/contexts/QuoteContext";
 
@@ -49,7 +46,6 @@ const SavedQuoteDetailPage = () => {
   const { id } = useParams();
   const [quote, setQuote] = useState<SavedQuote | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState<Partial<SavedQuote>>({});
   const [recipientData, setRecipientData] = useState<QuoteRecipient>({
     projectName: '',
     quoteNumber: '',
@@ -90,7 +86,6 @@ const SavedQuoteDetailPage = () => {
       };
       
       setQuote(formattedData);
-      setEditForm(formattedData);
       
       // RecipientData 설정
       setRecipientData({
@@ -106,7 +101,10 @@ const SavedQuoteDetailPage = () => {
         email: formattedData.recipient_email || '',
         desiredDeliveryDate: formattedData.desired_delivery_date ? new Date(formattedData.desired_delivery_date) : null,
         deliveryAddress: formattedData.recipient_address || '',
-        clientMemo: formattedData.recipient_memo || ''
+        clientMemo: formattedData.recipient_memo || '',
+        issuerName: formattedData.issuer_name || '',
+        issuerEmail: formattedData.issuer_email || '',
+        issuerPhone: formattedData.issuer_phone || ''
       });
     } catch (error) {
       console.error('Error fetching quote:', error);
@@ -143,7 +141,10 @@ const SavedQuoteDetailPage = () => {
           recipient_email: recipientData.email,
           recipient_address: recipientData.deliveryAddress,
           recipient_memo: recipientData.clientMemo,
-          desired_delivery_date: recipientData.desiredDeliveryDate?.toISOString()
+          desired_delivery_date: recipientData.desiredDeliveryDate?.toISOString(),
+          issuer_name: recipientData.issuerName,
+          issuer_email: recipientData.issuerEmail,
+          issuer_phone: recipientData.issuerPhone
         })
         .eq('id', id);
 
@@ -181,9 +182,9 @@ const SavedQuoteDetailPage = () => {
   });
 
   const items = Array.isArray(quote.items) ? quote.items : [];
-  const subtotal = quote.subtotal;
-  const tax = quote.tax;
-  const totalWithTax = quote.total;
+  const subtotal = Math.round(quote.subtotal);
+  const tax = Math.round(quote.tax);
+  const totalWithTax = Math.round(quote.total);
 
   return (
     <>
@@ -191,7 +192,7 @@ const SavedQuoteDetailPage = () => {
         @media print {
           @page {
             size: A4;
-            margin: 20mm 15mm 20mm 15mm;
+            margin: 10mm 15mm 20mm 15mm;
           }
           
           * {
@@ -203,191 +204,110 @@ const SavedQuoteDetailPage = () => {
           body {
             margin: 0;
             padding: 0;
-            background: white !important;
-            font-size: 9pt;
+            width: 210mm;
+            height: 297mm;
+            font-size: 8pt;
           }
           
           .print-container {
             max-width: none;
             margin: 0;
             padding: 0;
-            background: white !important;
+            page-break-after: auto;
           }
           
-          .page-break {
-            page-break-after: always;
-            break-after: page;
+          /* 견적 요약 섹션 크기 조정 */
+          .print-summary {
+            padding: 8px !important;
+            margin-bottom: 12px !important;
           }
           
-          .page-break-avoid {
-            page-break-inside: avoid;
-            break-inside: avoid;
+          .print-summary > div {
+            padding: 10px !important;
           }
           
-          /* 그리드 레이아웃 유지 */
-          .grid {
-            display: grid !important;
-          }
-          
-          .grid-cols-2 {
-            grid-template-columns: repeat(2, 1fr) !important;
-          }
-          
-          .md\\:grid-cols-4 {
-            grid-template-columns: repeat(4, 1fr) !important;
-          }
-          
-          .md\\:col-span-2 {
-            grid-column: span 2 / span 2 !important;
-          }
-          
-          /* 견적 카드 간격 조정 */
-          .space-y-6 > * + * {
-            margin-top: 12px !important;
-          }
-          
-          /* 배경색 제거 및 테두리만 표시 */
-          .print\\:bg-white {
-            background: white !important;
-          }
-          
-          .print\\:outline-only {
-            background: transparent !important;
-            border: 1.5px solid #94a3b8 !important;
-          }
-          
-          .print\\:outline-slate {
-            background: transparent !important;
-            border: 1.5px solid #cbd5e1 !important;
-          }
-          
-          .print\\:outline-blue {
-            background: transparent !important;
-            border: 1.5px solid #93c5fd !important;
-          }
-          
-          .print\\:outline-amber {
-            background: transparent !important;
-            border: 1.5px solid #fbbf24 !important;
-          }
-          
-          /* 헤더 카드 압축 */
-          .bg-white.border-b {
-            padding: 12px 16px !important;
-          }
-          
-          h1 {
-            font-size: 18pt !important;
-            margin-bottom: 4px !important;
-          }
-          
-          h2 {
-            font-size: 11pt !important;
-            margin-bottom: 8px !important;
-          }
-          
-          h3 {
+          .print-summary h2 {
             font-size: 10pt !important;
             margin-bottom: 6px !important;
             padding-bottom: 4px !important;
           }
           
-          h4 {
-            font-size: 9pt !important;
-            margin-bottom: 4px !important;
-          }
-          
-          /* 견적 요약 섹션 압축 */
-          .border.border-gray-200.rounded-lg {
-            margin-bottom: 12px !important;
-          }
-          
-          .border.border-gray-200.rounded-lg .p-6 {
-            padding: 8px 12px !important;
-          }
-          
-          .grid.grid-cols-1.md\\:grid-cols-3 {
-            display: grid !important;
-            grid-template-columns: repeat(3, 1fr) !important;
+          .print-summary .grid {
             gap: 6px !important;
+            grid-template-columns: repeat(3, 1fr) !important;
           }
           
-          .grid.grid-cols-1.md\\:grid-cols-3 > div {
+          .print-summary .bg-gray-50 {
             padding: 6px !important;
           }
           
-          .bg-gray-50.rounded-lg {
-            padding: 6px !important;
+          .print-summary .text-xs {
+            font-size: 6pt !important;
           }
           
-          .space-y-3 {
-            gap: 4px !important;
-          }
-          
-          /* 견적 요약 내부 텍스트 크기 조정 */
-          .grid.grid-cols-1.md\\:grid-cols-3 .text-xs {
+          .print-summary .text-sm {
             font-size: 7pt !important;
           }
           
-          .grid.grid-cols-1.md\\:grid-cols-3 .text-sm {
-            font-size: 7.5pt !important;
+          .print-summary .text-2xl {
+            font-size: 12pt !important;
           }
           
-          .grid.grid-cols-1.md\\:grid-cols-3 .text-2xl {
-            font-size: 14pt !important;
+          .print-summary .text-base {
+            font-size: 8pt !important;
           }
           
-          .grid.grid-cols-1.md\\:grid-cols-3 .text-base {
-            font-size: 9pt !important;
-          }
-          
-          /* 2열 레이아웃 유지 및 간격 줄이기 */
-          .grid.grid-cols-1.md\\:grid-cols-2 {
-            display: grid !important;
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 12px !important;
+          /* 총 견적 금액 섹션 크기 조정 */
+          .print-total {
+            padding: 8px !important;
             margin-bottom: 12px !important;
           }
           
-          /* 수신/발신 섹션 압축 */
-          .space-y-4 {
-            gap: 8px !important;
+          .print-total > div {
+            padding: 10px !important;
           }
           
-          .p-4 {
+          .print-total h2 {
+            font-size: 10pt !important;
+            margin-bottom: 6px !important;
+            padding-bottom: 4px !important;
+          }
+          
+          .print-total .bg-gray-50 {
             padding: 8px !important;
           }
           
-          .space-y-2 {
-            gap: 4px !important;
-          }
-          
-          .text-sm {
-            font-size: 8pt !important;
-            line-height: 1.3 !important;
-          }
-          
-          .text-xs {
+          .print-total .text-sm {
             font-size: 7pt !important;
           }
           
-          .mb-8, .my-8 {
-            margin-bottom: 12px !important;
-            margin-top: 12px !important;
+          .print-total .text-lg {
+            font-size: 9pt !important;
           }
           
-          .mb-6 {
-            margin-bottom: 10px !important;
+          .print-total .text-base {
+            font-size: 8pt !important;
           }
           
-          .p-8 {
-            padding: 16px !important;
+          .print-total .text-2xl, .print-total .text-xl {
+            font-size: 11pt !important;
           }
           
-          /* 푸터 스타일 - 모든 페이지 하단에 표시 */
+          .print-total .text-xs {
+            font-size: 6pt !important;
+          }
+          
+          /* 2열 레이아웃 유지 */
+          .grid.grid-cols-1.md\\:grid-cols-2 {
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 1.5rem !important;
+          }
+          
+          /* 푸터 스타일 */
           .print-footer {
             position: fixed;
-            bottom: 0;
+            bottom: 10mm;
             left: 15mm;
             right: 15mm;
             display: flex;
@@ -397,10 +317,9 @@ const SavedQuoteDetailPage = () => {
             border-top: 1px solid #ccc;
             font-size: 8pt;
             color: #666;
-            background: white;
           }
           
-          .print-footer .page-number::after {
+          .print-footer::after {
             counter-increment: page;
             content: "Page " counter(page);
           }
@@ -409,11 +328,11 @@ const SavedQuoteDetailPage = () => {
       
       {/* Print Footer */}
       <div className="print-footer hidden print:flex">
-        <span className="font-semibold">{viewMode === 'internal' ? '내부용 견적서' : '고객용 견적서'}</span>
         <span>견적번호: {quote.quote_number}</span>
-        <span className="page-number"></span>
+        <span>{quote.project_name || '프로젝트명 없음'}</span>
+        <span></span>
       </div>
-      <div className="min-h-screen bg-gray-50 p-4 print:bg-white print:p-0">
+      <div className="min-h-screen bg-gray-50 p-4">
         <div className="w-full max-w-4xl mx-auto print-container">
           <div className="mb-6 print:hidden">
             <Button 
@@ -423,11 +342,11 @@ const SavedQuoteDetailPage = () => {
               size="sm"
             >
               <Home className="w-4 h-4" />
-              홈으로
+              홈으로 돌아가기
             </Button>
           </div>
 
-          {/* Header */}
+          {/* Header Actions */}
           <div className="flex justify-between items-center mb-6 print:hidden">
             <Button variant="outline" onClick={() => navigate('/saved-quotes')} className="flex items-center gap-2">
               <List className="w-4 h-4" />
@@ -472,35 +391,18 @@ const SavedQuoteDetailPage = () => {
               )}
             </div>
           </div>
+          
+          <QuoteSummaryHeader 
+            onClearQuotes={() => {}}
+            onPrintPDF={handlePrintPDF}
+            currentDate={currentDate}
+            quoteNumber={quote.quote_number}
+          />
 
-          {/* Quote Header Card */}
-          <Card className="shadow-sm border border-gray-200 rounded-xl overflow-hidden bg-white mb-6 print:shadow-none print:border-0">
-            <div className="bg-white border-b border-gray-100 p-8 print:border-0">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold flex items-center gap-3 mb-2 text-gray-900">
-                    <FileText className="w-8 h-8 text-gray-700" />
-                    아크뱅크 견적서
-                  </h1>
-                  <p className="text-gray-500 text-lg font-light">ACBANK Quotation</p>
-                </div>
-                <div className="text-right">
-                  <div className="flex items-center gap-2 text-gray-500 mb-2">
-                    <Calendar className="w-4 h-4" />
-                    <span>{currentDate}</span>
-                  </div>
-                  <Badge className="bg-gray-100 text-gray-800 border border-gray-200 px-4 py-2 text-lg font-semibold">
-                    견적번호: {quote.quote_number}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white print:shadow-none print:bg-transparent">
-            <CardContent className="p-8 print:p-0">
+          <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
+            <CardContent className="p-8">
               {/* 견적 요약 정보 */}
-              <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm page-break-avoid print:border-gray-300 print:shadow-none">
+              <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm print-summary">
                 <div className="p-6">
                   <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
                     <h2 className="text-lg font-semibold text-gray-900">견적 요약</h2>
@@ -560,7 +462,7 @@ const SavedQuoteDetailPage = () => {
               )}
 
               {/* 회사 정보 섹션 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 page-break-avoid">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 {/* 견적서 수신 */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 수신</h3>
@@ -590,18 +492,14 @@ const SavedQuoteDetailPage = () => {
                       <div><strong>납기현장 주소:</strong> {quote.recipient_address || '-'}</div>
                     </div>
                   </div>
-
-                  {quote.recipient_memo && (
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                      <h4 className="font-semibold text-amber-900 mb-2">클라이언트 요청사항</h4>
-                      <p className="text-sm text-amber-800 whitespace-pre-wrap">{quote.recipient_memo}</p>
-                    </div>
-                  )}
                 </div>
 
                 {/* 견적서 발신 */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 발신</h3>
+                  <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2 flex items-center gap-3">
+                    <img src={arcbankLogo} alt="아크뱅크 로고" className="w-8 h-8 object-contain" />
+                    견적서 발신
+                  </h3>
                   
                   {/* 회사 기본 정보 */}
                   <div className="p-4 bg-slate-50 rounded-lg">
@@ -637,70 +535,67 @@ const SavedQuoteDetailPage = () => {
                 </div>
               </div>
 
-              <Separator className="my-8" />
 
-              {/* 견적 상세 내역 */}
-              <div className="mb-8 page-break-avoid">
+              {/* 내부용 견적 목록 */}
+              <div className="mb-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                  <Calculator className="w-5 h-5" />
                   견적 목록 ({items.length}개) - 내부 관리용
                 </h3>
                 <div className="space-y-6">
                   {items.map((item: any, index: number) => (
-                    <div key={index} className="page-break-avoid">
-                      {viewMode === 'customer' ? (
-                        <CustomerQuoteCard
-                          quote={item}
-                          index={index}
-                          onRemove={() => {}}
-                          onUpdateQuantity={() => {}}
-                          isCustomerView={true}
-                          readOnly={true}
-                        />
-                      ) : (
-                        <QuoteCard
-                          quote={item}
-                          index={index}
-                          onRemove={() => {}}
-                          onUpdateQuantity={() => {}}
-                          readOnly={true}
-                        />
-                      )}
-                    </div>
+                    viewMode === 'customer' ? (
+                      <CustomerQuoteCard
+                        key={index}
+                        quote={item}
+                        index={index}
+                        onRemove={() => {}}
+                        onUpdateQuantity={() => {}}
+                        isCustomerView={true}
+                        readOnly={true}
+                      />
+                    ) : (
+                      <QuoteCard
+                        key={index}
+                        quote={item}
+                        index={index}
+                        onRemove={() => {}}
+                        onUpdateQuantity={() => {}}
+                        readOnly={true}
+                      />
+                    )
                   ))}
                 </div>
               </div>
 
-              {/* 합계 섹션 */}
-              <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm page-break-avoid print:border-gray-300 print:shadow-none">
-                <div className="p-6">
-                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
-                    <h2 className="text-lg font-semibold text-gray-900">견적 합계</h2>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* 공급가 */}
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                      <p className="text-sm text-gray-500 mb-2">공급가</p>
-                      <p className="text-2xl font-bold text-gray-900">{subtotal.toLocaleString()}<span className="text-base font-normal text-gray-600 ml-1">원</span></p>
-                    </div>
-                    
-                    {/* 부가세 */}
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                      <p className="text-sm text-gray-500 mb-2">부가세 (10%)</p>
-                      <p className="text-2xl font-bold text-gray-900">{tax.toLocaleString()}<span className="text-base font-normal text-gray-600 ml-1">원</span></p>
-                    </div>
-                    
-                    {/* 최종 합계 */}
-                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                      <p className="text-sm text-blue-700 mb-2 font-semibold">최종 합계</p>
-                      <p className="text-2xl font-bold text-blue-900">{totalWithTax.toLocaleString()}<span className="text-base font-normal text-blue-700 ml-1">원</span></p>
+              {/* 견적 총 합계 */}
+              <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm print-total">
+                <div className="p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <h2 className="text-xl font-bold text-gray-900 bg-slate-100 px-6 py-2 rounded-lg">총 견적 금액</h2>
+                    <div className="flex flex-col items-end gap-2 flex-1">
+                      <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-600">소계 (부가세 별도)</span>
+                          <span className="text-sm font-semibold text-gray-900">{subtotal.toLocaleString()}원</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-600">부가세 (10%)</span>
+                          <span className="text-sm font-semibold text-gray-900">{tax.toLocaleString()}원</span>
+                        </div>
+                        <div className="flex items-center gap-3 px-4 py-2 bg-slate-900 rounded-lg">
+                          <span className="text-sm font-bold text-white">총 합계</span>
+                          <span className="text-xl font-bold text-white">{totalWithTax.toLocaleString()}원</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500">* 배송비는 별도 입니다.</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* 특이사항 및 상담내용 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 page-break-avoid">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <div>
                   <h3 className="text-lg font-bold mb-3">특 이 사 항 :</h3>
                   <ul className="text-sm space-y-1">
@@ -720,7 +615,7 @@ const SavedQuoteDetailPage = () => {
               </div>
 
               {/* 연락처 정보 */}
-              <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-slate-50 border border-blue-200 rounded-xl shadow-sm print:hidden">
+              <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-slate-50 border border-blue-200 rounded-xl shadow-sm">
                 <h4 className="font-bold text-slate-800 mb-4 text-lg">문의 및 주문</h4>
                 <div className="text-sm text-slate-700 space-y-3">
                   <p className="mb-3">견적 관련 문의사항이나 주문을 원하시면 아래 연락처로 문의해주세요.</p>
@@ -745,13 +640,11 @@ const SavedQuoteDetailPage = () => {
                 </div>
               </div>
 
-              <Separator className="my-8" />
-
               {/* 첨부 서류 - A5 사이즈 */}
-              <div className="page-break page-break-avoid">
+              <div className="mt-8 mb-8">
                 <h3 className="text-xl font-bold mb-6 text-slate-800">첨부 서류</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 page-break-avoid">
-                  <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm page-break-avoid">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm">
                     <h4 className="font-semibold text-slate-700 mb-3 text-center">사업자등록증</h4>
                     <div className="flex justify-center">
                       <img 
@@ -762,7 +655,7 @@ const SavedQuoteDetailPage = () => {
                       />
                     </div>
                   </div>
-                  <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm page-break-avoid">
+                  <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm">
                     <h4 className="font-semibold text-slate-700 mb-3 text-center">통장사본</h4>
                     <div className="flex justify-center">
                       <img 
