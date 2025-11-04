@@ -229,9 +229,15 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         console.log('Logic slots:', logicSlots);
         console.log('Available slots:', slots);
         
-        // 로직에 정의된 순서대로 슬롯 정렬, advanced_pricing과 additional 제외
+        // 로직에 정의된 순서대로 슬롯 정렬
+        // slot1~6만 메인 슬롯으로 처리 (단일 선택)
+        // slot7 이상, advanced_pricing, additional은 추가 옵션으로 처리 (다중 선택)
         const mainSlotTypes = logicSlots
-          .filter(logic => logic.slot_key !== 'advanced_pricing' && logic.slot_key !== 'additional')
+          .filter(logic => {
+            const slotKey = logic.slot_key;
+            // slot1~6만 메인 슬롯
+            return slotKey.match(/^slot[1-6]$/);
+          })
           .map(logic => logic.slot_key)
           .filter(slotKey => slots[slotKey] && slots[slotKey].length > 0);
         
@@ -318,9 +324,15 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
           slots
         });
         
-        // 고급 가격 설정과 추가 옵션 슬롯만 필터링
+        // slot7 이상, 고급 가격 설정, 추가 옵션 슬롯 필터링 (다중 선택 가능)
         const additionalSlotTypes = logicSlots
-          .filter(logic => logic.slot_key === 'advanced_pricing' || logic.slot_key === 'additional')
+          .filter(logic => {
+            const slotKey = logic.slot_key;
+            // slot7 이상, advanced_pricing, additional은 추가 옵션
+            return slotKey === 'advanced_pricing' || 
+                   slotKey === 'additional' || 
+                   slotKey.match(/^slot([7-9]|[1-9]\d+)$/);
+          })
           .filter(logic => slots[logic.slot_key] && slots[logic.slot_key].length > 0);
         
         console.log('Additional slot types:', additionalSlotTypes);
