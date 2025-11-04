@@ -1,11 +1,18 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface PrintStylesProps {
   quoteNumber: string;
   projectName?: string | null;
+  companyName?: string | null;
 }
 
-const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName }) => {
+const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, companyName }) => {
+  // PDF 파일명 설정
+  useEffect(() => {
+    const parts = [quoteNumber, projectName, companyName].filter(Boolean);
+    const fileName = parts.length > 0 ? parts.join('-') : '견적서';
+    document.title = fileName;
+  }, [quoteNumber, projectName, companyName]);
   return (
     <>
       <style>{`
