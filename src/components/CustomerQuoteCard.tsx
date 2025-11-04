@@ -132,10 +132,14 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
             </div>
             <div className="space-y-2">
               {quote.breakdown.map((item, idx) => {
-                // 고객용일 때 괄호와 그 안의 내용 제거
-                const displayLabel = isCustomerView 
-                  ? item.label.replace(/\s*\([^)]*\)/g, '').trim()
-                  : item.label;
+                // 고객용일 때 괄호와 그 안의 내용 제거 + 'x숫자개' 패턴도 제거
+                let displayLabel = item.label;
+                if (isCustomerView) {
+                  displayLabel = displayLabel
+                    .replace(/\s*\([^)]*\)/g, '') // 괄호와 내용 제거
+                    .replace(/\s*x\d+개/g, '')      // x숫자개 패턴 제거
+                    .trim();
+                }
                 
                 return (
                   <div key={idx} className="flex justify-between items-center text-sm">
