@@ -229,6 +229,32 @@ const CustomerQuotesSummaryPage = () => {
                 </div>
               </div>
 
+              {/* 견적 총 합계 */}
+              <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm print-total">
+                <div className="p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <h2 className="text-xl font-bold text-gray-900 bg-slate-100 px-6 py-2 rounded-lg">총 견적 금액</h2>
+                    <div className="flex flex-col items-end gap-2 flex-1">
+                      <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-600">소계 (부가세 별도)</span>
+                          <span className="text-sm font-semibold text-gray-900">{Math.round(subtotal).toLocaleString()}원</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-600">부가세 (10%)</span>
+                          <span className="text-sm font-semibold text-gray-900">{Math.round(tax).toLocaleString()}원</span>
+                        </div>
+                        <div className="flex items-center gap-3 px-4 py-2 bg-slate-900 rounded-lg">
+                          <span className="text-sm font-bold text-white">총 합계</span>
+                          <span className="text-xl font-bold text-white">{Math.round(totalWithTax).toLocaleString()}원</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500">* 배송비는 별도 입니다.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* 특이사항 및 상담내용 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <div>
