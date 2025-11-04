@@ -50,7 +50,7 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
 
   return (
     <Card className="border border-gray-200">
-      <CardHeader className="pb-4 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-900 print:bg-gray-100">
+      <CardHeader className="pb-4 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-900 print:bg-gray-100 rounded-t-lg">
         <div className="flex justify-between items-center">
           <div>
             <div className="text-xs text-gray-600 mb-1">아크뱅크 견적서</div>
