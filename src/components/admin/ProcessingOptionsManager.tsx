@@ -173,7 +173,7 @@ const ProcessingOptionsManager = () => {
   const [editingOption, setEditingOption] = useState<ProcessingOption | null>(null);
   const [editForm, setEditForm] = useState<Partial<ProcessingOption>>({});
   const [newOptionForm, setNewOptionForm] = useState<Partial<ProcessingOption>>({
-    option_type: 'slot1',
+    option_type: undefined, // 초기값을 undefined로 설정 (다이얼로그 열릴 때 설정)
     name: '',
     description: '',
     option_id: '',
@@ -281,10 +281,36 @@ const ProcessingOptionsManager = () => {
       return;
     }
     
+    // option_type이 유효한지 확인
+    if (!newOptionForm.option_type) {
+      dismiss();
+      toast({
+        title: '입력 오류',
+        description: '슬롯 타입을 선택해주세요.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    // option_type이 실제로 존재하는 슬롯인지 확인
+    const isValidSlotType = slotTypes?.some(st => st.slot_key === newOptionForm.option_type && st.is_active);
+    if (!isValidSlotType) {
+      dismiss();
+      toast({
+        title: '입력 오류',
+        description: '선택한 슬롯 타입이 유효하지 않습니다.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     await createOption.mutateAsync(newOptionForm as Omit<ProcessingOption, 'id'>);
     setIsAddDialogOpen(false);
+    
+    // 다이얼로그를 닫을 때 첫 번째 활성 슬롯으로 초기화
+    const firstActiveSlot = slotTypes?.find(st => st.is_active)?.slot_key || 'slot1';
     setNewOptionForm({
-      option_type: 'slot1',
+      option_type: firstActiveSlot,
       name: '',
       description: '',
       option_id: '',
@@ -966,7 +992,30 @@ const ProcessingOptionsManager = () => {
                   </CardDescription>
                 </div>
                 <Button 
-                  onClick={() => setIsAddDialogOpen(true)}
+                  onClick={() => {
+                    // 다이얼로그를 열기 전에 첫 번째 활성 슬롯으로 초기화
+                    const firstActiveSlot = slotTypes?.find(st => st.is_active);
+                    if (firstActiveSlot) {
+                      setNewOptionForm({
+                        option_type: firstActiveSlot.slot_key,
+                        name: '',
+                        description: '',
+                        option_id: '',
+                        multiplier: undefined,
+                        base_cost: undefined,
+                        is_active: true,
+                        applicable_thicknesses: []
+                      });
+                      setIsAddDialogOpen(true);
+                    } else {
+                      dismiss();
+                      toast({
+                        title: '슬롯 타입 없음',
+                        description: '먼저 슬롯 타입을 추가해주세요.',
+                        variant: 'destructive',
+                      });
+                    }
+                  }}
                   variant="default"
                   size="sm"
                 >
