@@ -423,27 +423,25 @@ const InternalQuotePage = () => {
 
               {/* 견적 총 합계 */}
               <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm print-total">
-                <div className="p-6">
-                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
-                    <h2 className="text-lg font-semibold text-gray-900">총 견적 금액</h2>
+                <div className="p-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-semibold text-gray-900">총 견적 금액</h2>
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600">소계 (부가세 별도)</span>
+                        <span className="text-sm font-semibold text-gray-900">{Math.round(subtotal).toLocaleString()}원</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600">부가세 (10%)</span>
+                        <span className="text-sm font-semibold text-gray-900">{Math.round(tax).toLocaleString()}원</span>
+                      </div>
+                      <div className="flex items-center gap-2 pl-6 border-l border-gray-200">
+                        <span className="text-sm font-bold text-gray-900">총 합계</span>
+                        <span className="text-xl font-bold text-gray-900">{Math.round(totalWithTax).toLocaleString()}원</span>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="space-y-3 bg-gray-50 rounded-lg p-4 border border-gray-100">
-                    <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-                      <p className="text-sm text-gray-600">소계 (부가세 별도)</p>
-                      <p className="text-lg font-semibold text-gray-900">{Math.round(subtotal).toLocaleString()}원</p>
-                    </div>
-                    <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-                      <p className="text-sm text-gray-600">부가세 (10%)</p>
-                      <p className="text-lg font-semibold text-gray-900">{Math.round(tax).toLocaleString()}원</p>
-                    </div>
-                    <div className="flex justify-between items-center pt-2">
-                      <p className="text-base font-bold text-gray-900">총 합계</p>
-                      <p className="text-2xl font-bold text-gray-900">{Math.round(totalWithTax).toLocaleString()}원</p>
-                    </div>
-                  </div>
-                  
-                  <p className="text-xs text-gray-600 mt-3">* 전체 {quotes.length}개 견적의 합계입니다.</p>
+                  <p className="text-xs text-gray-500 mt-2">* 전체 {quotes.length}개 견적의 합계입니다.</p>
                 </div>
               </div>
 
