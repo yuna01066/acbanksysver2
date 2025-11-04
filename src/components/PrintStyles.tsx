@@ -27,6 +27,7 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName }) =
             width: 210mm;
             height: 297mm;
             font-size: 8pt;
+            background-color: white !important;
           }
           
           .print-container {
@@ -34,6 +35,12 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName }) =
             margin: 0;
             padding: 0;
             page-break-after: auto;
+            background-color: white !important;
+          }
+          
+          /* 모든 배경을 흰색으로 */
+          .bg-gray-50, .min-h-screen {
+            background-color: white !important;
           }
           
           /* 견적 요약 섹션 크기 조정 */
