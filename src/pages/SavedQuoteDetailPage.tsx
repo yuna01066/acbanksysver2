@@ -250,12 +250,14 @@ const SavedQuoteDetailPage = () => {
             </div>
           </div>
           
-          <QuoteSummaryHeader 
-            onClearQuotes={() => {}}
-            onPrintPDF={handlePrintPDF}
-            currentDate={currentDate}
-            quoteNumber={quote.quote_number}
-          />
+          <div className="hidden">
+            <QuoteSummaryHeader 
+              onClearQuotes={() => {}}
+              onPrintPDF={handlePrintPDF}
+              currentDate={currentDate}
+              quoteNumber={quote.quote_number}
+            />
+          </div>
 
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
             <CardContent className="p-8">
