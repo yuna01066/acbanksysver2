@@ -67,7 +67,7 @@ const CustomerQuotesSummaryPage = () => {
         @media print {
           @page {
             size: A4;
-            margin: 15mm 15mm 25mm 15mm;
+            margin: 10mm 15mm 20mm 15mm;
           }
           
           * {
@@ -93,36 +93,43 @@ const CustomerQuotesSummaryPage = () => {
           
           /* 견적 요약 섹션 크기 조정 */
           .print-summary {
-            padding: 12px !important;
+            padding: 8px !important;
+            margin-bottom: 12px !important;
+          }
+          
+          .print-summary > div {
+            padding: 10px !important;
           }
           
           .print-summary h2 {
-            font-size: 11pt !important;
-            margin-bottom: 8px !important;
+            font-size: 10pt !important;
+            margin-bottom: 6px !important;
+            padding-bottom: 4px !important;
           }
           
           .print-summary .grid {
-            gap: 8px !important;
+            gap: 6px !important;
+            grid-template-columns: repeat(3, 1fr) !important;
           }
           
           .print-summary .bg-gray-50 {
-            padding: 8px !important;
+            padding: 6px !important;
           }
           
           .print-summary .text-xs {
-            font-size: 7pt !important;
+            font-size: 6pt !important;
           }
           
           .print-summary .text-sm {
-            font-size: 8pt !important;
+            font-size: 7pt !important;
           }
           
           .print-summary .text-2xl {
-            font-size: 14pt !important;
+            font-size: 12pt !important;
           }
           
           .print-summary .text-base {
-            font-size: 9pt !important;
+            font-size: 8pt !important;
           }
           
           /* 2열 레이아웃 유지 */
