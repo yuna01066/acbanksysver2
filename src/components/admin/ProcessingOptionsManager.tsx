@@ -194,7 +194,9 @@ const ProcessingOptionsManager = () => {
     label: '',
     title: '',
     description: '',
-    is_active: true
+    is_active: true,
+    allow_multiple_selection: false,
+    show_quantity_control: false
   });
   const [deleteSlotConfirmId, setDeleteSlotConfirmId] = useState<string | null>(null);
   
@@ -792,6 +794,8 @@ const ProcessingOptionsManager = () => {
                       <TableHead>레이블</TableHead>
                       <TableHead>제목 (계산기)</TableHead>
                       <TableHead>설명 (계산기)</TableHead>
+                      <TableHead className="text-center">다중 선택</TableHead>
+                      <TableHead className="text-center">수량 조절</TableHead>
                       <TableHead>활성화</TableHead>
                       <TableHead className="text-right">작업</TableHead>
                     </TableRow>
@@ -806,6 +810,16 @@ const ProcessingOptionsManager = () => {
                         <TableCell className="font-medium">{slot.title || '-'}</TableCell>
                         <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
                           {slot.description || '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant={slot.allow_multiple_selection ? 'default' : 'outline'}>
+                            {slot.allow_multiple_selection ? '활성' : '비활성'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant={slot.show_quantity_control ? 'default' : 'outline'}>
+                            {slot.show_quantity_control ? '표시' : '숨김'}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant={slot.is_active ? 'default' : 'secondary'}>
@@ -1141,12 +1155,28 @@ const ProcessingOptionsManager = () => {
                 placeholder="추가적인 가공 옵션을 선택하세요"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={newSlotForm.is_active}
-                onCheckedChange={(checked) => setNewSlotForm({ ...newSlotForm, is_active: checked })}
-              />
-              <Label>활성화</Label>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={newSlotForm.is_active}
+                  onCheckedChange={(checked) => setNewSlotForm({ ...newSlotForm, is_active: checked })}
+                />
+                <Label>활성화</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={newSlotForm.allow_multiple_selection ?? false}
+                  onCheckedChange={(checked) => setNewSlotForm({ ...newSlotForm, allow_multiple_selection: checked })}
+                />
+                <Label>다중 선택 허용</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={newSlotForm.show_quantity_control ?? false}
+                  onCheckedChange={(checked) => setNewSlotForm({ ...newSlotForm, show_quantity_control: checked })}
+                />
+                <Label>수량 조절 UI 표시</Label>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -1203,12 +1233,28 @@ const ProcessingOptionsManager = () => {
                 onChange={(e) => setEditSlotForm({ ...editSlotForm, description: e.target.value })}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={editSlotForm.is_active}
-                onCheckedChange={(checked) => setEditSlotForm({ ...editSlotForm, is_active: checked })}
-              />
-              <Label>활성화</Label>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={editSlotForm.is_active}
+                  onCheckedChange={(checked) => setEditSlotForm({ ...editSlotForm, is_active: checked })}
+                />
+                <Label>활성화</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={editSlotForm.allow_multiple_selection ?? false}
+                  onCheckedChange={(checked) => setEditSlotForm({ ...editSlotForm, allow_multiple_selection: checked })}
+                />
+                <Label>다중 선택 허용</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={editSlotForm.show_quantity_control ?? false}
+                  onCheckedChange={(checked) => setEditSlotForm({ ...editSlotForm, show_quantity_control: checked })}
+                />
+                <Label>수량 조절 UI 표시</Label>
+              </div>
             </div>
           </div>
           <DialogFooter>

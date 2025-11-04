@@ -229,27 +229,182 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         console.log('Logic slots:', logicSlots);
         console.log('Available slots:', slots);
         
-        // 로직에 정의된 순서대로 슬롯 정렬
-        // slot1~6만 메인 슬롯으로 처리 (단일 선택)
-        // slot7 이상, advanced_pricing, additional은 추가 옵션으로 처리 (다중 선택)
-        const mainSlotTypes = logicSlots
-          .filter(logic => {
-            const slotKey = logic.slot_key;
-            // slot1~6만 메인 슬롯
-            return slotKey.match(/^slot[1-6]$/);
-          })
+        // 모든 슬롯을 순서대로 렌더링
+        const allSlotTypes = logicSlots
           .map(logic => logic.slot_key)
           .filter(slotKey => slots[slotKey] && slots[slotKey].length > 0);
         
-        console.log('Main slot types to render:', mainSlotTypes);
+        console.log('All slot types to render:', allSlotTypes);
 
-        return mainSlotTypes.map((slotType, stepIndex) => {
+        return allSlotTypes.map((slotType, stepIndex) => {
           const options = slots[slotType];
-          // 슬롯 타입 정보에서 title을 가져오거나, 없으면 기본값 사용
+          // 슬롯 타입 정보 가져오기
           const slotTypeInfo = slotTypes?.find(st => st.slot_key === slotType);
           const slotLabel = slotTypeInfo?.title || slotType;
           const slotDescription = slotTypeInfo?.description;
           
+          // 다중 선택 가능 여부 확인
+          const allowMultiple = slotTypeInfo?.allow_multiple_selection || false;
+          const showQuantity = slotTypeInfo?.show_quantity_control || false;
+          
+          // 다중 선택 모드인 경우
+          if (allowMultiple) {
+            return (
+              <div key={slotType}>
+                <Separator />
+                <Card className="border-2 border-accent/20">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Settings className="w-5 h-5 text-accent" />
+                      {slotLabel}
+                      <Badge variant="outline" className="ml-auto">다중 선택</Badge>
+                    </CardTitle>
+                    {slotDescription && (
+                      <p className="text-sm text-muted-foreground mt-2">{slotDescription}</p>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {options.map((option) => {
+                        const isApplicable = isOptionApplicable(option);
+                        const quantity = optionQuantities[option.option_id] || 0;
+                        const isSelected = quantity > 0;
+                        
+                        return (
+                          <div
+                            key={option.id}
+                            className={`p-4 rounded-lg border-2 transition-all ${
+                              !isApplicable
+                                ? 'bg-muted/50 border-muted opacity-50'
+                                : isSelected
+                                ? 'bg-primary/10 border-primary shadow-sm'
+                                : 'bg-background border-border hover:border-primary/30'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="font-semibold">{option.name}</span>
+                                  {!isApplicable && (
+                                    <Badge variant="destructive" className="text-xs">
+                                      {selectedThickness} 불가
+                                    </Badge>
+                                  )}
+                                  {isSelected && isApplicable && (
+                                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                                  )}
+                                </div>
+                                {option.description && (
+                                  <p className="text-xs text-muted-foreground mb-2">{option.description}</p>
+                                )}
+                                {option.base_cost && (
+                                  <p className="text-xs text-primary font-semibold">
+                                    +{option.base_cost.toLocaleString()}원
+                                  </p>
+                                )}
+                              </div>
+                              
+                              {/* 수량 조절 UI */}
+                              {isApplicable && showQuantity && option.allow_multiple && (
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    disabled={quantity <= 0}
+                                    onClick={() => {
+                                      const minQty = option.min_quantity ?? 0;
+                                      const newQty = Math.max(minQty, quantity - 1);
+                                      const newQuantities = { ...optionQuantities };
+                                      
+                                      if (newQty === 0) {
+                                        delete newQuantities[option.option_id];
+                                      } else {
+                                        newQuantities[option.option_id] = newQty;
+                                      }
+                                      
+                                      setOptionQuantities(newQuantities);
+                                      onAdditionalOptionsChange?.(newQuantities);
+                                    }}
+                                  >
+                                    -
+                                  </Button>
+                                  <Input
+                                    type="number"
+                                    min={option.min_quantity ?? 0}
+                                    max={option.max_quantity}
+                                    value={quantity}
+                                    onChange={(e) => {
+                                      const val = parseInt(e.target.value) || 0;
+                                      const minQty = option.min_quantity ?? 0;
+                                      const maxQty = option.max_quantity;
+                                      let newQty = Math.max(minQty, val);
+                                      if (maxQty) newQty = Math.min(newQty, maxQty);
+                                      
+                                      const newQuantities = { ...optionQuantities };
+                                      if (newQty === 0) {
+                                        delete newQuantities[option.option_id];
+                                      } else {
+                                        newQuantities[option.option_id] = newQty;
+                                      }
+                                      
+                                      setOptionQuantities(newQuantities);
+                                      onAdditionalOptionsChange?.(newQuantities);
+                                    }}
+                                    className="w-16 text-center h-8"
+                                  />
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => {
+                                      const maxQty = option.max_quantity;
+                                      const newQty = quantity + 1;
+                                      
+                                      if (!maxQty || newQty <= maxQty) {
+                                        const newQuantities = { ...optionQuantities, [option.option_id]: newQty };
+                                        setOptionQuantities(newQuantities);
+                                        onAdditionalOptionsChange?.(newQuantities);
+                                      }
+                                    }}
+                                    disabled={option.max_quantity ? quantity >= option.max_quantity : false}
+                                  >
+                                    +
+                                  </Button>
+                                </div>
+                              )}
+                              
+                              {/* 체크박스 UI (수량 없이 다중 선택만) */}
+                              {isApplicable && !showQuantity && (
+                                <Button
+                                  variant={isSelected ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => {
+                                    const newQuantities = { ...optionQuantities };
+                                    if (isSelected) {
+                                      delete newQuantities[option.option_id];
+                                    } else {
+                                      newQuantities[option.option_id] = 1;
+                                    }
+                                    setOptionQuantities(newQuantities);
+                                    onAdditionalOptionsChange?.(newQuantities);
+                                  }}
+                                >
+                                  {isSelected ? '선택됨' : '선택'}
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          }
+          
+          // 단일 선택 모드인 경우
           return (
             <div key={slotType}>
               <Separator />
@@ -311,184 +466,6 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
         });
       })()}
 
-      {/* 고급 가격 설정 및 추가 옵션 동적 렌더링 */}
-      {mainCategory && (() => {
-        const isComplete = isSelectionComplete();
-        const logicSlots = getCategoryLogicSlots(mainCategory);
-        const slots = getCategorySlots(mainCategory);
-        
-        console.log('Additional slots check:', {
-          mainCategory,
-          isComplete,
-          logicSlots,
-          slots
-        });
-        
-        // slot7 이상, 고급 가격 설정, 추가 옵션 슬롯 필터링 (다중 선택 가능)
-        const additionalSlotTypes = logicSlots
-          .filter(logic => {
-            const slotKey = logic.slot_key;
-            // slot7 이상, advanced_pricing, additional은 추가 옵션
-            return slotKey === 'advanced_pricing' || 
-                   slotKey === 'additional' || 
-                   slotKey.match(/^slot([7-9]|[1-9]\d+)$/);
-          })
-          .filter(logic => slots[logic.slot_key] && slots[logic.slot_key].length > 0);
-        
-        console.log('Additional slot types:', additionalSlotTypes);
-        
-        if (!isComplete || additionalSlotTypes.length === 0) {
-          console.log('Not showing additional slots:', { isComplete, additionalSlotsCount: additionalSlotTypes.length });
-          return null;
-        }
-        
-        return additionalSlotTypes.map((logicSlot, idx) => {
-          const slotType = logicSlot.slot_key;
-          const options = slots[slotType];
-          const slotTypeInfo = slotTypes?.find(st => st.slot_key === slotType);
-          const slotLabel = slotTypeInfo?.title || (slotType === 'additional' ? '추가 옵션' : slotType === 'advanced_pricing' ? '고급 가격 설정' : `선택 ${slotType}`);
-          const slotDescription = slotTypeInfo?.description;
-          
-          console.log('Rendering additional slot:', { slotType, slotLabel, optionsCount: options.length });
-          
-          // 다중 선택 가능한지 확인
-          const hasMultipleOptions = options.some(opt => opt.allow_multiple);
-          
-          return (
-            <div key={slotType}>
-              <Separator />
-              <Card className="border-2 border-accent/20">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Settings className="w-5 h-5 text-accent" />
-                    {slotLabel}
-                    <Badge variant="outline" className="ml-auto">선택사항</Badge>
-                  </CardTitle>
-                  {slotDescription && (
-                    <p className="text-sm text-muted-foreground mt-2">{slotDescription}</p>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {options.map((option) => {
-                      const isApplicable = isOptionApplicable(option);
-                      const isSelected = optionQuantities[option.option_id] > 0;
-                      const quantity = optionQuantities[option.option_id] || 0;
-                      
-                      return (
-                        <div
-                          key={option.id}
-                          className={`p-4 rounded-lg border-2 transition-all ${
-                            !isApplicable
-                              ? 'bg-muted/50 border-muted opacity-50'
-                              : isSelected
-                              ? 'bg-primary/10 border-primary shadow-sm'
-                              : 'bg-background border-border hover:border-primary/30'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="font-semibold">{option.name}</span>
-                                {!isApplicable && (
-                                  <Badge variant="destructive" className="text-xs">
-                                    {selectedThickness} 불가
-                                  </Badge>
-                                )}
-                                {isSelected && isApplicable && (
-                                  <CheckCircle2 className="w-4 h-4 text-primary" />
-                                )}
-                              </div>
-                              {option.description && (
-                                <p className="text-xs text-muted-foreground mb-2">{option.description}</p>
-                              )}
-                              {option.base_cost && (
-                                <p className="text-xs text-primary font-semibold">
-                                  +{option.base_cost.toLocaleString()}원
-                                </p>
-                              )}
-                            </div>
-                            
-                            {/* 수량 조절 UI */}
-                            {isApplicable && option.allow_multiple && (
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  disabled={quantity <= 0}
-                                  onClick={() => {
-                                    const minQty = option.min_quantity ?? 0;
-                                    const newQty = Math.max(minQty, quantity - 1);
-                                    const newQuantities = { ...optionQuantities };
-                                    
-                                    if (newQty === 0) {
-                                      delete newQuantities[option.option_id];
-                                    } else {
-                                      newQuantities[option.option_id] = newQty;
-                                    }
-                                    
-                                    setOptionQuantities(newQuantities);
-                                    onAdditionalOptionsChange?.(newQuantities);
-                                  }}
-                                >
-                                  -
-                                </Button>
-                                <Input
-                                  type="number"
-                                  min={option.min_quantity ?? 0}
-                                  max={option.max_quantity}
-                                  value={quantity}
-                                  onChange={(e) => {
-                                    const val = parseInt(e.target.value) || 0;
-                                    const minQty = option.min_quantity ?? 0;
-                                    const maxQty = option.max_quantity;
-                                    let newQty = Math.max(minQty, val);
-                                    if (maxQty) newQty = Math.min(newQty, maxQty);
-                                    
-                                    const newQuantities = { ...optionQuantities };
-                                    if (newQty === 0) {
-                                      delete newQuantities[option.option_id];
-                                    } else {
-                                      newQuantities[option.option_id] = newQty;
-                                    }
-                                    
-                                    setOptionQuantities(newQuantities);
-                                    onAdditionalOptionsChange?.(newQuantities);
-                                  }}
-                                  className="w-16 text-center h-8"
-                                />
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  disabled={option.max_quantity !== undefined && option.max_quantity !== null && quantity >= option.max_quantity}
-                                  onClick={() => {
-                                    const maxQty = option.max_quantity;
-                                    const newQty = quantity + 1;
-                                    
-                                    if (maxQty === undefined || maxQty === null || newQty <= maxQty) {
-                                      const newQuantities = { ...optionQuantities, [option.option_id]: newQty };
-                                      setOptionQuantities(newQuantities);
-                                      onAdditionalOptionsChange?.(newQuantities);
-                                    }
-                                  }}
-                                >
-                                  +
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          );
-        });
-      })()}
     </div>
   );
 };

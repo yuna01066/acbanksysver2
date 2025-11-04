@@ -486,34 +486,40 @@ export type Database = {
       }
       slot_types: {
         Row: {
+          allow_multiple_selection: boolean | null
           created_at: string | null
           description: string | null
           display_order: number
           id: string
           is_active: boolean
           label: string
+          show_quantity_control: boolean | null
           slot_key: string
           title: string | null
           updated_at: string | null
         }
         Insert: {
+          allow_multiple_selection?: boolean | null
           created_at?: string | null
           description?: string | null
           display_order?: number
           id?: string
           is_active?: boolean
           label: string
+          show_quantity_control?: boolean | null
           slot_key: string
           title?: string | null
           updated_at?: string | null
         }
         Update: {
+          allow_multiple_selection?: boolean | null
           created_at?: string | null
           description?: string | null
           display_order?: number
           id?: string
           is_active?: boolean
           label?: string
+          show_quantity_control?: boolean | null
           slot_key?: string
           title?: string | null
           updated_at?: string | null

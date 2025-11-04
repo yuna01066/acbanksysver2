@@ -10,6 +10,8 @@ export interface SlotType {
   description: string | null;
   display_order: number;
   is_active: boolean;
+  allow_multiple_selection?: boolean;
+  show_quantity_control?: boolean;
   created_at?: string;
   updated_at?: string;
 }
