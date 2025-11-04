@@ -12,6 +12,7 @@ import QuoteSummaryHeader from "@/components/QuoteSummaryHeader";
 import QuoteCard from "@/components/QuoteCard";
 import businessRegistration from "@/assets/arcbank-business-registration.jpg";
 import bankAccount from "@/assets/arcbank-bank-account.jpg";
+import arcbankLogo from "@/assets/arcbank-logo.png";
 
 const InternalQuotePage = () => {
   const navigate = useNavigate();
@@ -365,7 +366,10 @@ const InternalQuotePage = () => {
 
                 {/* 견적서 발신 */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2">견적서 발신</h3>
+                  <h3 className="text-lg font-bold border-b-2 border-gray-300 pb-2 flex items-center gap-3">
+                    <img src={arcbankLogo} alt="아크뱅크 로고" className="w-8 h-8 object-contain" />
+                    견적서 발신
+                  </h3>
                   
                   {/* 회사 기본 정보 */}
                   <div className="p-4 bg-slate-50 rounded-lg">
