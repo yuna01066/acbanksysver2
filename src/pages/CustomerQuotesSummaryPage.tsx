@@ -228,7 +228,7 @@ const CustomerQuotesSummaryPage = () => {
                         <p className="text-base font-bold text-gray-900">{totalWithTax.toLocaleString()}원</p>
                       </div>
                       <div className="pt-2 border-t border-gray-200">
-                        <p className="text-xs text-gray-600 text-left">* 배송비는 별도 입니다.</p>
+                        <p className="text-xs text-gray-600 text-right">* 배송비는 별도 입니다.</p>
                       </div>
                     </div>
                   </div>
