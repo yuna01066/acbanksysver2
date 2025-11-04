@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import CustomerQuoteCard from '@/components/CustomerQuoteCard';
 import QuoteCard from '@/components/QuoteCard';
-import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2 } from 'lucide-react';
+import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -30,13 +30,20 @@ interface SavedQuote {
   subtotal: number;
   tax: number;
   total: number;
+  user_id: string;
+}
+
+interface UserProfile {
+  id: string;
+  full_name: string;
+  email: string;
 }
 
 type SortOption = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'number-desc' | 'number-asc';
 
 const SavedQuotesPage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [quotes, setQuotes] = useState<SavedQuote[]>([]);
   const [filteredQuotes, setFilteredQuotes] = useState<SavedQuote[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,11 +52,19 @@ const SavedQuotesPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
+  const [userFilter, setUserFilter] = useState<string>('all'); // 'all' or user_id
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const ITEMS_PER_PAGE = 50;
 
   useEffect(() => {
+    if (isAdmin) {
+      fetchUsers();
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
     fetchQuotes();
-  }, [currentPage, user]);
+  }, [currentPage, user, isAdmin, userFilter]);
 
   useEffect(() => {
     filterQuotes();
@@ -57,7 +72,21 @@ const SavedQuotesPage = () => {
 
   useEffect(() => {
     setCurrentPage(1); // 검색어 변경 시 첫 페이지로
-  }, [searchTerm, dateFilter]);
+  }, [searchTerm, dateFilter, userFilter]);
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .order('full_name', { ascending: true });
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
 
   const fetchQuotes = async () => {
     if (!user) {
@@ -66,33 +95,66 @@ const SavedQuotesPage = () => {
     }
 
     try {
-      // 총 개수 가져오기 (현재 사용자의 견적서만)
-      const { count, error: countError } = await supabase
-        .from('saved_quotes')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
-      if (countError) throw countError;
-      setTotalCount(count || 0);
-
-      // 페이지네이션된 데이터 가져오기 (현재 사용자의 견적서만)
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
 
-      const { data, error } = await supabase
-        .from('saved_quotes')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('quote_date', { ascending: false })
-        .range(from, to);
+      // 관리자인 경우
+      if (isAdmin) {
+        // userFilter에 따라 쿼리 조건 분기
+        let countQuery = supabase
+          .from('saved_quotes')
+          .select('*', { count: 'exact', head: true });
 
-      if (error) throw error;
-      
-      const formattedData = (data || []).map(q => ({
-        ...q,
-        items: Array.isArray(q.items) ? q.items : []
-      }));
-      setQuotes(formattedData);
+        let dataQuery = supabase
+          .from('saved_quotes')
+          .select('*')
+          .order('quote_date', { ascending: false })
+          .range(from, to);
+
+        // 특정 사용자 필터가 적용된 경우
+        if (userFilter !== 'all') {
+          countQuery = countQuery.eq('user_id', userFilter);
+          dataQuery = dataQuery.eq('user_id', userFilter);
+        }
+
+        const { count, error: countError } = await countQuery;
+        if (countError) throw countError;
+        setTotalCount(count || 0);
+
+        const { data, error } = await dataQuery;
+        if (error) throw error;
+
+        const formattedData = (data || []).map(q => ({
+          ...q,
+          items: Array.isArray(q.items) ? q.items : []
+        }));
+        setQuotes(formattedData);
+      } 
+      // 일반 사용자인 경우 (자신의 견적서만)
+      else {
+        const { count, error: countError } = await supabase
+          .from('saved_quotes')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        if (countError) throw countError;
+        setTotalCount(count || 0);
+
+        const { data, error } = await supabase
+          .from('saved_quotes')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('quote_date', { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+
+        const formattedData = (data || []).map(q => ({
+          ...q,
+          items: Array.isArray(q.items) ? q.items : []
+        }));
+        setQuotes(formattedData);
+      }
     } catch (error) {
       console.error('Error fetching quotes:', error);
       toast.error('견적서를 불러오는데 실패했습니다.');
@@ -204,7 +266,7 @@ const SavedQuotesPage = () => {
         {/* Search, Filter and Sort */}
         <Card className="mb-6">
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -223,6 +285,24 @@ const SavedQuotesPage = () => {
                   className="pl-10"
                 />
               </div>
+              {isAdmin && (
+                <Select value={userFilter} onValueChange={setUserFilter}>
+                  <SelectTrigger>
+                    <div className="flex items-center gap-2">
+                      <Filter className="w-4 h-4" />
+                      <SelectValue placeholder="담당자 선택" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체 견적서</SelectItem>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name} ({user.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
@@ -240,6 +320,19 @@ const SavedQuotesPage = () => {
                 </SelectContent>
               </Select>
             </div>
+            {isAdmin && (
+              <div className="mt-3 flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs">
+                  관리자 모드
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  {userFilter === 'all' 
+                    ? '전체 견적서를 조회하고 있습니다' 
+                    : `${users.find(u => u.id === userFilter)?.full_name || '선택된 사용자'}의 견적서를 조회하고 있습니다`
+                  }
+                </span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
