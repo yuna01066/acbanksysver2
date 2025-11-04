@@ -13,6 +13,7 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName }) =
           @page {
             size: A4;
             margin: 10mm 15mm 20mm 15mm;
+            background-color: white;
           }
           
           * {
@@ -21,13 +22,14 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName }) =
             color-adjust: exact !important;
           }
           
-          body {
+          html, body {
             margin: 0;
             padding: 0;
             width: 210mm;
             height: 297mm;
             font-size: 8pt;
             background-color: white !important;
+            background: white !important;
           }
           
           .print-container {
@@ -36,21 +38,27 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName }) =
             padding: 0;
             page-break-after: auto;
             background-color: white !important;
+            background: white !important;
           }
           
           /* 모든 배경을 흰색으로 */
-          .bg-gray-50, .min-h-screen {
+          .bg-gray-50, .min-h-screen, .bg-gradient-to-r, 
+          .from-blue-50, .to-slate-50, .bg-blue-50, .bg-slate-50,
+          div, section, main {
             background-color: white !important;
+            background: white !important;
           }
           
           /* 견적 요약 섹션 크기 조정 */
           .print-summary {
             padding: 8px !important;
             margin-bottom: 12px !important;
+            background-color: white !important;
           }
           
           .print-summary > div {
             padding: 10px !important;
+            background-color: white !important;
           }
           
           .print-summary h2 {
@@ -66,6 +74,7 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName }) =
           
           .print-summary .bg-gray-50 {
             padding: 6px !important;
+            background-color: #f9fafb !important;
           }
           
           .print-summary .text-xs {
@@ -102,6 +111,7 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName }) =
           
           .print-total .bg-gray-50 {
             padding: 8px !important;
+            background-color: #f9fafb !important;
           }
           
           .print-total .text-sm {
@@ -144,6 +154,7 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName }) =
             border-top: 1px solid #ccc;
             font-size: 8pt;
             color: #666;
+            background-color: white !important;
           }
           
           .print-footer::after {
