@@ -424,9 +424,9 @@ const InternalQuotePage = () => {
               {/* 견적 총 합계 */}
               <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm print-total">
                 <div className="p-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-gray-900">총 견적 금액</h2>
-                    <div className="flex flex-col items-end gap-2">
+                  <div className="flex items-center justify-between gap-4">
+                    <h2 className="text-xl font-bold text-gray-900 bg-slate-100 px-6 py-2 rounded-lg">총 견적 금액</h2>
+                    <div className="flex flex-col items-end gap-2 flex-1">
                       <div className="flex items-center gap-6">
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-600">소계 (부가세 별도)</span>
