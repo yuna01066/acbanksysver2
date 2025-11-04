@@ -80,6 +80,7 @@ const CustomerQuotesSummaryPage = () => {
             padding: 0;
             width: 210mm;
             height: 297mm;
+            font-size: 8pt;
           }
           
           .print-container {
@@ -89,11 +90,45 @@ const CustomerQuotesSummaryPage = () => {
             page-break-after: auto;
           }
           
+          /* 견적 요약 섹션 크기 조정 */
+          .print-summary {
+            padding: 12px !important;
+          }
+          
+          .print-summary h2 {
+            font-size: 11pt !important;
+            margin-bottom: 8px !important;
+          }
+          
+          .print-summary .grid {
+            gap: 8px !important;
+          }
+          
+          .print-summary .bg-gray-50 {
+            padding: 8px !important;
+          }
+          
+          .print-summary .text-xs {
+            font-size: 7pt !important;
+          }
+          
+          .print-summary .text-sm {
+            font-size: 8pt !important;
+          }
+          
+          .print-summary .text-2xl {
+            font-size: 14pt !important;
+          }
+          
+          .print-summary .text-base {
+            font-size: 9pt !important;
+          }
+          
           /* 2열 레이아웃 유지 */
           .grid.grid-cols-1.md\\:grid-cols-2 {
             display: grid !important;
             grid-template-columns: repeat(2, 1fr) !important;
-            gap: 2rem !important;
+            gap: 1.5rem !important;
           }
           
           /* 푸터 스타일 */
@@ -107,7 +142,7 @@ const CustomerQuotesSummaryPage = () => {
             align-items: center;
             padding: 8px 0;
             border-top: 1px solid #ccc;
-            font-size: 10pt;
+            font-size: 8pt;
             color: #666;
           }
           
@@ -149,7 +184,7 @@ const CustomerQuotesSummaryPage = () => {
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
             <CardContent className="p-8">
               {/* 견적 요약 정보 */}
-              <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm">
+              <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm print-summary">
                 <div className="p-6">
                   <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
                     <h2 className="text-lg font-semibold text-gray-900">견적 요약</h2>
