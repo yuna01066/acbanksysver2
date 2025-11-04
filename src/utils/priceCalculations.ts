@@ -814,8 +814,8 @@ export const calculatePrice = (
           console.log(`Applied processing cost for ${option.name}: ${optionCost} (원장: ${wonJang} × ${option.multiplier} × ${quantity})`);
         }
         
-        // base_cost가 있으면 "기본 비용" 적용
-        if (option.base_cost && option.base_cost > 0) {
+        // base_cost가 있으면 "기본 비용" 적용 (음수 포함)
+        if (option.base_cost !== undefined && option.base_cost !== null && option.base_cost !== 0) {
           const baseCostTotal = option.base_cost * quantity;
           const label = quantity > 1
             ? `${option.name} x${quantity}개`
