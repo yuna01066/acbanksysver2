@@ -538,40 +538,14 @@ const SavedQuoteDetailPage = () => {
                       </div>
                     )}
                     
-                    {/* 첨부 파일 */}
+                    {/* 첨부 파일 - 다운로드 기능 포함 */}
                     {quote.attachments && Array.isArray(quote.attachments) && quote.attachments.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-2 mb-4">
-                          <div className="bg-indigo-100 p-2 rounded-lg">
-                            <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                            </svg>
-                          </div>
-                          <h4 className="font-bold text-gray-900 text-lg">
-                            첨부 파일 ({quote.attachments.length}개)
-                          </h4>
-                        </div>
-                        <div className="space-y-3">
-                          {quote.attachments.map((attachment: any, index: number) => (
-                            <div key={index} className="flex items-center justify-between bg-white p-4 rounded-lg border-2 border-indigo-200 hover:border-indigo-300 transition-all shadow-sm hover:shadow-md">
-                              <div className="flex items-center gap-3">
-                                <div className="bg-indigo-100 p-2 rounded-lg">
-                                  <FileText className="w-5 h-5 text-indigo-600" />
-                                </div>
-                                <div>
-                                  <p className="text-sm font-semibold text-gray-900">{attachment.name}</p>
-                                  <p className="text-xs text-gray-500">
-                                    파일 크기: {(attachment.size / 1024).toFixed(1)} KB
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="bg-indigo-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                                첨부됨
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      <QuoteAttachments
+                        attachments={attachments}
+                        onAttachmentsChange={() => {}}
+                        readOnly={true}
+                        quoteId={id}
+                      />
                     )}
                   </div>
                 )}
