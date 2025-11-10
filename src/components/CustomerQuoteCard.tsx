@@ -80,22 +80,35 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
             <div className="text-xs text-gray-600 mb-1">색상</div>
             <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                {quote.selectedColorHex && (
-                  <div 
-                    className="w-4 h-4 rounded border border-gray-300"
-                    style={{ backgroundColor: quote.selectedColorHex }}
-                  />
-                )}
-                <span className="font-semibold text-gray-900 text-sm">
-                  {quote.selectedColor || '-'}
-                </span>
-              </div>
-              {quote.colorType === 'CUSTOM' && (quote.customColorName || quote.customOpacity) && (
-                <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                  {quote.customColorName && <div>팬톤: {quote.customColorName}</div>}
-                  {quote.customOpacity && <div>투명도: {quote.customOpacity}%</div>}
-                </div>
+              {quote.selectedColorHex && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-4 h-4 rounded border border-gray-300"
+                      style={{ backgroundColor: quote.selectedColorHex }}
+                    />
+                    <span className="font-semibold text-gray-900 text-sm">
+                      {quote.colorType === 'CUSTOM' ? '맞춤 색상' : (quote.selectedColor || '-')}
+                    </span>
+                  </div>
+                  {quote.colorType === 'CUSTOM' && (
+                    <div className="text-xs space-y-0.5 bg-blue-50 p-2 rounded border border-blue-200">
+                      {quote.customColorName && (
+                        <div className="text-blue-700">
+                          <span className="font-medium">팬톤:</span> {quote.customColorName}
+                        </div>
+                      )}
+                      {quote.customOpacity && (
+                        <div className="text-blue-700">
+                          <span className="font-medium">투명도:</span> {quote.customOpacity}%
+                        </div>
+                      )}
+                      <div className="text-blue-700">
+                        <span className="font-medium">컬러:</span> {quote.selectedColorHex}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
