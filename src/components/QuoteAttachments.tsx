@@ -27,45 +27,107 @@ const QuoteAttachments = ({ attachments, onAttachmentsChange, readOnly = false, 
     if (!files || files.length === 0) return;
 
     setUploading(true);
+    const uploadedCount = { success: 0, failed: 0 };
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('Auth error:', authError);
+        toast.error('인증 오류가 발생했습니다. 다시 로그인해주세요.');
+        return;
+      }
+      
       if (!user) {
         toast.error('로그인이 필요합니다.');
         return;
       }
 
+      const allowedTypes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/jpg', 
+        'image/png',
+        'application/zip',
+        'application/x-zip-compressed',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
+
       const newAttachments: Attachment[] = [];
 
       for (const file of Array.from(files)) {
-        // 파일 크기 체크 (10MB)
-        if (file.size > 10 * 1024 * 1024) {
-          toast.error(`${file.name}: 파일 크기는 10MB를 초과할 수 없습니다.`);
-          continue;
+        try {
+          // 파일 형식 체크
+          if (!allowedTypes.includes(file.type)) {
+            toast.error(`${file.name}: 지원하지 않는 파일 형식입니다.`);
+            uploadedCount.failed++;
+            continue;
+          }
+
+          // 파일 크기 체크 (10MB)
+          if (file.size > 10 * 1024 * 1024) {
+            toast.error(`${file.name}: 파일 크기는 10MB를 초과할 수 없습니다.`);
+            uploadedCount.failed++;
+            continue;
+          }
+
+          const fileExt = file.name.split('.').pop();
+          const timestamp = Date.now();
+          const random = Math.random().toString(36).substring(2, 9);
+          const fileName = `${timestamp}-${random}.${fileExt}`;
+          const filePath = `${user.id}/${fileName}`;
+
+          console.log('Uploading file:', { name: file.name, path: filePath, size: file.size, type: file.type });
+
+          const { data, error: uploadError } = await supabase.storage
+            .from('quote-attachments')
+            .upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (uploadError) {
+            console.error('Upload error for', file.name, ':', uploadError);
+            toast.error(`${file.name}: ${uploadError.message}`);
+            uploadedCount.failed++;
+            continue;
+          }
+
+          console.log('Upload successful:', data);
+          
+          newAttachments.push({
+            name: file.name,
+            path: filePath,
+            size: file.size,
+            type: file.type
+          });
+          
+          uploadedCount.success++;
+        } catch (fileError) {
+          console.error('Error uploading individual file:', file.name, fileError);
+          toast.error(`${file.name}: 업로드 실패`);
+          uploadedCount.failed++;
         }
-
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-        const filePath = `${user.id}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('quote-attachments')
-          .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        newAttachments.push({
-          name: file.name,
-          path: filePath,
-          size: file.size,
-          type: file.type
-        });
       }
 
-      onAttachmentsChange([...attachments, ...newAttachments]);
-      toast.success(`${newAttachments.length}개 파일이 업로드되었습니다.`);
+      if (newAttachments.length > 0) {
+        onAttachmentsChange([...attachments, ...newAttachments]);
+      }
+
+      // 결과 메시지
+      if (uploadedCount.success > 0 && uploadedCount.failed === 0) {
+        toast.success(`${uploadedCount.success}개 파일이 업로드되었습니다.`);
+      } else if (uploadedCount.success > 0 && uploadedCount.failed > 0) {
+        toast.warning(`${uploadedCount.success}개 성공, ${uploadedCount.failed}개 실패`);
+      } else if (uploadedCount.failed > 0) {
+        toast.error(`모든 파일 업로드에 실패했습니다.`);
+      }
     } catch (error) {
       console.error('Error uploading files:', error);
-      toast.error('파일 업로드에 실패했습니다.');
+      toast.error(`파일 업로드 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
     } finally {
       setUploading(false);
       event.target.value = '';
