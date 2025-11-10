@@ -122,12 +122,14 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   };
 
   const getTotalPrice = () => {
-    return quotes.reduce((total, quote) => total + (quote.totalPrice * quote.quantity), 0);
+    const total = quotes.reduce((sum, quote) => sum + (quote.totalPrice * quote.quantity), 0);
+    return Math.round(total / 100) * 100; // 100원 단위로 반올림
   };
 
   const getTotalPriceWithTax = () => {
     const subtotal = getTotalPrice();
-    return subtotal * 1.1; // 10% 부가세 추가
+    const totalWithTax = subtotal * 1.1; // 10% 부가세 추가
+    return Math.round(totalWithTax / 100) * 100; // 100원 단위로 반올림
   };
 
   return (
