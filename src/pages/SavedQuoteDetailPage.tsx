@@ -67,6 +67,7 @@ const SavedQuoteDetailPage = () => {
   });
   const [viewMode, setViewMode] = useState<'internal' | 'customer'>('internal');
   const [loading, setLoading] = useState(true);
+  const [attachments, setAttachments] = useState<any[]>([]);
 
   useEffect(() => {
     if (id) {
@@ -117,6 +118,7 @@ const SavedQuoteDetailPage = () => {
       }
       
       setQuote(formattedData);
+      setAttachments(Array.isArray(formattedData.attachments) ? formattedData.attachments : []);
       
       // RecipientData 설정 - issuer 정보는 profiles에서 가져오거나 saved_quotes에 저장된 값 사용
       setRecipientData({
@@ -175,7 +177,8 @@ const SavedQuoteDetailPage = () => {
           desired_delivery_date: recipientData.desiredDeliveryDate?.toISOString(),
           issuer_name: recipientData.issuerName,
           issuer_email: recipientData.issuerEmail,
-          issuer_phone: recipientData.issuerPhone
+          issuer_phone: recipientData.issuerPhone,
+          attachments: attachments
         })
         .eq('id', id);
 
@@ -188,6 +191,10 @@ const SavedQuoteDetailPage = () => {
       console.error('Error updating quote:', error);
       toast.error('견적서 수정에 실패했습니다.');
     }
+  };
+
+  const handleAttachmentsChange = (newAttachments: any[]) => {
+    setAttachments(newAttachments);
   };
 
   const handlePrintPDF = () => {
@@ -307,6 +314,16 @@ const SavedQuoteDetailPage = () => {
                     onBulkChange={handleBulkRecipientChange}
                     showClientMemo={true}
                   />
+                  
+                  {/* 첨부 파일 수정 */}
+                  <div className="mt-6">
+                    <QuoteAttachments
+                      attachments={attachments}
+                      onAttachmentsChange={handleAttachmentsChange}
+                      readOnly={false}
+                      quoteId={id}
+                    />
+                  </div>
                 </div>
               )}
 

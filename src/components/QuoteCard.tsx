@@ -116,7 +116,12 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
                     className="w-4 h-4 rounded border border-gray-300" 
                     style={{ backgroundColor: quote.selectedColorHex }}
                   ></div>
-                  <div className="font-semibold text-gray-900 text-sm">{quote.selectedColor}</div>
+                  <div className="font-semibold text-gray-900 text-sm">
+                    {quote.selectedColor}
+                    {quote.colorType === 'CUSTOM' && (
+                      <span className="ml-1 text-xs text-blue-600">(맞춤)</span>
+                    )}
+                  </div>
                 </>
               ) : (
                 <div className="font-semibold text-gray-900 text-sm">AC-미선택</div>

@@ -86,7 +86,12 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
                   style={{ backgroundColor: quote.selectedColorHex }}
                 />
               )}
-              <span className="font-semibold text-gray-900 text-sm">{quote.selectedColor || '-'}</span>
+              <span className="font-semibold text-gray-900 text-sm">
+                {quote.selectedColor || '-'}
+                {quote.colorType === 'CUSTOM' && (
+                  <span className="ml-1 text-xs text-blue-600">(맞춤)</span>
+                )}
+              </span>
             </div>
           </div>
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
