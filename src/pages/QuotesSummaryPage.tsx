@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calculator, ShoppingCart, Home, Download, FileText, Calendar as CalendarIcon, Plus, Trash2, Send } from "lucide-react";
-import { useQuotes, QuoteRecipient } from "@/contexts/QuoteContext";
+import { useQuotes, QuoteRecipient, Attachment } from "@/contexts/QuoteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -19,11 +19,12 @@ import TotalPricingSummary from "@/components/TotalPricingSummary";
 import QuoteWarningNote from "@/components/QuoteWarningNote";
 import RecipientInfoForm from "@/components/RecipientInfoForm";
 import PrintStyles from "@/components/PrintStyles";
+import QuoteAttachments from "@/components/QuoteAttachments";
 
 const QuotesSummaryPage = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { quotes, recipient, removeQuote, updateQuoteQuantity, clearQuotes, getTotalPrice, getTotalPriceWithTax, updateRecipient, generateQuoteNumber } = useQuotes();
+  const { quotes, recipient, removeQuote, updateQuoteQuantity, clearQuotes, getTotalPrice, getTotalPriceWithTax, updateRecipient, generateQuoteNumber, updateAttachments } = useQuotes();
   
   const [recipientData, setRecipientData] = React.useState<QuoteRecipient>({
     projectName: recipient?.projectName || '',
@@ -181,6 +182,16 @@ const QuotesSummaryPage = () => {
                 onBulkChange={handleBulkRecipientChange}
                 showClientMemo={true}
               />
+
+              <Separator className="my-8" />
+
+              {/* 첨부 파일 섹션 */}
+              <div className="mb-8">
+                <QuoteAttachments
+                  attachments={recipient?.attachments || []}
+                  onAttachmentsChange={updateAttachments}
+                />
+              </div>
 
               <Separator className="my-8" />
 

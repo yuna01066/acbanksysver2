@@ -15,6 +15,7 @@ import bankAccount from "@/assets/arcbank-bank-account.jpg";
 import arcbankLogo from "@/assets/arcbank-logo.png";
 import RecipientInfoForm from "@/components/RecipientInfoForm";
 import { QuoteRecipient } from "@/contexts/QuoteContext";
+import QuoteAttachments from "@/components/QuoteAttachments";
 
 interface SavedQuote {
   id: string;
@@ -37,6 +38,7 @@ interface SavedQuote {
   issuer_phone: string | null;
   issuer_department: string | null;
   issuer_position: string | null;
+  attachments: any;
   items: any;
   subtotal: number;
   tax: number;
@@ -484,30 +486,44 @@ const SavedQuoteDetailPage = () => {
                 </div>
               </div>
 
-              {/* 첨부 서류 - A5 사이즈 */}
-              <div className="mt-8 mb-8">
-                <h3 className="text-xl font-bold mb-6 text-slate-800">첨부 서류</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm">
-                    <h4 className="font-semibold text-slate-700 mb-3 text-center">사업자등록증</h4>
-                    <div className="flex justify-center">
-                      <img 
-                        src={businessRegistration} 
-                        alt="아크뱅크 사업자등록증" 
-                        className="w-full max-w-[420px] h-auto border border-gray-300 rounded shadow-sm"
-                        style={{ aspectRatio: '148/210' }}
-                      />
-                    </div>
+              {/* 클라이언트 첨부 파일 및 첨부 서류 */}
+              <div className="mt-8 mb-8 space-y-8">
+                {/* 클라이언트 첨부 파일 - 사업자등록증 위에 표시 */}
+                {quote.attachments && Array.isArray(quote.attachments) && quote.attachments.length > 0 && (
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
+                    <QuoteAttachments
+                      attachments={quote.attachments}
+                      onAttachmentsChange={() => {}}
+                      readOnly={true}
+                    />
                   </div>
-                  <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm">
-                    <h4 className="font-semibold text-slate-700 mb-3 text-center">통장사본</h4>
-                    <div className="flex justify-center">
-                      <img 
-                        src={bankAccount} 
-                        alt="아크뱅크 통장사본" 
-                        className="w-full max-w-[420px] h-auto border border-gray-300 rounded shadow-sm"
-                        style={{ aspectRatio: '148/210' }}
-                      />
+                )}
+
+                {/* 첨부 서류 - A5 사이즈 */}
+                <div>
+                  <h3 className="text-xl font-bold mb-6 text-slate-800">첨부 서류</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm">
+                      <h4 className="font-semibold text-slate-700 mb-3 text-center">사업자등록증</h4>
+                      <div className="flex justify-center">
+                        <img 
+                          src={businessRegistration} 
+                          alt="아크뱅크 사업자등록증" 
+                          className="w-full max-w-[420px] h-auto border border-gray-300 rounded shadow-sm"
+                          style={{ aspectRatio: '148/210' }}
+                        />
+                      </div>
+                    </div>
+                    <div className="bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm">
+                      <h4 className="font-semibold text-slate-700 mb-3 text-center">통장사본</h4>
+                      <div className="flex justify-center">
+                        <img 
+                          src={bankAccount} 
+                          alt="아크뱅크 통장사본" 
+                          className="w-full max-w-[420px] h-auto border border-gray-300 rounded shadow-sm"
+                          style={{ aspectRatio: '148/210' }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

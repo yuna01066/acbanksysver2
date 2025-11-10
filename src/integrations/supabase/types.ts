@@ -396,6 +396,7 @@ export type Database = {
       }
       saved_quotes: {
         Row: {
+          attachments: Json | null
           created_at: string
           delivery_period: string | null
           desired_delivery_date: string | null
@@ -425,6 +426,7 @@ export type Database = {
           valid_until: string | null
         }
         Insert: {
+          attachments?: Json | null
           created_at?: string
           delivery_period?: string | null
           desired_delivery_date?: string | null
@@ -454,6 +456,7 @@ export type Database = {
           valid_until?: string | null
         }
         Update: {
+          attachments?: Json | null
           created_at?: string
           delivery_period?: string | null
           desired_delivery_date?: string | null

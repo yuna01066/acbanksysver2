@@ -21,6 +21,13 @@ export interface Quote {
   serialNumber?: string;
 }
 
+export interface Attachment {
+  name: string;
+  path: string;
+  size: number;
+  type: string;
+}
+
 export interface QuoteRecipient {
   projectName: string;
   quoteNumber: string;
@@ -41,6 +48,8 @@ export interface QuoteRecipient {
   issuerPhone?: string;
   issuerDepartment?: string;
   issuerPosition?: string;
+  // 첨부 파일
+  attachments?: Attachment[];
 }
 
 interface QuoteContextType {
@@ -54,6 +63,7 @@ interface QuoteContextType {
   getTotalPriceWithTax: () => number;
   updateRecipient: (recipient: QuoteRecipient) => void;
   generateQuoteNumber: () => string;
+  updateAttachments: (attachments: Attachment[]) => void;
 }
 
 const QuoteContext = createContext<QuoteContextType | undefined>(undefined);
@@ -121,6 +131,10 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     setRecipient(newRecipient);
   };
 
+  const updateAttachments = (attachments: Attachment[]) => {
+    setRecipient(prev => prev ? { ...prev, attachments } : null);
+  };
+
   const getTotalPrice = () => {
     const total = quotes.reduce((sum, quote) => sum + (quote.totalPrice * quote.quantity), 0);
     return Math.round(total / 100) * 100; // 100원 단위로 반올림
@@ -143,7 +157,8 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
       getTotalPrice,
       getTotalPriceWithTax,
       updateRecipient,
-      generateQuoteNumber
+      generateQuoteNumber,
+      updateAttachments
     }}>
       {children}
     </QuoteContext.Provider>
