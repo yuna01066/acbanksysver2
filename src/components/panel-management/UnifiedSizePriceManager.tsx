@@ -180,21 +180,36 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
       panelSizeId: string; 
       isActive: boolean;
     }) => {
+      console.log('Toggling active status:', { panelSizeId, isActive });
+      
       const { data, error } = await supabase
         .from('panel_sizes')
         .update({ is_active: isActive })
         .eq('id', panelSizeId)
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Toggle error:', error);
+        throw error;
+      }
+      
+      console.log('Toggle success:', data);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Invalidating queries after toggle');
+      // 모든 관련 쿼리 무효화
       queryClient.invalidateQueries({ queryKey: ['panel-size-matrix'] });
       queryClient.invalidateQueries({ queryKey: ['active-panel-sizes'] });
+      queryClient.invalidateQueries({ queryKey: ['panel-sizes'] });
+      
+      // 데이터 즉시 리페치
+      queryClient.refetchQueries({ queryKey: ['panel-size-matrix', qualityId, panelMaster?.id] });
+      
       toast.success('상태가 변경되었습니다');
     },
     onError: (error) => {
+      console.error('Toggle mutation error:', error);
       toast.error(`상태 변경 실패: ${error.message}`);
     }
   });
