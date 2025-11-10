@@ -106,16 +106,15 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
       </CardHeader>
       <CardContent className="pt-4">
         {/* 선택한 옵션들 표시 */}
-        <div className="space-y-3 mb-4">
-          {/* 색상 정보 - 전체 너비 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
             <div className="text-xs text-gray-600 mb-1">색상</div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
               {quote.selectedColor && quote.selectedColorHex ? (
                 <>
                   <div className="flex items-center gap-2">
                     <div 
-                      className="w-5 h-5 rounded border border-gray-300 flex-shrink-0" 
+                      className="w-4 h-4 rounded border border-gray-300" 
                       style={{ backgroundColor: quote.selectedColorHex }}
                     ></div>
                     <div className="font-semibold text-gray-900 text-sm">
@@ -123,7 +122,7 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
                     </div>
                   </div>
                   {quote.colorType === 'CUSTOM' && (
-                    <div className="text-xs space-y-1 bg-blue-50 p-2 rounded border border-blue-200">
+                    <div className="text-xs space-y-0.5 bg-blue-50 p-2 rounded border border-blue-200">
                       {quote.customColorName && (
                         <div className="text-blue-700">
                           <span className="font-medium">팬톤:</span> {quote.customColorName}
@@ -145,48 +144,44 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
               )}
             </div>
           </div>
-
-          {/* 나머지 옵션들 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-xs text-gray-600 mb-1">소재</div>
-              <div className="font-semibold text-gray-900 text-sm">{quote.material}</div>
-            </div>
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-xs text-gray-600 mb-1">재질</div>
-              <div className="font-semibold text-gray-900 text-sm">{quote.quality}</div>
-            </div>
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-xs text-gray-600 mb-1">두께</div>
-              <div className="font-semibold text-gray-900 text-sm">{quote.thickness}</div>
-            </div>
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-xs text-gray-600 mb-1">사이즈</div>
-              <div className="font-semibold text-gray-900 text-sm">{quote.size}</div>
-            </div>
-            {quote.colorType && (
-              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="text-xs text-gray-600 mb-1">색상</div>
-                <div className="font-semibold text-gray-900 text-sm">{quote.colorType}</div>
-              </div>
-            )}
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-xs text-gray-600 mb-1">면수</div>
-              <div className="font-semibold text-gray-900 text-sm">{quote.surface}</div>
-            </div>
-            {quote.processing && (
-              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 md:col-span-2">
-                <div className="text-xs text-gray-600 mb-1">가공방법</div>
-                <div className="font-semibold text-gray-900 text-sm">{quote.processingName}</div>
-              </div>
-            )}
-            {quote.serialNumber && (
-              <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                <div className="text-xs text-yellow-700 mb-1">클라이언트 요청사항</div>
-                <div className="font-semibold text-yellow-900 text-sm">{quote.serialNumber}</div>
-              </div>
-            )}
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-xs text-gray-600 mb-1">소재</div>
+            <div className="font-semibold text-gray-900 text-sm">{quote.material}</div>
           </div>
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-xs text-gray-600 mb-1">재질</div>
+            <div className="font-semibold text-gray-900 text-sm">{quote.quality}</div>
+          </div>
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-xs text-gray-600 mb-1">두께</div>
+            <div className="font-semibold text-gray-900 text-sm">{quote.thickness}</div>
+          </div>
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-xs text-gray-600 mb-1">사이즈</div>
+            <div className="font-semibold text-gray-900 text-sm">{quote.size}</div>
+          </div>
+          {quote.colorType && (
+            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="text-xs text-gray-600 mb-1">색상</div>
+              <div className="font-semibold text-gray-900 text-sm">{quote.colorType}</div>
+            </div>
+          )}
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-xs text-gray-600 mb-1">면수</div>
+            <div className="font-semibold text-gray-900 text-sm">{quote.surface}</div>
+          </div>
+          {quote.processing && (
+            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 md:col-span-2">
+              <div className="text-xs text-gray-600 mb-1">가공방법</div>
+              <div className="font-semibold text-gray-900 text-sm">{quote.processingName}</div>
+            </div>
+          )}
+          {quote.serialNumber && (
+            <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+              <div className="text-xs text-yellow-700 mb-1">클라이언트 요청사항</div>
+              <div className="font-semibold text-yellow-900 text-sm">{quote.serialNumber}</div>
+            </div>
+          )}
         </div>
         
         {/* 가격 상세 내역 */}
