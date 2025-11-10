@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -103,6 +103,40 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
     },
     enabled: !!panelMaster?.id
   });
+
+  // 실시간 업데이트 구독 - 다른 사용자의 변경사항 즉시 반영
+  useEffect(() => {
+    if (!panelMaster?.id) return;
+
+    console.log('Setting up realtime subscription for panel_sizes');
+
+    const channel = supabase
+      .channel('panel-sizes-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE 모두 감지
+          schema: 'public',
+          table: 'panel_sizes',
+          filter: `panel_master_id=eq.${panelMaster.id}`
+        },
+        (payload) => {
+          console.log('Realtime update received:', payload);
+          
+          // 변경사항이 있을 때 즉시 데이터 리페치
+          queryClient.invalidateQueries({ queryKey: ['panel-size-matrix', qualityId, panelMaster.id] });
+          queryClient.invalidateQueries({ queryKey: ['active-panel-sizes'] });
+          
+          toast.info('데이터가 업데이트되었습니다', { duration: 2000 });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up realtime subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [panelMaster?.id, qualityId, queryClient]);
 
   const sizeOrder = ['3*6', '대3*6', '4*5', '대4*5', '1*2', '4*6', '4*8', '4*10', '5*6', '5*8', '소3*6', '소1*2', '5*5'];
   const qualitySizes = quality?.sizes || [];
