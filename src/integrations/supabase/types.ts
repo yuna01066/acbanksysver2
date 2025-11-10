@@ -398,6 +398,8 @@ export type Database = {
         Row: {
           attachments: Json | null
           created_at: string
+          custom_color_name: string | null
+          custom_opacity: string | null
           delivery_period: string | null
           desired_delivery_date: string | null
           id: string
@@ -428,6 +430,8 @@ export type Database = {
         Insert: {
           attachments?: Json | null
           created_at?: string
+          custom_color_name?: string | null
+          custom_opacity?: string | null
           delivery_period?: string | null
           desired_delivery_date?: string | null
           id?: string
@@ -458,6 +462,8 @@ export type Database = {
         Update: {
           attachments?: Json | null
           created_at?: string
+          custom_color_name?: string | null
+          custom_opacity?: string | null
           delivery_period?: string | null
           desired_delivery_date?: string | null
           id?: string
