@@ -72,6 +72,19 @@ const SavedQuoteDetailPage = () => {
     }
   }, [id]);
 
+  // PDF 파일명 설정
+  useEffect(() => {
+    if (quote) {
+      const parts = [quote.quote_number, quote.project_name, quote.recipient_company].filter(Boolean);
+      const fileName = parts.length > 0 ? parts.join('-') : '견적서';
+      document.title = fileName;
+    }
+    
+    return () => {
+      document.title = 'Lovable - Build for the web';
+    };
+  }, [quote]);
+
   const fetchQuote = async () => {
     try {
       const { data, error } = await supabase
