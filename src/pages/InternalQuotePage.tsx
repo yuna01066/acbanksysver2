@@ -119,7 +119,7 @@ const InternalQuotePage = () => {
 
   return (
     <>
-      <PrintStyles quoteNumber={quoteNumber} projectName={recipient?.projectName} companyName={recipient?.companyName} />
+      <PrintStyles quoteNumber={quoteNumber} projectName={recipient?.projectName} companyName={recipient?.companyName} isInternal={true} />
       <div className="min-h-screen bg-gray-50 p-4">
         <div className="w-full max-w-4xl mx-auto print-container">
           <div className="mb-6 print:hidden">
