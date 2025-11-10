@@ -128,7 +128,9 @@ const QuoteAttachments = ({ attachments, onAttachmentsChange, readOnly = false, 
           <FileText className="w-5 h-5" />
           클라이언트 첨부 파일
           {attachments.length > 0 && (
-            <span className="text-sm text-gray-500">({attachments.length}개)</span>
+            <span className="text-sm font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+              {attachments.length}개
+            </span>
           )}
         </h4>
         {!readOnly && (
@@ -146,6 +148,7 @@ const QuoteAttachments = ({ attachments, onAttachmentsChange, readOnly = false, 
               size="sm"
               onClick={() => document.getElementById('file-upload')?.click()}
               disabled={uploading}
+              className="border-blue-300 hover:bg-blue-50"
             >
               <Upload className="w-4 h-4 mr-2" />
               {uploading ? '업로드 중...' : '파일 첨부'}
@@ -155,18 +158,23 @@ const QuoteAttachments = ({ attachments, onAttachmentsChange, readOnly = false, 
       </div>
 
       {attachments.length > 0 ? (
-        <div className="space-y-2 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="space-y-3 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
+          <div className="text-sm text-blue-700 font-medium mb-2">
+            📎 첨부된 파일 목록
+          </div>
           {attachments.map((attachment, index) => (
-            <Card key={index} className="p-3 bg-white border border-blue-300 shadow-sm">
+            <Card key={index} className="p-4 bg-white border-2 border-blue-200 shadow-sm hover:shadow-md transition-all">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {getFileIcon(attachment.type)}
+                  <div className="bg-blue-100 p-2 rounded-lg">
+                    {getFileIcon(attachment.type)}
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p className="text-sm font-semibold text-gray-900 truncate">
                       {attachment.name}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {formatFileSize(attachment.size)}
+                      파일 크기: {formatFileSize(attachment.size)}
                     </p>
                   </div>
                 </div>
@@ -175,7 +183,8 @@ const QuoteAttachments = ({ attachments, onAttachmentsChange, readOnly = false, 
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDownloadAttachment(attachment)}
-                    className="hover:bg-blue-100"
+                    className="hover:bg-blue-100 text-blue-600"
+                    title="다운로드"
                   >
                     <Download className="w-4 h-4" />
                   </Button>
@@ -185,6 +194,7 @@ const QuoteAttachments = ({ attachments, onAttachmentsChange, readOnly = false, 
                       size="sm"
                       onClick={() => handleRemoveAttachment(attachment)}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      title="삭제"
                     >
                       <X className="w-4 h-4" />
                     </Button>
@@ -195,8 +205,16 @@ const QuoteAttachments = ({ attachments, onAttachmentsChange, readOnly = false, 
           ))}
         </div>
       ) : (
-        <div className="text-sm text-gray-500 p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-center">
-          {readOnly ? '첨부된 파일이 없습니다.' : '파일을 첨부하려면 "파일 첨부" 버튼을 클릭하세요.'}
+        <div className="text-sm text-gray-500 p-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 text-center">
+          <FileText className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+          <p className="font-medium text-gray-700">
+            {readOnly ? '첨부된 파일이 없습니다.' : '파일을 첨부하려면 "파일 첨부" 버튼을 클릭하세요.'}
+          </p>
+          {!readOnly && (
+            <p className="text-xs text-gray-500 mt-1">
+              PDF, 이미지, 문서 파일 등을 첨부할 수 있습니다 (최대 10MB)
+            </p>
+          )}
         </div>
       )}
     </div>
