@@ -124,7 +124,13 @@ const QuoteAttachments = ({ attachments, onAttachmentsChange, readOnly = false, 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h4 className="font-semibold text-slate-800">클라이언트 첨부 파일</h4>
+        <h4 className="font-semibold text-slate-800 flex items-center gap-2">
+          <FileText className="w-5 h-5" />
+          클라이언트 첨부 파일
+          {attachments.length > 0 && (
+            <span className="text-sm text-gray-500">({attachments.length}개)</span>
+          )}
+        </h4>
         {!readOnly && (
           <div>
             <input
@@ -149,9 +155,9 @@ const QuoteAttachments = ({ attachments, onAttachmentsChange, readOnly = false, 
       </div>
 
       {attachments.length > 0 ? (
-        <div className="space-y-2">
+        <div className="space-y-2 bg-blue-50 border border-blue-200 rounded-lg p-4">
           {attachments.map((attachment, index) => (
-            <Card key={index} className="p-3 bg-white border border-gray-200">
+            <Card key={index} className="p-3 bg-white border border-blue-300 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   {getFileIcon(attachment.type)}
@@ -169,6 +175,7 @@ const QuoteAttachments = ({ attachments, onAttachmentsChange, readOnly = false, 
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDownloadAttachment(attachment)}
+                    className="hover:bg-blue-100"
                   >
                     <Download className="w-4 h-4" />
                   </Button>
@@ -188,8 +195,8 @@ const QuoteAttachments = ({ attachments, onAttachmentsChange, readOnly = false, 
           ))}
         </div>
       ) : (
-        <div className="text-sm text-gray-500 p-3 bg-gray-50 rounded-lg border border-gray-200">
-          첨부된 파일이 없습니다.
+        <div className="text-sm text-gray-500 p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-center">
+          {readOnly ? '첨부된 파일이 없습니다.' : '파일을 첨부하려면 "파일 첨부" 버튼을 클릭하세요.'}
         </div>
       )}
     </div>

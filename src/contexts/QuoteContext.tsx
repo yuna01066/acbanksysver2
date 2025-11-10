@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Quote {
   id: string;
@@ -123,7 +124,20 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   };
 
   const clearQuotes = () => {
+    // 첨부 파일 삭제
+    if (recipient?.attachments && recipient.attachments.length > 0) {
+      recipient.attachments.forEach(async (attachment) => {
+        try {
+          await supabase.storage
+            .from('quote-attachments')
+            .remove([attachment.path]);
+        } catch (error) {
+          console.error('Error removing attachment:', error);
+        }
+      });
+    }
     setQuotes([]);
+    setRecipient(null);
     setQuoteNumber('');
   };
 
