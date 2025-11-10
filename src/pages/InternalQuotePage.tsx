@@ -357,30 +357,44 @@ const InternalQuotePage = () => {
                 </div>
               </div>
 
-              {/* 클라이언트 첨부 파일 및 첨부 서류 */}
+              {/* 클라이언트 요청사항 및 첨부 서류 */}
               <div className="mt-8 mb-8 space-y-8">
-                {/* 클라이언트 첨부 파일 - 사업자등록증 위에 표시 */}
-                {recipient?.attachments && recipient.attachments.length > 0 && (
+                {/* 클라이언트 요청사항 - 사업자등록증 위에 표시 */}
+                {(recipient?.clientMemo || (recipient?.attachments && recipient.attachments.length > 0)) && (
                   <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
                     <h3 className="text-xl font-bold mb-4 text-slate-800 flex items-center gap-2">
                       <FileText className="w-5 h-5" />
-                      클라이언트 첨부 파일
+                      클라이언트 요청사항
                     </h3>
-                    <div className="space-y-2">
-                      {recipient.attachments.map((attachment, index) => (
-                        <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg border border-blue-200">
-                          <div className="flex items-center gap-3">
-                            <FileText className="w-4 h-4 text-blue-600" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{attachment.name}</p>
-                              <p className="text-xs text-gray-500">
-                                {(attachment.size / 1024).toFixed(1)} KB
-                              </p>
+                    
+                    {/* 요청사항 내용 */}
+                    {recipient?.clientMemo && (
+                      <div className="mb-4 bg-white p-4 rounded-lg border border-blue-200">
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{recipient.clientMemo}</p>
+                      </div>
+                    )}
+                    
+                    {/* 첨부 파일 */}
+                    {recipient?.attachments && recipient.attachments.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-slate-700 mb-3">첨부 파일</h4>
+                        <div className="space-y-2">
+                          {recipient.attachments.map((attachment, index) => (
+                            <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg border border-blue-200">
+                              <div className="flex items-center gap-3">
+                                <FileText className="w-4 h-4 text-blue-600" />
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">{attachment.name}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {(attachment.size / 1024).toFixed(1)} KB
+                                  </p>
+                                </div>
+                              </div>
                             </div>
-                          </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
