@@ -11,6 +11,8 @@ export interface Quote {
   colorType?: string;
   selectedColor?: string;
   selectedColorHex?: string;
+  customColorName?: string;
+  customOpacity?: string;
   surface: string;
   colorMixingCost: number;
   processing: string;

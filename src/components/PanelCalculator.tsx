@@ -79,6 +79,8 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [selectedColorHex, setSelectedColorHex] = useState<string>('');
   const [selectedColorType, setSelectedColorType] = useState<string>('');
+  const [customColorName, setCustomColorName] = useState<string>('');
+  const [customOpacity, setCustomOpacity] = useState<string>('');
   const [selectedSurface, setSelectedSurface] = useState<string>('');
   const [colorMixingCost, setColorMixingCost] = useState<number>(20000);
   const [selectedProcessing, setSelectedProcessing] = useState<string>('');
@@ -283,13 +285,19 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     resetFromStep(3);
     setCurrentStep(3);
   };
-  const handleColorSelect = (colorId: string, colorInfo: {
+  const handleColorSelect = (colorId: string, colorInfo?: {
     acCode: string;
     hexCode: string;
+    customColorName?: string;
+    customOpacity?: string;
   }) => {
     console.log('Color selected:', colorId, colorInfo);
-    setSelectedColor(colorInfo.acCode);
-    setSelectedColorHex(colorInfo.hexCode);
+    if (colorInfo) {
+      setSelectedColor(colorInfo.acCode);
+      setSelectedColorHex(colorInfo.hexCode);
+      setCustomColorName(colorInfo.customColorName || '');
+      setCustomOpacity(colorInfo.customOpacity || '');
+    }
     resetFromStep(4);
     setCurrentStep(4);
   };
@@ -418,6 +426,8 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       colorType: selectedColorType,
       selectedColor: selectedColor,
       selectedColorHex: selectedColorHex,
+      customColorName: customColorName,
+      customOpacity: customOpacity,
       surface: selectedSizes.map(s => `${s.size}: ${s.surface}`).join(', '),
       colorMixingCost: selectedSizes.reduce((sum, s) => sum + (s.colorMixingCost || 0), 0),
       processing: selectedProcessing,

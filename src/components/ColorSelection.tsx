@@ -16,7 +16,12 @@ interface ColorOption {
 
 interface ColorSelectionProps {
   selectedColor: string;
-  onColorSelect: (id: string, extraInfo?: { acCode: string; hexCode: string }) => void;
+  onColorSelect: (id: string, extraInfo?: { 
+    acCode: string; 
+    hexCode: string;
+    customColorName?: string;
+    customOpacity?: string;
+  }) => void;
   selectedQuality?: { id: string; name: string } | null;
 }
 
@@ -112,7 +117,9 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
     const acCode = customOpacity ? `CUSTOM-${customOpacity}%` : 'CUSTOM';
     onColorSelect(`custom-${Date.now()}`, { 
       acCode: acCode, 
-      hexCode: customColor 
+      hexCode: customColor,
+      customColorName: customColorName,
+      customOpacity: customOpacity
     });
     
     setIsCustomDialogOpen(false);

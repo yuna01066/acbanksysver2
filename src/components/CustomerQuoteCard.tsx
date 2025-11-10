@@ -79,19 +79,24 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
             <div className="text-xs text-gray-600 mb-1">색상</div>
-            <div className="flex items-center gap-2">
-              {quote.selectedColorHex && (
-                <div 
-                  className="w-4 h-4 rounded border border-gray-300"
-                  style={{ backgroundColor: quote.selectedColorHex }}
-                />
-              )}
-              <span className="font-semibold text-gray-900 text-sm">
-                {quote.selectedColor || '-'}
-                {quote.colorType === 'CUSTOM' && (
-                  <span className="ml-1 text-xs text-blue-600">(맞춤)</span>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                {quote.selectedColorHex && (
+                  <div 
+                    className="w-4 h-4 rounded border border-gray-300"
+                    style={{ backgroundColor: quote.selectedColorHex }}
+                  />
                 )}
-              </span>
+                <span className="font-semibold text-gray-900 text-sm">
+                  {quote.selectedColor || '-'}
+                </span>
+              </div>
+              {quote.colorType === 'CUSTOM' && (quote.customColorName || quote.customOpacity) && (
+                <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                  {quote.customColorName && <div>팬톤: {quote.customColorName}</div>}
+                  {quote.customOpacity && <div>투명도: {quote.customOpacity}%</div>}
+                </div>
+              )}
             </div>
           </div>
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
