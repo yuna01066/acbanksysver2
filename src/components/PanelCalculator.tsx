@@ -117,6 +117,17 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     if (editModeParam === 'saved') {
       console.log('Edit mode detected, restoring quote data from URL params');
       console.log('All URL params:', Object.fromEntries(searchParams.entries()));
+
+      // 조색비 복원 (저장 견적 → 계산기 편집 진입 시 초기화되는 문제 방지)
+      const colorMixingCostParam = searchParams.get('colorMixingCost');
+      const restoredColorMixingCost = colorMixingCostParam !== null
+        ? Number(decodeURIComponent(colorMixingCostParam))
+        : NaN;
+      const hasRestoredColorMixingCost = Number.isFinite(restoredColorMixingCost);
+      if (hasRestoredColorMixingCost) {
+        console.log('Restoring colorMixingCost:', restoredColorMixingCost);
+        setColorMixingCost(restoredColorMixingCost);
+      }
       
       setEditMode(editModeParam);
       setSavedQuoteId(searchParams.get('savedQuoteId'));
@@ -171,11 +182,24 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
               size: match[1].trim(), 
               quantity: parseInt(match[2]), 
               surface: '', 
-              colorMixingCost: 0 
+              // undefined로 두면 MultipleColorMixingStep에서 기본값(20,000) 초기화 가능
+              colorMixingCost: hasRestoredColorMixingCost ? undefined : 20000 
             };
           }
-          return { size: entry, quantity: 1, surface: '', colorMixingCost: 0 };
+          return { size: entry, quantity: 1, surface: '', colorMixingCost: hasRestoredColorMixingCost ? undefined : 20000 };
         });
+
+        // 저장된 견적에서 넘어온 조색비를 각 사이즈 항목에 적용
+        // (saved_quotes.items에는 현재 총 조색비만 저장되므로, 다중 사이즈일 땐 균등 분배로 복원)
+        if (hasRestoredColorMixingCost) {
+          const perEntryCost = sizeEntries.length <= 1
+            ? restoredColorMixingCost
+            : Math.round((restoredColorMixingCost / sizeEntries.length) / 10000) * 10000;
+
+          sizeEntries.forEach((e: any) => {
+            e.colorMixingCost = perEntryCost;
+          });
+        }
         
         // surface 파라미터에서 면수 정보 복원
         const surfaceParam = searchParams.get('surface');

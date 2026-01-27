@@ -58,6 +58,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
       size: editedItem.size || '',
       colorType: editedItem.colorType || '',
       surface: editedItem.surface || '',
+      colorMixingCost: String(editedItem.colorMixingCost ?? 0),
       processing: editedItem.processing || '',
       quantity: editedItem.quantity.toString(),
       serialNumber: editedItem.serialNumber || '',
