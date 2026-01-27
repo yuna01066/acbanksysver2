@@ -838,6 +838,10 @@ export const calculatePrice = (
     const processing = options.processing || 'none';
     const adhesion = options.adhesion || 'none';
     const t = parseFloat(thickness.replace('T', ''));
+
+    // 엣지 경면(10T 이상) 계산에 사용될 “가공비용”을 별도로 추적
+    // (totalPrice에서 역산하면 테이프/조색비 등 원판 외 항목까지 포함되어 음수가 될 수 있음)
+    let processingCostApplied = 0;
     
     // 설정값 가져오기 (DB 또는 기본값)
     const adhesionConfig = options.adhesionConfig || DEFAULT_ADHESION_CONFIG;
@@ -849,6 +853,7 @@ export const calculatePrice = (
       const multiplier = (t < 10 ? 1.2 : 1.8);
       // 가공비 = 원장 × (배수 - 1)
       const processingCost = wonJang * (multiplier - 1);
+      processingCostApplied = processingCost;
       breakdown.push({ label: `단순 재단 비용`, price: processingCost });
       totalPrice += processingCost;
   } else if (processing === 'laser-simple' || processing === 'laser-complex' || 
@@ -866,6 +871,7 @@ export const calculatePrice = (
     
     // 가공비 = 원장 × (배수 - 1)
     const processingCost = wonJang * (multiplier - 1);
+    processingCostApplied = processingCost;
     breakdown.push({ label: `${processing} 비용`, price: processingCost });
     totalPrice += processingCost;
   } else if (processing === 'auto') {
@@ -886,6 +892,7 @@ export const calculatePrice = (
     
     // 가공비 = 원장 × (배수 - 1)
     const processingCost = wonJang * (multiplier - 1);
+    processingCostApplied = processingCost;
     breakdown.push({ label: `${autoProcessing} 비용`, price: processingCost });
     totalPrice += processingCost;
     }
@@ -899,10 +906,10 @@ export const calculatePrice = (
         edgeCost = wonJang * 0.8;
         breakdown.push({ label: `엣지 경면 비용 (×1.8)`, price: edgeCost });
       } else {
-        // processingCost가 이미 totalPrice에 더해졌으므로, 
-        // 원장에서 지금까지 누적된 가공비(totalPrice - wonJang)를 빼고 0.5 곱함
-        const processingCostSoFar = totalPrice - wonJang;
-        edgeCost = (wonJang - processingCostSoFar) * 0.5;
+        // “가공비용”은 5-1에서 계산된 가공비만 사용 (테이프/조색비 등 제외)
+        edgeCost = (wonJang - processingCostApplied) * 0.5;
+        // 원판보다 가공비가 더 큰 특이 케이스에서도 음수로 내려가지 않도록 방어
+        if (edgeCost < 0) edgeCost = 0;
         breakdown.push({ label: `엣지 경면 비용 ((원판-가공)×0.5)`, price: edgeCost });
       }
       totalPrice += edgeCost;
