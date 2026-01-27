@@ -803,15 +803,16 @@ export const calculatePrice = (
           console.log(`Applied raw-only surcharge: ${rawOnlyCharge} (원장: ${wonJang} × (${option.multiplier} - 1))`);
         }
         // 일반 가공 옵션: multiplier는 가공비 자체 (인건비 포함)
+        // 가공비 = 원장 × 배수 - 원장 (원장 가격은 이미 basePrice에 포함되어 있으므로)
         else if (option.multiplier !== undefined && option.multiplier !== null && option.multiplier !== 0) {
-          // 가공 비용 = 원장 × 배수 × 수량 (multiplier는 가공비 비율, 음수 없음)
-          const optionCost = wonJang * option.multiplier * quantity;
+          // 가공 비용 = 원장 × (배수 - 1) × 수량 (원장은 이미 포함되어 있으므로 추가 비용만 계산)
+          const optionCost = wonJang * (option.multiplier - 1) * quantity;
           const label = quantity > 1 
             ? `${option.name} (×${option.multiplier}) x${quantity}개`
-            : `${option.name} (×${option.multiplier})`;
+            : `${option.name} 비용`;
           breakdown.push({ label, price: optionCost });
           totalPrice += optionCost;
-          console.log(`Applied processing cost for ${option.name}: ${optionCost} (원장: ${wonJang} × ${option.multiplier} × ${quantity})`);
+          console.log(`Applied processing cost for ${option.name}: ${optionCost} (원장: ${wonJang} × (${option.multiplier} - 1) × ${quantity})`);
         }
         
         // base_cost가 있으면 "기본 비용" 적용 (음수 포함)
@@ -840,11 +841,12 @@ export const calculatePrice = (
     const processFactors = options.processFactors || DEFAULT_PROCESS_FACTORS;
     const bondFactors = options.bondFactors || DEFAULT_BOND_FACTORS;
     
-    // 5-1) 가공 배수 적용
+    // 5-1) 가공 배수 적용 (원장 기준으로 가공비 분리 표시)
     if (processing === 'simple-cutting') {
       const multiplier = (t < 10 ? 1.2 : 1.8);
-      const processingCost = totalPrice * (multiplier - 1);
-      breakdown.push({ label: `단순 재단 (×${multiplier})`, price: processingCost });
+      // 가공비 = 원장 × (배수 - 1)
+      const processingCost = wonJang * (multiplier - 1);
+      breakdown.push({ label: `단순 재단 비용`, price: processingCost });
       totalPrice += processingCost;
   } else if (processing === 'laser-simple' || processing === 'laser-complex' || 
              processing === 'cnc-simple' || processing === 'cnc-complex' ||
@@ -859,8 +861,9 @@ export const calculatePrice = (
     const baseF = processingOption?.multiplier ?? processFactors[processing];
     const multiplier = baseF; // 두께계수 제거: 배수만 적용
     
-    const processingCost = totalPrice * (multiplier - 1);
-    breakdown.push({ label: `${processing} (×${multiplier.toFixed(2)})`, price: processingCost });
+    // 가공비 = 원장 × (배수 - 1)
+    const processingCost = wonJang * (multiplier - 1);
+    breakdown.push({ label: `${processing} 비용`, price: processingCost });
     totalPrice += processingCost;
   } else if (processing === 'auto') {
     const isComplex = options.isComplex || false;
@@ -878,16 +881,18 @@ export const calculatePrice = (
     const baseF = processingOption?.multiplier ?? processFactors[autoProcessing];
     const multiplier = baseF; // 두께계수 제거: 배수만 적용
     
-    const processingCost = totalPrice * (multiplier - 1);
-    breakdown.push({ label: `${autoProcessing} (×${multiplier.toFixed(2)})`, price: processingCost });
+    // 가공비 = 원장 × (배수 - 1)
+    const processingCost = wonJang * (multiplier - 1);
+    breakdown.push({ label: `${autoProcessing} 비용`, price: processingCost });
     totalPrice += processingCost;
     }
     
     // 5-2) 엣지 요청 (접착 포함 전에 처리)
     if (options.edgeRequested) {
       const multiplier = (t <= 10 ? 1.8 : 2.0);
-      const edgeCost = totalPrice * (multiplier - 1);
-      breakdown.push({ label: `엣지 격면 (×${multiplier})`, price: edgeCost });
+      // 엣지 비용 = 원장 × (배수 - 1)
+      const edgeCost = wonJang * (multiplier - 1);
+      breakdown.push({ label: `엣지 격면 비용`, price: edgeCost });
       totalPrice += edgeCost;
     }
     
