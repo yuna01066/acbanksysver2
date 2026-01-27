@@ -805,17 +805,32 @@ export const calculatePrice = (
           totalPrice += rawOnlyCharge;
           console.log(`Applied raw-only surcharge: ${rawOnlyCharge} (원장: ${wonJang} × (${option.multiplier} - 1))`);
         }
-        // 일반 가공 옵션: multiplier는 가공비 자체 (인건비 포함)
-        // 가공비 = 원장 × 배수 - 원장 (원장 가격은 이미 basePrice에 포함되어 있으므로)
+        // 일반 옵션 비용
         else if (option.multiplier !== undefined && option.multiplier !== null && option.multiplier !== 0) {
-          // 가공 비용 = 원장 × (배수 - 1) × 수량 (원장은 이미 포함되어 있으므로 추가 비용만 계산)
-          const optionCost = wonJang * (option.multiplier - 1) * quantity;
-          const label = quantity > 1 
+          // DB에서 additional(추가옵션) multiplier는 UI에도 "원판금액 × multiplier"로 노출되므로
+          // (multiplier - 1)이 아니라 "원장 × multiplier"로 계산해야 음수가 나오지 않습니다.
+          // 또한 multiplier < 1인 케이스들도 동일하게 "원장 × multiplier"로 취급합니다.
+          const optMeta = option as any;
+          const isRateMultiplier =
+            optMeta?.option_type === 'additional' ||
+            optMeta?.category === 'additional' ||
+            option.multiplier < 1;
+
+          const optionCost = isRateMultiplier
+            ? wonJang * option.multiplier * quantity
+            : wonJang * (option.multiplier - 1) * quantity;
+
+          const label = quantity > 1
             ? `${option.name} (×${option.multiplier}) x${quantity}개`
             : `${option.name} 비용`;
+
           breakdown.push({ label, price: optionCost });
           totalPrice += optionCost;
-          console.log(`Applied processing cost for ${option.name}: ${optionCost} (원장: ${wonJang} × (${option.multiplier} - 1) × ${quantity})`);
+
+          console.log(
+            `Applied option cost for ${option.name}: ${optionCost} ` +
+            `(원장: ${wonJang} × ${isRateMultiplier ? option.multiplier : `(${option.multiplier} - 1)`} × ${quantity})`
+          );
         }
         
         // base_cost가 있으면 "기본 비용" 적용 (음수 포함)
