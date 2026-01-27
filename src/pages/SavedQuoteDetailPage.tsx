@@ -455,6 +455,7 @@ const SavedQuoteDetailPage = () => {
                         index={index}
                         onUpdate={handleItemUpdate}
                         onRemove={handleItemRemove}
+                        quoteId={id}
                       />
                     ))
                   ) : (

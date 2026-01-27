@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Trash2, Plus, Minus, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2, Plus, Minus, ChevronDown, ChevronUp, Calculator } from "lucide-react";
 import { formatPrice } from "@/utils/priceCalculations";
 
 interface BreakdownItem {
@@ -38,11 +39,34 @@ interface EditableQuoteItemProps {
   index: number;
   onUpdate: (index: number, updatedItem: QuoteItem) => void;
   onRemove: (index: number) => void;
+  quoteId?: string;
 }
 
-const EditableQuoteItem = ({ item, index, onUpdate, onRemove }: EditableQuoteItemProps) => {
+const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: EditableQuoteItemProps) => {
+  const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
   const [editedItem, setEditedItem] = useState<QuoteItem>(item);
+
+  const handleEditInCalculator = () => {
+    // 견적 데이터를 URL 파라미터로 전달하여 계산기로 이동
+    const quoteParams = new URLSearchParams({
+      factory: editedItem.factory || '',
+      material: editedItem.material || '',
+      quality: editedItem.quality || '',
+      thickness: editedItem.thickness || '',
+      size: editedItem.size || '',
+      colorType: editedItem.colorType || '',
+      surface: editedItem.surface || '',
+      processing: editedItem.processing || '',
+      quantity: editedItem.quantity.toString(),
+      serialNumber: editedItem.serialNumber || '',
+      editMode: 'saved',
+      savedQuoteId: quoteId || '',
+      itemIndex: index.toString()
+    });
+    
+    navigate(`/?${quoteParams.toString()}`);
+  };
 
   const handleQuantityChange = (newQuantity: number) => {
     if (newQuantity >= 1) {
@@ -132,6 +156,15 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove }: EditableQuoteIte
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleEditInCalculator}
+              className="text-green-600 border-green-300 hover:bg-green-50"
+              title="계산기에서 수정"
+            >
+              <Calculator className="w-4 h-4" />
+            </Button>
             <Button
               variant="outline"
               size="sm"
