@@ -50,6 +50,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
   const handleEditInCalculator = () => {
     // 견적 데이터를 URL 파라미터로 전달하여 계산기로 이동
     const quoteParams = new URLSearchParams({
+      type: 'quote',
       factory: editedItem.factory || '',
       material: editedItem.material || '',
       quality: editedItem.quality || '',
@@ -65,7 +66,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
       itemIndex: index.toString()
     });
     
-    navigate(`/?${quoteParams.toString()}`);
+    navigate(`/calculator?${quoteParams.toString()}`);
   };
 
   const handleQuantityChange = (newQuantity: number) => {
