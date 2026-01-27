@@ -16,6 +16,7 @@ import arcbankLogo from "@/assets/arcbank-logo.png";
 import RecipientInfoForm from "@/components/RecipientInfoForm";
 import { QuoteRecipient } from "@/contexts/QuoteContext";
 import QuoteAttachments from "@/components/QuoteAttachments";
+import EditableQuoteItem from "@/components/EditableQuoteItem";
 
 interface SavedQuote {
   id: string;
@@ -68,6 +69,7 @@ const SavedQuoteDetailPage = () => {
   const [viewMode, setViewMode] = useState<'internal' | 'customer'>('internal');
   const [loading, setLoading] = useState(true);
   const [attachments, setAttachments] = useState<any[]>([]);
+  const [editedItems, setEditedItems] = useState<any[]>([]);
 
   useEffect(() => {
     if (id) {
@@ -119,6 +121,7 @@ const SavedQuoteDetailPage = () => {
       
       setQuote(formattedData);
       setAttachments(Array.isArray(formattedData.attachments) ? formattedData.attachments : []);
+      setEditedItems(Array.isArray(formattedData.items) ? formattedData.items : []);
       
       // RecipientData 설정 - issuer 정보는 profiles에서 가져오거나 saved_quotes에 저장된 값 사용
       setRecipientData({
@@ -160,6 +163,12 @@ const SavedQuoteDetailPage = () => {
     if (!id) return;
 
     try {
+      // 수정된 항목들의 총 금액 재계산
+      const newSubtotal = editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
+      const roundedSubtotal = Math.round(newSubtotal / 100) * 100;
+      const newTax = Math.round(roundedSubtotal * 0.1);
+      const newTotal = roundedSubtotal + newTax;
+
       const { error } = await supabase
         .from('saved_quotes')
         .update({
@@ -178,7 +187,11 @@ const SavedQuoteDetailPage = () => {
           issuer_name: recipientData.issuerName,
           issuer_email: recipientData.issuerEmail,
           issuer_phone: recipientData.issuerPhone,
-          attachments: attachments
+          attachments: attachments,
+          items: editedItems,
+          subtotal: roundedSubtotal,
+          tax: newTax,
+          total: newTotal
         })
         .eq('id', id);
 
@@ -191,6 +204,21 @@ const SavedQuoteDetailPage = () => {
       console.error('Error updating quote:', error);
       toast.error('견적서 수정에 실패했습니다.');
     }
+  };
+
+  const handleItemUpdate = (index: number, updatedItem: any) => {
+    const newItems = [...editedItems];
+    newItems[index] = updatedItem;
+    setEditedItems(newItems);
+  };
+
+  const handleItemRemove = (index: number) => {
+    if (editedItems.length <= 1) {
+      toast.error('최소 1개의 견적 항목이 필요합니다.');
+      return;
+    }
+    const newItems = editedItems.filter((_, i) => i !== index);
+    setEditedItems(newItems);
   };
 
   const handleAttachmentsChange = (newAttachments: any[]) => {
@@ -220,9 +248,21 @@ const SavedQuoteDetailPage = () => {
   });
 
   const items = Array.isArray(quote.items) ? quote.items : [];
-  const subtotal = Math.round(quote.subtotal);
-  const tax = Math.round(quote.tax);
-  const totalWithTax = Math.round(quote.total);
+  
+  // 편집 모드일 때는 editedItems 기반으로 계산, 아닐 때는 저장된 값 사용
+  const calculatedSubtotal = isEditing 
+    ? Math.round(editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0) / 100) * 100
+    : Math.round(quote.subtotal);
+  const calculatedTax = isEditing 
+    ? Math.round(calculatedSubtotal * 0.1)
+    : Math.round(quote.tax);
+  const calculatedTotal = isEditing 
+    ? calculatedSubtotal + calculatedTax
+    : Math.round(quote.total);
+  
+  const subtotal = calculatedSubtotal;
+  const tax = calculatedTax;
+  const totalWithTax = calculatedTotal;
 
   return (
     <>
@@ -403,31 +443,45 @@ const SavedQuoteDetailPage = () => {
               <div className="mb-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                   <Calculator className="w-5 h-5" />
-                  견적 목록 ({items.length}개) - 내부 관리용
+                  견적 목록 ({isEditing ? editedItems.length : items.length}개) {isEditing ? '- 편집 모드' : '- 내부 관리용'}
                 </h3>
                 <div className="space-y-6">
-                  {items.map((item: any, index: number) => (
-                    viewMode === 'customer' ? (
-                      <CustomerQuoteCard
+                  {isEditing ? (
+                    // 편집 모드: EditableQuoteItem 사용
+                    editedItems.map((item: any, index: number) => (
+                      <EditableQuoteItem
                         key={index}
-                        quote={item}
+                        item={item}
                         index={index}
-                        onRemove={() => {}}
-                        onUpdateQuantity={() => {}}
-                        isCustomerView={true}
-                        readOnly={true}
+                        onUpdate={handleItemUpdate}
+                        onRemove={handleItemRemove}
                       />
-                    ) : (
-                      <QuoteCard
-                        key={index}
-                        quote={item}
-                        index={index}
-                        onRemove={() => {}}
-                        onUpdateQuantity={() => {}}
-                        readOnly={true}
-                      />
-                    )
-                  ))}
+                    ))
+                  ) : (
+                    // 읽기 모드: 기존 QuoteCard/CustomerQuoteCard 사용
+                    items.map((item: any, index: number) => (
+                      viewMode === 'customer' ? (
+                        <CustomerQuoteCard
+                          key={index}
+                          quote={item}
+                          index={index}
+                          onRemove={() => {}}
+                          onUpdateQuantity={() => {}}
+                          isCustomerView={true}
+                          readOnly={true}
+                        />
+                      ) : (
+                        <QuoteCard
+                          key={index}
+                          quote={item}
+                          index={index}
+                          onRemove={() => {}}
+                          onUpdateQuantity={() => {}}
+                          readOnly={true}
+                        />
+                      )
+                    ))
+                  )}
                 </div>
               </div>
 
