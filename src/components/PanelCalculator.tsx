@@ -115,6 +115,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     const editModeParam = searchParams.get('editMode');
     if (editModeParam === 'saved') {
       console.log('Edit mode detected, restoring quote data from URL params');
+      console.log('All URL params:', Object.fromEntries(searchParams.entries()));
       
       setEditMode(editModeParam);
       setSavedQuoteId(searchParams.get('savedQuoteId'));
@@ -123,58 +124,106 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       // 소재 복원 (material 이름으로 매칭)
       const materialParam = searchParams.get('material');
       if (materialParam) {
-        const material = MATERIALS.find(m => m.name === materialParam || m.id === materialParam);
+        const decodedMaterial = decodeURIComponent(materialParam);
+        console.log('Restoring material:', decodedMaterial);
+        const material = MATERIALS.find(m => m.name === decodedMaterial || m.id === decodedMaterial);
         if (material) {
           setSelectedMaterial(material);
+          console.log('Material set to:', material);
         }
       }
       
       // 재질 복원 (quality 이름으로 매칭)
       const qualityParam = searchParams.get('quality');
       if (qualityParam) {
+        const decodedQuality = decodeURIComponent(qualityParam);
+        console.log('Restoring quality:', decodedQuality);
         const allQualities = [...CASTING_QUALITIES, ...OTHER_ACRYLIC_QUALITIES];
-        const quality = allQualities.find(q => q.name === qualityParam || q.id === qualityParam);
+        const quality = allQualities.find(q => q.name === decodedQuality || q.id === decodedQuality);
         if (quality) {
           setSelectedQuality(quality);
+          console.log('Quality set to:', quality);
         }
       }
       
-      // 기타 필드 복원
+      // 두께 복원
       const thickness = searchParams.get('thickness');
-      if (thickness) setSelectedThickness(thickness);
+      if (thickness) {
+        const decodedThickness = decodeURIComponent(thickness);
+        console.log('Restoring thickness:', decodedThickness);
+        setSelectedThickness(decodedThickness);
+      }
       
+      // 사이즈 복원
       const size = searchParams.get('size');
       if (size) {
-        setSelectedSize(size);
-        // 다중 사이즈 형식인 경우 파싱
-        if (size.includes(',')) {
-          const sizeEntries = size.split(', ').map(entry => {
-            const match = entry.match(/(.+) \((\d+)개\)/);
-            if (match) {
-              return { size: match[1], quantity: parseInt(match[2]), surface: '', colorMixingCost: 0 };
+        const decodedSize = decodeURIComponent(size);
+        console.log('Restoring size:', decodedSize);
+        setSelectedSize(decodedSize);
+        
+        // 다중 사이즈 형식 파싱: "대3*6 (920*1820) (1개)" 또는 "대3*6 (920*1820) (1개), 4*8 (1200*2400) (2개)"
+        const sizeEntries = decodedSize.split(', ').map(entry => {
+          // "대3*6 (920*1820) (1개)" 형식 파싱
+          const match = entry.match(/(.+?)\s*\((\d+)개\)$/);
+          if (match) {
+            return { 
+              size: match[1].trim(), 
+              quantity: parseInt(match[2]), 
+              surface: '', 
+              colorMixingCost: 0 
+            };
+          }
+          return { size: entry, quantity: 1, surface: '', colorMixingCost: 0 };
+        });
+        
+        // surface 파라미터에서 면수 정보 복원
+        const surfaceParam = searchParams.get('surface');
+        if (surfaceParam) {
+          const decodedSurface = decodeURIComponent(surfaceParam);
+          console.log('Restoring surface:', decodedSurface);
+          
+          // "대3*6 (920*1820): 양면" 형식 파싱
+          const surfaceEntries = decodedSurface.split(', ');
+          surfaceEntries.forEach(surfaceEntry => {
+            const surfaceMatch = surfaceEntry.match(/(.+?):\s*(.+)/);
+            if (surfaceMatch) {
+              const sizeKey = surfaceMatch[1].trim();
+              const surfaceValue = surfaceMatch[2].trim();
+              const matchingEntry = sizeEntries.find(e => e.size === sizeKey || e.size.includes(sizeKey));
+              if (matchingEntry) {
+                matchingEntry.surface = surfaceValue;
+              }
             }
-            return { size: entry, quantity: 1, surface: '', colorMixingCost: 0 };
           });
-          setSelectedSizes(sizeEntries);
+          
+          setSelectedSurface(decodedSurface);
         }
+        
+        setSelectedSizes(sizeEntries);
+        console.log('Size entries set to:', sizeEntries);
       }
       
-      const surface = searchParams.get('surface');
-      if (surface) setSelectedSurface(surface);
-      
       const colorType = searchParams.get('colorType');
-      if (colorType) setSelectedColorType(colorType);
+      if (colorType) setSelectedColorType(decodeURIComponent(colorType));
       
       const processing = searchParams.get('processing');
-      if (processing) setSelectedProcessing(processing);
+      if (processing) {
+        const decodedProcessing = decodeURIComponent(processing);
+        console.log('Restoring processing:', decodedProcessing);
+        setSelectedProcessing(decodedProcessing);
+      }
       
       const quantity = searchParams.get('quantity');
       if (quantity) setQty(parseInt(quantity) || 1);
       
-      // 견적 계산기 모드로 설정하고 적절한 단계로 이동
+      // 견적 계산기 모드로 설정하고 가공 옵션 단계로 이동 (모든 기본 정보가 복원되었으므로)
       setCalculatorType('quote');
-      // 재질까지 선택된 경우 두께 선택 단계로, 아니면 처음부터
-      if (qualityParam) {
+      
+      // 가공 옵션 단계(8)로 바로 이동하여 수정할 수 있도록 함
+      if (thickness && size) {
+        console.log('Moving to processing step (8)');
+        setCurrentStep(8);
+      } else if (qualityParam) {
         setCurrentStep(4); // 두께 선택 단계
       } else if (materialParam) {
         setCurrentStep(2); // 재질 선택 단계
