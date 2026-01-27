@@ -445,9 +445,12 @@ export const calcProcessingDelta = (
 
   // 3) 엣지(요청 시, 무기포 포함이면 비활성)
   if (opts.edgeRequested && !edgeIncluded) {
-    const f = (t <= 10 ? 1.8 : 2.0);
-    procCost += materialCost * (f - 1);
-    desc.push(`엣지 경면 (×${f})`);
+    // 10T 미만: 원판비용 × 0.8 (배수 1.8 - 1)
+    // 10T 이상: 원판비용 × 0.5
+    const edgeMultiplier = t < 10 ? 0.8 : 0.5;
+    procCost += materialCost * edgeMultiplier;
+    const displayFactor = t < 10 ? 1.8 : 1.5;
+    desc.push(`엣지 경면 (×${displayFactor})`);
   }
 
   // 4) 기타 정액 옵션(타공 등)
