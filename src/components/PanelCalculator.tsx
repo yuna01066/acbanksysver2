@@ -234,7 +234,13 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   }, [searchParams]);
   
   // initialType이 있으면 자동으로 계산기 타입 선택 단계를 건너뛰기
+  // 단, editMode=saved일 때는 URL 파라미터에서 복원한 step을 유지
   useEffect(() => {
+    const editModeParam = searchParams.get('editMode');
+    if (editModeParam === 'saved') {
+      // 편집 모드일 때는 URL 파라미터 복원 useEffect에서 step을 설정하므로 여기서 건너뜀
+      return;
+    }
     if (initialType && calculatorType === initialType && currentStep === 0) {
       if (initialType === 'yield') {
         setCurrentStep(-1); // 수율 계산기는 -1 단계
@@ -242,7 +248,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         setCurrentStep(1); // 견적 계산기는 1단계부터 시작
       }
     }
-  }, [initialType, calculatorType, currentStep]);
+  }, [initialType, calculatorType, currentStep, searchParams]);
   
   // Convert all selected options (main slots + additional options) to processingType format
   const getProcessingTypeFromOptions = () => {
