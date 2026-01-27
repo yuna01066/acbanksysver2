@@ -513,12 +513,12 @@ export const calculateProcessingCost = (
       break;
 
     case 'edge-finishing':
-      if (thicknessValue <= 10) {
+      if (thicknessValue < 10) {
         baseMultiplier = 1.8;
-        description = '엣지 경면 마감 (10T 이하)';
+        description = '엣지 경면 마감 (10T 미만)';
       } else {
-        baseMultiplier = 2.0;
-        description = '엣지 경면 마감 (10T 초과)';
+        baseMultiplier = 1.5;
+        description = '엣지 경면 마감 (10T 이상)';
       }
       break;
 
@@ -892,10 +892,19 @@ export const calculatePrice = (
     
     // 5-2) 엣지 요청 (접착 포함 전에 처리)
     if (options.edgeRequested) {
-      const multiplier = (t <= 10 ? 1.8 : 2.0);
-      // 엣지 비용 = 원장 × (배수 - 1)
-      const edgeCost = wonJang * (multiplier - 1);
-      breakdown.push({ label: `엣지 경면 비용`, price: edgeCost });
+      // 10T 미만: 원장 × 0.8 (배수 1.8)
+      // 10T 이상: (원장 - 가공비) × 0.5
+      let edgeCost: number;
+      if (t < 10) {
+        edgeCost = wonJang * 0.8;
+        breakdown.push({ label: `엣지 경면 비용 (×1.8)`, price: edgeCost });
+      } else {
+        // processingCost가 이미 totalPrice에 더해졌으므로, 
+        // 원장에서 지금까지 누적된 가공비(totalPrice - wonJang)를 빼고 0.5 곱함
+        const processingCostSoFar = totalPrice - wonJang;
+        edgeCost = (wonJang - processingCostSoFar) * 0.5;
+        breakdown.push({ label: `엣지 경면 비용 ((원판-가공)×0.5)`, price: edgeCost });
+      }
       totalPrice += edgeCost;
     }
     
