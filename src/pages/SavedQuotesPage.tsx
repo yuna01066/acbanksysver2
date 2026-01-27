@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import CustomerQuoteCard from '@/components/CustomerQuoteCard';
 import QuoteCard from '@/components/QuoteCard';
-import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter } from 'lucide-react';
+import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -236,6 +236,89 @@ const SavedQuotesPage = () => {
     }
   };
 
+  const generateNewQuoteNumber = () => {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hour = String(now.getHours()).padStart(2, '0');
+    const minute = String(now.getMinutes()).padStart(2, '0');
+    const sequence = String(Math.floor(Math.random() * 100) + 1).padStart(2, '0');
+    return `${month}${day}${hour}${minute}${sequence}`;
+  };
+
+  const handleDuplicateQuote = async (quoteId: string) => {
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    try {
+      // 원본 견적서 가져오기
+      const { data: originalQuote, error: fetchError } = await supabase
+        .from('saved_quotes')
+        .select('*')
+        .eq('id', quoteId)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+      if (!originalQuote) {
+        toast.error('원본 견적서를 찾을 수 없습니다.');
+        return;
+      }
+
+      // 새 견적번호 생성
+      const newQuoteNumber = generateNewQuoteNumber();
+
+      // 복제 데이터 생성 (id, created_at, updated_at 제외)
+      const duplicateData = {
+        quote_number: newQuoteNumber,
+        quote_date: new Date().toISOString(),
+        quote_date_display: originalQuote.quote_date_display,
+        project_name: originalQuote.project_name ? `${originalQuote.project_name} (복사본)` : '(복사본)',
+        recipient_name: originalQuote.recipient_name,
+        recipient_company: originalQuote.recipient_company,
+        recipient_phone: originalQuote.recipient_phone,
+        recipient_email: originalQuote.recipient_email,
+        recipient_address: originalQuote.recipient_address,
+        recipient_memo: originalQuote.recipient_memo,
+        items: originalQuote.items,
+        subtotal: originalQuote.subtotal,
+        tax: originalQuote.tax,
+        total: originalQuote.total,
+        user_id: user.id,
+        valid_until: originalQuote.valid_until,
+        delivery_period: originalQuote.delivery_period,
+        payment_condition: originalQuote.payment_condition,
+        issuer_name: originalQuote.issuer_name,
+        issuer_email: originalQuote.issuer_email,
+        issuer_phone: originalQuote.issuer_phone,
+        issuer_department: originalQuote.issuer_department,
+        issuer_position: originalQuote.issuer_position,
+        custom_color_name: originalQuote.custom_color_name,
+        custom_opacity: originalQuote.custom_opacity,
+        attachments: originalQuote.attachments,
+        desired_delivery_date: originalQuote.desired_delivery_date,
+      };
+
+      const { data: newQuote, error: insertError } = await supabase
+        .from('saved_quotes')
+        .insert(duplicateData)
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      toast.success('견적서가 복제되었습니다.');
+      fetchQuotes(); // 목록 새로고침
+      
+      // 새 견적서 상세 페이지로 이동 (선택사항)
+      // navigate(`/saved-quotes/${newQuote.id}`);
+    } catch (error) {
+      console.error('Error duplicating quote:', error);
+      toast.error('견적서 복제에 실패했습니다.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center">
@@ -409,6 +492,15 @@ const SavedQuotesPage = () => {
                       >
                         <Eye className="w-4 h-4 mr-1" />
                         상세보기
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDuplicateQuote(quote.id)}
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        title="견적서 복제"
+                      >
+                        <Copy className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="outline"
