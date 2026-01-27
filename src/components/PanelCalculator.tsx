@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -535,7 +536,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     
     setCurrentStep(9); // 가공 선택 단계로 이동 (수량 포함)
   };
-  const handleAddQuote = () => {
+  const handleAddQuote = async () => {
     // 다중 선택 방식으로 검증 수정
     if (!selectedMaterial || !selectedQuality || !selectedThickness || selectedSizes.length === 0) {
       alert('모든 필수 항목을 선택해주세요.');
@@ -571,6 +572,65 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       quantity: 1,
       breakdown: priceInfo.breakdown
     };
+
+    // 편집 모드일 때: 저장된 견적서의 해당 항목을 업데이트
+    if (editMode === 'saved' && savedQuoteId && itemIndex !== null) {
+      try {
+        // 기존 견적서 데이터 가져오기
+        const { data: existingQuote, error: fetchError } = await supabase
+          .from('saved_quotes')
+          .select('items, subtotal, tax, total')
+          .eq('id', savedQuoteId)
+          .single();
+
+        if (fetchError) throw fetchError;
+
+        // items 배열 업데이트
+        const items: any[] = Array.isArray(existingQuote.items) ? [...existingQuote.items] : [];
+        if (itemIndex >= 0 && itemIndex < items.length) {
+          const existingItem = items[itemIndex] as any;
+          items[itemIndex] = {
+            ...existingItem,
+            ...quoteData,
+            id: existingItem?.id // 기존 ID 유지
+          };
+        }
+
+        // 총액 재계산
+        const newSubtotal = items.reduce((sum: number, item: any) => sum + (item.totalPrice * (item.quantity || 1)), 0);
+        const roundedSubtotal = Math.round(newSubtotal / 100) * 100;
+        const newTax = Math.round(roundedSubtotal * 0.1);
+        const newTotal = roundedSubtotal + newTax;
+
+        // 저장된 견적서 업데이트
+        const { error: updateError } = await supabase
+          .from('saved_quotes')
+          .update({
+            items,
+            subtotal: roundedSubtotal,
+            tax: newTax,
+            total: newTotal
+          })
+          .eq('id', savedQuoteId);
+
+        if (updateError) throw updateError;
+
+        alert('견적 항목이 수정되었습니다!');
+        
+        // 편집 모드 초기화 및 저장된 견적서 상세 페이지로 이동
+        setEditMode(null);
+        setSavedQuoteId(null);
+        setItemIndex(null);
+        navigate(`/saved-quotes/${savedQuoteId}`);
+        return;
+      } catch (error) {
+        console.error('Error updating saved quote:', error);
+        alert('견적 수정에 실패했습니다.');
+        return;
+      }
+    }
+
+    // 일반 모드: 새 견적 추가
     addQuote(quoteData);
 
     // Reset form for new quote
@@ -798,16 +858,31 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
             />
           )}
 
-          {/* 견적 추가 버튼 */}
+          {/* 견적 추가/수정 버튼 */}
           {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic' && selectedSizes.length > 0) ||
             (currentStep === 9 && selectedQuality?.id === 'film-acrylic' && selectedSizes.length > 0)) && (
             <>
               <Separator className="my-8" />
               <div className="flex justify-center gap-4">
-                <Button onClick={handleAddQuote} size="lg" className="px-8 animate-fade-up">
+                <Button onClick={handleAddQuote} size="lg" className={`px-8 animate-fade-up ${editMode === 'saved' ? 'bg-green-600 hover:bg-green-700' : ''}`}>
                   <Plus className="w-5 h-5" />
-                  견적 추가
+                  {editMode === 'saved' ? '견적 수정' : '견적 추가'}
                 </Button>
+                {editMode === 'saved' && savedQuoteId && (
+                  <Button 
+                    variant="outline" 
+                    size="lg" 
+                    onClick={() => {
+                      setEditMode(null);
+                      setSavedQuoteId(null);
+                      setItemIndex(null);
+                      navigate(`/saved-quotes/${savedQuoteId}`);
+                    }}
+                    className="px-8"
+                  >
+                    취소
+                  </Button>
+                )}
               </div>
             </>
           )}
