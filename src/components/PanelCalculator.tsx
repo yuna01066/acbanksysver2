@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -65,6 +65,7 @@ interface PanelCalculatorProps {
 
 const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const {
     addQuote,
     quotes
@@ -89,6 +90,11 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [selectedFilm, setSelectedFilm] = useState<string>('');
   const [selectedBaseType, setSelectedBaseType] = useState<string>(''); // 필름 아크릴 기본 재질 (Clear/Bright/Astel)
   
+  // 편집 모드 관련 상태
+  const [editMode, setEditMode] = useState<string | null>(null);
+  const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
+  const [itemIndex, setItemIndex] = useState<number | null>(null);
+  
   // 고급 옵션 상태
   const [qty, setQty] = useState<number>(1);
   const [isComplex, setIsComplex] = useState<boolean>(false);
@@ -103,6 +109,80 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [tapung, setTapung] = useState<boolean>(false);
   const [mugwangPainting, setMugwangPainting] = useState<boolean>(false);
   const [selectedAdditionalOptions, setSelectedAdditionalOptions] = useState<Record<string, number>>({});
+  
+  // URL 파라미터에서 편집 데이터 복원
+  useEffect(() => {
+    const editModeParam = searchParams.get('editMode');
+    if (editModeParam === 'saved') {
+      console.log('Edit mode detected, restoring quote data from URL params');
+      
+      setEditMode(editModeParam);
+      setSavedQuoteId(searchParams.get('savedQuoteId'));
+      setItemIndex(searchParams.get('itemIndex') ? parseInt(searchParams.get('itemIndex')!) : null);
+      
+      // 소재 복원 (material 이름으로 매칭)
+      const materialParam = searchParams.get('material');
+      if (materialParam) {
+        const material = MATERIALS.find(m => m.name === materialParam || m.id === materialParam);
+        if (material) {
+          setSelectedMaterial(material);
+        }
+      }
+      
+      // 재질 복원 (quality 이름으로 매칭)
+      const qualityParam = searchParams.get('quality');
+      if (qualityParam) {
+        const allQualities = [...CASTING_QUALITIES, ...OTHER_ACRYLIC_QUALITIES];
+        const quality = allQualities.find(q => q.name === qualityParam || q.id === qualityParam);
+        if (quality) {
+          setSelectedQuality(quality);
+        }
+      }
+      
+      // 기타 필드 복원
+      const thickness = searchParams.get('thickness');
+      if (thickness) setSelectedThickness(thickness);
+      
+      const size = searchParams.get('size');
+      if (size) {
+        setSelectedSize(size);
+        // 다중 사이즈 형식인 경우 파싱
+        if (size.includes(',')) {
+          const sizeEntries = size.split(', ').map(entry => {
+            const match = entry.match(/(.+) \((\d+)개\)/);
+            if (match) {
+              return { size: match[1], quantity: parseInt(match[2]), surface: '', colorMixingCost: 0 };
+            }
+            return { size: entry, quantity: 1, surface: '', colorMixingCost: 0 };
+          });
+          setSelectedSizes(sizeEntries);
+        }
+      }
+      
+      const surface = searchParams.get('surface');
+      if (surface) setSelectedSurface(surface);
+      
+      const colorType = searchParams.get('colorType');
+      if (colorType) setSelectedColorType(colorType);
+      
+      const processing = searchParams.get('processing');
+      if (processing) setSelectedProcessing(processing);
+      
+      const quantity = searchParams.get('quantity');
+      if (quantity) setQty(parseInt(quantity) || 1);
+      
+      // 견적 계산기 모드로 설정하고 적절한 단계로 이동
+      setCalculatorType('quote');
+      // 재질까지 선택된 경우 두께 선택 단계로, 아니면 처음부터
+      if (qualityParam) {
+        setCurrentStep(4); // 두께 선택 단계
+      } else if (materialParam) {
+        setCurrentStep(2); // 재질 선택 단계
+      } else {
+        setCurrentStep(1); // 소재 선택 단계
+      }
+    }
+  }, [searchParams]);
   
   // initialType이 있으면 자동으로 계산기 타입 선택 단계를 건너뛰기
   useEffect(() => {
