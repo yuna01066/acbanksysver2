@@ -447,7 +447,7 @@ export const calcProcessingDelta = (
   if (opts.edgeRequested && !edgeIncluded) {
     const f = (t <= 10 ? 1.8 : 2.0);
     procCost += materialCost * (f - 1);
-    desc.push(`엣지 격면 (×${f})`);
+    desc.push(`엣지 경면 (×${f})`);
   }
 
   // 4) 기타 정액 옵션(타공 등)
@@ -512,10 +512,10 @@ export const calculateProcessingCost = (
     case 'edge-finishing':
       if (thicknessValue <= 10) {
         baseMultiplier = 1.8;
-        description = '엣지 격면 마감 (10T 이하)';
+        description = '엣지 경면 마감 (10T 이하)';
       } else {
         baseMultiplier = 2.0;
-        description = '엣지 격면 마감 (10T 초과)';
+        description = '엣지 경면 마감 (10T 초과)';
       }
       break;
 
@@ -593,7 +593,7 @@ export interface CalculatePriceV2Options {
   useDetailedBond?: boolean;                      // 상세 접착 계산
   joinLengthM?: number;                           // 접착선 길이
   trayHeightMm?: number;                          // 트레이 높이
-  edgeFinishing?: boolean;                        // 엣지 격면 마감
+  edgeFinishing?: boolean;                        // 엣지 경면 마감
   bulgwang?: boolean;                             // 불광 마감
   tapung?: boolean;                               // 타공
   mugwangPainting?: boolean;                      // 무광 도장
@@ -892,7 +892,7 @@ export const calculatePrice = (
       const multiplier = (t <= 10 ? 1.8 : 2.0);
       // 엣지 비용 = 원장 × (배수 - 1)
       const edgeCost = wonJang * (multiplier - 1);
-      breakdown.push({ label: `엣지 격면 비용`, price: edgeCost });
+      breakdown.push({ label: `엣지 경면 비용`, price: edgeCost });
       totalPrice += edgeCost;
     }
     

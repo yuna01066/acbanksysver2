@@ -38,7 +38,7 @@ const PROCESSING_OPTIONS = [{
   name: '복합 재단'
 }, {
   id: 'edge-finishing',
-  name: '엣지 격면 마감'
+  name: '엣지 경면 마감'
 }, {
   id: 'bubble-free-adhesion',
   name: '무기포 접착'
