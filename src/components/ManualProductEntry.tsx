@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, ArrowRight } from "lucide-react";
 
 export interface ManualProductItem {
@@ -11,6 +12,13 @@ export interface ManualProductItem {
   name: string;
   quantity: number;
   unitPrice: number;
+  // 추가 필드
+  sizeWidth: string;
+  sizeHeight: string;
+  sizeDepth: string;
+  thickness: string;
+  color: string;
+  notes: string;
 }
 
 interface ManualProductEntryProps {
@@ -30,7 +38,13 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
       itemNumber: '',
       name: '',
       quantity: 1,
-      unitPrice: 0
+      unitPrice: 0,
+      sizeWidth: '',
+      sizeHeight: '',
+      sizeDepth: '',
+      thickness: '',
+      color: '',
+      notes: ''
     };
     onItemsChange([...items, newItem]);
   };
@@ -54,6 +68,11 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
   const isValid = items.length > 0 && items.every(item => 
     item.name.trim() !== '' && item.quantity > 0 && item.unitPrice > 0
   );
+
+  const formatSize = (item: ManualProductItem) => {
+    const parts = [item.sizeWidth, item.sizeHeight, item.sizeDepth].filter(p => p.trim());
+    return parts.length > 0 ? parts.join(' × ') : '';
+  };
 
   return (
     <div className="space-y-6">
@@ -80,7 +99,8 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
                 </Button>
               </div>
               
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* 기본 정보 */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div className="space-y-2">
                   <Label htmlFor={`itemNumber-${item.id}`}>아이템 번호</Label>
                   <Input
@@ -124,6 +144,63 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
                     placeholder="0"
                   />
                 </div>
+              </div>
+
+              {/* 사이즈 입력 (가로 × 세로 × 높이) */}
+              <div className="mb-4">
+                <Label className="mb-2 block">사이즈 (가로 × 세로 × 높이)</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <Input
+                    value={item.sizeWidth}
+                    onChange={(e) => updateItem(item.id, 'sizeWidth', e.target.value)}
+                    placeholder="가로"
+                  />
+                  <Input
+                    value={item.sizeHeight}
+                    onChange={(e) => updateItem(item.id, 'sizeHeight', e.target.value)}
+                    placeholder="세로"
+                  />
+                  <Input
+                    value={item.sizeDepth}
+                    onChange={(e) => updateItem(item.id, 'sizeDepth', e.target.value)}
+                    placeholder="높이"
+                  />
+                </div>
+              </div>
+
+              {/* 두께, 컬러 */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="space-y-2">
+                  <Label htmlFor={`thickness-${item.id}`}>두께</Label>
+                  <Input
+                    id={`thickness-${item.id}`}
+                    value={item.thickness}
+                    onChange={(e) => updateItem(item.id, 'thickness', e.target.value)}
+                    placeholder="예: 5T, 10mm"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor={`color-${item.id}`}>컬러</Label>
+                  <Input
+                    id={`color-${item.id}`}
+                    value={item.color}
+                    onChange={(e) => updateItem(item.id, 'color', e.target.value)}
+                    placeholder="예: 투명, 백색, Pantone 123C"
+                  />
+                </div>
+              </div>
+
+              {/* 기타사항 */}
+              <div className="space-y-2">
+                <Label htmlFor={`notes-${item.id}`}>기타사항</Label>
+                <Textarea
+                  id={`notes-${item.id}`}
+                  value={item.notes}
+                  onChange={(e) => updateItem(item.id, 'notes', e.target.value)}
+                  placeholder="추가 요청사항이나 특이사항을 입력하세요"
+                  rows={2}
+                />
               </div>
               
               <div className="mt-3 text-right text-sm text-muted-foreground">
