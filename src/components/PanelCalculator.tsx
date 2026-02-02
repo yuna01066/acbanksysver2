@@ -443,7 +443,19 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     
     // 제품 제작 모드일 경우 수동 입력 단계로 이동
     if (material.id === 'manual-product') {
-      setManualProductItems([{ id: Date.now().toString(), itemNumber: '', name: '', quantity: 1, unitPrice: 0 }]);
+      setManualProductItems([{ 
+        id: Date.now().toString(), 
+        itemNumber: '', 
+        name: '', 
+        quantity: 1, 
+        unitPrice: 0,
+        sizeWidth: '',
+        sizeHeight: '',
+        sizeDepth: '',
+        thickness: '',
+        color: '',
+        notes: ''
+      }]);
       setCurrentStep(100); // 제품 제작 전용 단계
       return;
     }
@@ -708,26 +720,47 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
 
     // 각 항목을 개별 견적으로 추가
     validItems.forEach(item => {
+      // 사이즈 문자열 생성
+      const sizeParts = [item.sizeWidth, item.sizeHeight, item.sizeDepth].filter(p => p.trim());
+      const sizeStr = sizeParts.length > 0 ? sizeParts.join(' × ') : '-';
+      
+      // breakdown 상세 내역 생성
+      const breakdownItems: { label: string; price: number }[] = [
+        { label: `${item.name} (${item.quantity}개 × ₩${item.unitPrice.toLocaleString()})`, price: item.unitPrice * item.quantity }
+      ];
+      
+      // 상세 정보를 breakdown에 추가 (가격 0으로 정보성 표시)
+      if (sizeStr !== '-') {
+        breakdownItems.push({ label: `사이즈: ${sizeStr}`, price: 0 });
+      }
+      if (item.thickness.trim()) {
+        breakdownItems.push({ label: `두께: ${item.thickness}`, price: 0 });
+      }
+      if (item.color.trim()) {
+        breakdownItems.push({ label: `컬러: ${item.color}`, price: 0 });
+      }
+      if (item.notes.trim()) {
+        breakdownItems.push({ label: `기타: ${item.notes}`, price: 0 });
+      }
+
       const quoteData = {
         factory: 'jangwon',
         material: '제품 제작',
         quality: item.itemNumber ? `[${item.itemNumber}]` : '',
-        thickness: '-',
-        size: '-',
-        colorType: '',
-        selectedColor: '',
+        thickness: item.thickness || '-',
+        size: sizeStr,
+        colorType: item.color || '',
+        selectedColor: item.color || '',
         selectedColorHex: '',
         customColorName: '',
         customOpacity: '',
-        surface: '-',
+        surface: item.notes || '-',
         colorMixingCost: 0,
         processing: 'manual',
         processingName: item.name,
         totalPrice: item.unitPrice * item.quantity,
         quantity: 1, // 수량은 이미 totalPrice에 반영됨
-        breakdown: [
-          { label: `${item.name} (${item.quantity}개 × ₩${item.unitPrice.toLocaleString()})`, price: item.unitPrice * item.quantity }
-        ]
+        breakdown: breakdownItems
       };
       addQuote(quoteData);
     });
