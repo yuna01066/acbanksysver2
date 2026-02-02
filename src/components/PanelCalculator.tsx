@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import YieldCalculator from "./YieldCalculator";
 import AdvancedProcessingOptions from "./AdvancedProcessingOptions";
 import EdgeFinishingOption from "./EdgeFinishingOption";
+import ManualProductEntry, { ManualProductItem } from "./ManualProductEntry";
 const PROCESSING_OPTIONS = [{
   id: 'raw-only',
   name: '원판 단독 구매'
@@ -110,6 +111,9 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [tapung, setTapung] = useState<boolean>(false);
   const [mugwangPainting, setMugwangPainting] = useState<boolean>(false);
   const [selectedAdditionalOptions, setSelectedAdditionalOptions] = useState<Record<string, number>>({});
+  
+  // 제품 제작 수동 입력 상태
+  const [manualProductItems, setManualProductItems] = useState<ManualProductItem[]>([]);
   
   // URL 파라미터에서 편집 데이터 복원
   useEffect(() => {
@@ -436,6 +440,14 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const handleMaterialSelect = (material: Material) => {
     console.log('Material selected:', material);
     setSelectedMaterial(material);
+    
+    // 제품 제작 모드일 경우 수동 입력 단계로 이동
+    if (material.id === 'manual-product') {
+      setManualProductItems([{ id: Date.now().toString(), itemNumber: '', name: '', quantity: 1, unitPrice: 0 }]);
+      setCurrentStep(100); // 제품 제작 전용 단계
+      return;
+    }
+    
     resetFromStep(2);
     setCurrentStep(2);
   };
@@ -677,6 +689,63 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     setSelectedBaseType('');
     alert('견적이 추가되었습니다!');
   };
+
+  // 제품 제작 수동 입력 견적 추가
+  const handleAddManualProductQuote = () => {
+    if (manualProductItems.length === 0) {
+      alert('최소 1개 이상의 항목을 입력해주세요.');
+      return;
+    }
+
+    const validItems = manualProductItems.filter(item => 
+      item.name.trim() !== '' && item.quantity > 0 && item.unitPrice > 0
+    );
+
+    if (validItems.length === 0) {
+      alert('유효한 항목을 입력해주세요.');
+      return;
+    }
+
+    // 각 항목을 개별 견적으로 추가
+    validItems.forEach(item => {
+      const quoteData = {
+        factory: 'jangwon',
+        material: '제품 제작',
+        quality: item.itemNumber ? `[${item.itemNumber}]` : '',
+        thickness: '-',
+        size: '-',
+        colorType: '',
+        selectedColor: '',
+        selectedColorHex: '',
+        customColorName: '',
+        customOpacity: '',
+        surface: '-',
+        colorMixingCost: 0,
+        processing: 'manual',
+        processingName: item.name,
+        totalPrice: item.unitPrice * item.quantity,
+        quantity: 1, // 수량은 이미 totalPrice에 반영됨
+        breakdown: [
+          { label: `${item.name} (${item.quantity}개 × ₩${item.unitPrice.toLocaleString()})`, price: item.unitPrice * item.quantity }
+        ]
+      };
+      addQuote(quoteData);
+    });
+
+    // 리셋
+    setManualProductItems([]);
+    setSelectedMaterial(null);
+    setCurrentStep(0);
+    setCalculatorType(null);
+    
+    alert(`${validItems.length}개의 제품 제작 견적이 추가되었습니다!`);
+  };
+
+  // 제품 제작에서 견적 요약으로 이동
+  const handleManualProductNext = () => {
+    handleAddManualProductQuote();
+  };
+
   const handleViewQuotesSummary = () => {
     navigate('/quotes-summary');
   };
@@ -784,6 +853,15 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
             id: 'jangwon',
             name: '장원'
           }]} onMaterialSelect={handleMaterialSelect} />}
+
+          {/* Step 100: 제품 제작 수동 입력 */}
+          {currentStep === 100 && selectedMaterial?.id === 'manual-product' && (
+            <ManualProductEntry
+              items={manualProductItems}
+              onItemsChange={setManualProductItems}
+              onNext={handleManualProductNext}
+            />
+          )}
 
           {/* Step 2: 재질 선택 */}
           {currentStep === 2 && selectedMaterial?.id === 'casting' && <QualitySelection qualities={CASTING_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}
@@ -912,12 +990,27 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
           )}
 
           {/* 이전 단계로 돌아가기 버튼 */}
-          {currentStep > 0 && <>
+          {currentStep > 0 && currentStep !== 100 && <>
               <Separator className="my-8" />
               <div className="flex justify-center">
                 <Button variant="ghost" onClick={() => setCurrentStep(currentStep - 1)} className="px-6">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   이전 단계로
+                </Button>
+              </div>
+            </>}
+          
+          {/* 제품 제작 모드에서 이전 단계로 버튼 */}
+          {currentStep === 100 && <>
+              <Separator className="my-8" />
+              <div className="flex justify-center">
+                <Button variant="ghost" onClick={() => {
+                  setManualProductItems([]);
+                  setSelectedMaterial(null);
+                  setCurrentStep(1);
+                }} className="px-6">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  소재 선택으로
                 </Button>
               </div>
             </>}
