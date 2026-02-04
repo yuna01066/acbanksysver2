@@ -185,6 +185,31 @@ Deno.serve(async (req) => {
         result = await callPluuugApi("/v1/inquiry/field", "GET");
         break;
 
+      // ==================== 견적서 (Estimate) ====================
+      case "estimate.list":
+        result = await callPluuugApi("/v1/estimate", "GET");
+        break;
+
+      case "estimate.create":
+        result = await callPluuugApi("/v1/estimate", "POST", params.data);
+        break;
+
+      case "estimate.get":
+        result = await callPluuugApi(`/v1/estimate/${params.id}`, "GET");
+        break;
+
+      case "estimate.update":
+        result = await callPluuugApi(`/v1/estimate/${params.id}`, "PATCH", params.data);
+        break;
+
+      case "estimate.delete":
+        result = await callPluuugApi(`/v1/estimate/${params.id}`, "DELETE");
+        break;
+
+      case "estimate.status.list":
+        result = await callPluuugApi("/v1/estimate/status", "GET");
+        break;
+
       // ==================== 견적서 항목 템플릿 (Estimate Item) ====================
       case "estimate.item.list":
         result = await callPluuugApi("/v1/estimate/item", "GET");
