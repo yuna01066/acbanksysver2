@@ -475,7 +475,7 @@ const MyPage = () => {
           continue;
         }
 
-        // 로컬에 새 담당자 생성
+        // 로컬에 새 담당자 생성 (상세 정보 포함)
         const newRecipient = await createRecipient({
           company_name: client.companyName || '미지정',
           contact_person: client.inCharge || '담당자',
@@ -483,6 +483,14 @@ const MyPage = () => {
           phone: client.contact || '010-0000-0000',
           email: client.email || `${(client.companyName || 'company').replace(/\s/g, '').toLowerCase()}@example.com`,
           memo: client.content || undefined,
+          // Pluuug 상세 정보 매핑
+          ceo_name: client.ceoName || client.inCharge || '대표자',
+          business_registration_number: client.businessRegistrationNumber || '000-00-00000',
+          address: client.companyAddress || undefined,
+          detail_address: client.companyDetailAddress || undefined,
+          business_type: client.businessType || '서비스업',
+          business_class: client.businessClass || '기타',
+          branch_number: client.branchNumber || '00',
         });
 
         if (newRecipient) {

@@ -22,6 +22,15 @@ export interface PluuugClient {
   content?: string;
   createdAt?: string;
   updatedAt?: string;
+  // 상세 정보 필드
+  ceoName?: string;
+  businessRegistrationNumber?: string;
+  companyAddress?: string;
+  companyDetailAddress?: string;
+  businessType?: string;
+  businessClass?: string;
+  branchNumber?: string;
+  fieldSet?: { field: { id: number }; value: string }[];
 }
 
 export interface PluuugEstimate {
