@@ -225,17 +225,37 @@ const MyPage = () => {
         return;
       }
 
+      // Pluuug API requires many mandatory fields for client creation
+      // We need to provide reasonable defaults or validate the data first
+      const clientEmail = recipient.email && recipient.email !== '-' && recipient.email.includes('@') 
+        ? recipient.email 
+        : `${recipient.company.replace(/\s/g, '').toLowerCase()}@example.com`;
+
       const result = await createClient({
-        companyName: recipient.company,
-        inCharge: recipient.name,
-        contact: recipient.phone,
-        email: recipient.email,
-        content: recipient.address !== '-' ? `주소: ${recipient.address}` : undefined
-      });
+        companyName: recipient.company !== '-' ? recipient.company : '미지정',
+        inCharge: recipient.name !== '-' ? recipient.name : '담당자',
+        contact: recipient.phone !== '-' ? recipient.phone : '',
+        email: clientEmail,
+        position: '담당자',
+        content: recipient.address !== '-' ? `주소: ${recipient.address}` : '',
+        // Pluuug API required fields with defaults
+        status: { id: 1 },
+        ceoName: recipient.name !== '-' ? recipient.name : '대표자',
+        businessRegistrationNumber: '000-00-00000',
+        companyAddress: recipient.address !== '-' ? recipient.address : '미지정',
+        companyDetailAddress: '',
+        businessType: '서비스업',
+        businessClass: '기타',
+        branchNumber: '00',
+        fieldSet: 1
+      } as any);
 
       if (result.data) {
         toast.success('Pluuug에 고객이 등록되었습니다!');
         await fetchPluuugClients();
+      } else if (result.error) {
+        console.error('Pluuug API Error:', result.error);
+        toast.error(`Pluuug 등록 실패: ${result.error}`);
       } else {
         toast.error('Pluuug 등록에 실패했습니다.');
       }
