@@ -1,10 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-export interface PluuugEstimateData {
-  title: string;
+export interface PluuugInquiryData {
+  name: string;
   quoteNumber: string;
   quoteDate: string;
+  inquiryDate: string;
+  estimate: string; // 견적서 내용 (문자열)
+  content?: string; // 메모/설명
   client?: {
     id?: number;
     companyName?: string;
@@ -12,6 +15,9 @@ export interface PluuugEstimateData {
     contact?: string;
     email?: string;
     address?: string;
+  };
+  status?: {
+    id: number;
   };
   items: {
     name: string;
@@ -24,7 +30,6 @@ export interface PluuugEstimateData {
   subtotal: number;
   tax: number;
   total: number;
-  memo?: string;
   validUntil?: string;
   deliveryPeriod?: string;
   paymentCondition?: string;
@@ -38,68 +43,106 @@ export interface PluuugEstimateData {
 
 export interface PluuugSyncResult {
   success: boolean;
-  pluuugEstimateId?: number;
+  pluuugInquiryId?: number;
   error?: string;
 }
 
 /**
- * 견적서를 Pluuug에 동기화
+ * 견적서 항목들을 문자열로 포맷팅
+ */
+function formatEstimateString(data: PluuugInquiryData): string {
+  const lines: string[] = [];
+  
+  lines.push(`=== ${data.name} ===`);
+  lines.push(`견적번호: ${data.quoteNumber}`);
+  lines.push(`견적일자: ${data.quoteDate.split('T')[0]}`);
+  lines.push('');
+  
+  // 항목 목록
+  lines.push('【 품목 내역 】');
+  data.items.forEach((item, index) => {
+    lines.push(`${index + 1}. ${item.name}`);
+    lines.push(`   수량: ${item.quantity}개`);
+    lines.push(`   단가: ₩${item.unitPrice.toLocaleString()}`);
+    lines.push(`   금액: ₩${item.amount.toLocaleString()}`);
+    if (item.description) {
+      lines.push(`   상세: ${item.description}`);
+    }
+    lines.push('');
+  });
+  
+  // 합계
+  lines.push('【 합계 】');
+  lines.push(`공급가액: ₩${data.subtotal.toLocaleString()}`);
+  lines.push(`부가세: ₩${data.tax.toLocaleString()}`);
+  lines.push(`총합계: ₩${data.total.toLocaleString()}`);
+  lines.push('');
+  
+  // 조건
+  if (data.validUntil) lines.push(`유효기한: ${data.validUntil}`);
+  if (data.deliveryPeriod) lines.push(`납기: ${data.deliveryPeriod}`);
+  if (data.paymentCondition) lines.push(`결제조건: ${data.paymentCondition}`);
+  if (data.desiredDeliveryDate) {
+    lines.push(`희망납기일: ${data.desiredDeliveryDate.split('T')[0]}`);
+  }
+  
+  // 발신자 정보
+  if (data.issuer?.name) {
+    lines.push('');
+    lines.push('【 담당자 】');
+    lines.push(`${data.issuer.name}`);
+    if (data.issuer.phone) lines.push(`연락처: ${data.issuer.phone}`);
+    if (data.issuer.email) lines.push(`이메일: ${data.issuer.email}`);
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * 견적서를 Pluuug 의뢰(Inquiry)로 동기화
  */
 export async function syncQuoteToPluuug(
-  quoteData: PluuugEstimateData
+  quoteData: PluuugInquiryData
 ): Promise<PluuugSyncResult> {
   try {
-    console.log('[Pluuug Sync] Starting sync...', quoteData);
+    console.log('[Pluuug Sync] Starting inquiry sync...', quoteData);
 
-    // Pluuug API 견적서 생성 형식으로 변환 - 로컬 견적서 양식 기준
-    const pluuugPayload = {
-      title: quoteData.title,
-      quoteNumber: quoteData.quoteNumber,
-      quoteDate: quoteData.quoteDate,
-      content: quoteData.memo || '',
-      items: quoteData.items.map((item, index) => ({
-        name: item.name,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        amount: item.amount,
-        order: item.order || index + 1,
-        description: item.description || ''
-      })),
-      totalAmount: quoteData.total,
-      taxAmount: quoteData.tax,
-      supplyAmount: quoteData.subtotal,
-      validUntil: quoteData.validUntil || '',
-      deliveryPeriod: quoteData.deliveryPeriod || '',
-      paymentCondition: quoteData.paymentCondition || '',
-      desiredDeliveryDate: quoteData.desiredDeliveryDate || '',
-      // 발신자(담당자) 정보
-      issuer: quoteData.issuer ? {
-        name: quoteData.issuer.name || '',
-        phone: quoteData.issuer.phone || '',
-        email: quoteData.issuer.email || ''
-      } : undefined,
-      // 고객 정보
-      client: quoteData.client?.id 
-        ? { 
-            id: quoteData.client.id,
-            companyName: quoteData.client.companyName || '',
-            inCharge: quoteData.client.inCharge || '',
-            contact: quoteData.client.contact || '',
-            email: quoteData.client.email || '',
-            address: quoteData.client.address || ''
-          } 
-        : quoteData.client ? {
-            companyName: quoteData.client.companyName || '',
-            inCharge: quoteData.client.inCharge || '',
-            contact: quoteData.client.contact || '',
-            email: quoteData.client.email || '',
-            address: quoteData.client.address || ''
-          } : undefined
+    // 견적 내용을 문자열로 포맷팅
+    const estimateContent = formatEstimateString(quoteData);
+
+    // Pluuug API 의뢰 생성 형식으로 변환
+    // estimate: 숫자 (총 금액), content: 견적 상세 내용
+    const pluuugPayload: any = {
+      name: quoteData.name,
+      estimate: quoteData.total.toString(), // 숫자 문자열로 전달
+      content: estimateContent, // 견적 상세 내용을 content에 저장
+      inquiryDate: quoteData.inquiryDate.split('T')[0], // YYYY-MM-DD 형식
+      contract: null, // 계약 없음
+      workSet: [], // 빈 배열 허용
+      inChargeSet: [], // 빈 배열 허용
+      fieldSet: [], // 빈 배열 허용
     };
+
+    // 상태 ID 추가 (기본값: 견적 발행 상태 = 120348)
+    pluuugPayload.status = { id: quoteData.status?.id || 120348 };
+
+    // 고객 정보가 있으면 추가 (Pluuug client ID가 있는 경우)
+    if (quoteData.client?.id) {
+      pluuugPayload.client = { id: quoteData.client.id };
+    } else {
+      // 클라이언트 ID가 없으면 에러 반환 (필수 필드)
+      console.warn('[Pluuug Sync] No Pluuug client ID - sync requires a linked client');
+      return { 
+        success: false, 
+        error: 'Pluuug에 연결된 고객 정보가 없습니다. 먼저 고객을 Pluuug에 동기화해주세요.' 
+      };
+    }
+
+    console.log('[Pluuug Sync] Payload:', pluuugPayload);
 
     const { data, error } = await supabase.functions.invoke('pluuug-api', {
       body: {
-        action: 'estimate.create',
+        action: 'inquiry.create',
         data: pluuugPayload
       }
     });
@@ -110,14 +153,14 @@ export async function syncQuoteToPluuug(
     }
 
     if (data?.error) {
-      console.error('[Pluuug Sync] API error:', data.error);
+      console.error('[Pluuug Sync] API error:', data.error, data.data);
       return { success: false, error: data.error };
     }
 
     console.log('[Pluuug Sync] Success:', data);
     return { 
       success: true, 
-      pluuugEstimateId: data?.data?.id 
+      pluuugInquiryId: data?.data?.id 
     };
   } catch (err: any) {
     console.error('[Pluuug Sync] Error:', err);
@@ -126,7 +169,7 @@ export async function syncQuoteToPluuug(
 }
 
 /**
- * 로컬 견적 데이터를 Pluuug 형식으로 변환
+ * 로컬 견적 데이터를 Pluuug Inquiry 형식으로 변환
  */
 export function convertQuoteToPluuugFormat(
   quotes: any[],
@@ -135,9 +178,9 @@ export function convertQuoteToPluuugFormat(
   subtotal: number,
   tax: number,
   total: number
-): PluuugEstimateData {
-  const title = recipient?.projectName 
-    ? `${recipient.projectName} - ${quoteNumber}`
+): PluuugInquiryData {
+  const name = recipient?.projectName 
+    ? `${recipient.projectName}`
     : `아크뱅크 견적서 ${quoteNumber}`;
 
   // 견적일자 포맷팅
@@ -170,9 +213,12 @@ export function convertQuoteToPluuugFormat(
   });
 
   return {
-    title,
+    name,
     quoteNumber,
     quoteDate,
+    inquiryDate: quoteDate, // 의뢰일 = 견적일
+    estimate: '', // formatEstimateString에서 생성됨
+    content: recipient?.clientMemo || '',
     client: recipient ? {
       companyName: recipient.companyName || '',
       inCharge: recipient.contactPerson || '',
@@ -184,7 +230,6 @@ export function convertQuoteToPluuugFormat(
     subtotal,
     tax,
     total,
-    memo: recipient?.clientMemo || '',
     validUntil: recipient?.validUntil || '',
     deliveryPeriod: recipient?.deliveryPeriod || '',
     paymentCondition: recipient?.paymentCondition || '',
@@ -319,7 +364,7 @@ export async function saveQuoteWithPluuugSync(
   tax: number,
   total: number,
   syncToPluuug: boolean = true
-): Promise<{ success: boolean; quoteId?: string; pluuugSynced?: boolean; pluuugEstimateId?: string; error?: string }> {
+): Promise<{ success: boolean; quoteId?: string; pluuugSynced?: boolean; pluuugInquiryId?: string; error?: string }> {
   try {
     // 0. 담당자 정보를 recipients 테이블에 자동 저장하고 Pluuug 클라이언트 ID 가져오기
     const { recipientId, pluuugClientId } = await saveRecipientAutomatically(userId, recipient);
@@ -364,7 +409,7 @@ export async function saveQuoteWithPluuugSync(
     }
 
     let pluuugSynced = false;
-    let pluuugEstimateId: string | undefined;
+    let pluuugInquiryId: string | undefined;
 
     // 2. Pluuug 동기화 (옵션)
     if (syncToPluuug) {
@@ -390,7 +435,7 @@ export async function saveQuoteWithPluuugSync(
       
       if (syncResult.success) {
         pluuugSynced = true;
-        pluuugEstimateId = syncResult.pluuugEstimateId?.toString();
+        pluuugInquiryId = syncResult.pluuugInquiryId?.toString();
         
         // 동기화 성공 시 saved_quotes 업데이트
         await supabase
@@ -398,7 +443,7 @@ export async function saveQuoteWithPluuugSync(
           .update({
             pluuug_synced: true,
             pluuug_synced_at: new Date().toISOString(),
-            pluuug_estimate_id: pluuugEstimateId
+            pluuug_estimate_id: pluuugInquiryId
           })
           .eq('id', savedQuote?.id);
         
@@ -414,7 +459,7 @@ export async function saveQuoteWithPluuugSync(
       success: true, 
       quoteId: savedQuote?.id,
       pluuugSynced,
-      pluuugEstimateId
+      pluuugInquiryId
     };
   } catch (err: any) {
     console.error('[Save Quote with Pluuug] Error:', err);
