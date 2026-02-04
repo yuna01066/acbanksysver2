@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users, Cloud, CloudOff, Upload, Loader2, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users, Cloud, CloudOff, Upload, Loader2, RefreshCw, AlertTriangle, CheckCircle2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -39,6 +39,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { RecipientEditDialog } from '@/components/RecipientEditDialog';
 
 interface SavedQuote {
   id: string;
@@ -74,6 +75,7 @@ const MyPage = () => {
     getSyncedRecipients,
     toPluuugClientData,
     migrateFromSavedQuotes,
+    updateRecipient,
     loading: recipientsLoading 
   } = useRecipients();
   
@@ -92,6 +94,7 @@ const MyPage = () => {
     invalid: number;
     clearedRecipients: string[];
   } | null>(null);
+  const [editingRecipient, setEditingRecipient] = useState<Recipient | null>(null);
   
   // Profile edit state
   const [fullName, setFullName] = useState('');
@@ -709,6 +712,7 @@ const MyPage = () => {
                           <TableHead>이메일</TableHead>
                           <TableHead>Pluuug</TableHead>
                           <TableHead className="text-right">견적서 수</TableHead>
+                          <TableHead className="text-center">수정</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -750,6 +754,19 @@ const MyPage = () => {
                               </TableCell>
                               <TableCell className="text-right">
                                 <span className="font-semibold text-primary">{recipient.quoteCount}건</span>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingRecipient(recipient);
+                                  }}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
                               </TableCell>
                             </TableRow>
                           );
@@ -909,6 +926,22 @@ const MyPage = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Recipient Edit Dialog */}
+      <RecipientEditDialog
+        recipient={editingRecipient}
+        open={!!editingRecipient}
+        onOpenChange={(open) => {
+          if (!open) setEditingRecipient(null);
+        }}
+        onSave={async (id, updates) => {
+          const result = await updateRecipient(id, updates);
+          if (result) {
+            await fetchRecipients();
+          }
+          return result;
+        }}
+      />
     </div>
   );
 };
