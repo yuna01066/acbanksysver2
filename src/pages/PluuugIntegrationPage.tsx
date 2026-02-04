@@ -137,7 +137,6 @@ const PluuugIntegrationPage = () => {
               <p className="text-muted-foreground text-sm">플러그와 견적 데이터를 동기화합니다</p>
             </div>
           </div>
-          </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={handleRefresh} disabled={pluuugApi.loading}>
               <RefreshCw className={`w-4 h-4 mr-2 ${pluuugApi.loading ? 'animate-spin' : ''}`} />
