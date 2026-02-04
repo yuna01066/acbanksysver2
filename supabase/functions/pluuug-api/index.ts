@@ -156,33 +156,54 @@ Deno.serve(async (req) => {
         result = await callPluuugApi("/v1/client/status", "GET");
         break;
 
-      // ==================== 견적서 (Estimate) ====================
-      case "estimate.list":
-        result = await callPluuugApi("/v1/estimate", "GET");
+      // ==================== 의뢰 (Inquiry) ====================
+      case "inquiry.list":
+        result = await callPluuugApi("/v1/inquiry", "GET");
         break;
 
-      case "estimate.create":
-        result = await callPluuugApi("/v1/estimate", "POST", params.data);
+      case "inquiry.create":
+        result = await callPluuugApi("/v1/inquiry", "POST", params.data);
         break;
 
-      case "estimate.get":
-        result = await callPluuugApi(`/v1/estimate/${params.id}`, "GET");
+      case "inquiry.get":
+        result = await callPluuugApi(`/v1/inquiry/${params.id}`, "GET");
         break;
 
-      case "estimate.update":
-        result = await callPluuugApi(`/v1/estimate/${params.id}`, "PATCH", params.data);
+      case "inquiry.update":
+        result = await callPluuugApi(`/v1/inquiry/${params.id}`, "PATCH", params.data);
         break;
 
-      case "estimate.delete":
-        result = await callPluuugApi(`/v1/estimate/${params.id}`, "DELETE");
+      case "inquiry.delete":
+        result = await callPluuugApi(`/v1/inquiry/${params.id}`, "DELETE");
         break;
 
-      case "estimate.status.list":
-        result = await callPluuugApi("/v1/estimate/status", "GET");
+      case "inquiry.status.list":
+        result = await callPluuugApi("/v1/inquiry/status", "GET");
         break;
 
+      // ==================== 견적서 항목 템플릿 (Estimate Item) ====================
       case "estimate.item.list":
         result = await callPluuugApi("/v1/estimate/item", "GET");
+        break;
+
+      case "estimate.item.create":
+        result = await callPluuugApi("/v1/estimate/item", "POST", params.data);
+        break;
+
+      case "estimate.item.get":
+        result = await callPluuugApi(`/v1/estimate/item/${params.id}`, "GET");
+        break;
+
+      case "estimate.item.update":
+        result = await callPluuugApi(`/v1/estimate/item/${params.id}`, "PATCH", params.data);
+        break;
+
+      case "estimate.item.delete":
+        result = await callPluuugApi(`/v1/estimate/item/${params.id}`, "DELETE");
+        break;
+
+      case "estimate.item.classification.list":
+        result = await callPluuugApi("/v1/estimate/item/classification", "GET");
         break;
 
       // ==================== 계약 (Contract) ====================
@@ -233,27 +254,6 @@ Deno.serve(async (req) => {
 
       case "settlement.type.list":
         result = await callPluuugApi("/v1/settlement/type", "GET");
-        break;
-
-      // ==================== 의뢰 (Request) ====================
-      case "request.list":
-        result = await callPluuugApi("/v1/request", "GET");
-        break;
-
-      case "request.create":
-        result = await callPluuugApi("/v1/request", "POST", params.data);
-        break;
-
-      case "request.get":
-        result = await callPluuugApi(`/v1/request/${params.id}`, "GET");
-        break;
-
-      case "request.update":
-        result = await callPluuugApi(`/v1/request/${params.id}`, "PATCH", params.data);
-        break;
-
-      case "request.delete":
-        result = await callPluuugApi(`/v1/request/${params.id}`, "DELETE");
         break;
 
       // ==================== 폴더 (Folder) ====================
