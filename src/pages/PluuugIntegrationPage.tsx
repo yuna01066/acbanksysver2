@@ -5,11 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Users, FileText, Briefcase, DollarSign, RefreshCw, Plus, ExternalLink, Loader2, Package, Search, Filter } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Briefcase, DollarSign, RefreshCw, ExternalLink, Loader2, Package, Search, Filter, Settings } from 'lucide-react';
 import { usePluuugApi, PluuugClient, PluuugEstimate, PluuugContract, PluuugSettlement, PluuugEstimateItem, PluuugEstimateItemClassification } from '@/hooks/usePluuugApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import EstimateItemSyncPanel from '@/components/pluuug/EstimateItemSyncPanel';
 
 const PluuugIntegrationPage = () => {
   const navigate = useNavigate();
@@ -175,6 +176,10 @@ const PluuugIntegrationPage = () => {
               <Package className="w-4 h-4" />
               항목 템플릿
             </TabsTrigger>
+            <TabsTrigger value="sync-management" className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              동기화 관리
+            </TabsTrigger>
           </TabsList>
 
           {/* 고객 탭 */}
@@ -279,7 +284,7 @@ const PluuugIntegrationPage = () => {
                             <p className="text-sm text-muted-foreground">{contract.client.companyName}</p>
                           )}
                           {contract.amount && (
-                            <p className="text-sm font-medium text-green-600">
+                            <p className="text-sm font-medium text-primary">
                               ₩{contract.amount.toLocaleString()}
                             </p>
                           )}
@@ -316,7 +321,7 @@ const PluuugIntegrationPage = () => {
                         <div>
                           <p className="font-medium">{settlement.title}</p>
                           {settlement.amount && (
-                            <p className="text-sm font-medium text-purple-600">
+                            <p className="text-sm font-medium text-primary">
                               ₩{settlement.amount.toLocaleString()}
                             </p>
                           )}
@@ -456,6 +461,11 @@ const PluuugIntegrationPage = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* 동기화 관리 탭 */}
+          <TabsContent value="sync-management">
+            <EstimateItemSyncPanel />
           </TabsContent>
         </Tabs>
       </div>
