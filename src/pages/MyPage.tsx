@@ -7,11 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users, Cloud, CloudOff, Upload, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users, Cloud, CloudOff, Upload, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { usePluuugApi, PluuugClient } from '@/hooks/usePluuugApi';
+import { useRecipients, Recipient } from '@/hooks/useRecipients';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,12 +57,8 @@ interface SavedQuote {
   pluuug_estimate_id: string | null;
 }
 
-interface RecipientInfo {
-  company: string;
-  name: string;
-  phone: string;
-  email: string;
-  address: string;
+// Extended recipient with quote count for display
+interface RecipientWithQuoteCount extends Recipient {
   quoteCount: number;
 }
 
@@ -69,14 +66,23 @@ const MyPage = () => {
   const { user, profile, signOut, updateProfile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { getClients, getClientStatuses, createClient, loading: pluuugLoading } = usePluuugApi();
+  const { 
+    recipients, 
+    fetchRecipients, 
+    markAsSyncedToPluuug, 
+    toPluuugClientData,
+    migrateFromSavedQuotes,
+    loading: recipientsLoading 
+  } = useRecipients();
   
   const [quotes, setQuotes] = useState<SavedQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteQuoteId, setDeleteQuoteId] = useState<string | null>(null);
-  const [selectedRecipient, setSelectedRecipient] = useState<RecipientInfo | null>(null);
+  const [selectedRecipient, setSelectedRecipient] = useState<RecipientWithQuoteCount | null>(null);
   const [pluuugClients, setPluuugClients] = useState<PluuugClient[]>([]);
   const [syncingRecipient, setSyncingRecipient] = useState<string | null>(null);
   const [bulkSyncing, setBulkSyncing] = useState(false);
+  const [migrating, setMigrating] = useState(false);
   
   // Profile edit state
   const [fullName, setFullName] = useState('');
@@ -99,8 +105,9 @@ const MyPage = () => {
     if (user) {
       fetchMyQuotes();
       fetchPluuugClients();
+      fetchRecipients();
     }
-  }, [user]);
+  }, [user, fetchRecipients]);
 
   const resolveDefaultPluuugClientStatusId = async (): Promise<number | null> => {
     const statuses = await getClientStatuses();
@@ -187,42 +194,37 @@ const MyPage = () => {
     return { totalQuotes, totalAmount, avgAmount, thisMonth };
   };
 
-  const getUniqueRecipients = (): RecipientInfo[] => {
-    const recipientsMap = new Map<string, RecipientInfo>();
-    
-    quotes.forEach((quote) => {
-      const key = `${quote.recipient_company}-${quote.recipient_name}-${quote.recipient_email}`;
+  // Get recipients with quote counts from the unified recipients table
+  const getRecipientsWithQuoteCounts = (): RecipientWithQuoteCount[] => {
+    return recipients.map((recipient) => {
+      // Count quotes matching this recipient
+      const quoteCount = quotes.filter(q => 
+        q.recipient_company === recipient.company_name && 
+        q.recipient_name === recipient.contact_person
+      ).length;
       
-      if (recipientsMap.has(key)) {
-        const existing = recipientsMap.get(key)!;
-        existing.quoteCount += 1;
-      } else {
-        recipientsMap.set(key, {
-          company: quote.recipient_company || '-',
-          name: quote.recipient_name || '-',
-          phone: quote.recipient_phone || '-',
-          email: quote.recipient_email || '-',
-          address: quote.recipient_address || '-',
-          quoteCount: 1
-        });
-      }
-    });
-
-    return Array.from(recipientsMap.values()).sort((a, b) => b.quoteCount - a.quoteCount);
+      return {
+        ...recipient,
+        quoteCount
+      };
+    }).sort((a, b) => b.quoteCount - a.quoteCount);
   };
 
-  const isRecipientSyncedToPluuug = (recipient: RecipientInfo) => {
+  const isRecipientSyncedToPluuug = (recipient: Recipient) => {
+    // Check our local database first (the source of truth)
+    if (recipient.pluuug_client_id) return true;
+    // Fallback to checking Pluuug clients list
     return pluuugClients.some(
-      c => c.companyName === recipient.company && c.inCharge === recipient.name
+      c => c.companyName === recipient.company_name && c.inCharge === recipient.contact_person
     );
   };
 
-  const handleSyncRecipientToPluuug = async (recipient: RecipientInfo, e?: React.MouseEvent) => {
+  const handleSyncRecipientToPluuug = async (recipient: Recipient, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
     }
     
-    const key = `${recipient.company}-${recipient.name}`;
+    const key = `${recipient.company_name}-${recipient.contact_person}`;
     setSyncingRecipient(key);
     
     try {
@@ -232,45 +234,25 @@ const MyPage = () => {
         return;
       }
 
-      // Pluuug API requires many mandatory fields for client creation
-      // We need to provide reasonable defaults or validate the data first
-      const clientEmail = recipient.email && recipient.email !== '-' && recipient.email.includes('@') 
-        ? recipient.email 
-        : `${recipient.company.replace(/\s/g, '').toLowerCase()}@example.com`;
-
       const statusId = await resolveDefaultPluuugClientStatusId();
       if (!statusId) {
         toast.error('Pluuug 고객 상태 목록을 불러오지 못했습니다.');
         return;
       }
 
-      const result = await createClient({
-        companyName: recipient.company !== '-' ? recipient.company : '미지정',
-        inCharge: recipient.name !== '-' ? recipient.name : '담당자',
-        contact: recipient.phone !== '-' ? recipient.phone : '010-0000-0000',
-        email: clientEmail,
-        position: '담당자',
-        content: recipient.address !== '-' ? `주소: ${recipient.address}` : '정보 없음',
-        // Pluuug API required fields with defaults
-        status: { id: statusId },
-        ceoName: recipient.name !== '-' ? recipient.name : '대표자',
-        businessRegistrationNumber: '000-00-00000',
-        companyAddress: recipient.address !== '-' ? recipient.address : '미지정',
-        companyDetailAddress: '미지정',
-        businessType: '서비스업',
-        businessClass: '기타',
-        branchNumber: '00',
-        fieldSet: [
-          {
-            field: { id: 1 },
-            value: '기본값'
-          }
-        ]
-      } as any);
+      // Use the unified data converter
+      const clientData = toPluuugClientData(recipient, statusId);
+      const result = await createClient(clientData as any);
 
       if (result.data && !result.error && result.status >= 200 && result.status < 300) {
+        // Update our local record with the Pluuug client ID
+        const pluuugClientId = result.data.id;
+        if (pluuugClientId) {
+          await markAsSyncedToPluuug(recipient.id, pluuugClientId);
+        }
         toast.success('Pluuug에 고객이 등록되었습니다!');
         await fetchPluuugClients();
+        await fetchRecipients();
       } else if (result.error) {
         console.error('Pluuug API Error:', result.error);
         toast.error(`Pluuug 등록 실패: ${result.error}`);
@@ -286,7 +268,7 @@ const MyPage = () => {
   };
 
   const handleBulkSyncAllToPluuug = async () => {
-    const unsyncedRecipients = getUniqueRecipients().filter(r => !isRecipientSyncedToPluuug(r));
+    const unsyncedRecipients = getRecipientsWithQuoteCounts().filter(r => !isRecipientSyncedToPluuug(r));
     
     if (unsyncedRecipients.length === 0) {
       toast.info('모든 담당자가 이미 Pluuug에 등록되어 있습니다.');
@@ -306,42 +288,28 @@ const MyPage = () => {
       let failCount = 0;
 
       for (const recipient of unsyncedRecipients) {
-        const clientEmail = recipient.email && recipient.email !== '-' && recipient.email.includes('@') 
-          ? recipient.email 
-          : `${recipient.company.replace(/\s/g, '').toLowerCase()}@example.com`;
-
         try {
-          const result = await createClient({
-            companyName: recipient.company !== '-' ? recipient.company : '미지정',
-            inCharge: recipient.name !== '-' ? recipient.name : '담당자',
-            contact: recipient.phone !== '-' ? recipient.phone : '010-0000-0000',
-            email: clientEmail,
-            position: '담당자',
-            content: recipient.address !== '-' ? `주소: ${recipient.address}` : '정보 없음',
-            status: { id: statusId },
-            ceoName: recipient.name !== '-' ? recipient.name : '대표자',
-            businessRegistrationNumber: '000-00-00000',
-            companyAddress: recipient.address !== '-' ? recipient.address : '미지정',
-            companyDetailAddress: '미지정',
-            businessType: '서비스업',
-            businessClass: '기타',
-            branchNumber: '00',
-            fieldSet: [{ field: { id: 1 }, value: '기본값' }]
-          } as any);
+          const clientData = toPluuugClientData(recipient, statusId);
+          const result = await createClient(clientData as any);
 
           if (result.data && !result.error && result.status >= 200 && result.status < 300) {
+            const pluuugClientId = result.data.id;
+            if (pluuugClientId) {
+              await markAsSyncedToPluuug(recipient.id, pluuugClientId);
+            }
             successCount++;
           } else {
             failCount++;
-            console.error(`Pluuug 등록 실패 (${recipient.company}):`, result.error);
+            console.error(`Pluuug 등록 실패 (${recipient.company_name}):`, result.error);
           }
         } catch (err) {
           failCount++;
-          console.error(`Pluuug 등록 에러 (${recipient.company}):`, err);
+          console.error(`Pluuug 등록 에러 (${recipient.company_name}):`, err);
         }
       }
 
       await fetchPluuugClients();
+      await fetchRecipients();
       
       if (failCount === 0) {
         toast.success(`${successCount}명의 담당자가 Pluuug에 등록되었습니다!`);
@@ -356,11 +324,27 @@ const MyPage = () => {
     }
   };
 
-  const getQuotesByRecipient = (recipient: RecipientInfo): SavedQuote[] => {
+  const handleMigrateRecipients = async () => {
+    setMigrating(true);
+    try {
+      const count = await migrateFromSavedQuotes();
+      if (count > 0) {
+        toast.success(`${count}명의 담당자가 마이그레이션되었습니다!`);
+      } else {
+        toast.info('마이그레이션할 담당자가 없습니다.');
+      }
+    } catch (err) {
+      console.error('마이그레이션 에러:', err);
+      toast.error('마이그레이션 중 오류가 발생했습니다.');
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  const getQuotesByRecipient = (recipient: RecipientWithQuoteCount): SavedQuote[] => {
     return quotes.filter(quote => 
-      quote.recipient_company === recipient.company &&
-      quote.recipient_name === recipient.name &&
-      quote.recipient_email === recipient.email
+      quote.recipient_company === recipient.company_name &&
+      quote.recipient_name === recipient.contact_person
     );
   };
 
@@ -532,26 +516,56 @@ const MyPage = () => {
                     견적서에 등록된 수신 담당자 목록입니다.
                   </CardDescription>
                 </div>
-                {getUniqueRecipients().filter(r => !isRecipientSyncedToPluuug(r)).length > 0 && (
-                  <Button
-                    onClick={handleBulkSyncAllToPluuug}
-                    disabled={bulkSyncing || pluuugLoading}
-                    className="flex items-center gap-2"
-                  >
-                    {bulkSyncing ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Upload className="w-4 h-4" />
+                {getRecipientsWithQuoteCounts().filter(r => !isRecipientSyncedToPluuug(r)).length > 0 && (
+                  <div className="flex gap-2">
+                    {recipients.length === 0 && (
+                      <Button
+                        variant="outline"
+                        onClick={handleMigrateRecipients}
+                        disabled={migrating || recipientsLoading}
+                        className="flex items-center gap-2"
+                      >
+                        {migrating ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-4 h-4" />
+                        )}
+                        기존 담당자 불러오기
+                      </Button>
                     )}
-                    {bulkSyncing ? '등록 중...' : `전체 Pluuug 등록 (${getUniqueRecipients().filter(r => !isRecipientSyncedToPluuug(r)).length}명)`}
-                  </Button>
+                    <Button
+                      onClick={handleBulkSyncAllToPluuug}
+                      disabled={bulkSyncing || pluuugLoading}
+                      className="flex items-center gap-2"
+                    >
+                      {bulkSyncing ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4" />
+                      )}
+                      {bulkSyncing ? '등록 중...' : `전체 Pluuug 등록 (${getRecipientsWithQuoteCounts().filter(r => !isRecipientSyncedToPluuug(r)).length}명)`}
+                    </Button>
+                  </div>
                 )}
               </CardHeader>
               <CardContent>
-                {getUniqueRecipients().length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    등록된 수신 담당자가 없습니다.
-                  </p>
+                {recipients.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-4">등록된 수신 담당자가 없습니다.</p>
+                    <Button
+                      variant="outline"
+                      onClick={handleMigrateRecipients}
+                      disabled={migrating || recipientsLoading}
+                      className="flex items-center gap-2"
+                    >
+                      {migrating ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4" />
+                      )}
+                      기존 견적서에서 담당자 불러오기
+                    </Button>
+                  </div>
                 ) : (
                   <div className="border rounded-lg overflow-hidden">
                     <Table>
@@ -566,17 +580,17 @@ const MyPage = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {getUniqueRecipients().map((recipient, index) => {
+                        {getRecipientsWithQuoteCounts().map((recipient) => {
                           const synced = isRecipientSyncedToPluuug(recipient);
-                          const key = `${recipient.company}-${recipient.name}`;
+                          const key = `${recipient.company_name}-${recipient.contact_person}`;
                           return (
                             <TableRow 
-                              key={index}
+                              key={recipient.id}
                               className="cursor-pointer hover:bg-accent/50 transition-colors"
                               onClick={() => setSelectedRecipient(recipient)}
                             >
-                              <TableCell className="font-medium">{recipient.company}</TableCell>
-                              <TableCell>{recipient.name}</TableCell>
+                              <TableCell className="font-medium">{recipient.company_name}</TableCell>
+                              <TableCell>{recipient.contact_person}</TableCell>
                               <TableCell>{recipient.phone}</TableCell>
                               <TableCell>{recipient.email}</TableCell>
                               <TableCell>
@@ -682,10 +696,10 @@ const MyPage = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              {selectedRecipient?.name}님 견적서 목록
+              {selectedRecipient?.contact_person}님 견적서 목록
             </DialogTitle>
             <DialogDescription>
-              {selectedRecipient?.company} - 총 {selectedRecipient?.quoteCount}건의 견적서
+              {selectedRecipient?.company_name} - 총 {selectedRecipient?.quoteCount}건의 견적서
             </DialogDescription>
           </DialogHeader>
           
@@ -696,11 +710,11 @@ const MyPage = () => {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-muted-foreground">회사명:</span>
-                      <span className="ml-2 font-medium">{selectedRecipient.company}</span>
+                      <span className="ml-2 font-medium">{selectedRecipient.company_name}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">담당자:</span>
-                      <span className="ml-2 font-medium">{selectedRecipient.name}</span>
+                      <span className="ml-2 font-medium">{selectedRecipient.contact_person}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">연락처:</span>
@@ -712,7 +726,7 @@ const MyPage = () => {
                     </div>
                     <div className="col-span-2">
                       <span className="text-muted-foreground">주소:</span>
-                      <span className="ml-2 font-medium">{selectedRecipient.address}</span>
+                      <span className="ml-2 font-medium">{selectedRecipient.address || '-'}</span>
                     </div>
                   </div>
                 </CardContent>

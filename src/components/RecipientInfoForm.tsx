@@ -10,8 +10,8 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { QuoteRecipient } from "@/contexts/QuoteContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { usePluuugApi, PluuugClient } from "@/hooks/usePluuugApi";
+import { useRecipients, Recipient } from "@/hooks/useRecipients";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -31,14 +31,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 
-interface SavedRecipient {
-  company: string;
-  name: string;
-  phone: string;
-  email: string;
-  address: string;
-}
-
 interface RecipientInfoFormProps {
   recipientData: QuoteRecipient;
   onChange: (field: keyof QuoteRecipient, value: any) => void;
@@ -54,9 +46,15 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
 }) => {
   const { user } = useAuth();
   const { getClients, getClientStatuses, createClient, loading: pluuugLoading } = usePluuugApi();
+  const { 
+    recipients: savedRecipients, 
+    fetchRecipients, 
+    markAsSyncedToPluuug, 
+    toPluuugClientData,
+    loading: recipientsLoading 
+  } = useRecipients();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [savedRecipients, setSavedRecipients] = useState<SavedRecipient[]>([]);
   const [pluuugClients, setPluuugClients] = useState<PluuugClient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'local' | 'pluuug'>('local');
@@ -65,49 +63,15 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
 
   useEffect(() => {
     if (isDialogOpen && user) {
-      fetchSavedRecipients();
+      fetchRecipients();
       fetchPluuugClients();
     }
-  }, [isDialogOpen, user]);
+  }, [isDialogOpen, user, fetchRecipients]);
 
   const resolveDefaultPluuugClientStatusId = async (): Promise<number | null> => {
     const statuses = await getClientStatuses();
     const id = statuses.data?.results?.[0]?.id;
     return typeof id === 'number' ? id : null;
-  };
-
-  const fetchSavedRecipients = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('saved_quotes')
-      .select('recipient_company, recipient_name, recipient_phone, recipient_email, recipient_address')
-      .eq('user_id', user.id)
-      .not('recipient_company', 'is', null)
-      .not('recipient_name', 'is', null);
-
-    if (error) {
-      console.error('담당자 조회 에러:', error);
-      return;
-    }
-
-    if (data) {
-      // Remove duplicates based on company + name + email
-      const uniqueRecipients = new Map<string, SavedRecipient>();
-      data.forEach((item) => {
-        const key = `${item.recipient_company}-${item.recipient_name}-${item.recipient_email}`;
-        if (!uniqueRecipients.has(key)) {
-          uniqueRecipients.set(key, {
-            company: item.recipient_company || '',
-            name: item.recipient_name || '',
-            phone: item.recipient_phone || '',
-            email: item.recipient_email || '',
-            address: item.recipient_address || ''
-          });
-        }
-      });
-      setSavedRecipients(Array.from(uniqueRecipients.values()));
-    }
   };
 
   const fetchPluuugClients = async () => {
@@ -124,21 +88,21 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
     }
   };
 
-  const handleSelectRecipient = (recipient: SavedRecipient) => {
+  const handleSelectRecipient = (recipient: Recipient) => {
     if (onBulkChange) {
       onBulkChange({
-        companyName: recipient.company,
-        contactPerson: recipient.name,
+        companyName: recipient.company_name,
+        contactPerson: recipient.contact_person,
         phoneNumber: recipient.phone,
         email: recipient.email,
-        deliveryAddress: recipient.address
+        deliveryAddress: recipient.address || ''
       });
     } else {
-      onChange('companyName', recipient.company);
-      onChange('contactPerson', recipient.name);
+      onChange('companyName', recipient.company_name);
+      onChange('contactPerson', recipient.contact_person);
       onChange('phoneNumber', recipient.phone);
       onChange('email', recipient.email);
-      onChange('deliveryAddress', recipient.address);
+      onChange('deliveryAddress', recipient.address || '');
     }
     
     setIsDialogOpen(false);
@@ -163,26 +127,31 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
     setIsDialogOpen(false);
   };
 
-  const handleSyncToPluuug = async (recipient: SavedRecipient) => {
-    const key = `${recipient.company}-${recipient.name}`;
+  const handleSyncToPluuug = async (recipient: Recipient) => {
+    const key = `${recipient.company_name}-${recipient.contact_person}`;
     setSyncingToPluuug(key);
     
     try {
-      // Check if client already exists in Pluuug
-      const existingClient = pluuugClients.find(
-        c => c.companyName === recipient.company && c.inCharge === recipient.name
-      );
-
-      if (existingClient) {
+      // Check if already synced via our database
+      if (recipient.pluuug_client_id) {
         toast.info('이미 Pluuug에 등록된 고객입니다.');
         setSyncingToPluuug(null);
         return;
       }
 
-      // Pluuug API requires many mandatory fields for client creation
-      const clientEmail = recipient.email && recipient.email.includes('@') 
-        ? recipient.email 
-        : `${recipient.company.replace(/\s/g, '').toLowerCase()}@example.com`;
+      // Also check if client already exists in Pluuug (by name match)
+      const existingClient = pluuugClients.find(
+        c => c.companyName === recipient.company_name && c.inCharge === recipient.contact_person
+      );
+
+      if (existingClient) {
+        // Update our local record with the Pluuug ID
+        await markAsSyncedToPluuug(recipient.id, existingClient.id);
+        toast.info('이미 Pluuug에 등록된 고객입니다. 연동 상태를 업데이트했습니다.');
+        await fetchRecipients();
+        setSyncingToPluuug(null);
+        return;
+      }
 
       const statusId = await resolveDefaultPluuugClientStatusId();
       if (!statusId) {
@@ -190,34 +159,19 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
         return;
       }
 
-      const result = await createClient({
-        companyName: recipient.company || '미지정',
-        inCharge: recipient.name || '담당자',
-        contact: recipient.phone || '010-0000-0000',
-        email: clientEmail,
-        position: '담당자',
-        content: recipient.address ? `주소: ${recipient.address}` : '정보 없음',
-        // Pluuug API required fields with defaults
-        status: { id: statusId },
-        ceoName: recipient.name || '대표자',
-        businessRegistrationNumber: '000-00-00000',
-        companyAddress: recipient.address || '미지정',
-        companyDetailAddress: '미지정',
-        businessType: '서비스업',
-        businessClass: '기타',
-        branchNumber: '00',
-        fieldSet: [
-          {
-            field: { id: 1 },
-            value: '기본값'
-          }
-        ]
-      } as any);
+      // Use the unified data converter
+      const clientData = toPluuugClientData(recipient, statusId);
+      const result = await createClient(clientData as any);
 
       if (result.data && !result.error && result.status >= 200 && result.status < 300) {
+        // Update our local record with the Pluuug client ID
+        const pluuugClientId = result.data.id;
+        if (pluuugClientId) {
+          await markAsSyncedToPluuug(recipient.id, pluuugClientId);
+        }
         toast.success('Pluuug에 고객이 등록되었습니다!');
-        // Refresh Pluuug clients list
         await fetchPluuugClients();
+        await fetchRecipients();
       } else if (result.error) {
         console.error('Pluuug API Error:', result.error);
         toast.error(`Pluuug 등록 실패: ${result.error}`);
@@ -232,17 +186,20 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
     }
   };
 
-  const isAlreadySynced = (recipient: SavedRecipient) => {
+  const isAlreadySynced = (recipient: Recipient) => {
+    // Check our local database first
+    if (recipient.pluuug_client_id) return true;
+    // Fallback to checking Pluuug clients list
     return pluuugClients.some(
-      c => c.companyName === recipient.company && c.inCharge === recipient.name
+      c => c.companyName === recipient.company_name && c.inCharge === recipient.contact_person
     );
   };
 
   const filteredRecipients = savedRecipients.filter((recipient) => {
     const search = searchTerm.toLowerCase();
     return (
-      recipient.company.toLowerCase().includes(search) ||
-      recipient.name.toLowerCase().includes(search) ||
+      recipient.company_name.toLowerCase().includes(search) ||
+      recipient.contact_person.toLowerCase().includes(search) ||
       recipient.email.toLowerCase().includes(search)
     );
   });
@@ -533,11 +490,11 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
                       <TableBody>
                         {filteredRecipients.map((recipient, index) => {
                           const synced = isAlreadySynced(recipient);
-                          const key = `${recipient.company}-${recipient.name}`;
+                          const key = `${recipient.company_name}-${recipient.contact_person}`;
                           return (
-                            <TableRow key={index}>
-                              <TableCell className="font-medium">{recipient.company}</TableCell>
-                              <TableCell>{recipient.name}</TableCell>
+                            <TableRow key={recipient.id || index}>
+                              <TableCell className="font-medium">{recipient.company_name}</TableCell>
+                              <TableCell>{recipient.contact_person}</TableCell>
                               <TableCell>{recipient.phone}</TableCell>
                               <TableCell>{recipient.email}</TableCell>
                               <TableCell>
