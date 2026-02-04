@@ -125,12 +125,13 @@ export async function createPluuugClient(
   try {
     console.log('[Pluuug Client] Creating new client...', clientData);
 
-    // 이메일 유효성 검사 및 기본값 설정
+  // 이메일 유효성 검사 및 기본값 설정
     let email = clientData.email || '';
     if (!email || !email.includes('@') || email === '_') {
-      // 유효하지 않은 이메일인 경우 기본 이메일 생성
-      const sanitizedName = clientData.companyName.replace(/[^a-zA-Z0-9가-힣]/g, '').toLowerCase() || 'unknown';
-      email = `${sanitizedName}@example.com`;
+      // 유효하지 않은 이메일인 경우 영문+숫자만 사용한 기본 이메일 생성
+      const sanitizedName = clientData.companyName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'unknown';
+      const fallbackName = sanitizedName || `client${Date.now()}`;
+      email = `${fallbackName}@example.com`;
     }
 
     // Pluuug API 고객 생성 형식으로 변환 - 모든 필수 필드 포함
@@ -186,11 +187,12 @@ export async function createPluuugClient(
  * 로컬 recipient 데이터를 Pluuug Client 형식으로 변환
  */
 export function convertRecipientToPluuugClient(recipient: any): PluuugClientData {
-  // 이메일 유효성 검사
+  // 이메일 유효성 검사 - 영문+숫자만 사용
   let email = recipient.email || '';
   if (!email || !email.includes('@') || email === '_') {
-    const sanitizedName = (recipient.companyName || recipient.company_name || 'unknown').replace(/[^a-zA-Z0-9가-힣]/g, '').toLowerCase();
-    email = `${sanitizedName}@example.com`;
+    const sanitizedName = (recipient.companyName || recipient.company_name || 'unknown').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    const fallbackName = sanitizedName || `client${Date.now()}`;
+    email = `${fallbackName}@example.com`;
   }
 
   return {
