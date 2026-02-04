@@ -386,16 +386,30 @@ function buildFieldSet(quoteData: PluuugInquiryData, recipient: any, quotes: any
   }
 
   // 4. 양단면 (SL - 단일 선택) - 객체 형식 { id: "옵션ID" }
+  // surface 필드와 breakdown에서 양면/단면 정보 추출
   let surfaceOptionId: string | null = null;
+  
   for (const quote of quotes) {
-    const surface = quote.surface || '';
-    if (surface.includes('양면') || surface.includes('both') || surface.includes('double')) {
+    // 1. surface 필드에서 확인
+    const surface = (quote.surface || '').toString();
+    
+    // 2. breakdown에서도 확인 (예: "원장 #1 (4*8, 양면)")
+    const breakdownText = (quote.breakdown || [])
+      .map((b: any) => b.label || '')
+      .join(' ');
+    
+    // 3. size 필드에서도 확인 (예: "4*8 (1220*2420): 양면")
+    const sizeText = (quote.size || quote.selectedSize || '').toString();
+    
+    const combinedText = `${surface} ${breakdownText} ${sizeText}`.toLowerCase();
+    
+    if (combinedText.includes('양면') || combinedText.includes('both') || combinedText.includes('double')) {
       surfaceOptionId = DOUBLE_SIDED_OPTION_IDS['양면'];
       break;
-    } else if (surface.includes('단면') || surface.includes('single') || surface.includes('one')) {
+    } else if (combinedText.includes('단면') || combinedText.includes('single') || combinedText.includes('one side')) {
       surfaceOptionId = DOUBLE_SIDED_OPTION_IDS['단면'];
       break;
-    } else if (surface.includes('레이어')) {
+    } else if (combinedText.includes('레이어')) {
       surfaceOptionId = DOUBLE_SIDED_OPTION_IDS['레이어 아크릴'];
       break;
     }
@@ -407,6 +421,8 @@ function buildFieldSet(quoteData: PluuugInquiryData, recipient: any, quotes: any
       value: { id: surfaceOptionId }
     });
     console.log('[Pluuug fieldSet] Double-sided SL:', surfaceOptionId);
+  } else {
+    console.log('[Pluuug fieldSet] Double-sided: No surface info found in quotes');
   }
 
   // 5. 입금 여부 (B - Boolean) - 기본값 false
@@ -440,12 +456,34 @@ function buildFieldSet(quoteData: PluuugInquiryData, recipient: any, quotes: any
 
   // 8. 납기 희망일 (D - 날짜)
   if (quoteData.desiredDeliveryDate) {
-    const dateStr = quoteData.desiredDeliveryDate.split('T')[0];
-    fieldSet.push({
-      field: { id: PLUUUG_FIELD_IDS.DESIRED_DELIVERY },
-      value: dateStr
-    });
+    // 다양한 날짜 형식 처리 (ISO string, timestamp 등)
+    let dateStr = '';
+    try {
+      const dateValue = quoteData.desiredDeliveryDate;
+      if (typeof dateValue === 'string') {
+        // "2026-02-11T15:00:00.000Z" 또는 "2026-02-11 15:00:00+00" 형식 처리
+        dateStr = dateValue.split('T')[0].split(' ')[0];
+      } else if (dateValue && typeof dateValue === 'object' && 'toISOString' in dateValue) {
+        dateStr = (dateValue as Date).toISOString().split('T')[0];
+      }
+      
+      if (dateStr && dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        fieldSet.push({
+          field: { id: PLUUUG_FIELD_IDS.DESIRED_DELIVERY },
+          value: dateStr
+        });
+        console.log('[Pluuug fieldSet] Desired delivery date:', dateStr);
+      } else {
+        console.log('[Pluuug fieldSet] Invalid date format:', quoteData.desiredDeliveryDate);
+      }
+    } catch (e) {
+      console.error('[Pluuug fieldSet] Date parsing error:', e);
+    }
+  } else {
+    console.log('[Pluuug fieldSet] No desired delivery date provided');
   }
+
+  console.log('[Pluuug fieldSet] Final fieldSet:', JSON.stringify(fieldSet, null, 2));
 
   return fieldSet;
 }
