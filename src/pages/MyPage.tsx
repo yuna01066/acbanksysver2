@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users, Cloud, CloudOff, Upload, Loader2, RefreshCw, AlertTriangle, CheckCircle2, Pencil } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users, Cloud, CloudOff, Upload, Loader2, RefreshCw, AlertTriangle, CheckCircle2, Pencil, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -77,6 +77,7 @@ const MyPage = () => {
     migrateFromSavedQuotes,
     updateRecipient,
     deleteRecipient,
+    createRecipient,
     loading: recipientsLoading 
   } = useRecipients();
   
@@ -98,6 +99,12 @@ const MyPage = () => {
   const [editingRecipient, setEditingRecipient] = useState<Recipient | null>(null);
   const [deleteRecipientTarget, setDeleteRecipientTarget] = useState<Recipient | null>(null);
   const [deletingRecipient, setDeletingRecipient] = useState(false);
+  const [importingFromPluuug, setImportingFromPluuug] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    imported: number;
+    skipped: number;
+    importedClients: string[];
+  } | null>(null);
   
   // Profile edit state
   const [fullName, setFullName] = useState('');
@@ -421,6 +428,97 @@ const MyPage = () => {
     }
   };
 
+  // Pluuug에서 로컬로 고객 가져오기 (역방향 동기화)
+  const handleImportFromPluuug = async () => {
+    setImportingFromPluuug(true);
+    setImportResult(null);
+    
+    try {
+      // Pluuug에서 고객 목록 조회
+      const result = await getClients();
+      const payload: any = result.data;
+      const pluuugClientsList: PluuugClient[] = Array.isArray(payload) ? payload : payload?.results || [];
+      
+      if (pluuugClientsList.length === 0) {
+        toast.info('Pluuug에 등록된 고객이 없습니다.');
+        setImportingFromPluuug(false);
+        return;
+      }
+
+      // 현재 로컬에 있는 Pluuug 고객 ID 목록
+      const existingPluuugIds = new Set(
+        recipients
+          .filter(r => r.pluuug_client_id !== null)
+          .map(r => r.pluuug_client_id)
+      );
+      
+      // 회사명+담당자명 조합으로도 체크 (pluuug_client_id가 없는 경우)
+      const existingKeys = new Set(
+        recipients.map(r => `${r.company_name}-${r.contact_person}`)
+      );
+
+      let importedCount = 0;
+      let skippedCount = 0;
+      const importedClients: string[] = [];
+
+      for (const client of pluuugClientsList) {
+        // 이미 연동된 고객인지 확인
+        if (existingPluuugIds.has(client.id)) {
+          skippedCount++;
+          continue;
+        }
+
+        // 회사명+담당자명으로 이미 존재하는지 확인
+        const key = `${client.companyName}-${client.inCharge}`;
+        if (existingKeys.has(key)) {
+          skippedCount++;
+          continue;
+        }
+
+        // 로컬에 새 담당자 생성
+        const newRecipient = await createRecipient({
+          company_name: client.companyName || '미지정',
+          contact_person: client.inCharge || '담당자',
+          position: client.position || '담당자',
+          phone: client.contact || '010-0000-0000',
+          email: client.email || `${(client.companyName || 'company').replace(/\s/g, '').toLowerCase()}@example.com`,
+          memo: client.content || undefined,
+        });
+
+        if (newRecipient) {
+          // Pluuug 연동 정보 저장
+          await markAsSyncedToPluuug(newRecipient.id, client.id);
+          importedCount++;
+          importedClients.push(`${client.companyName} (${client.inCharge})`);
+          
+          // existingKeys 업데이트 (중복 방지)
+          existingKeys.add(key);
+        }
+      }
+
+      setImportResult({
+        imported: importedCount,
+        skipped: skippedCount,
+        importedClients
+      });
+
+      // 담당자 목록 새로고침
+      await fetchRecipients();
+      await fetchPluuugClients();
+
+      if (importedCount > 0) {
+        toast.success(`Pluuug에서 ${importedCount}명의 고객을 가져왔습니다!`);
+      } else {
+        toast.info('가져올 새 고객이 없습니다. 모든 Pluuug 고객이 이미 등록되어 있습니다.');
+      }
+    } catch (err) {
+      console.error('Pluuug 가져오기 에러:', err);
+      toast.error('Pluuug에서 고객을 가져오는 중 오류가 발생했습니다.');
+    } finally {
+      setImportingFromPluuug(false);
+    }
+  };
+
   // 담당자 삭제 처리 (Pluuug 연동된 경우 Pluuug에서도 삭제)
   const handleDeleteRecipient = async () => {
     if (!deleteRecipientTarget) return;
@@ -719,8 +817,61 @@ const MyPage = () => {
                       {bulkSyncing ? '등록 중...' : `전체 Pluuug 등록 (${getRecipientsWithQuoteCounts().filter(r => !isRecipientSyncedToPluuug(r)).length}명)`}
                     </Button>
                   )}
+                  <Button
+                    variant="outline"
+                    onClick={handleImportFromPluuug}
+                    disabled={importingFromPluuug || pluuugLoading}
+                    className="flex items-center gap-2"
+                  >
+                    {importingFromPluuug ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    {importingFromPluuug ? '가져오는 중...' : 'Pluuug에서 가져오기'}
+                  </Button>
                 </div>
               </CardHeader>
+
+              {/* Import Result */}
+              {importResult && (
+                <div className="px-6 pb-4">
+                  <Card className="border-primary/50 bg-primary/5">
+                    <CardContent className="pt-4">
+                      <div className="flex items-start gap-4">
+                        <Download className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <h4 className="font-semibold mb-2">Pluuug 고객 가져오기 완료</h4>
+                          <div className="text-sm space-y-1 text-muted-foreground">
+                            <p>가져온 고객: <span className="text-primary font-medium">{importResult.imported}명</span></p>
+                            <p>이미 존재 (건너뜀): {importResult.skipped}명</p>
+                            {importResult.imported > 0 && (
+                              <div className="mt-2">
+                                <p className="text-xs font-medium mb-1">가져온 고객:</p>
+                                <ul className="text-xs list-disc list-inside">
+                                  {importResult.importedClients.slice(0, 10).map((name, idx) => (
+                                    <li key={idx}>{name}</li>
+                                  ))}
+                                  {importResult.importedClients.length > 10 && (
+                                    <li>... 외 {importResult.importedClients.length - 10}명</li>
+                                  )}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setImportResult(null)}
+                        >
+                          닫기
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
               <CardContent>
                 {recipients.length === 0 ? (
                   <div className="text-center py-8">
