@@ -3,12 +3,15 @@ import { toast } from 'sonner';
 
 export interface PluuugEstimateData {
   title: string;
+  quoteNumber: string;
+  quoteDate: string;
   client?: {
     id?: number;
     companyName?: string;
     inCharge?: string;
     contact?: string;
     email?: string;
+    address?: string;
   };
   items: {
     name: string;
@@ -16,6 +19,7 @@ export interface PluuugEstimateData {
     unitPrice: number;
     amount: number;
     description?: string;
+    order?: number;
   }[];
   subtotal: number;
   tax: number;
@@ -24,6 +28,12 @@ export interface PluuugEstimateData {
   validUntil?: string;
   deliveryPeriod?: string;
   paymentCondition?: string;
+  desiredDeliveryDate?: string;
+  issuer?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+  };
 }
 
 export interface PluuugSyncResult {
@@ -41,23 +51,50 @@ export async function syncQuoteToPluuug(
   try {
     console.log('[Pluuug Sync] Starting sync...', quoteData);
 
-    // Pluuug API 견적서 생성 형식으로 변환
+    // Pluuug API 견적서 생성 형식으로 변환 - 로컬 견적서 양식 기준
     const pluuugPayload = {
       title: quoteData.title,
+      quoteNumber: quoteData.quoteNumber,
+      quoteDate: quoteData.quoteDate,
       content: quoteData.memo || '',
       items: quoteData.items.map((item, index) => ({
         name: item.name,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         amount: item.amount,
-        order: index + 1,
+        order: item.order || index + 1,
         description: item.description || ''
       })),
       totalAmount: quoteData.total,
       taxAmount: quoteData.tax,
       supplyAmount: quoteData.subtotal,
-      // 고객 정보 (고객이 Pluuug에 등록되어 있다면 ID로 연결)
-      ...(quoteData.client?.id && { client: { id: quoteData.client.id } })
+      validUntil: quoteData.validUntil || '',
+      deliveryPeriod: quoteData.deliveryPeriod || '',
+      paymentCondition: quoteData.paymentCondition || '',
+      desiredDeliveryDate: quoteData.desiredDeliveryDate || '',
+      // 발신자(담당자) 정보
+      issuer: quoteData.issuer ? {
+        name: quoteData.issuer.name || '',
+        phone: quoteData.issuer.phone || '',
+        email: quoteData.issuer.email || ''
+      } : undefined,
+      // 고객 정보
+      client: quoteData.client?.id 
+        ? { 
+            id: quoteData.client.id,
+            companyName: quoteData.client.companyName || '',
+            inCharge: quoteData.client.inCharge || '',
+            contact: quoteData.client.contact || '',
+            email: quoteData.client.email || '',
+            address: quoteData.client.address || ''
+          } 
+        : quoteData.client ? {
+            companyName: quoteData.client.companyName || '',
+            inCharge: quoteData.client.inCharge || '',
+            contact: quoteData.client.contact || '',
+            email: quoteData.client.email || '',
+            address: quoteData.client.address || ''
+          } : undefined
     };
 
     const { data, error } = await supabase.functions.invoke('pluuug-api', {
@@ -103,7 +140,21 @@ export function convertQuoteToPluuugFormat(
     ? `${recipient.projectName} - ${quoteNumber}`
     : `아크뱅크 견적서 ${quoteNumber}`;
 
-  const items = quotes.map(quote => {
+  // 견적일자 포맷팅
+  const quoteDate = recipient?.quoteDate 
+    ? (recipient.quoteDate instanceof Date 
+        ? recipient.quoteDate.toISOString() 
+        : recipient.quoteDate)
+    : new Date().toISOString();
+
+  // 납기희망일 포맷팅
+  const desiredDeliveryDate = recipient?.desiredDeliveryDate
+    ? (recipient.desiredDeliveryDate instanceof Date 
+        ? recipient.desiredDeliveryDate.toISOString() 
+        : recipient.desiredDeliveryDate)
+    : undefined;
+
+  const items = quotes.map((quote, index) => {
     // breakdown에서 가격 항목만 추출 (price > 0인 항목)
     const priceItems = quote.breakdown?.filter((b: any) => b.price > 0) || [];
     const description = priceItems.map((b: any) => b.label).join(', ');
@@ -113,26 +164,36 @@ export function convertQuoteToPluuugFormat(
       quantity: quote.quantity || 1,
       unitPrice: quote.totalPrice,
       amount: quote.totalPrice * (quote.quantity || 1),
-      description: description || quote.processingName || ''
+      description: description || quote.processingName || '',
+      order: index + 1
     };
   });
 
   return {
     title,
+    quoteNumber,
+    quoteDate,
     client: recipient ? {
-      companyName: recipient.companyName,
-      inCharge: recipient.contactPerson,
-      contact: recipient.phoneNumber,
-      email: recipient.email
+      companyName: recipient.companyName || '',
+      inCharge: recipient.contactPerson || '',
+      contact: recipient.phoneNumber || '',
+      email: recipient.email || '',
+      address: recipient.deliveryAddress || ''
     } : undefined,
     items,
     subtotal,
     tax,
     total,
-    memo: recipient?.clientMemo,
-    validUntil: recipient?.validUntil,
-    deliveryPeriod: recipient?.deliveryPeriod,
-    paymentCondition: recipient?.paymentCondition
+    memo: recipient?.clientMemo || '',
+    validUntil: recipient?.validUntil || '',
+    deliveryPeriod: recipient?.deliveryPeriod || '',
+    paymentCondition: recipient?.paymentCondition || '',
+    desiredDeliveryDate,
+    issuer: recipient?.issuerName ? {
+      name: recipient.issuerName,
+      phone: recipient.issuerPhone || '',
+      email: recipient.issuerEmail || ''
+    } : undefined
   };
 }
 
