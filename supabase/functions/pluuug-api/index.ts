@@ -1,6 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createHmac } from "https://deno.land/std@0.177.0/node/crypto.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,11 +8,23 @@ const corsHeaders = {
 
 const PLUUUG_BASE_URL = "https://openapi.pluuug.com";
 
-// HMAC-SHA256 서명 생성
-function generateSignature(secretKey: string, body: string): string {
-  const hmac = createHmac("sha256", secretKey);
-  hmac.update(body);
-  return hmac.digest("hex");
+// HMAC-SHA256 서명 생성 (Web Crypto API 사용)
+async function generateSignature(secretKey: string, body: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secretKey);
+  const messageData = encoder.encode(body);
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
+  const hashArray = Array.from(new Uint8Array(signature));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // Pluuug API 호출 헬퍼
@@ -31,7 +41,7 @@ async function callPluuugApi(
   }
 
   const bodyString = body ? JSON.stringify(body) : "";
-  const signature = generateSignature(secretKey, bodyString);
+  const signature = await generateSignature(secretKey, bodyString);
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -64,7 +74,7 @@ async function callPluuugApi(
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
