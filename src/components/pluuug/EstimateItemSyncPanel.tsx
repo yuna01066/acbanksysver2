@@ -3,14 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Loader2, RefreshCw, Upload, Check, X, Search, Edit2, Save, Trash2 } from 'lucide-react';
+import { Loader2, RefreshCw, Upload, Check, X, Search, Edit2, Save, Trash2, ArrowRightLeft, FileText, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePluuugApi, type PluuugEstimateItem, type PluuugEstimateItemClassification } from '@/hooks/usePluuugApi';
-import { PROCESSING_TO_PLUUUG_ITEM, MATERIAL_TO_PLUUUG_ITEM, PLUUUG_CLASSIFICATION_IDS } from '@/utils/pluuugEstimateItemMapping';
+import { PROCESSING_TO_PLUUUG_ITEM, MATERIAL_TO_PLUUUG_ITEM, LOCAL_QUALITY_DISPLAY_NAMES } from '@/utils/pluuugEstimateItemMapping';
 import { 
   registerAllLocalOptionsToPlluug, 
   updatePluuugEstimateItem,
+  syncLocalFormatToPluuug,
   generateMappingCodeUpdate,
+  getLocalFormatPreview,
+  getAllLocalOptions,
+  getLocalMaterialOptions,
   type RegisteredEstimateItem
 } from '@/utils/pluuugEstimateItemSync';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,6 +26,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface EditingItem {
   id: number;
@@ -39,11 +45,23 @@ const EstimateItemSyncPanel: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClassification, setSelectedClassification] = useState<string>('all');
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [registrationResult, setRegistrationResult] = useState<{
     registered: RegisteredEstimateItem[];
     skipped: string[];
     errors: { optionId: string; error: string }[];
   } | null>(null);
+  const [syncResult, setSyncResult] = useState<{
+    updated: { optionId: string; pluuugItemId: number; title: string }[];
+    skipped: string[];
+    errors: { optionId: string; error: string }[];
+  } | null>(null);
+
+  // 로컬 양식 미리보기
+  const [showLocalPreview, setShowLocalPreview] = useState(false);
+  const localFormatPreview = getLocalFormatPreview();
+  const localOptions = getAllLocalOptions();
+  const materialOptions = getLocalMaterialOptions();
 
   // 편집 모달 상태
   const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
@@ -91,9 +109,17 @@ const EstimateItemSyncPanel: React.FC = () => {
       .map(([optionId]) => optionId);
   };
 
+  // 매핑된 항목 개수
+  const getMappedCount = (): number => {
+    return Object.entries(PROCESSING_TO_PLUUUG_ITEM)
+      .filter(([_, info]) => info.pluuugItemId)
+      .length;
+  };
+
   // 일괄 등록
   const handleBulkRegister = async () => {
     setIsRegistering(true);
+    setRegistrationResult(null);
     try {
       const result = await registerAllLocalOptionsToPlluug();
       setRegistrationResult(result);
@@ -118,6 +144,34 @@ const EstimateItemSyncPanel: React.FC = () => {
       toast.error(`등록 오류: ${err.message}`);
     } finally {
       setIsRegistering(false);
+    }
+  };
+
+  // 로컬 양식을 Pluuug에 적용
+  const handleSyncLocalFormat = async () => {
+    setIsSyncing(true);
+    setSyncResult(null);
+    try {
+      const result = await syncLocalFormatToPluuug();
+      setSyncResult(result);
+      
+      if (result.updated.length > 0) {
+        toast.success(`${result.updated.length}개 항목이 로컬 양식으로 업데이트되었습니다`);
+        await loadData();
+      }
+      
+      if (result.skipped.length > 0) {
+        toast.info(`${result.skipped.length}개 항목은 Pluuug ID가 없어 스킵되었습니다`);
+      }
+      
+      if (result.errors.length > 0) {
+        toast.error(`${result.errors.length}개 항목 업데이트 실패`);
+        console.error('Sync errors:', result.errors);
+      }
+    } catch (err: any) {
+      toast.error(`동기화 오류: ${err.message}`);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -196,40 +250,90 @@ const EstimateItemSyncPanel: React.FC = () => {
     .filter(group => group.items.length > 0);
 
   const unmappedOptions = getUnmappedLocalOptions();
+  const mappedCount = getMappedCount();
 
   return (
     <Card>
       <CardHeader className="flex flex-col gap-4">
-        <div className="flex flex-row items-center justify-between">
+        <div className="flex flex-row items-center justify-between flex-wrap gap-2">
           <div>
             <CardTitle>Pluuug 견적 항목 동기화</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              로컬 가공 옵션을 Pluuug estimate.item으로 등록하고 관리합니다
+              로컬 가공 옵션을 Pluuug estimate.item으로 등록하고 양식을 동기화합니다
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button 
               variant="outline" 
               onClick={loadData} 
               disabled={pluuugApi.loading}
+              size="sm"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${pluuugApi.loading ? 'animate-spin' : ''}`} />
               새로고침
             </Button>
-            {unmappedOptions.length > 0 && (
-              <Button 
-                onClick={handleBulkRegister}
-                disabled={isRegistering}
-              >
-                {isRegistering ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Upload className="w-4 h-4 mr-2" />
-                )}
-                로컬 옵션 일괄 등록 ({unmappedOptions.length}개)
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              onClick={() => setShowLocalPreview(true)}
+              size="sm"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              로컬 양식 미리보기
+            </Button>
           </div>
+        </div>
+
+        {/* 동기화 상태 요약 */}
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline" className="text-xs">
+            <FileText className="w-3 h-3 mr-1" />
+            로컬 옵션: {Object.keys(PROCESSING_TO_PLUUUG_ITEM).length}개
+          </Badge>
+          <Badge variant="default" className="text-xs">
+            <Check className="w-3 h-3 mr-1" />
+            매핑됨: {mappedCount}개
+          </Badge>
+          {unmappedOptions.length > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              미등록: {unmappedOptions.length}개
+            </Badge>
+          )}
+          <Badge variant="outline" className="text-xs">
+            Pluuug 항목: {items.length}개
+          </Badge>
+        </div>
+
+        {/* 액션 버튼 */}
+        <div className="flex flex-wrap gap-2">
+          {unmappedOptions.length > 0 && (
+            <Button 
+              onClick={handleBulkRegister}
+              disabled={isRegistering}
+              size="sm"
+            >
+              {isRegistering ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 mr-2" />
+              )}
+              로컬 옵션 일괄 등록 ({unmappedOptions.length}개)
+            </Button>
+          )}
+          {mappedCount > 0 && (
+            <Button 
+              onClick={handleSyncLocalFormat}
+              disabled={isSyncing}
+              variant="secondary"
+              size="sm"
+            >
+              {isSyncing ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <ArrowRightLeft className="w-4 h-4 mr-2" />
+              )}
+              Pluuug에 로컬 양식 적용 ({mappedCount}개)
+            </Button>
+          )}
         </div>
 
         {/* 필터 영역 */}
@@ -281,6 +385,41 @@ const EstimateItemSyncPanel: React.FC = () => {
               <p className="text-xs text-muted-foreground mt-2">
                 💡 매핑 코드가 콘솔에 출력되었습니다. 개발자 도구에서 확인하세요.
               </p>
+            )}
+          </div>
+        )}
+
+        {/* 동기화 결과 표시 */}
+        {syncResult && (
+          <div className="p-4 rounded-lg bg-muted/50">
+            <h4 className="font-medium mb-2">양식 적용 결과</h4>
+            <div className="flex flex-wrap gap-2 text-sm">
+              <Badge variant="default">
+                <Check className="w-3 h-3 mr-1" />
+                업데이트됨: {syncResult.updated.length}
+              </Badge>
+              <Badge variant="secondary">
+                스킵됨: {syncResult.skipped.length}
+              </Badge>
+              {syncResult.errors.length > 0 && (
+                <Badge variant="destructive">
+                  <X className="w-3 h-3 mr-1" />
+                  오류: {syncResult.errors.length}
+                </Badge>
+              )}
+            </div>
+            {syncResult.updated.length > 0 && (
+              <div className="mt-2 text-xs text-muted-foreground">
+                <p>업데이트된 항목:</p>
+                <ul className="list-disc list-inside mt-1">
+                  {syncResult.updated.slice(0, 5).map((item) => (
+                    <li key={item.optionId}>{item.title} (ID: {item.pluuugItemId})</li>
+                  ))}
+                  {syncResult.updated.length > 5 && (
+                    <li>... 외 {syncResult.updated.length - 5}개</li>
+                  )}
+                </ul>
+              </div>
             )}
           </div>
         )}
@@ -438,6 +577,95 @@ const EstimateItemSyncPanel: React.FC = () => {
             <Button onClick={handleSaveItem} disabled={isSaving}>
               {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 로컬 양식 미리보기 모달 */}
+      <Dialog open={showLocalPreview} onOpenChange={setShowLocalPreview}>
+        <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>로컬 견적서 양식 미리보기</DialogTitle>
+          </DialogHeader>
+          <Tabs defaultValue="processing" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="processing">가공 옵션</TabsTrigger>
+              <TabsTrigger value="materials">재질</TabsTrigger>
+            </TabsList>
+            <TabsContent value="processing">
+              <ScrollArea className="h-[50vh]">
+                <div className="space-y-4 pr-4">
+                  {localFormatPreview.map((group) => (
+                    <div key={group.category} className="border rounded-lg overflow-hidden">
+                      <div className="p-3 bg-muted font-semibold text-sm">
+                        {group.category}
+                      </div>
+                      <div className="divide-y">
+                        {group.items.map((item) => (
+                          <div key={item.optionId} className="p-3 flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">{item.title}</span>
+                                {item.hasPluuugId ? (
+                                  <Badge variant="default" className="text-xs">
+                                    <Check className="w-3 h-3 mr-1" />
+                                    매핑됨
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="text-xs">
+                                    미등록
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                로컬 표시: {item.localTitle} | 단위: {item.unit}
+                              </p>
+                              {item.description && (
+                                <p className="text-xs text-muted-foreground">
+                                  {item.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+            <TabsContent value="materials">
+              <ScrollArea className="h-[50vh]">
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="p-3 bg-muted font-semibold text-sm">
+                    재질 (Materials)
+                  </div>
+                  <div className="divide-y">
+                    {materialOptions.map((material) => (
+                      <div key={material.qualityId} className="p-3 flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{material.displayName}</span>
+                            <Badge variant="default" className="text-xs">
+                              <Check className="w-3 h-3 mr-1" />
+                              ID: {material.pluuugItemId}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            품질 ID: {material.qualityId}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLocalPreview(false)}>
+              닫기
             </Button>
           </DialogFooter>
         </DialogContent>
