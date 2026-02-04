@@ -1,5 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { 
+  PLUUUG_CLASSIFICATION_IDS,
+  MATERIAL_TO_PLUUUG_ITEM,
+  getPluuugItemInfo,
+  getPluuugMaterialItemId,
+  convertQuotesToPluuugEstimate,
+  type PluuugEstimateItem
+} from './pluuugEstimateItemMapping';
 
 export interface PluuugInquiryData {
   name: string;
@@ -26,7 +34,17 @@ export interface PluuugInquiryData {
     amount: number;
     description?: string;
     order?: number;
+    // Pluuug 항목 매핑 정보
+    pluuugMaterialItemId?: number | null;
+    pluuugProcessingInfo?: Array<{
+      pluuugItemId?: number;
+      classificationId: number;
+      title: string;
+      unit: string;
+    } | null>;
   }[];
+  // Pluuug 견적서 항목 형식 (breakdown 기반)
+  pluuugItems?: PluuugEstimateItem[];
   subtotal: number;
   tax: number;
   total: number;
@@ -608,10 +626,30 @@ export function convertQuoteToPluuugFormat(
         : recipient.desiredDeliveryDate)
     : undefined;
 
+  // 모든 견적의 breakdown 항목을 Pluuug 형식으로 변환
+  const pluuugEstimateItems = convertQuotesToPluuugEstimate(
+    quotes.map(quote => ({
+      quality: quote.quality || '',
+      breakdown: quote.breakdown || [],
+      processing: quote.processing || '',
+      quantity: quote.quantity || 1,
+    }))
+  );
+
+  // 기존 items 형식으로도 변환 (호환성 유지)
   const items = quotes.map((quote, index) => {
     // breakdown에서 가격 항목만 추출 (price > 0인 항목)
     const priceItems = quote.breakdown?.filter((b: any) => b.price > 0) || [];
     const description = priceItems.map((b: any) => b.label).join(', ');
+    
+    // 재질에 해당하는 Pluuug 항목 ID 조회
+    const materialItemId = getPluuugMaterialItemId(quote.quality || '');
+    
+    // 가공 옵션에서 Pluuug 항목 정보 조회
+    const processingOptions = (quote.processing || '').split('|').filter(Boolean);
+    const processingInfo = processingOptions
+      .map(optId => getPluuugItemInfo(optId))
+      .filter(Boolean);
     
     return {
       name: `${quote.material} ${quote.quality || ''} ${quote.thickness || ''}`.trim(),
@@ -619,9 +657,15 @@ export function convertQuoteToPluuugFormat(
       unitPrice: quote.totalPrice,
       amount: quote.totalPrice * (quote.quantity || 1),
       description: description || quote.processingName || '',
-      order: index + 1
+      order: index + 1,
+      // Pluuug 항목 매핑 정보 추가
+      pluuugMaterialItemId: materialItemId,
+      pluuugProcessingInfo: processingInfo,
     };
   });
+
+  // Pluuug 견적 항목 정보도 포함
+  const pluuugItems = pluuugEstimateItems;
 
   return {
     name,
@@ -638,6 +682,7 @@ export function convertQuoteToPluuugFormat(
       address: recipient.deliveryAddress || ''
     } : undefined,
     items,
+    pluuugItems, // Pluuug 견적서 항목 형식 추가
     subtotal,
     tax,
     total,
