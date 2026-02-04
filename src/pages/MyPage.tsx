@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users, Cloud, CloudOff, Upload, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users, Cloud, CloudOff, Upload, Loader2, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -69,7 +69,9 @@ const MyPage = () => {
   const { 
     recipients, 
     fetchRecipients, 
-    markAsSyncedToPluuug, 
+    markAsSyncedToPluuug,
+    clearPluuugSyncStatus,
+    getSyncedRecipients,
     toPluuugClientData,
     migrateFromSavedQuotes,
     loading: recipientsLoading 
@@ -83,6 +85,13 @@ const MyPage = () => {
   const [syncingRecipient, setSyncingRecipient] = useState<string | null>(null);
   const [bulkSyncing, setBulkSyncing] = useState(false);
   const [migrating, setMigrating] = useState(false);
+  const [validatingSyncStatus, setValidatingSyncStatus] = useState(false);
+  const [syncValidationResult, setSyncValidationResult] = useState<{
+    checked: number;
+    valid: number;
+    invalid: number;
+    clearedRecipients: string[];
+  } | null>(null);
   
   // Profile edit state
   const [fullName, setFullName] = useState('');
@@ -341,6 +350,71 @@ const MyPage = () => {
     }
   };
 
+  // Pluuug 동기화 상태 검증: 삭제된 고객 감지
+  const handleValidatePluuugSyncStatus = async () => {
+    const syncedRecipients = getSyncedRecipients();
+    
+    if (syncedRecipients.length === 0) {
+      toast.info('Pluuug에 연동된 담당자가 없습니다.');
+      return;
+    }
+
+    setValidatingSyncStatus(true);
+    setSyncValidationResult(null);
+    
+    try {
+      // Pluuug에서 현재 고객 목록 조회
+      const result = await getClients();
+      const payload: any = result.data;
+      const pluuugClientsList: PluuugClient[] = Array.isArray(payload) ? payload : payload?.results || [];
+      
+      // Pluuug 고객 ID 목록
+      const pluuugClientIds = new Set(pluuugClientsList.map(c => c.id));
+      
+      let validCount = 0;
+      let invalidCount = 0;
+      const clearedRecipients: string[] = [];
+
+      for (const recipient of syncedRecipients) {
+        if (recipient.pluuug_client_id) {
+          if (pluuugClientIds.has(recipient.pluuug_client_id)) {
+            // 고객이 Pluuug에 여전히 존재
+            validCount++;
+          } else {
+            // 고객이 Pluuug에서 삭제됨 - 로컬 동기화 상태 초기화
+            const cleared = await clearPluuugSyncStatus(recipient.id);
+            if (cleared) {
+              invalidCount++;
+              clearedRecipients.push(`${recipient.company_name} (${recipient.contact_person})`);
+            }
+          }
+        }
+      }
+
+      setSyncValidationResult({
+        checked: syncedRecipients.length,
+        valid: validCount,
+        invalid: invalidCount,
+        clearedRecipients
+      });
+
+      // 담당자 목록 새로고침
+      await fetchRecipients();
+      await fetchPluuugClients();
+
+      if (invalidCount > 0) {
+        toast.warning(`${invalidCount}명의 담당자가 Pluuug에서 삭제되어 연동이 해제되었습니다.`);
+      } else {
+        toast.success('모든 연동 상태가 정상입니다!');
+      }
+    } catch (err) {
+      console.error('동기화 검증 에러:', err);
+      toast.error('동기화 상태 검증 중 오류가 발생했습니다.');
+    } finally {
+      setValidatingSyncStatus(false);
+    }
+  };
+
   const getQuotesByRecipient = (recipient: RecipientWithQuoteCount): SavedQuote[] => {
     return quotes.filter(quote => 
       quote.recipient_company === recipient.company_name &&
@@ -505,6 +579,49 @@ const MyPage = () => {
               </Card>
             </div>
 
+            {/* Sync Validation Result */}
+            {syncValidationResult && (
+              <Card className={syncValidationResult.invalid > 0 ? "border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-900/10" : "border-green-500/50 bg-green-50/50 dark:bg-green-900/10"}>
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-4">
+                    {syncValidationResult.invalid > 0 ? (
+                      <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    ) : (
+                      <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1">
+                      <h4 className="font-semibold mb-2">
+                        {syncValidationResult.invalid > 0 
+                          ? 'Pluuug 동기화 상태 변경 감지' 
+                          : 'Pluuug 동기화 상태 정상'}
+                      </h4>
+                      <div className="text-sm space-y-1 text-muted-foreground">
+                        <p>검사한 담당자: {syncValidationResult.checked}명</p>
+                        <p className="text-green-600">정상 연동: {syncValidationResult.valid}명</p>
+                        {syncValidationResult.invalid > 0 && (
+                          <div>
+                            <p className="text-yellow-600">연동 해제됨: {syncValidationResult.invalid}명</p>
+                            <ul className="mt-2 text-xs list-disc list-inside">
+                              {syncValidationResult.clearedRecipients.map((name, idx) => (
+                                <li key={idx}>{name}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSyncValidationResult(null)}
+                    >
+                      닫기
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -516,23 +633,38 @@ const MyPage = () => {
                     견적서에 등록된 수신 담당자 목록입니다.
                   </CardDescription>
                 </div>
-                {getRecipientsWithQuoteCounts().filter(r => !isRecipientSyncedToPluuug(r)).length > 0 && (
-                  <div className="flex gap-2">
-                    {recipients.length === 0 && (
-                      <Button
-                        variant="outline"
-                        onClick={handleMigrateRecipients}
-                        disabled={migrating || recipientsLoading}
-                        className="flex items-center gap-2"
-                      >
-                        {migrating ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="w-4 h-4" />
-                        )}
-                        기존 담당자 불러오기
-                      </Button>
-                    )}
+                <div className="flex gap-2 flex-wrap justify-end">
+                  {getSyncedRecipients().length > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={handleValidatePluuugSyncStatus}
+                      disabled={validatingSyncStatus || pluuugLoading}
+                      className="flex items-center gap-2"
+                    >
+                      {validatingSyncStatus ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4" />
+                      )}
+                      {validatingSyncStatus ? '검증 중...' : '동기화 상태 검증'}
+                    </Button>
+                  )}
+                  {recipients.length === 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={handleMigrateRecipients}
+                      disabled={migrating || recipientsLoading}
+                      className="flex items-center gap-2"
+                    >
+                      {migrating ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4" />
+                      )}
+                      기존 담당자 불러오기
+                    </Button>
+                  )}
+                  {getRecipientsWithQuoteCounts().filter(r => !isRecipientSyncedToPluuug(r)).length > 0 && (
                     <Button
                       onClick={handleBulkSyncAllToPluuug}
                       disabled={bulkSyncing || pluuugLoading}
@@ -545,8 +677,8 @@ const MyPage = () => {
                       )}
                       {bulkSyncing ? '등록 중...' : `전체 Pluuug 등록 (${getRecipientsWithQuoteCounts().filter(r => !isRecipientSyncedToPluuug(r)).length}명)`}
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {recipients.length === 0 ? (

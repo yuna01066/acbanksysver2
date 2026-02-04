@@ -322,6 +322,32 @@ export function useRecipients() {
     }
   }, [user, findRecipient, createRecipient, fetchRecipients]);
 
+  // Clear Pluuug sync status for a recipient (when client was deleted from Pluuug)
+  const clearPluuugSyncStatus = useCallback(async (id: string): Promise<boolean> => {
+    if (!user) return false;
+
+    const { error } = await supabase
+      .from('recipients')
+      .update({
+        pluuug_client_id: null,
+        pluuug_synced_at: null,
+      })
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Pluuug 동기화 상태 초기화 에러:', error);
+      return false;
+    }
+
+    return true;
+  }, [user]);
+
+  // Get all synced recipients (those with pluuug_client_id)
+  const getSyncedRecipients = useCallback((): Recipient[] => {
+    return recipients.filter(r => r.pluuug_client_id !== null);
+  }, [recipients]);
+
   return {
     recipients,
     loading,
@@ -332,6 +358,8 @@ export function useRecipients() {
     updateRecipient,
     deleteRecipient,
     markAsSyncedToPluuug,
+    clearPluuugSyncStatus,
+    getSyncedRecipients,
     toPluuugClientData,
     migrateFromSavedQuotes,
   };
