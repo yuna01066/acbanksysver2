@@ -66,7 +66,7 @@ interface RecipientWithQuoteCount extends Recipient {
 const MyPage = () => {
   const { user, profile, signOut, updateProfile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { getClients, getClientStatuses, createClient, loading: pluuugLoading } = usePluuugApi();
+  const { getClients, getClientStatuses, createClient, deleteClient, loading: pluuugLoading } = usePluuugApi();
   const { 
     recipients, 
     fetchRecipients, 
@@ -76,6 +76,7 @@ const MyPage = () => {
     toPluuugClientData,
     migrateFromSavedQuotes,
     updateRecipient,
+    deleteRecipient,
     loading: recipientsLoading 
   } = useRecipients();
   
@@ -95,6 +96,8 @@ const MyPage = () => {
     clearedRecipients: string[];
   } | null>(null);
   const [editingRecipient, setEditingRecipient] = useState<Recipient | null>(null);
+  const [deleteRecipientTarget, setDeleteRecipientTarget] = useState<Recipient | null>(null);
+  const [deletingRecipient, setDeletingRecipient] = useState(false);
   
   // Profile edit state
   const [fullName, setFullName] = useState('');
@@ -418,6 +421,41 @@ const MyPage = () => {
     }
   };
 
+  // 담당자 삭제 처리 (Pluuug 연동된 경우 Pluuug에서도 삭제)
+  const handleDeleteRecipient = async () => {
+    if (!deleteRecipientTarget) return;
+
+    setDeletingRecipient(true);
+    
+    try {
+      // Pluuug에 연동된 경우 Pluuug에서 먼저 삭제
+      if (deleteRecipientTarget.pluuug_client_id) {
+        const result = await deleteClient(deleteRecipientTarget.pluuug_client_id);
+        
+        if (result.error) {
+          // Pluuug 삭제 실패 시에도 로컬은 삭제 진행 (Pluuug에서 이미 삭제되었을 수 있음)
+          console.warn('Pluuug 삭제 실패 (이미 삭제되었을 수 있음):', result.error);
+        } else {
+          toast.success('Pluuug에서 고객이 삭제되었습니다.');
+        }
+      }
+
+      // 로컬 DB에서 삭제
+      const success = await deleteRecipient(deleteRecipientTarget.id);
+      
+      if (success) {
+        await fetchRecipients();
+        await fetchPluuugClients();
+      }
+    } catch (err) {
+      console.error('담당자 삭제 에러:', err);
+      toast.error('담당자 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setDeletingRecipient(false);
+      setDeleteRecipientTarget(null);
+    }
+  };
+
   const getQuotesByRecipient = (recipient: RecipientWithQuoteCount): SavedQuote[] => {
     return quotes.filter(quote => 
       quote.recipient_company === recipient.company_name &&
@@ -712,7 +750,7 @@ const MyPage = () => {
                           <TableHead>이메일</TableHead>
                           <TableHead>Pluuug</TableHead>
                           <TableHead className="text-right">견적서 수</TableHead>
-                          <TableHead className="text-center">수정</TableHead>
+                          <TableHead className="text-center">관리</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -756,17 +794,32 @@ const MyPage = () => {
                                 <span className="font-semibold text-primary">{recipient.quoteCount}건</span>
                               </TableCell>
                               <TableCell className="text-center">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingRecipient(recipient);
-                                  }}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </Button>
+                                <div className="flex items-center justify-center gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingRecipient(recipient);
+                                    }}
+                                    className="h-8 w-8 p-0"
+                                    title="수정"
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteRecipientTarget(recipient);
+                                    }}
+                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    title="삭제"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           );
@@ -836,6 +889,43 @@ const MyPage = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteQuote}>삭제</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 담당자 삭제 확인 다이얼로그 */}
+      <AlertDialog open={!!deleteRecipientTarget} onOpenChange={() => setDeleteRecipientTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>담당자를 삭제하시겠습니까?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                <strong>{deleteRecipientTarget?.company_name}</strong>의 <strong>{deleteRecipientTarget?.contact_person}</strong>님을 삭제합니다.
+              </span>
+              {deleteRecipientTarget?.pluuug_client_id && (
+                <span className="block text-yellow-600 dark:text-yellow-400">
+                  ⚠️ 이 담당자는 Pluuug에 연동되어 있습니다. Pluuug에서도 함께 삭제됩니다.
+                </span>
+              )}
+              <span className="block">이 작업은 되돌릴 수 없습니다.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingRecipient}>취소</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteRecipient}
+              disabled={deletingRecipient}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingRecipient ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  삭제 중...
+                </>
+              ) : (
+                '삭제'
+              )}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
