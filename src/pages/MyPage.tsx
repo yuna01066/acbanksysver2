@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users, Cloud, CloudOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -36,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 
 interface SavedQuote {
   id: string;
@@ -49,6 +50,9 @@ interface SavedQuote {
   total: number;
   items: any;
   desired_delivery_date: string | null;
+  pluuug_synced: boolean | null;
+  pluuug_synced_at: string | null;
+  pluuug_estimate_id: string | null;
 }
 
 interface RecipientInfo {
@@ -251,6 +255,17 @@ const MyPage = () => {
                                 <span className="text-sm text-muted-foreground">
                                   {format(new Date(quote.quote_date), 'yyyy년 MM월 dd일', { locale: ko })}
                                 </span>
+                                {quote.pluuug_synced ? (
+                                  <Badge variant="secondary" className="text-xs flex items-center gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                    <Cloud className="w-3 h-3" />
+                                    Pluuug
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-xs flex items-center gap-1 text-muted-foreground">
+                                    <CloudOff className="w-3 h-3" />
+                                    미연동
+                                  </Badge>
+                                )}
                               </div>
                               <div className="text-sm space-y-1">
                                 <p>수신: {quote.recipient_company} {quote.recipient_name}</p>

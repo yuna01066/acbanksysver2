@@ -410,6 +410,9 @@ export type Database = {
           issuer_position: string | null
           items: Json
           payment_condition: string | null
+          pluuug_estimate_id: string | null
+          pluuug_synced: boolean | null
+          pluuug_synced_at: string | null
           project_name: string | null
           quote_date: string
           quote_date_display: string | null
@@ -442,6 +445,9 @@ export type Database = {
           issuer_position?: string | null
           items: Json
           payment_condition?: string | null
+          pluuug_estimate_id?: string | null
+          pluuug_synced?: boolean | null
+          pluuug_synced_at?: string | null
           project_name?: string | null
           quote_date?: string
           quote_date_display?: string | null
@@ -474,6 +480,9 @@ export type Database = {
           issuer_position?: string | null
           items?: Json
           payment_condition?: string | null
+          pluuug_estimate_id?: string | null
+          pluuug_synced?: boolean | null
+          pluuug_synced_at?: string | null
           project_name?: string | null
           quote_date?: string
           quote_date_display?: string | null

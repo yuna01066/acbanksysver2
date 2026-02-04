@@ -148,7 +148,7 @@ export async function saveQuoteWithPluuugSync(
   tax: number,
   total: number,
   syncToPluuug: boolean = true
-): Promise<{ success: boolean; quoteId?: string; pluuugSynced?: boolean; error?: string }> {
+): Promise<{ success: boolean; quoteId?: string; pluuugSynced?: boolean; pluuugEstimateId?: string; error?: string }> {
   try {
     // 1. Supabase에 견적서 저장
     const { data: savedQuote, error: saveError } = await supabase
@@ -187,6 +187,7 @@ export async function saveQuoteWithPluuugSync(
     }
 
     let pluuugSynced = false;
+    let pluuugEstimateId: string | undefined;
 
     // 2. Pluuug 동기화 (옵션)
     if (syncToPluuug) {
@@ -203,6 +204,18 @@ export async function saveQuoteWithPluuugSync(
       
       if (syncResult.success) {
         pluuugSynced = true;
+        pluuugEstimateId = syncResult.pluuugEstimateId?.toString();
+        
+        // 동기화 성공 시 saved_quotes 업데이트
+        await supabase
+          .from('saved_quotes')
+          .update({
+            pluuug_synced: true,
+            pluuug_synced_at: new Date().toISOString(),
+            pluuug_estimate_id: pluuugEstimateId
+          })
+          .eq('id', savedQuote?.id);
+        
         toast.success('Pluuug에도 견적서가 동기화되었습니다!');
       } else {
         // Pluuug 동기화 실패해도 로컬 저장은 성공
@@ -214,7 +227,8 @@ export async function saveQuoteWithPluuugSync(
     return { 
       success: true, 
       quoteId: savedQuote?.id,
-      pluuugSynced 
+      pluuugSynced,
+      pluuugEstimateId
     };
   } catch (err: any) {
     console.error('[Save Quote with Pluuug] Error:', err);
