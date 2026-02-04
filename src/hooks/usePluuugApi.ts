@@ -75,6 +75,21 @@ export interface PluuugSettlement {
   updatedAt?: string;
 }
 
+export interface PluuugEstimateItemClassification {
+  id: number;
+  title: string;
+}
+
+export interface PluuugEstimateItem {
+  id: number;
+  title: string;
+  description?: string;
+  unit: string;
+  unitCost: string;
+  image?: string;
+  classification: PluuugEstimateItemClassification;
+}
+
 export function usePluuugApi() {
   const [loading, setLoading] = useState(false);
 
@@ -125,7 +140,14 @@ export function usePluuugApi() {
   const createEstimate = useCallback((data: any) => callApi<PluuugEstimate>('estimate.create', { data }), [callApi]);
   const updateEstimate = useCallback((id: number, data: any) => callApi<PluuugEstimate>('estimate.update', { id, data }), [callApi]);
   const deleteEstimate = useCallback((id: number) => callApi('estimate.delete', { id }), [callApi]);
-  const getEstimateItems = useCallback(() => callApi('estimate.item.list'), [callApi]);
+  
+  // ==================== 견적서 항목 템플릿 (Estimate Item) ====================
+  const getEstimateItems = useCallback(() => callApi<{ count: number; next: string | null; previous: string | null; results: any[] }>('estimate.item.list'), [callApi]);
+  const getEstimateItemClassifications = useCallback(() => callApi<{ count: number; results: any[] }>('estimate.item.classification.list'), [callApi]);
+  const getEstimateItem = useCallback((id: number) => callApi('estimate.item.get', { id }), [callApi]);
+  const createEstimateItem = useCallback((data: any) => callApi('estimate.item.create', { data }), [callApi]);
+  const updateEstimateItem = useCallback((id: number, data: any) => callApi('estimate.item.update', { id, data }), [callApi]);
+  const deleteEstimateItem = useCallback((id: number) => callApi('estimate.item.delete', { id }), [callApi]);
 
   // ==================== 계약 (Contract) ====================
   const getContracts = useCallback(() => callApi<PluuugContract[]>('contract.list'), [callApi]);
@@ -160,7 +182,13 @@ export function usePluuugApi() {
     createEstimate,
     updateEstimate,
     deleteEstimate,
+    // 견적서 항목 템플릿
     getEstimateItems,
+    getEstimateItemClassifications,
+    getEstimateItem,
+    createEstimateItem,
+    updateEstimateItem,
+    deleteEstimateItem,
     // 계약
     getContracts,
     getContractCategories,
