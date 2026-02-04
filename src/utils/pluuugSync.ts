@@ -137,6 +137,110 @@ export function convertQuoteToPluuugFormat(
 }
 
 /**
+ * 담당자 정보를 recipients 테이블에 자동 저장/업데이트
+ */
+async function saveRecipientAutomatically(
+  userId: string,
+  recipient: any
+): Promise<string | null> {
+  if (!recipient?.companyName || !recipient?.contactPerson) {
+    return null;
+  }
+
+  try {
+    // 1. 기존 담당자 조회 (회사명 + 담당자명으로)
+    const { data: existingRecipient, error: findError } = await supabase
+      .from('recipients')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('company_name', recipient.companyName)
+      .eq('contact_person', recipient.contactPerson)
+      .maybeSingle();
+
+    if (findError) {
+      console.error('[Save Recipient] Find error:', findError);
+      return null;
+    }
+
+    // 이메일 유효성 검사
+    const email = recipient.email && recipient.email.includes('@')
+      ? recipient.email
+      : `${recipient.companyName.replace(/\s/g, '').toLowerCase()}@example.com`;
+
+    const recipientData = {
+      company_name: recipient.companyName,
+      contact_person: recipient.contactPerson,
+      phone: recipient.phoneNumber || '010-0000-0000',
+      email: email,
+      address: recipient.deliveryAddress || null,
+      memo: recipient.clientMemo || null,
+    };
+
+    if (existingRecipient) {
+      // 2a. 기존 담당자 업데이트 (새 정보가 있는 경우만)
+      const updates: any = {};
+      
+      if (recipient.phoneNumber && recipient.phoneNumber !== existingRecipient.phone) {
+        updates.phone = recipient.phoneNumber;
+      }
+      if (email !== existingRecipient.email) {
+        updates.email = email;
+      }
+      if (recipient.deliveryAddress && recipient.deliveryAddress !== existingRecipient.address) {
+        updates.address = recipient.deliveryAddress;
+      }
+      if (recipient.clientMemo && recipient.clientMemo !== existingRecipient.memo) {
+        updates.memo = recipient.clientMemo;
+      }
+
+      // 업데이트할 내용이 있으면 업데이트
+      if (Object.keys(updates).length > 0) {
+        await supabase
+          .from('recipients')
+          .update(updates)
+          .eq('id', existingRecipient.id);
+        
+        console.log('[Save Recipient] Updated existing recipient:', existingRecipient.id);
+      }
+
+      return existingRecipient.id;
+    } else {
+      // 2b. 새 담당자 생성
+      const { data: newRecipient, error: insertError } = await supabase
+        .from('recipients')
+        .insert({
+          user_id: userId,
+          ...recipientData,
+          position: '담당자',
+          ceo_name: recipient.contactPerson || '대표자',
+          business_registration_number: '000-00-00000',
+          business_type: '서비스업',
+          business_class: '기타',
+          branch_number: '00',
+        })
+        .select('id')
+        .single();
+
+      if (insertError) {
+        // 중복 에러인 경우 무시
+        if (insertError.code === '23505') {
+          console.log('[Save Recipient] Recipient already exists (duplicate key)');
+          return null;
+        }
+        console.error('[Save Recipient] Insert error:', insertError);
+        return null;
+      }
+
+      console.log('[Save Recipient] Created new recipient:', newRecipient?.id);
+      return newRecipient?.id || null;
+    }
+  } catch (err) {
+    console.error('[Save Recipient] Error:', err);
+    return null;
+  }
+}
+
+/**
  * 견적서 저장과 동시에 Pluuug 동기화 수행
  */
 export async function saveQuoteWithPluuugSync(
@@ -150,6 +254,12 @@ export async function saveQuoteWithPluuugSync(
   syncToPluuug: boolean = true
 ): Promise<{ success: boolean; quoteId?: string; pluuugSynced?: boolean; pluuugEstimateId?: string; error?: string }> {
   try {
+    // 0. 담당자 정보를 recipients 테이블에 자동 저장
+    const recipientId = await saveRecipientAutomatically(userId, recipient);
+    if (recipientId) {
+      console.log('[Save Quote] Recipient saved/updated:', recipientId);
+    }
+
     // 1. Supabase에 견적서 저장
     const { data: savedQuote, error: saveError } = await supabase
       .from('saved_quotes')
