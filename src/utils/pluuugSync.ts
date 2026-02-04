@@ -44,7 +44,23 @@ export interface PluuugInquiryData {
 export interface PluuugSyncResult {
   success: boolean;
   pluuugInquiryId?: number;
+  pluuugClientId?: number;
   error?: string;
+}
+
+export interface PluuugClientData {
+  companyName: string;
+  inCharge: string;
+  contact?: string;
+  email?: string;
+  content?: string;
+  ceoName?: string;
+  businessRegistrationNumber?: string;
+  companyAddress?: string;
+  businessType?: string;
+  businessClass?: string;
+  branchNumber?: string;
+  status?: { id: number };
 }
 
 /**
@@ -99,44 +115,191 @@ function formatEstimateString(data: PluuugInquiryData): string {
 }
 
 /**
+ * Pluuug에 고객(Client)을 생성
+ */
+export async function createPluuugClient(
+  clientData: PluuugClientData
+): Promise<{ success: boolean; pluuugClientId?: number; error?: string }> {
+  try {
+    console.log('[Pluuug Client] Creating new client...', clientData);
+
+    // Pluuug API 고객 생성 형식으로 변환
+    const pluuugPayload: any = {
+      companyName: clientData.companyName,
+      inCharge: clientData.inCharge,
+      contact: clientData.contact || '010-0000-0000',
+      email: clientData.email || `${clientData.companyName.replace(/\s/g, '').toLowerCase()}@example.com`,
+      content: clientData.content || '',
+      ceoName: clientData.ceoName || clientData.inCharge,
+      businessRegistrationNumber: clientData.businessRegistrationNumber || '000-00-00000',
+      companyAddress: clientData.companyAddress || '',
+      businessType: clientData.businessType || '서비스업',
+      businessClass: clientData.businessClass || '기타',
+      branchNumber: clientData.branchNumber || '00',
+      status: clientData.status || { id: 120353 }, // 기본 상태: 일반
+    };
+
+    console.log('[Pluuug Client] Payload:', pluuugPayload);
+
+    const { data, error } = await supabase.functions.invoke('pluuug-api', {
+      body: {
+        action: 'client.create',
+        data: pluuugPayload
+      }
+    });
+
+    if (error) {
+      console.error('[Pluuug Client] Function invoke error:', error);
+      return { success: false, error: error.message };
+    }
+
+    if (data?.error) {
+      console.error('[Pluuug Client] API error:', data.error, data.data);
+      return { success: false, error: data.error };
+    }
+
+    console.log('[Pluuug Client] Success:', data);
+    return { 
+      success: true, 
+      pluuugClientId: data?.data?.id 
+    };
+  } catch (err: any) {
+    console.error('[Pluuug Client] Error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 로컬 recipient 데이터를 Pluuug Client 형식으로 변환
+ */
+export function convertRecipientToPluuugClient(recipient: any): PluuugClientData {
+  return {
+    companyName: recipient.companyName || recipient.company_name || '미정 회사',
+    inCharge: recipient.contactPerson || recipient.contact_person || '담당자',
+    contact: recipient.phoneNumber || recipient.phone || '010-0000-0000',
+    email: recipient.email || `${(recipient.companyName || recipient.company_name || 'unknown').replace(/\s/g, '').toLowerCase()}@example.com`,
+    content: recipient.clientMemo || recipient.memo || '',
+    ceoName: recipient.ceoName || recipient.ceo_name || recipient.contactPerson || recipient.contact_person || '대표자',
+    businessRegistrationNumber: recipient.businessRegistrationNumber || recipient.business_registration_number || '000-00-00000',
+    companyAddress: recipient.deliveryAddress || recipient.address || '',
+    businessType: recipient.businessType || recipient.business_type || '서비스업',
+    businessClass: recipient.businessClass || recipient.business_class || '기타',
+    branchNumber: recipient.branchNumber || recipient.branch_number || '00',
+    status: { id: 120353 }, // 기본 상태: 일반
+  };
+}
+
+/**
+ * 고객이 Pluuug에 없으면 자동으로 등록하고, 있으면 ID 반환
+ */
+async function ensurePluuugClient(
+  userId: string,
+  recipient: any,
+  recipientId: string | null
+): Promise<{ pluuugClientId: number | null; error?: string }> {
+  // 1. 이미 Pluuug 클라이언트 ID가 있는지 확인
+  if (recipient?.pluuugClientId || recipient?.pluuug_client_id) {
+    const existingId = recipient.pluuugClientId || recipient.pluuug_client_id;
+    console.log('[Pluuug] Using existing client ID:', existingId);
+    return { pluuugClientId: existingId };
+  }
+
+  // 2. recipients 테이블에서 pluuug_client_id 확인
+  if (recipientId) {
+    const { data: existingRecipient, error: findError } = await supabase
+      .from('recipients')
+      .select('pluuug_client_id')
+      .eq('id', recipientId)
+      .single();
+
+    if (!findError && existingRecipient?.pluuug_client_id) {
+      console.log('[Pluuug] Found existing client ID in recipients:', existingRecipient.pluuug_client_id);
+      return { pluuugClientId: existingRecipient.pluuug_client_id };
+    }
+  }
+
+  // 3. Pluuug에 새 고객 등록
+  console.log('[Pluuug] No existing client ID found, creating new client...');
+  
+  const clientData = convertRecipientToPluuugClient(recipient);
+  const createResult = await createPluuugClient(clientData);
+
+  if (!createResult.success || !createResult.pluuugClientId) {
+    console.error('[Pluuug] Failed to create client:', createResult.error);
+    return { pluuugClientId: null, error: createResult.error || 'Pluuug 고객 생성 실패' };
+  }
+
+  // 4. recipients 테이블에 pluuug_client_id 업데이트
+  if (recipientId) {
+    const { error: updateError } = await supabase
+      .from('recipients')
+      .update({
+        pluuug_client_id: createResult.pluuugClientId,
+        pluuug_synced_at: new Date().toISOString()
+      })
+      .eq('id', recipientId);
+
+    if (updateError) {
+      console.warn('[Pluuug] Failed to update recipient with client ID:', updateError);
+    } else {
+      console.log('[Pluuug] Updated recipient with new client ID:', createResult.pluuugClientId);
+    }
+  }
+
+  toast.success(`고객 "${clientData.companyName}"이(가) Pluuug에 등록되었습니다.`);
+  
+  return { pluuugClientId: createResult.pluuugClientId };
+}
+
+/**
  * 견적서를 Pluuug 의뢰(Inquiry)로 동기화
  */
 export async function syncQuoteToPluuug(
-  quoteData: PluuugInquiryData
+  quoteData: PluuugInquiryData,
+  userId?: string,
+  recipient?: any,
+  recipientId?: string | null
 ): Promise<PluuugSyncResult> {
   try {
     console.log('[Pluuug Sync] Starting inquiry sync...', quoteData);
+
+    // 고객 ID 확보 (없으면 자동 등록)
+    let clientId = quoteData.client?.id;
+    
+    if (!clientId && userId && recipient) {
+      const clientResult = await ensurePluuugClient(userId, recipient, recipientId || null);
+      
+      if (clientResult.error) {
+        return { success: false, error: clientResult.error };
+      }
+      
+      clientId = clientResult.pluuugClientId || undefined;
+    }
+
+    if (!clientId) {
+      console.warn('[Pluuug Sync] No client ID available');
+      return { 
+        success: false, 
+        error: 'Pluuug에 연결된 고객 정보가 없습니다. 고객 정보를 입력해주세요.' 
+      };
+    }
 
     // 견적 내용을 문자열로 포맷팅
     const estimateContent = formatEstimateString(quoteData);
 
     // Pluuug API 의뢰 생성 형식으로 변환
-    // estimate: 숫자 (총 금액), content: 견적 상세 내용
     const pluuugPayload: any = {
       name: quoteData.name,
-      estimate: quoteData.total.toString(), // 숫자 문자열로 전달
-      content: estimateContent, // 견적 상세 내용을 content에 저장
-      inquiryDate: quoteData.inquiryDate.split('T')[0], // YYYY-MM-DD 형식
-      contract: null, // 계약 없음
-      workSet: [], // 빈 배열 허용
-      inChargeSet: [], // 빈 배열 허용
-      fieldSet: [], // 빈 배열 허용
+      estimate: quoteData.total.toString(),
+      content: estimateContent,
+      inquiryDate: quoteData.inquiryDate.split('T')[0],
+      contract: null,
+      workSet: [],
+      inChargeSet: [],
+      fieldSet: [],
+      status: { id: quoteData.status?.id || 120348 },
+      client: { id: clientId },
     };
-
-    // 상태 ID 추가 (기본값: 견적 발행 상태 = 120348)
-    pluuugPayload.status = { id: quoteData.status?.id || 120348 };
-
-    // 고객 정보가 있으면 추가 (Pluuug client ID가 있는 경우)
-    if (quoteData.client?.id) {
-      pluuugPayload.client = { id: quoteData.client.id };
-    } else {
-      // 클라이언트 ID가 없으면 에러 반환 (필수 필드)
-      console.warn('[Pluuug Sync] No Pluuug client ID - sync requires a linked client');
-      return { 
-        success: false, 
-        error: 'Pluuug에 연결된 고객 정보가 없습니다. 먼저 고객을 Pluuug에 동기화해주세요.' 
-      };
-    }
 
     console.log('[Pluuug Sync] Payload:', pluuugPayload);
 
@@ -160,7 +323,8 @@ export async function syncQuoteToPluuug(
     console.log('[Pluuug Sync] Success:', data);
     return { 
       success: true, 
-      pluuugInquiryId: data?.data?.id 
+      pluuugInquiryId: data?.data?.id,
+      pluuugClientId: clientId
     };
   } catch (err: any) {
     console.error('[Pluuug Sync] Error:', err);
@@ -422,16 +586,13 @@ export async function saveQuoteWithPluuugSync(
         total
       );
 
-      // Pluuug 클라이언트 ID가 있으면 연결
-      if (pluuugClientId) {
-        pluuugData.client = {
-          ...pluuugData.client,
-          id: pluuugClientId
-        };
-        console.log('[Pluuug Sync] Linking to Pluuug client ID:', pluuugClientId);
-      }
-
-      const syncResult = await syncQuoteToPluuug(pluuugData);
+      // 고객 자동 등록 + 동기화 (새로운 파라미터 전달)
+      const syncResult = await syncQuoteToPluuug(
+        pluuugData,
+        userId,
+        recipient,
+        recipientId
+      );
       
       if (syncResult.success) {
         pluuugSynced = true;
