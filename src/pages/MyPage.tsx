@@ -7,10 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users, Cloud, CloudOff } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users, Cloud, CloudOff, Upload, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { usePluuugApi, PluuugClient } from '@/hooks/usePluuugApi';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,10 +68,14 @@ interface RecipientInfo {
 const MyPage = () => {
   const { user, profile, signOut, updateProfile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { getClients, createClient, loading: pluuugLoading } = usePluuugApi();
+  
   const [quotes, setQuotes] = useState<SavedQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteQuoteId, setDeleteQuoteId] = useState<string | null>(null);
   const [selectedRecipient, setSelectedRecipient] = useState<RecipientInfo | null>(null);
+  const [pluuugClients, setPluuugClients] = useState<PluuugClient[]>([]);
+  const [syncingRecipient, setSyncingRecipient] = useState<string | null>(null);
   
   // Profile edit state
   const [fullName, setFullName] = useState('');
@@ -92,8 +97,20 @@ const MyPage = () => {
   useEffect(() => {
     if (user) {
       fetchMyQuotes();
+      fetchPluuugClients();
     }
   }, [user]);
+
+  const fetchPluuugClients = async () => {
+    try {
+      const result = await getClients();
+      if (result.data && Array.isArray(result.data)) {
+        setPluuugClients(result.data);
+      }
+    } catch (err) {
+      console.error('Pluuug 고객 조회 에러:', err);
+    }
+  };
 
   const fetchMyQuotes = async () => {
     if (!user) return;
@@ -185,6 +202,49 @@ const MyPage = () => {
     });
 
     return Array.from(recipientsMap.values()).sort((a, b) => b.quoteCount - a.quoteCount);
+  };
+
+  const isRecipientSyncedToPluuug = (recipient: RecipientInfo) => {
+    return pluuugClients.some(
+      c => c.companyName === recipient.company && c.inCharge === recipient.name
+    );
+  };
+
+  const handleSyncRecipientToPluuug = async (recipient: RecipientInfo, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    
+    const key = `${recipient.company}-${recipient.name}`;
+    setSyncingRecipient(key);
+    
+    try {
+      if (isRecipientSyncedToPluuug(recipient)) {
+        toast.info('이미 Pluuug에 등록된 고객입니다.');
+        setSyncingRecipient(null);
+        return;
+      }
+
+      const result = await createClient({
+        companyName: recipient.company,
+        inCharge: recipient.name,
+        contact: recipient.phone,
+        email: recipient.email,
+        content: recipient.address !== '-' ? `주소: ${recipient.address}` : undefined
+      });
+
+      if (result.data) {
+        toast.success('Pluuug에 고객이 등록되었습니다!');
+        await fetchPluuugClients();
+      } else {
+        toast.error('Pluuug 등록에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error('Pluuug 동기화 에러:', err);
+      toast.error('Pluuug 동기화 중 오류가 발생했습니다.');
+    } finally {
+      setSyncingRecipient(null);
+    }
   };
 
   const getQuotesByRecipient = (recipient: RecipientInfo): SavedQuote[] => {
@@ -376,29 +436,53 @@ const MyPage = () => {
                           <TableHead>담당자</TableHead>
                           <TableHead>연락처</TableHead>
                           <TableHead>이메일</TableHead>
-                          <TableHead>주소</TableHead>
+                          <TableHead>Pluuug</TableHead>
                           <TableHead className="text-right">견적서 수</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {getUniqueRecipients().map((recipient, index) => (
-                          <TableRow 
-                            key={index}
-                            className="cursor-pointer hover:bg-accent/50 transition-colors"
-                            onClick={() => setSelectedRecipient(recipient)}
-                          >
-                            <TableCell className="font-medium">{recipient.company}</TableCell>
-                            <TableCell>{recipient.name}</TableCell>
-                            <TableCell>{recipient.phone}</TableCell>
-                            <TableCell>{recipient.email}</TableCell>
-                            <TableCell className="max-w-xs truncate" title={recipient.address}>
-                              {recipient.address}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <span className="font-semibold text-primary">{recipient.quoteCount}건</span>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {getUniqueRecipients().map((recipient, index) => {
+                          const synced = isRecipientSyncedToPluuug(recipient);
+                          const key = `${recipient.company}-${recipient.name}`;
+                          return (
+                            <TableRow 
+                              key={index}
+                              className="cursor-pointer hover:bg-accent/50 transition-colors"
+                              onClick={() => setSelectedRecipient(recipient)}
+                            >
+                              <TableCell className="font-medium">{recipient.company}</TableCell>
+                              <TableCell>{recipient.name}</TableCell>
+                              <TableCell>{recipient.phone}</TableCell>
+                              <TableCell>{recipient.email}</TableCell>
+                              <TableCell>
+                                {synced ? (
+                                  <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                    <Cloud className="w-3 h-3 mr-1" />
+                                    연동됨
+                                  </Badge>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => handleSyncRecipientToPluuug(recipient, e)}
+                                    disabled={syncingRecipient === key || pluuugLoading}
+                                    className="text-xs"
+                                  >
+                                    {syncingRecipient === key ? (
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                    ) : (
+                                      <Upload className="w-3 h-3 mr-1" />
+                                    )}
+                                    Pluuug 등록
+                                  </Button>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className="font-semibold text-primary">{recipient.quoteCount}건</span>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>

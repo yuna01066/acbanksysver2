@@ -5,12 +5,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Search } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Cloud, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { QuoteRecipient } from "@/contexts/QuoteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { usePluuugApi, PluuugClient } from "@/hooks/usePluuugApi";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +28,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 interface SavedRecipient {
   company: string;
@@ -49,13 +53,20 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
   showClientMemo = false
 }) => {
   const { user } = useAuth();
+  const { getClients, createClient, loading: pluuugLoading } = usePluuugApi();
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [savedRecipients, setSavedRecipients] = useState<SavedRecipient[]>([]);
+  const [pluuugClients, setPluuugClients] = useState<PluuugClient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'local' | 'pluuug'>('local');
+  const [loadingPluuug, setLoadingPluuug] = useState(false);
+  const [syncingToPluuug, setSyncingToPluuug] = useState<string | null>(null);
 
   useEffect(() => {
     if (isDialogOpen && user) {
       fetchSavedRecipients();
+      fetchPluuugClients();
     }
   }, [isDialogOpen, user]);
 
@@ -93,9 +104,22 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
     }
   };
 
+  const fetchPluuugClients = async () => {
+    setLoadingPluuug(true);
+    try {
+      const result = await getClients();
+      if (result.data && Array.isArray(result.data)) {
+        setPluuugClients(result.data);
+      }
+    } catch (err) {
+      console.error('Pluuug 고객 조회 에러:', err);
+    } finally {
+      setLoadingPluuug(false);
+    }
+  };
+
   const handleSelectRecipient = (recipient: SavedRecipient) => {
     if (onBulkChange) {
-      // 여러 필드를 한 번에 업데이트
       onBulkChange({
         companyName: recipient.company,
         contactPerson: recipient.name,
@@ -104,7 +128,6 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
         deliveryAddress: recipient.address
       });
     } else {
-      // fallback: 하나씩 업데이트 (비권장)
       onChange('companyName', recipient.company);
       onChange('contactPerson', recipient.name);
       onChange('phoneNumber', recipient.phone);
@@ -115,12 +138,85 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
     setIsDialogOpen(false);
   };
 
+  const handleSelectPluuugClient = (client: PluuugClient) => {
+    if (onBulkChange) {
+      onBulkChange({
+        companyName: client.companyName || '',
+        contactPerson: client.inCharge || '',
+        phoneNumber: client.contact || '',
+        email: client.email || '',
+      });
+    } else {
+      onChange('companyName', client.companyName || '');
+      onChange('contactPerson', client.inCharge || '');
+      onChange('phoneNumber', client.contact || '');
+      onChange('email', client.email || '');
+    }
+    
+    toast.success('Pluuug 고객 정보가 적용되었습니다.');
+    setIsDialogOpen(false);
+  };
+
+  const handleSyncToPluuug = async (recipient: SavedRecipient) => {
+    const key = `${recipient.company}-${recipient.name}`;
+    setSyncingToPluuug(key);
+    
+    try {
+      // Check if client already exists in Pluuug
+      const existingClient = pluuugClients.find(
+        c => c.companyName === recipient.company && c.inCharge === recipient.name
+      );
+
+      if (existingClient) {
+        toast.info('이미 Pluuug에 등록된 고객입니다.');
+        setSyncingToPluuug(null);
+        return;
+      }
+
+      const result = await createClient({
+        companyName: recipient.company,
+        inCharge: recipient.name,
+        contact: recipient.phone,
+        email: recipient.email,
+        content: recipient.address ? `주소: ${recipient.address}` : undefined
+      });
+
+      if (result.data) {
+        toast.success('Pluuug에 고객이 등록되었습니다!');
+        // Refresh Pluuug clients list
+        await fetchPluuugClients();
+      } else {
+        toast.error('Pluuug 등록에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error('Pluuug 동기화 에러:', err);
+      toast.error('Pluuug 동기화 중 오류가 발생했습니다.');
+    } finally {
+      setSyncingToPluuug(null);
+    }
+  };
+
+  const isAlreadySynced = (recipient: SavedRecipient) => {
+    return pluuugClients.some(
+      c => c.companyName === recipient.company && c.inCharge === recipient.name
+    );
+  };
+
   const filteredRecipients = savedRecipients.filter((recipient) => {
     const search = searchTerm.toLowerCase();
     return (
       recipient.company.toLowerCase().includes(search) ||
       recipient.name.toLowerCase().includes(search) ||
       recipient.email.toLowerCase().includes(search)
+    );
+  });
+
+  const filteredPluuugClients = pluuugClients.filter((client) => {
+    const search = searchTerm.toLowerCase();
+    return (
+      (client.companyName || '').toLowerCase().includes(search) ||
+      (client.inCharge || '').toLowerCase().includes(search) ||
+      (client.email || '').toLowerCase().includes(search)
     );
   });
 
@@ -222,7 +318,7 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
                   variant="outline"
                   size="icon"
                   onClick={() => setIsDialogOpen(true)}
-                  title="저장된 담당자 검색"
+                  title="저장된 담당자 / Pluuug 고객 검색"
                 >
                   <Search className="h-4 w-4" />
                 </Button>
@@ -348,13 +444,13 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
         </div>
       )}
 
-      {/* 저장된 담당자 검색 Dialog */}
+      {/* 저장된 담당자 / Pluuug 고객 검색 Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>저장된 수신 담당자 검색</DialogTitle>
+            <DialogTitle>수신 담당자 검색</DialogTitle>
             <DialogDescription>
-              이전에 사용한 수신 담당자를 선택하여 정보를 자동으로 채울 수 있습니다.
+              저장된 담당자 또는 Pluuug에 등록된 고객을 선택하여 정보를 자동으로 채울 수 있습니다.
             </DialogDescription>
           </DialogHeader>
 
@@ -367,43 +463,143 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
               />
             </div>
 
-            {filteredRecipients.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {searchTerm ? '검색 결과가 없습니다.' : '저장된 담당자가 없습니다.'}
-              </div>
-            ) : (
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>회사명</TableHead>
-                      <TableHead>담당자</TableHead>
-                      <TableHead>연락처</TableHead>
-                      <TableHead>이메일</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredRecipients.map((recipient, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="font-medium">{recipient.company}</TableCell>
-                        <TableCell>{recipient.name}</TableCell>
-                        <TableCell>{recipient.phone}</TableCell>
-                        <TableCell>{recipient.email}</TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            onClick={() => handleSelectRecipient(recipient)}
-                          >
-                            선택
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'local' | 'pluuug')}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="local" className="flex items-center gap-2">
+                  <Search className="w-4 h-4" />
+                  저장된 담당자 ({savedRecipients.length})
+                </TabsTrigger>
+                <TabsTrigger value="pluuug" className="flex items-center gap-2">
+                  <Cloud className="w-4 h-4" />
+                  Pluuug 고객 ({pluuugClients.length})
+                </TabsTrigger>
+              </TabsList>
+
+              {/* 저장된 담당자 탭 */}
+              <TabsContent value="local">
+                {filteredRecipients.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {searchTerm ? '검색 결과가 없습니다.' : '저장된 담당자가 없습니다.'}
+                  </div>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>회사명</TableHead>
+                          <TableHead>담당자</TableHead>
+                          <TableHead>연락처</TableHead>
+                          <TableHead>이메일</TableHead>
+                          <TableHead>Pluuug</TableHead>
+                          <TableHead></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredRecipients.map((recipient, index) => {
+                          const synced = isAlreadySynced(recipient);
+                          const key = `${recipient.company}-${recipient.name}`;
+                          return (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{recipient.company}</TableCell>
+                              <TableCell>{recipient.name}</TableCell>
+                              <TableCell>{recipient.phone}</TableCell>
+                              <TableCell>{recipient.email}</TableCell>
+                              <TableCell>
+                                {synced ? (
+                                  <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                    <Cloud className="w-3 h-3 mr-1" />
+                                    연동됨
+                                  </Badge>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleSyncToPluuug(recipient)}
+                                    disabled={syncingToPluuug === key || pluuugLoading}
+                                    className="text-xs"
+                                  >
+                                    {syncingToPluuug === key ? (
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                    ) : (
+                                      <Upload className="w-3 h-3 mr-1" />
+                                    )}
+                                    Pluuug 등록
+                                  </Button>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleSelectRecipient(recipient)}
+                                >
+                                  선택
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Pluuug 고객 탭 */}
+              <TabsContent value="pluuug">
+                {loadingPluuug ? (
+                  <div className="text-center py-8 text-muted-foreground flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Pluuug 고객 불러오는 중...
+                  </div>
+                ) : filteredPluuugClients.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {searchTerm ? '검색 결과가 없습니다.' : 'Pluuug에 등록된 고객이 없습니다.'}
+                  </div>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>회사명</TableHead>
+                          <TableHead>담당자</TableHead>
+                          <TableHead>직책</TableHead>
+                          <TableHead>연락처</TableHead>
+                          <TableHead>이메일</TableHead>
+                          <TableHead>상태</TableHead>
+                          <TableHead></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredPluuugClients.map((client) => (
+                          <TableRow key={client.id}>
+                            <TableCell className="font-medium">{client.companyName}</TableCell>
+                            <TableCell>{client.inCharge}</TableCell>
+                            <TableCell>{client.position || '-'}</TableCell>
+                            <TableCell>{client.contact || '-'}</TableCell>
+                            <TableCell>{client.email || '-'}</TableCell>
+                            <TableCell>
+                              {client.status && (
+                                <Badge variant="outline" className="text-xs">
+                                  {client.status.title}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                onClick={() => handleSelectPluuugClient(client)}
+                              >
+                                선택
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
         </DialogContent>
       </Dialog>
