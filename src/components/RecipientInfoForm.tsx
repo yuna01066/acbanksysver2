@@ -184,17 +184,16 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
         contact: recipient.phone || '',
         email: clientEmail,
         position: '담당자',
-        content: recipient.address ? `주소: ${recipient.address}` : '',
+        content: recipient.address ? `주소: ${recipient.address}` : '정보 없음',
         // Pluuug API required fields with defaults
         status: { id: 1 },
         ceoName: recipient.name || '대표자',
         businessRegistrationNumber: '000-00-00000',
         companyAddress: recipient.address || '미지정',
-        companyDetailAddress: '',
+        companyDetailAddress: '미지정',
         businessType: '서비스업',
         businessClass: '기타',
-        branchNumber: '00',
-        fieldSet: 1
+        branchNumber: '00'
       } as any);
 
       if (result.data) {
