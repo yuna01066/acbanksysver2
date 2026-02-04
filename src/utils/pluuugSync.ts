@@ -315,24 +315,40 @@ async function ensurePluuugClient(
 
 /**
  * 견적 데이터에서 Pluuug fieldSet 생성
+ * 
+ * Pluuug API 필드 타입별 형식:
+ * - S (String): value: "문자열"
+ * - B (Boolean): value: true/false
+ * - D (Date): value: "YYYY-MM-DD"
+ * - SL (Single List): value: { id: "옵션ID" }
+ * - ML (Multi List): value: [{ id: "옵션ID" }, ...]
  */
 function buildFieldSet(quoteData: PluuugInquiryData, recipient: any, quotes: any[]): any[] {
   const fieldSet: any[] = [];
 
-  // 1. 두께 (ML - 다중 선택) - Pluuug API 형식 문제로 인해 문자열로 대체 기록
-  // NOTE: Pluuug API가 ML 필드 형식을 거부하므로, 두께 정보는 content에만 포함
-  const thicknessValues: string[] = [];
+  // 1. 두께 (ML - 다중 선택) - 객체 배열 형식
+  const thicknessOptionIds: { id: string }[] = [];
+  const seenThickness = new Set<string>();
+  
   quotes.forEach((quote: any) => {
     if (quote.thickness) {
       const thickness = quote.thickness.toString().replace(/\s/g, '');
-      if (!thicknessValues.includes(thickness)) {
-        thicknessValues.push(thickness);
+      if (!seenThickness.has(thickness)) {
+        seenThickness.add(thickness);
+        const optionId = THICKNESS_OPTION_IDS[thickness];
+        if (optionId) {
+          thicknessOptionIds.push({ id: optionId });
+        }
       }
     }
   });
   
-  if (thicknessValues.length > 0) {
-    console.log('[Pluuug fieldSet] Thickness values (included in content only):', thicknessValues);
+  if (thicknessOptionIds.length > 0) {
+    fieldSet.push({
+      field: { id: PLUUUG_FIELD_IDS.THICKNESS },
+      value: thicknessOptionIds
+    });
+    console.log('[Pluuug fieldSet] Thickness ML:', thicknessOptionIds);
   }
 
   // 2. 사이즈 (S - 문자열) - 모든 사이즈 정보 수집
@@ -369,22 +385,28 @@ function buildFieldSet(quoteData: PluuugInquiryData, recipient: any, quotes: any
     });
   }
 
-  // 4. 양단면 (SL - 단일 선택) - Pluuug API 형식 문제로 생략
-  // NOTE: Pluuug API가 SL 필드도 특수 형식을 요구하므로 content에만 포함
-  let surfaceInfo: string | null = null;
+  // 4. 양단면 (SL - 단일 선택) - 객체 형식 { id: "옵션ID" }
+  let surfaceOptionId: string | null = null;
   for (const quote of quotes) {
     const surface = quote.surface || '';
     if (surface.includes('양면') || surface.includes('both') || surface.includes('double')) {
-      surfaceInfo = '양면';
+      surfaceOptionId = DOUBLE_SIDED_OPTION_IDS['양면'];
       break;
     } else if (surface.includes('단면') || surface.includes('single') || surface.includes('one')) {
-      surfaceInfo = '단면';
+      surfaceOptionId = DOUBLE_SIDED_OPTION_IDS['단면'];
+      break;
+    } else if (surface.includes('레이어')) {
+      surfaceOptionId = DOUBLE_SIDED_OPTION_IDS['레이어 아크릴'];
       break;
     }
   }
   
-  if (surfaceInfo) {
-    console.log('[Pluuug fieldSet] Surface info (included in content only):', surfaceInfo);
+  if (surfaceOptionId) {
+    fieldSet.push({
+      field: { id: PLUUUG_FIELD_IDS.DOUBLE_SIDED },
+      value: { id: surfaceOptionId }
+    });
+    console.log('[Pluuug fieldSet] Double-sided SL:', surfaceOptionId);
   }
 
   // 5. 입금 여부 (B - Boolean) - 기본값 false
