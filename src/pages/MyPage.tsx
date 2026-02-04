@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users, Cloud, CloudOff, Upload, Loader2, RefreshCw, AlertTriangle, CheckCircle2, Pencil, Download } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign, FileText, TrendingUp, User, Trash2, Users, Cloud, CloudOff, Upload, Loader2, RefreshCw, AlertTriangle, CheckCircle2, Pencil, Download, Search, X, Filter } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -105,6 +106,38 @@ const MyPage = () => {
     skipped: number;
     importedClients: string[];
   } | null>(null);
+  
+  // 검색 및 필터 상태
+  const [recipientSearch, setRecipientSearch] = useState('');
+  const [recipientSyncFilter, setRecipientSyncFilter] = useState<'all' | 'synced' | 'unsynced'>('all');
+  
+  // 필터링된 담당자 목록 계산
+  const getFilteredRecipients = () => {
+    let filtered = getRecipientsWithQuoteCounts();
+    
+    // 검색어 필터
+    if (recipientSearch.trim()) {
+      const searchLower = recipientSearch.toLowerCase().trim();
+      filtered = filtered.filter(r => 
+        r.company_name.toLowerCase().includes(searchLower) ||
+        r.contact_person.toLowerCase().includes(searchLower) ||
+        r.phone.toLowerCase().includes(searchLower) ||
+        r.email.toLowerCase().includes(searchLower) ||
+        (r.address && r.address.toLowerCase().includes(searchLower)) ||
+        (r.memo && r.memo.toLowerCase().includes(searchLower))
+      );
+    }
+    
+    // Pluuug 동기화 상태 필터
+    if (recipientSyncFilter === 'synced') {
+      filtered = filtered.filter(r => isRecipientSyncedToPluuug(r));
+    } else if (recipientSyncFilter === 'unsynced') {
+      filtered = filtered.filter(r => !isRecipientSyncedToPluuug(r));
+    }
+    
+    return filtered;
+  };
+  
   
   // Profile edit state
   const [fullName, setFullName] = useState('');
@@ -899,21 +932,81 @@ const MyPage = () => {
                     </Button>
                   </div>
                 ) : (
-                  <div className="border rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>회사명</TableHead>
-                          <TableHead>담당자</TableHead>
-                          <TableHead>연락처</TableHead>
-                          <TableHead>이메일</TableHead>
-                          <TableHead>Pluuug</TableHead>
-                          <TableHead className="text-right">견적서 수</TableHead>
-                          <TableHead className="text-center">관리</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {getRecipientsWithQuoteCounts().map((recipient) => {
+                  <div className="space-y-4">
+                    {/* 검색 및 필터 UI */}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="회사명, 담당자, 연락처, 이메일로 검색..."
+                          value={recipientSearch}
+                          onChange={(e) => setRecipientSearch(e.target.value)}
+                          className="pl-9 pr-9"
+                        />
+                        {recipientSearch && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setRecipientSearch('')}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-muted-foreground" />
+                        <Select
+                          value={recipientSyncFilter}
+                          onValueChange={(value: 'all' | 'synced' | 'unsynced') => setRecipientSyncFilter(value)}
+                        >
+                          <SelectTrigger className="w-[160px]">
+                            <SelectValue placeholder="동기화 상태" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">전체</SelectItem>
+                            <SelectItem value="synced">Pluuug 연동됨</SelectItem>
+                            <SelectItem value="unsynced">미연동</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    {/* 검색 결과 요약 */}
+                    {(recipientSearch || recipientSyncFilter !== 'all') && (
+                      <div className="text-sm text-muted-foreground">
+                        검색 결과: <span className="font-medium text-foreground">{getFilteredRecipients().length}명</span>
+                        {recipientSearch && (
+                          <span> (검색어: "{recipientSearch}")</span>
+                        )}
+                        {recipientSyncFilter !== 'all' && (
+                          <span> ({recipientSyncFilter === 'synced' ? 'Pluuug 연동됨' : '미연동'})</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>회사명</TableHead>
+                            <TableHead>담당자</TableHead>
+                            <TableHead>연락처</TableHead>
+                            <TableHead>이메일</TableHead>
+                            <TableHead>Pluuug</TableHead>
+                            <TableHead className="text-right">견적서 수</TableHead>
+                            <TableHead className="text-center">관리</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {getFilteredRecipients().length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                검색 결과가 없습니다.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            getFilteredRecipients().map((recipient) => {
                           const synced = isRecipientSyncedToPluuug(recipient);
                           const key = `${recipient.company_name}-${recipient.contact_person}`;
                           return (
@@ -982,9 +1075,11 @@ const MyPage = () => {
                               </TableCell>
                             </TableRow>
                           );
-                        })}
-                      </TableBody>
-                    </Table>
+                        })
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
                 )}
               </CardContent>
