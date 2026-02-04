@@ -319,19 +319,20 @@ async function ensurePluuugClient(
 function buildFieldSet(quoteData: PluuugInquiryData, recipient: any, quotes: any[]): any[] {
   const fieldSet: any[] = [];
 
-  // 1. 두께 (S - 문자열로 변환하여 전송) - API가 ML 형식을 거부하므로 문자열로 대체
-  const thicknessValues = new Set<string>();
+  // 1. 두께 (ML - 다중 선택) - Pluuug API 형식 문제로 인해 문자열로 대체 기록
+  // NOTE: Pluuug API가 ML 필드 형식을 거부하므로, 두께 정보는 content에만 포함
+  const thicknessValues: string[] = [];
   quotes.forEach((quote: any) => {
     if (quote.thickness) {
       const thickness = quote.thickness.toString().replace(/\s/g, '');
-      thicknessValues.add(thickness);
+      if (!thicknessValues.includes(thickness)) {
+        thicknessValues.push(thickness);
+      }
     }
   });
   
-  // 두께는 ML 필드이지만 API 형식 문제로 인해 생략
-  // 대신 content 필드에 모든 정보가 포함됨
-  if (thicknessValues.size > 0) {
-    console.log('[Pluuug fieldSet] Thickness values (skipped due to API format):', Array.from(thicknessValues));
+  if (thicknessValues.length > 0) {
+    console.log('[Pluuug fieldSet] Thickness values (included in content only):', thicknessValues);
   }
 
   // 2. 사이즈 (S - 문자열) - 모든 사이즈 정보 수집
@@ -368,8 +369,23 @@ function buildFieldSet(quoteData: PluuugInquiryData, recipient: any, quotes: any
     });
   }
 
-  // 4. 양단면 (SL - 단일 선택) - API 형식 문제로 생략
-  // 대신 content 필드에 포함됨
+  // 4. 양단면 (SL - 단일 선택) - Pluuug API 형식 문제로 생략
+  // NOTE: Pluuug API가 SL 필드도 특수 형식을 요구하므로 content에만 포함
+  let surfaceInfo: string | null = null;
+  for (const quote of quotes) {
+    const surface = quote.surface || '';
+    if (surface.includes('양면') || surface.includes('both') || surface.includes('double')) {
+      surfaceInfo = '양면';
+      break;
+    } else if (surface.includes('단면') || surface.includes('single') || surface.includes('one')) {
+      surfaceInfo = '단면';
+      break;
+    }
+  }
+  
+  if (surfaceInfo) {
+    console.log('[Pluuug fieldSet] Surface info (included in content only):', surfaceInfo);
+  }
 
   // 5. 입금 여부 (B - Boolean) - 기본값 false
   fieldSet.push({
@@ -449,7 +465,14 @@ export async function syncQuoteToPluuug(
     // 견적 내용을 문자열로 포맷팅
     const estimateContent = formatEstimateString(quoteData);
 
-    // Pluuug API 의뢰 생성 형식으로 변환 - 먼저 빈 fieldSet으로 생성
+    // fieldSet 생성 (의뢰 생성 시 포함)
+    const fieldSet = quotes && quotes.length > 0 
+      ? buildFieldSet(quoteData, recipient, quotes) 
+      : [];
+    
+    console.log('[Pluuug Sync] Building fieldSet for creation:', JSON.stringify(fieldSet, null, 2));
+
+    // Pluuug API 의뢰 생성 형식으로 변환 - fieldSet 포함하여 생성
     const pluuugPayload: any = {
       name: quoteData.name,
       estimate: quoteData.total.toString(),
@@ -458,7 +481,7 @@ export async function syncQuoteToPluuug(
       contract: null,
       workSet: [],
       inChargeSet: [],
-      fieldSet: [], // 빈 배열로 먼저 생성
+      fieldSet: fieldSet, // fieldSet을 생성 시 포함
       status: { id: quoteData.status?.id || 120348 },
       client: { id: clientId },
     };
@@ -483,34 +506,7 @@ export async function syncQuoteToPluuug(
     }
 
     const inquiryId = data?.data?.id;
-    console.log('[Pluuug Sync] Inquiry created with ID:', inquiryId);
-
-    // 의뢰 생성 후 fieldSet 업데이트 (별도 요청)
-    if (quotes && quotes.length > 0 && inquiryId) {
-      const fieldSet = buildFieldSet(quoteData, recipient, quotes);
-      console.log('[Pluuug Sync] Updating fieldSet:', JSON.stringify(fieldSet, null, 2));
-
-      if (fieldSet.length > 0) {
-        try {
-          const { data: updateData, error: updateError } = await supabase.functions.invoke('pluuug-api', {
-            body: {
-              action: 'inquiry.update',
-              id: inquiryId,
-              data: { fieldSet }
-            }
-          });
-
-          if (updateError || updateData?.error) {
-            console.warn('[Pluuug Sync] fieldSet update failed (non-critical):', updateError || updateData?.error);
-            // fieldSet 업데이트 실패는 무시 (의뢰 생성은 성공)
-          } else {
-            console.log('[Pluuug Sync] fieldSet updated successfully');
-          }
-        } catch (updateErr) {
-          console.warn('[Pluuug Sync] fieldSet update exception:', updateErr);
-        }
-      }
-    }
+    console.log('[Pluuug Sync] Inquiry created with ID:', inquiryId, 'with fieldSet included');
 
     return { 
       success: true, 
