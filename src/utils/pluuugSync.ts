@@ -51,12 +51,14 @@ export interface PluuugSyncResult {
 export interface PluuugClientData {
   companyName: string;
   inCharge: string;
+  position?: string;
   contact?: string;
   email?: string;
   content?: string;
   ceoName?: string;
   businessRegistrationNumber?: string;
   companyAddress?: string;
+  companyDetailAddress?: string;
   businessType?: string;
   businessClass?: string;
   branchNumber?: string;
@@ -123,20 +125,31 @@ export async function createPluuugClient(
   try {
     console.log('[Pluuug Client] Creating new client...', clientData);
 
-    // Pluuug API 고객 생성 형식으로 변환
+    // 이메일 유효성 검사 및 기본값 설정
+    let email = clientData.email || '';
+    if (!email || !email.includes('@') || email === '_') {
+      // 유효하지 않은 이메일인 경우 기본 이메일 생성
+      const sanitizedName = clientData.companyName.replace(/[^a-zA-Z0-9가-힣]/g, '').toLowerCase() || 'unknown';
+      email = `${sanitizedName}@example.com`;
+    }
+
+    // Pluuug API 고객 생성 형식으로 변환 - 모든 필수 필드 포함
     const pluuugPayload: any = {
-      companyName: clientData.companyName,
-      inCharge: clientData.inCharge,
+      companyName: clientData.companyName || '미정 회사',
+      inCharge: clientData.inCharge || '담당자',
+      position: clientData.position || '담당자', // 필수 필드
       contact: clientData.contact || '010-0000-0000',
-      email: clientData.email || `${clientData.companyName.replace(/\s/g, '').toLowerCase()}@example.com`,
+      email: email,
       content: clientData.content || '',
-      ceoName: clientData.ceoName || clientData.inCharge,
+      ceoName: clientData.ceoName || clientData.inCharge || '대표자',
       businessRegistrationNumber: clientData.businessRegistrationNumber || '000-00-00000',
-      companyAddress: clientData.companyAddress || '',
+      companyAddress: clientData.companyAddress || '미정',
+      companyDetailAddress: clientData.companyDetailAddress || '-', // 필수 필드 (빈 값 불가)
       businessType: clientData.businessType || '서비스업',
       businessClass: clientData.businessClass || '기타',
       branchNumber: clientData.branchNumber || '00',
-      status: clientData.status || { id: 120353 }, // 기본 상태: 일반
+      status: clientData.status || { id: 45637 }, // 기본 상태: 의뢰 고객
+      fieldSet: [], // 필수 필드 (빈 배열)
     };
 
     console.log('[Pluuug Client] Payload:', pluuugPayload);
@@ -173,19 +186,28 @@ export async function createPluuugClient(
  * 로컬 recipient 데이터를 Pluuug Client 형식으로 변환
  */
 export function convertRecipientToPluuugClient(recipient: any): PluuugClientData {
+  // 이메일 유효성 검사
+  let email = recipient.email || '';
+  if (!email || !email.includes('@') || email === '_') {
+    const sanitizedName = (recipient.companyName || recipient.company_name || 'unknown').replace(/[^a-zA-Z0-9가-힣]/g, '').toLowerCase();
+    email = `${sanitizedName}@example.com`;
+  }
+
   return {
     companyName: recipient.companyName || recipient.company_name || '미정 회사',
     inCharge: recipient.contactPerson || recipient.contact_person || '담당자',
+    position: recipient.position || '담당자',
     contact: recipient.phoneNumber || recipient.phone || '010-0000-0000',
-    email: recipient.email || `${(recipient.companyName || recipient.company_name || 'unknown').replace(/\s/g, '').toLowerCase()}@example.com`,
+    email: email,
     content: recipient.clientMemo || recipient.memo || '',
     ceoName: recipient.ceoName || recipient.ceo_name || recipient.contactPerson || recipient.contact_person || '대표자',
     businessRegistrationNumber: recipient.businessRegistrationNumber || recipient.business_registration_number || '000-00-00000',
-    companyAddress: recipient.deliveryAddress || recipient.address || '',
+    companyAddress: recipient.deliveryAddress || recipient.address || '미정',
+    companyDetailAddress: recipient.detailAddress || recipient.detail_address || '-',
     businessType: recipient.businessType || recipient.business_type || '서비스업',
     businessClass: recipient.businessClass || recipient.business_class || '기타',
     branchNumber: recipient.branchNumber || recipient.branch_number || '00',
-    status: { id: 120353 }, // 기본 상태: 일반
+    status: { id: 45637 }, // 기본 상태: 의뢰 고객
   };
 }
 

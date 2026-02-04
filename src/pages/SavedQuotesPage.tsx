@@ -9,11 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import CustomerQuoteCard from '@/components/CustomerQuoteCard';
 import QuoteCard from '@/components/QuoteCard';
-import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, Cloud, CloudOff } from 'lucide-react';
+import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, Cloud, CloudOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { syncQuoteToPluuug, convertQuoteToPluuugFormat } from '@/utils/pluuugSync';
 
 interface SavedQuote {
   id: string;
@@ -57,6 +58,7 @@ const SavedQuotesPage = () => {
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [userFilter, setUserFilter] = useState<string>('all'); // 'all' or user_id
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [syncingQuoteId, setSyncingQuoteId] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 50;
 
   useEffect(() => {
@@ -322,6 +324,72 @@ const SavedQuotesPage = () => {
     }
   };
 
+  const handleSyncToPluuug = async (quote: SavedQuote) => {
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    if (quote.pluuug_synced) {
+      toast.info('이미 Pluuug에 동기화된 견적서입니다.');
+      return;
+    }
+
+    setSyncingQuoteId(quote.id);
+    
+    try {
+      // 견적 데이터를 Pluuug 형식으로 변환
+      const recipient = {
+        projectName: quote.project_name,
+        companyName: quote.recipient_company,
+        contactPerson: quote.recipient_name,
+        phoneNumber: quote.recipient_phone,
+        email: quote.recipient_email,
+        deliveryAddress: quote.recipient_address,
+        clientMemo: quote.recipient_memo,
+      };
+
+      const pluuugData = convertQuoteToPluuugFormat(
+        quote.items,
+        recipient,
+        quote.quote_number,
+        quote.subtotal,
+        quote.tax,
+        quote.total
+      );
+
+      // Pluuug에 동기화 (고객 자동 등록 포함)
+      const syncResult = await syncQuoteToPluuug(
+        pluuugData,
+        user.id,
+        recipient,
+        null // recipientId가 없으면 자동 등록
+      );
+
+      if (syncResult.success) {
+        // DB 업데이트
+        await supabase
+          .from('saved_quotes')
+          .update({
+            pluuug_synced: true,
+            pluuug_synced_at: new Date().toISOString(),
+            pluuug_estimate_id: syncResult.pluuugInquiryId?.toString()
+          })
+          .eq('id', quote.id);
+
+        toast.success('Pluuug에 견적서가 동기화되었습니다!');
+        fetchQuotes(); // 목록 새로고침
+      } else {
+        toast.error(`동기화 실패: ${syncResult.error || '알 수 없는 오류'}`);
+      }
+    } catch (error: any) {
+      console.error('Error syncing to Pluuug:', error);
+      toast.error(`동기화 중 오류 발생: ${error.message}`);
+    } finally {
+      setSyncingQuoteId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center">
@@ -461,15 +529,29 @@ const SavedQuotesPage = () => {
                           })}
                         </Badge>
                         {quote.pluuug_synced ? (
-                          <Badge variant="secondary" className="text-xs flex items-center gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          <Badge variant="secondary" className="text-xs flex items-center gap-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                             <Cloud className="w-3 h-3" />
                             Pluuug
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-xs flex items-center gap-1 text-muted-foreground">
-                            <CloudOff className="w-3 h-3" />
-                            미연동
-                          </Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSyncToPluuug(quote);
+                            }}
+                            disabled={syncingQuoteId === quote.id}
+                            className="h-6 px-2 text-xs flex items-center gap-1 text-muted-foreground hover:text-primary hover:border-primary"
+                            title="Pluuug에 동기화"
+                          >
+                            {syncingQuoteId === quote.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <CloudOff className="w-3 h-3" />
+                            )}
+                            {syncingQuoteId === quote.id ? '동기화 중...' : '미연동'}
+                          </Button>
                         )}
                       </div>
                     </div>
