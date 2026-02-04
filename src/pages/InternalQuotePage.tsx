@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Calculator, ShoppingCart, Home, Save } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Calculator, ShoppingCart, Home, Save, Link } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQuotes } from "@/contexts/QuoteContext";
@@ -15,11 +17,13 @@ import businessRegistration from "@/assets/arcbank-business-registration.jpg";
 import bankAccount from "@/assets/arcbank-bank-account.jpg";
 import arcbankLogo from "@/assets/arcbank-logo.png";
 import { FileText } from "lucide-react";
+import { saveQuoteWithPluuugSync } from "@/utils/pluuugSync";
 
 const InternalQuotePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
+  const [syncToPluuug, setSyncToPluuug] = useState(true);
   const {
     quotes,
     recipient,
@@ -70,37 +74,24 @@ const InternalQuotePage = () => {
       const tax = subtotal * 0.1;
       const total = getTotalPriceWithTax();
 
-      const { error } = await supabase.from('saved_quotes').insert([{
-        user_id: user.id,
-        quote_number: quoteNumber,
-        quote_date: new Date().toISOString(),
-        project_name: recipient?.projectName || null,
-        quote_date_display: recipient?.quoteDate ? recipient.quoteDate.toISOString() : new Date().toISOString(),
-        valid_until: recipient?.validUntil || null,
-        delivery_period: recipient?.deliveryPeriod || null,
-        payment_condition: recipient?.paymentCondition || null,
-        recipient_name: recipient?.contactPerson || null,
-        recipient_company: recipient?.companyName || null,
-        recipient_phone: recipient?.phoneNumber || null,
-        recipient_email: recipient?.email || null,
-        recipient_address: recipient?.deliveryAddress || null,
-        recipient_memo: recipient?.clientMemo || null,
-        desired_delivery_date: recipient?.desiredDeliveryDate ? recipient.desiredDeliveryDate.toISOString() : null,
-        issuer_name: recipient?.issuerName || null,
-        issuer_email: recipient?.issuerEmail || null,
-        issuer_phone: recipient?.issuerPhone || null,
-        items: quotes as any,
+      const result = await saveQuoteWithPluuugSync(
+        user.id,
+        quotes,
+        recipient,
+        quoteNumber,
         subtotal,
         tax,
         total,
-        attachments: (recipient?.attachments || []) as any
-      }]);
+        syncToPluuug
+      );
 
-      if (error) throw error;
+      if (!result.success) {
+        throw new Error(result.error);
+      }
 
       toast.success('견적서가 저장되었습니다.');
       navigate('/saved-quotes');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving quote:', error);
       toast.error('견적서 저장에 실패했습니다.');
     } finally {
@@ -132,6 +123,21 @@ const InternalQuotePage = () => {
               <Home className="w-4 h-4" />
               홈으로 돌아가기
             </Button>
+          </div>
+
+          {/* Pluuug 동기화 옵션 */}
+          <div className="mb-4 flex items-center justify-end gap-3 print:hidden">
+            <div className="flex items-center space-x-2 bg-white border border-gray-200 rounded-lg px-4 py-2">
+              <Switch 
+                id="pluuug-sync" 
+                checked={syncToPluuug} 
+                onCheckedChange={setSyncToPluuug}
+              />
+              <Label htmlFor="pluuug-sync" className="flex items-center gap-2 cursor-pointer">
+                <Link className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium">Pluuug 동기화</span>
+              </Label>
+            </div>
           </div>
           
           <QuoteSummaryHeader 
