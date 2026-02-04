@@ -394,6 +394,72 @@ export type Database = {
         }
         Relationships: []
       }
+      recipients: {
+        Row: {
+          address: string | null
+          branch_number: string | null
+          business_class: string | null
+          business_registration_number: string | null
+          business_type: string | null
+          ceo_name: string | null
+          company_name: string
+          contact_person: string
+          created_at: string
+          detail_address: string | null
+          email: string
+          id: string
+          memo: string | null
+          phone: string
+          pluuug_client_id: number | null
+          pluuug_synced_at: string | null
+          position: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          branch_number?: string | null
+          business_class?: string | null
+          business_registration_number?: string | null
+          business_type?: string | null
+          ceo_name?: string | null
+          company_name: string
+          contact_person: string
+          created_at?: string
+          detail_address?: string | null
+          email: string
+          id?: string
+          memo?: string | null
+          phone: string
+          pluuug_client_id?: number | null
+          pluuug_synced_at?: string | null
+          position?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          branch_number?: string | null
+          business_class?: string | null
+          business_registration_number?: string | null
+          business_type?: string | null
+          ceo_name?: string | null
+          company_name?: string
+          contact_person?: string
+          created_at?: string
+          detail_address?: string | null
+          email?: string
+          id?: string
+          memo?: string | null
+          phone?: string
+          pluuug_client_id?: number | null
+          pluuug_synced_at?: string | null
+          position?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       saved_quotes: {
         Row: {
           attachments: Json | null
