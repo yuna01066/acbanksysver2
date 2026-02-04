@@ -181,6 +181,10 @@ Deno.serve(async (req) => {
         result = await callPluuugApi("/v1/inquiry/status", "GET");
         break;
 
+      case "inquiry.field.list":
+        result = await callPluuugApi("/v1/inquiry/field", "GET");
+        break;
+
       // ==================== 견적서 항목 템플릿 (Estimate Item) ====================
       case "estimate.item.list":
         result = await callPluuugApi("/v1/estimate/item", "GET");
