@@ -204,7 +204,7 @@ export function RecipientEditDialog({
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="ceoName">대표자명</Label>
+                <Label htmlFor="ceoName">담당자명 (Pluuug)</Label>
                 <Input
                   id="ceoName"
                   value={ceoName}
