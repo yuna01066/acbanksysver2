@@ -23,13 +23,13 @@ export const PLUUUG_CLASSIFICATION_IDS = {
   ADDITIONAL: 2661,      // 추가 옵션
 } as const;
 
-// 로컬 재질(quality)과 Pluuug 항목 ID 매핑
+// 로컬 재질(quality)과 Pluuug 항목 ID 매핑 - Pluuug API에서 확인된 실제 ID
 export const MATERIAL_TO_PLUUUG_ITEM: Record<string, number> = {
-  'glossy-color': 316870,    // Clear 클리어 (Glossy Color)
-  'satin-color': 316873,     // Bright 브라이트 (Satin Color)
-  'acrylic-mirror': 316874,  // Mirror 미러 (Mirror Acrylic)
-  'astel-color': 316872,     // Astel 아스텔 (Astel Color)
-  'astel-mirror': 316875,    // Astel Mirror 아스텔 미러
+  'glossy-color': 316870,    // Clear 클리어 (Glossy Color) - 확인됨
+  'satin-color': 316873,     // Bright 브라이트 (Satin Color) - 확인됨
+  'acrylic-mirror': 316874,  // Mirror 미러 (Mirror Acrylic) - 확인됨
+  'astel-color': 316872,     // Astel 아스텔 (Astel Color) - 확인됨
+  'astel-mirror': 316875,    // Astel Mirror 아스텔 미러 - 확인됨
 };
 
 // 로컬 processing_options의 option_id와 Pluuug 항목 ID 매핑
