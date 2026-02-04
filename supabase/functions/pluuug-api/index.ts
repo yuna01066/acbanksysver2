@@ -58,12 +58,27 @@ async function callPluuugApi(
       body: bodyString || undefined,
     });
 
-    const responseData = await response.json();
+    // Some endpoints may return non-JSON errors; parse defensively.
+    let responseData: any = null;
+    try {
+      responseData = await response.json();
+    } catch {
+      responseData = await response.text().catch(() => null);
+    }
     console.log(`[Pluuug API] Response status: ${response.status}`);
 
     if (!response.ok) {
       console.error(`[Pluuug API] Error:`, responseData);
-      return { error: responseData.message || "Pluuug API error", status: response.status };
+
+      const message =
+        (typeof responseData === "string" && responseData) ||
+        responseData?.message ||
+        responseData?.error ||
+        (Array.isArray(responseData?.status) ? responseData.status.join(", ") : undefined) ||
+        "Pluuug API error";
+
+      // Keep upstream payload so the frontend can show actionable errors.
+      return { error: message, data: responseData, status: response.status };
     }
 
     return { data: responseData, status: response.status };
@@ -269,9 +284,15 @@ Deno.serve(async (req) => {
         );
     }
 
+    // IMPORTANT:
+    // `supabase.functions.invoke()` treats non-2xx as an exception (FunctionsHttpError).
+    // For upstream Pluuug API validation errors (400/422/etc), return HTTP 200 and
+    // surface the upstream `status` + `error` in the JSON payload.
+    const httpStatus = result.status >= 200 && result.status < 300 ? 200 : 200;
+
     return new Response(
       JSON.stringify(result),
-      { status: result.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: httpStatus, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
     console.error("[Pluuug] Error:", error);

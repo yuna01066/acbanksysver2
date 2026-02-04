@@ -53,7 +53,7 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
   showClientMemo = false
 }) => {
   const { user } = useAuth();
-  const { getClients, createClient, loading: pluuugLoading } = usePluuugApi();
+  const { getClients, getClientStatuses, createClient, loading: pluuugLoading } = usePluuugApi();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [savedRecipients, setSavedRecipients] = useState<SavedRecipient[]>([]);
@@ -69,6 +69,12 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
       fetchPluuugClients();
     }
   }, [isDialogOpen, user]);
+
+  const resolveDefaultPluuugClientStatusId = async (): Promise<number | null> => {
+    const statuses = await getClientStatuses();
+    const id = statuses.data?.results?.[0]?.id;
+    return typeof id === 'number' ? id : null;
+  };
 
   const fetchSavedRecipients = async () => {
     if (!user) return;
@@ -108,9 +114,9 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
     setLoadingPluuug(true);
     try {
       const result = await getClients();
-      if (result.data && Array.isArray(result.data)) {
-        setPluuugClients(result.data);
-      }
+      const payload: any = result.data;
+      const list = Array.isArray(payload) ? payload : payload?.results;
+      if (Array.isArray(list)) setPluuugClients(list);
     } catch (err) {
       console.error('Pluuug 고객 조회 에러:', err);
     } finally {
@@ -178,15 +184,21 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
         ? recipient.email 
         : `${recipient.company.replace(/\s/g, '').toLowerCase()}@example.com`;
 
+      const statusId = await resolveDefaultPluuugClientStatusId();
+      if (!statusId) {
+        toast.error('Pluuug 고객 상태 목록을 불러오지 못했습니다.');
+        return;
+      }
+
       const result = await createClient({
         companyName: recipient.company || '미지정',
         inCharge: recipient.name || '담당자',
-        contact: recipient.phone || '',
+        contact: recipient.phone || '010-0000-0000',
         email: clientEmail,
         position: '담당자',
         content: recipient.address ? `주소: ${recipient.address}` : '정보 없음',
         // Pluuug API required fields with defaults
-        status: { id: 1 },
+        status: { id: statusId },
         ceoName: recipient.name || '대표자',
         businessRegistrationNumber: '000-00-00000',
         companyAddress: recipient.address || '미지정',
@@ -202,7 +214,7 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
         ]
       } as any);
 
-      if (result.data) {
+      if (result.data && !result.error && result.status >= 200 && result.status < 300) {
         toast.success('Pluuug에 고객이 등록되었습니다!');
         // Refresh Pluuug clients list
         await fetchPluuugClients();
