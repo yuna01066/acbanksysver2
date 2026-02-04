@@ -1,1 +1,7 @@
 project_id = "zwloyqcwyfkimwkohpnd"
+
+[functions.delete-user]
+verify_jwt = false
+
+[functions.pluuug-api]
+verify_jwt = false
