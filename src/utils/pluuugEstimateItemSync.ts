@@ -2,12 +2,15 @@
  * Pluuug Estimate Item 동기화 유틸리티
  * 
  * 로컬 견적 항목을 Pluuug estimate.item 템플릿으로 등록하고 관리합니다.
+ * Pluuug 항목을 로컬 형식과 동일하게 맞춥니다.
  */
 
 import { supabase } from '@/integrations/supabase/client';
 import { 
   PLUUUG_CLASSIFICATION_IDS,
-  PROCESSING_TO_PLUUUG_ITEM
+  PROCESSING_TO_PLUUUG_ITEM,
+  getCategoryName,
+  type PluuugItemMapping
 } from './pluuugEstimateItemMapping';
 
 // 로컬 가공 옵션을 Pluuug estimate.item 형식으로 변환
@@ -24,25 +27,22 @@ export interface RegisteredEstimateItem {
   id: number;
   title: string;
   unit: string;
+  description?: string;
   classificationId: number;
   localOptionId?: string;
 }
 
 /**
  * 로컬 가공 옵션을 Pluuug estimate.item으로 변환
+ * 로컬 형식과 동일한 제목 및 설명 사용
  */
 export function convertLocalOptionToEstimateItem(
   optionId: string,
-  optionInfo: {
-    classificationId: number;
-    title: string;
-    unit: string;
-    pluuugItemId?: number;
-  }
+  optionInfo: PluuugItemMapping
 ): EstimateItemCreatePayload {
   return {
     title: optionInfo.title,
-    description: `로컬 옵션 ID: ${optionId}`,
+    description: optionInfo.description || `로컬 옵션 ID: ${optionId}`,
     unit: optionInfo.unit,
     unitCost: '0.00',
     classification: { id: optionInfo.classificationId }
@@ -280,7 +280,7 @@ export function mapBreakdownToEstimateItems(
         
         if (normalizedLabel.includes(normalizedTitle) || normalizedTitle.includes(normalizedLabel)) {
           mappedItem.item = { id: optionInfo.pluuugItemId };
-          mappedItem.description = `분류: ${getClassificationName(optionInfo.classificationId)}`;
+          mappedItem.description = `분류: ${getCategoryName(optionInfo.classificationId)}`;
           break;
         }
       }
@@ -290,30 +290,6 @@ export function mapBreakdownToEstimateItems(
   });
 
   return result;
-}
-
-/**
- * 분류 ID로 이름 조회
- */
-function getClassificationName(classificationId: number): string {
-  const names: Record<number, string> = {
-    [PLUUUG_CLASSIFICATION_IDS.MATERIAL]: '재질',
-    [PLUUUG_CLASSIFICATION_IDS.COLOR]: '컬러',
-    [PLUUUG_CLASSIFICATION_IDS.THICKNESS]: '두께',
-    [PLUUUG_CLASSIFICATION_IDS.PANEL_SIZE]: '판재 사이즈',
-    [PLUUUG_CLASSIFICATION_IDS.DOUBLE_SIDED]: '양단면',
-    [PLUUUG_CLASSIFICATION_IDS.COLOR_MIXING]: '조색비',
-    [PLUUUG_CLASSIFICATION_IDS.RAW_PURCHASE]: '원판 구매',
-    [PLUUUG_CLASSIFICATION_IDS.SIMPLE_CUTTING]: '단순 재단',
-    [PLUUUG_CLASSIFICATION_IDS.COMPLEX_CUTTING]: '복합 재단',
-    [PLUUUG_CLASSIFICATION_IDS.FULL_CUTTING]: '전체 재단',
-    [PLUUUG_CLASSIFICATION_IDS.CUTTING_FACE]: '접착면 가공',
-    [PLUUUG_CLASSIFICATION_IDS.ADHESION]: '접착 가공',
-    [PLUUUG_CLASSIFICATION_IDS.MIRROR_COATING]: '미러 증착',
-    [PLUUUG_CLASSIFICATION_IDS.PRINTING]: '인쇄 가공',
-    [PLUUUG_CLASSIFICATION_IDS.ADDITIONAL]: '추가 옵션',
-  };
-  return names[classificationId] || '기타';
 }
 
 /**
