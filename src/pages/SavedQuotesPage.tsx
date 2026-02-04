@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import CustomerQuoteCard from '@/components/CustomerQuoteCard';
 import QuoteCard from '@/components/QuoteCard';
-import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy } from 'lucide-react';
+import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, Cloud, CloudOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -31,6 +31,9 @@ interface SavedQuote {
   tax: number;
   total: number;
   user_id: string;
+  pluuug_synced: boolean | null;
+  pluuug_synced_at: string | null;
+  pluuug_estimate_id: string | null;
 }
 
 interface UserProfile {
@@ -450,12 +453,25 @@ const SavedQuotesPage = () => {
                           <p className="text-base font-semibold text-foreground mb-2">{quote.project_name}</p>
                         )}
                       </div>
-                      <Badge variant="outline" className="text-xs">
-                        {new Date(quote.quote_date).toLocaleDateString('ko-KR', { 
-                          month: 'short', 
-                          day: 'numeric' 
-                        })}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant="outline" className="text-xs">
+                          {new Date(quote.quote_date).toLocaleDateString('ko-KR', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                          })}
+                        </Badge>
+                        {quote.pluuug_synced ? (
+                          <Badge variant="secondary" className="text-xs flex items-center gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            <Cloud className="w-3 h-3" />
+                            Pluuug
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs flex items-center gap-1 text-muted-foreground">
+                            <CloudOff className="w-3 h-3" />
+                            미연동
+                          </Badge>
+                        )}
+                      </div>
                     </div>
 
                     {/* Info Grid */}
