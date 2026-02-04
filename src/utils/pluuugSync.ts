@@ -48,6 +48,44 @@ export interface PluuugSyncResult {
   error?: string;
 }
 
+// Pluuug 의뢰 필드 ID 상수 (아크뱅크 전용)
+export const PLUUUG_FIELD_IDS = {
+  THICKNESS: 21228,        // 두께 (ML - 다중 선택)
+  SIZE: 21229,             // 사이즈 (S - 문자열)
+  COLOR_CODE: 21230,       // 컬러 아크뱅크 코드 (AC-) (S - 문자열)
+  DOUBLE_SIDED: 21231,     // 양단면 (SL - 단일 선택)
+  PAYMENT_STATUS: 21232,   // 입금 여부 (B - Boolean)
+  DELIVERY_ADDRESS: 21233, // 납품 배송지 (S - 문자열)
+  COLOR_CHANGE_NOTE: 21235,// 컬러/소재 변경시 작성 (S - 문자열)
+  DESIRED_DELIVERY: 18120, // 납기 희망일 (D - 날짜)
+};
+
+// 두께 옵션 ID 매핑
+export const THICKNESS_OPTION_IDS: Record<string, string> = {
+  '1.3T': 'wNyFjaqXQmwypOo',
+  '1.5T': 'aw1opkAgcQPj8bd',
+  '2T': 'KJvrSObaidXzo2S',
+  '3T': 'yiRfKobeCyTCa3C',
+  '4T': 'SoIyHZKvYf8hhv7',
+  '5T': 'vTgNJdyhcCg04bU',
+  '6T': 'ytU7ES7NoWp7Jgq',
+  '8T': 'ppH2Tu0h3aAeBIS',
+  '10T': 'giolpsVDZtcKs8m',
+  '12T': '7sjL4BmpiZWexgr',
+  '14T': '5XoccG4iSIPekhj',
+  '15T': 'R3ybbFBSdMBJ8wx',
+  '20T': 'xLe671k980cf3dj',
+  '30T': 'sIEgpDhvZl0MIgb',
+  '30T 이상': 'YhFmNI2zE6DMuFn',
+};
+
+// 양단면 옵션 ID 매핑
+export const DOUBLE_SIDED_OPTION_IDS: Record<string, string> = {
+  '양면': '0DrVqhVvDYwYAPW',
+  '단면': 'dlbz9XjNL7baq3f',
+  '레이어 아크릴': 'l7d3HAb3WguqX6p',
+};
+
 export interface PluuugClientData {
   companyName: string;
   inCharge: string;
@@ -276,13 +314,135 @@ async function ensurePluuugClient(
 }
 
 /**
+ * 견적 데이터에서 Pluuug fieldSet 생성
+ */
+function buildFieldSet(quoteData: PluuugInquiryData, recipient: any, quotes: any[]): any[] {
+  const fieldSet: any[] = [];
+
+  // 1. 두께 (ML - 다중 선택) - 견적 항목들의 두께 수집
+  const thicknessValues = new Set<string>();
+  quotes.forEach((quote: any) => {
+    if (quote.thickness) {
+      const thickness = quote.thickness.toString().replace(/\s/g, '');
+      thicknessValues.add(thickness);
+    }
+  });
+  
+  if (thicknessValues.size > 0) {
+    const thicknessOptionIds = Array.from(thicknessValues)
+      .map(t => THICKNESS_OPTION_IDS[t])
+      .filter(Boolean);
+    
+    if (thicknessOptionIds.length > 0) {
+      fieldSet.push({
+        field: { id: PLUUUG_FIELD_IDS.THICKNESS },
+        value: thicknessOptionIds
+      });
+    }
+  }
+
+  // 2. 사이즈 (S - 문자열) - 모든 사이즈 정보 수집
+  const sizeInfo: string[] = [];
+  quotes.forEach((quote: any) => {
+    if (quote.width && quote.height) {
+      sizeInfo.push(`${quote.width}×${quote.height}mm`);
+    } else if (quote.size) {
+      sizeInfo.push(quote.size);
+    } else if (quote.selectedSize) {
+      sizeInfo.push(quote.selectedSize);
+    }
+  });
+  
+  if (sizeInfo.length > 0) {
+    fieldSet.push({
+      field: { id: PLUUUG_FIELD_IDS.SIZE },
+      value: [...new Set(sizeInfo)].join(', ')
+    });
+  }
+
+  // 3. 컬러 아크뱅크 코드 (S - 문자열)
+  const colorCodes: string[] = [];
+  quotes.forEach((quote: any) => {
+    if (quote.color) colorCodes.push(quote.color);
+    if (quote.selectedColor) colorCodes.push(quote.selectedColor);
+    if (quote.colorCode) colorCodes.push(quote.colorCode);
+  });
+  
+  if (colorCodes.length > 0) {
+    fieldSet.push({
+      field: { id: PLUUUG_FIELD_IDS.COLOR_CODE },
+      value: [...new Set(colorCodes)].join(', ')
+    });
+  }
+
+  // 4. 양단면 (SL - 단일 선택)
+  let doubleSidedOption: string | null = null;
+  quotes.forEach((quote: any) => {
+    const surface = quote.surface || quote.selectedSurface || '';
+    if (surface.includes('양면') || surface === '양면') {
+      doubleSidedOption = DOUBLE_SIDED_OPTION_IDS['양면'];
+    } else if (surface.includes('단면') || surface === '단면') {
+      doubleSidedOption = DOUBLE_SIDED_OPTION_IDS['단면'];
+    }
+  });
+  
+  if (doubleSidedOption) {
+    fieldSet.push({
+      field: { id: PLUUUG_FIELD_IDS.DOUBLE_SIDED },
+      value: doubleSidedOption
+    });
+  }
+
+  // 5. 입금 여부 (B - Boolean) - 기본값 false
+  fieldSet.push({
+    field: { id: PLUUUG_FIELD_IDS.PAYMENT_STATUS },
+    value: false
+  });
+
+  // 6. 납품 배송지 (S - 문자열)
+  const deliveryAddress = recipient?.deliveryAddress || recipient?.address || '';
+  if (deliveryAddress && deliveryAddress !== '_') {
+    fieldSet.push({
+      field: { id: PLUUUG_FIELD_IDS.DELIVERY_ADDRESS },
+      value: deliveryAddress
+    });
+  }
+
+  // 7. 컬러/소재 변경시 작성 (S - 문자열) - 커스텀 컬러 정보
+  const customColorInfo: string[] = [];
+  quotes.forEach((quote: any) => {
+    if (quote.customColorName) customColorInfo.push(quote.customColorName);
+    if (quote.customOpacity) customColorInfo.push(`투명도: ${quote.customOpacity}`);
+  });
+  
+  if (customColorInfo.length > 0) {
+    fieldSet.push({
+      field: { id: PLUUUG_FIELD_IDS.COLOR_CHANGE_NOTE },
+      value: customColorInfo.join(', ')
+    });
+  }
+
+  // 8. 납기 희망일 (D - 날짜)
+  if (quoteData.desiredDeliveryDate) {
+    const dateStr = quoteData.desiredDeliveryDate.split('T')[0];
+    fieldSet.push({
+      field: { id: PLUUUG_FIELD_IDS.DESIRED_DELIVERY },
+      value: dateStr
+    });
+  }
+
+  return fieldSet;
+}
+
+/**
  * 견적서를 Pluuug 의뢰(Inquiry)로 동기화
  */
 export async function syncQuoteToPluuug(
   quoteData: PluuugInquiryData,
   userId?: string,
   recipient?: any,
-  recipientId?: string | null
+  recipientId?: string | null,
+  quotes?: any[]
 ): Promise<PluuugSyncResult> {
   try {
     console.log('[Pluuug Sync] Starting inquiry sync...', quoteData);
@@ -311,6 +471,9 @@ export async function syncQuoteToPluuug(
     // 견적 내용을 문자열로 포맷팅
     const estimateContent = formatEstimateString(quoteData);
 
+    // fieldSet 생성 (quotes 데이터가 있는 경우)
+    const fieldSet = quotes ? buildFieldSet(quoteData, recipient, quotes) : [];
+
     // Pluuug API 의뢰 생성 형식으로 변환
     const pluuugPayload: any = {
       name: quoteData.name,
@@ -320,12 +483,12 @@ export async function syncQuoteToPluuug(
       contract: null,
       workSet: [],
       inChargeSet: [],
-      fieldSet: [],
+      fieldSet: [], // 먼저 빈 배열로 생성
       status: { id: quoteData.status?.id || 120348 },
       client: { id: clientId },
     };
 
-    console.log('[Pluuug Sync] Payload:', pluuugPayload);
+    console.log('[Pluuug Sync] Creating inquiry with empty fieldSet first');
 
     const { data, error } = await supabase.functions.invoke('pluuug-api', {
       body: {
@@ -344,10 +507,19 @@ export async function syncQuoteToPluuug(
       return { success: false, error: data.error };
     }
 
-    console.log('[Pluuug Sync] Success:', data);
+    const inquiryId = data?.data?.id;
+    console.log('[Pluuug Sync] Inquiry created:', inquiryId);
+
+    // TODO: fieldSet 업데이트 기능은 Pluuug API 형식 확인 후 구현 예정
+    // 현재는 content 필드에 모든 견적 정보가 포함되어 있음
+    // fieldSet 업데이트가 필요하면 Pluuug 대시보드에서 직접 수정 가능
+    if (fieldSet.length > 0) {
+      console.log('[Pluuug Sync] fieldSet data prepared (not sent due to API format issues):', fieldSet);
+    }
+
     return { 
       success: true, 
-      pluuugInquiryId: data?.data?.id,
+      pluuugInquiryId: inquiryId,
       pluuugClientId: clientId
     };
   } catch (err: any) {
@@ -610,12 +782,13 @@ export async function saveQuoteWithPluuugSync(
         total
       );
 
-      // 고객 자동 등록 + 동기화 (새로운 파라미터 전달)
+      // 고객 자동 등록 + 동기화 (quotes 데이터 포함하여 fieldSet 생성)
       const syncResult = await syncQuoteToPluuug(
         pluuugData,
         userId,
         recipient,
-        recipientId
+        recipientId,
+        quotes // quotes 데이터 전달
       );
       
       if (syncResult.success) {

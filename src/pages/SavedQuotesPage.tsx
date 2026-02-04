@@ -358,12 +358,13 @@ const SavedQuotesPage = () => {
         quote.total
       );
 
-      // Pluuug에 동기화 (고객 자동 등록 포함)
+      // Pluuug에 동기화 (고객 자동 등록 포함) - quotes 데이터도 전달하여 fieldSet 생성
       const syncResult = await syncQuoteToPluuug(
         pluuugData,
         user.id,
         recipient,
-        null // recipientId가 없으면 자동 등록
+        null, // recipientId가 없으면 자동 등록
+        quote.items // quotes 데이터 전달 (fieldSet 생성용)
       );
 
       if (syncResult.success) {
