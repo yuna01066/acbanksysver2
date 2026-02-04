@@ -319,7 +319,7 @@ async function ensurePluuugClient(
 function buildFieldSet(quoteData: PluuugInquiryData, recipient: any, quotes: any[]): any[] {
   const fieldSet: any[] = [];
 
-  // 1. 두께 (ML - 다중 선택) - 견적 항목들의 두께 수집
+  // 1. 두께 (S - 문자열로 변환하여 전송) - API가 ML 형식을 거부하므로 문자열로 대체
   const thicknessValues = new Set<string>();
   quotes.forEach((quote: any) => {
     if (quote.thickness) {
@@ -328,17 +328,10 @@ function buildFieldSet(quoteData: PluuugInquiryData, recipient: any, quotes: any
     }
   });
   
+  // 두께는 ML 필드이지만 API 형식 문제로 인해 생략
+  // 대신 content 필드에 모든 정보가 포함됨
   if (thicknessValues.size > 0) {
-    const thicknessOptionIds = Array.from(thicknessValues)
-      .map(t => THICKNESS_OPTION_IDS[t])
-      .filter(Boolean);
-    
-    if (thicknessOptionIds.length > 0) {
-      fieldSet.push({
-        field: { id: PLUUUG_FIELD_IDS.THICKNESS },
-        value: thicknessOptionIds
-      });
-    }
+    console.log('[Pluuug fieldSet] Thickness values (skipped due to API format):', Array.from(thicknessValues));
   }
 
   // 2. 사이즈 (S - 문자열) - 모든 사이즈 정보 수집
@@ -375,23 +368,8 @@ function buildFieldSet(quoteData: PluuugInquiryData, recipient: any, quotes: any
     });
   }
 
-  // 4. 양단면 (SL - 단일 선택)
-  let doubleSidedOption: string | null = null;
-  quotes.forEach((quote: any) => {
-    const surface = quote.surface || quote.selectedSurface || '';
-    if (surface.includes('양면') || surface === '양면') {
-      doubleSidedOption = DOUBLE_SIDED_OPTION_IDS['양면'];
-    } else if (surface.includes('단면') || surface === '단면') {
-      doubleSidedOption = DOUBLE_SIDED_OPTION_IDS['단면'];
-    }
-  });
-  
-  if (doubleSidedOption) {
-    fieldSet.push({
-      field: { id: PLUUUG_FIELD_IDS.DOUBLE_SIDED },
-      value: doubleSidedOption
-    });
-  }
+  // 4. 양단면 (SL - 단일 선택) - API 형식 문제로 생략
+  // 대신 content 필드에 포함됨
 
   // 5. 입금 여부 (B - Boolean) - 기본값 false
   fieldSet.push({
@@ -401,7 +379,7 @@ function buildFieldSet(quoteData: PluuugInquiryData, recipient: any, quotes: any
 
   // 6. 납품 배송지 (S - 문자열)
   const deliveryAddress = recipient?.deliveryAddress || recipient?.address || '';
-  if (deliveryAddress && deliveryAddress !== '_') {
+  if (deliveryAddress && deliveryAddress !== '_' && deliveryAddress !== '-') {
     fieldSet.push({
       field: { id: PLUUUG_FIELD_IDS.DELIVERY_ADDRESS },
       value: deliveryAddress
@@ -471,10 +449,7 @@ export async function syncQuoteToPluuug(
     // 견적 내용을 문자열로 포맷팅
     const estimateContent = formatEstimateString(quoteData);
 
-    // fieldSet 생성 (quotes 데이터가 있는 경우)
-    const fieldSet = quotes ? buildFieldSet(quoteData, recipient, quotes) : [];
-
-    // Pluuug API 의뢰 생성 형식으로 변환
+    // Pluuug API 의뢰 생성 형식으로 변환 - 먼저 빈 fieldSet으로 생성
     const pluuugPayload: any = {
       name: quoteData.name,
       estimate: quoteData.total.toString(),
@@ -483,12 +458,12 @@ export async function syncQuoteToPluuug(
       contract: null,
       workSet: [],
       inChargeSet: [],
-      fieldSet: [], // 먼저 빈 배열로 생성
+      fieldSet: [], // 빈 배열로 먼저 생성
       status: { id: quoteData.status?.id || 120348 },
       client: { id: clientId },
     };
 
-    console.log('[Pluuug Sync] Creating inquiry with empty fieldSet first');
+    console.log('[Pluuug Sync] Creating inquiry...');
 
     const { data, error } = await supabase.functions.invoke('pluuug-api', {
       body: {
@@ -508,13 +483,33 @@ export async function syncQuoteToPluuug(
     }
 
     const inquiryId = data?.data?.id;
-    console.log('[Pluuug Sync] Inquiry created:', inquiryId);
+    console.log('[Pluuug Sync] Inquiry created with ID:', inquiryId);
 
-    // TODO: fieldSet 업데이트 기능은 Pluuug API 형식 확인 후 구현 예정
-    // 현재는 content 필드에 모든 견적 정보가 포함되어 있음
-    // fieldSet 업데이트가 필요하면 Pluuug 대시보드에서 직접 수정 가능
-    if (fieldSet.length > 0) {
-      console.log('[Pluuug Sync] fieldSet data prepared (not sent due to API format issues):', fieldSet);
+    // 의뢰 생성 후 fieldSet 업데이트 (별도 요청)
+    if (quotes && quotes.length > 0 && inquiryId) {
+      const fieldSet = buildFieldSet(quoteData, recipient, quotes);
+      console.log('[Pluuug Sync] Updating fieldSet:', JSON.stringify(fieldSet, null, 2));
+
+      if (fieldSet.length > 0) {
+        try {
+          const { data: updateData, error: updateError } = await supabase.functions.invoke('pluuug-api', {
+            body: {
+              action: 'inquiry.update',
+              id: inquiryId,
+              data: { fieldSet }
+            }
+          });
+
+          if (updateError || updateData?.error) {
+            console.warn('[Pluuug Sync] fieldSet update failed (non-critical):', updateError || updateData?.error);
+            // fieldSet 업데이트 실패는 무시 (의뢰 생성은 성공)
+          } else {
+            console.log('[Pluuug Sync] fieldSet updated successfully');
+          }
+        } catch (updateErr) {
+          console.warn('[Pluuug Sync] fieldSet update exception:', updateErr);
+        }
+      }
     }
 
     return { 
