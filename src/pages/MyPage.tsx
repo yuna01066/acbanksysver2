@@ -76,6 +76,7 @@ const MyPage = () => {
   const [selectedRecipient, setSelectedRecipient] = useState<RecipientInfo | null>(null);
   const [pluuugClients, setPluuugClients] = useState<PluuugClient[]>([]);
   const [syncingRecipient, setSyncingRecipient] = useState<string | null>(null);
+  const [bulkSyncing, setBulkSyncing] = useState(false);
   
   // Profile edit state
   const [fullName, setFullName] = useState('');
@@ -284,6 +285,77 @@ const MyPage = () => {
     }
   };
 
+  const handleBulkSyncAllToPluuug = async () => {
+    const unsyncedRecipients = getUniqueRecipients().filter(r => !isRecipientSyncedToPluuug(r));
+    
+    if (unsyncedRecipients.length === 0) {
+      toast.info('모든 담당자가 이미 Pluuug에 등록되어 있습니다.');
+      return;
+    }
+
+    setBulkSyncing(true);
+    
+    try {
+      const statusId = await resolveDefaultPluuugClientStatusId();
+      if (!statusId) {
+        toast.error('Pluuug 고객 상태 목록을 불러오지 못했습니다.');
+        return;
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const recipient of unsyncedRecipients) {
+        const clientEmail = recipient.email && recipient.email !== '-' && recipient.email.includes('@') 
+          ? recipient.email 
+          : `${recipient.company.replace(/\s/g, '').toLowerCase()}@example.com`;
+
+        try {
+          const result = await createClient({
+            companyName: recipient.company !== '-' ? recipient.company : '미지정',
+            inCharge: recipient.name !== '-' ? recipient.name : '담당자',
+            contact: recipient.phone !== '-' ? recipient.phone : '010-0000-0000',
+            email: clientEmail,
+            position: '담당자',
+            content: recipient.address !== '-' ? `주소: ${recipient.address}` : '정보 없음',
+            status: { id: statusId },
+            ceoName: recipient.name !== '-' ? recipient.name : '대표자',
+            businessRegistrationNumber: '000-00-00000',
+            companyAddress: recipient.address !== '-' ? recipient.address : '미지정',
+            companyDetailAddress: '미지정',
+            businessType: '서비스업',
+            businessClass: '기타',
+            branchNumber: '00',
+            fieldSet: [{ field: { id: 1 }, value: '기본값' }]
+          } as any);
+
+          if (result.data && !result.error && result.status >= 200 && result.status < 300) {
+            successCount++;
+          } else {
+            failCount++;
+            console.error(`Pluuug 등록 실패 (${recipient.company}):`, result.error);
+          }
+        } catch (err) {
+          failCount++;
+          console.error(`Pluuug 등록 에러 (${recipient.company}):`, err);
+        }
+      }
+
+      await fetchPluuugClients();
+      
+      if (failCount === 0) {
+        toast.success(`${successCount}명의 담당자가 Pluuug에 등록되었습니다!`);
+      } else {
+        toast.warning(`${successCount}명 성공, ${failCount}명 실패`);
+      }
+    } catch (err) {
+      console.error('일괄 동기화 에러:', err);
+      toast.error('일괄 동기화 중 오류가 발생했습니다.');
+    } finally {
+      setBulkSyncing(false);
+    }
+  };
+
   const getQuotesByRecipient = (recipient: RecipientInfo): SavedQuote[] => {
     return quotes.filter(quote => 
       quote.recipient_company === recipient.company &&
@@ -450,14 +522,30 @@ const MyPage = () => {
             </div>
 
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  수신 담당자 리스트
-                </CardTitle>
-                <CardDescription>
-                  견적서에 등록된 수신 담당자 목록입니다.
-                </CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    수신 담당자 리스트
+                  </CardTitle>
+                  <CardDescription>
+                    견적서에 등록된 수신 담당자 목록입니다.
+                  </CardDescription>
+                </div>
+                {getUniqueRecipients().filter(r => !isRecipientSyncedToPluuug(r)).length > 0 && (
+                  <Button
+                    onClick={handleBulkSyncAllToPluuug}
+                    disabled={bulkSyncing || pluuugLoading}
+                    className="flex items-center gap-2"
+                  >
+                    {bulkSyncing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4" />
+                    )}
+                    {bulkSyncing ? '등록 중...' : `전체 Pluuug 등록 (${getUniqueRecipients().filter(r => !isRecipientSyncedToPluuug(r)).length}명)`}
+                  </Button>
+                )}
               </CardHeader>
               <CardContent>
                 {getUniqueRecipients().length === 0 ? (
