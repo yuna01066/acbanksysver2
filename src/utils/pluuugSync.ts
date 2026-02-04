@@ -137,14 +137,14 @@ export function convertQuoteToPluuugFormat(
 }
 
 /**
- * 담당자 정보를 recipients 테이블에 자동 저장/업데이트
+ * 담당자 정보를 recipients 테이블에 자동 저장/업데이트하고 Pluuug 클라이언트 ID 반환
  */
 async function saveRecipientAutomatically(
   userId: string,
   recipient: any
-): Promise<string | null> {
+): Promise<{ recipientId: string | null; pluuugClientId: number | null }> {
   if (!recipient?.companyName || !recipient?.contactPerson) {
-    return null;
+    return { recipientId: null, pluuugClientId: null };
   }
 
   try {
@@ -159,7 +159,7 @@ async function saveRecipientAutomatically(
 
     if (findError) {
       console.error('[Save Recipient] Find error:', findError);
-      return null;
+      return { recipientId: null, pluuugClientId: null };
     }
 
     // 이메일 유효성 검사
@@ -203,7 +203,10 @@ async function saveRecipientAutomatically(
         console.log('[Save Recipient] Updated existing recipient:', existingRecipient.id);
       }
 
-      return existingRecipient.id;
+      return { 
+        recipientId: existingRecipient.id, 
+        pluuugClientId: existingRecipient.pluuug_client_id 
+      };
     } else {
       // 2b. 새 담당자 생성
       const { data: newRecipient, error: insertError } = await supabase
@@ -218,25 +221,28 @@ async function saveRecipientAutomatically(
           business_class: '기타',
           branch_number: '00',
         })
-        .select('id')
+        .select('id, pluuug_client_id')
         .single();
 
       if (insertError) {
         // 중복 에러인 경우 무시
         if (insertError.code === '23505') {
           console.log('[Save Recipient] Recipient already exists (duplicate key)');
-          return null;
+          return { recipientId: null, pluuugClientId: null };
         }
         console.error('[Save Recipient] Insert error:', insertError);
-        return null;
+        return { recipientId: null, pluuugClientId: null };
       }
 
       console.log('[Save Recipient] Created new recipient:', newRecipient?.id);
-      return newRecipient?.id || null;
+      return { 
+        recipientId: newRecipient?.id || null, 
+        pluuugClientId: newRecipient?.pluuug_client_id || null 
+      };
     }
   } catch (err) {
     console.error('[Save Recipient] Error:', err);
-    return null;
+    return { recipientId: null, pluuugClientId: null };
   }
 }
 
@@ -254,10 +260,10 @@ export async function saveQuoteWithPluuugSync(
   syncToPluuug: boolean = true
 ): Promise<{ success: boolean; quoteId?: string; pluuugSynced?: boolean; pluuugEstimateId?: string; error?: string }> {
   try {
-    // 0. 담당자 정보를 recipients 테이블에 자동 저장
-    const recipientId = await saveRecipientAutomatically(userId, recipient);
+    // 0. 담당자 정보를 recipients 테이블에 자동 저장하고 Pluuug 클라이언트 ID 가져오기
+    const { recipientId, pluuugClientId } = await saveRecipientAutomatically(userId, recipient);
     if (recipientId) {
-      console.log('[Save Quote] Recipient saved/updated:', recipientId);
+      console.log('[Save Quote] Recipient saved/updated:', recipientId, 'Pluuug Client ID:', pluuugClientId);
     }
 
     // 1. Supabase에 견적서 저장
@@ -309,6 +315,15 @@ export async function saveQuoteWithPluuugSync(
         tax,
         total
       );
+
+      // Pluuug 클라이언트 ID가 있으면 연결
+      if (pluuugClientId) {
+        pluuugData.client = {
+          ...pluuugData.client,
+          id: pluuugClientId
+        };
+        console.log('[Pluuug Sync] Linking to Pluuug client ID:', pluuugClientId);
+      }
 
       const syncResult = await syncQuoteToPluuug(pluuugData);
       
