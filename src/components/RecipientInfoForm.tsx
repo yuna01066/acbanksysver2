@@ -193,7 +193,13 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
         companyDetailAddress: '미지정',
         businessType: '서비스업',
         businessClass: '기타',
-        branchNumber: '00'
+        branchNumber: '00',
+        fieldSet: [
+          {
+            field: { id: 1 },
+            value: '기본값'
+          }
+        ]
       } as any);
 
       if (result.data) {
