@@ -15,7 +15,7 @@ import bankAccount from "@/assets/arcbank-bank-account.jpg";
 import arcbankLogo from "@/assets/arcbank-logo.png";
 import RecipientInfoForm from "@/components/RecipientInfoForm";
 import { QuoteRecipient } from "@/contexts/QuoteContext";
-import QuoteAttachments from "@/components/QuoteAttachments";
+import QuoteAttachments, { QuotePdfAttachment } from "@/components/QuoteAttachments";
 import EditableQuoteItem from "@/components/EditableQuoteItem";
 
 interface SavedQuote {
@@ -72,6 +72,7 @@ const SavedQuoteDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [editedItems, setEditedItems] = useState<any[]>([]);
+  const [quotePdf, setQuotePdf] = useState<QuotePdfAttachment | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -125,6 +126,21 @@ const SavedQuoteDetailPage = () => {
       setAttachments(Array.isArray(formattedData.attachments) ? formattedData.attachments : []);
       setEditedItems(Array.isArray(formattedData.items) ? formattedData.items : []);
       
+      // 견적서 PDF 정보 로드 (attachments 배열에서 quote_pdf 타입 찾기)
+      const attachmentsArray = Array.isArray(formattedData.attachments) ? formattedData.attachments : [];
+      const savedQuotePdf = attachmentsArray.find((a: any) => 
+        typeof a === 'object' && a !== null && a.type === 'quote_pdf'
+      ) as { name: string; path: string; size: number; url: string; uploadedAt?: string; type: string } | undefined;
+      if (savedQuotePdf) {
+        setQuotePdf({
+          name: savedQuotePdf.name,
+          path: savedQuotePdf.path,
+          size: savedQuotePdf.size,
+          url: savedQuotePdf.url,
+          uploadedAt: savedQuotePdf.uploadedAt || ''
+        });
+      }
+      
       // RecipientData 설정 - issuer 정보는 profiles에서 가져오거나 saved_quotes에 저장된 값 사용
       setRecipientData({
         projectName: formattedData.project_name || '',
@@ -171,6 +187,17 @@ const SavedQuoteDetailPage = () => {
       const newTax = Math.round(roundedSubtotal * 0.1);
       const newTotal = roundedSubtotal + newTax;
 
+      // 첨부 파일 목록 구성 (PDF 정보 + 기존 첨부 파일)
+      const allAttachments = [
+        // 견적서 PDF (type: 'quote_pdf'로 구분)
+        ...(quotePdf ? [{
+          ...quotePdf,
+          type: 'quote_pdf'
+        }] : []),
+        // 기존 첨부 파일 (quote_pdf가 아닌 것들만)
+        ...attachments.filter((a: any) => a.type !== 'quote_pdf')
+      ];
+
       const { error } = await supabase
         .from('saved_quotes')
         .update({
@@ -189,7 +216,7 @@ const SavedQuoteDetailPage = () => {
           issuer_name: recipientData.issuerName,
           issuer_email: recipientData.issuerEmail,
           issuer_phone: recipientData.issuerPhone,
-          attachments: attachments,
+          attachments: allAttachments,
           items: editedItems,
           subtotal: roundedSubtotal,
           tax: newTax,
@@ -365,6 +392,9 @@ const SavedQuoteDetailPage = () => {
                       onAttachmentsChange={handleAttachmentsChange}
                       readOnly={false}
                       quoteId={id}
+                      quotePdf={quotePdf}
+                      onQuotePdfChange={setQuotePdf}
+                      showQuotePdfSection={true}
                     />
                   </div>
                 </div>

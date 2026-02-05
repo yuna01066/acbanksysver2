@@ -16,6 +16,7 @@ export interface PluuugInquiryData {
   inquiryDate: string;
   estimate: string; // 견적서 내용 (문자열)
   content?: string; // 메모/설명
+  quotePdfUrl?: string; // 견적서 PDF 다운로드 URL
   client?: {
     id?: number;
     companyName?: string;
@@ -127,6 +128,13 @@ export interface PluuugClientData {
 function formatEstimateString(data: PluuugInquiryData): string {
   const lines: string[] = [];
   
+  // PDF 다운로드 링크가 있으면 상단에 표시
+  if (data.quotePdfUrl) {
+    lines.push('📄 견적서 PDF 다운로드');
+    lines.push(data.quotePdfUrl);
+    lines.push('');
+  }
+
   lines.push(`=== ${data.name} ===`);
   lines.push(`견적번호: ${data.quoteNumber}`);
   lines.push(`견적일자: ${data.quoteDate.split('T')[0]}`);
@@ -606,7 +614,8 @@ export function convertQuoteToPluuugFormat(
   quoteNumber: string,
   subtotal: number,
   tax: number,
-  total: number
+  total: number,
+  quotePdfUrl?: string
 ): PluuugInquiryData {
   const name = recipient?.projectName 
     ? `${recipient.projectName}`
@@ -674,6 +683,7 @@ export function convertQuoteToPluuugFormat(
     inquiryDate: quoteDate, // 의뢰일 = 견적일
     estimate: '', // formatEstimateString에서 생성됨
     content: recipient?.clientMemo || '',
+    quotePdfUrl, // 견적서 PDF 다운로드 URL
     client: recipient ? {
       companyName: recipient.companyName || '',
       inCharge: recipient.contactPerson || '',
@@ -869,13 +879,21 @@ export async function saveQuoteWithPluuugSync(
 
     // 2. Pluuug 동기화 (옵션)
     if (syncToPluuug) {
+      // attachments에서 견적서 PDF URL 추출
+      const attachmentsArray = Array.isArray(recipient?.attachments) ? recipient.attachments : [];
+      const quotePdfAttachment = attachmentsArray.find((a: any) => 
+        typeof a === 'object' && a !== null && a.type === 'quote_pdf'
+      );
+      const quotePdfUrl = quotePdfAttachment?.url;
+
       const pluuugData = convertQuoteToPluuugFormat(
         quotes,
         recipient,
         quoteNumber,
         subtotal,
         tax,
-        total
+        total,
+        quotePdfUrl
       );
 
       // 고객 자동 등록 + 동기화 (quotes 데이터 포함하여 fieldSet 생성)
