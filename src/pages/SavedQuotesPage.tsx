@@ -282,6 +282,10 @@ const SavedQuotesPage = () => {
       const newQuoteNumber = generateNewQuoteNumber();
 
       // 복제 데이터 생성 (id, created_at, updated_at 제외)
+      // 기존 attachments에서 quote_pdf 타입 제외 (새 PDF는 저장 시 다시 생성됨)
+      const originalAttachments = Array.isArray(originalQuote.attachments) ? originalQuote.attachments : [];
+      const filteredAttachments = originalAttachments.filter((a: any) => a?.type !== 'quote_pdf');
+      
       const duplicateData = {
         quote_number: newQuoteNumber,
         quote_date: new Date().toISOString(),
@@ -308,7 +312,10 @@ const SavedQuotesPage = () => {
         issuer_position: originalQuote.issuer_position,
         custom_color_name: originalQuote.custom_color_name,
         custom_opacity: originalQuote.custom_opacity,
-        attachments: originalQuote.attachments,
+        attachments: filteredAttachments, // quote_pdf 제외한 첨부파일만 복사
+        pluuug_synced: false, // Pluuug 동기화 상태 초기화
+        pluuug_synced_at: null,
+        pluuug_estimate_id: null,
         desired_delivery_date: originalQuote.desired_delivery_date,
       };
 
