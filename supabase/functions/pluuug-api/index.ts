@@ -374,16 +374,55 @@ async function uploadInquiryFile(
       bytes[i] = binaryString.charCodeAt(i);
     }
 
-    // FormData 생성
-    const formData = new FormData();
-    const blob = new Blob([bytes], { type: mimeType });
-    formData.append("file", blob, fileName);
+    console.log(`[Pluuug API] Uploading file to inquiry ${inquiryId}: ${fileName} (size: ${bytes.length} bytes, type: ${mimeType})`);
 
-    // HMAC 서명 생성 (빈 body로)
-    const signature = await generateSignature(secretKey, "");
+    // 시도 1: FormData with 빈 문자열 서명
+    let result = await tryUploadWithFormData(apiKey, secretKey, inquiryId, fileName, bytes, mimeType, "");
+    
+    if (result.status !== 403) {
+      return result;
+    }
+    
+    console.log(`[Pluuug API] Empty signature failed, trying with filename as signature body`);
+    
+    // 시도 2: 파일명으로 서명 (일부 API에서 사용하는 방식)
+    result = await tryUploadWithFormData(apiKey, secretKey, inquiryId, fileName, bytes, mimeType, fileName);
+    
+    if (result.status !== 403) {
+      return result;
+    }
+    
+    console.log(`[Pluuug API] Filename signature failed, trying raw binary upload`);
+    
+    // 시도 3: Raw binary upload (일부 API에서 지원하는 방식)
+    result = await tryRawBinaryUpload(apiKey, secretKey, inquiryId, fileName, bytes, mimeType);
+    
+    return result;
+  } catch (error: unknown) {
+    console.error(`[Pluuug API] File upload network error:`, error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return { error: `Network error: ${errorMessage}`, status: 500 };
+  }
+}
 
-    console.log(`[Pluuug API] Uploading file to inquiry ${inquiryId}: ${fileName}`);
+// FormData 방식으로 파일 업로드 시도
+async function tryUploadWithFormData(
+  apiKey: string,
+  secretKey: string,
+  inquiryId: number,
+  fileName: string,
+  bytes: Uint8Array,
+  mimeType: string,
+  signatureBody: string
+): Promise<{ data?: any; error?: string; status: number }> {
+  const formData = new FormData();
+  const blob = new Blob([bytes.buffer as ArrayBuffer], { type: mimeType });
+  formData.append("file", blob, fileName);
 
+  const signature = await generateSignature(secretKey, signatureBody);
+  console.log(`[Pluuug API] FormData upload attempt, signature body: "${signatureBody.substring(0, 50)}..."`);
+
+  try {
     const response = await fetch(`${PLUUUG_BASE_URL}/v1/inquiry/${inquiryId}/file`, {
       method: "POST",
       headers: {
@@ -399,22 +438,72 @@ async function uploadInquiryFile(
     } catch {
       responseData = await response.text().catch(() => null);
     }
-    console.log(`[Pluuug API] File upload response status: ${response.status}`);
+    console.log(`[Pluuug API] File upload response status: ${response.status}, body:`, JSON.stringify(responseData));
 
     if (!response.ok) {
-      console.error(`[Pluuug API] File upload error:`, responseData);
       const message =
         (typeof responseData === "string" && responseData) ||
         responseData?.message ||
         responseData?.error ||
+        (responseData?.detail ? JSON.stringify(responseData.detail) : undefined) ||
         "File upload failed";
       return { error: message, data: responseData, status: response.status };
     }
 
-    console.log(`[Pluuug API] File uploaded successfully:`, responseData);
     return { data: responseData, status: response.status };
-  } catch (error: unknown) {
-    console.error(`[Pluuug API] File upload network error:`, error);
+  } catch (error) {
+    console.error(`[Pluuug API] FormData upload error:`, error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return { error: `Network error: ${errorMessage}`, status: 500 };
+  }
+}
+
+// Raw binary 방식으로 파일 업로드 시도
+async function tryRawBinaryUpload(
+  apiKey: string,
+  secretKey: string,
+  inquiryId: number,
+  fileName: string,
+  bytes: Uint8Array,
+  mimeType: string
+): Promise<{ data?: any; error?: string; status: number }> {
+  // 빈 문자열로 서명하고 Content-Disposition 헤더로 파일명 전달
+  const signature = await generateSignature(secretKey, "");
+  console.log(`[Pluuug API] Raw binary upload attempt with Content-Disposition header`);
+
+  try {
+    const response = await fetch(`${PLUUUG_BASE_URL}/v1/inquiry/${inquiryId}/file`, {
+      method: "POST",
+      headers: {
+        "X-API-KEY": apiKey,
+        "X-Signature": signature,
+        "Content-Type": mimeType,
+        "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
+      },
+      body: bytes.buffer as ArrayBuffer,
+    });
+
+    let responseData: any = null;
+    try {
+      responseData = await response.json();
+    } catch {
+      responseData = await response.text().catch(() => null);
+    }
+    console.log(`[Pluuug API] Raw binary upload response status: ${response.status}, body:`, JSON.stringify(responseData));
+
+    if (!response.ok) {
+      const message =
+        (typeof responseData === "string" && responseData) ||
+        responseData?.message ||
+        responseData?.error ||
+        (responseData?.detail ? JSON.stringify(responseData.detail) : undefined) ||
+        "File upload failed";
+      return { error: message, data: responseData, status: response.status };
+    }
+
+    return { data: responseData, status: response.status };
+  } catch (error) {
+    console.error(`[Pluuug API] Raw binary upload error:`, error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return { error: `Network error: ${errorMessage}`, status: 500 };
   }
