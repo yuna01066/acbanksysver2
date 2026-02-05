@@ -62,6 +62,7 @@ export interface PluuugItemMapping {
 export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
   // === 원판 구매 (slot1) ===
   'raw-only': {
+    pluuugItemId: 317529,
     classificationId: PLUUUG_CLASSIFICATION_IDS.RAW_PURCHASE,
     title: '원판 단독 구매',
     localTitle: '원판 단독 구매',
@@ -71,6 +72,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
   
   // === 단순 재단 (slot2) ===
   'laser-simple': {
+    pluuugItemId: 317530,
     classificationId: PLUUUG_CLASSIFICATION_IDS.SIMPLE_CUTTING,
     title: 'laser-simple',
     localTitle: '레이저 단순 재단',
@@ -78,6 +80,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '10T 미만 단순 형태 레이저 가공',
   },
   'cnc-simple': {
+    pluuugItemId: 317531,
     classificationId: PLUUUG_CLASSIFICATION_IDS.SIMPLE_CUTTING,
     title: 'cnc-simple',
     localTitle: 'CNC 단순 재단',
@@ -87,6 +90,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
   
   // === 복합 재단 (slot3) ===
   'laser-complex': {
+    pluuugItemId: 317532,
     classificationId: PLUUUG_CLASSIFICATION_IDS.COMPLEX_CUTTING,
     title: 'laser-complex',
     localTitle: '레이저 복합 재단',
@@ -94,6 +98,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '10T 미만 복잡한 형태 레이저 가공',
   },
   'cnc-complex': {
+    pluuugItemId: 317533,
     classificationId: PLUUUG_CLASSIFICATION_IDS.COMPLEX_CUTTING,
     title: 'cnc-complex',
     localTitle: 'CNC 복합 재단',
@@ -103,6 +108,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
   
   // === 전체 재단 (slot4) ===
   'laser-full': {
+    pluuugItemId: 317534,
     classificationId: PLUUUG_CLASSIFICATION_IDS.FULL_CUTTING,
     title: 'laser-full',
     localTitle: '레이저 전체 재단',
@@ -110,6 +116,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '10T 미만 전체 레이저 가공',
   },
   'cnc-full': {
+    pluuugItemId: 317535,
     classificationId: PLUUUG_CLASSIFICATION_IDS.FULL_CUTTING,
     title: 'cnc-full',
     localTitle: 'CNC 전체 재단',
@@ -119,6 +126,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
   
   // === 접착면 가공 (slot5) ===
   'cutting-45': {
+    pluuugItemId: 317536,
     classificationId: PLUUUG_CLASSIFICATION_IDS.CUTTING_FACE,
     title: '절단면 45°',
     localTitle: '45° 면취 가공',
@@ -126,6 +134,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '45도 각도 면취 가공',
   },
   'cutting-90': {
+    pluuugItemId: 317537,
     classificationId: PLUUUG_CLASSIFICATION_IDS.CUTTING_FACE,
     title: '절단면 90°',
     localTitle: '90° 면취 가공',
@@ -135,6 +144,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
   
   // === 접착 가공 (slot6) ===
   'bond-normal': {
+    pluuugItemId: 317538,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADHESION,
     title: '일반 접착',
     localTitle: '일반 접착',
@@ -142,6 +152,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '기본 접착 가공',
   },
   'bond-mugipo-auto': {
+    pluuugItemId: 317539,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADHESION,
     title: '무기포 접착 (자동)',
     localTitle: '무기포 접착',
@@ -149,6 +160,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '45°/90° 중 최적 자동 선택',
   },
   'bond-mugipo-45': {
+    pluuugItemId: 317540,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADHESION,
     title: '무기포 45°',
     localTitle: '무기포 45°',
@@ -156,6 +168,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '45도 무기포 접착',
   },
   'bond-mugipo-90': {
+    pluuugItemId: 317541,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADHESION,
     title: '무기포 90°',
     localTitle: '무기포 90°',
@@ -165,6 +178,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
   
   // === 추가 옵션 (additional) ===
   'edgeFinishing': {
+    pluuugItemId: 317542,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '엣지 경면 (10T 미만)',
     localTitle: '엣지 경면',
@@ -172,6 +186,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '10T 미만 두께 엣지 경면 마감',
   },
   'edgeFinishing-10': {
+    pluuugItemId: 317543,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '엣지 경면 (10T 이상)',
     localTitle: '엣지 경면',
@@ -179,6 +194,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '10T 이상 두께 엣지 경면 마감',
   },
   'color-dying-gradient': {
+    pluuugItemId: 317544,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '염색 그라데이션',
     localTitle: '염색 그라데이션',
@@ -186,6 +202,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '그라데이션 염색 가공',
   },
   'bending': {
+    pluuugItemId: 317545,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '절곡',
     localTitle: '절곡',
@@ -193,6 +210,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '아크릴 절곡 가공',
   },
   'sanding': {
+    pluuugItemId: 317546,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '샌딩 마감',
     localTitle: '샌딩 마감',
@@ -200,6 +218,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '표면 샌딩 처리',
   },
   'bulgwang': {
+    pluuugItemId: 317547,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '불광 마감',
     localTitle: '불광 마감',
@@ -207,6 +226,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '불꽃 광택 마감',
   },
   'mugwangPainting': {
+    pluuugItemId: 317548,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '무광 도장',
     localTitle: '무광 도장',
@@ -214,6 +234,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '무광 스프레이 도장',
   },
   'tagong': {
+    pluuugItemId: 317549,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '타공',
     localTitle: '타공',
@@ -221,6 +242,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '구멍 타공 가공',
   },
   'half-tagong': {
+    pluuugItemId: 317550,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '반타공',
     localTitle: '반타공',
@@ -228,6 +250,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '반만 관통하는 타공',
   },
   'tap-tagong': {
+    pluuugItemId: 317551,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '탭타공',
     localTitle: '탭타공',
@@ -235,6 +258,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '나사산 탭 가공',
   },
   'drawing-cad': {
+    pluuugItemId: 317552,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '캐드 도면',
     localTitle: 'CAD 도면 작업',
@@ -242,6 +266,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: 'CAD 도면 제작 비용',
   },
   'design-fee': {
+    pluuugItemId: 317553,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '디자인비',
     localTitle: '디자인비',
@@ -249,6 +274,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '디자인 작업 비용',
   },
   'Quick-delivery-truck': {
+    pluuugItemId: 317554,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '퀵 화물 배송',
     localTitle: '선불 퀵/화물 배송',
@@ -256,6 +282,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '긴급 퀵 또는 화물 배송',
   },
   'post-s': {
+    pluuugItemId: 317555,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '택배 배송 S',
     localTitle: '선불 택배 배송 (소)',
@@ -263,6 +290,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '소형 택배 배송',
   },
   'post-l': {
+    pluuugItemId: 317556,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '택배 배송 L',
     localTitle: '선불 택배 배송 (대)',
@@ -270,6 +298,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '대형 택배 배송',
   },
   'discount': {
+    pluuugItemId: 317557,
     classificationId: PLUUUG_CLASSIFICATION_IDS.ADDITIONAL,
     title: '할인',
     localTitle: '할인',
@@ -279,6 +308,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
   
   // === 인쇄 가공 ===
   'silkscreen-1': {
+    pluuugItemId: 317558,
     classificationId: PLUUUG_CLASSIFICATION_IDS.PRINTING,
     title: '실크 인쇄 1도',
     localTitle: '실크 인쇄 (1도)',
@@ -286,6 +316,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
     description: '1도 실크 스크린 인쇄',
   },
   'uv-backprint': {
+    pluuugItemId: 317559,
     classificationId: PLUUUG_CLASSIFICATION_IDS.PRINTING,
     title: 'UV 배면 인쇄',
     localTitle: 'UV 배면 인쇄',
@@ -295,6 +326,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
   
   // === 조색비 ===
   'color-mixing': {
+    pluuugItemId: 317560,
     classificationId: PLUUUG_CLASSIFICATION_IDS.COLOR_MIXING,
     title: '조색비',
     localTitle: '조색비',
@@ -304,6 +336,7 @@ export const PROCESSING_TO_PLUUUG_ITEM: Record<string, PluuugItemMapping> = {
   
   // === 미러 증착 ===
   'mirror-coating': {
+    pluuugItemId: 317561,
     classificationId: PLUUUG_CLASSIFICATION_IDS.MIRROR_COATING,
     title: '미러 증착',
     localTitle: '미러 증착',
