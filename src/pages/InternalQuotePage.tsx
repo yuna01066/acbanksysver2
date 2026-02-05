@@ -90,6 +90,7 @@ const InternalQuotePage = () => {
       }
 
       toast.success('견적서가 저장되었습니다.');
+      clearQuotes(); // 저장 후 컨텍스트 클리어 (다음 견적서는 새 번호로 시작)
       navigate('/saved-quotes');
     } catch (error: any) {
       console.error('Error saving quote:', error);

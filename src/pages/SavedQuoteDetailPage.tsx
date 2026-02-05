@@ -392,6 +392,7 @@ const SavedQuoteDetailPage = () => {
                       onAttachmentsChange={handleAttachmentsChange}
                       readOnly={false}
                       quoteId={id}
+                      quoteNumber={quote.quote_number}
                       quotePdf={quotePdf}
                       onQuotePdfChange={setQuotePdf}
                       showQuotePdfSection={true}

@@ -522,7 +522,8 @@ export async function syncQuoteToPluuug(
   userId?: string,
   recipient?: any,
   recipientId?: string | null,
-  quotes?: any[]
+  quotes?: any[],
+  existingPluuugInquiryId?: string | null
 ): Promise<PluuugSyncResult> {
   try {
     console.log('[Pluuug Sync] Starting inquiry sync...', quoteData);
@@ -557,6 +558,43 @@ export async function syncQuoteToPluuug(
       : [];
     
     console.log('[Pluuug Sync] Building fieldSet for creation:', JSON.stringify(fieldSet, null, 2));
+
+    // 기존 의뢰가 있으면 업데이트, 없으면 새로 생성
+    if (existingPluuugInquiryId) {
+      console.log('[Pluuug Sync] Updating existing inquiry:', existingPluuugInquiryId);
+      
+      const updatePayload: any = {
+        name: quoteData.name,
+        estimate: quoteData.total.toString(),
+        content: estimateContent,
+        fieldSet: fieldSet,
+      };
+
+      const { data, error } = await supabase.functions.invoke('pluuug-api', {
+        body: {
+          action: 'inquiry.update',
+          inquiryId: existingPluuugInquiryId,
+          data: updatePayload
+        }
+      });
+
+      if (error) {
+        console.error('[Pluuug Sync] Update function invoke error:', error);
+        return { success: false, error: error.message };
+      }
+
+      if (data?.error) {
+        console.error('[Pluuug Sync] Update API error:', data.error, data.data);
+        return { success: false, error: data.error };
+      }
+
+      console.log('[Pluuug Sync] Inquiry updated successfully:', existingPluuugInquiryId);
+      return { 
+        success: true, 
+        pluuugInquiryId: parseInt(existingPluuugInquiryId),
+        pluuugClientId: clientId
+      };
+    }
 
     // Pluuug API 의뢰 생성 형식으로 변환 - fieldSet 포함하여 생성
     const pluuugPayload: any = {

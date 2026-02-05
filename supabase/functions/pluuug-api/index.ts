@@ -170,7 +170,7 @@ Deno.serve(async (req) => {
         break;
 
       case "inquiry.update":
-        result = await callPluuugApi(`/v1/inquiry/${params.id}`, "PATCH", params.data);
+        result = await callPluuugApi(`/v1/inquiry/${params.inquiryId || params.id}`, "PATCH", params.data);
         break;
 
       case "inquiry.delete":
