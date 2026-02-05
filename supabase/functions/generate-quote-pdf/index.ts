@@ -1,5 +1,22 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
+
+// 한글 및 비-ASCII 문자를 안전하게 처리하는 함수
+function sanitizeForPdf(text: string | null | undefined): string {
+  if (!text) return '-';
+  // 한글 및 비-ASCII 문자를 유니코드 이스케이프로 변환하거나 제거
+  // 여기서는 한글을 괄호로 감싼 로마자 표기로 대체하거나 그냥 유지
+  // pdf-lib의 WinAnsi 인코딩은 0x00-0xFF 범위만 지원
+  // 한글이 포함된 경우 그냥 표시하지 않고 placeholder 사용
+  const hasNonAscii = /[^\x00-\x7F]/.test(text);
+  if (hasNonAscii) {
+    // 한글이 포함된 텍스트는 영문 placeholder로 대체
+    // 또는 ASCII 문자만 추출
+    const asciiOnly = text.replace(/[^\x00-\x7F]/g, '');
+    return asciiOnly.trim() || '(Korean text)';
+  }
+  return text;
+}
  
  const corsHeaders = {
    "Access-Control-Allow-Origin": "*",
@@ -30,7 +47,7 @@ import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
  }
  
 const formatPrice = (price: number) => {
-  return `${Math.round(price).toLocaleString('ko-KR')} won`;
+  return `${Math.round(price).toLocaleString('en-US')} KRW`;
 };
 
 async function generateQuotePdf(data: QuoteData): Promise<Uint8Array> {
@@ -74,7 +91,7 @@ async function generateQuotePdf(data: QuoteData): Promise<Uint8Array> {
   });
   
   // Date
-  const dateText = new Date(data.quoteDate).toLocaleDateString('ko-KR');
+  const dateText = new Date(data.quoteDate).toLocaleDateString('en-US');
   page.drawText(dateText, {
     x: rightMargin - 100,
     y: y - 35,
@@ -96,11 +113,11 @@ async function generateQuotePdf(data: QuoteData): Promise<Uint8Array> {
   y -= 20;
   
   const projectInfo = [
-    `Project: ${data.projectName || '-'}`,
-    `Company: ${data.companyName || '-'}`,
-    `Valid Until: ${data.validUntil || '-'}`,
-    `Delivery: ${data.deliveryPeriod || '-'}`,
-    `Payment: ${data.paymentCondition || '-'}`,
+    `Project: ${sanitizeForPdf(data.projectName)}`,
+    `Company: ${sanitizeForPdf(data.companyName)}`,
+    `Valid Until: ${sanitizeForPdf(data.validUntil)}`,
+    `Delivery: ${sanitizeForPdf(data.deliveryPeriod)}`,
+    `Payment: ${sanitizeForPdf(data.paymentCondition)}`,
   ];
   
   for (const info of projectInfo) {
@@ -127,7 +144,7 @@ async function generateQuotePdf(data: QuoteData): Promise<Uint8Array> {
   y -= 20;
   
   const recipientInfo = [
-    `Name: ${data.recipientName || '-'}`,
+    `Name: ${sanitizeForPdf(data.recipientName)}`,
     `Phone: ${data.recipientPhone || '-'}`,
     `Email: ${data.recipientEmail || '-'}`,
   ];
@@ -186,7 +203,7 @@ async function generateQuotePdf(data: QuoteData): Promise<Uint8Array> {
     });
     
     // Item title
-    const itemTitle = `#${i + 1} ${item.material || ''} ${item.quality || ''} ${item.thickness || ''}`.trim();
+    const itemTitle = `#${i + 1} ${sanitizeForPdf(item.material)} ${sanitizeForPdf(item.quality)} ${item.thickness || ''}`.trim();
     page.drawText(itemTitle, {
       x: leftMargin + 10,
       y: y - 15,
@@ -206,7 +223,7 @@ async function generateQuotePdf(data: QuoteData): Promise<Uint8Array> {
     });
     
     // Item details
-    const itemDetails = `Size: ${item.size || item.selectedSize || '-'} | Surface: ${item.surface || '-'} | Qty: ${item.quantity || 1}`;
+    const itemDetails = `Size: ${sanitizeForPdf(item.size || item.selectedSize)} | Surface: ${sanitizeForPdf(item.surface)} | Qty: ${item.quantity || 1}`;
     page.drawText(itemDetails, {
       x: leftMargin + 10,
       y: y - 32,
@@ -302,7 +319,7 @@ async function generateQuotePdf(data: QuoteData): Promise<Uint8Array> {
   });
   y -= 14;
   
-  page.drawText(`Business No: 299-87-02991 | Contact: ${data.issuerName || '-'} | Tel: ${data.issuerPhone || '070-7666-9828'}`, {
+  page.drawText(`Business No: 299-87-02991 | Contact: ${sanitizeForPdf(data.issuerName)} | Tel: ${data.issuerPhone || '070-7666-9828'}`, {
     x: leftMargin,
     y,
     size: 8,
@@ -411,7 +428,11 @@ async function generateQuotePdf(data: QuoteData): Promise<Uint8Array> {
      const fileNameBase = [quoteData.quoteNumber, quoteData.projectName, quoteData.companyName]
        .filter(Boolean)
        .join('-')
-       .replace(/[/\\?%*:|"<>]/g, '_');
+       .replace(/[/\\?%*:|"<>]/g, '_')
+       .replace(/[^\x00-\x7F]/g, ''); // 한글 제거
+
+     // 파일명이 비어있으면 기본 파일명 사용
+     const safeFileNameBase = fileNameBase.trim() || quoteData.quoteNumber || 'quote';
  
      // Pluuug API를 통해 파일 업로드
      const results = {
@@ -426,7 +447,7 @@ async function generateQuotePdf(data: QuoteData): Promise<Uint8Array> {
          body: {
            action: 'inquiry.file.upload',
            inquiryId: inquiryId,
-          fileName: `${fileNameBase}_고객용.pdf`,
+          fileName: `${safeFileNameBase}_customer.pdf`,
           fileContent: customerPdfBase64,
           mimeType: 'application/pdf',
          }
@@ -453,7 +474,7 @@ async function generateQuotePdf(data: QuoteData): Promise<Uint8Array> {
          body: {
            action: 'inquiry.file.upload',
            inquiryId: inquiryId,
-          fileName: `${fileNameBase}_내부용.pdf`,
+          fileName: `${safeFileNameBase}_internal.pdf`,
           fileContent: internalPdfBase64,
           mimeType: 'application/pdf',
          }
