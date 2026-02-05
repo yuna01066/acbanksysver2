@@ -1,6 +1,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 
+// 서비스 롤 클라이언트 생성 (Storage 업로드용)
+function createServiceClient() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+}
+
 // 한글 및 비-ASCII 문자를 안전하게 처리하는 함수
 function sanitizeForPdf(text: string | null | undefined): string {
   if (!text) return '-';
@@ -434,65 +442,145 @@ async function generateQuotePdf(data: QuoteData): Promise<Uint8Array> {
      // 파일명이 비어있으면 기본 파일명 사용
      const safeFileNameBase = fileNameBase.trim() || quoteData.quoteNumber || 'quote';
  
-     // Pluuug API를 통해 파일 업로드
+      // Supabase Storage에 PDF 업로드 및 Pluuug 의뢰 업데이트
+      const serviceClient = createServiceClient();
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+      
      const results = {
        customer: null as any,
        internal: null as any,
        errors: [] as string[],
+        customerUrl: null as string | null,
+        internalUrl: null as string | null,
      };
  
-     // 고객용 HTML 파일 업로드
+      // 고객용 PDF를 Supabase Storage에 업로드
+      const customerFileName = `${quoteData.quoteNumber}_customer.pdf`;
+      const customerFilePath = `${quoteData.quoteNumber}/${customerFileName}`;
+      
      try {
-       const customerResult = await supabaseClient.functions.invoke('pluuug-api', {
-         body: {
-           action: 'inquiry.file.upload',
-           inquiryId: inquiryId,
-          fileName: `${safeFileNameBase}_customer.pdf`,
-          fileContent: customerPdfBase64,
-          mimeType: 'application/pdf',
-         }
-       });
- 
-       if (customerResult.error) {
-         console.error('[Generate PDF] Customer file upload error:', customerResult.error);
-        results.errors.push(`고객용 PDF 업로드 실패: ${customerResult.error.message}`);
-       } else if (customerResult.data?.error) {
-         console.error('[Generate PDF] Customer file upload API error:', customerResult.data.error);
-        results.errors.push(`고객용 PDF 업로드 실패: ${customerResult.data.error}`);
-       } else {
-         results.customer = customerResult.data;
-        console.log('[Generate PDF] Customer PDF uploaded successfully');
+        const { data: uploadData, error: uploadError } = await serviceClient.storage
+          .from('quote-pdfs')
+          .upload(customerFilePath, customerPdfBytes, {
+            contentType: 'application/pdf',
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.error('[Generate PDF] Customer PDF storage upload error:', uploadError);
+          results.errors.push(`고객용 PDF 저장 실패: ${uploadError.message}`);
+        } else {
+          results.customerUrl = `${supabaseUrl}/storage/v1/object/public/quote-pdfs/${customerFilePath}`;
+          results.customer = { path: customerFilePath, url: results.customerUrl };
+          console.log('[Generate PDF] Customer PDF uploaded to storage:', results.customerUrl);
        }
      } catch (err: any) {
-       console.error('[Generate PDF] Customer file upload exception:', err);
-      results.errors.push(`고객용 PDF 업로드 실패: ${err.message}`);
+        console.error('[Generate PDF] Customer PDF storage exception:', err);
+        results.errors.push(`고객용 PDF 저장 실패: ${err.message}`);
      }
  
-    // 내부용 PDF 파일 업로드
+      // 내부용 PDF를 Supabase Storage에 업로드
+      const internalFileName = `${quoteData.quoteNumber}_internal.pdf`;
+      const internalFilePath = `${quoteData.quoteNumber}/${internalFileName}`;
+      
      try {
-       const internalResult = await supabaseClient.functions.invoke('pluuug-api', {
-         body: {
-           action: 'inquiry.file.upload',
-           inquiryId: inquiryId,
-          fileName: `${safeFileNameBase}_internal.pdf`,
-          fileContent: internalPdfBase64,
-          mimeType: 'application/pdf',
-         }
-       });
- 
-       if (internalResult.error) {
-         console.error('[Generate PDF] Internal file upload error:', internalResult.error);
-        results.errors.push(`내부용 PDF 업로드 실패: ${internalResult.error.message}`);
-       } else if (internalResult.data?.error) {
-         console.error('[Generate PDF] Internal file upload API error:', internalResult.data.error);
-        results.errors.push(`내부용 PDF 업로드 실패: ${internalResult.data.error}`);
-       } else {
-         results.internal = internalResult.data;
-        console.log('[Generate PDF] Internal PDF uploaded successfully');
+        const { data: uploadData, error: uploadError } = await serviceClient.storage
+          .from('quote-pdfs')
+          .upload(internalFilePath, internalPdfBytes, {
+            contentType: 'application/pdf',
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.error('[Generate PDF] Internal PDF storage upload error:', uploadError);
+          results.errors.push(`내부용 PDF 저장 실패: ${uploadError.message}`);
+        } else {
+          results.internalUrl = `${supabaseUrl}/storage/v1/object/public/quote-pdfs/${internalFilePath}`;
+          results.internal = { path: internalFilePath, url: results.internalUrl };
+          console.log('[Generate PDF] Internal PDF uploaded to storage:', results.internalUrl);
        }
      } catch (err: any) {
-       console.error('[Generate PDF] Internal file upload exception:', err);
-      results.errors.push(`내부용 PDF 업로드 실패: ${err.message}`);
+        console.error('[Generate PDF] Internal PDF storage exception:', err);
+        results.errors.push(`내부용 PDF 저장 실패: ${err.message}`);
+      }
+
+      // Pluuug 의뢰에 링크 추가 (content 필드와 memo 필드 모두)
+      if (results.customerUrl || results.internalUrl) {
+        try {
+          // 기존 의뢰 정보 조회
+          const inquiryResult = await supabaseClient.functions.invoke('pluuug-api', {
+            body: { action: 'inquiry.get', id: inquiryId }
+          });
+
+          if (inquiryResult.data?.data) {
+            const currentInquiry = inquiryResult.data.data;
+            const currentContent = currentInquiry.content || '';
+            const currentMemo = currentInquiry.memo || '';
+
+            // PDF 링크 섹션 생성
+            const pdfLinksSection = [
+              '\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+              '📎 견적서 PDF 다운로드',
+              '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            ];
+
+            // 파일명 생성 (한글 포함)
+            const displayFileNameBase = [quoteData.quoteNumber, quoteData.projectName, quoteData.companyName]
+              .filter(Boolean)
+              .join('_')
+              .replace(/[/\\?%*:|"<>]/g, '_');
+
+            if (results.customerUrl) {
+              const customerDisplayName = `${displayFileNameBase}_고객용.pdf`;
+              pdfLinksSection.push(`\n▶ ${customerDisplayName}`);
+              pdfLinksSection.push(`   ${results.customerUrl}`);
+            }
+
+            if (results.internalUrl) {
+              const internalDisplayName = `${displayFileNameBase}_내부용.pdf`;
+              pdfLinksSection.push(`\n▶ ${internalDisplayName}`);
+              pdfLinksSection.push(`   ${results.internalUrl}`);
+            }
+
+            pdfLinksSection.push('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            const pdfLinksText = pdfLinksSection.join('\n');
+
+            // 의뢰 업데이트 (content와 memo 모두에 링크 추가)
+            const updateData: { content?: string; memo?: string } = {};
+
+            // content 필드 업데이트 (기존 내용 끝에 추가, 중복 방지)
+            if (!currentContent.includes('견적서 PDF 다운로드')) {
+              updateData.content = currentContent + pdfLinksText;
+            }
+
+            // memo 필드 업데이트 (기존 내용 끝에 추가, 중복 방지)
+            if (!currentMemo.includes('견적서 PDF 다운로드')) {
+              updateData.memo = (currentMemo ? currentMemo + '\n\n' : '') + pdfLinksText.trim();
+            }
+
+            if (Object.keys(updateData).length > 0) {
+              const updateResult = await supabaseClient.functions.invoke('pluuug-api', {
+                body: {
+                  action: 'inquiry.update',
+                  id: inquiryId,
+                  data: updateData,
+                }
+              });
+
+              if (updateResult.data?.error) {
+                console.error('[Generate PDF] Inquiry update error:', updateResult.data.error);
+                results.errors.push(`의뢰 업데이트 실패: ${updateResult.data.error}`);
+              } else {
+                console.log('[Generate PDF] Inquiry updated with PDF links');
+              }
+            } else {
+              console.log('[Generate PDF] PDF links already exist in inquiry, skipping update');
+            }
+          }
+        } catch (err: any) {
+          console.error('[Generate PDF] Inquiry update exception:', err);
+          results.errors.push(`의뢰 업데이트 실패: ${err.message}`);
+        }
      }
  
      const success = results.customer || results.internal;
@@ -502,6 +590,8 @@ async function generateQuotePdf(data: QuoteData): Promise<Uint8Array> {
          success,
          customer: results.customer,
          internal: results.internal,
+          customerUrl: results.customerUrl,
+          internalUrl: results.internalUrl,
          errors: results.errors,
        }),
        { status: success ? 200 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
