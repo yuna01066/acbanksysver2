@@ -371,6 +371,11 @@ const SavedQuotesPage = () => {
       ) as { url?: string } | undefined;
       const quotePdfUrl = quotePdfAttachment?.url;
 
+      // PDF가 없으면 경고 표시
+      if (!quotePdfUrl) {
+        console.log('[Pluuug Sync] No PDF attachment found, syncing without PDF link');
+      }
+
       const pluuugData = convertQuoteToPluuugFormat(
         quote.items,
         recipient,
