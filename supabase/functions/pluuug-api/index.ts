@@ -306,6 +306,25 @@ Deno.serve(async (req) => {
         result = await callPluuugApi(`/v1/folder/${params.id}`, "DELETE");
         break;
 
+      // ==================== 의뢰 파일 (Inquiry File) ====================
+      case "inquiry.file.upload":
+        // 파일 업로드는 multipart/form-data 형식이 필요하므로 별도 처리
+        result = await uploadInquiryFile(
+          params.inquiryId,
+          params.fileName,
+          params.fileContent,
+          params.mimeType
+        );
+        break;
+
+      case "inquiry.file.list":
+        result = await callPluuugApi(`/v1/inquiry/${params.id}/file`, "GET");
+        break;
+
+      case "inquiry.file.delete":
+        result = await callPluuugApi(`/v1/inquiry/${params.inquiryId}/file/${params.fileId}`, "DELETE");
+        break;
+
       default:
         return new Response(
           JSON.stringify({ error: `Unknown action: ${action}` }),
@@ -332,3 +351,71 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+// Pluuug 의뢰 파일 업로드 (multipart/form-data)
+async function uploadInquiryFile(
+  inquiryId: number,
+  fileName: string,
+  fileContent: string, // Base64 encoded
+  mimeType: string
+): Promise<{ data?: any; error?: string; status: number }> {
+  const apiKey = Deno.env.get("PLUUUG_API_KEY");
+  const secretKey = Deno.env.get("PLUUUG_SECRET_KEY");
+
+  if (!apiKey || !secretKey) {
+    return { error: "Pluuug API keys not configured", status: 500 };
+  }
+
+  try {
+    // Base64 디코딩
+    const binaryString = atob(fileContent);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // FormData 생성
+    const formData = new FormData();
+    const blob = new Blob([bytes], { type: mimeType });
+    formData.append("file", blob, fileName);
+
+    // HMAC 서명 생성 (빈 body로)
+    const signature = await generateSignature(secretKey, "");
+
+    console.log(`[Pluuug API] Uploading file to inquiry ${inquiryId}: ${fileName}`);
+
+    const response = await fetch(`${PLUUUG_BASE_URL}/v1/inquiry/${inquiryId}/file`, {
+      method: "POST",
+      headers: {
+        "X-API-KEY": apiKey,
+        "X-Signature": signature,
+      },
+      body: formData,
+    });
+
+    let responseData: any = null;
+    try {
+      responseData = await response.json();
+    } catch {
+      responseData = await response.text().catch(() => null);
+    }
+    console.log(`[Pluuug API] File upload response status: ${response.status}`);
+
+    if (!response.ok) {
+      console.error(`[Pluuug API] File upload error:`, responseData);
+      const message =
+        (typeof responseData === "string" && responseData) ||
+        responseData?.message ||
+        responseData?.error ||
+        "File upload failed";
+      return { error: message, data: responseData, status: response.status };
+    }
+
+    console.log(`[Pluuug API] File uploaded successfully:`, responseData);
+    return { data: responseData, status: response.status };
+  } catch (error: unknown) {
+    console.error(`[Pluuug API] File upload network error:`, error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return { error: `Network error: ${errorMessage}`, status: 500 };
+  }
+}

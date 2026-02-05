@@ -165,6 +165,13 @@ export function usePluuugApi() {
   const updateSettlement = useCallback((id: number, data: any) => callApi<PluuugSettlement>('settlement.update', { id, data }), [callApi]);
   const deleteSettlement = useCallback((id: number) => callApi('settlement.delete', { id }), [callApi]);
 
+  // ==================== 의뢰 파일 (Inquiry File) ====================
+  const getInquiryFiles = useCallback((id: number) => callApi('inquiry.file.list', { id }), [callApi]);
+  const uploadInquiryFile = useCallback((inquiryId: number, fileName: string, fileContent: string, mimeType: string) => 
+    callApi('inquiry.file.upload', { inquiryId, fileName, fileContent, mimeType }), [callApi]);
+  const deleteInquiryFile = useCallback((inquiryId: number, fileId: number) => 
+    callApi('inquiry.file.delete', { inquiryId, fileId }), [callApi]);
+
   return {
     loading,
     callApi,
@@ -203,5 +210,9 @@ export function usePluuugApi() {
     createSettlement,
     updateSettlement,
     deleteSettlement,
+    // 의뢰 파일
+    getInquiryFiles,
+    uploadInquiryFile,
+    deleteInquiryFile,
   };
 }
