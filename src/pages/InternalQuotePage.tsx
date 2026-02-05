@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,12 +18,14 @@ import bankAccount from "@/assets/arcbank-bank-account.jpg";
 import arcbankLogo from "@/assets/arcbank-logo.png";
 import { FileText } from "lucide-react";
 import { saveQuoteWithPluuugSync } from "@/utils/pluuugSync";
+import { generateAndUploadQuotePdf, createPdfAttachmentMetadata } from "@/utils/generateQuotePdf";
 
 const InternalQuotePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [syncToPluuug, setSyncToPluuug] = useState(true);
+  const printContainerRef = useRef<HTMLDivElement>(null);
   const {
     quotes,
     recipient,
@@ -70,6 +72,44 @@ const InternalQuotePage = () => {
 
     setIsSaving(true);
     try {
+      // PDF 자동 생성
+      toast.info('PDF를 생성하고 있습니다...');
+      
+      const pdfResult = await generateAndUploadQuotePdf(
+        'quote-print-container',
+        user.id,
+        quoteNumber,
+        recipient?.projectName
+      );
+
+      let attachmentsWithPdf = recipient?.attachments || [];
+      
+      if (pdfResult.success && pdfResult.pdfUrl && pdfResult.pdfPath) {
+        // PDF 첨부파일 메타데이터 추가
+        const pdfAttachment = createPdfAttachmentMetadata(
+          quoteNumber,
+          pdfResult.pdfUrl,
+          pdfResult.pdfPath
+        );
+        
+        // 기존 quote_pdf 타입 첨부파일 제거 후 새로 추가
+        attachmentsWithPdf = [
+          ...attachmentsWithPdf.filter((a: any) => a.type !== 'quote_pdf'),
+          pdfAttachment
+        ];
+        
+        console.log('[Save Quote] PDF generated and attached:', pdfResult.pdfUrl);
+      } else {
+        console.warn('[Save Quote] PDF generation failed:', pdfResult.error);
+        toast.warning('PDF 생성에 실패했지만 견적서는 저장됩니다.');
+      }
+
+      // recipient에 PDF 첨부파일 추가
+      const recipientWithPdf = {
+        ...recipient,
+        attachments: attachmentsWithPdf
+      };
+
       const subtotal = getTotalPrice();
       const tax = subtotal * 0.1;
       const total = getTotalPriceWithTax();
@@ -77,7 +117,7 @@ const InternalQuotePage = () => {
       const result = await saveQuoteWithPluuugSync(
         user.id,
         quotes,
-        recipient,
+        recipientWithPdf,
         quoteNumber,
         subtotal,
         tax,
@@ -113,7 +153,7 @@ const InternalQuotePage = () => {
     <>
       <PrintStyles quoteNumber={quoteNumber} projectName={recipient?.projectName} companyName={recipient?.companyName} isInternal={true} />
       <div className="min-h-screen bg-gray-50 p-4">
-        <div className="w-full max-w-4xl mx-auto print-container">
+          <div className="w-full max-w-4xl mx-auto print-container" id="quote-print-container" ref={printContainerRef}>
           <div className="mb-6 print:hidden">
             <Button 
               variant="outline" 
