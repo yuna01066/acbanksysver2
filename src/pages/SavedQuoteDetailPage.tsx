@@ -17,6 +17,7 @@ import RecipientInfoForm from "@/components/RecipientInfoForm";
 import { QuoteRecipient } from "@/contexts/QuoteContext";
 import QuoteAttachments from "@/components/QuoteAttachments";
 import EditableQuoteItem from "@/components/EditableQuoteItem";
+import { uploadQuotePdfsToPluuug } from "@/utils/pluuugSync";
 
 interface SavedQuote {
   id: string;
@@ -44,6 +45,8 @@ interface SavedQuote {
   subtotal: number;
   tax: number;
   total: number;
+  pluuug_synced: boolean | null;
+  pluuug_estimate_id: string | null;
 }
 
 const SavedQuoteDetailPage = () => {
@@ -199,6 +202,44 @@ const SavedQuoteDetailPage = () => {
 
       toast.success('견적서가 수정되었습니다.');
       setIsEditing(false);
+      
+      // Pluuug에 연결된 견적서인 경우 PDF 업로드
+      if (quote?.pluuug_synced && quote?.pluuug_estimate_id) {
+        const inquiryId = parseInt(quote.pluuug_estimate_id, 10);
+        if (!isNaN(inquiryId)) {
+          console.log('[SavedQuoteDetailPage] Uploading PDF to Pluuug inquiry:', inquiryId);
+          uploadQuotePdfsToPluuug(inquiryId, {
+            quoteNumber: quote.quote_number,
+            projectName: recipientData.projectName || null,
+            companyName: recipientData.companyName || null,
+            quoteDate: recipientData.quoteDate?.toISOString() || new Date().toISOString(),
+            validUntil: recipientData.validUntil || null,
+            deliveryPeriod: recipientData.deliveryPeriod || null,
+            paymentCondition: recipientData.paymentCondition || null,
+            recipientName: recipientData.contactPerson || null,
+            recipientPhone: recipientData.phoneNumber || null,
+            recipientEmail: recipientData.email || null,
+            recipientAddress: recipientData.deliveryAddress || null,
+            issuerName: recipientData.issuerName || null,
+            issuerPhone: recipientData.issuerPhone || null,
+            issuerEmail: recipientData.issuerEmail || null,
+            items: editedItems,
+            subtotal: roundedSubtotal,
+            tax: newTax,
+            total: newTotal
+          }).then(pdfResult => {
+            if (pdfResult.success) {
+              console.log('[SavedQuoteDetailPage] PDF files uploaded successfully');
+              toast.success('견적서 PDF가 Pluuug에 업로드되었습니다.');
+            } else {
+              console.warn('[SavedQuoteDetailPage] PDF upload failed:', pdfResult.errors);
+            }
+          }).catch(err => {
+            console.error('[SavedQuoteDetailPage] PDF upload error:', err);
+          });
+        }
+      }
+      
       fetchQuote();
     } catch (error) {
       console.error('Error updating quote:', error);
