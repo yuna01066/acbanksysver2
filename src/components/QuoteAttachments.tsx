@@ -25,6 +25,7 @@ interface QuoteAttachmentsProps {
   onAttachmentsChange: (attachments: Attachment[]) => void;
   readOnly?: boolean;
   quoteId?: string;
+  quoteNumber?: string;
   // 견적서 PDF 관련 props
   quotePdf?: QuotePdfAttachment | null;
   onQuotePdfChange?: (pdf: QuotePdfAttachment | null) => void;
@@ -36,6 +37,7 @@ const QuoteAttachments = ({
   onAttachmentsChange, 
   readOnly = false, 
   quoteId,
+  quoteNumber,
   quotePdf,
   onQuotePdfChange,
   showQuotePdfSection = false
@@ -229,17 +231,29 @@ const QuoteAttachments = ({
         return;
       }
 
-      const timestamp = Date.now();
-      const random = Math.random().toString(36).substring(2, 9);
-      const fileName = `quote-${timestamp}-${random}.pdf`;
-      const filePath = `${user.id}/${fileName}`;
+      // 견적번호 기반 경로로 저장 (수정 시 덮어쓰기 가능)
+      const safeQuoteNumber = quoteNumber || `temp-${Date.now()}`;
+      const fileName = `${safeQuoteNumber}.pdf`;
+      const filePath = `${user.id}/${safeQuoteNumber}/${fileName}`;
+
+      // 기존 파일이 있으면 먼저 삭제 (덮어쓰기)
+      if (quotePdf?.path) {
+        try {
+          await supabase.storage
+            .from('quote-pdfs')
+            .remove([quotePdf.path]);
+          console.log('기존 PDF 삭제됨:', quotePdf.path);
+        } catch (removeError) {
+          console.warn('기존 PDF 삭제 실패 (무시):', removeError);
+        }
+      }
 
       // quote-pdfs 버킷에 업로드 (public bucket)
       const { data, error: uploadError } = await supabase.storage
         .from('quote-pdfs')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true
         });
 
       if (uploadError) {
@@ -262,7 +276,7 @@ const QuoteAttachments = ({
       };
 
       onQuotePdfChange?.(pdfData);
-      toast.success('견적서 PDF가 업로드되었습니다.');
+      toast.success('견적서 PDF가 업로드되었습니다. 저장 버튼을 눌러 변경사항을 저장하세요.');
     } catch (error) {
       console.error('Error uploading PDF:', error);
       toast.error('PDF 업로드 중 오류가 발생했습니다.');

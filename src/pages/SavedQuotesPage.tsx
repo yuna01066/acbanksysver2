@@ -337,9 +337,10 @@ const SavedQuotesPage = () => {
       return;
     }
 
-    if (quote.pluuug_synced) {
-      toast.info('이미 Pluuug에 동기화된 견적서입니다.');
-      return;
+    // 이미 동기화된 경우 업데이트 모드로 진행 (재동기화)
+    const isResync = quote.pluuug_synced && quote.pluuug_estimate_id;
+    if (isResync) {
+      console.log('[Pluuug Resync] Updating existing inquiry:', quote.pluuug_estimate_id);
     }
 
     setSyncingQuoteId(quote.id);
@@ -373,13 +374,14 @@ const SavedQuotesPage = () => {
         quotePdfUrl
       );
 
-      // Pluuug에 동기화 (고객 자동 등록 포함) - quotes 데이터도 전달하여 fieldSet 생성
+      // Pluuug에 동기화 (고객 자동 등록 포함) - 기존 ID가 있으면 업데이트
       const syncResult = await syncQuoteToPluuug(
         pluuugData,
         user.id,
         recipient,
         null, // recipientId가 없으면 자동 등록
-        quote.items // quotes 데이터 전달 (fieldSet 생성용)
+        quote.items, // quotes 데이터 전달 (fieldSet 생성용)
+        isResync ? quote.pluuug_estimate_id : null // 기존 의뢰 ID (재동기화 시)
       );
 
       if (syncResult.success) {
@@ -393,7 +395,7 @@ const SavedQuotesPage = () => {
           })
           .eq('id', quote.id);
 
-        toast.success('Pluuug에 견적서가 동기화되었습니다!');
+        toast.success(isResync ? 'Pluuug 의뢰가 업데이트되었습니다!' : 'Pluuug에 견적서가 동기화되었습니다!');
         fetchQuotes(); // 목록 새로고침
       } else {
         toast.error(`동기화 실패: ${syncResult.error || '알 수 없는 오류'}`);
