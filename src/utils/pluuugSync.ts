@@ -9,63 +9,6 @@ import {
   type PluuugEstimateItem
 } from './pluuugEstimateItemMapping';
 
-// Pluuug 의뢰에 PDF 파일 업로드
-export async function uploadQuotePdfsToPluuug(
-  inquiryId: number,
-  quoteData: {
-    quoteNumber: string;
-    projectName: string | null;
-    companyName: string | null;
-    quoteDate: string;
-    validUntil: string | null;
-    deliveryPeriod: string | null;
-    paymentCondition: string | null;
-    recipientName: string | null;
-    recipientPhone: string | null;
-    recipientEmail: string | null;
-    recipientAddress: string | null;
-    issuerName: string | null;
-    issuerPhone: string | null;
-    issuerEmail: string | null;
-    items: any[];
-    subtotal: number;
-    tax: number;
-    total: number;
-  }
-): Promise<{ success: boolean; customer?: any; internal?: any; errors?: string[] }> {
-  try {
-    console.log('[Pluuug PDF Upload] Starting PDF upload to inquiry:', inquiryId);
-
-    const { data, error } = await supabase.functions.invoke('generate-quote-pdf', {
-      body: {
-        quoteData,
-        inquiryId
-      }
-    });
-
-    if (error) {
-      console.error('[Pluuug PDF Upload] Function error:', error);
-      return { success: false, errors: [error.message] };
-    }
-
-    if (data?.error) {
-      console.error('[Pluuug PDF Upload] API error:', data.error);
-      return { success: false, errors: [data.error] };
-    }
-
-    console.log('[Pluuug PDF Upload] Result:', data);
-    return {
-      success: data?.success || false,
-      customer: data?.customer,
-      internal: data?.internal,
-      errors: data?.errors
-    };
-  } catch (err: any) {
-    console.error('[Pluuug PDF Upload] Exception:', err);
-    return { success: false, errors: [err.message] };
-  }
-}
-
 export interface PluuugInquiryData {
   name: string;
   quoteNumber: string;
@@ -957,40 +900,6 @@ export async function saveQuoteWithPluuugSync(
             pluuug_estimate_id: pluuugInquiryId
           })
           .eq('id', savedQuote?.id);
-        
-        // PDF 파일 업로드 (백그라운드에서 실행)
-        uploadQuotePdfsToPluuug(
-          syncResult.pluuugInquiryId!,
-          {
-            quoteNumber,
-            projectName: recipient?.projectName || null,
-            companyName: recipient?.companyName || null,
-            quoteDate: recipient?.quoteDate?.toISOString() || new Date().toISOString(),
-            validUntil: recipient?.validUntil || null,
-            deliveryPeriod: recipient?.deliveryPeriod || null,
-            paymentCondition: recipient?.paymentCondition || null,
-            recipientName: recipient?.contactPerson || null,
-            recipientPhone: recipient?.phoneNumber || null,
-            recipientEmail: recipient?.email || null,
-            recipientAddress: recipient?.deliveryAddress || null,
-            issuerName: recipient?.issuerName || null,
-            issuerPhone: recipient?.issuerPhone || null,
-            issuerEmail: recipient?.issuerEmail || null,
-            items: quotes,
-            subtotal,
-            tax,
-            total
-          }
-        ).then(pdfResult => {
-          if (pdfResult.success) {
-            console.log('[Save Quote] PDF files uploaded to Pluuug successfully');
-            toast.success('견적서 PDF가 Pluuug에 업로드되었습니다.');
-          } else {
-            console.warn('[Save Quote] PDF upload failed:', pdfResult.errors);
-          }
-        }).catch(err => {
-          console.error('[Save Quote] PDF upload error:', err);
-        });
 
         toast.success('Pluuug에도 견적서가 동기화되었습니다!');
       } else {

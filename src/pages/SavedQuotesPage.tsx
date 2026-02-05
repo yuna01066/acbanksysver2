@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { syncQuoteToPluuug, convertQuoteToPluuugFormat, uploadQuotePdfsToPluuug } from '@/utils/pluuugSync';
+import { syncQuoteToPluuug, convertQuoteToPluuugFormat } from '@/utils/pluuugSync';
 
 interface SavedQuote {
   id: string;
@@ -374,43 +374,6 @@ const SavedQuotesPage = () => {
       );
 
       if (syncResult.success) {
-        // Pluuug 의뢰에 PDF 파일 업로드 시도
-        if (syncResult.pluuugInquiryId) {
-          console.log('[Pluuug Sync] Uploading PDFs to inquiry:', syncResult.pluuugInquiryId);
-          
-          const pdfUploadResult = await uploadQuotePdfsToPluuug(
-            syncResult.pluuugInquiryId,
-            {
-              quoteNumber: quote.quote_number,
-              projectName: quote.project_name,
-              companyName: quote.recipient_company,
-              quoteDate: quote.quote_date,
-              validUntil: quote.valid_until,
-              deliveryPeriod: quote.delivery_period,
-              paymentCondition: quote.payment_condition,
-              recipientName: quote.recipient_name,
-              recipientPhone: quote.recipient_phone,
-              recipientEmail: quote.recipient_email,
-              recipientAddress: quote.recipient_address,
-              issuerName: quote.issuer_name,
-              issuerPhone: quote.issuer_phone,
-              issuerEmail: quote.issuer_email,
-              items: quote.items as any[],
-              subtotal: quote.subtotal,
-              tax: quote.tax,
-              total: quote.total,
-            }
-          );
-          
-          if (pdfUploadResult.success) {
-            console.log('[Pluuug Sync] PDF upload successful');
-            toast.success('Pluuug에 PDF 파일도 업로드되었습니다!');
-          } else {
-            console.warn('[Pluuug Sync] PDF upload failed:', pdfUploadResult.errors);
-            // PDF 업로드 실패는 경고로만 처리 (의뢰 동기화는 성공)
-          }
-        }
-        
         // DB 업데이트
         await supabase
           .from('saved_quotes')
