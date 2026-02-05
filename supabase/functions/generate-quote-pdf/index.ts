@@ -1,4 +1,5 @@
- import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
  
  const corsHeaders = {
    "Access-Control-Allow-Origin": "*",
@@ -28,149 +29,328 @@
    isInternal: boolean;
  }
  
- function generateQuotePdfHtml(data: QuoteData): string {
-   const formatPrice = (price: number) => `₩${Math.round(price).toLocaleString('ko-KR')}`;
-   const currentDate = new Date(data.quoteDate).toLocaleDateString('ko-KR', {
-     year: 'numeric',
-     month: 'long',
-     day: 'numeric'
-   });
- 
-   const itemsHtml = data.items.map((item: any, index: number) => {
-     const breakdown = (item.breakdown || [])
-       .filter((b: any) => b.price > 0)
-       .map((b: any) => `<div style="font-size: 11px; color: #666; margin-left: 12px;">- ${b.label}: ${formatPrice(b.price)}</div>`)
-       .join('');
-     
-     return `
-       <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px; background: #fafafa;">
-         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-           <div style="font-weight: bold; color: #1f2937;">#${index + 1} ${item.material || ''} ${item.quality || ''} ${item.thickness || ''}</div>
-           <div style="font-weight: bold; color: #1f2937;">${formatPrice(item.totalPrice * (item.quantity || 1))}</div>
-         </div>
-         <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">
-           사이즈: ${item.size || item.selectedSize || '-'} | 면수: ${item.surface || '-'} | 수량: ${item.quantity || 1}개
-         </div>
-         ${breakdown}
-       </div>
-     `;
-   }).join('');
- 
-   const internalBadge = data.isInternal 
-     ? '<span style="background: #ef4444; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; margin-left: 12px;">내부용</span>'
-     : '<span style="background: #3b82f6; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; margin-left: 12px;">고객용</span>';
- 
-   return `
-     <!DOCTYPE html>
-     <html>
-     <head>
-       <meta charset="utf-8">
-       <title>${data.quoteNumber} - ${data.projectName || '견적서'}</title>
-       <style>
-         * { margin: 0; padding: 0; box-sizing: border-box; }
-         body { font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif; font-size: 14px; color: #333; padding: 40px; }
-         .header { background: linear-gradient(135deg, #1e293b, #334155); color: white; padding: 24px; border-radius: 12px; margin-bottom: 24px; }
-         .header-title { font-size: 24px; font-weight: bold; margin-bottom: 4px; }
-         .header-subtitle { font-size: 14px; color: #94a3b8; }
-         .header-info { text-align: right; }
-         .section { margin-bottom: 24px; }
-         .section-title { font-size: 16px; font-weight: bold; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 16px; }
-         .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-         .info-box { background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; }
-         .info-box h4 { font-size: 14px; font-weight: bold; color: #475569; margin-bottom: 12px; }
-         .info-row { font-size: 13px; margin-bottom: 6px; }
-         .info-row strong { color: #374151; }
-         .total-box { background: #1e293b; color: white; padding: 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; }
-         .total-label { font-size: 18px; font-weight: bold; }
-         .total-amount { font-size: 28px; font-weight: bold; }
-         .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
-         .footer { margin-top: 24px; padding: 16px; background: #fefce8; border: 1px solid #fef08a; border-radius: 8px; font-size: 12px; color: #854d0e; }
-       </style>
-     </head>
-     <body>
-       <div class="header">
-         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-           <div>
-             <div class="header-title">아크뱅크 견적서 ${internalBadge}</div>
-             <div class="header-subtitle">Panel Material Quotation</div>
-           </div>
-           <div class="header-info">
-             <div style="font-size: 13px; color: #94a3b8; margin-bottom: 4px;">${currentDate}</div>
-             <div style="font-size: 16px; font-weight: bold;">견적번호: ${data.quoteNumber}</div>
-           </div>
-         </div>
-       </div>
- 
-       <div class="info-grid">
-         <div class="info-box">
-           <h4>📋 프로젝트 정보</h4>
-           <div class="info-row"><strong>프로젝트명:</strong> ${data.projectName || '-'}</div>
-           <div class="info-row"><strong>유효기간:</strong> ${data.validUntil || '-'}</div>
-           <div class="info-row"><strong>납기:</strong> ${data.deliveryPeriod || '-'}</div>
-           <div class="info-row"><strong>결제조건:</strong> ${data.paymentCondition || '-'}</div>
-         </div>
-         <div class="info-box">
-           <h4>👤 수신자 정보</h4>
-           <div class="info-row"><strong>회사명:</strong> ${data.companyName || '-'}</div>
-           <div class="info-row"><strong>담당자:</strong> ${data.recipientName || '-'}</div>
-           <div class="info-row"><strong>연락처:</strong> ${data.recipientPhone || '-'}</div>
-           <div class="info-row"><strong>이메일:</strong> ${data.recipientEmail || '-'}</div>
-         </div>
-       </div>
- 
-       <div class="section" style="margin-top: 24px;">
-         <div class="section-title">📦 견적 항목 (${data.items.length}개)</div>
-         ${itemsHtml}
-       </div>
- 
-       <div class="section">
-         <div class="section-title">💰 금액 요약</div>
-         <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
-           <div class="summary-row">
-             <span>공급가액</span>
-             <span style="font-weight: bold;">${formatPrice(data.subtotal)}</span>
-           </div>
-           <div class="summary-row">
-             <span>부가세 (10%)</span>
-             <span style="font-weight: bold;">${formatPrice(data.tax)}</span>
-           </div>
-         </div>
-       </div>
- 
-       <div class="total-box">
-         <div class="total-label">총 합계 (VAT 포함)</div>
-         <div class="total-amount">${formatPrice(data.total)}</div>
-       </div>
- 
-       <div class="info-grid" style="margin-top: 24px;">
-         <div class="info-box">
-           <h4>🏢 발신자 정보</h4>
-           <div class="info-row"><strong>상호:</strong> (주)아크뱅크</div>
-           <div class="info-row"><strong>사업자번호:</strong> 299-87-02991</div>
-           <div class="info-row"><strong>담당자:</strong> ${data.issuerName || '-'}</div>
-           <div class="info-row"><strong>연락처:</strong> ${data.issuerPhone || '070-7666-9828'}</div>
-           <div class="info-row"><strong>이메일:</strong> ${data.issuerEmail || 'acbank@acbank.co.kr'}</div>
-         </div>
-         <div class="info-box">
-           <h4>💳 입금 계좌</h4>
-           <div class="info-row" style="font-size: 15px; font-weight: bold; color: #1e40af;">
-             신한은행 140-014-544315
-           </div>
-           <div class="info-row" style="font-weight: bold;">(주)아크뱅크</div>
-         </div>
-       </div>
- 
-       <div class="footer">
-         <strong>⚠️ 주의사항</strong>
-         <ul style="margin-top: 8px; margin-left: 20px;">
-           <li>본 견적서의 유효기간은 발행일로부터 14일입니다.</li>
-           <li>운송비 및 부가세는 별도입니다.</li>
-           <li>정확한 견적을 위해서는 별도 문의를 통해 확인해주시기 바랍니다.</li>
-         </ul>
-       </div>
-     </body>
-     </html>
-   `;
+const formatPrice = (price: number) => {
+  return `${Math.round(price).toLocaleString('ko-KR')} won`;
+};
+
+async function generateQuotePdf(data: QuoteData): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  
+  let page = pdfDoc.addPage([595, 842]); // A4 size
+  const { width, height } = page.getSize();
+  
+  let y = height - 50;
+  const leftMargin = 50;
+  const rightMargin = width - 50;
+  
+  // Header background
+  page.drawRectangle({
+    x: leftMargin,
+    y: y - 60,
+    width: rightMargin - leftMargin,
+    height: 70,
+    color: rgb(0.118, 0.161, 0.231), // #1e293b
+  });
+  
+  // Title
+  const titleText = data.isInternal ? 'ARCBANK Quote [Internal]' : 'ARCBANK Quote [Customer]';
+  page.drawText(titleText, {
+    x: leftMargin + 15,
+    y: y - 25,
+    size: 18,
+    font: boldFont,
+    color: rgb(1, 1, 1),
+  });
+  
+  // Quote number
+  page.drawText(`No: ${data.quoteNumber}`, {
+    x: leftMargin + 15,
+    y: y - 45,
+    size: 10,
+    font: font,
+    color: rgb(0.58, 0.64, 0.72),
+  });
+  
+  // Date
+  const dateText = new Date(data.quoteDate).toLocaleDateString('ko-KR');
+  page.drawText(dateText, {
+    x: rightMargin - 100,
+    y: y - 35,
+    size: 10,
+    font: font,
+    color: rgb(0.58, 0.64, 0.72),
+  });
+  
+  y -= 90;
+  
+  // Project Info Section
+  page.drawText('Project Information', {
+    x: leftMargin,
+    y,
+    size: 12,
+    font: boldFont,
+    color: rgb(0.2, 0.2, 0.2),
+  });
+  y -= 20;
+  
+  const projectInfo = [
+    `Project: ${data.projectName || '-'}`,
+    `Company: ${data.companyName || '-'}`,
+    `Valid Until: ${data.validUntil || '-'}`,
+    `Delivery: ${data.deliveryPeriod || '-'}`,
+    `Payment: ${data.paymentCondition || '-'}`,
+  ];
+  
+  for (const info of projectInfo) {
+    page.drawText(info, {
+      x: leftMargin + 10,
+      y,
+      size: 9,
+      font: font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    y -= 14;
+  }
+  
+  y -= 10;
+  
+  // Recipient Info
+  page.drawText('Recipient', {
+    x: leftMargin,
+    y,
+    size: 12,
+    font: boldFont,
+    color: rgb(0.2, 0.2, 0.2),
+  });
+  y -= 20;
+  
+  const recipientInfo = [
+    `Name: ${data.recipientName || '-'}`,
+    `Phone: ${data.recipientPhone || '-'}`,
+    `Email: ${data.recipientEmail || '-'}`,
+  ];
+  
+  for (const info of recipientInfo) {
+    page.drawText(info, {
+      x: leftMargin + 10,
+      y,
+      size: 9,
+      font: font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    y -= 14;
+  }
+  
+  y -= 15;
+  
+  // Items Section
+  page.drawText(`Items (${data.items.length})`, {
+    x: leftMargin,
+    y,
+    size: 12,
+    font: boldFont,
+    color: rgb(0.2, 0.2, 0.2),
+  });
+  y -= 5;
+  
+  // Draw line
+  page.drawLine({
+    start: { x: leftMargin, y },
+    end: { x: rightMargin, y },
+    thickness: 1,
+    color: rgb(0.8, 0.8, 0.8),
+  });
+  y -= 15;
+  
+  // Items
+  for (let i = 0; i < data.items.length; i++) {
+    const item = data.items[i];
+    
+    // Check if we need a new page
+    if (y < 150) {
+      page = pdfDoc.addPage([595, 842]);
+      y = height - 50;
+    }
+    
+    // Item box background
+    page.drawRectangle({
+      x: leftMargin,
+      y: y - 45,
+      width: rightMargin - leftMargin,
+      height: 50,
+      color: rgb(0.97, 0.97, 0.97),
+      borderColor: rgb(0.9, 0.9, 0.9),
+      borderWidth: 1,
+    });
+    
+    // Item title
+    const itemTitle = `#${i + 1} ${item.material || ''} ${item.quality || ''} ${item.thickness || ''}`.trim();
+    page.drawText(itemTitle, {
+      x: leftMargin + 10,
+      y: y - 15,
+      size: 10,
+      font: boldFont,
+      color: rgb(0.2, 0.2, 0.2),
+    });
+    
+    // Item price
+    const itemPrice = formatPrice(item.totalPrice * (item.quantity || 1));
+    page.drawText(itemPrice, {
+      x: rightMargin - 100,
+      y: y - 15,
+      size: 10,
+      font: boldFont,
+      color: rgb(0.2, 0.2, 0.2),
+    });
+    
+    // Item details
+    const itemDetails = `Size: ${item.size || item.selectedSize || '-'} | Surface: ${item.surface || '-'} | Qty: ${item.quantity || 1}`;
+    page.drawText(itemDetails, {
+      x: leftMargin + 10,
+      y: y - 32,
+      size: 8,
+      font: font,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+    
+    y -= 60;
+  }
+  
+  // Check if we need a new page for summary
+  if (y < 200) {
+    page = pdfDoc.addPage([595, 842]);
+    y = height - 50;
+  }
+  
+  y -= 20;
+  
+  // Summary Section
+  page.drawText('Summary', {
+    x: leftMargin,
+    y,
+    size: 12,
+    font: boldFont,
+    color: rgb(0.2, 0.2, 0.2),
+  });
+  y -= 20;
+  
+  // Summary box
+  page.drawRectangle({
+    x: leftMargin,
+    y: y - 50,
+    width: rightMargin - leftMargin,
+    height: 55,
+    color: rgb(0.97, 0.98, 0.99),
+    borderColor: rgb(0.9, 0.9, 0.9),
+    borderWidth: 1,
+  });
+  
+  page.drawText(`Subtotal: ${formatPrice(data.subtotal)}`, {
+    x: leftMargin + 10,
+    y: y - 15,
+    size: 9,
+    font: font,
+    color: rgb(0.3, 0.3, 0.3),
+  });
+  
+  page.drawText(`Tax (10%): ${formatPrice(data.tax)}`, {
+    x: leftMargin + 10,
+    y: y - 30,
+    size: 9,
+    font: font,
+    color: rgb(0.3, 0.3, 0.3),
+  });
+  
+  y -= 70;
+  
+  // Total box
+  page.drawRectangle({
+    x: leftMargin,
+    y: y - 35,
+    width: rightMargin - leftMargin,
+    height: 40,
+    color: rgb(0.118, 0.161, 0.231),
+  });
+  
+  page.drawText('Total (VAT included)', {
+    x: leftMargin + 15,
+    y: y - 22,
+    size: 12,
+    font: boldFont,
+    color: rgb(1, 1, 1),
+  });
+  
+  page.drawText(formatPrice(data.total), {
+    x: rightMargin - 120,
+    y: y - 22,
+    size: 14,
+    font: boldFont,
+    color: rgb(1, 1, 1),
+  });
+  
+  y -= 60;
+  
+  // Issuer Info
+  page.drawText('Issuer: ARCBANK Co., Ltd.', {
+    x: leftMargin,
+    y,
+    size: 10,
+    font: boldFont,
+    color: rgb(0.3, 0.3, 0.3),
+  });
+  y -= 14;
+  
+  page.drawText(`Business No: 299-87-02991 | Contact: ${data.issuerName || '-'} | Tel: ${data.issuerPhone || '070-7666-9828'}`, {
+    x: leftMargin,
+    y,
+    size: 8,
+    font: font,
+    color: rgb(0.5, 0.5, 0.5),
+  });
+  y -= 14;
+  
+  page.drawText(`Email: ${data.issuerEmail || 'acbank@acbank.co.kr'}`, {
+    x: leftMargin,
+    y,
+    size: 8,
+    font: font,
+    color: rgb(0.5, 0.5, 0.5),
+  });
+  y -= 20;
+  
+  // Bank info
+  page.drawText('Bank: Shinhan 140-014-544315 (ARCBANK Co., Ltd.)', {
+    x: leftMargin,
+    y,
+    size: 9,
+    font: boldFont,
+    color: rgb(0.12, 0.25, 0.47),
+  });
+  
+  // Footer note
+  y -= 30;
+  page.drawRectangle({
+    x: leftMargin,
+    y: y - 40,
+    width: rightMargin - leftMargin,
+    height: 45,
+    color: rgb(1, 0.99, 0.91),
+    borderColor: rgb(0.99, 0.94, 0.54),
+    borderWidth: 1,
+  });
+  
+  page.drawText('Note: Quote valid for 14 days. Shipping and VAT are separate.', {
+    x: leftMargin + 10,
+    y: y - 20,
+    size: 8,
+    font: font,
+    color: rgb(0.52, 0.3, 0.05),
+  });
+  
+  const pdfBytes = await pdfDoc.save();
+  return pdfBytes;
  }
  
  Deno.serve(async (req) => {
@@ -220,16 +400,13 @@
  
      console.log(`[Generate PDF] Generating PDFs for inquiry ${inquiryId}`);
  
-     // 고객용 PDF HTML 생성
-     const customerHtml = generateQuotePdfHtml({ ...quoteData, isInternal: false });
-     
-     // 내부용 PDF HTML 생성
-     const internalHtml = generateQuotePdfHtml({ ...quoteData, isInternal: true });
- 
-     // HTML to PDF 변환을 위한 base64 인코딩
-     const encoder = new TextEncoder();
-     const customerHtmlBase64 = btoa(String.fromCharCode(...encoder.encode(customerHtml)));
-     const internalHtmlBase64 = btoa(String.fromCharCode(...encoder.encode(internalHtml)));
+    // 고객용 PDF 생성
+    const customerPdfBytes = await generateQuotePdf({ ...quoteData, isInternal: false });
+    const customerPdfBase64 = btoa(String.fromCharCode(...customerPdfBytes));
+    
+    // 내부용 PDF 생성
+    const internalPdfBytes = await generateQuotePdf({ ...quoteData, isInternal: true });
+    const internalPdfBase64 = btoa(String.fromCharCode(...internalPdfBytes));
  
      const fileNameBase = [quoteData.quoteNumber, quoteData.projectName, quoteData.companyName]
        .filter(Boolean)
@@ -249,52 +426,52 @@
          body: {
            action: 'inquiry.file.upload',
            inquiryId: inquiryId,
-           fileName: `${fileNameBase}_고객용.html`,
-           fileContent: customerHtmlBase64,
-           mimeType: 'text/html',
+          fileName: `${fileNameBase}_고객용.pdf`,
+          fileContent: customerPdfBase64,
+          mimeType: 'application/pdf',
          }
        });
  
        if (customerResult.error) {
          console.error('[Generate PDF] Customer file upload error:', customerResult.error);
-         results.errors.push(`고객용 파일 업로드 실패: ${customerResult.error.message}`);
+        results.errors.push(`고객용 PDF 업로드 실패: ${customerResult.error.message}`);
        } else if (customerResult.data?.error) {
          console.error('[Generate PDF] Customer file upload API error:', customerResult.data.error);
-         results.errors.push(`고객용 파일 업로드 실패: ${customerResult.data.error}`);
+        results.errors.push(`고객용 PDF 업로드 실패: ${customerResult.data.error}`);
        } else {
          results.customer = customerResult.data;
-         console.log('[Generate PDF] Customer file uploaded successfully');
+        console.log('[Generate PDF] Customer PDF uploaded successfully');
        }
      } catch (err: any) {
        console.error('[Generate PDF] Customer file upload exception:', err);
-       results.errors.push(`고객용 파일 업로드 실패: ${err.message}`);
+      results.errors.push(`고객용 PDF 업로드 실패: ${err.message}`);
      }
  
-     // 내부용 HTML 파일 업로드
+    // 내부용 PDF 파일 업로드
      try {
        const internalResult = await supabaseClient.functions.invoke('pluuug-api', {
          body: {
            action: 'inquiry.file.upload',
            inquiryId: inquiryId,
-           fileName: `${fileNameBase}_내부용.html`,
-           fileContent: internalHtmlBase64,
-           mimeType: 'text/html',
+          fileName: `${fileNameBase}_내부용.pdf`,
+          fileContent: internalPdfBase64,
+          mimeType: 'application/pdf',
          }
        });
  
        if (internalResult.error) {
          console.error('[Generate PDF] Internal file upload error:', internalResult.error);
-         results.errors.push(`내부용 파일 업로드 실패: ${internalResult.error.message}`);
+        results.errors.push(`내부용 PDF 업로드 실패: ${internalResult.error.message}`);
        } else if (internalResult.data?.error) {
          console.error('[Generate PDF] Internal file upload API error:', internalResult.data.error);
-         results.errors.push(`내부용 파일 업로드 실패: ${internalResult.data.error}`);
+        results.errors.push(`내부용 PDF 업로드 실패: ${internalResult.data.error}`);
        } else {
          results.internal = internalResult.data;
-         console.log('[Generate PDF] Internal file uploaded successfully');
+        console.log('[Generate PDF] Internal PDF uploaded successfully');
        }
      } catch (err: any) {
        console.error('[Generate PDF] Internal file upload exception:', err);
-       results.errors.push(`내부용 파일 업로드 실패: ${err.message}`);
+      results.errors.push(`내부용 PDF 업로드 실패: ${err.message}`);
      }
  
      const success = results.customer || results.internal;
