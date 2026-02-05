@@ -41,6 +41,7 @@ interface SavedQuote {
   issuer_name: string | null;
   issuer_phone: string | null;
   issuer_email: string | null;
+  attachments: any;
 }
 
 interface UserProfile {
@@ -355,13 +356,21 @@ const SavedQuotesPage = () => {
         clientMemo: quote.recipient_memo,
       };
 
+      // attachments에서 견적서 PDF URL 추출
+      const attachmentsArray = Array.isArray(quote.attachments) ? quote.attachments : [];
+      const quotePdfAttachment = attachmentsArray.find((a: any) => 
+        typeof a === 'object' && a !== null && a.type === 'quote_pdf'
+      ) as { url?: string } | undefined;
+      const quotePdfUrl = quotePdfAttachment?.url;
+
       const pluuugData = convertQuoteToPluuugFormat(
         quote.items,
         recipient,
         quote.quote_number,
         quote.subtotal,
         quote.tax,
-        quote.total
+        quote.total,
+        quotePdfUrl
       );
 
       // Pluuug에 동기화 (고객 자동 등록 포함) - quotes 데이터도 전달하여 fieldSet 생성
