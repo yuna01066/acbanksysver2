@@ -38,7 +38,7 @@
      tempContainer.style.position = 'absolute';
      tempContainer.style.left = '-9999px';
      tempContainer.style.top = '0';
-     tempContainer.style.width = '210mm'; // A4 너비
+     tempContainer.style.width = '147mm'; // A4 너비의 70%
      tempContainer.style.backgroundColor = '#fff';
      tempContainer.appendChild(clonedElement);
      document.body.appendChild(tempContainer);
