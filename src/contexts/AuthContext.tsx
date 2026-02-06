@@ -10,7 +10,10 @@ interface Profile {
   phone?: string;
   department?: string;
   position?: string;
+  is_approved?: boolean;
 }
+
+export type AppRole = 'admin' | 'moderator' | 'manager' | 'employee';
 
 interface AuthContextType {
   user: User | null;
@@ -18,8 +21,10 @@ interface AuthContextType {
   profile: Profile | null;
   isAdmin: boolean;
   isModerator: boolean;
-  isUser: boolean;
-  userRole: 'admin' | 'moderator' | 'user' | null;
+  isManager: boolean;
+  isEmployee: boolean;
+  isApproved: boolean;
+  userRole: AppRole | null;
   loading: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -29,14 +34,25 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+export const ROLE_LABELS: Record<AppRole, string> = {
+  admin: '관리자',
+  moderator: '중간관리자',
+  manager: '담당자',
+  employee: '직원',
+};
+
+export const ROLE_HIERARCHY: AppRole[] = ['admin', 'moderator', 'manager', 'employee'];
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isModerator, setIsModerator] = useState(false);
-  const [isUser, setIsUser] = useState(false);
-  const [userRole, setUserRole] = useState<'admin' | 'moderator' | 'user' | null>(null);
+  const [isManager, setIsManager] = useState(false);
+  const [isEmployee, setIsEmployee] = useState(false);
+  const [isApproved, setIsApproved] = useState(false);
+  const [userRole, setUserRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
@@ -48,6 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!error && data) {
       setProfile(data);
+      setIsApproved(data.is_approved ?? false);
     }
   };
 
@@ -61,21 +78,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const roles = data.map(r => r.role);
       const admin = roles.includes('admin');
       const moderator = roles.includes('moderator');
-      const user = roles.includes('user');
+      const manager = roles.includes('manager');
+      const employee = roles.includes('employee');
+      // 하위 호환: 기존 'user' 역할
+      const legacyUser = roles.includes('user');
       
       setIsAdmin(admin);
       setIsModerator(moderator);
-      setIsUser(user);
+      setIsManager(manager);
+      setIsEmployee(employee || legacyUser);
       
-      // 우선순위: admin > moderator > user
+      // 우선순위: admin > moderator > manager > employee
       if (admin) setUserRole('admin');
       else if (moderator) setUserRole('moderator');
-      else if (user) setUserRole('user');
+      else if (manager) setUserRole('manager');
+      else if (employee || legacyUser) setUserRole('employee');
       else setUserRole(null);
     } else {
       setIsAdmin(false);
       setIsModerator(false);
-      setIsUser(false);
+      setIsManager(false);
+      setIsEmployee(false);
       setUserRole(null);
     }
   };
@@ -96,7 +119,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setProfile(null);
           setIsAdmin(false);
           setIsModerator(false);
-          setIsUser(false);
+          setIsManager(false);
+          setIsEmployee(false);
+          setIsApproved(false);
           setUserRole(null);
         }
       }
@@ -131,24 +156,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    if (!error) {
-      toast.success('회원가입이 완료되었습니다!');
-    }
-
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
 
-    if (!error) {
+    if (error) {
+      return { error };
+    }
+
+    // 로그인 성공 후 승인 여부 확인
+    if (data.user) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('is_approved')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profileData && !profileData.is_approved) {
+        // 미승인 사용자는 로그아웃 처리
+        await supabase.auth.signOut();
+        return { error: { message: 'PENDING_APPROVAL' } };
+      }
+      
       toast.success('로그인되었습니다!');
     }
 
-    return { error };
+    return { error: null };
   };
 
   const signOut = async () => {
@@ -158,7 +196,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(null);
     setIsAdmin(false);
     setIsModerator(false);
-    setIsUser(false);
+    setIsManager(false);
+    setIsEmployee(false);
+    setIsApproved(false);
     setUserRole(null);
     toast.success('로그아웃되었습니다!');
     window.location.href = '/';
@@ -180,6 +220,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // isUser 하위 호환성 (기존 코드에서 isUser를 쓰는 곳이 있을 수 있음)
+  const isUser = isEmployee;
+
   return (
     <AuthContext.Provider
       value={{
@@ -188,7 +231,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         isAdmin,
         isModerator,
-        isUser,
+        isManager,
+        isEmployee,
+        isApproved,
         userRole,
         loading,
         signUp,
