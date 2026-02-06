@@ -171,9 +171,12 @@ const AnnouncementCard = () => {
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{latestAnnouncement.title}</p>
-                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line line-clamp-5">
                   {latestAnnouncement.content}
                 </p>
+                {latestAnnouncement.content.split('\n').length > 5 && (
+                  <span className="text-xs text-primary mt-1 inline-block">... 더보기</span>
+                )}
               </div>
               <Badge variant="secondary" className="text-[10px] shrink-0">
                 {format(new Date(latestAnnouncement.created_at), 'M/d', { locale: ko })}
