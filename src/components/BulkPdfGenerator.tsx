@@ -149,9 +149,30 @@ const BulkPdfGenerator = ({ onComplete }: BulkPdfGeneratorProps) => {
       }
 
       setProgress(100);
-      setIsDone(true);
       setCurrentQuote(null);
       toast.success(`PDF 일괄 생성 완료: ${successCount}건 성공, ${failCount}건 실패`);
+
+      // PDF 생성 완료 후 Pluuug에 PDF 링크 업데이트
+      if (successCount > 0) {
+        toast.info('Pluuug에 PDF 링크를 업데이트하고 있습니다...');
+        try {
+          const { data: syncResult, error: syncError } = await supabase.functions.invoke('pluuug-bulk-resync', {
+            body: { skipDelete: true }
+          });
+          if (syncError) {
+            console.error('[Bulk PDF] Pluuug sync error:', syncError);
+            toast.warning('PDF는 생성되었지만 Pluuug 업데이트에 실패했습니다.');
+          } else {
+            console.log('[Bulk PDF] Pluuug sync result:', syncResult);
+            toast.success(`Pluuug PDF 링크 업데이트 완료: ${syncResult?.updated || 0}건 업데이트`);
+          }
+        } catch (syncErr: any) {
+          console.error('[Bulk PDF] Pluuug sync error:', syncErr);
+          toast.warning('PDF는 생성되었지만 Pluuug 업데이트에 실패했습니다.');
+        }
+      }
+
+      setIsDone(true);
       onComplete?.();
     } catch (err: any) {
       console.error('[Bulk PDF] Error:', err);
