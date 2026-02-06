@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { FileText, Upload, Trash2, Eye, Loader2, FileImage } from 'lucide-react';
+import { FileText, Upload, Trash2, Eye, Loader2, FileImage, ZoomIn, ZoomOut } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface RecipientDocumentUploadProps {
@@ -209,19 +209,9 @@ export function RecipientDocumentUpload({
             <DialogTitle className="flex items-center gap-2">
               <Eye className="w-5 h-5" />
               사업자 사본 미리보기
-              {!isPdf && previewUrl && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => setZoomed(!zoomed)}
-                >
-                  {zoomed ? '축소' : '확대'}
-                </Button>
-              )}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-auto min-h-0">
+          <div className="flex-1 overflow-auto min-h-0 relative">
             {previewLoading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -234,16 +224,26 @@ export function RecipientDocumentUpload({
                   title="사업자 사본 미리보기"
                 />
               ) : (
-                <img
-                  src={previewUrl}
-                  alt="사업자 사본"
-                  className={`mx-auto rounded cursor-pointer transition-all duration-300 ${
-                    zoomed
-                      ? 'max-w-none w-full object-contain'
-                      : 'max-w-full max-h-[70vh] object-contain'
-                  }`}
-                  onClick={() => setZoomed(!zoomed)}
-                />
+                <>
+                  <img
+                    src={previewUrl}
+                    alt="사업자 사본"
+                    className={`mx-auto rounded cursor-pointer transition-all duration-300 ${
+                      zoomed
+                        ? 'max-w-none w-full object-contain'
+                        : 'max-w-full max-h-[70vh] object-contain'
+                    }`}
+                    onClick={() => setZoomed(!zoomed)}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="absolute bottom-3 left-3 shadow-md"
+                    onClick={() => setZoomed(!zoomed)}
+                  >
+                    {zoomed ? <ZoomOut className="w-5 h-5" /> : <ZoomIn className="w-5 h-5" />}
+                  </Button>
+                </>
               )
             ) : null}
           </div>
