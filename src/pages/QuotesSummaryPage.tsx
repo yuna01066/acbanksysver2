@@ -30,7 +30,12 @@ const QuotesSummaryPage = () => {
     projectName: recipient?.projectName || '',
     quoteNumber: recipient?.quoteNumber || generateQuoteNumber(),
     quoteDate: recipient?.quoteDate || new Date(),
-    validUntil: '견적일자로 부터 14일',
+    validUntil: recipient?.validUntil || (() => {
+      const quoteDate = recipient?.quoteDate || new Date();
+      const validDate = new Date(quoteDate);
+      validDate.setDate(validDate.getDate() + 14);
+      return `${quoteDate.toLocaleDateString('ko-KR')} ~ ${validDate.toLocaleDateString('ko-KR')}`;
+    })(),
     deliveryPeriod: '최대 14일 소요 예상',
     paymentCondition: '선지급 조건',
     companyName: recipient?.companyName || '',
@@ -78,6 +83,12 @@ const QuotesSummaryPage = () => {
 
   const handleRecipientChange = (field: keyof QuoteRecipient, value: any) => {
     const newRecipientData = { ...recipientData, [field]: value };
+    // 견적일자 변경 시 유효기간 자동 재계산
+    if (field === 'quoteDate' && value instanceof Date) {
+      const validDate = new Date(value);
+      validDate.setDate(validDate.getDate() + 14);
+      newRecipientData.validUntil = `${value.toLocaleDateString('ko-KR')} ~ ${validDate.toLocaleDateString('ko-KR')}`;
+    }
     setRecipientData(newRecipientData);
     updateRecipient(newRecipientData);
   };
