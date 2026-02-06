@@ -4,12 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut } from "lucide-react";
 import DashboardCalendar from '@/components/DashboardCalendar';
+import NotificationPanel from '@/components/NotificationPanel';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/hooks/useNotifications';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 const Home = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, isAdmin, isModerator } = useAuth();
+  const { notifications, unviewedCount, markAsViewed, removeNotification, refresh: refreshNotifications } = useNotifications();
   const links = [{
     title: "홈페이지",
     icon: HomeIcon,
@@ -93,25 +96,38 @@ const Home = () => {
   return <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-6xl mx-auto">
-          {/* User Info / Login Button */}
-          <div className="flex justify-end items-center gap-4 mb-8">
-            {user ? (
-              <>
-                <Button variant="outline" onClick={() => navigate('/my-page')} className="gap-2">
-                  <User className="h-4 w-4" />
-                  {profile?.full_name || user.email}
+          {/* Top Bar */}
+          <div className="flex justify-between items-center gap-4 mb-8">
+            <div>
+              {user && (isAdmin || isModerator) && (
+                <NotificationPanel
+                  notifications={notifications}
+                  unviewedCount={unviewedCount}
+                  onMarkViewed={markAsViewed}
+                  onRemove={removeNotification}
+                  onRefresh={refreshNotifications}
+                />
+              )}
+            </div>
+            <div className="flex items-center gap-4">
+              {user ? (
+                <>
+                  <Button variant="outline" onClick={() => navigate('/my-page')} className="gap-2">
+                    <User className="h-4 w-4" />
+                    {profile?.full_name || user.email}
+                  </Button>
+                  <Button variant="ghost" onClick={signOut} className="gap-2">
+                    <LogOut className="h-4 w-4" />
+                    로그아웃
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={() => navigate('/auth')} className="gap-2">
+                  <LogIn className="h-4 w-4" />
+                  로그인
                 </Button>
-                <Button variant="ghost" onClick={signOut} className="gap-2">
-                  <LogOut className="h-4 w-4" />
-                  로그아웃
-                </Button>
-              </>
-            ) : (
-              <Button onClick={() => navigate('/auth')} className="gap-2">
-                <LogIn className="h-4 w-4" />
-                로그인
-              </Button>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Header */}
