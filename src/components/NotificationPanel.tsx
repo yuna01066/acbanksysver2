@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2 } from 'lucide-react';
+import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit } from 'lucide-react';
 import { AppNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -116,9 +116,17 @@ const NotificationPanel = ({
   const getIcon = (type: string) => {
     switch (type) {
       case 'password_reset':
-        return <KeyRound className="h-4 w-4 text-amber-500" />;
+        return <KeyRound className="h-4 w-4 text-warning" />;
       case 'pending_approval':
-        return <UserPlus className="h-4 w-4 text-blue-500" />;
+        return <UserPlus className="h-4 w-4 text-primary" />;
+      case 'system':
+        return <Megaphone className="h-4 w-4 text-accent" />;
+      case 'quote_update':
+        return <FileText className="h-4 w-4 text-primary" />;
+      case 'approval_complete':
+        return <UserCheck className="h-4 w-4 text-primary" />;
+      case 'quote_modified':
+        return <Edit className="h-4 w-4 text-accent" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
