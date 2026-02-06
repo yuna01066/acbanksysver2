@@ -189,13 +189,13 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
                 {/* 소재, 두께, 컬러 - 캐스케이딩 드롭다운 */}
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   <div className="space-y-2">
-                    <Label>소재</Label>
+                    <Label>재질</Label>
                     <Select
                       value={item.material}
                       onValueChange={(val) => updateItem(item.id, 'material', val)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="소재 선택" />
+                        <SelectValue placeholder="재질 선택" />
                       </SelectTrigger>
                       <SelectContent>
                         {materials.map((m) => (
@@ -213,7 +213,7 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
                       disabled={!item.material}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={item.material ? "두께 선택" : "소재를 먼저 선택"} />
+                        <SelectValue placeholder={item.material ? "두께 선택" : "재질을 먼저 선택"} />
                       </SelectTrigger>
                       <SelectContent>
                         {availableThicknesses.map((t) => (
