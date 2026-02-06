@@ -464,7 +464,7 @@ const SavedQuoteDetailPage = () => {
       <PrintStyles quoteNumber={quote.quote_number} projectName={quote.project_name} companyName={quote.recipient_company} isInternal={viewMode === 'internal'} />
       <div className="min-h-screen bg-gray-50 p-4">
         <div className="w-full max-w-4xl mx-auto print-container" id="saved-quote-print-container" ref={printContainerRef}>
-          <div className="mb-6 print:hidden">
+          <div className="mb-6 print:hidden flex justify-between items-center">
             <Button 
               variant="outline" 
               onClick={() => navigate('/')}
