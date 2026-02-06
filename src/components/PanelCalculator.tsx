@@ -732,16 +732,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         { label: `${item.name} (${item.quantity}개 × ₩${item.unitPrice.toLocaleString()})`, price: item.unitPrice * item.quantity }
       ];
       
-      // 상세 정보를 breakdown에 추가 (가격 0으로 정보성 표시)
-      if (sizeStr !== '-') {
-        breakdownItems.push({ label: `사이즈: ${sizeStr}`, price: 0 });
-      }
-      if (item.thickness.trim()) {
-        breakdownItems.push({ label: `두께: ${item.thickness}`, price: 0 });
-      }
-      if (item.color.trim()) {
-        breakdownItems.push({ label: `컬러: ${item.color}`, price: 0 });
-      }
+      // 기타사항만 breakdown에 추가 (사이즈/두께/컬러는 카드 상단에 표시)
       if (item.notes.trim()) {
         breakdownItems.push({ label: `기타: ${item.notes}`, price: 0 });
       }

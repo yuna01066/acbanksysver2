@@ -169,7 +169,7 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
                 
                 return (
                   <div key={idx} className="flex justify-between items-center text-sm">
-                    <span className="text-gray-700">{displayLabel}</span>
+                    <span className="text-gray-700 whitespace-pre-line">{displayLabel}</span>
                     {!isCustomerView && (
                       <span className="font-semibold text-gray-900">{formatPrice(item.price)}</span>
                     )}

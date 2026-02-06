@@ -184,8 +184,8 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
             <h4 className="text-sm font-medium text-gray-700 mb-2">가격 상세 내역 (단가)</h4>
             <div className="space-y-1">
               {quote.breakdown.map((item, itemIndex) => (
-                <div key={itemIndex} className="flex justify-between text-sm py-1 px-2 bg-gray-50 rounded">
-                  <span className="text-gray-600">{item.label}</span>
+              <div key={itemIndex} className="flex justify-between text-sm py-1 px-2 bg-gray-50 rounded">
+                  <span className="text-gray-600 whitespace-pre-line">{item.label}</span>
                   <span className="font-medium text-gray-900">{formatPrice(item.price)}</span>
                 </div>
               ))}
