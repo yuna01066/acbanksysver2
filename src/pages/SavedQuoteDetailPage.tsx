@@ -78,7 +78,7 @@ const SavedQuoteDetailPage = () => {
   const [quotePdf, setQuotePdf] = useState<QuotePdfAttachment | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const printContainerRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuth();
+  const { user, isAdmin, isModerator } = useAuth();
 
   useEffect(() => {
     if (id) {
@@ -475,8 +475,8 @@ const SavedQuoteDetailPage = () => {
               홈으로 돌아가기
             </Button>
             
-            {/* PDF 생성 버튼 */}
-            {!quotePdf && (
+            {/* PDF 생성 버튼 - 중간관리자 이상만 */}
+            {!quotePdf && (isAdmin || isModerator) && (
               <Button 
                 variant="outline" 
                 onClick={handleGeneratePdf}
