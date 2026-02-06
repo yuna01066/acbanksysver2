@@ -519,6 +519,7 @@ export type Database = {
           pluuug_synced: boolean | null
           pluuug_synced_at: string | null
           project_name: string | null
+          project_stage: string
           quote_date: string
           quote_date_display: string | null
           quote_number: string
@@ -554,6 +555,7 @@ export type Database = {
           pluuug_synced?: boolean | null
           pluuug_synced_at?: string | null
           project_name?: string | null
+          project_stage?: string
           quote_date?: string
           quote_date_display?: string | null
           quote_number: string
@@ -589,6 +591,7 @@ export type Database = {
           pluuug_synced?: boolean | null
           pluuug_synced_at?: string | null
           project_name?: string | null
+          project_stage?: string
           quote_date?: string
           quote_date_display?: string | null
           quote_number?: string
