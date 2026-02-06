@@ -235,6 +235,24 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       const colorType = searchParams.get('colorType');
       if (colorType) setSelectedColorType(decodeURIComponent(colorType));
       
+      // 색상 정보 복원
+      const selectedColorParam = searchParams.get('selectedColor');
+      if (selectedColorParam) {
+        const decodedColor = decodeURIComponent(selectedColorParam);
+        console.log('Restoring selectedColor:', decodedColor);
+        setSelectedColor(decodedColor);
+      }
+      const selectedColorHexParam = searchParams.get('selectedColorHex');
+      if (selectedColorHexParam) {
+        const decodedColorHex = decodeURIComponent(selectedColorHexParam);
+        console.log('Restoring selectedColorHex:', decodedColorHex);
+        setSelectedColorHex(decodedColorHex);
+      }
+      const customColorNameParam = searchParams.get('customColorName');
+      if (customColorNameParam) setCustomColorName(decodeURIComponent(customColorNameParam));
+      const customOpacityParam = searchParams.get('customOpacity');
+      if (customOpacityParam) setCustomOpacity(decodeURIComponent(customOpacityParam));
+      
       const processing = searchParams.get('processing');
       if (processing) {
         const decodedProcessing = decodeURIComponent(processing);
@@ -245,15 +263,13 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       const quantity = searchParams.get('quantity');
       if (quantity) setQty(parseInt(quantity) || 1);
       
-      // 견적 계산기 모드로 설정하고 가공 옵션 단계로 이동 (모든 기본 정보가 복원되었으므로)
+      // 견적 계산기 모드로 설정하고 색상 선택 단계로 이동
       setCalculatorType('quote');
       
-      // 가공 옵션 단계(8)로 바로 이동하여 수정할 수 있도록 함
-      if (thickness && size) {
-        console.log('Moving to processing step (8)');
-        setCurrentStep(8);
-      } else if (qualityParam) {
-        setCurrentStep(4); // 두께 선택 단계
+      // 색상 선택 단계(3)로 이동하여 수정할 수 있도록 함
+      if (qualityParam) {
+        console.log('Moving to color selection step (3)');
+        setCurrentStep(3);
       } else if (materialParam) {
         setCurrentStep(2); // 재질 선택 단계
       } else {
