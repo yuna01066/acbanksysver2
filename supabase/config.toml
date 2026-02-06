@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.pluuug-sync-colors]
 verify_jwt = false
+
+[functions.pluuug-reverse-sync]
+verify_jwt = false

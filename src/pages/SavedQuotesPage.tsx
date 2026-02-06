@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import CustomerQuoteCard from '@/components/CustomerQuoteCard';
 import QuoteCard from '@/components/QuoteCard';
 import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, Cloud, CloudOff, Loader2 } from 'lucide-react';
+import PluuugSyncEventsBanner from '@/components/PluuugSyncEventsBanner';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -446,6 +447,8 @@ const SavedQuotesPage = () => {
             <p className="text-muted-foreground">저장된 견적서를 확인하고 관리합니다</p>
           </div>
         </div>
+        {/* Pluuug Sync Events */}
+        <PluuugSyncEventsBanner onQuoteDeleted={fetchQuotes} />
 
         {/* Search, Filter and Sort */}
         <Card className="mb-6">
