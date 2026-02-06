@@ -98,7 +98,7 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
         {items.map((item, index) => {
           const materialId = getMaterialId(item.material);
           const availableThicknesses = materialId ? (thicknessMap[materialId] || []) : [];
-          const availableColors = materialId ? (colorMap[materialId] || []) : [];
+          const availableColors = materialId ? (colorMap[materialId] || []) : [] as { name: string; code: string | null }[];
 
           return (
             <Card key={item.id} className="border-border/50">
@@ -235,7 +235,17 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
                       </SelectTrigger>
                       <SelectContent>
                         {availableColors.map((c) => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                          <SelectItem key={c.name} value={c.name}>
+                            <span className="flex items-center gap-2">
+                              {c.code && (
+                                <span
+                                  className="inline-block w-4 h-4 rounded-sm border border-border shrink-0"
+                                  style={{ backgroundColor: c.code }}
+                                />
+                              )}
+                              {c.name}
+                            </span>
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
