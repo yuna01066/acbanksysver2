@@ -121,6 +121,13 @@ const AnnouncementsPage = () => {
 
   const togglePinMutation = useMutation({
     mutationFn: async ({ id, isPinned }: { id: string; isPinned: boolean }) => {
+      if (!isPinned) {
+        // Check if already 2 pinned
+        const pinnedCount = announcements?.filter(a => a.is_pinned).length || 0;
+        if (pinnedCount >= 2) {
+          throw new Error('고정 공지는 최대 2건까지 가능합니다.');
+        }
+      }
       const { error } = await supabase
         .from('announcements')
         .update({ is_pinned: !isPinned })
@@ -129,6 +136,9 @@ const AnnouncementsPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || '처리 실패');
     },
   });
 
@@ -145,6 +155,95 @@ const AnnouncementsPage = () => {
     setContent(a.content);
     setShowForm(true);
   };
+
+  const renderAnnouncementCard = (a: Announcement) => (
+    <Card key={a.id} className={a.is_pinned ? 'border-primary/30 bg-primary/5' : ''}>
+      <CardContent className="pt-5 pb-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              {a.is_pinned && (
+                <Pin className="h-3.5 w-3.5 text-primary shrink-0" />
+              )}
+              <h3 className="font-semibold text-lg">{a.title}</h3>
+            </div>
+            {(() => {
+              const isLong = a.content.split('\n').length > 5 || a.content.length > 300;
+              const isExpanded = expandedIds.has(a.id);
+              return (
+                <>
+                  <p className={`text-base text-foreground/80 whitespace-pre-wrap mt-2 leading-relaxed ${!isExpanded && isLong ? 'line-clamp-5' : ''}`}>
+                    {a.content}
+                  </p>
+                  {isLong && !isExpanded && (
+                    <button
+                      className="text-sm text-primary mt-1 hover:underline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedIds(prev => new Set(prev).add(a.id));
+                      }}
+                    >
+                      ... 더보기
+                    </button>
+                  )}
+                  {isLong && isExpanded && (
+                    <button
+                      className="text-sm text-muted-foreground mt-1 hover:underline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedIds(prev => { const s = new Set(prev); s.delete(a.id); return s; });
+                      }}
+                    >
+                      접기
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+            <div className="flex items-center gap-3 mt-3 text-sm text-muted-foreground">
+              <span>{a.author_name}</span>
+              <span>
+                {format(new Date(a.created_at), 'yyyy.MM.dd HH:mm', { locale: ko })}
+              </span>
+            </div>
+          </div>
+          {canManage && (
+            <div className="flex items-center gap-1 shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => togglePinMutation.mutate({ id: a.id, isPinned: a.is_pinned })}
+                title={a.is_pinned ? '고정 해제' : '상단 고정'}
+              >
+                <Pin className={`h-3.5 w-3.5 ${a.is_pinned ? 'text-primary' : 'text-muted-foreground'}`} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => handleEdit(a)}
+              >
+                <Edit className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-destructive"
+                onClick={() => {
+                  if (confirm('정말 삭제하시겠습니까?')) {
+                    deleteMutation.mutate(a.id);
+                  }
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   if (!user) {
     return (
@@ -212,95 +311,28 @@ const AnnouncementsPage = () => {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : announcements && announcements.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {announcements.map((a) => (
-              <Card key={a.id} className={a.is_pinned ? 'border-primary/30 bg-primary/5' : ''}>
-                <CardContent className="pt-5 pb-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        {a.is_pinned && (
-                          <Pin className="h-3.5 w-3.5 text-primary shrink-0" />
-                        )}
-                        <h3 className="font-semibold text-lg">{a.title}</h3>
-                      </div>
-                      {(() => {
-                        const isLong = a.content.split('\n').length > 5 || a.content.length > 300;
-                        const isExpanded = expandedIds.has(a.id);
-                        return (
-                          <>
-                            <p className={`text-base text-foreground/80 whitespace-pre-wrap mt-2 leading-relaxed ${!isExpanded && isLong ? 'line-clamp-5' : ''}`}>
-                              {a.content}
-                            </p>
-                            {isLong && !isExpanded && (
-                              <button
-                                className="text-sm text-primary mt-1 hover:underline"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setExpandedIds(prev => new Set(prev).add(a.id));
-                                }}
-                              >
-                                ... 더보기
-                              </button>
-                            )}
-                            {isLong && isExpanded && (
-                              <button
-                                className="text-sm text-muted-foreground mt-1 hover:underline"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setExpandedIds(prev => { const s = new Set(prev); s.delete(a.id); return s; });
-                                }}
-                              >
-                                접기
-                              </button>
-                            )}
-                          </>
-                        );
-                      })()}
-                      <div className="flex items-center gap-3 mt-3 text-sm text-muted-foreground">
-                        <span>{a.author_name}</span>
-                        <span>
-                          {format(new Date(a.created_at), 'yyyy.MM.dd HH:mm', { locale: ko })}
-                        </span>
-                      </div>
-                    </div>
-                    {canManage && (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => togglePinMutation.mutate({ id: a.id, isPinned: a.is_pinned })}
-                          title={a.is_pinned ? '고정 해제' : '상단 고정'}
-                        >
-                          <Pin className={`h-3.5 w-3.5 ${a.is_pinned ? 'text-primary' : 'text-muted-foreground'}`} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => handleEdit(a)}
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive"
-                          onClick={() => {
-                            if (confirm('정말 삭제하시겠습니까?')) {
-                              deleteMutation.mutate(a.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="space-y-6">
+            {/* Pinned announcements - top row */}
+            {(() => {
+              const pinned = announcements.filter(a => a.is_pinned);
+              if (pinned.length === 0) return null;
+              return (
+                <div className={`grid gap-4 ${pinned.length === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+                  {pinned.map((a) => renderAnnouncementCard(a))}
+                </div>
+              );
+            })()}
+
+            {/* Unpinned announcements - 2 column grid */}
+            {(() => {
+              const unpinned = announcements.filter(a => !a.is_pinned);
+              if (unpinned.length === 0) return null;
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {unpinned.map((a) => renderAnnouncementCard(a))}
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <div className="text-center py-16 text-muted-foreground">
