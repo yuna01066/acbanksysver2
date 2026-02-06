@@ -269,8 +269,8 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
         {filteredColors.length > 0 ? (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
             {filteredColors.map((color) => {
-              const isSelected = selectedColor === color.id;
               const acCode = color.color_name.split(' ')[0] || '';
+              const isSelected = selectedColor === color.id || selectedColor === acCode;
               
               return (
                 <div
