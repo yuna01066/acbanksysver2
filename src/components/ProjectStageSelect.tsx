@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
@@ -23,6 +24,8 @@ export function getStageInfo(value: string) {
 interface ProjectStageSelectProps {
   quoteId: string;
   currentStage: string;
+  quoteNumber?: string;
+  quoteUserId?: string;
   pluuugEstimateId: string | null;
   pluuugSynced: boolean | null;
   onStageChanged?: (newStage: string) => void;
@@ -31,10 +34,13 @@ interface ProjectStageSelectProps {
 const ProjectStageSelect = ({
   quoteId,
   currentStage,
+  quoteNumber,
+  quoteUserId,
   pluuugEstimateId,
   pluuugSynced,
   onStageChanged,
 }: ProjectStageSelectProps) => {
+  const { user } = useAuth();
   const [updating, setUpdating] = useState(false);
 
   const handleStageChange = async (newStage: string) => {
@@ -49,6 +55,20 @@ const ProjectStageSelect = ({
         .eq('id', quoteId);
 
       if (error) throw error;
+
+      // Send notification to the quote owner
+      const oldStageInfo = getStageInfo(currentStage);
+      const newStageInfo = getStageInfo(newStage);
+      const targetUserId = quoteUserId || user?.id;
+      if (targetUserId && targetUserId !== user?.id) {
+        await supabase.from('notifications').insert({
+          user_id: targetUserId,
+          type: 'quote_update',
+          title: '견적서 상태 변경',
+          description: `견적서 ${quoteNumber || ''} 상태가 "${oldStageInfo.label}"에서 "${newStageInfo.label}"(으)로 변경되었습니다.`,
+          data: { quoteId, oldStage: currentStage, newStage, quoteNumber },
+        });
+      }
 
       // 2. Sync to Pluuug if connected
       if (pluuugSynced && pluuugEstimateId) {

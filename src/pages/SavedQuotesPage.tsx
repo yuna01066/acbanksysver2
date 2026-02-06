@@ -624,6 +624,8 @@ const SavedQuotesPage = () => {
                       <ProjectStageSelect
                         quoteId={quote.id}
                         currentStage={quote.project_stage || 'quote_issued'}
+                        quoteNumber={quote.quote_number}
+                        quoteUserId={quote.user_id}
                         pluuugEstimateId={quote.pluuug_estimate_id}
                         pluuugSynced={quote.pluuug_synced}
                         onStageChanged={(newStage) => {
