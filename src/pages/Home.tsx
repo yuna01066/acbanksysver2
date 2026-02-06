@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone } from "lucide-react";
 import DashboardCalendar from '@/components/DashboardCalendar';
 import NotificationPanel from '@/components/NotificationPanel';
 import AnnouncementCard from '@/components/AnnouncementCard';
@@ -71,12 +71,19 @@ const Home = () => {
     requiresAuth: true,
     action: () => window.open("https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link", "_blank")
   }, {
+    title: "공지사항",
+    icon: Megaphone,
+    description: "공지사항 게시판",
+    url: "/announcements",
+    requiresAuth: true,
+    action: () => navigate("/announcements")
+  }, {
     title: "관리자 설정",
     icon: Settings,
     description: "가격 및 옵션 관리",
     url: "/admin-settings",
     requiresAuth: true,
-    requiresAdmin: true, // admin과 moderator만 접근
+    requiresAdmin: true,
     action: () => {
       if (isAdmin || isModerator) {
         navigate("/admin-settings");
@@ -84,6 +91,22 @@ const Home = () => {
         toast.error('관리자 또는 중간관리자만 접근할 수 있습니다.');
       }
     }
+  }, {
+    title: "",
+    icon: null,
+    description: "",
+    url: "",
+    requiresAuth: false,
+    placeholder: true,
+    action: () => {}
+  }, {
+    title: "",
+    icon: null,
+    description: "",
+    url: "",
+    requiresAuth: false,
+    placeholder: true,
+    action: () => {}
   }];
 
   const handleCardClick = (link: typeof links[0]) => {
@@ -153,9 +176,12 @@ const Home = () => {
           {/* Links Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {links.map((link, index) => {
+            if ((link as any).placeholder) {
+              return <div key={index} className="hidden lg:block" />;
+            }
             const Icon = link.icon;
             const isLocked = link.requiresAuth && !user;
-            const isAdminOnly = link.requiresAdmin && !isAdmin && !isModerator;
+            const isAdminOnly = (link as any).requiresAdmin && !isAdmin && !isModerator;
             return <Card 
               key={index} 
               className={cn(
@@ -188,10 +214,10 @@ const Home = () => {
                           ? "from-muted/20 to-muted/30" 
                           : "from-primary/20 to-accent/20 group-hover:from-primary/30 group-hover:to-accent/30"
                       )}>
-                        <Icon className={cn(
+                        {Icon && <Icon className={cn(
                           "w-8 h-8",
                           (isLocked || isAdminOnly) ? "text-muted-foreground" : "text-primary"
-                        )} />
+                        )} />}
                       </div>
                     </div>
                     <h3 className="text-xl font-semibold mb-2">{link.title}</h3>
