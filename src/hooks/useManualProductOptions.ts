@@ -48,14 +48,14 @@ export const useManualProductOptions = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('color_options')
-        .select('panel_master_id, color_name')
+        .select('panel_master_id, color_name, color_code')
         .eq('is_active', true)
         .order('display_order');
       if (error) throw error;
-      const map: Record<string, string[]> = {};
+      const map: Record<string, { name: string; code: string | null }[]> = {};
       for (const row of data) {
         if (!map[row.panel_master_id]) map[row.panel_master_id] = [];
-        map[row.panel_master_id].push(row.color_name);
+        map[row.panel_master_id].push({ name: row.color_name, code: row.color_code });
       }
       return map;
     },
