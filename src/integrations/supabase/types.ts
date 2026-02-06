@@ -543,6 +543,7 @@ export type Database = {
           address: string | null
           branch_number: string | null
           business_class: string | null
+          business_document_url: string | null
           business_registration_number: string | null
           business_type: string | null
           ceo_name: string | null
@@ -564,6 +565,7 @@ export type Database = {
           address?: string | null
           branch_number?: string | null
           business_class?: string | null
+          business_document_url?: string | null
           business_registration_number?: string | null
           business_type?: string | null
           ceo_name?: string | null
@@ -585,6 +587,7 @@ export type Database = {
           address?: string | null
           branch_number?: string | null
           business_class?: string | null
+          business_document_url?: string | null
           business_registration_number?: string | null
           business_type?: string | null
           ceo_name?: string | null

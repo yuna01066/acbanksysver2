@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRecipients, Recipient } from '@/hooks/useRecipients';
 import { usePluuugApi } from '@/hooks/usePluuugApi';
 import { RecipientEditDialog } from '@/components/RecipientEditDialog';
+import { RecipientDocumentUpload } from '@/components/RecipientDocumentUpload';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -420,6 +421,13 @@ const RecipientManagementPage = () => {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Business Document Upload */}
+                <RecipientDocumentUpload
+                  recipientId={selectedRecipient.id}
+                  documentUrl={(selectedRecipient as any).business_document_url || null}
+                  onDocumentChange={() => fetchRecipients()}
+                />
 
                 {/* Quote History */}
                 <Card>
