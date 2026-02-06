@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Calculator, Plus, ShoppingCart, Home } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calculator, Plus, ShoppingCart, Home } from "lucide-react";
 import { MATERIALS, CASTING_QUALITIES, OTHER_ACRYLIC_QUALITIES, Material, Quality } from "@/types/calculator";
 import ProcessingOptions from "./ProcessingOptions";
 import ColorMixingStep from "./ColorMixingStep";
@@ -939,11 +939,39 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
                   initialCustomOpacity={customOpacity}
                 />
               )}
+              {editMode === 'saved' && selectedColor && (
+                <div className="pt-4">
+                  <Button
+                    onClick={() => setCurrentStep(4)}
+                    size="lg"
+                    className="w-full text-base font-semibold"
+                  >
+                    다음 단계로 (기존 색상 유지)
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </div>
+              )}
             </>
           )}
 
           {/* Step 4: 두께 선택 */}
-          {currentStep === 4 && selectedColor && <ThicknessSelection thicknesses={selectedQuality.thicknesses} selectedThickness={selectedThickness} onThicknessSelect={handleThicknessSelect} />}
+          {currentStep === 4 && selectedColor && (
+            <>
+              <ThicknessSelection thicknesses={selectedQuality.thicknesses} selectedThickness={selectedThickness} onThicknessSelect={handleThicknessSelect} />
+              {editMode === 'saved' && selectedThickness && (
+                <div className="pt-4">
+                  <Button
+                    onClick={() => setCurrentStep(5)}
+                    size="lg"
+                    className="w-full text-base font-semibold"
+                  >
+                    다음 단계로 (기존 두께 유지)
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
 
           {/* Step 5: 사이즈 선택 (다중 선택 가능) */}
           {currentStep === 5 && selectedThickness && (
