@@ -84,7 +84,9 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
 
   // selectedProcessing에서 기존 선택값 복원
   React.useEffect(() => {
-    if (hasRestoredSelection || !selectedProcessing || !processingOptions || !categories || isLoading || isLoadingCategories || isLoadingLogic) return;
+    if (hasRestoredSelection || !selectedProcessing || !processingOptions?.length || !categories?.length || isLoading || isLoadingCategories || isLoadingLogic) return;
+    
+    console.log('Attempting to restore processing selection:', selectedProcessing);
     
     const optionIds = selectedProcessing.includes('|') 
       ? selectedProcessing.split('|') 
@@ -92,7 +94,12 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     
     // 첫 번째 옵션 ID로 카테고리 찾기
     const firstOption = processingOptions.find(opt => opt.option_id === optionIds[0]);
-    if (!firstOption) return;
+    if (!firstOption) {
+      console.log('Could not find option for:', optionIds[0]);
+      return;
+    }
+    
+    console.log('Found first option:', firstOption.option_id, 'type:', firstOption.option_type);
     
     // 해당 옵션이 속한 카테고리 찾기 (category_logic_slots에서)
     const activeCategories = categories.filter(c => c.is_active);
@@ -102,7 +109,6 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
       const logicSlots = getCategoryLogicSlots(cat.category_key);
       const allowedSlotKeys = logicSlots.map(l => l.slot_key);
       
-      // 첫 번째 옵션의 option_type이 이 카테고리의 슬롯에 포함되는지 확인
       if (allowedSlotKeys.includes(firstOption.option_type)) {
         foundCategory = cat.category_key;
         break;
@@ -124,8 +130,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
       setSelectedSlots(restoredSlots);
       setHasRestoredSelection(true);
       console.log('Restored processing selection:', { category: foundCategory, slots: restoredSlots });
+    } else {
+      console.log('Could not find category for option type:', firstOption.option_type);
     }
-  }, [selectedProcessing, processingOptions, categories, isLoading, isLoadingCategories, isLoadingLogic, hasRestoredSelection]);
+  }, [selectedProcessing, processingOptions, categories, isLoading, isLoadingCategories, isLoadingLogic, hasRestoredSelection, getCategoryLogicSlots]);
 
   const getCategorySlots = (category: string) => {
     if (!processingOptions) return {};

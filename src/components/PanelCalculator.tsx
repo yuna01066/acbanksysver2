@@ -531,7 +531,10 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   };
 
   const handleNextFromMultipleSize = () => {
-    resetFromStep(6);
+    // 편집 모드에서는 면수/조색비/가공 선택값을 유지
+    if (editMode !== 'saved') {
+      resetFromStep(6);
+    }
     setCurrentStep(6);
   };
   const handleSurfaceSelect = (surface: string) => {
@@ -548,7 +551,10 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   };
 
   const handleNextFromMultipleSurface = () => {
-    resetFromStep(7);
+    // 편집 모드에서는 가공 선택값을 유지
+    if (editMode !== 'saved') {
+      resetFromStep(7);
+    }
     setCurrentStep(7);
   };
   const handleColorMixingAdd = () => {
