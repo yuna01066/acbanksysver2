@@ -100,7 +100,7 @@ export function usePluuugSyncEvents() {
       const { data, error } = await supabase.functions.invoke('pluuug-reverse-sync');
       if (error) throw error;
       console.log('[Reverse Sync] Result:', data);
-      toast.success(`동기화 확인 완료: ${data?.checked || 0}건 확인, ${data?.events || 0}건 변경 감지`);
+      toast.success(`동기화 확인 완료: ${data?.checked || 0}건 확인, ${data?.autoUnlinked || 0}건 자동 해제, ${data?.events || 0}건 변경 감지`);
       await fetchEvents();
     } catch (err: any) {
       console.error('[Reverse Sync] Error:', err);
