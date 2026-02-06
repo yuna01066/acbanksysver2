@@ -456,6 +456,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         thickness: '',
         color: '',
         colorHex: '',
+        surfaceType: '',
         notes: ''
       }]);
       setCurrentStep(100); // 제품 제작 전용 단계
@@ -756,7 +757,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         selectedColorHex: item.colorHex || '',
         customColorName: '',
         customOpacity: '',
-        surface: item.notes || '-',
+        surface: item.surfaceType || '-',
         colorMixingCost: 0,
         processing: 'manual',
         processingName: `${item.itemNumber ? `[${item.itemNumber}] ` : ''}${item.name}`,
