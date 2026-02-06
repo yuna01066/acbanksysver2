@@ -746,7 +746,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
 
       const quoteData = {
         factory: 'jangwon',
-        material: '제품 제작',
+        material: item.material || '제품 제작',
         quality: item.itemNumber ? `[${item.itemNumber}]` : '',
         thickness: item.thickness || '-',
         size: sizeStr,
@@ -760,7 +760,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         processing: 'manual',
         processingName: item.name,
         totalPrice: item.unitPrice * item.quantity,
-        quantity: 1, // 수량은 이미 totalPrice에 반영됨
+        quantity: 1,
         breakdown: breakdownItems
       };
       addQuote(quoteData);
