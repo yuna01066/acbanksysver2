@@ -212,7 +212,7 @@ const AnnouncementsPage = () => {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : announcements && announcements.length > 0 ? (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {announcements.map((a) => (
               <Card key={a.id} className={a.is_pinned ? 'border-primary/30 bg-primary/5' : ''}>
                 <CardContent className="pt-5 pb-4">
@@ -222,19 +222,19 @@ const AnnouncementsPage = () => {
                         {a.is_pinned && (
                           <Pin className="h-3.5 w-3.5 text-primary shrink-0" />
                         )}
-                        <h3 className="font-semibold text-base">{a.title}</h3>
+                        <h3 className="font-semibold text-lg">{a.title}</h3>
                       </div>
                       {(() => {
                         const isLong = a.content.split('\n').length > 5 || a.content.length > 300;
                         const isExpanded = expandedIds.has(a.id);
                         return (
                           <>
-                            <p className={`text-sm text-foreground/80 whitespace-pre-wrap mt-2 ${!isExpanded && isLong ? 'line-clamp-5' : ''}`}>
+                            <p className={`text-base text-foreground/80 whitespace-pre-wrap mt-2 leading-relaxed ${!isExpanded && isLong ? 'line-clamp-5' : ''}`}>
                               {a.content}
                             </p>
                             {isLong && !isExpanded && (
                               <button
-                                className="text-xs text-primary mt-1 hover:underline"
+                                className="text-sm text-primary mt-1 hover:underline"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setExpandedIds(prev => new Set(prev).add(a.id));
@@ -245,7 +245,7 @@ const AnnouncementsPage = () => {
                             )}
                             {isLong && isExpanded && (
                               <button
-                                className="text-xs text-muted-foreground mt-1 hover:underline"
+                                className="text-sm text-muted-foreground mt-1 hover:underline"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setExpandedIds(prev => { const s = new Set(prev); s.delete(a.id); return s; });
@@ -257,7 +257,7 @@ const AnnouncementsPage = () => {
                           </>
                         );
                       })()}
-                      <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-3 mt-3 text-sm text-muted-foreground">
                         <span>{a.author_name}</span>
                         <span>
                           {format(new Date(a.created_at), 'yyyy.MM.dd HH:mm', { locale: ko })}
