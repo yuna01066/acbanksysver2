@@ -96,8 +96,8 @@ const AnnouncementCard = () => {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Megaphone className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">공지사항</CardTitle>
+            <Megaphone className="h-6 w-6 text-primary" />
+            <CardTitle className="text-xl">공지사항</CardTitle>
           </div>
           <div className="flex items-center gap-2">
             {canPost && (
@@ -170,19 +170,19 @@ const AnnouncementCard = () => {
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{latestAnnouncement.title}</p>
-                <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line line-clamp-5">
+                <p className="text-base font-medium truncate">{latestAnnouncement.title}</p>
+                <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line line-clamp-5 leading-relaxed">
                   {latestAnnouncement.content}
                 </p>
                 {latestAnnouncement.content.split('\n').length > 5 && (
-                  <span className="text-xs text-primary mt-1 inline-block">... 더보기</span>
+                  <span className="text-sm text-primary mt-1 inline-block">... 더보기</span>
                 )}
               </div>
-              <Badge variant="secondary" className="text-[10px] shrink-0">
+              <Badge variant="secondary" className="text-xs shrink-0">
                 {format(new Date(latestAnnouncement.created_at), 'M/d', { locale: ko })}
               </Badge>
             </div>
-            <p className="text-[10px] text-muted-foreground/60 mt-1">
+            <p className="text-xs text-muted-foreground/60 mt-1">
               {latestAnnouncement.author_name}
             </p>
           </div>
