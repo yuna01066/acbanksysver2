@@ -224,7 +224,7 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    <Label>컬러</Label>
+                    <Label>색상</Label>
                     <Select
                       value={item.color}
                       onValueChange={(val) => updateItem(item.id, 'color', val)}
