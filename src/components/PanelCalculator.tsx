@@ -233,31 +233,28 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       }
       
       const colorType = searchParams.get('colorType');
-      if (colorType) setSelectedColorType(decodeURIComponent(colorType));
+      if (colorType) setSelectedColorType(colorType);
       
       // 색상 정보 복원
       const selectedColorParam = searchParams.get('selectedColor');
       if (selectedColorParam) {
-        const decodedColor = decodeURIComponent(selectedColorParam);
-        console.log('Restoring selectedColor:', decodedColor);
-        setSelectedColor(decodedColor);
+        console.log('Restoring selectedColor:', selectedColorParam);
+        setSelectedColor(selectedColorParam);
       }
       const selectedColorHexParam = searchParams.get('selectedColorHex');
       if (selectedColorHexParam) {
-        const decodedColorHex = decodeURIComponent(selectedColorHexParam);
-        console.log('Restoring selectedColorHex:', decodedColorHex);
-        setSelectedColorHex(decodedColorHex);
+        console.log('Restoring selectedColorHex:', selectedColorHexParam);
+        setSelectedColorHex(selectedColorHexParam);
       }
       const customColorNameParam = searchParams.get('customColorName');
-      if (customColorNameParam) setCustomColorName(decodeURIComponent(customColorNameParam));
+      if (customColorNameParam) setCustomColorName(customColorNameParam);
       const customOpacityParam = searchParams.get('customOpacity');
-      if (customOpacityParam) setCustomOpacity(decodeURIComponent(customOpacityParam));
+      if (customOpacityParam) setCustomOpacity(customOpacityParam);
       
       const processing = searchParams.get('processing');
       if (processing) {
-        const decodedProcessing = decodeURIComponent(processing);
-        console.log('Restoring processing:', decodedProcessing);
-        setSelectedProcessing(decodedProcessing);
+        console.log('Restoring processing:', processing);
+        setSelectedProcessing(processing);
       }
       
       const quantity = searchParams.get('quantity');
