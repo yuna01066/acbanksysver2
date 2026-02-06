@@ -922,7 +922,10 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
                 <ColorSelection 
                   selectedColor={selectedColor} 
                   selectedQuality={selectedQuality} 
-                  onColorSelect={handleColorSelect} 
+                  onColorSelect={handleColorSelect}
+                  initialCustomColor={selectedColorHex}
+                  initialCustomColorName={customColorName}
+                  initialCustomOpacity={customOpacity}
                 />
               )}
             </>

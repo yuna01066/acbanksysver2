@@ -23,17 +23,24 @@ interface ColorSelectionProps {
     customOpacity?: string;
   }) => void;
   selectedQuality?: { id: string; name: string } | null;
+  initialCustomColor?: string;
+  initialCustomColorName?: string;
+  initialCustomOpacity?: string;
 }
 
 const ColorSelection: React.FC<ColorSelectionProps> = ({ 
   selectedColor, 
   onColorSelect, 
-  selectedQuality 
+  selectedQuality,
+  initialCustomColor,
+  initialCustomColorName,
+  initialCustomOpacity
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [customColor, setCustomColor] = useState('#ffffff');
-  const [customColorName, setCustomColorName] = useState('');
-  const [customOpacity, setCustomOpacity] = useState('');
+  const [customColor, setCustomColor] = useState(initialCustomColor || '#ffffff');
+  const [customColorName, setCustomColorName] = useState(initialCustomColorName || '');
+  const [customOpacity, setCustomOpacity] = useState(initialCustomOpacity || '');
+  const isCustomSelected = selectedColor?.startsWith('CUSTOM');
   const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false);
 
   // panel_master 조회
@@ -163,9 +170,21 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
         
         <Dialog open={isCustomDialogOpen} onOpenChange={setIsCustomDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="flex items-center gap-2 whitespace-nowrap">
+            <Button 
+              variant="outline" 
+              className={`flex items-center gap-2 whitespace-nowrap ${
+                isCustomSelected ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary' : ''
+              }`}
+            >
+              {isCustomSelected && customColor && (
+                <div 
+                  className="w-4 h-4 rounded border border-border" 
+                  style={{ backgroundColor: customColor }}
+                />
+              )}
               <Palette className="h-4 w-4" />
               커스텀 조색
+              {isCustomSelected && <span className="text-xs">(선택됨)</span>}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md bg-background">
