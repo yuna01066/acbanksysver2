@@ -3,18 +3,21 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Cloud, CloudOff, Trash2, Unlink, X, RefreshCw, AlertTriangle, Edit } from 'lucide-react';
+import { CloudOff, Trash2, Unlink, X, RefreshCw, AlertTriangle, Edit } from 'lucide-react';
 import { PluuugSyncEvent, usePluuugSyncEvents } from '@/hooks/usePluuugSyncEvents';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Props {
   onQuoteDeleted?: () => void;
 }
 
 export default function PluuugSyncEventsBanner({ onQuoteDeleted }: Props) {
+  const { isAdmin } = useAuth();
   const { events, loading, resolveEvent, triggerManualSync } = usePluuugSyncEvents();
-  const [actionEventId, setActionEventId] = useState<string | null>(null);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
-  if (events.length === 0) {
+  // 관리자만 볼 수 있음
+  if (!isAdmin || events.length === 0) {
     return null;
   }
 
@@ -23,8 +26,25 @@ export default function PluuugSyncEventsBanner({ onQuoteDeleted }: Props) {
     if (action === 'delete_local') {
       onQuoteDeleted?.();
     }
-    setActionEventId(null);
   };
+
+  const handleBulkAction = async (action: 'delete_local' | 'unlink' | 'dismiss') => {
+    setBulkProcessing(true);
+    try {
+      for (const event of events) {
+        await resolveEvent(event.id, action);
+      }
+      if (action === 'delete_local') {
+        onQuoteDeleted?.();
+      }
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const isProcessing = loading || bulkProcessing;
+  const deletedEvents = events.filter(e => e.event_type === 'deleted');
+  const modifiedEvents = events.filter(e => e.event_type === 'modified');
 
   return (
     <Card className="mb-6 border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700">
@@ -38,11 +58,72 @@ export default function PluuugSyncEventsBanner({ onQuoteDeleted }: Props) {
             size="sm"
             variant="ghost"
             onClick={triggerManualSync}
-            disabled={loading}
+            disabled={isProcessing}
             className="ml-auto"
           >
-            <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 mr-1 ${isProcessing ? 'animate-spin' : ''}`} />
             다시 확인
+          </Button>
+        </div>
+
+        {/* 일괄 처리 버튼 */}
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {deletedEvents.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="destructive" disabled={isProcessing}>
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  전체 로컬 삭제 ({deletedEvents.length}건)
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>전체 로컬 견적서 삭제</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Pluuug에서 삭제된 {deletedEvents.length}건의 견적서를 로컬에서도 모두 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>취소</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleBulkAction('delete_local')}>
+                    전체 삭제
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="outline" disabled={isProcessing}>
+                <Unlink className="w-3 h-3 mr-1" />
+                전체 연결 해제 ({events.length}건)
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>전체 연결 해제</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {events.length}건의 견적서에 대해 Pluuug 연결을 모두 해제하시겠습니까? 로컬 견적서는 유지됩니다.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction onClick={() => handleBulkAction('unlink')}>
+                  전체 해제
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={isProcessing}
+            onClick={() => handleBulkAction('dismiss')}
+          >
+            <X className="w-3 h-3 mr-1" />
+            전체 무시
           </Button>
         </div>
 
@@ -51,7 +132,7 @@ export default function PluuugSyncEventsBanner({ onQuoteDeleted }: Props) {
             <SyncEventItem
               key={event.id}
               event={event}
-              loading={loading}
+              loading={isProcessing}
               onResolve={handleResolve}
             />
           ))}
@@ -86,9 +167,7 @@ function SyncEventItem({
             견적번호: {quoteNumber}
           </p>
           <p className="text-xs text-muted-foreground">
-            {isDeleted
-              ? 'Pluuug에서 삭제됨'
-              : 'Pluuug에서 수정됨'}
+            {isDeleted ? 'Pluuug에서 삭제됨' : 'Pluuug에서 수정됨'}
           </p>
         </div>
         <Badge variant={isDeleted ? 'destructive' : 'secondary'}>
@@ -122,34 +201,19 @@ function SyncEventItem({
               </AlertDialogContent>
             </AlertDialog>
 
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={loading}
-              onClick={() => onResolve(event.id, 'unlink')}
-            >
+            <Button size="sm" variant="outline" disabled={loading} onClick={() => onResolve(event.id, 'unlink')}>
               <Unlink className="w-3 h-3 mr-1" />
               연결 해제
             </Button>
           </>
         ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={loading}
-            onClick={() => onResolve(event.id, 'unlink')}
-          >
+          <Button size="sm" variant="outline" disabled={loading} onClick={() => onResolve(event.id, 'unlink')}>
             <Unlink className="w-3 h-3 mr-1" />
             연결 해제 후 재동기화
           </Button>
         )}
 
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={loading}
-          onClick={() => onResolve(event.id, 'dismiss')}
-        >
+        <Button size="sm" variant="ghost" disabled={loading} onClick={() => onResolve(event.id, 'dismiss')}>
           <X className="w-3 h-3" />
         </Button>
       </div>
