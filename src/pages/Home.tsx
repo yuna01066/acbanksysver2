@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut } from "lucide-react";
+import DashboardCalendar from '@/components/DashboardCalendar';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -118,6 +119,13 @@ const Home = () => {
             <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">ACBANK</h1>
             <p className="text-xl text-muted-foreground">아크뱅크 내부 관리 시스템</p>
           </div>
+
+          {/* Calendar - 로그인한 사용자만 */}
+          {user && (
+            <div className="mb-10">
+              <DashboardCalendar />
+            </div>
+          )}
 
           {/* Links Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
