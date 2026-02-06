@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { syncQuoteToPluuug, convertQuoteToPluuugFormat } from '@/utils/pluuugSync';
 import BulkPdfGenerator from '@/components/BulkPdfGenerator';
-import ProjectStageSelect from '@/components/ProjectStageSelect';
+import ProjectStageSelect, { PROJECT_STAGES, getStageInfo } from '@/components/ProjectStageSelect';
 
 interface SavedQuote {
   id: string;
@@ -69,6 +69,7 @@ const SavedQuotesPage = () => {
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [userFilter, setUserFilter] = useState<string>('all'); // 'all' or user_id
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [stageFilter, setStageFilter] = useState<string>('all');
   const [syncingQuoteId, setSyncingQuoteId] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 50;
 
@@ -84,7 +85,7 @@ const SavedQuotesPage = () => {
 
   useEffect(() => {
     filterQuotes();
-  }, [searchTerm, dateFilter, quotes, sortBy]);
+  }, [searchTerm, dateFilter, quotes, sortBy, stageFilter]);
 
   useEffect(() => {
     setCurrentPage(1); // 검색어 변경 시 첫 페이지로
@@ -195,6 +196,10 @@ const SavedQuotesPage = () => {
       filtered = filtered.filter(quote => 
         quote.quote_date.startsWith(dateFilter)
       );
+    }
+
+    if (stageFilter !== 'all') {
+      filtered = filtered.filter(quote => quote.project_stage === stageFilter);
     }
 
     // 정렬 적용
@@ -510,6 +515,27 @@ const SavedQuotesPage = () => {
                   <SelectItem value="number-asc">견적번호 오름차순</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            {/* Stage Filter */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted-foreground mr-1">단계:</span>
+              <Badge
+                variant={stageFilter === 'all' ? 'default' : 'outline'}
+                className="cursor-pointer text-xs"
+                onClick={() => setStageFilter('all')}
+              >
+                전체
+              </Badge>
+              {PROJECT_STAGES.map((s) => (
+                <Badge
+                  key={s.value}
+                  variant="outline"
+                  className={`cursor-pointer text-xs ${stageFilter === s.value ? s.color + ' border-current' : ''}`}
+                  onClick={() => setStageFilter(s.value)}
+                >
+                  {s.label}
+                </Badge>
+              ))}
             </div>
             {isAdmin && (
               <div className="mt-3 flex items-center gap-2">
