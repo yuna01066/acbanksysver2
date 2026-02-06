@@ -426,8 +426,45 @@ const RecipientManagementPage = () => {
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
         onSave={async (id, updates) => {
+          // 수정 전 기존 정보 저장 (견적서 매칭용)
+          const oldRecipient = recipients.find(r => r.id === id);
           const result = await updateRecipient(id, updates);
-          if (result) await fetchRecipients();
+          if (result && oldRecipient) {
+            // 관련 견적서의 수신자 정보도 일괄 업데이트
+            try {
+              const quoteUpdates: Record<string, any> = {};
+              if (updates.company_name) quoteUpdates.recipient_company = updates.company_name;
+              if (updates.contact_person) quoteUpdates.recipient_name = updates.contact_person;
+              if (updates.phone) quoteUpdates.recipient_phone = updates.phone;
+              if (updates.email) quoteUpdates.recipient_email = updates.email;
+              if (updates.address !== undefined) quoteUpdates.recipient_address = updates.address || null;
+
+              if (Object.keys(quoteUpdates).length > 0) {
+                const { error } = await supabase
+                  .from('saved_quotes')
+                  .update(quoteUpdates)
+                  .eq('recipient_company', oldRecipient.company_name)
+                  .eq('recipient_name', oldRecipient.contact_person);
+
+                if (error) {
+                  console.error('견적서 수신자 정보 동기화 에러:', error);
+                  toast.error('고객사 정보는 수정되었지만, 일부 견적서 동기화에 실패했습니다.');
+                } else {
+                  toast.success('관련 견적서의 수신자 정보도 함께 업데이트되었습니다.');
+                }
+              }
+            } catch (err) {
+              console.error('견적서 동기화 에러:', err);
+            }
+
+            await fetchRecipients();
+            // 견적 히스토리도 새로고침
+            if (selectedRecipientId === id) {
+              const newCompany = updates.company_name || oldRecipient.company_name;
+              const newContact = updates.contact_person || oldRecipient.contact_person;
+              fetchQuoteHistory(newCompany, newContact);
+            }
+          }
           return result;
         }}
       />
