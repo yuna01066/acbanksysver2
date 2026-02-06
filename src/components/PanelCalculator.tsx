@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
@@ -660,7 +661,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         // 기존 견적서 데이터 가져오기
         const { data: existingQuote, error: fetchError } = await supabase
           .from('saved_quotes')
-          .select('items, subtotal, tax, total')
+          .select('items, subtotal, tax, total, pluuug_synced, pluuug_estimate_id, quote_number, project_name, recipient_company, recipient_name, recipient_phone, recipient_email, recipient_address, recipient_memo, quote_date_display, valid_until, delivery_period, payment_condition, desired_delivery_date, issuer_name, issuer_email, issuer_phone, attachments, user_id')
           .eq('id', savedQuoteId)
           .single();
 
@@ -695,6 +696,66 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
           .eq('id', savedQuoteId);
 
         if (updateError) throw updateError;
+
+        // Pluuug 동기화된 견적서이면 Pluuug도 업데이트
+        if (existingQuote.pluuug_synced && existingQuote.pluuug_estimate_id) {
+          try {
+            const { syncQuoteToPluuug, convertQuoteToPluuugFormat } = await import('@/utils/pluuugSync');
+            
+            // 견적서 PDF URL 추출
+            const attachmentsArray = Array.isArray(existingQuote.attachments) ? existingQuote.attachments : [];
+            const quotePdfAttachment = attachmentsArray.find((a: any) => 
+              typeof a === 'object' && a !== null && a.type === 'quote_pdf'
+            );
+            const quotePdfUrl = (quotePdfAttachment as any)?.url;
+
+            const pluuugRecipient = {
+              projectName: existingQuote.project_name,
+              companyName: existingQuote.recipient_company,
+              contactPerson: existingQuote.recipient_name,
+              phoneNumber: existingQuote.recipient_phone,
+              email: existingQuote.recipient_email,
+              deliveryAddress: existingQuote.recipient_address,
+              clientMemo: existingQuote.recipient_memo,
+              quoteDate: existingQuote.quote_date_display,
+              validUntil: existingQuote.valid_until,
+              deliveryPeriod: existingQuote.delivery_period,
+              paymentCondition: existingQuote.payment_condition,
+              desiredDeliveryDate: existingQuote.desired_delivery_date,
+              issuerName: existingQuote.issuer_name,
+              issuerPhone: existingQuote.issuer_phone,
+              issuerEmail: existingQuote.issuer_email,
+            };
+
+            const pluuugData = convertQuoteToPluuugFormat(
+              items,
+              pluuugRecipient,
+              existingQuote.quote_number,
+              roundedSubtotal,
+              newTax,
+              newTotal,
+              quotePdfUrl
+            );
+
+            const syncResult = await syncQuoteToPluuug(
+              pluuugData,
+              existingQuote.user_id,
+              pluuugRecipient,
+              null,
+              items,
+              existingQuote.pluuug_estimate_id
+            );
+
+            if (syncResult.success) {
+              toast.success('Pluuug 의뢰도 업데이트되었습니다!');
+            } else {
+              toast.warning(`Pluuug 업데이트 실패: ${syncResult.error}`);
+            }
+          } catch (syncErr: any) {
+            console.error('[Edit Mode] Pluuug sync error:', syncErr);
+            toast.warning('Pluuug 업데이트에 실패했습니다.');
+          }
+        }
 
         alert('견적 항목이 수정되었습니다!');
         
