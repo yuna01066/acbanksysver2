@@ -38,7 +38,7 @@ const RecipientManagementPage = () => {
     recipients, loading, fetchRecipients, updateRecipient, deleteRecipient,
     markAsSyncedToPluuug, toPluuugClientData,
   } = useRecipients();
-  const { getClients, getClientStatuses, createClient, loading: pluuugLoading } = usePluuugApi();
+  const { getClients, getClientStatuses, createClient, updateClient, loading: pluuugLoading } = usePluuugApi();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(
@@ -430,7 +430,7 @@ const RecipientManagementPage = () => {
           const oldRecipient = recipients.find(r => r.id === id);
           const result = await updateRecipient(id, updates);
           if (result && oldRecipient) {
-            // 관련 견적서의 수신자 정보도 일괄 업데이트
+            // 1. 관련 견적서의 수신자 정보도 일괄 업데이트
             try {
               const quoteUpdates: Record<string, any> = {};
               if (updates.company_name) quoteUpdates.recipient_company = updates.company_name;
@@ -455,6 +455,39 @@ const RecipientManagementPage = () => {
               }
             } catch (err) {
               console.error('견적서 동기화 에러:', err);
+            }
+
+            // 2. Pluuug 연동된 고객이면 Pluuug에도 업데이트
+            if (oldRecipient.pluuug_client_id) {
+              try {
+                const pluuugUpdates: Record<string, any> = {};
+                if (updates.company_name) pluuugUpdates.companyName = updates.company_name;
+                if (updates.contact_person) pluuugUpdates.inCharge = updates.contact_person;
+                if (updates.phone) pluuugUpdates.contact = updates.phone;
+                if (updates.email) pluuugUpdates.email = updates.email;
+                if (updates.position) pluuugUpdates.position = updates.position;
+                if (updates.ceo_name) pluuugUpdates.ceoName = updates.ceo_name;
+                if (updates.business_registration_number) pluuugUpdates.businessRegistrationNumber = updates.business_registration_number;
+                if (updates.business_type) pluuugUpdates.businessType = updates.business_type;
+                if (updates.business_class) pluuugUpdates.businessClass = updates.business_class;
+                if (updates.branch_number) pluuugUpdates.branchNumber = updates.branch_number;
+                if (updates.address !== undefined) pluuugUpdates.companyAddress = updates.address || '미지정';
+                if (updates.detail_address !== undefined) pluuugUpdates.companyDetailAddress = updates.detail_address || '미지정';
+                if (updates.memo !== undefined) pluuugUpdates.content = updates.memo || '';
+
+                if (Object.keys(pluuugUpdates).length > 0) {
+                  const pluuugResult = await updateClient(oldRecipient.pluuug_client_id, pluuugUpdates);
+                  if (pluuugResult.error) {
+                    console.error('Pluuug 고객 정보 동기화 에러:', pluuugResult.error);
+                    toast.error('Pluuug 고객 정보 동기화에 실패했습니다.');
+                  } else {
+                    toast.success('Pluuug 고객 정보도 함께 업데이트되었습니다.');
+                  }
+                }
+              } catch (err) {
+                console.error('Pluuug 동기화 에러:', err);
+                toast.error('Pluuug 동기화 중 오류가 발생했습니다.');
+              }
             }
 
             await fetchRecipients();
