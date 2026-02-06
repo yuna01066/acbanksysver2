@@ -46,12 +46,16 @@ const DashboardCalendar = () => {
         });
       }
       if (q.desired_delivery_date) {
-        result.push({
-          id: q.id,
-          projectName: q.project_name || `견적 ${q.quote_number}`,
-          type: 'delivery',
-          date: new Date(q.desired_delivery_date),
-        });
+        const deliveryDate = new Date(q.desired_delivery_date);
+        // 유효한 날짜인 경우만 표시 (미정이면 null이므로 여기 도달 안함)
+        if (!isNaN(deliveryDate.getTime())) {
+          result.push({
+            id: q.id,
+            projectName: q.project_name || `견적 ${q.quote_number}`,
+            type: 'delivery',
+            date: deliveryDate,
+          });
+        }
       }
     });
     return result;

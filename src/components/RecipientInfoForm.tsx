@@ -266,12 +266,12 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
               </Popover>
             </div>
             <div>
-              <Label htmlFor="validUntil">유효기간</Label>
+              <Label htmlFor="validUntil">견적 유효기간</Label>
               <Input
                 id="validUntil"
                 value={recipientData.validUntil}
-                onChange={(e) => onChange('validUntil', e.target.value)}
-                placeholder="견적일자로 부터 14일"
+                readOnly
+                className="bg-muted/50"
               />
             </div>
             <div>
@@ -346,30 +346,41 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
               />
             </div>
             <div>
-              <Label>납기 희망일 *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !recipientData.desiredDeliveryDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {recipientData.desiredDeliveryDate ? format(recipientData.desiredDeliveryDate, "yyyy년 MM월 dd일") : <span>희망일 선택</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={recipientData.desiredDeliveryDate || undefined}
-                    onSelect={(date) => onChange('desiredDeliveryDate', date)}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+              <Label>납기 희망일</Label>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant={recipientData.desiredDeliveryDate === null ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => onChange('desiredDeliveryDate', null)}
+                  className="shrink-0"
+                >
+                  미정
+                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !recipientData.desiredDeliveryDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {recipientData.desiredDeliveryDate ? format(recipientData.desiredDeliveryDate, "yyyy년 MM월 dd일") : <span>미정</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={recipientData.desiredDeliveryDate || undefined}
+                      onSelect={(date) => onChange('desiredDeliveryDate', date || null)}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             <div>
               <Label htmlFor="deliveryAddress">납기현장 주소 *</Label>

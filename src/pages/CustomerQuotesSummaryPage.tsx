@@ -150,7 +150,7 @@ const CustomerQuotesSummaryPage = () => {
                       <div><strong>프로젝트명:</strong> {recipient?.projectName || '-'}</div>
                       <div><strong>견적번호:</strong> {recipient?.quoteNumber || quoteNumber}</div>
                       <div><strong>견적일자:</strong> {recipient?.quoteDate ? recipient.quoteDate.toLocaleDateString('ko-KR') : currentDate}</div>
-                      <div><strong>유효기간:</strong> {recipient?.validUntil || '-'}</div>
+                      <div><strong>견적 유효기간:</strong> {recipient?.validUntil || '-'}</div>
                       <div><strong>납기:</strong> {recipient?.deliveryPeriod || '-'}</div>
                       <div><strong>지불 조건:</strong> {recipient?.paymentCondition || '-'}</div>
                     </div>
@@ -164,7 +164,7 @@ const CustomerQuotesSummaryPage = () => {
                       <div><strong>담당자:</strong> {recipient?.contactPerson || '-'}</div>
                       <div><strong>연락처:</strong> {recipient?.phoneNumber || '-'}</div>
                       <div><strong>이메일:</strong> {recipient?.email || '-'}</div>
-                      <div><strong>납기 희망일:</strong> {recipient?.desiredDeliveryDate ? recipient.desiredDeliveryDate.toLocaleDateString('ko-KR') : '-'}</div>
+                      <div><strong>납기 희망일:</strong> {recipient?.desiredDeliveryDate ? recipient.desiredDeliveryDate.toLocaleDateString('ko-KR') : '미정'}</div>
                       <div><strong>납기현장 주소:</strong> {recipient?.deliveryAddress || '-'}</div>
                     </div>
                   </div>

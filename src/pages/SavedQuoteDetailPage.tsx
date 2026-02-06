@@ -618,7 +618,7 @@ const SavedQuoteDetailPage = () => {
                       <div><strong>프로젝트명:</strong> {quote.project_name || '-'}</div>
                       <div><strong>견적번호:</strong> {quote.quote_number}</div>
                       <div><strong>견적일자:</strong> {quote.quote_date_display ? new Date(quote.quote_date_display).toLocaleDateString('ko-KR') : currentDate}</div>
-                      <div><strong>유효기간:</strong> {quote.valid_until || '-'}</div>
+                      <div><strong>견적 유효기간:</strong> {quote.valid_until || '-'}</div>
                       <div><strong>납기:</strong> {quote.delivery_period || '-'}</div>
                       <div><strong>지불 조건:</strong> {quote.payment_condition || '-'}</div>
                     </div>
@@ -632,7 +632,7 @@ const SavedQuoteDetailPage = () => {
                       <div><strong>담당자:</strong> {quote.recipient_name || '-'}</div>
                       <div><strong>연락처:</strong> {quote.recipient_phone || '-'}</div>
                       <div><strong>이메일:</strong> {quote.recipient_email || '-'}</div>
-                      <div><strong>납기 희망일:</strong> {quote.desired_delivery_date ? new Date(quote.desired_delivery_date).toLocaleDateString('ko-KR') : '-'}</div>
+                      <div><strong>납기 희망일:</strong> {quote.desired_delivery_date ? new Date(quote.desired_delivery_date).toLocaleDateString('ko-KR') : '미정'}</div>
                       <div><strong>납기현장 주소:</strong> {quote.recipient_address || '-'}</div>
                     </div>
                   </div>
