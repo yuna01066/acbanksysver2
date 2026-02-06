@@ -160,8 +160,15 @@ function buildFieldSetFromQuoteItems(items: any[], quote: any): any[] {
   return fieldSet;
 }
 
-function formatEstimateContent(quote: any, items: any[]): string {
+function formatEstimateContent(quote: any, items: any[], pdfUrl?: string): string {
   const lines: string[] = [];
+
+  // PDF 링크를 최상단에 추가
+  if (pdfUrl) {
+    lines.push(`📄 견적서 PDF: ${pdfUrl}`);
+    lines.push('');
+  }
+
   lines.push(`=== ${quote.project_name || `아크뱅크 견적서 ${quote.quote_number}`} ===`);
   lines.push(`견적번호: ${quote.quote_number}`);
   lines.push(`견적일자: ${(quote.quote_date || '').split('T')[0]}`);
@@ -233,69 +240,72 @@ Deno.serve(async (req) => {
     }
     const userId = claims.user.id;
 
-    console.log(`[Bulk Resync] Starting for user: ${userId}`);
+    // Parse body options
+    let skipDelete = false;
+    try {
+      const body = await req.json();
+      skipDelete = body?.skipDelete === true;
+    } catch {}
 
-    // Step 1: Get all synced quotes
-    const { data: syncedQuotes, error: fetchError } = await supabaseAdmin
-      .from("saved_quotes")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("pluuug_synced", true)
-      .not("pluuug_estimate_id", "is", null);
+    console.log(`[Bulk Resync] Starting for user: ${userId}, skipDelete: ${skipDelete}`);
 
-    if (fetchError) {
-      console.error("[Bulk Resync] Fetch error:", fetchError);
-      return new Response(JSON.stringify({ error: fetchError.message }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
-
-    console.log(`[Bulk Resync] Found ${syncedQuotes?.length || 0} synced quotes`);
-
-    // Step 2: Delete all Pluuug inquiries
     let deletedCount = 0;
     const deleteErrors: string[] = [];
 
-    for (const quote of (syncedQuotes || [])) {
-      const pluuugId = quote.pluuug_estimate_id;
-      if (!pluuugId) continue;
+    if (!skipDelete) {
+      // Step 1: Get all synced quotes
+      const { data: syncedQuotes, error: fetchError } = await supabaseAdmin
+        .from("saved_quotes")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("pluuug_synced", true)
+        .not("pluuug_estimate_id", "is", null);
 
-      console.log(`[Bulk Resync] Deleting Pluuug inquiry: ${pluuugId} (quote: ${quote.quote_number})`);
-      const result = await callPluuugApi(`/v1/inquiry/${pluuugId}`, "DELETE");
-
-      if (result.status >= 200 && result.status < 300 || result.status === 404) {
-        deletedCount++;
-        console.log(`[Bulk Resync] Deleted: ${pluuugId}`);
-      } else {
-        deleteErrors.push(`${quote.quote_number}: ${result.error}`);
-        console.error(`[Bulk Resync] Delete failed for ${pluuugId}:`, result.error);
+      if (fetchError) {
+        console.error("[Bulk Resync] Fetch error:", fetchError);
+        return new Response(JSON.stringify({ error: fetchError.message }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
       }
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      console.log(`[Bulk Resync] Found ${syncedQuotes?.length || 0} synced quotes to delete`);
+
+      // Step 2: Delete all Pluuug inquiries
+      for (const quote of (syncedQuotes || [])) {
+        const pluuugId = quote.pluuug_estimate_id;
+        if (!pluuugId) continue;
+
+        console.log(`[Bulk Resync] Deleting Pluuug inquiry: ${pluuugId} (quote: ${quote.quote_number})`);
+        const result = await callPluuugApi(`/v1/inquiry/${pluuugId}`, "DELETE");
+
+        if (result.status >= 200 && result.status < 300 || result.status === 404) {
+          deletedCount++;
+        } else {
+          deleteErrors.push(`${quote.quote_number}: ${result.error}`);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      console.log(`[Bulk Resync] Deleted ${deletedCount} inquiries, ${deleteErrors.length} errors`);
+
+      // Step 3: Reset sync metadata
+      await supabaseAdmin
+        .from("saved_quotes")
+        .update({
+          pluuug_synced: false,
+          pluuug_synced_at: null,
+          pluuug_estimate_id: null,
+        })
+        .eq("user_id", userId);
+
+      // Clear pending sync events
+      await supabaseAdmin
+        .from("pluuug_sync_events")
+        .update({ status: "resolved", resolved_action: "bulk_resync", resolved_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .eq("status", "pending");
     }
-
-    console.log(`[Bulk Resync] Deleted ${deletedCount} inquiries, ${deleteErrors.length} errors`);
-
-    // Step 3: Reset sync metadata for ALL quotes (even failed deletes - Pluuug side is gone or errored)
-    const { error: resetError } = await supabaseAdmin
-      .from("saved_quotes")
-      .update({
-        pluuug_synced: false,
-        pluuug_synced_at: null,
-        pluuug_estimate_id: null,
-      })
-      .eq("user_id", userId);
-
-    if (resetError) {
-      console.error("[Bulk Resync] Reset error:", resetError);
-    }
-
-    // Also clear any pending sync events
-    await supabaseAdmin
-      .from("pluuug_sync_events")
-      .update({ status: "resolved", resolved_action: "bulk_resync", resolved_at: new Date().toISOString() })
-      .eq("user_id", userId)
-      .eq("status", "pending");
 
     // Step 4: Get ALL quotes to re-sync
     const { data: allQuotes, error: allFetchError } = await supabaseAdmin
@@ -393,10 +403,29 @@ Deno.serve(async (req) => {
     // Step 6: Re-create inquiries on Pluuug
     let syncedCount = 0;
 
+    let updatedCount = 0;
+
     for (const quote of (allQuotes || [])) {
-      // Skip already synced (from previous partial run)
+      // For already synced quotes, update content with PDF URL if available
       if (quote.pluuug_synced && quote.pluuug_estimate_id) {
         syncedCount++;
+
+        // Check if this quote has a PDF attachment to add
+        const attachments = Array.isArray(quote.attachments) ? quote.attachments : [];
+        const pdfAtt = attachments.find((a: any) => a.type === 'quote_pdf' && a.url);
+        if (pdfAtt) {
+          const items = Array.isArray(quote.items) ? quote.items : [];
+          const updatedContent = formatEstimateContent(quote, items, pdfAtt.url);
+          const updateResult = await callPluuugApi(`/v1/inquiry/${quote.pluuug_estimate_id}`, "PUT", {
+            content: updatedContent,
+            memo: `📄 견적서 PDF: ${pdfAtt.url}`,
+          });
+          if (updateResult.status >= 200 && updateResult.status < 300) {
+            updatedCount++;
+            console.log(`[Bulk Resync] Updated inquiry ${quote.pluuug_estimate_id} with PDF URL`);
+          }
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
         continue;
       }
 
@@ -409,7 +438,15 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const estimateContent = formatEstimateContent(quote, items);
+      // Extract PDF URL from attachments
+      let pdfUrl: string | undefined;
+      const attachments = Array.isArray(quote.attachments) ? quote.attachments : [];
+      const pdfAttachment = attachments.find((a: any) => a.type === 'quote_pdf' && a.url);
+      if (pdfAttachment) {
+        pdfUrl = pdfAttachment.url;
+      }
+
+      const estimateContent = formatEstimateContent(quote, items, pdfUrl);
       const fieldSet = buildFieldSetFromQuoteItems(items, quote);
 
       const inquiryName = quote.project_name || `아크뱅크 견적서 ${quote.quote_number}`;
@@ -417,7 +454,7 @@ Deno.serve(async (req) => {
 
       const payload = {
         name: inquiryName,
-        estimate: quote.total.toString(),
+        estimate: Math.round(Number(quote.total)).toString(),
         content: estimateContent,
         inquiryDate,
         contract: null,
@@ -454,13 +491,14 @@ Deno.serve(async (req) => {
       await new Promise(resolve => setTimeout(resolve, 50));
     }
 
-    console.log(`[Bulk Resync] Done. Deleted: ${deletedCount}, Re-synced: ${syncedCount}, Errors: ${syncErrors.length}`);
+    console.log(`[Bulk Resync] Done. Deleted: ${deletedCount}, Re-synced: ${syncedCount}, Updated: ${updatedCount}, Errors: ${syncErrors.length}`);
 
     return new Response(JSON.stringify({
       success: true,
       deleted: deletedCount,
       clientsCreated,
       synced: syncedCount,
+      updated: updatedCount,
       total: allQuotes?.length || 0,
       deleteErrors,
       syncErrors,
