@@ -75,13 +75,58 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   const [mainCategory, setMainCategory] = React.useState<string | null>(null);
   const [selectedSlots, setSelectedSlots] = React.useState<Record<string, string>>({});
   const [optionQuantities, setOptionQuantities] = React.useState<Record<string, number>>(selectedAdditionalOptions);
+  const [hasRestoredSelection, setHasRestoredSelection] = React.useState(false);
   
   const { processingOptions, activeAdditionalOptions, isLoading } = useProcessingOptions();
   const { slotTypes, isLoading: isLoadingSlots } = useSlotTypes();
   const { getCategorySlots: getCategoryLogicSlots, isLoading: isLoadingLogic } = useCategoryLogic();
   const { categories, isLoading: isLoadingCategories } = useProcessingCategories();
 
-  // 카테고리별 슬롯 옵션 가져오기
+  // selectedProcessing에서 기존 선택값 복원
+  React.useEffect(() => {
+    if (hasRestoredSelection || !selectedProcessing || !processingOptions || !categories || isLoading || isLoadingCategories || isLoadingLogic) return;
+    
+    const optionIds = selectedProcessing.includes('|') 
+      ? selectedProcessing.split('|') 
+      : [selectedProcessing];
+    
+    // 첫 번째 옵션 ID로 카테고리 찾기
+    const firstOption = processingOptions.find(opt => opt.option_id === optionIds[0]);
+    if (!firstOption) return;
+    
+    // 해당 옵션이 속한 카테고리 찾기 (category_logic_slots에서)
+    const activeCategories = categories.filter(c => c.is_active);
+    let foundCategory: string | null = null;
+    
+    for (const cat of activeCategories) {
+      const logicSlots = getCategoryLogicSlots(cat.category_key);
+      const allowedSlotKeys = logicSlots.map(l => l.slot_key);
+      
+      // 첫 번째 옵션의 option_type이 이 카테고리의 슬롯에 포함되는지 확인
+      if (allowedSlotKeys.includes(firstOption.option_type)) {
+        foundCategory = cat.category_key;
+        break;
+      }
+    }
+    
+    if (foundCategory) {
+      setMainCategory(foundCategory);
+      
+      // 각 옵션 ID를 슬롯에 매핑
+      const restoredSlots: Record<string, string> = {};
+      optionIds.forEach(optId => {
+        const opt = processingOptions.find(o => o.option_id === optId);
+        if (opt) {
+          restoredSlots[opt.option_type] = opt.option_id;
+        }
+      });
+      
+      setSelectedSlots(restoredSlots);
+      setHasRestoredSelection(true);
+      console.log('Restored processing selection:', { category: foundCategory, slots: restoredSlots });
+    }
+  }, [selectedProcessing, processingOptions, categories, isLoading, isLoadingCategories, isLoadingLogic, hasRestoredSelection]);
+
   const getCategorySlots = (category: string) => {
     if (!processingOptions) return {};
     
