@@ -103,6 +103,8 @@ const UserManagementPage = () => {
 
   // Edit form state
   const [editFullName, setEditFullName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPassword, setEditPassword] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editDepartment, setEditDepartment] = useState('');
   const [editPosition, setEditPosition] = useState('');
@@ -177,6 +179,8 @@ const UserManagementPage = () => {
   const handleEditUser = (user: UserWithRole) => {
     setEditingUser(user);
     setEditFullName(user.full_name);
+    setEditEmail(user.email);
+    setEditPassword('');
     setEditPhone(user.phone || '');
     setEditDepartment(user.department || '');
     setEditPosition(user.position || '');
@@ -185,8 +189,9 @@ const UserManagementPage = () => {
 
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingUser) return;
+    if (!editingUser || !session) return;
 
+    // Update profile info
     const { error: profileError } = await supabase
       .from('profiles')
       .update({
@@ -202,17 +207,34 @@ const UserManagementPage = () => {
       return;
     }
 
+    // Update role if changed
     const currentRole = getHighestRole(editingUser.roles);
-    
     if (currentRole !== editRole) {
-      await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', editingUser.id);
+      await supabase.from('user_roles').delete().eq('user_id', editingUser.id);
+      await supabase.from('user_roles').insert({ user_id: editingUser.id, role: editRole });
+    }
 
-      await supabase
-        .from('user_roles')
-        .insert({ user_id: editingUser.id, role: editRole });
+    // Update email/password via edge function if changed
+    const emailChanged = editEmail.trim() !== editingUser.email;
+    const passwordChanged = editPassword.length > 0;
+
+    if (emailChanged || passwordChanged) {
+      try {
+        const body: Record<string, string> = { userId: editingUser.id };
+        if (emailChanged) body.email = editEmail.trim();
+        if (passwordChanged) body.password = editPassword;
+
+        const { data, error } = await supabase.functions.invoke('admin-update-user', {
+          body,
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+      } catch (err: any) {
+        toast.error('이메일/비밀번호 변경 실패: ' + (err.message || '알 수 없는 오류'));
+        return;
+      }
     }
 
     toast.success('사용자 정보가 업데이트되었습니다.');
@@ -430,8 +452,26 @@ const UserManagementPage = () => {
           </DialogHeader>
           <form onSubmit={handleUpdateUser} className="space-y-4">
             <div className="space-y-2">
-              <Label>이메일</Label>
-              <Input value={editingUser?.email || ''} disabled className="bg-muted" />
+              <Label htmlFor="edit-email">이메일</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-password">비밀번호 변경</Label>
+              <Input
+                id="edit-password"
+                type="password"
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+                placeholder="변경하려면 입력 (최소 6자)"
+                minLength={6}
+              />
+              <p className="text-xs text-muted-foreground">비워두면 기존 비밀번호가 유지됩니다.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-full-name">이름</Label>
