@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -24,6 +25,7 @@ const NotificationPanel = ({
   onRemove,
   onRefresh,
 }: NotificationPanelProps) => {
+  const navigate = useNavigate();
   const { session } = useAuth();
   const [open, setOpen] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -271,6 +273,36 @@ const NotificationPanel = ({
                           거부
                         </Button>
                       </>
+                    )}
+
+                    {notification.type === 'system' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          navigate('/announcements');
+                          setOpen(false);
+                        }}
+                      >
+                        <Megaphone className="h-3 w-3 mr-1" />
+                        바로가기
+                      </Button>
+                    )}
+
+                    {(notification.type === 'quote_update' || notification.type === 'quote_modified') && notification.data?.quoteId && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          navigate(`/saved-quotes/${notification.data?.quoteId}`);
+                          setOpen(false);
+                        }}
+                      >
+                        <FileText className="h-3 w-3 mr-1" />
+                        바로가기
+                      </Button>
                     )}
 
                     <Button

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut } from "lucide-react";
 import DashboardCalendar from '@/components/DashboardCalendar';
 import NotificationPanel from '@/components/NotificationPanel';
+import AnnouncementCard from '@/components/AnnouncementCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/hooks/useNotifications';
 import { toast } from 'sonner';
@@ -135,6 +136,12 @@ const Home = () => {
             <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">ACBANK</h1>
             <p className="text-xl text-muted-foreground">아크뱅크 내부 관리 시스템</p>
           </div>
+
+          {user && (
+            <div className="mb-4">
+              <AnnouncementCard />
+            </div>
+          )}
 
           {/* Calendar - 로그인한 사용자만 */}
           {user && (
