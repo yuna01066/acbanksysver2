@@ -78,7 +78,7 @@ const QuotesSummaryPage = () => {
   };
 
   const handleAddQuote = () => {
-    navigate('/');
+    navigate('/calculator');
   };
 
   const handleRecipientChange = (field: keyof QuoteRecipient, value: any) => {
