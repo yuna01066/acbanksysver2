@@ -33,6 +33,7 @@ const AnnouncementsPage = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const canManage = isAdmin || isModerator;
 
@@ -223,7 +224,39 @@ const AnnouncementsPage = () => {
                         )}
                         <h3 className="font-semibold text-base">{a.title}</h3>
                       </div>
-                      <p className="text-sm text-foreground/80 whitespace-pre-wrap mt-2">{a.content}</p>
+                      {(() => {
+                        const isLong = a.content.split('\n').length > 5 || a.content.length > 300;
+                        const isExpanded = expandedIds.has(a.id);
+                        return (
+                          <>
+                            <p className={`text-sm text-foreground/80 whitespace-pre-wrap mt-2 ${!isExpanded && isLong ? 'line-clamp-5' : ''}`}>
+                              {a.content}
+                            </p>
+                            {isLong && !isExpanded && (
+                              <button
+                                className="text-xs text-primary mt-1 hover:underline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedIds(prev => new Set(prev).add(a.id));
+                                }}
+                              >
+                                ... 더보기
+                              </button>
+                            )}
+                            {isLong && isExpanded && (
+                              <button
+                                className="text-xs text-muted-foreground mt-1 hover:underline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedIds(prev => { const s = new Set(prev); s.delete(a.id); return s; });
+                                }}
+                              >
+                                접기
+                              </button>
+                            )}
+                          </>
+                        );
+                      })()}
                       <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground">
                         <span>{a.author_name}</span>
                         <span>
