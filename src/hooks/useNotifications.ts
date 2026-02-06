@@ -4,11 +4,13 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export interface AppNotification {
   id: string;
-  type: 'password_reset' | 'pending_approval';
+  type: 'password_reset' | 'pending_approval' | 'system' | 'quote_update' | 'approval_complete' | 'quote_modified';
   title: string;
   description: string;
   data?: Record<string, any>;
   created_at: string;
+  is_read?: boolean;
+  source: 'admin_generated' | 'db_stored';
 }
 
 export const useNotifications = () => {
@@ -18,7 +20,7 @@ export const useNotifications = () => {
   const [hasViewed, setHasViewed] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
-    if (!user || (userRole !== 'admin' && userRole !== 'moderator')) {
+    if (!user) {
       setNotifications([]);
       return;
     }
@@ -26,7 +28,7 @@ export const useNotifications = () => {
     setLoading(true);
     const items: AppNotification[] = [];
 
-    // Fetch pending password reset requests (admin only)
+    // Admin-only: Fetch pending password reset requests
     if (userRole === 'admin') {
       const { data: resetRequests } = await supabase
         .from('password_reset_requests')
@@ -43,12 +45,13 @@ export const useNotifications = () => {
             description: `${req.full_name} (${req.email})님이 비밀번호 초기화를 요청했습니다.`,
             data: { requestId: req.id, email: req.email, full_name: req.full_name, phone: req.phone },
             created_at: req.created_at,
+            source: 'admin_generated',
           });
         });
       }
     }
 
-    // Fetch pending user approvals (admin only)
+    // Admin-only: Fetch pending user approvals
     if (userRole === 'admin') {
       const { data: pendingUsers } = await supabase
         .from('profiles')
@@ -65,27 +68,82 @@ export const useNotifications = () => {
             description: `${profile.full_name} (${profile.email})님의 가입 승인이 필요합니다.`,
             data: { userId: profile.id, email: profile.email, full_name: profile.full_name },
             created_at: profile.created_at,
+            source: 'admin_generated',
           });
         });
       }
     }
 
+    // All users: Fetch stored notifications from notifications table
+    const { data: storedNotifications } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (storedNotifications) {
+      storedNotifications.forEach((n: any) => {
+        items.push({
+          id: `notif-${n.id}`,
+          type: n.type,
+          title: n.title,
+          description: n.description,
+          data: n.data || {},
+          created_at: n.created_at,
+          is_read: n.is_read,
+          source: 'db_stored',
+        });
+      });
+    }
+
     items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     setNotifications(items);
     setLoading(false);
+    setHasViewed(false);
   }, [user, userRole]);
 
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
 
+  // Realtime subscription for new notifications
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('user-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchNotifications]);
+
   const markAsViewed = useCallback(() => {
     setHasViewed(true);
   }, []);
 
-  const unviewedCount = hasViewed ? 0 : notifications.length;
+  const unviewedCount = hasViewed ? 0 : notifications.filter(n => !n.is_read).length;
 
-  const removeNotification = useCallback((id: string) => {
+  const removeNotification = useCallback(async (id: string) => {
+    // If it's a stored notification, delete from DB
+    if (id.startsWith('notif-')) {
+      const dbId = id.replace('notif-', '');
+      await supabase.from('notifications').delete().eq('id', dbId);
+    }
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 

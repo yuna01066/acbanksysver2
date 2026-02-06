@@ -99,7 +99,7 @@ const Home = () => {
           {/* Top Bar */}
           <div className="flex justify-between items-center gap-4 mb-8">
             <div>
-              {user && (isAdmin || isModerator) && (
+              {user && (
                 <NotificationPanel
                   notifications={notifications}
                   unviewedCount={unviewedCount}
