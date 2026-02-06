@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import PasswordResetRequests from '@/components/PasswordResetRequests';
 import { useAuth, AppRole, ROLE_LABELS, ROLE_HIERARCHY } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -312,6 +313,10 @@ const UserManagementPage = () => {
             <ArrowLeft className="mr-2 h-4 w-4" />
             관리자 페이지로
           </Button>
+        </div>
+
+        <div className="space-y-4">
+          <PasswordResetRequests />
         </div>
 
         <Card>

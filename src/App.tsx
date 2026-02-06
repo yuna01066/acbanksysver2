@@ -26,6 +26,7 @@ import MyPage from "./pages/MyPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import UserStatisticsPage from "./pages/UserStatisticsPage";
 import PluuugIntegrationPage from "./pages/PluuugIntegrationPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/saved-quotes" element={<SavedQuotesPage />} />
             <Route path="/saved-quotes/:id" element={<SavedQuoteDetailPage />} />
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/my-page" element={<MyPage />} />
             <Route path="/user-management" element={<UserManagementPage />} />
             <Route path="/user-statistics" element={<UserStatisticsPage />} />
