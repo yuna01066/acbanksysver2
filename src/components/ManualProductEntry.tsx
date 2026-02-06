@@ -21,6 +21,7 @@ export interface ManualProductItem {
   thickness: string;
   color: string;
   colorHex: string;
+  surfaceType: string;
   notes: string;
 }
 
@@ -51,6 +52,7 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
       thickness: '',
       color: '',
       colorHex: '',
+      surfaceType: '',
       notes: ''
     };
     onItemsChange([...items, newItem]);
@@ -190,8 +192,8 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
                   </div>
                 </div>
 
-                {/* 소재, 두께, 컬러 - 캐스케이딩 드롭다운 */}
-                <div className="grid grid-cols-3 gap-4 mb-4">
+                {/* 재질, 두께, 색상, 면수 - 캐스케이딩 드롭다운 */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                   <div className="space-y-2">
                     <Label>재질</Label>
                     <Select
@@ -258,6 +260,22 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
                             </span>
                           </SelectItem>
                         ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>면수</Label>
+                    <Select
+                      value={item.surfaceType}
+                      onValueChange={(val) => updateItem(item.id, 'surfaceType', val)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="면수 선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="단면">단면</SelectItem>
+                        <SelectItem value="양면">양면</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
