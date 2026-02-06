@@ -161,8 +161,13 @@ const Home = () => {
           </div>
 
           {user && (
-            <div className="mb-4">
+            <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <AnnouncementCard />
+              <Card className="w-full flex items-center justify-center min-h-[160px] border-dashed border-2 border-border/50">
+                <CardContent className="p-8 text-center">
+                  <p className="text-sm text-muted-foreground">준비 중입니다</p>
+                </CardContent>
+              </Card>
             </div>
           )}
 
