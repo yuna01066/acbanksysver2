@@ -16,6 +16,7 @@ import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { syncQuoteToPluuug, convertQuoteToPluuugFormat } from '@/utils/pluuugSync';
+import BulkPdfGenerator from '@/components/BulkPdfGenerator';
 
 interface SavedQuote {
   id: string;
@@ -434,7 +435,8 @@ const SavedQuotesPage = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex justify-end mb-4">
+          <div className="flex justify-end gap-2 mb-4">
+            <BulkPdfGenerator onComplete={fetchQuotes} />
             <Button onClick={() => navigate('/')} variant="outline">
               <Home className="w-4 h-4 mr-2" />
               홈으로
