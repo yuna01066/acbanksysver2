@@ -452,6 +452,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         sizeWidth: '',
         sizeHeight: '',
         sizeDepth: '',
+        material: '',
         thickness: '',
         color: '',
         notes: ''
