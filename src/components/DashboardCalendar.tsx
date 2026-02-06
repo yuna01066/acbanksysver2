@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,16 +10,19 @@ import { ChevronLeft, ChevronRight, FileText, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface CalendarEvent {
   id: string;
   projectName: string;
   type: 'quote' | 'delivery';
   date: Date;
+  userId: string;
 }
 
 const DashboardCalendar = () => {
   const navigate = useNavigate();
+  const { user, isAdmin, isModerator } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const { data: quotes } = useQuery({
@@ -26,7 +30,7 @@ const DashboardCalendar = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('saved_quotes')
-        .select('id, project_name, quote_date, desired_delivery_date, quote_number')
+        .select('id, project_name, quote_date, desired_delivery_date, quote_number, user_id')
         .order('quote_date', { ascending: false });
       if (error) throw error;
       return data;
@@ -43,23 +47,32 @@ const DashboardCalendar = () => {
           projectName: q.project_name || `견적 ${q.quote_number}`,
           type: 'quote',
           date: new Date(q.quote_date),
+          userId: q.user_id,
         });
       }
       if (q.desired_delivery_date) {
         const deliveryDate = new Date(q.desired_delivery_date);
-        // 유효한 날짜인 경우만 표시 (미정이면 null이므로 여기 도달 안함)
         if (!isNaN(deliveryDate.getTime())) {
           result.push({
             id: q.id,
             projectName: q.project_name || `견적 ${q.quote_number}`,
             type: 'delivery',
             date: deliveryDate,
+            userId: q.user_id,
           });
         }
       }
     });
     return result;
   }, [quotes]);
+
+  const handleEventClick = useCallback((event: CalendarEvent) => {
+    if (isAdmin || isModerator || event.userId === user?.id) {
+      navigate(`/saved-quotes/${event.id}`);
+    } else {
+      toast.error('접근 권한이 없습니다. 본인이 발행한 견적서만 열람할 수 있습니다.');
+    }
+  }, [isAdmin, isModerator, user, navigate]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -141,7 +154,7 @@ const DashboardCalendar = () => {
                   {dayEvents.slice(0, 3).map((event, idx) => (
                     <button
                       key={`${event.id}-${event.type}-${idx}`}
-                      onClick={() => navigate(`/saved-quotes/${event.id}`)}
+                      onClick={() => handleEventClick(event)}
                       className={cn(
                         "w-full text-left text-[10px] leading-tight px-1 py-0.5 rounded truncate flex items-center gap-0.5 hover:opacity-80 transition-opacity",
                         event.type === 'quote'
