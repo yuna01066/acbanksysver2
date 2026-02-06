@@ -155,6 +155,88 @@ const RecipientManagementPage = () => {
     );
   });
 
+  // Auto-select first matching recipient when filtering by company from URL
+  useEffect(() => {
+    if (companyFilter && !selectedRecipientId && filteredRecipients.length > 0) {
+      setSelectedRecipientId(filteredRecipients[0].id);
+    }
+  }, [companyFilter, filteredRecipients, selectedRecipientId]);
+
+  // If company filter is set but no recipients found, try to find from saved_quotes
+  const [unregisteredCompany, setUnregisteredCompany] = useState<{
+    company: string;
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    address: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (companyFilter && !loading && filteredRecipients.length === 0) {
+      // Fetch info from saved_quotes
+      const fetchFromQuotes = async () => {
+        const { data } = await supabase
+          .from('saved_quotes')
+          .select('recipient_company, recipient_name, recipient_phone, recipient_email, recipient_address')
+          .eq('recipient_company', companyFilter)
+          .limit(1);
+        if (data && data.length > 0) {
+          setUnregisteredCompany({
+            company: data[0].recipient_company || companyFilter,
+            name: data[0].recipient_name,
+            phone: data[0].recipient_phone,
+            email: data[0].recipient_email,
+            address: data[0].recipient_address,
+          });
+        }
+      };
+      fetchFromQuotes();
+    } else {
+      setUnregisteredCompany(null);
+    }
+  }, [companyFilter, loading, filteredRecipients.length]);
+
+  // Fetch quote history for unregistered company
+  const [unregisteredQuoteHistory, setUnregisteredQuoteHistory] = useState<QuoteHistoryItem[]>([]);
+  useEffect(() => {
+    if (unregisteredCompany) {
+      const fetchHistory = async () => {
+        setHistoryLoading(true);
+        const { data } = await supabase
+          .from('saved_quotes')
+          .select('id, quote_number, quote_date, project_name, total, project_stage, pluuug_synced')
+          .eq('recipient_company', unregisteredCompany.company)
+          .order('quote_date', { ascending: false });
+        setUnregisteredQuoteHistory(data || []);
+        setHistoryLoading(false);
+      };
+      fetchHistory();
+    } else {
+      setUnregisteredQuoteHistory([]);
+    }
+  }, [unregisteredCompany]);
+
+  const handleRegisterRecipient = async () => {
+    if (!unregisteredCompany || !user) return;
+    try {
+      const { error } = await supabase.from('recipients').insert({
+        user_id: user.id,
+        company_name: unregisteredCompany.company,
+        contact_person: unregisteredCompany.name || '담당자',
+        phone: unregisteredCompany.phone || '',
+        email: unregisteredCompany.email || '',
+        address: unregisteredCompany.address || null,
+      });
+      if (error) throw error;
+      toast.success('고객사가 등록되었습니다!');
+      setUnregisteredCompany(null);
+      await fetchRecipients();
+    } catch (err) {
+      console.error('고객사 등록 에러:', err);
+      toast.error('고객사 등록에 실패했습니다.');
+    }
+  };
+
   const selectedRecipient = recipients.find(r => r.id === selectedRecipientId) || null;
 
   if (!user) {
@@ -396,6 +478,82 @@ const RecipientManagementPage = () => {
                                 <TableCell>
                                   <Eye className="w-4 h-4 text-muted-foreground" />
                                 </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            ) : unregisteredCompany ? (
+              <>
+                {/* Unregistered Company Info */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Building2 className="w-5 h-5" />
+                        {unregisteredCompany.company}
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">미등록</Badge>
+                      </CardTitle>
+                      <Button size="sm" onClick={handleRegisterRecipient}>
+                        <Upload className="w-4 h-4 mr-1" />
+                        고객사 등록
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 text-sm">
+                      <InfoRow label="담당자" value={unregisteredCompany.name} />
+                      <InfoRow label="연락처" value={unregisteredCompany.phone} />
+                      <InfoRow label="이메일" value={unregisteredCompany.email} />
+                      <InfoRow label="주소" value={unregisteredCompany.address} />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-4">
+                      * 견적서에 저장된 정보입니다. 고객사로 등록하면 상세 관리가 가능합니다.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Quote History for unregistered */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      견적 히스토리
+                      <Badge variant="secondary" className="ml-2">{unregisteredQuoteHistory.length}건</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {historyLoading ? (
+                      <div className="p-8 text-center text-muted-foreground">로딩 중...</div>
+                    ) : unregisteredQuoteHistory.length === 0 ? (
+                      <div className="p-8 text-center text-muted-foreground">견적 내역이 없습니다.</div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>견적번호</TableHead>
+                            <TableHead>프로젝트명</TableHead>
+                            <TableHead>견적일</TableHead>
+                            <TableHead>단계</TableHead>
+                            <TableHead className="text-right">금액</TableHead>
+                            <TableHead className="w-10"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {unregisteredQuoteHistory.map((q) => {
+                            const stageInfo = getStageInfo(q.project_stage);
+                            return (
+                              <TableRow key={q.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/saved-quotes/${q.id}`)}>
+                                <TableCell className="font-medium">{q.quote_number}</TableCell>
+                                <TableCell className="truncate max-w-[200px]">{q.project_name || '-'}</TableCell>
+                                <TableCell>{new Date(q.quote_date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })}</TableCell>
+                                <TableCell><Badge variant="outline" className={`text-xs ${stageInfo.color}`}>{stageInfo.label}</Badge></TableCell>
+                                <TableCell className="text-right font-semibold">{formatPrice(q.total)}</TableCell>
+                                <TableCell><Eye className="w-4 h-4 text-muted-foreground" /></TableCell>
                               </TableRow>
                             );
                           })}
