@@ -455,6 +455,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         material: '',
         thickness: '',
         color: '',
+        colorHex: '',
         notes: ''
       }]);
       setCurrentStep(100); // 제품 제작 전용 단계
@@ -746,19 +747,19 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
 
       const quoteData = {
         factory: 'jangwon',
-        material: item.material || '제품 제작',
-        quality: item.itemNumber ? `[${item.itemNumber}]` : '',
+        material: '제품 제작',
+        quality: item.material || '-',
         thickness: item.thickness || '-',
         size: sizeStr,
         colorType: item.color || '',
         selectedColor: item.color || '',
-        selectedColorHex: '',
+        selectedColorHex: item.colorHex || '',
         customColorName: '',
         customOpacity: '',
         surface: item.notes || '-',
         colorMixingCost: 0,
         processing: 'manual',
-        processingName: item.name,
+        processingName: `${item.itemNumber ? `[${item.itemNumber}] ` : ''}${item.name}`,
         totalPrice: item.unitPrice * item.quantity,
         quantity: 1,
         breakdown: breakdownItems

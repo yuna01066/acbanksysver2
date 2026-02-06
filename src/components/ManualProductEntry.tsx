@@ -20,6 +20,7 @@ export interface ManualProductItem {
   material: string;
   thickness: string;
   color: string;
+  colorHex: string;
   notes: string;
 }
 
@@ -49,6 +50,7 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
       material: '',
       thickness: '',
       color: '',
+      colorHex: '',
       notes: ''
     };
     onItemsChange([...items, newItem]);
@@ -63,8 +65,10 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
         if (field === 'material') {
           updated.thickness = '';
           updated.color = '';
+          updated.colorHex = '';
         } else if (field === 'thickness') {
           updated.color = '';
+          updated.colorHex = '';
         }
         return updated;
       })
@@ -227,7 +231,14 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
                     <Label>색상</Label>
                     <Select
                       value={item.color}
-                      onValueChange={(val) => updateItem(item.id, 'color', val)}
+                      onValueChange={(val) => {
+                        const colorObj = availableColors.find(c => c.name === val);
+                        updateItem(item.id, 'color', val);
+                        if (colorObj?.code) {
+                          // Set colorHex after color update
+                          onItemsChange(items.map(it => it.id === item.id ? { ...it, color: val, colorHex: colorObj.code || '' } : it));
+                        }
+                      }}
                       disabled={!item.thickness}
                     >
                       <SelectTrigger>
