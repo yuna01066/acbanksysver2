@@ -48,7 +48,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Use service role to bypass RLS for reading all synced quotes
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -91,7 +90,7 @@ Deno.serve(async (req) => {
 
     if (!syncedQuotes || syncedQuotes.length === 0) {
       console.log("[Pluuug Reverse Sync] No synced quotes found");
-      return new Response(JSON.stringify({ checked: 0, events: 0 }), {
+      return new Response(JSON.stringify({ checked: 0, events: 0, autoUnlinked: 0 }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
@@ -99,43 +98,47 @@ Deno.serve(async (req) => {
     console.log(`[Pluuug Reverse Sync] Checking ${syncedQuotes.length} synced quotes`);
 
     let eventsCreated = 0;
+    let autoUnlinked = 0;
     const results: any[] = [];
 
     for (const quote of syncedQuotes) {
       const pluuugId = quote.pluuug_estimate_id;
 
-      // Check if there's already a pending event for this quote
-      const { data: existingEvent } = await supabaseAdmin
-        .from("pluuug_sync_events")
-        .select("id")
-        .eq("quote_id", quote.id)
-        .eq("status", "pending")
-        .maybeSingle();
-
-      if (existingEvent) {
-        console.log(`[Pluuug Reverse Sync] Pending event already exists for quote ${quote.quote_number}`);
-        continue;
-      }
-
       // Check inquiry status on Pluuug
       const pluuugResult = await callPluuugApi(`/v1/inquiry/${pluuugId}`, "GET");
 
       if (pluuugResult.status === 404 || pluuugResult.error?.includes("Not Found") || pluuugResult.error?.includes("not found")) {
-        // Inquiry was deleted on Pluuug
-        console.log(`[Pluuug Reverse Sync] DELETED on Pluuug: quote ${quote.quote_number} (inquiry ${pluuugId})`);
+        // Inquiry was deleted on Pluuug → 자동으로 동기화 해제
+        console.log(`[Pluuug Reverse Sync] DELETED on Pluuug: quote ${quote.quote_number} (inquiry ${pluuugId}) → Auto-unlinking`);
 
-        const { error: insertError } = await supabaseAdmin
+        const { error: unlinkError } = await supabaseAdmin
+          .from("saved_quotes")
+          .update({
+            pluuug_synced: false,
+            pluuug_synced_at: null,
+            pluuug_estimate_id: null,
+          })
+          .eq("id", quote.id);
+
+        if (unlinkError) {
+          console.error(`[Pluuug Reverse Sync] Failed to unlink quote ${quote.quote_number}:`, unlinkError);
+        } else {
+          autoUnlinked++;
+          console.log(`[Pluuug Reverse Sync] Auto-unlinked quote ${quote.quote_number}`);
+        }
+
+        // 기존 pending 이벤트가 있으면 자동 해결 처리
+        await supabaseAdmin
           .from("pluuug_sync_events")
-          .insert({
-            quote_id: quote.id,
-            user_id: quote.user_id,
-            event_type: "deleted",
-            pluuug_estimate_id: pluuugId,
-            details: { quote_number: quote.quote_number, detected_at: new Date().toISOString() },
-          });
+          .update({
+            status: "resolved",
+            resolved_action: "auto_unlink",
+            resolved_at: new Date().toISOString(),
+          })
+          .eq("quote_id", quote.id)
+          .eq("status", "pending");
 
-        if (!insertError) eventsCreated++;
-        results.push({ quote_number: quote.quote_number, event: "deleted" });
+        results.push({ quote_number: quote.quote_number, event: "auto_unlinked" });
       } else if (pluuugResult.data) {
         // Check if inquiry was modified (compare updatedAt)
         const pluuugUpdatedAt = pluuugResult.data.updatedAt || pluuugResult.data.updated_at;
@@ -147,9 +150,21 @@ Deno.serve(async (req) => {
 
           // If Pluuug was updated after local sync (with 10s buffer)
           if (pluuugTime > localTime + 10000) {
+            // Check if there's already a pending event for this quote
+            const { data: existingEvent } = await supabaseAdmin
+              .from("pluuug_sync_events")
+              .select("id")
+              .eq("quote_id", quote.id)
+              .eq("status", "pending")
+              .maybeSingle();
+
+            if (existingEvent) {
+              console.log(`[Pluuug Reverse Sync] Pending event already exists for quote ${quote.quote_number}`);
+              continue;
+            }
+
             console.log(`[Pluuug Reverse Sync] MODIFIED on Pluuug: quote ${quote.quote_number}`);
 
-            // Extract key changed data
             const pluuugData = pluuugResult.data;
             const changedDetails: any = {
               quote_number: quote.quote_number,
@@ -158,7 +173,6 @@ Deno.serve(async (req) => {
               local_synced_at: localSyncedAt,
             };
 
-            // Capture Pluuug's current state for potential update
             if (pluuugData.title) changedDetails.pluuug_title = pluuugData.title;
             if (pluuugData.content) changedDetails.pluuug_content = pluuugData.content;
             if (pluuugData.status) changedDetails.pluuug_status = pluuugData.status;
@@ -183,10 +197,10 @@ Deno.serve(async (req) => {
       await new Promise(resolve => setTimeout(resolve, 200));
     }
 
-    console.log(`[Pluuug Reverse Sync] Done. Checked: ${syncedQuotes.length}, Events created: ${eventsCreated}`);
+    console.log(`[Pluuug Reverse Sync] Done. Checked: ${syncedQuotes.length}, Auto-unlinked: ${autoUnlinked}, Events created: ${eventsCreated}`);
 
     return new Response(
-      JSON.stringify({ checked: syncedQuotes.length, events: eventsCreated, results }),
+      JSON.stringify({ checked: syncedQuotes.length, events: eventsCreated, autoUnlinked, results }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
