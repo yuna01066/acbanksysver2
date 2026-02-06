@@ -265,6 +265,45 @@ export type Database = {
           },
         ]
       }
+      pluuug_sync_events: {
+        Row: {
+          created_at: string
+          details: Json | null
+          event_type: string
+          id: string
+          pluuug_estimate_id: string
+          quote_id: string
+          resolved_action: string | null
+          resolved_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          event_type: string
+          id?: string
+          pluuug_estimate_id: string
+          quote_id: string
+          resolved_action?: string | null
+          resolved_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          event_type?: string
+          id?: string
+          pluuug_estimate_id?: string
+          quote_id?: string
+          resolved_action?: string | null
+          resolved_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       processing_categories: {
         Row: {
           category_key: string
