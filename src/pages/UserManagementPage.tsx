@@ -430,6 +430,10 @@ const UserManagementPage = () => {
           </DialogHeader>
           <form onSubmit={handleUpdateUser} className="space-y-4">
             <div className="space-y-2">
+              <Label>이메일</Label>
+              <Input value={editingUser?.email || ''} disabled className="bg-muted" />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="edit-full-name">이름</Label>
               <Input
                 id="edit-full-name"
