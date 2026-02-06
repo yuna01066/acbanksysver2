@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { syncQuoteToPluuug, convertQuoteToPluuugFormat } from '@/utils/pluuugSync';
 import BulkPdfGenerator from '@/components/BulkPdfGenerator';
+import ProjectStageSelect from '@/components/ProjectStageSelect';
 
 interface SavedQuote {
   id: string;
@@ -44,6 +45,7 @@ interface SavedQuote {
   issuer_phone: string | null;
   issuer_email: string | null;
   attachments: any;
+  project_stage?: string;
 }
 
 interface UserProfile {
@@ -589,6 +591,19 @@ const SavedQuotesPage = () => {
                           </Button>
                         )}
                       </div>
+                    </div>
+
+                    {/* Project Stage */}
+                    <div className="mb-3">
+                      <ProjectStageSelect
+                        quoteId={quote.id}
+                        currentStage={quote.project_stage || 'quote_issued'}
+                        pluuugEstimateId={quote.pluuug_estimate_id}
+                        pluuugSynced={quote.pluuug_synced}
+                        onStageChanged={(newStage) => {
+                          setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, project_stage: newStage } : q));
+                        }}
+                      />
                     </div>
 
                     {/* Info Grid */}
