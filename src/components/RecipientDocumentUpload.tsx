@@ -34,6 +34,7 @@ export function RecipientDocumentUpload({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -202,12 +203,22 @@ export function RecipientDocumentUpload({
       </Card>
 
       {/* Preview Dialog */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <Dialog open={previewOpen} onOpenChange={(open) => { setPreviewOpen(open); if (!open) setZoomed(false); }}>
+        <DialogContent className={zoomed ? "max-w-[95vw] max-h-[95vh] overflow-hidden flex flex-col" : "max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="w-5 h-5" />
               사업자 사본 미리보기
+              {!isPdf && previewUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => setZoomed(!zoomed)}
+                >
+                  {zoomed ? '축소' : '확대'}
+                </Button>
+              )}
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-auto min-h-0">
@@ -226,7 +237,12 @@ export function RecipientDocumentUpload({
                 <img
                   src={previewUrl}
                   alt="사업자 사본"
-                  className="max-w-full max-h-[70vh] mx-auto rounded object-contain"
+                  className={`mx-auto rounded cursor-pointer transition-all duration-300 ${
+                    zoomed
+                      ? 'max-w-none w-full object-contain'
+                      : 'max-w-full max-h-[70vh] object-contain'
+                  }`}
+                  onClick={() => setZoomed(!zoomed)}
                 />
               )
             ) : null}
