@@ -639,7 +639,15 @@ const SavedQuotesPage = () => {
                       {quote.recipient_company && (
                         <div className="flex items-center gap-2 text-sm">
                           <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                          <span className="text-muted-foreground truncate">{quote.recipient_company}</span>
+                          <span
+                            className="text-primary hover:underline cursor-pointer truncate"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/recipients?company=${encodeURIComponent(quote.recipient_company!)}`);
+                            }}
+                          >
+                            {quote.recipient_company}
+                          </span>
                         </div>
                       )}
                       {quote.recipient_name && (
