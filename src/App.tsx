@@ -28,6 +28,7 @@ import UserStatisticsPage from "./pages/UserStatisticsPage";
 import PluuugIntegrationPage from "./pages/PluuugIntegrationPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
+import RecipientManagementPage from "./pages/RecipientManagementPage";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ const App = () => (
             <Route path="/user-statistics" element={<UserStatisticsPage />} />
             <Route path="/pluuug-integration" element={<PluuugIntegrationPage />} />
             <Route path="/announcements" element={<AnnouncementsPage />} />
+            <Route path="/recipients" element={<RecipientManagementPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
             </Routes>
