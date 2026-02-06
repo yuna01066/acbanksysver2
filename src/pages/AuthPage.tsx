@@ -192,6 +192,16 @@ const AuthPage = () => {
                     <Button type="submit" className="w-full" disabled={loading}>
                       {loading ? '로그인 중...' : '로그인'}
                     </Button>
+                    <div className="text-center">
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="text-sm text-muted-foreground"
+                        onClick={() => navigate('/forgot-password')}
+                      >
+                        비밀번호를 잊으셨나요?
+                      </Button>
+                    </div>
                   </form>
                 </TabsContent>
 
