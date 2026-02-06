@@ -684,7 +684,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user" | "moderator"
+      app_role: "admin" | "user" | "moderator" | "manager" | "employee"
       panel_material: "acrylic" | "pet"
       panel_quality:
         | "glossy-color"
@@ -843,7 +843,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "moderator"],
+      app_role: ["admin", "user", "moderator", "manager", "employee"],
       panel_material: ["acrylic", "pet"],
       panel_quality: [
         "glossy-color",
