@@ -498,14 +498,25 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       setCustomColorName(colorInfo.customColorName || '');
       setCustomOpacity(colorInfo.customOpacity || '');
     }
-    resetFromStep(4);
-    setCurrentStep(4);
+    
+    // 편집 모드에서는 기존 두께/사이즈/면수/조색비/가공 데이터를 유지하고 두께 선택 단계로 이동
+    if (editMode === 'saved' && selectedThickness && selectedSize) {
+      setCurrentStep(4);
+    } else {
+      resetFromStep(4);
+      setCurrentStep(4);
+    }
   };
   const handleThicknessSelect = (thickness: string) => {
     console.log('Thickness selected:', thickness);
     setSelectedThickness(thickness);
-    resetFromStep(5);
-    setCurrentStep(5);
+    // 편집 모드에서는 기존 사이즈/면수/조색비 데이터를 유지
+    if (editMode === 'saved' && selectedSize) {
+      setCurrentStep(5);
+    } else {
+      resetFromStep(5);
+      setCurrentStep(5);
+    }
   };
   const handleSizeSelect = (size: string) => {
     console.log('Size selected:', size);
