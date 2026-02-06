@@ -160,12 +160,6 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
             <div className="text-xs text-gray-600 mb-1">사이즈</div>
             <div className="font-semibold text-gray-900 text-sm">{quote.size}</div>
           </div>
-          {quote.colorType && (
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-xs text-gray-600 mb-1">색상</div>
-              <div className="font-semibold text-gray-900 text-sm">{quote.colorType}</div>
-            </div>
-          )}
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
             <div className="text-xs text-gray-600 mb-1">면수</div>
             <div className="font-semibold text-gray-900 text-sm">{quote.surface}</div>
