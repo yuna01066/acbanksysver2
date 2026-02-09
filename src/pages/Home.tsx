@@ -7,6 +7,7 @@ import DashboardCalendar from '@/components/DashboardCalendar';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
 import AnnouncementCard from '@/components/AnnouncementCard';
+import QuickAttendanceButton from '@/components/QuickAttendanceButton';
 import ActivityFeedCard from '@/components/ActivityFeedCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -180,10 +181,13 @@ const Home = () => {
           </div>
 
           {user && (
-            <div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="mb-4 space-y-4">
+              <QuickAttendanceButton />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <AnnouncementCard />
               <ActivityFeedCard />
               <ProjectProgressCard />
+              </div>
             </div>
           )}
 
