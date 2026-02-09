@@ -6,7 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper, Users, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -24,9 +25,10 @@ interface CalendarEvent {
 
 const DashboardCalendar = () => {
   const navigate = useNavigate();
-  const { user, isAdmin, isModerator } = useAuth();
+  const { user, profile, isAdmin, isModerator } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'all' | 'my'>('all');
 
   const { data: quotes } = useQuery({
     queryKey: ['calendar-quotes'],
@@ -174,6 +176,27 @@ const DashboardCalendar = () => {
     return result;
   }, [quotes, notionProjects, meetings, holidays, user]);
 
+  // Filter events based on view mode
+  const filteredEvents = useMemo(() => {
+    if (viewMode === 'all') return events;
+    if (!user) return events;
+    const myName = profile?.full_name || '';
+    return events.filter(e => {
+      // Always show holidays
+      if (e.type === 'holiday') return true;
+      // Meetings are already filtered to current user
+      if (e.type === 'meeting') return true;
+      // Quotes/deliveries: only show mine
+      if (e.type === 'quote' || e.type === 'delivery') return e.userId === user.id;
+      // Notion: fuzzy match assignee with my name
+      if (e.type === 'notion') {
+        if (!e.assignee || !myName) return false;
+        return e.assignee.includes(myName) || myName.includes(e.assignee);
+      }
+      return true;
+    });
+  }, [events, viewMode, user, profile]);
+
   const handleEventClick = useCallback((event: CalendarEvent) => {
     if (event.type === 'notion') {
       if (event.url) {
@@ -194,15 +217,27 @@ const DashboardCalendar = () => {
   const startDayOfWeek = getDay(monthStart);
 
   const getEventsForDay = (day: Date) =>
-    events.filter((e) => isSameDay(e.date, day));
+    filteredEvents.filter((e) => isSameDay(e.date, day));
 
   const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
 
   return (
     <Card className="w-full">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">프로젝트 캘린더</CardTitle>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-3">
+            <CardTitle className="text-lg">프로젝트 캘린더</CardTitle>
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'all' | 'my')} className="h-8">
+              <TabsList className="h-8 p-0.5">
+                <TabsTrigger value="all" className="h-7 text-xs gap-1 px-2.5">
+                  <Users className="h-3.5 w-3.5" /> 전체
+                </TabsTrigger>
+                <TabsTrigger value="my" className="h-7 text-xs gap-1 px-2.5">
+                  <User className="h-3.5 w-3.5" /> 내 일정
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
               <ChevronLeft className="h-4 w-4" />
