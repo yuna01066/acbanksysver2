@@ -152,7 +152,7 @@ const EmployeeProfileManagementPage = () => {
         )}
       </TabsContent>
 
-      <TabsContent value="document-settings" className="flex-1 overflow-y-auto mt-0">
+      <TabsContent value="document-settings" className="overflow-y-auto mt-0">
         <div className="container max-w-3xl mx-auto px-6 py-8">
           <DocumentBoxSettings />
         </div>
