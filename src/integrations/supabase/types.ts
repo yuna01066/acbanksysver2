@@ -640,80 +640,122 @@ export type Database = {
       profiles: {
         Row: {
           address: string | null
+          awards: string | null
           bank_account: string | null
           bank_name: string | null
           birthday: string | null
+          career_history: string | null
           created_at: string | null
           department: string | null
           detail_address: string | null
+          disciplinary: string | null
+          education: string | null
           email: string
           employee_number: string | null
+          family_info: string | null
           full_name: string
+          holidays: string | null
           id: string
           is_approved: boolean
           job_group: string | null
           job_title: string | null
           join_date: string | null
+          leave_history: string | null
+          leave_policy: string | null
           nationality: string | null
           nickname: string | null
+          overtime_policy: string | null
           personal_email: string | null
           phone: string | null
           position: string | null
           rank_level: string | null
           rank_title: string | null
+          salary_info: string | null
+          special_notes: string | null
           updated_at: string | null
+          wage_contract: string | null
+          work_hours_per_week: number | null
+          work_type: string | null
           zipcode: string | null
         }
         Insert: {
           address?: string | null
+          awards?: string | null
           bank_account?: string | null
           bank_name?: string | null
           birthday?: string | null
+          career_history?: string | null
           created_at?: string | null
           department?: string | null
           detail_address?: string | null
+          disciplinary?: string | null
+          education?: string | null
           email: string
           employee_number?: string | null
+          family_info?: string | null
           full_name: string
+          holidays?: string | null
           id: string
           is_approved?: boolean
           job_group?: string | null
           job_title?: string | null
           join_date?: string | null
+          leave_history?: string | null
+          leave_policy?: string | null
           nationality?: string | null
           nickname?: string | null
+          overtime_policy?: string | null
           personal_email?: string | null
           phone?: string | null
           position?: string | null
           rank_level?: string | null
           rank_title?: string | null
+          salary_info?: string | null
+          special_notes?: string | null
           updated_at?: string | null
+          wage_contract?: string | null
+          work_hours_per_week?: number | null
+          work_type?: string | null
           zipcode?: string | null
         }
         Update: {
           address?: string | null
+          awards?: string | null
           bank_account?: string | null
           bank_name?: string | null
           birthday?: string | null
+          career_history?: string | null
           created_at?: string | null
           department?: string | null
           detail_address?: string | null
+          disciplinary?: string | null
+          education?: string | null
           email?: string
           employee_number?: string | null
+          family_info?: string | null
           full_name?: string
+          holidays?: string | null
           id?: string
           is_approved?: boolean
           job_group?: string | null
           job_title?: string | null
           join_date?: string | null
+          leave_history?: string | null
+          leave_policy?: string | null
           nationality?: string | null
           nickname?: string | null
+          overtime_policy?: string | null
           personal_email?: string | null
           phone?: string | null
           position?: string | null
           rank_level?: string | null
           rank_title?: string | null
+          salary_info?: string | null
+          special_notes?: string | null
           updated_at?: string | null
+          wage_contract?: string | null
+          work_hours_per_week?: number | null
+          work_type?: string | null
           zipcode?: string | null
         }
         Relationships: []
