@@ -639,37 +639,82 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
+          bank_account: string | null
+          bank_name: string | null
+          birthday: string | null
           created_at: string | null
           department: string | null
+          detail_address: string | null
           email: string
+          employee_number: string | null
           full_name: string
           id: string
           is_approved: boolean
+          job_group: string | null
+          job_title: string | null
+          join_date: string | null
+          nationality: string | null
+          nickname: string | null
+          personal_email: string | null
           phone: string | null
           position: string | null
+          rank_level: string | null
+          rank_title: string | null
           updated_at: string | null
+          zipcode: string | null
         }
         Insert: {
+          address?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          birthday?: string | null
           created_at?: string | null
           department?: string | null
+          detail_address?: string | null
           email: string
+          employee_number?: string | null
           full_name: string
           id: string
           is_approved?: boolean
+          job_group?: string | null
+          job_title?: string | null
+          join_date?: string | null
+          nationality?: string | null
+          nickname?: string | null
+          personal_email?: string | null
           phone?: string | null
           position?: string | null
+          rank_level?: string | null
+          rank_title?: string | null
           updated_at?: string | null
+          zipcode?: string | null
         }
         Update: {
+          address?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          birthday?: string | null
           created_at?: string | null
           department?: string | null
+          detail_address?: string | null
           email?: string
+          employee_number?: string | null
           full_name?: string
           id?: string
           is_approved?: boolean
+          job_group?: string | null
+          job_title?: string | null
+          join_date?: string | null
+          nationality?: string | null
+          nickname?: string | null
+          personal_email?: string | null
           phone?: string | null
           position?: string | null
+          rank_level?: string | null
+          rank_title?: string | null
           updated_at?: string | null
+          zipcode?: string | null
         }
         Relationships: []
       }
