@@ -2,10 +2,11 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, FileSpreadsheet, ExternalLink } from 'lucide-react';
+import { BookOpen, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { differenceInDays, parseISO, isValid } from 'date-fns';
 
@@ -15,6 +16,7 @@ interface NotionProject {
   startDate: string;
   endDate: string;
   assignee: string;
+  assigneeList: string[];
   status: string;
   url: string;
 }
@@ -84,6 +86,7 @@ function getStatusLabel(status: string): string {
 
 const ProjectProgressCard = () => {
   const navigate = useNavigate();
+  const { profile, isAdmin, isModerator } = useAuth();
   const { data: notionProjects, isLoading: notionLoading } = useQuery({
     queryKey: ['notion-projects-progress'],
     queryFn: async () => {
@@ -110,8 +113,26 @@ const ProjectProgressCard = () => {
     },
   });
 
-  // Notion projects with progress (exclude completed)
+  // Helper: check if current user's name matches any Notion assignee
+  const isNotionAssignedToMe = (assigneeList: string[]) => {
+    if (!profile?.full_name || assigneeList.length === 0) return false;
+    const myName = profile.full_name.trim();
+    return assigneeList.some((name) => {
+      const n = name.trim();
+      // Exact match or partial match (handles "윤아 정" vs "정윤아", "주현 양" vs "양주현")
+      if (n === myName) return true;
+      // Check if all characters in one name exist in the other (for reversed name order)
+      const nChars = n.replace(/\s/g, '');
+      const myChars = myName.replace(/\s/g, '');
+      return nChars === myChars || 
+        (nChars.length >= 2 && myChars.length >= 2 && 
+         [...nChars].every(c => myChars.includes(c)) && nChars.length === myChars.length);
+    });
+  };
+
+  // Notion: show only projects assigned to me (admin/moderator see all)
   const notionWithProgress = (notionProjects || [])
+    .filter((p) => isAdmin || isModerator || isNotionAssignedToMe(p.assigneeList || []))
     .map((p) => ({
       ...p,
       progress: getNotionProgress(p.startDate, p.endDate, p.status),
@@ -119,6 +140,7 @@ const ProjectProgressCard = () => {
     .filter((p) => p.progress >= 0 && p.progress < 100)
     .slice(0, 5);
 
+  // Quotes: RLS already filters by user_id for non-admin, so no extra filter needed
   const quoteWithProgress = (quoteProjects || []).map((q) => ({
     ...q,
     progress: getQuoteProgress(q.project_stage),
