@@ -132,9 +132,17 @@ export const useNotifications = () => {
     };
   }, [user, fetchNotifications]);
 
-  const markAsViewed = useCallback(() => {
+  const markAsViewed = useCallback(async () => {
     setHasViewed(true);
-  }, []);
+    // Mark all unread db-stored notifications as read
+    const unreadDbIds = notifications
+      .filter(n => !n.is_read && n.source === 'db_stored')
+      .map(n => n.id.replace('notif-', ''));
+    if (unreadDbIds.length > 0) {
+      await supabase.from('notifications').update({ is_read: true }).in('id', unreadDbIds);
+      setNotifications(prev => prev.map(n => n.source === 'db_stored' ? { ...n, is_read: true } : n));
+    }
+  }, [notifications]);
 
   const unviewedCount = hasViewed ? 0 : notifications.filter(n => !n.is_read).length;
 
