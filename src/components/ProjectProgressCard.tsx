@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -82,6 +83,7 @@ function getStatusLabel(status: string): string {
 }
 
 const ProjectProgressCard = () => {
+  const navigate = useNavigate();
   const { data: notionProjects, isLoading: notionLoading } = useQuery({
     queryKey: ['notion-projects-progress'],
     queryFn: async () => {
@@ -171,10 +173,14 @@ const ProjectProgressCard = () => {
 
             {/* Quote Projects */}
             {quoteWithProgress.map((quote) => (
-              <div key={`quote-${quote.id}`}>
+              <div
+                key={`quote-${quote.id}`}
+                className="cursor-pointer group"
+                onClick={() => navigate(`/saved-quotes/${quote.id}`)}
+              >
                 <div className="flex items-center gap-2 mb-1">
                   <FileSpreadsheet className="h-3 w-3 text-primary shrink-0" />
-                  <span className="text-xs font-medium truncate flex-1">
+                  <span className="text-xs font-medium truncate flex-1 group-hover:text-primary transition-colors">
                     {quote.project_name || `견적 ${quote.quote_number}`}
                   </span>
                   <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">
