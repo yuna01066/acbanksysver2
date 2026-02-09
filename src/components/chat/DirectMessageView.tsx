@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, Loader2, Heart, MessageCircle, Coffee, CalendarIcon, Clock } from 'lucide-react';
+import MeetingActionButtons from '@/components/chat/MeetingActionButtons';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -78,21 +79,21 @@ const DirectMessageView: React.FC<DirectMessageViewProps> = ({
     closeDropdown,
   } = useChatInput();
 
-  // Fetch peer_feedback between the two users
-  useEffect(() => {
+  const fetchFeedbacks = async () => {
     if (!user || !partnerId) return;
-    const fetchFeedbacks = async () => {
-      setFeedbackLoading(true);
-      const { data } = await supabase
-        .from('peer_feedback')
-        .select('*')
-        .or(
-          `and(sender_id.eq.${user.id},receiver_id.eq.${partnerId}),and(sender_id.eq.${partnerId},receiver_id.eq.${user.id})`
-        )
-        .order('created_at', { ascending: true });
-      setFeedbacks(data || []);
-      setFeedbackLoading(false);
-    };
+    setFeedbackLoading(true);
+    const { data } = await supabase
+      .from('peer_feedback')
+      .select('*')
+      .or(
+        `and(sender_id.eq.${user.id},receiver_id.eq.${partnerId}),and(sender_id.eq.${partnerId},receiver_id.eq.${user.id})`
+      )
+      .order('created_at', { ascending: true });
+    setFeedbacks(data || []);
+    setFeedbackLoading(false);
+  };
+
+  useEffect(() => {
     fetchFeedbacks();
   }, [user, partnerId]);
 
@@ -201,6 +202,18 @@ const DirectMessageView: React.FC<DirectMessageViewProps> = ({
             <span className="text-[10px] text-muted-foreground mt-0.5">
               {MEETING_STATUS_LABELS[item.meeting_status] || item.meeting_status}
             </span>
+          )}
+          {item.feedback_type === 'meeting' && user && (
+            <MeetingActionButtons
+              feedbackId={item.id}
+              senderId={item.sender_id || ''}
+              receiverId={item.sender_id === user.id ? partnerId : user.id}
+              currentUserId={user.id}
+              meetingStatus={item.meeting_status || 'pending'}
+              meetingDate={item.meeting_date}
+              meetingTime={item.meeting_time}
+              onUpdated={fetchFeedbacks}
+            />
           )}
           <span className="text-[10px] text-muted-foreground/60 mt-0.5">
             {format(new Date(item.created_at), 'HH:mm')}
