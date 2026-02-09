@@ -21,22 +21,27 @@ serve(async (req) => {
 
     console.log('Fetching Notion database:', DATABASE_ID);
 
-    const response = await fetch(`${NOTION_API_URL}/databases/${DATABASE_ID}/query`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${NOTION_API_KEY}`,
-        'Notion-Version': '2022-06-28',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        page_size: 100,
-      }),
-    });
+    let response: Response | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      response = await fetch(`${NOTION_API_URL}/databases/${DATABASE_ID}/query`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${NOTION_API_KEY}`,
+          'Notion-Version': '2022-06-28',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ page_size: 100 }),
+      });
+      if (response.ok || (response.status < 500)) break;
+      console.warn(`Notion API attempt ${attempt + 1} failed with ${response.status}, retrying...`);
+      if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    }
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error('Notion API error:', response.status, errorBody);
-      throw new Error(`Notion API call failed [${response.status}]: ${errorBody}`);
+    if (!response || !response.ok) {
+      const errorBody = response ? await response.text() : 'No response';
+      const status = response?.status || 0;
+      console.error('Notion API error:', status, errorBody.substring(0, 200));
+      throw new Error(`Notion API call failed [${status}] after retries`);
     }
 
     const data = await response.json();
