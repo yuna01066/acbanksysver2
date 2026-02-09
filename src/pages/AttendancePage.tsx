@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -48,6 +49,10 @@ const AttendancePage = () => {
   const [editRecord, setEditRecord] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [filterDate, setFilterDate] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkCheckIn, setBulkCheckIn] = useState('');
+  const [bulkCheckOut, setBulkCheckOut] = useState('');
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -208,7 +213,37 @@ const AttendancePage = () => {
     }
   };
 
-  // Stats
+  const handleBulkTimeUpdate = async () => {
+    if (selectedIds.size === 0) { toast.warning('직원을 선택해주세요.'); return; }
+    if (!bulkCheckIn && !bulkCheckOut) { toast.warning('출근 또는 퇴근 시간을 입력해주세요.'); return; }
+    setBulkProcessing(true);
+    let errorCount = 0;
+    for (const id of selectedIds) {
+      const record = monthlyRecords.find((r: any) => r.id === id);
+      if (!record) continue;
+      const updates: any = {};
+      if (bulkCheckIn) {
+        updates.check_in = new Date(`${record.date}T${bulkCheckIn}:00+09:00`).toISOString();
+        updates.status = 'checked_in';
+      }
+      if (bulkCheckOut) {
+        updates.check_out = new Date(`${record.date}T${bulkCheckOut}:00+09:00`).toISOString();
+        updates.status = 'checked_out';
+      }
+      const { error } = await supabase.from('attendance_records').update(updates).eq('id', id);
+      if (error) errorCount++;
+    }
+    setBulkProcessing(false);
+    setSelectedIds(new Set());
+    setBulkCheckIn('');
+    setBulkCheckOut('');
+    queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+    queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
+    if (errorCount > 0) toast.error(`${errorCount}건 처리 실패`);
+    else toast.success(`${selectedIds.size}명의 시간이 일괄 수정되었습니다.`);
+  };
+
+
   const totalWorkDays = monthlyRecords.filter((r: any) => r.status === 'checked_out' && (adminTab === 'all' || r.user_id === user?.id)).length;
   const totalHours = monthlyRecords
     .filter((r: any) => r.work_hours && (adminTab === 'all' || r.user_id === user?.id))
@@ -355,17 +390,56 @@ const AttendancePage = () => {
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Bulk action bar */}
+                {(isAdmin || isModerator) && adminTab === 'all' && selectedIds.size > 0 && (
+                  <div className="mb-4 p-3 border rounded-lg bg-muted/50 flex flex-wrap items-center gap-3">
+                    <Badge variant="secondary" className="text-xs">{selectedIds.size}명 선택</Badge>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-muted-foreground">출근:</label>
+                      <Input type="time" value={bulkCheckIn} onChange={e => setBulkCheckIn(e.target.value)} className="h-8 w-[120px] text-xs" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-muted-foreground">퇴근:</label>
+                      <Input type="time" value={bulkCheckOut} onChange={e => setBulkCheckOut(e.target.value)} className="h-8 w-[120px] text-xs" />
+                    </div>
+                    <Button size="sm" className="h-8 text-xs gap-1" onClick={handleBulkTimeUpdate} disabled={bulkProcessing}>
+                      {bulkProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      일괄 적용
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setSelectedIds(new Set())}>
+                      선택 해제
+                    </Button>
+                  </div>
+                )}
                 <div className="overflow-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        {(isAdmin || isModerator) && adminTab === 'all' && (
+                          <TableHead className="w-10">
+                            <Checkbox
+                              checked={(() => {
+                                const filtered = filterDate ? monthlyRecords.filter((r: any) => r.date === filterDate) : monthlyRecords;
+                                return filtered.length > 0 && filtered.every((r: any) => selectedIds.has(r.id));
+                              })()}
+                              onCheckedChange={(checked) => {
+                                const filtered = filterDate ? monthlyRecords.filter((r: any) => r.date === filterDate) : monthlyRecords;
+                                if (checked) {
+                                  setSelectedIds(new Set(filtered.map((r: any) => r.id)));
+                                } else {
+                                  setSelectedIds(new Set());
+                                }
+                              }}
+                            />
+                          </TableHead>
+                        )}
                         <TableHead>날짜</TableHead>
                         {adminTab === 'all' && <TableHead>이름</TableHead>}
                         <TableHead>출근</TableHead>
                         <TableHead>퇴근</TableHead>
-                         <TableHead>근무시간</TableHead>
-                         <TableHead>상태</TableHead>
-                         {(isAdmin || isModerator) && adminTab === 'all' && <TableHead>수정</TableHead>}
+                        <TableHead>근무시간</TableHead>
+                        <TableHead>상태</TableHead>
+                        {(isAdmin || isModerator) && adminTab === 'all' && <TableHead>수정</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -374,10 +448,22 @@ const AttendancePage = () => {
                           ? monthlyRecords.filter((r: any) => r.date === filterDate)
                           : monthlyRecords;
                         if (filtered.length === 0) return (
-                          <TableRow><TableCell colSpan={adminTab === 'all' ? 7 : 5} className="text-center py-8 text-muted-foreground">{filterDate ? `${filterDate}의 기록이 없습니다` : '기록이 없습니다'}</TableCell></TableRow>
+                          <TableRow><TableCell colSpan={adminTab === 'all' ? 8 : 5} className="text-center py-8 text-muted-foreground">{filterDate ? `${filterDate}의 기록이 없습니다` : '기록이 없습니다'}</TableCell></TableRow>
                         );
                         return filtered.map((r: any) => (
-                          <TableRow key={r.id}>
+                          <TableRow key={r.id} className={selectedIds.has(r.id) ? 'bg-primary/5' : ''}>
+                            {(isAdmin || isModerator) && adminTab === 'all' && (
+                              <TableCell>
+                                <Checkbox
+                                  checked={selectedIds.has(r.id)}
+                                  onCheckedChange={(checked) => {
+                                    const next = new Set(selectedIds);
+                                    if (checked) next.add(r.id); else next.delete(r.id);
+                                    setSelectedIds(next);
+                                  }}
+                                />
+                              </TableCell>
+                            )}
                             <TableCell className="font-medium">{format(new Date(r.date), 'M/d (EEE)', { locale: ko })}</TableCell>
                             {adminTab === 'all' && <TableCell>{r.user_name}</TableCell>}
                             <TableCell>{r.check_in ? format(new Date(r.check_in), 'HH:mm') : '-'}</TableCell>
