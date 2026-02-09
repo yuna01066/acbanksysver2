@@ -22,26 +22,21 @@ const Home = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, isAdmin, isModerator } = useAuth();
   const { notifications, unviewedCount, markAsViewed, removeNotification, refresh: refreshNotifications } = useNotifications();
+  // Quick icon links displayed above greeting card
+  const quickLinks = [
+    { title: "홈페이지", icon: HomeIcon, action: () => window.open("https://acbank.co.kr", "_blank") },
+    { title: "팀 채팅", icon: MessageCircle, action: () => navigate("/team-chat") },
+    { title: "인스타그램", icon: Instagram, action: () => window.open("https://www.instagram.com/acbank.co.kr/", "_blank") },
+    { title: "아크뱅크 노션", icon: BookOpen, action: () => window.open("https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link", "_blank") },
+  ];
+
   const links = [{
-    title: "홈페이지",
-    icon: HomeIcon,
-    description: "공식 웹사이트 방문",
-    url: "https://acbank.co.kr",
-    requiresAuth: false,
-    action: () => window.open("https://acbank.co.kr", "_blank")
-  }, {
     title: "클라이언트 상담폼",
     icon: FileText,
     description: "상담 신청하기",
     url: "https://acbank.co.kr/acbankform",
     requiresAuth: true,
     action: () => window.open("https://acbank.co.kr/acbankform", "_blank")
-  }, {
-    title: "팀 채팅",
-    icon: MessageCircle,
-    description: "팀 메시지",
-    url: "/team-chat",
-    requiresAuth: true,
   }, {
     title: "수율 계산기",
     icon: TrendingUp,
@@ -85,20 +80,6 @@ const Home = () => {
     requiresAuth: true,
     action: () => navigate("/leave-management")
   }, {
-    title: "인스타그램",
-    icon: Instagram,
-    description: "소셜 미디어 팔로우",
-    url: "https://www.instagram.com/acbank.co.kr/",
-    requiresAuth: true,
-    action: () => window.open("https://www.instagram.com/acbank.co.kr/", "_blank")
-  }, {
-    title: "아크뱅크 노션 페이지",
-    icon: BookOpen,
-    description: "문서 및 가이드",
-    url: "https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link",
-    requiresAuth: true,
-    action: () => window.open("https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link", "_blank")
-  }, {
     title: "공지사항",
     icon: Megaphone,
     description: "공지사항 게시판",
@@ -119,22 +100,6 @@ const Home = () => {
         toast.error('관리자 또는 중간관리자만 접근할 수 있습니다.');
       }
     }
-  }, {
-    title: "",
-    icon: null,
-    description: "",
-    url: "",
-    requiresAuth: false,
-    placeholder: true,
-    action: () => {}
-  }, {
-    title: "",
-    icon: null,
-    description: "",
-    url: "",
-    requiresAuth: false,
-    placeholder: true,
-    action: () => {}
   }];
 
   const handleCardClick = (link: typeof links[0]) => {
@@ -192,6 +157,25 @@ const Home = () => {
 
           {user && (
             <div className="mb-4 space-y-4">
+              {/* Quick icon links */}
+              <div className="flex justify-center gap-3">
+                {quickLinks.map((ql, i) => {
+                  const QIcon = ql.icon;
+                  return (
+                    <button
+                      key={i}
+                      onClick={ql.action}
+                      className="flex flex-col items-center gap-1 group"
+                      title={ql.title}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-muted/60 hover:bg-primary/10 flex items-center justify-center transition-all group-hover:scale-110">
+                        <QIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground group-hover:text-foreground transition-colors">{ql.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
               <TimeGreeting name={profile?.full_name || user.email?.split('@')[0] || '사용자'} avatarUrl={profile?.avatar_url} />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <QuickAttendanceButton />
@@ -217,9 +201,6 @@ const Home = () => {
           {/* Links Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
             {links.map((link, index) => {
-            if ((link as any).placeholder) {
-              return <div key={index} className="hidden lg:block" />;
-            }
             const Icon = link.icon;
             const isLocked = link.requiresAuth && !user;
             const isAdminOnly = (link as any).requiresAdmin && !isAdmin && !isModerator;
