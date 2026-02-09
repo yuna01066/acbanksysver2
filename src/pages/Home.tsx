@@ -192,11 +192,11 @@ const Home = () => {
           {user && (
             <div className="mb-4 space-y-4">
               <TimeGreeting name={profile?.full_name || user.email?.split('@')[0] || '사용자'} />
-              <DashboardCalendar />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <QuickAttendanceButton />
                 <DailyQuoteCard />
               </div>
+              <DashboardCalendar />
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <AnnouncementCard />
               <ActivityFeedCard />
