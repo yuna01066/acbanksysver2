@@ -1308,6 +1308,9 @@ export type Database = {
       }
       projects: {
         Row: {
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
           created_at: string
           description: string | null
           id: string
@@ -1320,6 +1323,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1332,6 +1338,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           created_at?: string
           description?: string | null
           id?: string

@@ -19,6 +19,7 @@ import ProjectAssignments from './ProjectAssignments';
 import ProjectSpecsCard from './ProjectSpecsCard';
 import PaymentStatusSelect from './PaymentStatusSelect';
 import RecipientDetailSheet from './RecipientDetailSheet';
+import LinkContactDialog, { ContactInfo } from './LinkContactDialog';
 
 interface Props {
   projectId: string;
@@ -61,6 +62,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
   const queryClient = useQueryClient();
   const [recipientDialogOpen, setRecipientDialogOpen] = useState(false);
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [previewQuoteId, setPreviewQuoteId] = useState<string | null>(null);
   const [recipientSheetOpen, setRecipientSheetOpen] = useState(false);
 
@@ -137,6 +139,22 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       onDeleted();
       toast.success('프로젝트가 삭제되었습니다.');
+    },
+  });
+
+  const updateContact = useMutation({
+    mutationFn: async (contact: ContactInfo | null) => {
+      const update = contact
+        ? { contact_name: contact.name, contact_phone: contact.phone, contact_email: contact.email }
+        : { contact_name: null, contact_phone: null, contact_email: null };
+      const { error } = await supabase.from('projects').update(update as any).eq('id', projectId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      setContactDialogOpen(false);
+      toast.success('담당자 정보가 업데이트되었습니다.');
     },
   });
 
@@ -275,6 +293,42 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
                 )}
               </div>
 
+              {/* 담당자 */}
+              <div className="py-3 border-b">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">담당자</span>
+                  {(project as any).contact_name ? (
+                    <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-1 text-destructive px-1" onClick={() => updateContact.mutate(null)}>
+                      <Unlink className="h-2.5 w-2.5" /> 해제
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-1 px-1" onClick={() => setContactDialogOpen(true)}>
+                      <Link2 className="h-2.5 w-2.5" /> 연결
+                    </Button>
+                  )}
+                </div>
+                {(project as any).contact_name ? (
+                  <div className="space-y-1 pl-0.5">
+                    <div className="flex items-center gap-1.5 text-xs font-medium">
+                      <User className="h-3 w-3 text-muted-foreground" />
+                      {(project as any).contact_name}
+                    </div>
+                    {(project as any).contact_phone && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <Phone className="h-2.5 w-2.5" /> {(project as any).contact_phone}
+                      </div>
+                    )}
+                    {(project as any).contact_email && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <Mail className="h-2.5 w-2.5" /> {(project as any).contact_email}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">연결된 담당자가 없습니다.</p>
+                )}
+              </div>
+
               {/* 연결된 견적서 */}
               <div className="pt-3">
                 <div className="flex items-center justify-between mb-2">
@@ -326,6 +380,12 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
       <LinkQuoteDialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen} projectId={projectId} />
       <QuotePreviewSheet quoteId={previewQuoteId} open={!!previewQuoteId} onOpenChange={(open) => !open && setPreviewQuoteId(null)} />
       <RecipientDetailSheet recipientId={project.recipient_id} open={recipientSheetOpen} onOpenChange={setRecipientSheetOpen} />
+      <LinkContactDialog
+        open={contactDialogOpen}
+        onOpenChange={setContactDialogOpen}
+        onSelect={(contact) => updateContact.mutate(contact)}
+        recipientCompany={project.recipients?.company_name}
+      />
     </div>
   );
 };
