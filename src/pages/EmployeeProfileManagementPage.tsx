@@ -28,6 +28,12 @@ const mapProfileData = (d: any): EmployeeProfile => ({
   awards: d.awards || '', disciplinary: d.disciplinary || '', career_history: d.career_history || '',
   education: d.education || '', special_notes: d.special_notes || '', family_info: d.family_info || '',
   avatar_url: d.avatar_url || '',
+  resident_registration_number: d.resident_registration_number || '',
+  group_join_date: d.group_join_date || '',
+  join_type: d.join_type || '',
+  family_basic_deduction: d.family_basic_deduction ?? 1,
+  family_child_tax_credit: d.family_child_tax_credit ?? 0,
+  family_health_dependents: d.family_health_dependents ?? 0,
 });
 
 const EmployeeProfileManagementPage = () => {

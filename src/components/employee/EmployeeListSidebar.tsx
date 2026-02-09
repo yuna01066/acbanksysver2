@@ -44,6 +44,12 @@ export interface EmployeeProfile {
   special_notes: string;
   family_info: string;
   avatar_url: string;
+  resident_registration_number: string;
+  group_join_date: string;
+  join_type: string;
+  family_basic_deduction: number;
+  family_child_tax_credit: number;
+  family_health_dependents: number;
 }
 
 interface EmployeeListSidebarProps {
