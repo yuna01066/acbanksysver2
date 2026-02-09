@@ -5,9 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Heart, MessageSquare, Coffee, Inbox, Send } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, Heart, MessageSquare, Coffee, Inbox, Send, X, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface FeedbackItem {
   id: string;
@@ -18,6 +20,9 @@ interface FeedbackItem {
   emoji: string | null;
   is_read: boolean;
   created_at: string;
+  meeting_status?: string;
+  meeting_date?: string | null;
+  meeting_time?: string | null;
   partner_name?: string;
 }
 
@@ -25,9 +30,23 @@ const FEEDBACK_META: Record<string, { label: string; icon: React.ReactNode; badg
   recognition: { label: '인정', icon: <Heart className="h-3.5 w-3.5" />, badgeVariant: 'default' },
   feedback: { label: '피드백', icon: <MessageSquare className="h-3.5 w-3.5" />, badgeVariant: 'secondary' },
   one_on_one: { label: '1:1 요청', icon: <Coffee className="h-3.5 w-3.5" />, badgeVariant: 'outline' },
+  meeting: { label: '미팅 요청', icon: <CalendarIcon className="h-3.5 w-3.5" />, badgeVariant: 'outline' },
 };
 
-const FeedbackList: React.FC<{ items: FeedbackItem[]; emptyText: string; showUnread?: boolean }> = ({ items, emptyText, showUnread }) => {
+const MEETING_STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  pending: { label: '대기중', color: 'text-amber-600' },
+  accepted: { label: '수락됨', color: 'text-green-600' },
+  declined: { label: '거절됨', color: 'text-red-500' },
+  rescheduled: { label: '일정 변경', color: 'text-blue-600' },
+};
+
+const FeedbackList: React.FC<{
+  items: FeedbackItem[];
+  emptyText: string;
+  showUnread?: boolean;
+  isSentTab?: boolean;
+  onCancelMeeting?: (id: string) => void;
+}> = ({ items, emptyText, showUnread, isSentTab, onCancelMeeting }) => {
   if (items.length === 0) {
     return <p className="text-sm text-muted-foreground text-center py-6">{emptyText}</p>;
   }
@@ -35,6 +54,9 @@ const FeedbackList: React.FC<{ items: FeedbackItem[]; emptyText: string; showUnr
     <div className="space-y-3">
       {items.map(fb => {
         const meta = FEEDBACK_META[fb.feedback_type] || FEEDBACK_META.feedback;
+        const isMeetingPending = fb.feedback_type === 'meeting' && fb.meeting_status === 'pending';
+        const meetingStatusInfo = fb.feedback_type === 'meeting' ? MEETING_STATUS_LABELS[fb.meeting_status || 'pending'] : null;
+
         return (
           <div key={fb.id} className="flex gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors">
             <Avatar className="h-9 w-9 rounded-lg shrink-0">
@@ -48,12 +70,35 @@ const FeedbackList: React.FC<{ items: FeedbackItem[]; emptyText: string; showUnr
                 <Badge variant={meta.badgeVariant} className="gap-1 text-xs">
                   {meta.icon}{meta.label}
                 </Badge>
+                {meetingStatusInfo && (
+                  <span className={`text-xs font-medium ${meetingStatusInfo.color}`}>
+                    {meetingStatusInfo.label}
+                  </span>
+                )}
                 {showUnread && !fb.is_read && <span className="h-2 w-2 rounded-full bg-primary" />}
               </div>
               <p className="text-sm text-muted-foreground">{fb.message}</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">
-                {format(new Date(fb.created_at), 'yyyy.MM.dd HH:mm', { locale: ko })}
-              </p>
+              {fb.feedback_type === 'meeting' && fb.meeting_date && (
+                <p className="text-xs text-muted-foreground/70 mt-0.5">
+                  📅 {format(new Date(fb.meeting_date), 'yyyy.MM.dd (EEE)', { locale: ko })} {fb.meeting_time || ''}
+                </p>
+              )}
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-muted-foreground/60">
+                  {format(new Date(fb.created_at), 'yyyy.MM.dd HH:mm', { locale: ko })}
+                </p>
+                {isSentTab && isMeetingPending && onCancelMeeting && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                    onClick={() => onCancelMeeting(fb.id)}
+                  >
+                    <X className="h-3 w-3" />
+                    취소
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -68,39 +113,49 @@ const ReceivedFeedbackPanel: React.FC = () => {
   const [sent, setSent] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchAll = async () => {
+    if (!user) return;
+    const [receivedRes, sentRes] = await Promise.all([
+      supabase.from('peer_feedback').select('*').eq('receiver_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('peer_feedback').select('*').eq('sender_id', user.id).order('created_at', { ascending: false }),
+    ]);
+
+    const partnerIds = [...new Set([
+      ...(receivedRes.data || []).map(f => f.sender_id),
+      ...(sentRes.data || []).map(f => f.receiver_id),
+    ])];
+
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', partnerIds.length > 0 ? partnerIds : ['none']);
+
+    const nameMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+
+    setReceived((receivedRes.data || []).map(f => ({ ...f, partner_name: nameMap.get(f.sender_id) || '알 수 없음' })));
+    setSent((sentRes.data || []).map(f => ({ ...f, partner_name: nameMap.get(f.receiver_id) || '알 수 없음' })));
+
+    const unreadIds = (receivedRes.data || []).filter(f => !f.is_read).map(f => f.id);
+    if (unreadIds.length > 0) {
+      await supabase.from('peer_feedback').update({ is_read: true }).in('id', unreadIds);
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
     if (!user) return;
-    const fetchAll = async () => {
-      const [receivedRes, sentRes] = await Promise.all([
-        supabase.from('peer_feedback').select('*').eq('receiver_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('peer_feedback').select('*').eq('sender_id', user.id).order('created_at', { ascending: false }),
-      ]);
-
-      const allData = [...(receivedRes.data || []), ...(sentRes.data || [])];
-      const partnerIds = [...new Set([
-        ...(receivedRes.data || []).map(f => f.sender_id),
-        ...(sentRes.data || []).map(f => f.receiver_id),
-      ])];
-
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', partnerIds.length > 0 ? partnerIds : ['none']);
-
-      const nameMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
-
-      setReceived((receivedRes.data || []).map(f => ({ ...f, partner_name: nameMap.get(f.sender_id) || '알 수 없음' })));
-      setSent((sentRes.data || []).map(f => ({ ...f, partner_name: nameMap.get(f.receiver_id) || '알 수 없음' })));
-
-      // Mark unread received as read
-      const unreadIds = (receivedRes.data || []).filter(f => !f.is_read).map(f => f.id);
-      if (unreadIds.length > 0) {
-        await supabase.from('peer_feedback').update({ is_read: true }).in('id', unreadIds);
-      }
-      setLoading(false);
-    };
     fetchAll();
   }, [user]);
+
+  const handleCancelMeeting = async (id: string) => {
+    const { error } = await supabase.from('peer_feedback').delete().eq('id', id);
+    if (error) {
+      toast.error('취소 실패: ' + error.message);
+      return;
+    }
+    toast.success('미팅 요청이 취소되었습니다.');
+    setSent(prev => prev.filter(f => f.id !== id));
+  };
 
   if (loading) {
     return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
@@ -130,7 +185,7 @@ const ReceivedFeedbackPanel: React.FC = () => {
             <FeedbackList items={received} emptyText="아직 받은 피드백이 없습니다." showUnread />
           </TabsContent>
           <TabsContent value="sent">
-            <FeedbackList items={sent} emptyText="아직 보낸 피드백이 없습니다." />
+            <FeedbackList items={sent} emptyText="아직 보낸 피드백이 없습니다." isSentTab onCancelMeeting={handleCancelMeeting} />
           </TabsContent>
         </Tabs>
       </CardContent>
