@@ -14,11 +14,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ArrowLeft, Clock, LogIn, LogOut, MapPin, CalendarDays, Plus, Loader2, Check, X, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Clock, LogIn, LogOut, MapPin, CalendarDays, Plus, Loader2, Check, X, BarChart3, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import AttendanceEditDialog from '@/components/attendance/AttendanceEditDialog';
 
 const LEAVE_TYPES = [
   { value: 'annual', label: '연차' },
@@ -43,6 +44,8 @@ const AttendancePage = () => {
   const [leaveForm, setLeaveForm] = useState({ leaveType: 'annual', startDate: new Date(), endDate: new Date(), reason: '' });
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [adminTab, setAdminTab] = useState('my');
+  const [editRecord, setEditRecord] = useState<any>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -338,8 +341,9 @@ const AttendancePage = () => {
                         {adminTab === 'all' && <TableHead>이름</TableHead>}
                         <TableHead>출근</TableHead>
                         <TableHead>퇴근</TableHead>
-                        <TableHead>근무시간</TableHead>
-                        <TableHead>상태</TableHead>
+                         <TableHead>근무시간</TableHead>
+                         <TableHead>상태</TableHead>
+                         {(isAdmin || isModerator) && adminTab === 'all' && <TableHead>수정</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -357,7 +361,19 @@ const AttendancePage = () => {
                               <Badge variant="outline" className="text-xs">
                                 {r.status === 'checked_out' ? '완료' : (r.status === 'checked_in' || r.status === 'present') ? '근무 중' : r.status}
                               </Badge>
-                            </TableCell>
+                             </TableCell>
+                             {(isAdmin || isModerator) && adminTab === 'all' && (
+                               <TableCell>
+                                 <Button
+                                   size="sm"
+                                   variant="ghost"
+                                   className="h-7 w-7 p-0"
+                                   onClick={() => { setEditRecord(r); setEditDialogOpen(true); }}
+                                 >
+                                   <Pencil className="w-3.5 h-3.5" />
+                                 </Button>
+                               </TableCell>
+                             )}
                           </TableRow>
                         ))
                       )}
@@ -466,6 +482,16 @@ const AttendancePage = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <AttendanceEditDialog
+        record={editRecord}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSaved={() => {
+          queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+          queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
+        }}
+      />
     </div>
   );
 };
