@@ -64,14 +64,9 @@ serve(async (req) => {
         if (prop.type === 'date' && prop.date?.start) {
           startDate = prop.date.start;
           endDate = prop.date.end || '';
-          // Also use as the main date for calendar
-          createdDate = prop.date.start;
         }
         
-        // Get created_time property
-        if (prop.type === 'created_time') {
-          if (!startDate) createdDate = prop.created_time;
-        }
+        // created_time is always set from page.created_time above
 
         // Get person/people
         if (prop.type === 'people' && prop.people?.length > 0) {
@@ -97,10 +92,12 @@ serve(async (req) => {
       return {
         id: page.id,
         title: title || 'Untitled',
-        date: createdDate,
+        date: startDate || createdDate, // 날짜가 없으면 생성일 사용
+        createdDate,
         startDate,
         endDate,
         assignee,
+        assigneeList: assignee ? assignee.split(', ').map((a: string) => a.trim()) : [],
         status,
         url: page.url,
       };

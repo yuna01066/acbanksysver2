@@ -82,10 +82,11 @@ const DashboardCalendar = () => {
       }
     });
 
-    // Notion 프로젝트 이벤트
+    // Notion 프로젝트 이벤트 - date가 없으면 createdDate 사용
     notionProjects?.forEach((project: any) => {
-      if (project.date) {
-        const date = new Date(project.date);
+      const dateStr = project.date || project.createdDate;
+      if (dateStr) {
+        const date = new Date(dateStr);
         if (!isNaN(date.getTime())) {
           result.push({
             id: project.id,
