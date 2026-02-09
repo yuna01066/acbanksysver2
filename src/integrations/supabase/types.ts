@@ -669,6 +669,9 @@ export type Database = {
           description: string
           id: string
           incident_date: string
+          incident_location: string | null
+          incident_subject: string | null
+          incident_time: string | null
           prevention_measures: string | null
           requested_at: string | null
           requested_by: string | null
@@ -692,6 +695,9 @@ export type Database = {
           description: string
           id?: string
           incident_date?: string
+          incident_location?: string | null
+          incident_subject?: string | null
+          incident_time?: string | null
           prevention_measures?: string | null
           requested_at?: string | null
           requested_by?: string | null
@@ -715,6 +721,9 @@ export type Database = {
           description?: string
           id?: string
           incident_date?: string
+          incident_location?: string | null
+          incident_subject?: string | null
+          incident_time?: string | null
           prevention_measures?: string | null
           requested_at?: string | null
           requested_by?: string | null

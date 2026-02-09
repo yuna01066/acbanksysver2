@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -18,7 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   AlertTriangle, Plus, FileText, Loader2, Trash2, Pencil, Send, Eye,
-  Paperclip, Download, X, Clock, CheckCircle2, XCircle, UserPlus
+  Paperclip, Download, X, Clock, CheckCircle2, UserPlus, MapPin
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -30,6 +29,9 @@ interface IncidentReport {
   user_name: string;
   title: string;
   incident_date: string;
+  incident_time: string | null;
+  incident_subject: string | null;
+  incident_location: string | null;
   description: string;
   cause_analysis: string | null;
   prevention_measures: string | null;
@@ -50,17 +52,23 @@ interface IncidentReport {
 
 interface ReportForm {
   title: string;
+  incident_subject: string;
   incident_date: string;
-  description: string;
+  incident_time: string;
+  incident_location: string;
   cause_analysis: string;
+  description: string;
   prevention_measures: string;
 }
 
 const emptyForm: ReportForm = {
   title: '',
+  incident_subject: '',
   incident_date: new Date().toISOString().split('T')[0],
-  description: '',
+  incident_time: '',
+  incident_location: '',
   cause_analysis: '',
+  description: '',
   prevention_measures: '',
 };
 
@@ -78,7 +86,6 @@ const ALLOWED_TYPES = [
 ];
 
 interface IncidentReportPanelProps {
-  /** If true, show admin view (all reports, request flow) */
   isAdminView?: boolean;
 }
 
@@ -96,14 +103,12 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
   const [files, setFiles] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
 
-  // Admin request flow
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
   const [employees, setEmployees] = useState<{ id: string; full_name: string; department: string }[]>([]);
   const [requestTargetId, setRequestTargetId] = useState('');
   const [requestTitle, setRequestTitle] = useState('');
   const [requesting, setRequesting] = useState(false);
 
-  // Admin review
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewTarget, setReviewTarget] = useState<IncidentReport | null>(null);
   const [reviewComment, setReviewComment] = useState('');
@@ -144,9 +149,12 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
     setEditingId(r.id);
     setForm({
       title: r.title,
+      incident_subject: (r as any).incident_subject || '',
       incident_date: r.incident_date,
-      description: r.description,
+      incident_time: (r as any).incident_time || '',
+      incident_location: (r as any).incident_location || '',
       cause_analysis: r.cause_analysis || '',
+      description: r.description,
       prevention_measures: r.prevention_measures || '',
     });
     setFiles([]);
@@ -167,11 +175,13 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
   };
 
   const handleSave = async (asSubmit = false) => {
-    if (!form.title.trim()) { toast.error('제목을 입력해주세요.'); return; }
-    if (!form.description.trim()) { toast.error('경위 내용을 입력해주세요.'); return; }
+    if (!form.incident_subject.trim()) { toast.error('사고 대상자를 입력해주세요.'); return; }
+    if (!form.description.trim()) { toast.error('사고 경위를 입력해주세요.'); return; }
     setSaving(true);
     try {
       let newAttachments = [...existingAttachments];
+      // Auto-generate title from subject + date
+      const autoTitle = `${form.incident_subject.trim()} - ${form.incident_date}`;
 
       if (editingId) {
         if (files.length > 0) {
@@ -179,8 +189,11 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
           newAttachments = [...newAttachments, ...uploaded];
         }
         const { error } = await supabase.from('incident_reports').update({
-          title: form.title.trim(),
+          title: autoTitle,
           incident_date: form.incident_date,
+          incident_subject: form.incident_subject.trim(),
+          incident_time: form.incident_time.trim() || null,
+          incident_location: form.incident_location.trim() || null,
           description: form.description.trim(),
           cause_analysis: form.cause_analysis.trim() || null,
           prevention_measures: form.prevention_measures.trim() || null,
@@ -199,8 +212,11 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
         const { error } = await supabase.from('incident_reports').insert({
           user_id: user!.id,
           user_name: profile?.full_name || user!.email,
-          title: form.title.trim(),
+          title: autoTitle,
           incident_date: form.incident_date,
+          incident_subject: form.incident_subject.trim(),
+          incident_time: form.incident_time.trim() || null,
+          incident_location: form.incident_location.trim() || null,
           description: form.description.trim(),
           cause_analysis: form.cause_analysis.trim() || null,
           prevention_measures: form.prevention_measures.trim() || null,
@@ -253,7 +269,6 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
     else toast.error('파일 다운로드에 실패했습니다.');
   };
 
-  // Admin: Request report from employee
   const handleRequest = async () => {
     if (!requestTargetId || !requestTitle.trim()) { toast.error('대상자와 제목을 입력해주세요.'); return; }
     setRequesting(true);
@@ -271,16 +286,11 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
         requested_at: new Date().toISOString(),
       } as any);
       if (error) throw error;
-
-      // Notify
       await supabase.from('notifications').insert({
-        user_id: requestTargetId,
-        type: 'system',
+        user_id: requestTargetId, type: 'system',
         title: '사고 경위서 작성 요청',
-        description: `"${requestTitle.trim()}" 경위서 작성이 요청되었습니다.`,
-        data: {},
+        description: `"${requestTitle.trim()}" 경위서 작성이 요청되었습니다.`, data: {},
       });
-
       toast.success('경위서 작성을 요청했습니다.');
       setRequestDialogOpen(false);
       setRequestTargetId('');
@@ -293,7 +303,6 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
     }
   };
 
-  // Admin: Review submitted report
   const handleReview = async () => {
     if (!reviewTarget) return;
     setReviewing(true);
@@ -306,15 +315,11 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
         review_comment: reviewComment.trim() || null,
       } as any).eq('id', reviewTarget.id);
       if (error) throw error;
-
       await supabase.from('notifications').insert({
-        user_id: reviewTarget.user_id,
-        type: 'system',
+        user_id: reviewTarget.user_id, type: 'system',
         title: '경위서 검토 완료',
-        description: `"${reviewTarget.title}" 경위서가 검토 완료되었습니다.`,
-        data: {},
+        description: `"${reviewTarget.title}" 경위서가 검토 완료되었습니다.`, data: {},
       });
-
       toast.success('검토 완료 처리되었습니다.');
       setReviewDialogOpen(false);
       setReviewTarget(null);
@@ -382,30 +387,35 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
                           {statusCfg.icon}{statusCfg.label}
                         </Badge>
                         {isAdminView && (
-                          <Badge variant="outline" className="text-xs">{r.user_name}</Badge>
+                          <Badge variant="outline" className="text-xs">작성: {r.user_name}</Badge>
+                        )}
+                        {r.incident_subject && (
+                          <Badge variant="secondary" className="text-xs">대상: {r.incident_subject}</Badge>
                         )}
                         <span className="text-xs text-muted-foreground">
                           {format(new Date(r.incident_date), 'yyyy.MM.dd', { locale: ko })}
+                          {r.incident_time && ` ${r.incident_time}`}
                         </span>
+                        {r.incident_location && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                            <MapPin className="h-3 w-3" />{r.incident_location}
+                          </span>
+                        )}
                         {r.attachments && r.attachments.length > 0 && (
                           <Badge variant="secondary" className="text-xs gap-1">
                             <Paperclip className="h-3 w-3" />{r.attachments.length}
                           </Badge>
                         )}
                       </div>
-                      <p className="font-medium text-sm">{r.title}</p>
+                      <p className="font-medium text-sm">{r.cause_analysis || r.title}</p>
                       <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                         {r.description || '(내용 없음)'}
                       </p>
                       {r.requested_by_name && (
-                        <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                          요청자: {r.requested_by_name}
-                        </p>
+                        <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">요청자: {r.requested_by_name}</p>
                       )}
                       {r.review_comment && (
-                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                          검토 의견: {r.review_comment}
-                        </p>
+                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">검토 의견: {r.review_comment}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -446,19 +456,49 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>제목 *</Label>
-                <Input placeholder="사고 제목" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+            {/* Writer & date (read-only info) */}
+            <div className="grid grid-cols-2 gap-4 p-3 rounded-lg bg-muted/50 border">
+              <div>
+                <Label className="text-xs text-muted-foreground">작성인</Label>
+                <p className="text-sm font-medium">{profile?.full_name || user?.email}</p>
               </div>
-              <div className="space-y-2">
-                <Label>사고 발생일 *</Label>
-                <Input type="date" value={form.incident_date} onChange={e => setForm(f => ({ ...f, incident_date: e.target.value }))} />
+              <div>
+                <Label className="text-xs text-muted-foreground">작성일</Label>
+                <p className="text-sm font-medium">{format(new Date(), 'yyyy년 MM월 dd일', { locale: ko })}</p>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>상세 경위 *</Label>
+              <Label>사고 대상자 *</Label>
+              <Input placeholder="사고와 관련된 대상자 이름" value={form.incident_subject} onChange={e => setForm(f => ({ ...f, incident_subject: e.target.value }))} />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>사고 날짜 *</Label>
+                <Input type="date" value={form.incident_date} onChange={e => setForm(f => ({ ...f, incident_date: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>사고 시간</Label>
+                <Input type="time" value={form.incident_time} onChange={e => setForm(f => ({ ...f, incident_time: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>사고 장소</Label>
+                <Input placeholder="사고 발생 장소" value={form.incident_location} onChange={e => setForm(f => ({ ...f, incident_location: e.target.value }))} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>사고 원인 (1줄 요약) *</Label>
+              <Input
+                placeholder="사고의 원인을 한 줄로 요약해주세요"
+                value={form.cause_analysis}
+                onChange={e => setForm(f => ({ ...f, cause_analysis: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>사고 경위 *</Label>
               <Textarea
                 placeholder="사고 발생 경위를 상세히 기술해주세요..."
                 value={form.description}
@@ -468,22 +508,12 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
             </div>
 
             <div className="space-y-2">
-              <Label>사고 원인 분석</Label>
-              <Textarea
-                placeholder="사고의 근본 원인을 분석해주세요..."
-                value={form.cause_analysis}
-                onChange={e => setForm(f => ({ ...f, cause_analysis: e.target.value }))}
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>재발 방지 대책</Label>
+              <Label>사고 대안 및 재발 방지안</Label>
               <Textarea
                 placeholder="향후 재발 방지를 위한 구체적 대책을 작성해주세요..."
                 value={form.prevention_measures}
                 onChange={e => setForm(f => ({ ...f, prevention_measures: e.target.value }))}
-                rows={3}
+                rows={4}
               />
             </div>
 
@@ -494,7 +524,6 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
               </Label>
               <Input type="file" multiple accept={ALLOWED_TYPES.join(',')} onChange={handleFileChange} className="text-sm" />
               <p className="text-xs text-muted-foreground">이미지, PDF, Word 파일 (최대 10MB)</p>
-
               {existingAttachments.length > 0 && (
                 <div className="space-y-1">
                   <span className="text-xs font-medium text-muted-foreground">기존 첨부파일</span>
@@ -548,30 +577,42 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
             <div className="space-y-4 mt-2">
               <div className="flex items-center gap-2 flex-wrap">
                 {(() => { const s = STATUS_CONFIG[viewReport.status] || STATUS_CONFIG.draft; return <Badge className={`text-xs border-0 gap-1 ${s.className}`}>{s.icon}{s.label}</Badge>; })()}
-                <Badge variant="outline" className="text-xs">{viewReport.user_name}</Badge>
-                <span className="text-xs text-muted-foreground">{format(new Date(viewReport.incident_date), 'yyyy년 MM월 dd일', { locale: ko })}</span>
               </div>
 
-              <div>
-                <h3 className="font-bold text-lg">{viewReport.title}</h3>
+              <div className="grid grid-cols-2 gap-4 p-3 rounded-lg bg-muted/50 border text-sm">
+                <div><span className="text-xs text-muted-foreground block">작성인</span>{viewReport.user_name}</div>
+                <div><span className="text-xs text-muted-foreground block">작성일</span>{format(new Date(viewReport.created_at), 'yyyy.MM.dd', { locale: ko })}</div>
               </div>
 
-              <div>
-                <Label className="text-xs text-muted-foreground">상세 경위</Label>
-                <p className="text-sm whitespace-pre-wrap mt-1">{viewReport.description || '-'}</p>
-              </div>
-
-              {viewReport.cause_analysis && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 rounded-lg border text-sm">
                 <div>
-                  <Label className="text-xs text-muted-foreground">사고 원인 분석</Label>
-                  <p className="text-sm whitespace-pre-wrap mt-1">{viewReport.cause_analysis}</p>
+                  <span className="text-xs text-muted-foreground block">사고 대상자</span>
+                  <span className="font-medium">{viewReport.incident_subject || '-'}</span>
                 </div>
-              )}
+                <div>
+                  <span className="text-xs text-muted-foreground block">사고 날짜</span>
+                  {format(new Date(viewReport.incident_date), 'yyyy.MM.dd', { locale: ko })}
+                  {viewReport.incident_time && ` ${viewReport.incident_time}`}
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">사고 장소</span>
+                  {viewReport.incident_location || '-'}
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">사고 원인</span>
+                  {viewReport.cause_analysis || '-'}
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs text-muted-foreground">사고 경위</Label>
+                <p className="text-sm whitespace-pre-wrap mt-1 p-3 rounded-lg border bg-card">{viewReport.description || '-'}</p>
+              </div>
 
               {viewReport.prevention_measures && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">재발 방지 대책</Label>
-                  <p className="text-sm whitespace-pre-wrap mt-1">{viewReport.prevention_measures}</p>
+                  <Label className="text-xs text-muted-foreground">사고 대안 및 재발 방지안</Label>
+                  <p className="text-sm whitespace-pre-wrap mt-1 p-3 rounded-lg border bg-card">{viewReport.prevention_measures}</p>
                 </div>
               )}
 
