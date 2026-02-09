@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, CalendarDays, Clock, Loader2, Settings2 } from 'lucide-react';
 import { useLeaveRequests, calculatePolicyBasedLeaveDays } from '@/hooks/useLeaveRequests';
 import { useLeavePolicy } from '@/hooks/useLeavePolicy';
+import { calculateExpiredLeave } from '@/utils/leaveExpiration';
 import LeaveRequestForm from '@/components/leave/LeaveRequestForm';
 import LeaveRequestList from '@/components/leave/LeaveRequestList';
 import LeaveSummaryCards from '@/components/leave/LeaveSummaryCards';
@@ -44,12 +45,31 @@ const LeaveManagementPage = () => {
       .reduce((sum, r) => sum + r.days, 0),
     [myRequests]
   );
+  const usedMonthlyDays = useMemo(() =>
+    myRequests.filter(r => r.status === 'approved' && r.leave_type === 'annual' && /* monthly context checked by join date */ true)
+      .reduce((sum, r) => sum + r.days, 0),
+    [myRequests]
+  );
   const pendingDays = useMemo(() =>
     myRequests.filter(r => r.status === 'pending' && (r.leave_type === 'annual' || r.leave_type === 'half_am' || r.leave_type === 'half_pm'))
       .reduce((sum, r) => sum + r.days, 0),
     [myRequests]
   );
-  const remainingDays = totalAnnualDays - usedDays;
+
+  const expiration = useMemo(() => {
+    if (!policy.auto_expire_enabled) {
+      return { expiredDays: 0, expiringSoonDays: 0, expirationDate: null, details: [] };
+    }
+    return calculateExpiredLeave(
+      joinDate,
+      policy.grant_basis,
+      policy.auto_expire_type,
+      usedDays,
+      usedMonthlyDays,
+    );
+  }, [joinDate, policy.grant_basis, policy.auto_expire_type, policy.auto_expire_enabled, usedDays, usedMonthlyDays]);
+
+  const remainingDays = totalAnnualDays - usedDays - expiration.expiredDays;
 
   if (authLoading || policyLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
@@ -89,6 +109,9 @@ const LeaveManagementPage = () => {
           remainingDays={remainingDays}
           unitLabel={unitLabel}
           allowAdvanceUse={policy.allow_advance_use}
+          expiredDays={expiration.expiredDays}
+          expiringSoonDays={expiration.expiringSoonDays}
+          expirationDate={expiration.expirationDate}
         />
 
         {!joinDate && (
