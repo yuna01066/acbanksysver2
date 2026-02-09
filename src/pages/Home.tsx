@@ -180,7 +180,7 @@ const Home = () => {
             <div className="mb-10 space-y-4">
               <Card
                 className="cursor-pointer group hover:scale-[1.01] transition-all duration-300"
-                onClick={() => window.open('https://desk.channel.io', '_blank')}
+                onClick={() => window.open('https://desk.channel.io/acbank/groups/단체방-401443', '_blank')}
               >
                 <CardContent className="flex items-center gap-4 p-4">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0">
