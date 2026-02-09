@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import acbankLogoText from '@/assets/acbank-logo-text.png';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -185,7 +184,7 @@ const Home = () => {
 
           {/* Header */}
           <div className="text-center mb-16 animate-fade-up">
-            <img src={acbankLogoText} alt="ACBANK" className="h-12 mx-auto mb-4 dark:invert" />
+            <h1 className="text-5xl font-bold mb-4 text-foreground" style={{ fontFamily: 'Horizon, sans-serif' }}>ACBANK</h1>
             <p className="text-xl text-muted-foreground">아크뱅크 내부 관리 시스템</p>
           </div>
 
