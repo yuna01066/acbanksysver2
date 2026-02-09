@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.leave-promotion-check]
 verify_jwt = false
+
+[functions.calculate-salary]
+verify_jwt = false
