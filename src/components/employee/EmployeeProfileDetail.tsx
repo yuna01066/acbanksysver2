@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import AvatarUpload from './AvatarUpload';
+import LaborLawPanel from './LaborLawPanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -337,6 +338,9 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
             <TabsTrigger value="etc" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
               기타 정보
             </TabsTrigger>
+            <TabsTrigger value="labor" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
+              근로기준법
+            </TabsTrigger>
           </TabsList>
         </div>
         <ScrollArea className="flex-1">
@@ -352,6 +356,13 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
             </TabsContent>
             <TabsContent value="etc" className="mt-0">
               {renderSections(etcSections)}
+            </TabsContent>
+            <TabsContent value="labor" className="mt-0">
+              <LaborLawPanel
+                joinDate={employee.join_date}
+                weeklyWorkHours={employee.work_hours_per_week}
+                isAdmin
+              />
             </TabsContent>
           </div>
         </ScrollArea>
