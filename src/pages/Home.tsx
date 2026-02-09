@@ -13,6 +13,7 @@ import ActivityFeedCard from '@/components/ActivityFeedCard';
 import { useAuth } from '@/contexts/AuthContext';
 import TimeGreeting from '@/components/TimeGreeting';
 import OnlineEmployeesCard from '@/components/OnlineEmployeesCard';
+import TeamChatCard from '@/components/TeamChatCard';
 import { useNotifications } from '@/hooks/useNotifications';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -205,8 +206,13 @@ const Home = () => {
             </div>
           )}
 
-          {/* Online Employees & Recognition */}
-          {user && <OnlineEmployeesCard />}
+          {/* Online Employees & Team Chat */}
+          {user && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+              <OnlineEmployeesCard />
+              <TeamChatCard />
+            </div>
+          )}
 
           {/* Links Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
