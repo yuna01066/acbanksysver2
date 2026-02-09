@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, Moon, Coffee, Utensils, Clock } from 'lucide-react';
+import { Sun, Moon, Coffee, Utensils, Clock, User } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface TimeGreetingProps {
   name: string;
+  avatarUrl?: string | null;
 }
 
 const getGreetingData = (): { message: string; icon: React.ReactNode; sub?: string; gradient: string; iconBg: string; timeColor: string } => {
@@ -36,7 +38,7 @@ const formatDate = (date: Date) => {
   return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
 };
 
-const TimeGreeting: React.FC<TimeGreetingProps> = ({ name }) => {
+const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
   const [greeting, setGreeting] = useState(getGreetingData());
   const [now, setNow] = useState(new Date());
 
@@ -52,6 +54,12 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name }) => {
     <div className={`animate-fade-in rounded-xl border p-5 shadow-sm bg-gradient-to-r ${greeting.gradient} transition-colors duration-1000`}>
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
+          <Avatar className="h-10 w-10 shrink-0">
+            <AvatarImage src={avatarUrl || undefined} alt={name} />
+            <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+              {name.charAt(0)}
+            </AvatarFallback>
+          </Avatar>
           <div className={`animate-scale-in flex h-10 w-10 items-center justify-center rounded-full ${greeting.iconBg} transition-colors duration-1000`}>
             {greeting.icon}
           </div>
