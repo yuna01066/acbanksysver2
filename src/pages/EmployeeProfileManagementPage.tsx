@@ -5,12 +5,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Users, FileText, BarChart3, FileSignature } from 'lucide-react';
+import { ArrowLeft, Loader2, Users, FileText, BarChart3, FileSignature, Shield } from 'lucide-react';
 import EmployeeListSidebar, { type EmployeeProfile } from '@/components/employee/EmployeeListSidebar';
 import EmployeeProfileDetail from '@/components/employee/EmployeeProfileDetail';
 import DocumentBoxSettings from '@/components/employee/DocumentBoxSettings';
 import DocumentSubmissionDashboard from '@/components/employee/DocumentSubmissionDashboard';
 import ContractManagement from '@/components/contract/ContractManagement';
+import UserAccountManagement from '@/components/employee/UserAccountManagement';
 
 const mapProfileData = (d: any): EmployeeProfile => ({
   id: d.id, full_name: d.full_name || '', email: d.email || '', phone: d.phone || '',
@@ -113,6 +114,9 @@ const EmployeeProfileManagementPage = () => {
           <TabsTrigger value="contracts" className="text-xs h-7 gap-1">
             <FileSignature className="h-3.5 w-3.5" /> 전자계약
           </TabsTrigger>
+          <TabsTrigger value="accounts" className="text-xs h-7 gap-1">
+            <Shield className="h-3.5 w-3.5" /> 계정/권한
+          </TabsTrigger>
         </TabsList>
       </div>
 
@@ -168,6 +172,12 @@ const EmployeeProfileManagementPage = () => {
       <TabsContent value="contracts" className="flex-1 overflow-y-auto min-h-0 mt-0">
         <div className="container max-w-6xl mx-auto px-6 py-6">
           <ContractManagement />
+        </div>
+      </TabsContent>
+
+      <TabsContent value="accounts" className="flex-1 overflow-y-auto mt-0">
+        <div className="container max-w-5xl mx-auto px-6 py-8">
+          <UserAccountManagement />
         </div>
       </TabsContent>
     </Tabs>
