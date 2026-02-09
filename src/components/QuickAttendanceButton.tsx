@@ -86,7 +86,6 @@ const QuickAttendanceButton = () => {
         .update({
           check_out: now,
           check_out_location: location,
-          work_hours: Math.round(workHours * 100) / 100,
           status: 'checked_out',
         })
         .eq('id', todayRecord.id);
