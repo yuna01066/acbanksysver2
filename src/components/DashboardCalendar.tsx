@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 interface CalendarEvent {
   id: string;
   projectName: string;
-  type: 'quote' | 'delivery' | 'notion';
+  type: 'quote' | 'delivery' | 'notion' | 'meeting';
   date: Date;
   userId: string;
   url?: string;
@@ -50,11 +50,28 @@ const DashboardCalendar = () => {
       }
       return data?.projects || [];
     },
-    staleTime: 5 * 60 * 1000, // 5분 캐시
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: meetings } = useQuery({
+    queryKey: ['calendar-meetings', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('peer_feedback')
+        .select('id, sender_id, receiver_id, message, meeting_date, meeting_time, meeting_status, created_at')
+        .eq('feedback_type', 'meeting')
+        .in('meeting_status', ['accepted', 'rescheduled'])
+        .not('meeting_date', 'is', null)
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
   });
 
   const events = useMemo(() => {
-    if (!quotes && !notionProjects) return [];
+    if (!quotes && !notionProjects && !meetings) return [];
     const result: CalendarEvent[] = [];
 
     // 견적 이벤트
@@ -82,7 +99,7 @@ const DashboardCalendar = () => {
       }
     });
 
-    // Notion 프로젝트 이벤트 - date가 없으면 createdDate 사용
+    // Notion 프로젝트 이벤트
     notionProjects?.forEach((project: any) => {
       const dateStr = project.date || project.createdDate;
       if (dateStr) {
@@ -101,8 +118,24 @@ const DashboardCalendar = () => {
       }
     });
 
+    // 미팅 이벤트
+    meetings?.forEach((m: any) => {
+      if (m.meeting_date) {
+        const date = new Date(m.meeting_date);
+        if (!isNaN(date.getTime())) {
+          result.push({
+            id: m.id,
+            projectName: `☕ 1:1 미팅${m.meeting_time ? ` ${m.meeting_time}` : ''}`,
+            type: 'meeting',
+            date,
+            userId: m.sender_id === user?.id ? m.receiver_id : m.sender_id,
+          });
+        }
+      }
+    });
+
     return result;
-  }, [quotes, notionProjects]);
+  }, [quotes, notionProjects, meetings, user]);
 
   const handleEventClick = useCallback((event: CalendarEvent) => {
     if (event.type === 'notion') {
@@ -154,6 +187,9 @@ const DashboardCalendar = () => {
           </span>
           <span className="flex items-center gap-1">
             <BookOpen className="h-3 w-3 text-violet-500" /> Notion 프로젝트
+          </span>
+          <span className="flex items-center gap-1">
+            <Coffee className="h-3 w-3 text-amber-600" /> 1:1 미팅
           </span>
         </div>
       </CardHeader>
@@ -208,11 +244,15 @@ const DashboardCalendar = () => {
                           ? "bg-primary/10 text-primary"
                           : event.type === 'delivery'
                           ? "bg-orange-500/10 text-orange-600"
+                          : event.type === 'meeting'
+                          ? "bg-amber-500/10 text-amber-700"
                           : "bg-violet-500/10 text-violet-600"
                       )}
                       title={
                         event.type === 'notion'
                           ? `${event.projectName}${event.assignee ? ` (${event.assignee})` : ''}`
+                          : event.type === 'meeting'
+                          ? event.projectName
                           : `${event.projectName} (${event.type === 'quote' ? '견적 발행일' : '납기 희망일'})`
                       }
                     >
@@ -220,6 +260,8 @@ const DashboardCalendar = () => {
                         <FileText className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'delivery' ? (
                         <Truck className="h-2.5 w-2.5 shrink-0" />
+                      ) : event.type === 'meeting' ? (
+                        <Coffee className="h-2.5 w-2.5 shrink-0" />
                       ) : (
                         <BookOpen className="h-2.5 w-2.5 shrink-0" />
                       )}
