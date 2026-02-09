@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AvatarUpload from './AvatarUpload';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -288,9 +289,14 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
       {/* Profile Header */}
       <div className="p-6 border-b bg-card">
         <div className="flex items-start gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/25 to-primary/5 flex items-center justify-center text-2xl font-bold text-primary shrink-0">
-            {employee.full_name?.charAt(0) || '?'}
-          </div>
+          <AvatarUpload
+            userId={employee.id}
+            avatarUrl={employee.avatar_url || null}
+            name={employee.full_name}
+            size="lg"
+            editable
+            onUploaded={(url) => onUpdated({ ...employee, avatar_url: url })}
+          />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-xl font-bold truncate">{employee.full_name}</h1>
