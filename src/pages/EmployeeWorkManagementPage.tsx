@@ -235,7 +235,17 @@ const EmployeeWorkManagementPage = () => {
                         <EmployeeLeavePanel userId={selectedEmployee.id} />
                       </TabsContent>
                       <TabsContent value="review" className="mt-0 py-4">
-                        <PerformanceReviewPanel userId={selectedEmployee.id} userName={selectedEmployee.full_name} />
+                        <PerformanceReviewPanel userId={selectedEmployee.id} userName={selectedEmployee.full_name} summaryOnly />
+                        <div className="mt-3 flex justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 text-xs"
+                            onClick={() => navigate(`/review-settings?tab=history&employeeId=${selectedEmployee.id}`)}
+                          >
+                            <Star className="h-3.5 w-3.5" /> 평가 더보기
+                          </Button>
+                        </div>
                       </TabsContent>
                       <TabsContent value="work-info" className="mt-0 py-4">
                         <div className="space-y-4">

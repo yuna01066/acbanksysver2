@@ -79,9 +79,10 @@ const gradeColor = (grade: string) => {
 interface Props {
   userId: string;
   userName: string;
+  summaryOnly?: boolean;
 }
 
-const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
+const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly = false }) => {
   const { user, profile, isAdmin, isModerator } = useAuth();
   const canViewDetails = isAdmin || isModerator;
 
@@ -358,8 +359,8 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
         </div>
       )}
 
-      {/* Reviews list */}
-      {reviews.length === 0 && selectedCycleId && (
+      {/* Reviews list - hidden in summaryOnly mode */}
+      {!summaryOnly && reviews.length === 0 && selectedCycleId && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             이 주기에 등록된 평가가 없습니다.
@@ -367,13 +368,18 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
         </Card>
       )}
 
-      {!canViewDetails && reviews.length > 0 && (
+      {!summaryOnly && !canViewDetails && reviews.length > 0 && (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Lock className="h-3 w-3" />
           평가 상세 내용은 관리자만 열람할 수 있습니다
         </div>
       )}
 
+      {summaryOnly && reviews.length === 0 && selectedCycleId && (
+        <p className="text-sm text-muted-foreground text-center py-4">이 주기에 등록된 평가가 없습니다.</p>
+      )}
+
+      {!summaryOnly && (
       <div className="space-y-2">
         {reviews.map((review, index) => (
           <Card key={review.id} className="overflow-hidden">
@@ -480,6 +486,7 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
           </Card>
         ))}
       </div>
+      )}
 
       {/* Review Form Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
