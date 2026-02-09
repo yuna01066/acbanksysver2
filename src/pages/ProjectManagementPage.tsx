@@ -94,12 +94,14 @@ const ProjectManagementPage = () => {
   );
 
   const statusColors: Record<string, string> = {
+    pending: 'bg-gray-100 text-gray-700',
     active: 'bg-green-100 text-green-700',
     completed: 'bg-blue-100 text-blue-700',
     cancelled: 'bg-red-100 text-red-700',
   };
 
   const statusLabels: Record<string, string> = {
+    pending: '진행 예정',
     active: '진행중',
     completed: '완료',
     cancelled: '취소',
