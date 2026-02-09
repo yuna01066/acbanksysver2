@@ -43,6 +43,7 @@ interface TimelineItem {
 const FEEDBACK_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   recognition: { label: '업무 인정', icon: <Heart className="h-3.5 w-3.5" />, color: 'text-pink-500' },
   feedback: { label: '피드백', icon: <MessageCircle className="h-3.5 w-3.5" />, color: 'text-blue-500' },
+  one_on_one: { label: '업무 요청', icon: <Coffee className="h-3.5 w-3.5" />, color: 'text-amber-600' },
   meeting: { label: '1:1 미팅 요청', icon: <Coffee className="h-3.5 w-3.5" />, color: 'text-orange-500' },
 };
 
