@@ -7,9 +7,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Star, Search, Loader2, User, Shield } from 'lucide-react';
+import { ArrowLeft, Star, Search, Loader2, User, Shield, AlertTriangle } from 'lucide-react';
 import PerformanceReviewPanel from '@/components/employee/PerformanceReviewPanel';
 import AdminReviewDashboard from '@/components/performance/AdminReviewDashboard';
+import IncidentReportPanel from '@/components/performance/IncidentReportPanel';
 
 interface Employee {
   id: string;
@@ -81,6 +82,9 @@ const PerformanceReviewPage = () => {
               <TabsTrigger value="admin" className="gap-1.5">
                 <Shield className="h-3.5 w-3.5" /> 관리자 대시보드
               </TabsTrigger>
+              <TabsTrigger value="incidents" className="gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5" /> 사고 경위서
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="review">
@@ -97,16 +101,37 @@ const PerformanceReviewPage = () => {
             <TabsContent value="admin">
               <AdminReviewDashboard />
             </TabsContent>
+
+            <TabsContent value="incidents">
+              <IncidentReportPanel isAdminView={true} />
+            </TabsContent>
           </Tabs>
         ) : (
-          <ReviewEmployeeList
-            employees={filteredEmployees}
-            loading={loading}
-            search={search}
-            setSearch={setSearch}
-            selectedEmployee={selectedEmployee}
-            setSelectedEmployee={setSelectedEmployee}
-          />
+          <Tabs defaultValue="review">
+            <TabsList className="mb-4">
+              <TabsTrigger value="review" className="gap-1.5">
+                <Star className="h-3.5 w-3.5" /> 평가하기
+              </TabsTrigger>
+              <TabsTrigger value="my-incidents" className="gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5" /> 내 경위서
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="review">
+              <ReviewEmployeeList
+                employees={filteredEmployees}
+                loading={loading}
+                search={search}
+                setSearch={setSearch}
+                selectedEmployee={selectedEmployee}
+                setSelectedEmployee={setSelectedEmployee}
+              />
+            </TabsContent>
+
+            <TabsContent value="my-incidents">
+              <IncidentReportPanel isAdminView={false} />
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </div>
