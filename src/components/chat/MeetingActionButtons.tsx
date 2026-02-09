@@ -39,6 +39,14 @@ const MeetingActionButtons: React.FC<MeetingActionButtonsProps> = ({
   const isSender = currentUserId === senderId;
   const isReceiver = currentUserId === receiverId;
 
+  const sendDmLog = async (message: string, toUserId: string) => {
+    await supabase.from('direct_messages').insert({
+      sender_id: currentUserId,
+      receiver_id: toUserId,
+      message,
+    });
+  };
+
   const handleAccept = async () => {
     setProcessing(true);
     try {
@@ -48,14 +56,16 @@ const MeetingActionButtons: React.FC<MeetingActionButtonsProps> = ({
         .eq('id', feedbackId);
       if (error) throw error;
 
+      const desc = meetingDate
+        ? `${format(new Date(meetingDate), 'M월 d일')} ${meetingTime || ''}`
+        : '';
       await supabase.from('notifications').insert({
         user_id: senderId,
         type: 'meeting_response',
         title: '☕ 미팅 요청이 수락되었습니다',
-        description: meetingDate
-          ? `${format(new Date(meetingDate), 'M월 d일')} ${meetingTime || ''}`
-          : '미팅 요청이 수락되었습니다',
+        description: desc || '미팅 요청이 수락되었습니다',
       });
+      await sendDmLog(`✅ 미팅 요청을 수락했습니다${desc ? ` (${desc})` : ''}`, senderId);
 
       toast.success('미팅 요청을 수락했습니다');
       onUpdated();
@@ -81,6 +91,7 @@ const MeetingActionButtons: React.FC<MeetingActionButtonsProps> = ({
         title: '☕ 미팅 요청이 거절되었습니다',
         description: '미팅 요청이 거절되었습니다',
       });
+      await sendDmLog('❌ 미팅 요청을 거절했습니다', senderId);
 
       toast.success('미팅 요청을 거절했습니다');
       onUpdated();
@@ -105,12 +116,15 @@ const MeetingActionButtons: React.FC<MeetingActionButtonsProps> = ({
         .eq('id', feedbackId);
       if (error) throw error;
 
+      const otherUserId = currentUserId === senderId ? receiverId : senderId;
+      const dateStr = `${format(newDate, 'M월 d일')} ${newTime || ''}`;
       await supabase.from('notifications').insert({
-        user_id: senderId,
+        user_id: otherUserId,
         type: 'meeting_response',
         title: '☕ 미팅 일정이 변경되었습니다',
-        description: `변경된 일정: ${format(newDate, 'M월 d일')} ${newTime || ''}`,
+        description: `변경된 일정: ${dateStr}`,
       });
+      await sendDmLog(`📅 미팅 일정을 변경했습니다 (${dateStr})`, otherUserId);
 
       toast.success('일정을 변경했습니다');
       setRescheduleMode(false);
@@ -139,6 +153,7 @@ const MeetingActionButtons: React.FC<MeetingActionButtonsProps> = ({
         title: '☕ 미팅 요청이 취소되었습니다',
         description: '상대방이 미팅 요청을 취소했습니다',
       });
+      await sendDmLog('🚫 미팅 요청을 취소했습니다', receiverId);
 
       toast.success('미팅 요청을 취소했습니다');
       onUpdated();
