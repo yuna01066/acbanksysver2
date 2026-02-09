@@ -54,9 +54,9 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
     <div className={`animate-fade-in rounded-xl border p-5 shadow-sm bg-gradient-to-r ${greeting.gradient} transition-colors duration-1000`}>
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10 shrink-0">
-            <AvatarImage src={avatarUrl || undefined} alt={name} />
-            <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+          <Avatar className="h-14 w-14 shrink-0 border-2 border-background shadow-sm">
+            <AvatarImage src={avatarUrl || undefined} alt={name} className="object-cover" />
+            <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
               {name.charAt(0)}
             </AvatarFallback>
           </Avatar>
