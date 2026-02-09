@@ -20,6 +20,7 @@ import EditableQuoteItem from "@/components/EditableQuoteItem";
 import { generateAndUploadQuotePdf, createPdfAttachmentMetadata } from "@/utils/generateQuotePdf";
 import { useAuth } from "@/contexts/AuthContext";
 import { syncQuoteToPluuug, convertQuoteToPluuugFormat } from "@/utils/pluuugSync";
+import QuoteMemoPanel from "@/components/QuoteMemoPanel";
 
 interface SavedQuote {
   id: string;
@@ -463,7 +464,8 @@ const SavedQuoteDetailPage = () => {
     <>
       <PrintStyles quoteNumber={quote.quote_number} projectName={quote.project_name} companyName={quote.recipient_company} isInternal={viewMode === 'internal'} />
       <div className="min-h-screen bg-gray-50 p-4">
-        <div className="w-full max-w-4xl mx-auto print-container" id="saved-quote-print-container" ref={printContainerRef}>
+        <div className="w-full max-w-6xl mx-auto flex gap-6">
+        <div className="flex-1 min-w-0 max-w-4xl print-container" id="saved-quote-print-container" ref={printContainerRef}>
           <div className="mb-6 print:hidden flex justify-between items-center">
             <Button 
               variant="outline" 
@@ -874,6 +876,11 @@ const SavedQuoteDetailPage = () => {
               </div>
             </CardContent>
           </Card>
+        </div>
+        {/* 우측 메모 패널 */}
+        <div className="w-[300px] shrink-0 print:hidden sticky top-4 self-start hidden lg:block">
+          {id && <QuoteMemoPanel quoteId={id} />}
+        </div>
         </div>
       </div>
     </>
