@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star } from "lucide-react";
 import DashboardCalendar from '@/components/DashboardCalendar';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
@@ -15,7 +15,6 @@ import TimeGreeting from '@/components/TimeGreeting';
 import OnlineEmployeesCard from '@/components/OnlineEmployeesCard';
 import MeetingRequestPopup from '@/components/MeetingRequestPopup';
 import TeamChatCard from '@/components/TeamChatCard';
-import PerformanceReviewDashboardCard from '@/components/PerformanceReviewDashboardCard';
 import { useNotifications } from '@/hooks/useNotifications';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -32,6 +31,41 @@ const Home = () => {
   ];
 
   const links = [{
+    title: "공지사항",
+    icon: Megaphone,
+    description: "공지사항 게시판",
+    url: "/announcements",
+    requiresAuth: true,
+    action: () => navigate("/announcements")
+  }, {
+    title: "근태 관리",
+    icon: Clock,
+    description: "출퇴근 기록 및 휴가 관리",
+    url: "/attendance",
+    requiresAuth: true,
+    action: () => navigate("/attendance")
+  }, {
+    title: "연차 관리",
+    icon: CalendarDays,
+    description: "연차 신청/승인/잔여일수 관리",
+    url: "/leave-management",
+    requiresAuth: true,
+    action: () => navigate("/leave-management")
+  }, {
+    title: "업무 평가",
+    icon: Star,
+    description: "직원 업무 평가 작성",
+    url: "/performance-review",
+    requiresAuth: true,
+    action: () => navigate("/performance-review")
+  }, {
+    title: "프로젝트 관리",
+    icon: FolderOpen,
+    description: "프로젝트별 견적·고객 연결",
+    url: "/project-management",
+    requiresAuth: true,
+    action: () => navigate("/project-management")
+  }, {
     title: "클라이언트 상담폼",
     icon: FileText,
     description: "상담 신청하기",
@@ -60,41 +94,6 @@ const Home = () => {
     requiresAuth: true,
     action: () => navigate("/saved-quotes")
   }, {
-    title: "프로젝트 관리",
-    icon: FolderOpen,
-    description: "프로젝트별 견적·고객 연결",
-    url: "/project-management",
-    requiresAuth: true,
-    action: () => navigate("/project-management")
-  }, {
-    title: "고객사 관리",
-    icon: Building2,
-    description: "고객사 정보 및 견적 히스토리",
-    url: "/recipients",
-    requiresAuth: true,
-    action: () => navigate("/recipients")
-  }, {
-    title: "근태 관리",
-    icon: Clock,
-    description: "출퇴근 기록 및 휴가 관리",
-    url: "/attendance",
-    requiresAuth: true,
-    action: () => navigate("/attendance")
-  }, {
-    title: "연차 관리",
-    icon: CalendarDays,
-    description: "연차 신청/승인/잔여일수 관리",
-    url: "/leave-management",
-    requiresAuth: true,
-    action: () => navigate("/leave-management")
-  }, {
-    title: "공지사항",
-    icon: Megaphone,
-    description: "공지사항 게시판",
-    url: "/announcements",
-    requiresAuth: true,
-    action: () => navigate("/announcements")
-  }, {
     title: "관리자 설정",
     icon: Settings,
     description: "가격 및 옵션 관리",
@@ -109,7 +108,6 @@ const Home = () => {
       }
     }
   }];
-
   const handleCardClick = (link: typeof links[0]) => {
     if (link.requiresAuth && !user) {
       toast.error('로그인이 필요한 서비스입니다.');
@@ -195,7 +193,6 @@ const Home = () => {
               <ActivityFeedCard />
               <ProjectProgressCard />
               </div>
-              <PerformanceReviewDashboardCard />
             </div>
           )}
 
