@@ -1313,6 +1313,7 @@ export type Database = {
           id: string
           name: string
           recipient_id: string | null
+          specs: Json | null
           status: string
           updated_at: string
           user_id: string
@@ -1323,6 +1324,7 @@ export type Database = {
           id?: string
           name: string
           recipient_id?: string | null
+          specs?: Json | null
           status?: string
           updated_at?: string
           user_id: string
@@ -1333,6 +1335,7 @@ export type Database = {
           id?: string
           name?: string
           recipient_id?: string | null
+          specs?: Json | null
           status?: string
           updated_at?: string
           user_id?: string
