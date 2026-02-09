@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Star, Target, TrendingUp, MessageSquare, ChevronDown, ChevronUp, Lock } from 'lucide-react';
-import { format } from 'date-fns';
-import { ko } from 'date-fns/locale';
+import { Loader2, Star, Target, TrendingUp, MessageSquare, ChevronDown, ChevronUp, Lock, FileText } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 interface ReviewCycle {
   id: string;
@@ -44,12 +43,18 @@ interface Review {
   scores?: ReviewScore[];
 }
 
-const REVIEWER_TYPE_LABELS: Record<string, string> = {
-  self: '자기 평가',
-  superior: '상급자 평가',
-  peer: '동료 평가',
-  subordinate: '하급자 평가',
-};
+interface SentSummary {
+  id: string;
+  overall_grade: string | null;
+  avg_score: number | null;
+  avg_goal_rate: number | null;
+  category_scores: { name: string; avg: number }[];
+  strengths_summary: string | null;
+  improvements_summary: string | null;
+  general_comment: string | null;
+  sent_at: string;
+  sent_by_name: string;
+}
 
 const gradeColor = (grade: string) => {
   switch (grade) {
@@ -62,11 +67,14 @@ const gradeColor = (grade: string) => {
   }
 };
 
+const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--primary) / 0.8)', 'hsl(var(--primary) / 0.6)', 'hsl(var(--primary) / 0.4)'];
+
 const MyPerformanceReviewResults: React.FC = () => {
   const { user } = useAuth();
   const [cycles, setCycles] = useState<ReviewCycle[]>([]);
   const [categories, setCategories] = useState<ReviewCategory[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [summary, setSummary] = useState<SentSummary | null>(null);
   const [selectedCycleId, setSelectedCycleId] = useState('');
   const [loading, setLoading] = useState(true);
   const [expandedReview, setExpandedReview] = useState<string | null>(null);
@@ -76,7 +84,10 @@ const MyPerformanceReviewResults: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
-    if (selectedCycleId && user) fetchReviews();
+    if (selectedCycleId && user) {
+      fetchReviews();
+      fetchSummary();
+    }
   }, [selectedCycleId]);
 
   const fetchCyclesAndCategories = async () => {
@@ -95,7 +106,6 @@ const MyPerformanceReviewResults: React.FC = () => {
 
   const fetchReviews = async () => {
     if (!user) return;
-    // Only fetch submitted reviews for the current user (as reviewee)
     const { data: reviewsData } = await supabase
       .from('performance_reviews')
       .select('id, reviewer_type, overall_grade, goal_achievement_rate, strengths, improvements, general_comment, status, created_at')
@@ -110,14 +120,38 @@ const MyPerformanceReviewResults: React.FC = () => {
         .from('performance_review_scores')
         .select('*')
         .in('review_id', reviewIds);
-
-      const enriched = reviewsData.map(r => ({
+      setReviews(reviewsData.map(r => ({
         ...r,
         scores: (scoresData || []).filter(s => s.review_id === r.id) as ReviewScore[],
-      })) as Review[];
-      setReviews(enriched);
+      })) as Review[]);
     } else {
       setReviews([]);
+    }
+  };
+
+  const fetchSummary = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('performance_review_summaries' as any)
+      .select('*')
+      .eq('cycle_id', selectedCycleId)
+      .eq('reviewee_id', user.id)
+      .maybeSingle() as { data: any };
+    if (data) {
+      setSummary({
+        id: data.id,
+        overall_grade: data.overall_grade,
+        avg_score: data.avg_score,
+        avg_goal_rate: data.avg_goal_rate,
+        category_scores: (data.category_scores as any) || [],
+        strengths_summary: data.strengths_summary,
+        improvements_summary: data.improvements_summary,
+        general_comment: data.general_comment,
+        sent_at: data.sent_at,
+        sent_by_name: data.sent_by_name,
+      });
+    } else {
+      setSummary(null);
     }
   };
 
@@ -133,7 +167,6 @@ const MyPerformanceReviewResults: React.FC = () => {
     return totalWeight > 0 ? (weightedSum / totalWeight).toFixed(1) : null;
   };
 
-  // Aggregate stats
   const submittedReviews = reviews.filter(r => r.status === 'submitted');
   const avgScore = (() => {
     const avgs = submittedReviews.map(r => getWeightedAvg(r.scores || [])).filter(Boolean).map(Number);
@@ -151,7 +184,6 @@ const MyPerformanceReviewResults: React.FC = () => {
     return Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
   })();
 
-  // Category average scores across all reviews
   const categoryAvgScores = categories.map(cat => {
     const scores = submittedReviews.flatMap(r => (r.scores || []).filter(s => s.category_id === cat.id));
     const avg = scores.length > 0 ? scores.reduce((sum, s) => sum + s.score, 0) / scores.length : null;
@@ -192,7 +224,90 @@ const MyPerformanceReviewResults: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary cards */}
+      {/* Admin-sent Summary */}
+      {summary && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              공식 업무 평가서
+              {summary.overall_grade && (
+                <span className={`px-2 py-0.5 rounded text-xs font-bold border ml-2 ${gradeColor(summary.overall_grade)}`}>
+                  {summary.overall_grade}
+                </span>
+              )}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {new Date(summary.sent_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })} 발송
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Summary stats */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center p-2 bg-card rounded-lg border">
+                <p className="text-xs text-muted-foreground">평균 점수</p>
+                <p className="text-lg font-bold">{summary.avg_score?.toFixed(1) ?? '-'}</p>
+              </div>
+              <div className="text-center p-2 bg-card rounded-lg border">
+                <p className="text-xs text-muted-foreground">목표 달성률</p>
+                <p className="text-lg font-bold">{summary.avg_goal_rate !== null ? `${summary.avg_goal_rate}%` : '-'}</p>
+              </div>
+              <div className="text-center p-2 bg-card rounded-lg border">
+                <p className="text-xs text-muted-foreground">종합 등급</p>
+                <p className="text-lg font-bold">
+                  {summary.overall_grade ? (
+                    <span className={`px-2 py-0.5 rounded border ${gradeColor(summary.overall_grade)}`}>{summary.overall_grade}</span>
+                  ) : '-'}
+                </p>
+              </div>
+            </div>
+
+            {/* Category scores chart */}
+            {summary.category_scores && summary.category_scores.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">항목별 점수</h4>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={summary.category_scores} layout="vertical" margin={{ left: 80, right: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" domain={[0, 10]} tickCount={6} />
+                    <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(val: number) => val.toFixed(1)} />
+                    <Bar dataKey="avg" radius={[0, 4, 4, 0]}>
+                      {summary.category_scores.map((_, idx) => (
+                        <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Comments */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {summary.strengths_summary && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 flex items-center gap-1"><TrendingUp className="h-3 w-3" />강점</h4>
+                  <p className="text-sm whitespace-pre-line bg-card p-3 rounded-lg border">{summary.strengths_summary}</p>
+                </div>
+              )}
+              {summary.improvements_summary && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 flex items-center gap-1"><MessageSquare className="h-3 w-3" />개선점</h4>
+                  <p className="text-sm whitespace-pre-line bg-card p-3 rounded-lg border">{summary.improvements_summary}</p>
+                </div>
+              )}
+            </div>
+            {summary.general_comment && (
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5">종합 의견</h4>
+                <p className="text-sm whitespace-pre-line bg-card p-3 rounded-lg border">{summary.general_comment}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Anonymous review summary stats */}
       {submittedReviews.length > 0 && (
         <>
           <div className="grid grid-cols-3 gap-3">
@@ -222,7 +337,6 @@ const MyPerformanceReviewResults: React.FC = () => {
             </Card>
           </div>
 
-          {/* Category radar-like summary */}
           <Card>
             <CardContent className="p-4">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-3">항목별 평균 점수</h4>
@@ -231,10 +345,7 @@ const MyPerformanceReviewResults: React.FC = () => {
                   <div key={cat.id} className="flex items-center gap-3">
                     <span className="text-sm w-32 shrink-0 truncate">{cat.name}</span>
                     <div className="flex-1 bg-muted rounded-full h-2.5">
-                      <div
-                        className="bg-primary rounded-full h-2.5 transition-all"
-                        style={{ width: `${(cat.avg ?? 0) * 10}%` }}
-                      />
+                      <div className="bg-primary rounded-full h-2.5 transition-all" style={{ width: `${(cat.avg ?? 0) * 10}%` }} />
                     </div>
                     <span className="text-sm font-mono font-medium w-10 text-right">
                       {cat.avg !== null ? cat.avg.toFixed(1) : '-'}
@@ -247,8 +358,8 @@ const MyPerformanceReviewResults: React.FC = () => {
         </>
       )}
 
-      {/* Individual reviews - anonymous */}
-      {submittedReviews.length === 0 && (
+      {/* Anonymous individual reviews */}
+      {submittedReviews.length === 0 && !summary && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             이 주기에 제출된 평가가 없습니다.
@@ -289,7 +400,6 @@ const MyPerformanceReviewResults: React.FC = () => {
             </button>
             {expandedReview === review.id && (
               <div className="border-t px-4 pb-4 space-y-4 bg-muted/20">
-                {/* Category scores */}
                 {review.scores && review.scores.length > 0 && (
                   <div className="pt-4">
                     <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-3">항목별 점수</h4>
@@ -310,10 +420,7 @@ const MyPerformanceReviewResults: React.FC = () => {
                     </div>
                   </div>
                 )}
-
                 <Separator />
-
-                {/* Anonymous comments */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {review.strengths && (
                     <div>
