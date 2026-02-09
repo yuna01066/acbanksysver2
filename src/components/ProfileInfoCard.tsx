@@ -68,11 +68,90 @@ const defaultProfile: ProfileData = {
   special_notes: '', family_info: '', avatar_url: '',
 };
 
+type FieldDef = { key: string; label: string; type?: string; disabled?: boolean; multiline?: boolean };
+
+interface SectionDef {
+  key: string;
+  title: string;
+  icon: React.ReactNode;
+  fields: FieldDef[];
+}
+
+const allSections: SectionDef[] = [
+  { key: 'org', title: '조직 · 직책', icon: <Building2 className="h-4 w-4" />, fields: [
+    { key: 'department', label: '조직 (부서)' }, { key: 'position', label: '직책' },
+  ]},
+  { key: 'job', title: '직무 · 직군', icon: <Briefcase className="h-4 w-4" />, fields: [
+    { key: 'job_title', label: '직무' }, { key: 'job_group', label: '직군' },
+  ]},
+  { key: 'rank', title: '직위 · 직급', icon: <Hash className="h-4 w-4" />, fields: [
+    { key: 'rank_title', label: '직위' }, { key: 'rank_level', label: '직급' },
+  ]},
+  { key: 'basic', title: '기본 정보', icon: <User className="h-4 w-4" />, fields: [
+    { key: 'full_name', label: '이름' }, { key: 'nickname', label: '닉네임' },
+    { key: 'email', label: '이메일', disabled: true }, { key: 'personal_email', label: '개인 이메일' },
+    { key: 'employee_number', label: '사번' },
+  ]},
+  { key: 'join', title: '입사 정보', icon: <Calendar className="h-4 w-4" />, fields: [
+    { key: 'join_date', label: '입사일', type: 'date' },
+  ]},
+  { key: 'personal', title: '개인 정보', icon: <Globe className="h-4 w-4" />, fields: [
+    { key: 'birthday', label: '생일', type: 'date' }, { key: 'nationality', label: '국적' },
+    { key: 'phone', label: '휴대전화번호' },
+  ]},
+  { key: 'address', title: '주소', icon: <MapPin className="h-4 w-4" />, fields: [
+    { key: 'address', label: '주소' }, { key: 'detail_address', label: '상세주소' },
+    { key: 'zipcode', label: '우편번호' },
+  ]},
+  { key: 'bank', title: '급여계좌', icon: <CreditCard className="h-4 w-4" />, fields: [
+    { key: 'bank_name', label: '은행명' }, { key: 'bank_account', label: '계좌번호' },
+  ]},
+  { key: 'work', title: '근무 정보', icon: <Clock className="h-4 w-4" />, fields: [
+    { key: 'work_type', label: '근무 유형' }, { key: 'work_hours_per_week', label: '주당 근무시간', type: 'number' },
+  ]},
+  { key: 'overtime', title: '초과 근무 보상', icon: <Clock className="h-4 w-4" />, fields: [
+    { key: 'overtime_policy', label: '보상 정책', multiline: true },
+  ]},
+  { key: 'wage', title: '임금 계약 정보', icon: <Wallet className="h-4 w-4" />, fields: [
+    { key: 'wage_contract', label: '임금 계약', multiline: true },
+  ]},
+  { key: 'salary', title: '급여 지급 정보', icon: <Wallet className="h-4 w-4" />, fields: [
+    { key: 'salary_info', label: '급여 지급', multiline: true },
+  ]},
+  { key: 'leave', title: '휴가 정보', icon: <CalendarDays className="h-4 w-4" />, fields: [
+    { key: 'leave_policy', label: '연차 정책', multiline: true },
+  ]},
+  { key: 'holidays', title: '쉬는 날', icon: <CalendarDays className="h-4 w-4" />, fields: [
+    { key: 'holidays', label: '쉬는 날', multiline: true },
+  ]},
+  { key: 'leave_history', title: '휴직 이력', icon: <FileText className="h-4 w-4" />, fields: [
+    { key: 'leave_history', label: '휴직 이력', multiline: true },
+  ]},
+  { key: 'awards', title: '수상', icon: <Award className="h-4 w-4" />, fields: [
+    { key: 'awards', label: '수상', multiline: true },
+  ]},
+  { key: 'disciplinary', title: '징계', icon: <AlertTriangle className="h-4 w-4" />, fields: [
+    { key: 'disciplinary', label: '징계', multiline: true },
+  ]},
+  { key: 'career', title: '경력 정보', icon: <Briefcase className="h-4 w-4" />, fields: [
+    { key: 'career_history', label: '경력', multiline: true },
+  ]},
+  { key: 'education', title: '학력', icon: <GraduationCap className="h-4 w-4" />, fields: [
+    { key: 'education', label: '학력', multiline: true },
+  ]},
+  { key: 'special', title: '특이사항', icon: <FileText className="h-4 w-4" />, fields: [
+    { key: 'special_notes', label: '특이사항', multiline: true },
+  ]},
+  { key: 'family', title: '가족', icon: <Heart className="h-4 w-4" />, fields: [
+    { key: 'family_info', label: '가족', multiline: true },
+  ]},
+];
+
 const ProfileInfoCard = () => {
   const { user } = useAuth();
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  const [editSection, setEditSection] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<Partial<ProfileData>>({});
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValues, setEditValues] = useState<ProfileData>(defaultProfile);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -86,7 +165,7 @@ const ProfileInfoCard = () => {
 
     if (!error && data) {
       const d = data as any;
-      setProfileData({
+      const mapped: ProfileData = {
         ...defaultProfile,
         full_name: d.full_name || '',
         email: d.email || '',
@@ -123,7 +202,8 @@ const ProfileInfoCard = () => {
         special_notes: d.special_notes || '',
         family_info: d.family_info || '',
         avatar_url: d.avatar_url || '',
-      });
+      };
+      setProfileData(mapped);
     }
     setLoading(false);
   };
@@ -132,125 +212,55 @@ const ProfileInfoCard = () => {
     fetchFullProfile();
   }, [user]);
 
-  const startEdit = (section: string) => {
+  const startEdit = () => {
     if (!profileData) return;
-    setEditSection(section);
     setEditValues({ ...profileData });
+    setIsEditing(true);
   };
 
   const cancelEdit = () => {
-    setEditSection(null);
-    setEditValues({});
+    setIsEditing(false);
+    setEditValues(defaultProfile);
   };
 
-  const saveSection = async () => {
-    if (!user) return;
+  const handleSave = async () => {
+    if (!user || !profileData) return;
     setSaving(true);
     try {
+      // Only send changed fields to avoid overwriting with empty strings
       const updates: Record<string, any> = {};
-      const fields = getSectionFields(editSection!);
-      for (const f of fields) {
-        if (f.key !== 'email') {
-          updates[f.key] = (editValues as any)[f.key] || null;
+      for (const section of allSections) {
+        for (const f of section.fields) {
+          if (f.disabled) continue; // skip email
+          const newVal = (editValues as any)[f.key];
+          const oldVal = (profileData as any)[f.key];
+          // Include field if it changed (compare as strings for consistency)
+          if (String(newVal ?? '') !== String(oldVal ?? '')) {
+            updates[f.key] = newVal || null;
+          }
         }
       }
+
+      if (Object.keys(updates).length === 0) {
+        toast.info('변경된 내용이 없습니다.');
+        setIsEditing(false);
+        setSaving(false);
+        return;
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update(updates)
         .eq('id', user.id);
 
       if (error) throw error;
-      toast.success('정보가 저장되었습니다.');
+      toast.success('프로필이 저장되었습니다.');
       await fetchFullProfile();
-      setEditSection(null);
+      setIsEditing(false);
     } catch (e: any) {
       toast.error('저장 실패: ' + (e.message || ''));
     } finally {
       setSaving(false);
-    }
-  };
-
-  type FieldDef = { key: string; label: string; type?: string; disabled?: boolean; multiline?: boolean };
-
-  const getSectionFields = (section: string): FieldDef[] => {
-    switch (section) {
-      case 'org': return [
-        { key: 'department', label: '조직 (부서)' },
-        { key: 'position', label: '직책' },
-      ];
-      case 'job': return [
-        { key: 'job_title', label: '직무' },
-        { key: 'job_group', label: '직군' },
-      ];
-      case 'rank': return [
-        { key: 'rank_title', label: '직위' },
-        { key: 'rank_level', label: '직급' },
-      ];
-      case 'basic': return [
-        { key: 'full_name', label: '이름' },
-        { key: 'nickname', label: '닉네임' },
-        { key: 'email', label: '이메일', disabled: true },
-        { key: 'personal_email', label: '개인 이메일' },
-        { key: 'employee_number', label: '사번' },
-      ];
-      case 'join': return [
-        { key: 'join_date', label: '입사일', type: 'date' },
-      ];
-      case 'personal': return [
-        { key: 'birthday', label: '생일', type: 'date' },
-        { key: 'nationality', label: '국적' },
-        { key: 'phone', label: '휴대전화번호' },
-      ];
-      case 'address': return [
-        { key: 'address', label: '주소' },
-        { key: 'detail_address', label: '상세주소' },
-        { key: 'zipcode', label: '우편번호' },
-      ];
-      case 'bank': return [
-        { key: 'bank_name', label: '은행명' },
-        { key: 'bank_account', label: '계좌번호' },
-      ];
-      case 'work': return [
-        { key: 'work_type', label: '근무 유형' },
-        { key: 'work_hours_per_week', label: '주당 근무시간', type: 'number' },
-      ];
-      case 'overtime': return [
-        { key: 'overtime_policy', label: '초과 근무 보상 정책', multiline: true },
-      ];
-      case 'wage': return [
-        { key: 'wage_contract', label: '임금 계약 정보', multiline: true },
-      ];
-      case 'salary': return [
-        { key: 'salary_info', label: '급여 지급 정보', multiline: true },
-      ];
-      case 'leave': return [
-        { key: 'leave_policy', label: '연차 정책', multiline: true },
-      ];
-      case 'holidays': return [
-        { key: 'holidays', label: '쉬는 날', multiline: true },
-      ];
-      case 'leave_history': return [
-        { key: 'leave_history', label: '휴직 이력', multiline: true },
-      ];
-      case 'awards': return [
-        { key: 'awards', label: '수상', multiline: true },
-      ];
-      case 'disciplinary': return [
-        { key: 'disciplinary', label: '징계', multiline: true },
-      ];
-      case 'career': return [
-        { key: 'career_history', label: '경력 정보', multiline: true },
-      ];
-      case 'education': return [
-        { key: 'education', label: '학력', multiline: true },
-      ];
-      case 'special': return [
-        { key: 'special_notes', label: '특이사항', multiline: true },
-      ];
-      case 'family': return [
-        { key: 'family_info', label: '가족', multiline: true },
-      ];
-      default: return [];
     }
   };
 
@@ -276,221 +286,145 @@ const ProfileInfoCard = () => {
 
   if (!profileData) return null;
 
-  const renderSection = (
-    sectionKey: string,
-    title: string,
-    icon: React.ReactNode,
-    renderContent: () => React.ReactNode
-  ) => {
-    const isEditing = editSection === sectionKey;
-    const fields = getSectionFields(sectionKey);
+  const InfoRow = ({ label, value, badge }: { label: string; value?: string; badge?: React.ReactNode }) => (
+    <div className="flex items-center gap-4 py-1.5">
+      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
+      <span className="text-sm font-medium whitespace-pre-line">{value || <span className="text-muted-foreground/50">미입력</span>}</span>
+      {badge}
+    </div>
+  );
 
+  const renderViewContent = (section: SectionDef) => {
+    const val = (key: string) => (profileData as any)[key] || '';
+
+    if (section.key === 'join') {
+      return (
+        <InfoRow
+          label="입사일"
+          value={val('join_date') ? format(new Date(val('join_date')), 'yyyy년 M월 d일', { locale: ko }) : undefined}
+          badge={getTenureBadge() ? <Badge variant="default" className="text-xs">{getTenureBadge()}</Badge> : undefined}
+        />
+      );
+    }
+    if (section.key === 'personal') {
+      return (
+        <div className="space-y-1">
+          <InfoRow label="생일" value={val('birthday') ? format(new Date(val('birthday')), 'yyyy년 M월 d일', { locale: ko }) : undefined} />
+          <InfoRow label="국적" value={val('nationality')} />
+          <InfoRow label="휴대전화" value={val('phone')} />
+        </div>
+      );
+    }
+    if (section.key === 'address') {
+      return (
+        <div className="space-y-1">
+          <InfoRow label="주소" value={[val('address'), val('detail_address')].filter(Boolean).join(' ') || undefined} />
+          {val('zipcode') && <InfoRow label="우편번호" value={val('zipcode')} />}
+        </div>
+      );
+    }
+    if (section.key === 'bank') {
+      return <InfoRow label="계좌" value={val('bank_name') && val('bank_account') ? `${val('bank_name')} ${val('bank_account')}` : undefined} />;
+    }
+    if (section.key === 'work') {
+      return (
+        <div className="space-y-1">
+          <InfoRow label="근무 유형" value={val('work_type')} />
+          <InfoRow label="주당 근무시간" value={val('work_hours_per_week') ? `주 ${val('work_hours_per_week')}시간` : undefined} />
+        </div>
+      );
+    }
+    // Default: render all fields
     return (
-      <div className="py-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            {icon}
-            {title}
-          </h3>
+      <div className="space-y-1">
+        {section.fields.map(f => (
+          <InfoRow key={f.key} label={f.label} value={val(f.key)} />
+        ))}
+      </div>
+    );
+  };
+
+  const renderEditFields = (section: SectionDef) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {section.fields.map(f => (
+        <div key={f.key} className={f.multiline ? 'md:col-span-2' : ''}>
+          <Label className="text-xs text-muted-foreground">{f.label}</Label>
+          {f.multiline ? (
+            <Textarea
+              value={(editValues as any)[f.key] || ''}
+              onChange={(e) => setEditValues({ ...editValues, [f.key]: e.target.value })}
+              rows={3}
+              className="text-sm mt-1 resize-none"
+            />
+          ) : (
+            <Input
+              type={f.type || 'text'}
+              value={(editValues as any)[f.key] || ''}
+              onChange={(e) => setEditValues({ ...editValues, [f.key]: e.target.value })}
+              disabled={f.disabled}
+              className="h-9 text-sm mt-1"
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderSection = (section: SectionDef) => (
+    <div key={section.key} className="py-4">
+      <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-3">
+        {section.icon}
+        {section.title}
+      </h3>
+      {isEditing ? renderEditFields(section) : renderViewContent(section)}
+    </div>
+  );
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <AvatarUpload
+              userId={user!.id}
+              avatarUrl={profileData.avatar_url || null}
+              name={profileData.full_name}
+              size="lg"
+              editable
+              onUploaded={(url) => setProfileData({ ...profileData, avatar_url: url })}
+            />
+            <div>
+              <CardTitle className="text-xl">{profileData.full_name}</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {profileData.department || '부서 미설정'} {profileData.position && `· ${profileData.position}`}
+              </p>
+            </div>
+          </div>
           {!isEditing ? (
-            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => startEdit(sectionKey)}>
-              <Pencil className="h-3 w-3" />
-              변경
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={startEdit}>
+              <Pencil className="h-3.5 w-3.5" />
+              수정
             </Button>
           ) : (
-            <div className="flex gap-1">
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={cancelEdit} disabled={saving}>
-                <X className="h-3 w-3" />
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={cancelEdit} disabled={saving}>
+                <X className="h-4 w-4 mr-1" /> 취소
               </Button>
-              <Button size="sm" className="h-7 text-xs gap-1" onClick={saveSection} disabled={saving}>
-                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+              <Button size="sm" className="gap-1.5" onClick={handleSave} disabled={saving}>
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 저장
               </Button>
             </div>
           )}
         </div>
-        {isEditing ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {fields.map((f) => (
-              <div key={f.key} className={f.multiline ? 'md:col-span-2' : ''}>
-                <Label className="text-xs text-muted-foreground">{f.label}</Label>
-                {f.multiline ? (
-                  <Textarea
-                    value={(editValues as any)[f.key] || ''}
-                    onChange={(e) => setEditValues({ ...editValues, [f.key]: e.target.value })}
-                    rows={3}
-                    className="text-sm mt-1 resize-none"
-                  />
-                ) : (
-                  <Input
-                    type={f.type || 'text'}
-                    value={(editValues as any)[f.key] || ''}
-                    onChange={(e) => setEditValues({ ...editValues, [f.key]: e.target.value })}
-                    disabled={f.disabled}
-                    className="h-9 text-sm mt-1"
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          renderContent()
-        )}
-      </div>
-    );
-  };
-
-  const InfoRow = ({ label, value, badge }: { label: string; value?: string; badge?: React.ReactNode }) => (
-    <div className="flex items-center gap-4 py-1.5">
-      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
-      <span className="text-sm font-medium whitespace-pre-line">{value || <span className="text-muted-foreground/50">입력하기</span>}</span>
-      {badge}
-    </div>
-  );
-
-  const SimpleSection = ({ sectionKey, title, icon, fieldKey, label }: {
-    sectionKey: string; title: string; icon: React.ReactNode; fieldKey: keyof ProfileData; label: string;
-  }) => renderSection(sectionKey, title, icon, () => (
-    <InfoRow label={label} value={(profileData as any)[fieldKey] || undefined} />
-  ));
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-4">
-          <AvatarUpload
-            userId={user!.id}
-            avatarUrl={profileData.avatar_url || null}
-            name={profileData.full_name}
-            size="lg"
-            editable
-            onUploaded={(url) => setProfileData({ ...profileData, avatar_url: url })}
-          />
-          <div>
-            <CardTitle className="text-xl">{profileData.full_name}</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {profileData.department || '부서 미설정'} {profileData.position && `· ${profileData.position}`}
-            </p>
-          </div>
-        </div>
       </CardHeader>
       <CardContent className="pt-2">
-        {/* 인사 정보 */}
-        <Separator />
-        {renderSection('org', '조직 · 직책', <Building2 className="h-4 w-4" />, () => (
-          <div className="space-y-1">
-            <InfoRow label="조직 (부서)" value={profileData.department} />
-            <InfoRow label="직책" value={profileData.position} />
-          </div>
+        {allSections.map((section, i) => (
+          <React.Fragment key={section.key}>
+            {i > 0 && <Separator />}
+            {renderSection(section)}
+          </React.Fragment>
         ))}
-
-        <Separator />
-        {renderSection('job', '직무 · 직군', <Briefcase className="h-4 w-4" />, () => (
-          <div className="space-y-1">
-            <InfoRow label="직무" value={profileData.job_title} />
-            <InfoRow label="직군" value={profileData.job_group} />
-          </div>
-        ))}
-
-        <Separator />
-        {renderSection('rank', '직위 · 직급', <Hash className="h-4 w-4" />, () => (
-          <div className="space-y-1">
-            <InfoRow label="직위" value={profileData.rank_title} />
-            <InfoRow label="직급" value={profileData.rank_level} />
-          </div>
-        ))}
-
-        <Separator />
-        {renderSection('basic', '기본 정보', <User className="h-4 w-4" />, () => (
-          <div className="space-y-1">
-            <InfoRow label="이름" value={profileData.full_name} />
-            {profileData.nickname && <InfoRow label="닉네임" value={profileData.nickname} />}
-            <InfoRow label="이메일" value={profileData.email} />
-            {profileData.personal_email && <InfoRow label="개인 이메일" value={profileData.personal_email} />}
-            <InfoRow label="사번" value={profileData.employee_number} />
-          </div>
-        ))}
-
-        <Separator />
-        {renderSection('join', '입사 정보', <Calendar className="h-4 w-4" />, () => (
-          <InfoRow
-            label="입사일"
-            value={profileData.join_date ? format(new Date(profileData.join_date), 'yyyy년 M월 d일', { locale: ko }) : undefined}
-            badge={getTenureBadge() ? <Badge variant="default" className="text-xs">{getTenureBadge()}</Badge> : undefined}
-          />
-        ))}
-
-        <Separator />
-        {renderSection('personal', '개인 정보', <Globe className="h-4 w-4" />, () => (
-          <div className="space-y-1">
-            {profileData.birthday && (
-              <InfoRow label="생일" value={format(new Date(profileData.birthday), 'yyyy년 M월 d일', { locale: ko })} />
-            )}
-            {!profileData.birthday && <InfoRow label="생일" />}
-            <InfoRow label="국적" value={profileData.nationality} />
-            <InfoRow label="휴대전화" value={profileData.phone} />
-          </div>
-        ))}
-
-        <Separator />
-        {renderSection('address', '주소', <MapPin className="h-4 w-4" />, () => (
-          <div className="space-y-1">
-            <InfoRow label="주소" value={[profileData.address, profileData.detail_address].filter(Boolean).join(' ') || undefined} />
-            {profileData.zipcode && <InfoRow label="우편번호" value={profileData.zipcode} />}
-          </div>
-        ))}
-
-        <Separator />
-        {renderSection('bank', '급여계좌', <CreditCard className="h-4 w-4" />, () => (
-          <InfoRow label="계좌" value={profileData.bank_name && profileData.bank_account ? `${profileData.bank_name} ${profileData.bank_account}` : undefined} />
-        ))}
-
-        {/* 근무 정보 */}
-        <Separator />
-        {renderSection('work', '근무 정보', <Clock className="h-4 w-4" />, () => (
-          <div className="space-y-1">
-            <InfoRow label="근무 유형" value={profileData.work_type} />
-            <InfoRow label="주당 근무시간" value={profileData.work_hours_per_week ? `주 ${profileData.work_hours_per_week}시간` : undefined} />
-          </div>
-        ))}
-
-        <Separator />
-        <SimpleSection sectionKey="overtime" title="초과 근무 보상 정보" icon={<Clock className="h-4 w-4" />} fieldKey="overtime_policy" label="보상 정책" />
-
-        <Separator />
-        <SimpleSection sectionKey="wage" title="임금 계약 정보" icon={<Wallet className="h-4 w-4" />} fieldKey="wage_contract" label="임금 계약" />
-
-        <Separator />
-        <SimpleSection sectionKey="salary" title="급여 지급 정보" icon={<Wallet className="h-4 w-4" />} fieldKey="salary_info" label="급여 지급" />
-
-        {/* 휴가 정보 */}
-        <Separator />
-        <SimpleSection sectionKey="leave" title="휴가 정보" icon={<CalendarDays className="h-4 w-4" />} fieldKey="leave_policy" label="연차 정책" />
-
-        <Separator />
-        <SimpleSection sectionKey="holidays" title="쉬는 날 정보" icon={<CalendarDays className="h-4 w-4" />} fieldKey="holidays" label="쉬는 날" />
-
-        <Separator />
-        <SimpleSection sectionKey="leave_history" title="휴직 이력" icon={<FileText className="h-4 w-4" />} fieldKey="leave_history" label="휴직 이력" />
-
-        {/* 이력 정보 */}
-        <Separator />
-        <SimpleSection sectionKey="awards" title="수상" icon={<Award className="h-4 w-4" />} fieldKey="awards" label="수상" />
-
-        <Separator />
-        <SimpleSection sectionKey="disciplinary" title="징계" icon={<AlertTriangle className="h-4 w-4" />} fieldKey="disciplinary" label="징계" />
-
-        <Separator />
-        <SimpleSection sectionKey="career" title="경력 정보" icon={<Briefcase className="h-4 w-4" />} fieldKey="career_history" label="경력" />
-
-        <Separator />
-        <SimpleSection sectionKey="education" title="학력" icon={<GraduationCap className="h-4 w-4" />} fieldKey="education" label="학력" />
-
-        <Separator />
-        <SimpleSection sectionKey="special" title="특이사항" icon={<FileText className="h-4 w-4" />} fieldKey="special_notes" label="특이사항" />
-
-        <Separator />
-        <SimpleSection sectionKey="family" title="가족" icon={<Heart className="h-4 w-4" />} fieldKey="family_info" label="가족" />
 
         {/* 근로기준법 */}
         <Separator />
