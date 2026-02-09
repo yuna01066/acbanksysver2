@@ -42,6 +42,7 @@ const stageColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
+  pending: '진행 예정',
   active: '진행중',
   completed: '완료',
   cancelled: '취소',
@@ -179,6 +180,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="pending">진행 예정</SelectItem>
                 <SelectItem value="active">진행중</SelectItem>
                 <SelectItem value="completed">완료</SelectItem>
                 <SelectItem value="cancelled">취소</SelectItem>
