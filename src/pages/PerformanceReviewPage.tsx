@@ -61,11 +61,11 @@ const PerformanceReviewPage = () => {
               <TabsTrigger value="review" className="gap-1.5">
                 <Star className="h-3.5 w-3.5" /> 평가하기
               </TabsTrigger>
-              <TabsTrigger value="admin" className="gap-1.5">
-                <Shield className="h-3.5 w-3.5" /> 관리자 대시보드
-              </TabsTrigger>
               <TabsTrigger value="incidents" className="gap-1.5">
                 <AlertTriangle className="h-3.5 w-3.5" /> 사고 경위서
+              </TabsTrigger>
+              <TabsTrigger value="admin" className="gap-1.5">
+                <Shield className="h-3.5 w-3.5" /> 관리자 대시보드
               </TabsTrigger>
             </TabsList>
 
@@ -73,12 +73,12 @@ const PerformanceReviewPage = () => {
               <ReviewEmployeeList />
             </TabsContent>
 
-            <TabsContent value="admin">
-              <AdminReviewDashboard />
-            </TabsContent>
-
             <TabsContent value="incidents">
               <IncidentReportPanel isAdminView={true} />
+            </TabsContent>
+
+            <TabsContent value="admin">
+              <AdminReviewDashboard />
             </TabsContent>
           </Tabs>
         ) : (

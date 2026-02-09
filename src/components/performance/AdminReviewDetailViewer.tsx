@@ -98,10 +98,13 @@ const AdminReviewDetailViewer: React.FC<Props> = ({ initialEmployeeId }) => {
   useEffect(() => {
     if (selectedCycleId && selectedEmployeeId) {
       fetchReviews();
-      // Fetch incident report count for this employee
+      // Fetch incident report count for this employee (within last 1 year)
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
       supabase.from('incident_reports').select('id', { count: 'exact', head: true })
         .eq('user_id', selectedEmployeeId)
         .in('status', ['submitted', 'reviewed'])
+        .gte('incident_date', oneYearAgo.toISOString().split('T')[0])
         .then(({ count }) => setIncidentCount(count || 0));
     } else {
       setReviews([]);
