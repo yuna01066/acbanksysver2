@@ -512,8 +512,17 @@ const OnlineEmployeesCard: React.FC = () => {
                         const h = Math.floor(i / 2) + 9;
                         const m = i % 2 === 0 ? '00' : '30';
                         const time = `${String(h).padStart(2, '0')}:${m}`;
+                        // Filter out past times if selected date is today
+                        const now = new Date();
+                        const isToday = meetingDate && 
+                          meetingDate.getFullYear() === now.getFullYear() && 
+                          meetingDate.getMonth() === now.getMonth() && 
+                          meetingDate.getDate() === now.getDate();
+                        if (isToday && (h < now.getHours() || (h === now.getHours() && parseInt(m) <= now.getMinutes()))) {
+                          return null;
+                        }
                         return <SelectItem key={time} value={time}>{time}</SelectItem>;
-                      })}
+                      }).filter(Boolean)}
                     </SelectContent>
                   </Select>
                 </div>
