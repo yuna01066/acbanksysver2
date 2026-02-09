@@ -1312,6 +1312,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          payment_status: string
           recipient_id: string | null
           specs: Json | null
           status: string
@@ -1323,6 +1324,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          payment_status?: string
           recipient_id?: string | null
           specs?: Json | null
           status?: string
@@ -1334,6 +1336,7 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          payment_status?: string
           recipient_id?: string | null
           specs?: Json | null
           status?: string

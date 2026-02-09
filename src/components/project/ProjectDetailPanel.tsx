@@ -16,6 +16,7 @@ import LinkQuoteDialog from './LinkQuoteDialog';
 import QuotePreviewSheet from './QuotePreviewSheet';
 import ProjectAssignments from './ProjectAssignments';
 import ProjectSpecsCard from './ProjectSpecsCard';
+import PaymentStatusSelect from './PaymentStatusSelect';
 import RecipientDetailSheet from './RecipientDetailSheet';
 
 interface Props {
@@ -200,6 +201,11 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
                   </Badge>
                 </InfoRow>
               )}
+
+              {/* 입금 상태 */}
+              <InfoRow label="입금 상태">
+                <PaymentStatusSelect projectId={projectId} currentStatus={(project as any).payment_status || 'unpaid'} />
+              </InfoRow>
 
               {/* 담당 직원 */}
               <div className="py-3 border-b">
