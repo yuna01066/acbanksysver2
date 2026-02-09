@@ -885,6 +885,9 @@ export type Database = {
           feedback_type: string
           id: string
           is_read: boolean
+          meeting_date: string | null
+          meeting_status: string
+          meeting_time: string | null
           message: string
           receiver_id: string
           sender_id: string
@@ -895,6 +898,9 @@ export type Database = {
           feedback_type: string
           id?: string
           is_read?: boolean
+          meeting_date?: string | null
+          meeting_status?: string
+          meeting_time?: string | null
           message: string
           receiver_id: string
           sender_id: string
@@ -905,6 +911,9 @@ export type Database = {
           feedback_type?: string
           id?: string
           is_read?: boolean
+          meeting_date?: string | null
+          meeting_status?: string
+          meeting_time?: string | null
           message?: string
           receiver_id?: string
           sender_id?: string

@@ -13,6 +13,7 @@ import ActivityFeedCard from '@/components/ActivityFeedCard';
 import { useAuth } from '@/contexts/AuthContext';
 import TimeGreeting from '@/components/TimeGreeting';
 import OnlineEmployeesCard from '@/components/OnlineEmployeesCard';
+import MeetingRequestPopup from '@/components/MeetingRequestPopup';
 import TeamChatCard from '@/components/TeamChatCard';
 import { useNotifications } from '@/hooks/useNotifications';
 import { toast } from 'sonner';
@@ -279,6 +280,7 @@ const Home = () => {
           </div>
         </div>
       </div>
+      {user && <MeetingRequestPopup />}
     </div>;
 };
 export default Home;

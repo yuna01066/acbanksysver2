@@ -169,13 +169,21 @@ const OnlineEmployeesCard: React.FC = () => {
         finalMessage = `📅 ${dateStr} ${timeStr}\n${finalMessage}`;
       }
 
-      const { error } = await supabase.from('peer_feedback').insert({
+      const insertData: any = {
         sender_id: user.id,
         receiver_id: selectedEmployee.user_id,
         feedback_type: feedbackType,
         message: finalMessage,
         emoji: FEEDBACK_CONFIG[feedbackType].emoji,
-      });
+      };
+
+      if (feedbackType === 'meeting') {
+        insertData.meeting_date = meetingDate ? format(meetingDate, 'yyyy-MM-dd') : null;
+        insertData.meeting_time = meetingTime || null;
+        insertData.meeting_status = 'pending';
+      }
+
+      const { error } = await supabase.from('peer_feedback').insert(insertData);
       if (error) throw error;
 
       await supabase.from('notifications').insert({
