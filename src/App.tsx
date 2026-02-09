@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QuoteProvider } from "@/contexts/QuoteContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
@@ -23,7 +23,7 @@ import SavedQuotesPage from "./pages/SavedQuotesPage";
 import SavedQuoteDetailPage from "./pages/SavedQuoteDetailPage";
 import AuthPage from "./pages/AuthPage";
 import MyPage from "./pages/MyPage";
-import UserManagementPage from "./pages/UserManagementPage";
+
 import UserStatisticsPage from "./pages/UserStatisticsPage";
 import PluuugIntegrationPage from "./pages/PluuugIntegrationPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -61,7 +61,7 @@ const App = () => (
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/my-page" element={<MyPage />} />
-            <Route path="/user-management" element={<UserManagementPage />} />
+            <Route path="/user-management" element={<Navigate to="/employee-profiles" replace />} />
             <Route path="/user-statistics" element={<UserStatisticsPage />} />
             <Route path="/pluuug-integration" element={<PluuugIntegrationPage />} />
             <Route path="/announcements" element={<AnnouncementsPage />} />
