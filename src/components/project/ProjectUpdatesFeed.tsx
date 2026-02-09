@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Send, Trash2, MessageSquarePlus, Hash, ExternalLink, Paperclip, Download, X, FileText } from 'lucide-react';
+import { Send, Trash2, MessageSquarePlus, Hash, ExternalLink, Paperclip, Download, FileText, AtSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -33,6 +33,11 @@ interface Attachment {
   type: string;
 }
 
+interface MentionedUser {
+  id: string;
+  full_name: string;
+}
+
 interface ProjectUpdate {
   id: string;
   project_id: string;
@@ -41,6 +46,7 @@ interface ProjectUpdate {
   content: string;
   notion_links: NotionLink[];
   attachments: Attachment[];
+  mentioned_user_ids: string[];
   created_at: string;
 }
 
@@ -54,10 +60,30 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
   const [content, setContent] = useState('');
   const [notionLinks, setNotionLinks] = useState<NotionLink[]>([]);
   const [files, setFiles] = useState<File[]>([]);
+  const [mentionedUsers, setMentionedUsers] = useState<MentionedUser[]>([]);
   const [notionSearchOpen, setNotionSearchOpen] = useState(false);
   const [notionSearch, setNotionSearch] = useState('');
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionCursorPos, setMentionCursorPos] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mentionRef = useRef<HTMLDivElement>(null);
+
+  // Fetch employees for mention
+  const { data: allEmployees = [] } = useQuery({
+    queryKey: ['employees-for-mention'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, department, avatar_url')
+        .eq('is_approved', true)
+        .order('full_name');
+      return (data || []) as { id: string; full_name: string; department: string | null; avatar_url: string | null }[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Fetch updates
   const { data: updates = [] } = useQuery({
@@ -73,6 +99,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
         ...u,
         notion_links: Array.isArray(u.notion_links) ? u.notion_links : [],
         attachments: Array.isArray(u.attachments) ? u.attachments : [],
+        mentioned_user_ids: Array.isArray(u.mentioned_user_ids) ? u.mentioned_user_ids : [],
       })) as ProjectUpdate[];
     },
   });
@@ -112,6 +139,84 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
     return () => { supabase.removeChannel(channel); };
   }, [projectId, queryClient]);
 
+  // Mention logic
+  const filteredMentionUsers = allEmployees.filter(e => {
+    if (mentionedUsers.some(m => m.id === e.id)) return false;
+    if (!mentionSearch) return true;
+    return e.full_name.toLowerCase().includes(mentionSearch.toLowerCase()) ||
+      (e.department && e.department.toLowerCase().includes(mentionSearch.toLowerCase()));
+  }).slice(0, 8);
+
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    const cursorPos = e.target.selectionStart || 0;
+    setContent(val);
+
+    // Check for @ trigger
+    const textBeforeCursor = val.slice(0, cursorPos);
+    const atMatch = textBeforeCursor.match(/@([^@\s]*)$/);
+    if (atMatch) {
+      setMentionOpen(true);
+      setMentionSearch(atMatch[1]);
+      setMentionCursorPos(cursorPos);
+      setMentionIndex(0);
+    } else {
+      setMentionOpen(false);
+      setMentionSearch('');
+    }
+  };
+
+  const insertMention = useCallback((emp: { id: string; full_name: string }) => {
+    const textBeforeCursor = content.slice(0, mentionCursorPos);
+    const atMatch = textBeforeCursor.match(/@([^@\s]*)$/);
+    if (!atMatch) return;
+
+    const beforeAt = textBeforeCursor.slice(0, atMatch.index);
+    const afterCursor = content.slice(mentionCursorPos);
+    const newContent = `${beforeAt}@${emp.full_name} ${afterCursor}`;
+    setContent(newContent);
+    setMentionedUsers(prev => [...prev, { id: emp.id, full_name: emp.full_name }]);
+    setMentionOpen(false);
+    setMentionSearch('');
+
+    // Refocus textarea
+    setTimeout(() => {
+      if (textareaRef.current) {
+        const newPos = (beforeAt + `@${emp.full_name} `).length;
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(newPos, newPos);
+      }
+    }, 0);
+  }, [content, mentionCursorPos]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionOpen && filteredMentionUsers.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex(prev => (prev + 1) % filteredMentionUsers.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex(prev => (prev - 1 + filteredMentionUsers.length) % filteredMentionUsers.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertMention(filteredMentionUsers[mentionIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        setMentionOpen(false);
+        return;
+      }
+    }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && (content.trim() || files.length > 0)) {
+      e.preventDefault();
+      addUpdate.mutate();
+    }
+  };
+
   const uploadFiles = async (): Promise<Attachment[]> => {
     const uploaded: Attachment[] = [];
     for (const file of files) {
@@ -124,11 +229,24 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
     return uploaded;
   };
 
+  const sendMentionNotifications = async (mentionIds: string[]) => {
+    if (mentionIds.length === 0 || !user || !profile) return;
+    const notifications = mentionIds.map(uid => ({
+      user_id: uid,
+      type: 'system',
+      title: '프로젝트 업데이트에서 태그됨',
+      description: `${profile.full_name}님이 프로젝트 업데이트에서 회원님을 태그했습니다.`,
+      data: { project_id: projectId } as any,
+    }));
+    await supabase.from('notifications').insert(notifications);
+  };
+
   const addUpdate = useMutation({
     mutationFn: async () => {
       if (!user || !profile) throw new Error('로그인 필요');
       if (!content.trim() && files.length === 0) throw new Error('내용 또는 파일을 추가해주세요.');
       const attachments = files.length > 0 ? await uploadFiles() : [];
+      const mentionIds = mentionedUsers.map(m => m.id);
       const { error } = await supabase.from('project_updates').insert({
         project_id: projectId,
         user_id: user.id,
@@ -136,14 +254,17 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
         content: content.trim(),
         notion_links: notionLinks as any,
         attachments: attachments as any,
+        mentioned_user_ids: mentionIds,
       });
       if (error) throw error;
+      await sendMentionNotifications(mentionIds);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-updates', projectId] });
       setContent('');
       setNotionLinks([]);
       setFiles([]);
+      setMentionedUsers([]);
       toast.success('업데이트가 추가되었습니다.');
     },
     onError: (e: any) => toast.error(e.message || '업데이트 추가에 실패했습니다.'),
@@ -195,6 +316,36 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
   const canDelete = (update: ProjectUpdate) =>
     update.user_id === user?.id || isAdmin || isModerator;
 
+  // Render content with highlighted mentions
+  const renderContent = (text: string, mentionIds: string[]) => {
+    if (!text) return null;
+    if (mentionIds.length === 0) return <p className="text-sm whitespace-pre-wrap leading-relaxed">{text}</p>;
+
+    const mentionNames = mentionIds
+      .map(id => allEmployees.find(e => e.id === id)?.full_name)
+      .filter(Boolean) as string[];
+
+    if (mentionNames.length === 0) return <p className="text-sm whitespace-pre-wrap leading-relaxed">{text}</p>;
+
+    const pattern = new RegExp(`@(${mentionNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'g');
+    const parts = text.split(pattern);
+
+    return (
+      <p className="text-sm whitespace-pre-wrap leading-relaxed">
+        {parts.map((part, i) => {
+          if (mentionNames.includes(part)) {
+            return (
+              <span key={i} className="text-primary font-medium bg-primary/10 rounded px-0.5">
+                @{part}
+              </span>
+            );
+          }
+          return <React.Fragment key={i}>{part}</React.Fragment>;
+        })}
+      </p>
+    );
+  };
+
   return (
     <Card className="shadow-none">
       <CardContent className="p-5">
@@ -205,19 +356,63 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
 
         {/* Input area */}
         <div className="space-y-2 mb-4">
-          <Textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="업데이트 내용을 입력하세요..."
-            className="text-sm min-h-[60px] resize-none"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && content.trim()) {
-                e.preventDefault();
-                addUpdate.mutate();
-              }
-            }}
-          />
+          <div className="relative">
+            <Textarea
+              ref={textareaRef}
+              value={content}
+              onChange={handleContentChange}
+              onKeyDown={handleKeyDown}
+              placeholder="업데이트 내용을 입력하세요... (@로 직원 태그)"
+              className="text-sm min-h-[60px] resize-none"
+            />
+
+            {/* Mention dropdown */}
+            {mentionOpen && filteredMentionUsers.length > 0 && (
+              <div
+                ref={mentionRef}
+                className="absolute z-50 left-0 bottom-full mb-1 w-64 bg-popover border rounded-lg shadow-lg overflow-hidden"
+              >
+                <ScrollArea className="max-h-[200px]">
+                  {filteredMentionUsers.map((emp, i) => (
+                    <button
+                      key={emp.id}
+                      onClick={() => insertMention(emp)}
+                      className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
+                        i === mentionIndex ? 'bg-accent' : 'hover:bg-muted'
+                      }`}
+                    >
+                      <Avatar className="h-5 w-5">
+                        {emp.avatar_url ? (
+                          <img src={emp.avatar_url} alt="" className="h-5 w-5 rounded-full object-cover" />
+                        ) : (
+                          <AvatarFallback className="text-[9px] bg-primary/10 text-primary">
+                            {emp.full_name.slice(0, 1)}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <span className="font-medium">{emp.full_name}</span>
+                      {emp.department && (
+                        <span className="text-xs text-muted-foreground">{emp.department}</span>
+                      )}
+                    </button>
+                  ))}
+                </ScrollArea>
+              </div>
+            )}
+          </div>
+
+          {/* Mentioned users */}
+          {mentionedUsers.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {mentionedUsers.map((m) => (
+                <Badge key={m.id} variant="outline" className="text-[10px] gap-1 pr-1 bg-primary/5 text-primary border-primary/20">
+                  <AtSign className="h-2.5 w-2.5" />
+                  {m.full_name}
+                  <button onClick={() => setMentionedUsers(prev => prev.filter(u => u.id !== m.id))} className="hover:bg-muted rounded-full p-0.5 ml-0.5">×</button>
+                </Badge>
+              ))}
+            </div>
+          )}
 
           {/* Notion links */}
           {notionLinks.length > 0 && (
@@ -342,9 +537,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
                     </Button>
                   )}
                 </div>
-                {update.content && (
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{update.content}</p>
-                )}
+                {renderContent(update.content, update.mentioned_user_ids)}
                 {update.attachments && update.attachments.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
                     {update.attachments.map((att, i) => (

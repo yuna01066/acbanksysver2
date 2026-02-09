@@ -1657,6 +1657,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          mentioned_user_ids: string[] | null
           notion_links: Json | null
           project_id: string
           updated_at: string
@@ -1668,6 +1669,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          mentioned_user_ids?: string[] | null
           notion_links?: Json | null
           project_id: string
           updated_at?: string
@@ -1679,6 +1681,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          mentioned_user_ids?: string[] | null
           notion_links?: Json | null
           project_id?: string
           updated_at?: string
