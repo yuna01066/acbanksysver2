@@ -144,6 +144,9 @@ const Home = () => {
             <div className="flex items-center gap-4">
               {user ? (
                 <>
+                  <Button variant="ghost" size="icon" onClick={() => window.open('https://desk.channel.io/acbank/groups/단체방-401443', '_blank')} title="팀챗">
+                    <MessageCircle className="h-5 w-5" />
+                  </Button>
                   <Button variant="outline" onClick={() => navigate('/my-page')} className="gap-2">
                     <User className="h-4 w-4" />
                     {profile?.full_name || user.email}
@@ -175,24 +178,9 @@ const Home = () => {
             </div>
           )}
 
-          {/* 채널톡 팀챗 + Calendar */}
+          {/* Calendar - 로그인한 사용자만 */}
           {user && (
-            <div className="mb-10 space-y-4">
-              <Card
-                className="cursor-pointer group hover:scale-[1.01] transition-all duration-300"
-                onClick={() => window.open('https://desk.channel.io/acbank/groups/단체방-401443', '_blank')}
-              >
-                <CardContent className="flex items-center gap-4 p-4">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0">
-                    <MessageCircle className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm">채널톡 팀챗</h3>
-                    <p className="text-xs text-muted-foreground">팀원들과 실시간 대화하기</p>
-                  </div>
-                  <Badge variant="outline" className="text-xs shrink-0">열기 →</Badge>
-                </CardContent>
-              </Card>
+            <div className="mb-10">
               <DashboardCalendar />
             </div>
           )}
