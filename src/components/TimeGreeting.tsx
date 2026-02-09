@@ -1,6 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { Sun, Moon, Coffee, Utensils, Clock, User } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Sun, Moon, Coffee, Utensils, Clock } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+
+type WorkStatus = 'available' | 'busy' | 'focusing' | 'meeting';
+
+const STATUS_CONFIG: Record<WorkStatus, { label: string; emoji: string; dotColor: string; borderColor: string }> = {
+  available: { label: '여유', emoji: '🟢', dotColor: 'bg-green-500', borderColor: 'border-green-300 dark:border-green-700' },
+  busy: { label: '바쁨', emoji: '🔴', dotColor: 'bg-red-500', borderColor: 'border-red-300 dark:border-red-700' },
+  focusing: { label: '집중 중', emoji: '🟡', dotColor: 'bg-yellow-500', borderColor: 'border-yellow-300 dark:border-yellow-700' },
+  meeting: { label: '미팅 중', emoji: '🟣', dotColor: 'bg-purple-500', borderColor: 'border-purple-300 dark:border-purple-700' },
+};
 
 interface TimeGreetingProps {
   name: string;
@@ -39,8 +52,11 @@ const formatDate = (date: Date) => {
 };
 
 const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
+  const { user } = useAuth();
   const [greeting, setGreeting] = useState(getGreetingData());
   const [now, setNow] = useState(new Date());
+  const [myStatus, setMyStatus] = useState<WorkStatus>('available');
+  const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -50,16 +66,77 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
     return () => clearInterval(interval);
   }, []);
 
+  // Sync with presence channel
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase.channel('employee-status', {
+      config: { presence: { key: user.id } },
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const myPresences = state[user.id];
+        if (myPresences && myPresences.length > 0) {
+          const latest = myPresences[myPresences.length - 1] as any;
+          if (latest?.status) setMyStatus(latest.status as WorkStatus);
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ status: myStatus, online_at: new Date().toISOString() });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  const updateMyStatus = useCallback(async (newStatus: WorkStatus) => {
+    setMyStatus(newStatus);
+    setStatusPopoverOpen(false);
+
+    const channel = supabase.channel('employee-status');
+    await channel.track({ status: newStatus, online_at: new Date().toISOString() });
+    toast.success(`상태가 "${STATUS_CONFIG[newStatus].label}"(으)로 변경되었습니다`);
+  }, []);
+
+  const statusCfg = STATUS_CONFIG[myStatus];
+
   return (
     <div className={`animate-fade-in rounded-xl border p-5 shadow-sm bg-gradient-to-r ${greeting.gradient} transition-colors duration-1000`}>
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Avatar className="h-[72px] w-[72px] shrink-0 rounded-lg border-2 border-background shadow-sm">
-            <AvatarImage src={avatarUrl || undefined} alt={name} className="object-cover" />
-            <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
-              {name.charAt(0)}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative">
+            <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Avatar className={`h-[100px] w-[100px] shrink-0 rounded-lg border-2 ${statusCfg.borderColor} shadow-sm cursor-pointer transition-transform hover:scale-105`}>
+                  <AvatarImage src={avatarUrl || undefined} alt={name} className="object-cover" />
+                  <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
+                    {name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+              </PopoverTrigger>
+              <PopoverContent className="w-44 p-1.5" side="bottom" align="start">
+                <p className="text-[10px] font-medium text-muted-foreground px-2 py-1">내 상태 변경</p>
+                {(Object.entries(STATUS_CONFIG) as [WorkStatus, typeof STATUS_CONFIG[WorkStatus]][]).map(([key, cfg]) => (
+                  <button
+                    key={key}
+                    onClick={() => updateMyStatus(key)}
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
+                      myStatus === key ? 'bg-accent font-medium' : 'hover:bg-muted'
+                    }`}
+                  >
+                    <span>{cfg.emoji}</span>
+                    <span>{cfg.label}</span>
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+            <span className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full ${statusCfg.dotColor} border-2 border-background`} />
+          </div>
           <div className={`animate-scale-in flex h-10 w-10 items-center justify-center rounded-full ${greeting.iconBg} transition-colors duration-1000`}>
             {greeting.icon}
           </div>
