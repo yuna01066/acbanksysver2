@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, FileText, Truck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -15,9 +15,11 @@ import { toast } from 'sonner';
 interface CalendarEvent {
   id: string;
   projectName: string;
-  type: 'quote' | 'delivery';
+  type: 'quote' | 'delivery' | 'notion';
   date: Date;
   userId: string;
+  url?: string;
+  assignee?: string;
 }
 
 const DashboardCalendar = () => {
@@ -37,10 +39,25 @@ const DashboardCalendar = () => {
     },
   });
 
+  const { data: notionProjects } = useQuery({
+    queryKey: ['notion-projects'],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('notion-projects');
+      if (error) {
+        console.error('Notion fetch error:', error);
+        return [];
+      }
+      return data?.projects || [];
+    },
+    staleTime: 5 * 60 * 1000, // 5분 캐시
+  });
+
   const events = useMemo(() => {
-    if (!quotes) return [];
+    if (!quotes && !notionProjects) return [];
     const result: CalendarEvent[] = [];
-    quotes.forEach((q) => {
+
+    // 견적 이벤트
+    quotes?.forEach((q) => {
       if (q.quote_date) {
         result.push({
           id: q.id,
@@ -63,10 +80,35 @@ const DashboardCalendar = () => {
         }
       }
     });
+
+    // Notion 프로젝트 이벤트
+    notionProjects?.forEach((project: any) => {
+      if (project.date) {
+        const date = new Date(project.date);
+        if (!isNaN(date.getTime())) {
+          result.push({
+            id: project.id,
+            projectName: project.title || 'Untitled',
+            type: 'notion',
+            date,
+            userId: '',
+            url: project.url,
+            assignee: project.assignee,
+          });
+        }
+      }
+    });
+
     return result;
-  }, [quotes]);
+  }, [quotes, notionProjects]);
 
   const handleEventClick = useCallback((event: CalendarEvent) => {
+    if (event.type === 'notion') {
+      if (event.url) {
+        window.open(event.url, '_blank');
+      }
+      return;
+    }
     if (isAdmin || isModerator || event.userId === user?.id) {
       navigate(`/saved-quotes/${event.id}`);
     } else {
@@ -101,12 +143,15 @@ const DashboardCalendar = () => {
             </Button>
           </div>
         </div>
-        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
           <span className="flex items-center gap-1">
             <FileText className="h-3 w-3 text-primary" /> 견적 발행일
           </span>
           <span className="flex items-center gap-1">
             <Truck className="h-3 w-3 text-orange-500" /> 납기 희망일
+          </span>
+          <span className="flex items-center gap-1">
+            <BookOpen className="h-3 w-3 text-violet-500" /> Notion 프로젝트
           </span>
         </div>
       </CardHeader>
@@ -159,14 +204,22 @@ const DashboardCalendar = () => {
                         "w-full text-left text-[10px] leading-tight px-1 py-0.5 rounded truncate flex items-center gap-0.5 hover:opacity-80 transition-opacity",
                         event.type === 'quote'
                           ? "bg-primary/10 text-primary"
-                          : "bg-orange-500/10 text-orange-600"
+                          : event.type === 'delivery'
+                          ? "bg-orange-500/10 text-orange-600"
+                          : "bg-violet-500/10 text-violet-600"
                       )}
-                      title={`${event.projectName} (${event.type === 'quote' ? '견적 발행일' : '납기 희망일'})`}
+                      title={
+                        event.type === 'notion'
+                          ? `${event.projectName}${event.assignee ? ` (${event.assignee})` : ''}`
+                          : `${event.projectName} (${event.type === 'quote' ? '견적 발행일' : '납기 희망일'})`
+                      }
                     >
                       {event.type === 'quote' ? (
                         <FileText className="h-2.5 w-2.5 shrink-0" />
-                      ) : (
+                      ) : event.type === 'delivery' ? (
                         <Truck className="h-2.5 w-2.5 shrink-0" />
+                      ) : (
+                        <BookOpen className="h-2.5 w-2.5 shrink-0" />
                       )}
                       <span className="truncate">{event.projectName}</span>
                     </button>
