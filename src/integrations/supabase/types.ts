@@ -302,6 +302,39 @@ export type Database = {
           },
         ]
       }
+      contract_templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          pay_day: number | null
+          template_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          pay_day?: number | null
+          template_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          pay_day?: number | null
+          template_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       document_categories: {
         Row: {
           allow_multiple: boolean
@@ -378,6 +411,116 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "document_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employment_contracts: {
+        Row: {
+          annual_salary: number | null
+          base_pay: number | null
+          birth_date: string | null
+          contract_date: string
+          contract_end_date: string | null
+          contract_start_date: string | null
+          contract_type: string
+          created_at: string
+          department: string | null
+          fixed_overtime_hours: number | null
+          fixed_overtime_pay: number | null
+          id: string
+          monthly_salary: number | null
+          notes: string | null
+          other_allowances: Json | null
+          pay_day: number | null
+          position: string | null
+          probation_end_date: string | null
+          probation_period: string | null
+          probation_salary_rate: number | null
+          probation_start_date: string | null
+          requested_at: string | null
+          requested_by: string | null
+          signed_at: string | null
+          status: string
+          template_id: string | null
+          updated_at: string
+          user_id: string
+          user_name: string
+          work_days: string | null
+          work_type: string | null
+        }
+        Insert: {
+          annual_salary?: number | null
+          base_pay?: number | null
+          birth_date?: string | null
+          contract_date?: string
+          contract_end_date?: string | null
+          contract_start_date?: string | null
+          contract_type?: string
+          created_at?: string
+          department?: string | null
+          fixed_overtime_hours?: number | null
+          fixed_overtime_pay?: number | null
+          id?: string
+          monthly_salary?: number | null
+          notes?: string | null
+          other_allowances?: Json | null
+          pay_day?: number | null
+          position?: string | null
+          probation_end_date?: string | null
+          probation_period?: string | null
+          probation_salary_rate?: number | null
+          probation_start_date?: string | null
+          requested_at?: string | null
+          requested_by?: string | null
+          signed_at?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+          user_id: string
+          user_name: string
+          work_days?: string | null
+          work_type?: string | null
+        }
+        Update: {
+          annual_salary?: number | null
+          base_pay?: number | null
+          birth_date?: string | null
+          contract_date?: string
+          contract_end_date?: string | null
+          contract_start_date?: string | null
+          contract_type?: string
+          created_at?: string
+          department?: string | null
+          fixed_overtime_hours?: number | null
+          fixed_overtime_pay?: number | null
+          id?: string
+          monthly_salary?: number | null
+          notes?: string | null
+          other_allowances?: Json | null
+          pay_day?: number | null
+          position?: string | null
+          probation_end_date?: string | null
+          probation_period?: string | null
+          probation_salary_rate?: number | null
+          probation_start_date?: string | null
+          requested_at?: string | null
+          requested_by?: string | null
+          signed_at?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+          user_id?: string
+          user_name?: string
+          work_days?: string | null
+          work_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employment_contracts_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "contract_templates"
             referencedColumns: ["id"]
           },
         ]

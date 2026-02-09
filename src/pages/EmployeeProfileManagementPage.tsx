@@ -5,11 +5,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Users, FileText, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Loader2, Users, FileText, BarChart3, FileSignature } from 'lucide-react';
 import EmployeeListSidebar, { type EmployeeProfile } from '@/components/employee/EmployeeListSidebar';
 import EmployeeProfileDetail from '@/components/employee/EmployeeProfileDetail';
 import DocumentBoxSettings from '@/components/employee/DocumentBoxSettings';
 import DocumentSubmissionDashboard from '@/components/employee/DocumentSubmissionDashboard';
+import ContractManagement from '@/components/contract/ContractManagement';
 
 const mapProfileData = (d: any): EmployeeProfile => ({
   id: d.id, full_name: d.full_name || '', email: d.email || '', phone: d.phone || '',
@@ -107,6 +108,9 @@ const EmployeeProfileManagementPage = () => {
           <TabsTrigger value="document-status" className="text-xs h-7 gap-1" onClick={() => setActiveTab('document-status')}>
             <BarChart3 className="h-3.5 w-3.5" /> 제출 현황
           </TabsTrigger>
+          <TabsTrigger value="contracts" className="text-xs h-7 gap-1" onClick={() => setActiveTab('contracts')}>
+            <FileSignature className="h-3.5 w-3.5" /> 전자계약
+          </TabsTrigger>
         </TabsList>
       </div>
 
@@ -161,6 +165,14 @@ const EmployeeProfileManagementPage = () => {
           <div className="container max-w-5xl mx-auto px-6 py-8">
             <h2 className="text-lg font-bold mb-4">서류 제출 현황</h2>
             <DocumentSubmissionDashboard />
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'contracts' && (
+        <div className="flex-1 overflow-y-auto min-h-0">
+          <div className="container max-w-6xl mx-auto px-6 py-6">
+            <ContractManagement />
           </div>
         </div>
       )}
