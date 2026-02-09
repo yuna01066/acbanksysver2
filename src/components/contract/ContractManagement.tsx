@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useContractTemplates, useEmploymentContracts, type EmploymentContract } from '@/hooks/useContracts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ContractTemplateSettings from './ContractTemplateSettings';
 
 interface EmployeeForContract {
   id: string;
@@ -594,6 +595,9 @@ const ContractManagement: React.FC = () => {
           <TabsTrigger value="request">계약 요청</TabsTrigger>
           <TabsTrigger value="history">계약 내역</TabsTrigger>
           <TabsTrigger value="employee">구성원 계약</TabsTrigger>
+          <TabsTrigger value="settings" className="gap-1">
+            <Settings2 className="h-3.5 w-3.5" /> 계약서 설정
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="request" className="mt-4 space-y-6">
@@ -704,6 +708,10 @@ const ContractManagement: React.FC = () => {
             <p className="text-sm">구성원별 계약 현황을 확인할 수 있습니다.</p>
             <p className="text-xs mt-1">계약을 요청하면 여기에 표시됩니다.</p>
           </div>
+        </TabsContent>
+
+        <TabsContent value="settings" className="mt-4">
+          <ContractTemplateSettings />
         </TabsContent>
       </Tabs>
     </div>
