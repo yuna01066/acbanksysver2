@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AvatarUpload from './AvatarUpload';
 import LaborLawPanel from './LaborLawPanel';
 import EmployeeDocumentsPanel from './EmployeeDocumentsPanel';
@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
@@ -83,15 +82,6 @@ const workSections: SectionDef[] = [
   ]},
 ];
 
-const salarySections: SectionDef[] = [
-  { key: 'wage', title: '임금 계약 정보', icon: <Wallet className="h-4 w-4" />, fields: [
-    { key: 'wage_contract', label: '임금 계약', multiline: true },
-  ]},
-  { key: 'salary', title: '급여 지급 정보', icon: <Wallet className="h-4 w-4" />, fields: [
-    { key: 'salary_info', label: '급여 지급', multiline: true },
-  ]},
-];
-
 const etcSections: SectionDef[] = [
   { key: 'awards', title: '수상', icon: <Award className="h-4 w-4" />, fields: [
     { key: 'awards', label: '수상', multiline: true },
@@ -119,37 +109,46 @@ interface EmployeeProfileDetailProps {
 }
 
 const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee, onUpdated }) => {
-  const [editSection, setEditSection] = useState<string | null>(null);
+  const [editingTab, setEditingTab] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
 
-  const startEdit = (sectionKey: string) => {
-    setEditSection(sectionKey);
+  const startTabEdit = (tabKey: string) => {
+    setEditingTab(tabKey);
     setEditValues({ ...employee });
   };
 
-  const cancelEdit = () => {
-    setEditSection(null);
+  const cancelTabEdit = () => {
+    setEditingTab(null);
     setEditValues({});
   };
 
-  const saveSection = async (section: SectionDef) => {
+  const saveTab = async (sections: SectionDef[]) => {
     setSaving(true);
     try {
       const updates: Record<string, any> = {};
-      for (const f of section.fields) {
-        if (!f.disabled) {
-          updates[f.key] = editValues[f.key] || null;
+      for (const section of sections) {
+        for (const f of section.fields) {
+          if (!f.disabled) {
+            const newVal = editValues[f.key];
+            const oldVal = (employee as any)[f.key];
+            if (newVal !== oldVal) {
+              updates[f.key] = newVal || null;
+            }
+          }
         }
       }
-      const { error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', employee.id);
+      if (Object.keys(updates).length === 0) {
+        toast.info('변경된 내용이 없습니다.');
+        setEditingTab(null);
+        setSaving(false);
+        return;
+      }
+      const { error } = await supabase.from('profiles').update(updates).eq('id', employee.id);
       if (error) throw error;
       toast.success('정보가 저장되었습니다.');
       onUpdated({ ...employee, ...updates });
-      setEditSection(null);
+      setEditingTab(null);
     } catch (e: any) {
       toast.error('저장 실패: ' + (e.message || ''));
     } finally {
@@ -179,143 +178,101 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
 
   const renderSectionContent = (section: SectionDef) => {
     const val = (key: string) => (employee as any)[key] || '';
-
     if (section.key === 'join') {
-      return (
-        <InfoRow
-          label="입사일"
-          value={val('join_date') ? format(new Date(val('join_date')), 'yyyy년 M월 d일', { locale: ko }) : undefined}
-          badge={getTenureBadge(val('join_date')) ? <Badge variant="default" className="text-xs shrink-0">{getTenureBadge(val('join_date'))}</Badge> : undefined}
-        />
-      );
+      return <InfoRow label="입사일" value={val('join_date') ? format(new Date(val('join_date')), 'yyyy년 M월 d일', { locale: ko }) : undefined} badge={getTenureBadge(val('join_date')) ? <Badge variant="default" className="text-xs shrink-0">{getTenureBadge(val('join_date'))}</Badge> : undefined} />;
     }
     if (section.key === 'personal') {
-      return (
-        <div className="space-y-0">
-          <InfoRow label="생일" value={val('birthday') ? format(new Date(val('birthday')), 'yyyy년 M월 d일', { locale: ko }) : undefined} />
-          <InfoRow label="국적" value={val('nationality')} />
-          <InfoRow label="휴대전화" value={val('phone')} />
-        </div>
-      );
+      return (<div className="space-y-0"><InfoRow label="생일" value={val('birthday') ? format(new Date(val('birthday')), 'yyyy년 M월 d일', { locale: ko }) : undefined} /><InfoRow label="국적" value={val('nationality')} /><InfoRow label="휴대전화" value={val('phone')} /></div>);
     }
     if (section.key === 'address') {
-      return (
-        <div className="space-y-0">
-          <InfoRow label="주소" value={[val('address'), val('detail_address')].filter(Boolean).join(' ') || undefined} />
-          {val('zipcode') && <InfoRow label="우편번호" value={val('zipcode')} />}
-        </div>
-      );
+      return (<div className="space-y-0"><InfoRow label="주소" value={[val('address'), val('detail_address')].filter(Boolean).join(' ') || undefined} />{val('zipcode') && <InfoRow label="우편번호" value={val('zipcode')} />}</div>);
     }
     if (section.key === 'bank') {
       return <InfoRow label="계좌" value={val('bank_name') && val('bank_account') ? `${val('bank_name')} ${val('bank_account')}` : undefined} />;
     }
     if (section.key === 'work') {
-      return (
-        <div className="space-y-0">
-          <InfoRow label="근무 유형" value={val('work_type')} />
-          <InfoRow label="주당 근무시간" value={val('work_hours_per_week') ? `주 ${val('work_hours_per_week')}시간` : undefined} />
-        </div>
-      );
+      return (<div className="space-y-0"><InfoRow label="근무 유형" value={val('work_type')} /><InfoRow label="주당 근무시간" value={val('work_hours_per_week') ? `주 ${val('work_hours_per_week')}시간` : undefined} /></div>);
     }
-
-    return (
-      <div className="space-y-0">
-        {section.fields.map(f => (
-          <InfoRow key={f.key} label={f.label} value={val(f.key)} />
-        ))}
-      </div>
-    );
+    return (<div className="space-y-0">{section.fields.map(f => (<InfoRow key={f.key} label={f.label} value={val(f.key)} />))}</div>);
   };
 
-  const renderSection = (section: SectionDef) => {
-    const isEditing = editSection === section.key;
-    return (
-      <div key={section.key} className="py-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            {section.icon}
-            {section.title}
+  const renderEditFields = (sections: SectionDef[]) => (
+    <div className="space-y-6">
+      {sections.map(section => (
+        <div key={section.key} className="py-2">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-3">
+            {section.icon} {section.title}
           </h3>
-          {!isEditing ? (
-            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground" onClick={() => startEdit(section.key)}>
-              <Pencil className="h-3 w-3" /> 수정
-            </Button>
-          ) : (
-            <div className="flex gap-1">
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={cancelEdit} disabled={saving}>
-                <X className="h-3 w-3" />
-              </Button>
-              <Button size="sm" className="h-7 text-xs gap-1" onClick={() => saveSection(section)} disabled={saving}>
-                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                저장
-              </Button>
-            </div>
-          )}
-        </div>
-        {isEditing ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {section.fields.map(f => (
               <div key={f.key} className={f.multiline ? 'md:col-span-2' : ''}>
                 <Label className="text-xs text-muted-foreground">{f.label}</Label>
                 {f.multiline ? (
-                  <Textarea
-                    value={editValues[f.key] || ''}
-                    onChange={(e) => setEditValues({ ...editValues, [f.key]: e.target.value })}
-                    rows={3}
-                    className="text-sm mt-1 resize-none"
-                  />
+                  <Textarea value={editValues[f.key] || ''} onChange={(e) => setEditValues({ ...editValues, [f.key]: e.target.value })} rows={3} className="text-sm mt-1 resize-none" />
                 ) : (
-                  <Input
-                    type={f.type || 'text'}
-                    value={editValues[f.key] || ''}
-                    onChange={(e) => setEditValues({ ...editValues, [f.key]: e.target.value })}
-                    disabled={f.disabled}
-                    className="h-9 text-sm mt-1"
-                  />
+                  <Input type={f.type || 'text'} value={editValues[f.key] || ''} onChange={(e) => setEditValues({ ...editValues, [f.key]: e.target.value })} disabled={f.disabled} className="h-9 text-sm mt-1" />
                 )}
               </div>
             ))}
           </div>
-        ) : (
-          renderSectionContent(section)
-        )}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderViewSections = (sections: SectionDef[]) => (
+    <div className="divide-y">
+      {sections.map(section => (
+        <div key={section.key} className="py-4">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-3">
+            {section.icon} {section.title}
+          </h3>
+          {renderSectionContent(section)}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderTabWithEdit = (tabKey: string, sections: SectionDef[]) => {
+    const isEditing = editingTab === tabKey;
+    return (
+      <div>
+        <div className="flex items-center justify-end mb-2 pt-2">
+          {!isEditing ? (
+            <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={() => startTabEdit(tabKey)}>
+              <Pencil className="h-3.5 w-3.5" /> 수정
+            </Button>
+          ) : (
+            <div className="flex gap-1.5">
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1" onClick={cancelTabEdit} disabled={saving}>
+                <X className="h-3.5 w-3.5" /> 취소
+              </Button>
+              <Button size="sm" className="h-8 text-xs gap-1" onClick={() => saveTab(sections)} disabled={saving}>
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                저장
+              </Button>
+            </div>
+          )}
+        </div>
+        {isEditing ? renderEditFields(sections) : renderViewSections(sections)}
       </div>
     );
   };
-
-  const renderSections = (sections: SectionDef[]) => (
-    <div className="divide-y">
-      {sections.map(s => renderSection(s))}
-    </div>
-  );
 
   return (
     <div className="flex-1 flex flex-col h-full min-w-0">
       {/* Profile Header */}
       <div className="p-6 border-b bg-card">
         <div className="flex items-start gap-4">
-          <AvatarUpload
-            userId={employee.id}
-            avatarUrl={employee.avatar_url || null}
-            name={employee.full_name}
-            size="lg"
-            editable
-            onUploaded={(url) => onUpdated({ ...employee, avatar_url: url })}
-          />
+          <AvatarUpload userId={employee.id} avatarUrl={employee.avatar_url || null} name={employee.full_name} size="lg" editable onUploaded={(url) => onUpdated({ ...employee, avatar_url: url })} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-xl font-bold truncate">{employee.full_name}</h1>
-              {!employee.is_approved && (
-                <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">미승인</Badge>
-              )}
-              {employee.join_date && getTenureBadge(employee.join_date) && (
-                <Badge variant="secondary" className="text-xs">{getTenureBadge(employee.join_date)}</Badge>
-              )}
+              {!employee.is_approved && <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">미승인</Badge>}
+              {employee.join_date && getTenureBadge(employee.join_date) && <Badge variant="secondary" className="text-xs">{getTenureBadge(employee.join_date)}</Badge>}
             </div>
             <p className="text-sm text-muted-foreground mb-2">
-              {employee.department || '부서 미설정'}
-              {employee.position && ` · ${employee.position}`}
-              {employee.rank_title && ` · ${employee.rank_title}`}
+              {employee.department || '부서 미설정'}{employee.position && ` · ${employee.position}`}{employee.rank_title && ` · ${employee.rank_title}`}
             </p>
             <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{employee.email}</span>
@@ -330,55 +287,33 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
       <Tabs defaultValue="personnel" className="flex-1 flex flex-col min-h-0">
         <div className="border-b px-6">
           <TabsList className="bg-transparent h-10 p-0 gap-0">
-            <TabsTrigger value="personnel" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
-              인사 정보
-            </TabsTrigger>
-            <TabsTrigger value="work" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
-              근무 · 휴가
-            </TabsTrigger>
-            <TabsTrigger value="salary" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
-              급여 · 계약
-            </TabsTrigger>
-            <TabsTrigger value="etc" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
-              기타 정보
-            </TabsTrigger>
-            <TabsTrigger value="labor" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
-              근로기준법
-            </TabsTrigger>
-            <TabsTrigger value="documents" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
-              문서함
-            </TabsTrigger>
-            <TabsTrigger value="contracts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
-              전자계약
-            </TabsTrigger>
-            <TabsTrigger value="attendance" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
-              근태기록
-            </TabsTrigger>
-            <TabsTrigger value="leave" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
-              연차·휴가
-            </TabsTrigger>
+            <TabsTrigger value="personnel" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">인사 정보</TabsTrigger>
+            <TabsTrigger value="work" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">근무 · 휴가</TabsTrigger>
+            <TabsTrigger value="salary" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">급여 · 계약</TabsTrigger>
+            <TabsTrigger value="etc" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">기타 정보</TabsTrigger>
+            <TabsTrigger value="labor" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">근로기준법</TabsTrigger>
+            <TabsTrigger value="documents" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">문서함</TabsTrigger>
+            <TabsTrigger value="contracts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">전자계약</TabsTrigger>
+            <TabsTrigger value="attendance" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">근태기록</TabsTrigger>
+            <TabsTrigger value="leave" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">연차·휴가</TabsTrigger>
           </TabsList>
         </div>
         <ScrollArea className="flex-1">
           <div className="px-6 pb-6">
             <TabsContent value="personnel" className="mt-0">
-              {renderSections(personnelSections)}
+              {renderTabWithEdit('personnel', personnelSections)}
             </TabsContent>
             <TabsContent value="work" className="mt-0">
-              {renderSections(workSections)}
+              {renderTabWithEdit('work', workSections)}
             </TabsContent>
-            <TabsContent value="salary" className="mt-0">
-              {renderSections(salarySections)}
+            <TabsContent value="salary" className="mt-0 py-4">
+              <EmployeeContractsPanel userId={employee.id} isAdmin />
             </TabsContent>
             <TabsContent value="etc" className="mt-0">
-              {renderSections(etcSections)}
+              {renderTabWithEdit('etc', etcSections)}
             </TabsContent>
             <TabsContent value="labor" className="mt-0">
-              <LaborLawPanel
-                joinDate={employee.join_date}
-                weeklyWorkHours={employee.work_hours_per_week}
-                isAdmin
-              />
+              <LaborLawPanel joinDate={employee.join_date} weeklyWorkHours={employee.work_hours_per_week} isAdmin />
             </TabsContent>
             <TabsContent value="documents" className="mt-0 py-4">
               <EmployeeDocumentsPanel userId={employee.id} isAdmin />
