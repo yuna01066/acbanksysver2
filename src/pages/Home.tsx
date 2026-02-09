@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock, CalendarDays } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen } from "lucide-react";
 import DashboardCalendar from '@/components/DashboardCalendar';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
@@ -58,6 +58,13 @@ const Home = () => {
     url: "/saved-quotes",
     requiresAuth: true,
     action: () => navigate("/saved-quotes")
+  }, {
+    title: "프로젝트 관리",
+    icon: FolderOpen,
+    description: "프로젝트별 견적·고객 연결",
+    url: "/project-management",
+    requiresAuth: true,
+    action: () => navigate("/project-management")
   }, {
     title: "고객사 관리",
     icon: Building2,
