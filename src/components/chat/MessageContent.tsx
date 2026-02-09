@@ -6,8 +6,8 @@ interface MessageContentProps {
 }
 
 const MessageContent: React.FC<MessageContentProps> = ({ message, isMine }) => {
-  // Split message by @mentions pattern: @이름
-  const parts = message.split(/(@\S+)/g);
+  // Split message by @mentions and #project tags
+  const parts = message.split(/([@#]\S+)/g);
 
   return (
     <>
@@ -18,6 +18,20 @@ const MessageContent: React.FC<MessageContentProps> = ({ message, isMine }) => {
               key={i}
               className={`font-semibold ${
                 isMine ? 'text-primary-foreground/90 underline underline-offset-2' : 'text-primary'
+              }`}
+            >
+              {part}
+            </span>
+          );
+        }
+        if (part.startsWith('#')) {
+          return (
+            <span
+              key={i}
+              className={`font-semibold ${
+                isMine
+                  ? 'text-primary-foreground/90 bg-primary-foreground/10 rounded px-0.5'
+                  : 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/30 rounded px-0.5'
               }`}
             >
               {part}
