@@ -22,6 +22,7 @@ import { ko } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import AttendanceEditDialog from '@/components/attendance/AttendanceEditDialog';
 import AttendanceCalendarView from '@/components/attendance/AttendanceCalendarView';
+import ScrollTimePicker from '@/components/ui/scroll-time-picker';
 
 const LEAVE_TYPES = [
   { value: 'annual', label: '연차' },
@@ -409,11 +410,11 @@ const AttendancePage = () => {
                     <Badge variant="secondary" className="text-xs">{selectedIds.size}명 선택</Badge>
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-muted-foreground">출근:</label>
-                      <Input type="time" value={bulkCheckIn} onChange={e => setBulkCheckIn(e.target.value)} className="h-8 w-[120px] text-xs" />
+                      <ScrollTimePicker value={bulkCheckIn} onChange={setBulkCheckIn} className="h-8 text-xs" placeholder="출근 시간" />
                     </div>
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-muted-foreground">퇴근:</label>
-                      <Input type="time" value={bulkCheckOut} onChange={e => setBulkCheckOut(e.target.value)} className="h-8 w-[120px] text-xs" />
+                      <ScrollTimePicker value={bulkCheckOut} onChange={setBulkCheckOut} className="h-8 text-xs" placeholder="퇴근 시간" />
                     </div>
                     <Button size="sm" className="h-8 text-xs gap-1" onClick={handleBulkTimeUpdate} disabled={bulkProcessing}>
                       {bulkProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
