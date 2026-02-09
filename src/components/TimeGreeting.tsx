@@ -105,6 +105,30 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
 
   const statusCfg = STATUS_CONFIG[myStatus];
 
+  // Work progress calculation (9:00 ~ 18:00)
+  const workStart = 9 * 60; // 540 min
+  const workEnd = 18 * 60; // 1080 min
+  const currentMin = now.getHours() * 60 + now.getMinutes();
+  const isWorkTime = currentMin >= workStart && currentMin <= workEnd;
+  const workProgress = isWorkTime
+    ? Math.min(100, Math.max(0, ((currentMin - workStart) / (workEnd - workStart)) * 100))
+    : currentMin < workStart ? 0 : 100;
+  const remainingMin = isWorkTime ? workEnd - currentMin : currentMin < workStart ? workEnd - workStart : 0;
+  const remainingHours = Math.floor(remainingMin / 60);
+  const remainingMins = remainingMin % 60;
+  const elapsedMin = Math.max(0, Math.min(currentMin - workStart, workEnd - workStart));
+  const elapsedHours = Math.floor(elapsedMin / 60);
+  const elapsedMins = elapsedMin % 60;
+
+  // Runner emoji based on progress
+  const getRunnerEmoji = () => {
+    if (workProgress >= 100) return '🎉';
+    if (workProgress >= 75) return '🏃';
+    if (workProgress >= 50) return '🚶';
+    if (workProgress >= 25) return '☕';
+    return '🌅';
+  };
+
   return (
     <div className={`animate-fade-in rounded-xl border p-5 shadow-sm bg-gradient-to-r ${greeting.gradient} transition-colors duration-1000`}>
       <div className="flex items-center justify-between gap-4">
@@ -156,6 +180,65 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
           <p className="text-xs text-muted-foreground">
             {formatDate(now)}
           </p>
+        </div>
+      </div>
+
+      {/* Work Progress Bar */}
+      <div className="mt-4 pt-3 border-t border-border/40">
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">오늘의 근무 진행률</span>
+            <span className="text-base leading-none">{getRunnerEmoji()}</span>
+          </div>
+          <span className="text-xs font-bold text-foreground tabular-nums">{Math.round(workProgress)}%</span>
+        </div>
+
+        {/* Progress track */}
+        <div className="relative h-5 rounded-full bg-muted/60 overflow-hidden shadow-inner">
+          {/* Filled portion */}
+          <div
+            className="absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-out"
+            style={{
+              width: `${workProgress}%`,
+              background: workProgress >= 100
+                ? 'linear-gradient(90deg, #10b981, #34d399, #6ee7b7)'
+                : 'linear-gradient(90deg, #60a5fa, #818cf8, #a78bfa)',
+            }}
+          />
+          {/* Runner icon on the progress edge */}
+          {workProgress > 0 && workProgress < 100 && (
+            <div
+              className="absolute top-1/2 -translate-y-1/2 transition-all duration-1000 ease-out"
+              style={{ left: `calc(${workProgress}% - 10px)` }}
+            >
+              <span className="text-sm drop-shadow-sm animate-bounce" style={{ animationDuration: '2s' }}>
+                {getRunnerEmoji()}
+              </span>
+            </div>
+          )}
+          {workProgress >= 100 && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-xs font-bold text-white drop-shadow-sm">퇴근!</span>
+            </div>
+          )}
+        </div>
+
+        {/* Time markers */}
+        <div className="flex justify-between mt-1">
+          <span className="text-[10px] text-muted-foreground font-medium">09:00</span>
+          <span className="text-[10px] text-muted-foreground font-medium">12:00</span>
+          <span className="text-[10px] text-muted-foreground font-medium">15:00</span>
+          <span className="text-[10px] text-muted-foreground font-medium">18:00</span>
+        </div>
+
+        {/* Elapsed / Remaining info */}
+        <div className="flex items-center justify-between mt-1.5">
+          <span className="text-[11px] text-muted-foreground">
+            ⏱️ 경과 <span className="font-semibold text-foreground">{elapsedHours}시간 {elapsedMins}분</span>
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            ⏳ 남은 시간 <span className="font-semibold text-foreground">{remainingHours}시간 {remainingMins}분</span>
+          </span>
         </div>
       </div>
     </div>
