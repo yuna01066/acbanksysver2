@@ -7,16 +7,18 @@ interface LeaveSummaryCardsProps {
   usedDays: number;
   pendingDays: number;
   remainingDays: number;
+  unitLabel?: string;
+  allowAdvanceUse?: boolean;
 }
 
 const LeaveSummaryCards: React.FC<LeaveSummaryCardsProps> = ({
-  totalDays, usedDays, pendingDays, remainingDays,
+  totalDays, usedDays, pendingDays, remainingDays, unitLabel = '일', allowAdvanceUse = false,
 }) => {
   const cards = [
-    { icon: Calendar, label: '총 연차', value: totalDays, suffix: '일', color: 'text-primary' },
-    { icon: CalendarCheck, label: '사용', value: usedDays, suffix: '일', color: 'text-green-600 dark:text-green-400' },
-    { icon: CalendarClock, label: '승인 대기', value: pendingDays, suffix: '일', color: 'text-yellow-600 dark:text-yellow-400' },
-    { icon: CalendarX, label: '잔여', value: remainingDays, suffix: '일', color: 'text-blue-600 dark:text-blue-400' },
+    { icon: Calendar, label: '총 연차', value: totalDays, color: 'text-primary' },
+    { icon: CalendarCheck, label: '사용', value: usedDays, color: 'text-green-600 dark:text-green-400' },
+    { icon: CalendarClock, label: '승인 대기', value: pendingDays, color: 'text-yellow-600 dark:text-yellow-400' },
+    { icon: CalendarX, label: allowAdvanceUse ? '잔여 (당겨쓰기 가능)' : '잔여', value: remainingDays, color: remainingDays < 0 ? 'text-destructive' : 'text-blue-600 dark:text-blue-400' },
   ];
 
   return (
@@ -29,7 +31,7 @@ const LeaveSummaryCards: React.FC<LeaveSummaryCardsProps> = ({
               <span className="text-xs text-muted-foreground">{c.label}</span>
             </div>
             <div className={`text-2xl font-bold ${c.color}`}>
-              {c.value}<span className="text-sm font-normal ml-1">{c.suffix}</span>
+              {c.value}<span className="text-sm font-normal ml-1">{unitLabel}</span>
             </div>
           </CardContent>
         </Card>

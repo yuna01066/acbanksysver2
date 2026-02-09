@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, CalendarDays, Clock, Loader2, Settings2 } from 'lucide-react';
 import { useLeaveRequests, calculateAnnualLeaveDays } from '@/hooks/useLeaveRequests';
+import { useLeavePolicy } from '@/hooks/useLeavePolicy';
 import LeaveRequestForm from '@/components/leave/LeaveRequestForm';
 import LeaveRequestList from '@/components/leave/LeaveRequestList';
 import LeaveSummaryCards from '@/components/leave/LeaveSummaryCards';
@@ -15,13 +16,13 @@ const LeaveManagementPage = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, isModerator, loading: authLoading } = useAuth();
   const { requests, loading, createRequest, approveRequest, rejectRequest, cancelRequest } = useLeaveRequests();
+  const { policy, loading: policyLoading, unitLabel, canRequest } = useLeavePolicy();
   const [joinDate, setJoinDate] = useState<string>('');
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
   }, [user, authLoading, navigate]);
 
-  // Fetch join date for annual leave calculation
   useEffect(() => {
     if (!user) return;
     supabase.from('profiles').select('join_date').eq('id', user.id).single()
@@ -47,7 +48,7 @@ const LeaveManagementPage = () => {
   );
   const remainingDays = totalAnnualDays - usedDays;
 
-  if (authLoading) {
+  if (authLoading || policyLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
 
@@ -68,17 +69,23 @@ const LeaveManagementPage = () => {
             <Clock className="h-4 w-4" />
             근태 관리
           </Button>
-          <LeaveRequestForm onSubmit={createRequest} remainingDays={remainingDays} />
+          <LeaveRequestForm
+            onSubmit={createRequest}
+            remainingDays={remainingDays}
+            leavePolicy={policy}
+            canRequest={canRequest}
+          />
         </div>
       </div>
 
       <div className="container max-w-4xl mx-auto px-4 py-6 space-y-6">
-        {/* Summary */}
         <LeaveSummaryCards
           totalDays={totalAnnualDays}
           usedDays={usedDays}
           pendingDays={pendingDays}
           remainingDays={remainingDays}
+          unitLabel={unitLabel}
+          allowAdvanceUse={policy.allow_advance_use}
         />
 
         {!joinDate && (
@@ -87,7 +94,12 @@ const LeaveManagementPage = () => {
           </div>
         )}
 
-        {/* Tabs */}
+        {policy.allow_advance_use && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3 text-sm text-blue-800 dark:text-blue-300">
+            ℹ️ 당겨쓰기가 허용되어 잔여 연차를 초과하여 신청할 수 있습니다.
+          </div>
+        )}
+
         <Tabs defaultValue="my">
           <TabsList className="bg-muted">
             <TabsTrigger value="my">내 신청 내역</TabsTrigger>
