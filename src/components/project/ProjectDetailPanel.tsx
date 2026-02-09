@@ -170,7 +170,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
       <div className="flex gap-4">
         {/* Left: Specs Card */}
         <div className="flex-1 min-w-0">
-          <ProjectSpecsCard linkedQuotes={linkedQuotes} />
+          <ProjectSpecsCard projectId={projectId} specs={project.specs as any} linkedQuotes={linkedQuotes} />
         </div>
 
         {/* Right: Info Card (1/4 width) */}
