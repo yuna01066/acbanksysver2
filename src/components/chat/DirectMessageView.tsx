@@ -175,8 +175,7 @@ const DirectMessageView: React.FC<DirectMessageViewProps> = ({
       <div className="flex justify-center my-2">
         <div className="inline-flex flex-col items-center gap-1 px-4 py-2.5 rounded-xl bg-muted/60 border border-border/50 max-w-[85%]">
           <div className={`flex items-center gap-1.5 text-xs font-medium ${fb.color}`}>
-            {item.emoji && <span className="text-sm">{item.emoji}</span>}
-            {fb.icon}
+            {item.emoji ? <span className="text-sm">{item.emoji}</span> : fb.icon}
             <span>{fb.label}</span>
           </div>
           <p className="text-xs text-muted-foreground">
