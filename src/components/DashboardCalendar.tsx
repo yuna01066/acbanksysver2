@@ -103,9 +103,10 @@ const DashboardCalendar = () => {
       const end = new Date(h.end_date);
       const days = eachDayOfInterval({ start, end });
       days.forEach(d => {
+        const icon = h.holiday_type === 'national' ? '🇰🇷' : '🎉';
         result.push({
           id: h.id,
-          projectName: `🎌 ${h.name}`,
+          projectName: `${icon} ${h.name}`,
           type: 'holiday',
           date: d,
           userId: '',
