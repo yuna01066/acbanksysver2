@@ -266,9 +266,6 @@ const MyPerformanceReviewResults: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-medium text-muted-foreground">평가 #{index + 1}</span>
-                  <Badge variant="outline" className="text-xs">
-                    {REVIEWER_TYPE_LABELS[review.reviewer_type] || review.reviewer_type}
-                  </Badge>
                   {review.overall_grade && (
                     <span className={`px-2 py-0.5 rounded text-xs font-bold border ${gradeColor(review.overall_grade)}`}>
                       {review.overall_grade}
