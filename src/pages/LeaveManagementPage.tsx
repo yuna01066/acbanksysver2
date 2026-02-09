@@ -4,11 +4,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, CalendarDays, Clock, Loader2 } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, Loader2, Settings2 } from 'lucide-react';
 import { useLeaveRequests, calculateAnnualLeaveDays } from '@/hooks/useLeaveRequests';
 import LeaveRequestForm from '@/components/leave/LeaveRequestForm';
 import LeaveRequestList from '@/components/leave/LeaveRequestList';
 import LeaveSummaryCards from '@/components/leave/LeaveSummaryCards';
+import LeavePolicySettings from '@/components/leave/LeavePolicySettings';
 
 const LeaveManagementPage = () => {
   const navigate = useNavigate();
@@ -100,6 +101,12 @@ const LeaveManagementPage = () => {
                 )}
               </TabsTrigger>
             )}
+            {(isAdmin || isModerator) && (
+              <TabsTrigger value="settings">
+                <Settings2 className="h-3.5 w-3.5 mr-1" />
+                연차 설정
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="my" className="mt-4">
@@ -131,6 +138,11 @@ const LeaveManagementPage = () => {
                   onCancel={cancelRequest}
                 />
               )}
+            </TabsContent>
+          )}
+          {(isAdmin || isModerator) && (
+            <TabsContent value="settings" className="mt-4">
+              <LeavePolicySettings />
             </TabsContent>
           )}
         </Tabs>

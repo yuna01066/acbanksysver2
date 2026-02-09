@@ -338,6 +338,57 @@ export type Database = {
         }
         Relationships: []
       }
+      leave_policy_settings: {
+        Row: {
+          allow_advance_use: boolean
+          approver_required: boolean
+          auto_expire_enabled: boolean
+          auto_expire_type: string
+          created_at: string | null
+          description: string | null
+          grant_basis: string
+          grant_method: string
+          id: string
+          is_default: boolean
+          leave_unit: string
+          policy_name: string
+          smart_promotion: string
+          updated_at: string | null
+        }
+        Insert: {
+          allow_advance_use?: boolean
+          approver_required?: boolean
+          auto_expire_enabled?: boolean
+          auto_expire_type?: string
+          created_at?: string | null
+          description?: string | null
+          grant_basis?: string
+          grant_method?: string
+          id?: string
+          is_default?: boolean
+          leave_unit?: string
+          policy_name?: string
+          smart_promotion?: string
+          updated_at?: string | null
+        }
+        Update: {
+          allow_advance_use?: boolean
+          approver_required?: boolean
+          auto_expire_enabled?: boolean
+          auto_expire_type?: string
+          created_at?: string | null
+          description?: string | null
+          grant_basis?: string
+          grant_method?: string
+          id?: string
+          is_default?: boolean
+          leave_unit?: string
+          policy_name?: string
+          smart_promotion?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       leave_requests: {
         Row: {
           approved_at: string | null
