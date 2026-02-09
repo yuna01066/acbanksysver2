@@ -36,6 +36,11 @@ export interface EmploymentContract {
   fixed_overtime_hours: number | null;
   other_allowances: any[];
   pay_day: number;
+  wage_start_date: string | null;
+  wage_basis: string | null;
+  comprehensive_wage_type: string | null;
+  comprehensive_wage_basis: string | null;
+  comprehensive_wage_hours: number | null;
   requested_by: string | null;
   requested_at: string | null;
   signed_at: string | null;
