@@ -372,15 +372,24 @@ const OnlineEmployeesCard: React.FC = () => {
           </div>
         )}
 
-        {/* Recognition CTA */}
-        <div className="mt-4 pt-4 border-t">
-          <div className="flex items-start gap-3">
-            <div className="text-2xl">🙏💕</div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-foreground">동료들을 응원해요!</p>
-              <p className="text-xs text-muted-foreground">함께하는 동료들에게 인정 메시지를 보낼 수 있어요.</p>
+        {/* Feature guide */}
+        <div className="mt-4 pt-4 border-t space-y-2">
+          <p className="text-[11px] font-semibold text-muted-foreground">💡 사용 방법</p>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <span>❤️</span><span>인정 보내기</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span>💬</span><span>피드백 보내기</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span>🙏</span><span>업무 요청</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span>☕</span><span>1:1 미팅 요청</span>
             </div>
           </div>
+          <p className="text-[10px] text-muted-foreground/70">동료 아바타를 클릭하면 메시지를 보낼 수 있어요. #으로 프로젝트 태그도 가능!</p>
         </div>
       </div>
 
