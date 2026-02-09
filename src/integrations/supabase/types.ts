@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action_type: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          target_id: string | null
+          target_name: string | null
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_id?: string | null
+          target_name?: string | null
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_id?: string | null
+          target_name?: string | null
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
       adhesive_costs: {
         Row: {
           cost: number

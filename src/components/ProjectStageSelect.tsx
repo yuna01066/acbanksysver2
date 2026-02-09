@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { useActivityLog } from '@/hooks/useActivityLog';
 
 export const PROJECT_STAGES = [
   { value: 'quote_issued', label: '견적 발행', pluuugStatusId: 120348, color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
@@ -42,6 +43,7 @@ const ProjectStageSelect = ({
 }: ProjectStageSelectProps) => {
   const { user } = useAuth();
   const [updating, setUpdating] = useState(false);
+  const { logActivity } = useActivityLog();
 
   const handleStageChange = async (newStage: string) => {
     if (newStage === currentStage) return;
@@ -91,6 +93,7 @@ const ProjectStageSelect = ({
           toast.warning(`단계가 변경되었지만 Pluuug 동기화에 실패했습니다: ${data.error}`);
         } else {
           toast.success(`${stageInfo.label}(으)로 변경 완료 (Pluuug 동기화됨)`);
+          logActivity('stage_changed', quoteId, quoteNumber || quoteId, { oldStage: currentStage, newStage, newStageLabel: stageInfo.label });
           onStageChanged?.(newStage);
           return;
         }
@@ -98,6 +101,7 @@ const ProjectStageSelect = ({
 
       const stageInfo = getStageInfo(newStage);
       toast.success(`${stageInfo.label}(으)로 변경되었습니다.`);
+      logActivity('stage_changed', quoteId, quoteNumber || quoteId, { oldStage: currentStage, newStage, newStageLabel: stageInfo.label });
       onStageChanged?.(newStage);
     } catch (err: any) {
       console.error('[Stage] Update error:', err);

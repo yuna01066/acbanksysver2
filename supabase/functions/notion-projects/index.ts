@@ -92,8 +92,9 @@ serve(async (req) => {
       return {
         id: page.id,
         title: title || 'Untitled',
-        date: startDate || createdDate, // 날짜가 없으면 생성일 사용
+        date: startDate || createdDate,
         createdDate,
+        lastEditedTime: page.last_edited_time,
         startDate,
         endDate,
         assignee,
