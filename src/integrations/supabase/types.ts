@@ -660,6 +660,86 @@ export type Database = {
           },
         ]
       }
+      incident_reports: {
+        Row: {
+          attachments: Json | null
+          cause_analysis: string | null
+          created_at: string
+          cycle_id: string | null
+          description: string
+          id: string
+          incident_date: string
+          prevention_measures: string | null
+          requested_at: string | null
+          requested_by: string | null
+          requested_by_name: string | null
+          review_comment: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewed_by_name: string | null
+          status: string
+          submitted_at: string | null
+          title: string
+          updated_at: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          attachments?: Json | null
+          cause_analysis?: string | null
+          created_at?: string
+          cycle_id?: string | null
+          description: string
+          id?: string
+          incident_date?: string
+          prevention_measures?: string | null
+          requested_at?: string | null
+          requested_by?: string | null
+          requested_by_name?: string | null
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          status?: string
+          submitted_at?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          attachments?: Json | null
+          cause_analysis?: string | null
+          created_at?: string
+          cycle_id?: string | null
+          description?: string
+          id?: string
+          incident_date?: string
+          prevention_measures?: string | null
+          requested_at?: string | null
+          requested_by?: string | null
+          requested_by_name?: string | null
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          status?: string
+          submitted_at?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incident_reports_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "performance_review_cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       labor_law_settings: {
         Row: {
           created_at: string | null

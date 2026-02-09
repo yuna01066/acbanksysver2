@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { Loader2, User, Star, Target, TrendingUp, MessageSquare, ChevronDown, ChevronUp, Search, ArrowLeft } from 'lucide-react';
+import { Loader2, User, Star, Target, TrendingUp, MessageSquare, ChevronDown, ChevronUp, Search, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -89,6 +89,7 @@ const AdminReviewDetailViewer: React.FC<Props> = ({ initialEmployeeId }) => {
   const [loading, setLoading] = useState(true);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [incidentCount, setIncidentCount] = useState(0);
 
   useEffect(() => {
     fetchInitialData();
@@ -97,8 +98,14 @@ const AdminReviewDetailViewer: React.FC<Props> = ({ initialEmployeeId }) => {
   useEffect(() => {
     if (selectedCycleId && selectedEmployeeId) {
       fetchReviews();
+      // Fetch incident report count for this employee
+      supabase.from('incident_reports').select('id', { count: 'exact', head: true })
+        .eq('user_id', selectedEmployeeId)
+        .in('status', ['submitted', 'reviewed'])
+        .then(({ count }) => setIncidentCount(count || 0));
     } else {
       setReviews([]);
+      setIncidentCount(0);
     }
   }, [selectedCycleId, selectedEmployeeId]);
 
@@ -256,7 +263,7 @@ const AdminReviewDetailViewer: React.FC<Props> = ({ initialEmployeeId }) => {
               {/* Summary stats */}
               {submitted.length > 0 && (
                 <>
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-5 gap-3">
                     <Card><CardContent className="p-3 text-center">
                       <p className="text-xs text-muted-foreground mb-1">평가 건수</p>
                       <p className="text-xl font-bold">{submitted.length}</p>
@@ -275,6 +282,16 @@ const AdminReviewDetailViewer: React.FC<Props> = ({ initialEmployeeId }) => {
                         {mostFreqGrade ? <span className={`px-2 py-0.5 rounded border text-lg ${gradeColor(mostFreqGrade)}`}>{mostFreqGrade}</span> : '-'}
                       </p>
                     </CardContent></Card>
+                    <Card className={incidentCount > 0 ? 'border-orange-300 dark:border-orange-700' : ''}>
+                      <CardContent className="p-3 text-center">
+                        <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
+                          <AlertTriangle className="h-3 w-3" /> 경위서
+                        </p>
+                        <p className={`text-xl font-bold ${incidentCount > 0 ? 'text-orange-600 dark:text-orange-400' : ''}`}>
+                          {incidentCount}건
+                        </p>
+                      </CardContent>
+                    </Card>
                   </div>
 
                   {/* Category chart */}
