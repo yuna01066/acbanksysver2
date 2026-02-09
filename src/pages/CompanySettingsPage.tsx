@@ -4,9 +4,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Building2, CalendarDays } from 'lucide-react';
+import { ArrowLeft, Building2, CalendarDays, FileSignature } from 'lucide-react';
 import CompanyInfoForm from '@/components/company/CompanyInfoForm';
 import CompanyHolidayManager from '@/components/company/CompanyHolidayManager';
+import ContractTemplateSettings from '@/components/contract/ContractTemplateSettings';
 
 const CompanySettingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -38,12 +39,18 @@ const CompanySettingsPage: React.FC = () => {
             <TabsTrigger value="holidays" className="gap-1.5">
               <CalendarDays className="h-4 w-4" /> 쉬는 날
             </TabsTrigger>
+            <TabsTrigger value="contracts" className="gap-1.5">
+              <FileSignature className="h-4 w-4" /> 계약서 관리
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="info">
             <CompanyInfoForm />
           </TabsContent>
           <TabsContent value="holidays">
             <CompanyHolidayManager />
+          </TabsContent>
+          <TabsContent value="contracts">
+            <ContractTemplateSettings />
           </TabsContent>
         </Tabs>
       </div>
