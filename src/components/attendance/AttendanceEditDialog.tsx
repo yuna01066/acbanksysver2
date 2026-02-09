@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import ScrollTimePicker from '@/components/ui/scroll-time-picker';
 
 interface AttendanceRecord {
   id: string;
@@ -97,20 +98,20 @@ const AttendanceEditDialog: React.FC<Props> = ({ record, open, onOpenChange, onS
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-sm">출근 시간</Label>
-              <Input
-                type="time"
+              <ScrollTimePicker
                 value={checkInTime}
-                onChange={(e) => setCheckInTime(e.target.value)}
-                className="mt-1"
+                onChange={setCheckInTime}
+                className="mt-1 w-full h-9 text-sm"
+                placeholder="출근 시간"
               />
             </div>
             <div>
               <Label className="text-sm">퇴근 시간</Label>
-              <Input
-                type="time"
+              <ScrollTimePicker
                 value={checkOutTime}
-                onChange={(e) => setCheckOutTime(e.target.value)}
-                className="mt-1"
+                onChange={setCheckOutTime}
+                className="mt-1 w-full h-9 text-sm"
+                placeholder="퇴근 시간"
               />
             </div>
           </div>
