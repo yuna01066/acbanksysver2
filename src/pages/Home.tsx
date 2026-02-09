@@ -12,6 +12,7 @@ import DailyQuoteCard from '@/components/DailyQuoteCard';
 import ActivityFeedCard from '@/components/ActivityFeedCard';
 import { useAuth } from '@/contexts/AuthContext';
 import TimeGreeting from '@/components/TimeGreeting';
+import OnlineEmployeesCard from '@/components/OnlineEmployeesCard';
 import { useNotifications } from '@/hooks/useNotifications';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -204,8 +205,11 @@ const Home = () => {
             </div>
           )}
 
+          {/* Online Employees & Recognition */}
+          {user && <OnlineEmployeesCard />}
+
           {/* Links Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
             {links.map((link, index) => {
             if ((link as any).placeholder) {
               return <div key={index} className="hidden lg:block" />;
