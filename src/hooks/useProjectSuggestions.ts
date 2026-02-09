@@ -63,5 +63,10 @@ export const useProjectSuggestions = () => {
     return projects.filter(p => p.title.toLowerCase().includes(q)).slice(0, 6);
   };
 
-  return { projects, filterProjects };
+  const findProject = (tagName: string): TaggableProject | undefined => {
+    const normalized = tagName.replace(/_/g, ' ').toLowerCase();
+    return projects.find(p => p.title.toLowerCase() === normalized);
+  };
+
+  return { projects, filterProjects, findProject };
 };
