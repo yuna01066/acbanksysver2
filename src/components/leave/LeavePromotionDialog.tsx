@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, AlertCircle, ChevronRight } from 'lucide-react';
+import { Loader2, AlertCircle, ChevronRight, Send, CheckCircle2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 interface Props {
@@ -56,6 +56,8 @@ const LeavePromotionDialog: React.FC<Props> = ({ open, onOpenChange, smartPromot
   });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<{ notified: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -89,6 +91,25 @@ const LeavePromotionDialog: React.FC<Props> = ({ open, onOpenChange, smartPromot
     }
     toast.success('변경 사항이 저장되었습니다.');
     onOpenChange(false);
+  };
+
+  const handleSendPromotion = async () => {
+    setSending(true);
+    setSendResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('leave-promotion-check');
+      if (error) throw error;
+      setSendResult({ notified: data?.notified || 0 });
+      if (data?.notified > 0) {
+        toast.success(`${data.notified}명에게 연차 촉진 알림을 발송했습니다.`);
+      } else {
+        toast.info('현재 소멸 예정 연차가 있는 구성원이 없습니다.');
+      }
+    } catch (e: any) {
+      toast.error('발송 실패: ' + e.message);
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -251,6 +272,42 @@ const LeavePromotionDialog: React.FC<Props> = ({ open, onOpenChange, smartPromot
               <p className="text-xs text-muted-foreground mt-4">
                 ※ 스마트 연차 촉진은 소멸 유예 설정과 관계없이 법정 연차 소멸일을 기준으로 실행됩니다.
               </p>
+            </div>
+
+            <Separator />
+
+            {/* 수동 촉진 발송 */}
+            <div className="rounded-lg border p-4 space-y-3">
+              <div>
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Send className="h-4 w-4" />
+                  수동 연차 촉진 발송
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  현재 소멸 예정 연차가 있는 구성원에게 즉시 알림을 발송합니다.
+                </p>
+              </div>
+
+              {sendResult && (
+                <div className="rounded-md bg-muted/50 p-3 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                  <p className="text-sm">
+                    {sendResult.notified > 0
+                      ? `${sendResult.notified}명에게 알림이 발송되었습니다.`
+                      : '현재 소멸 예정 연차가 있는 구성원이 없습니다.'}
+                  </p>
+                </div>
+              )}
+
+              <Button
+                variant="outline"
+                onClick={handleSendPromotion}
+                disabled={sending || !smartPromotionEnabled}
+                className="w-full gap-2"
+              >
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                연차 촉진 알림 발송
+              </Button>
             </div>
 
             <Button
