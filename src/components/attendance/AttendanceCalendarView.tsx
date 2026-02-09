@@ -46,12 +46,19 @@ const statusColors: Record<string, string> = {
   rejected: 'bg-destructive/20 text-destructive border-destructive/30',
 };
 
-const AttendanceCalendarView: React.FC = () => {
+interface AttendanceCalendarViewProps {
+  onDateSelect?: (date: string) => void;
+  selectedDate?: string;
+}
+
+const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateSelect, selectedDate: externalSelectedDate }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [leaveEvents, setLeaveEvents] = useState<LeaveEvent[]>([]);
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [internalSelectedDate, setInternalSelectedDate] = useState<Date | null>(null);
+
+  const selectedDate = externalSelectedDate ? new Date(externalSelectedDate) : internalSelectedDate;
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -158,7 +165,15 @@ const AttendanceCalendarView: React.FC = () => {
                   return (
                     <button
                       key={day.toISOString()}
-                      onClick={() => setSelectedDate(isSelected ? null : day)}
+                      onClick={() => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        const isSelected = selectedDate && isSameDay(day, selectedDate);
+                        if (onDateSelect) {
+                          onDateSelect(isSelected ? '' : dateStr);
+                        } else {
+                          setInternalSelectedDate(isSelected ? null : day);
+                        }
+                      }}
                       className={cn(
                         'bg-card p-1.5 min-h-[80px] text-left transition-colors hover:bg-accent/50 flex flex-col',
                         !isCurrentMonth && 'opacity-30',

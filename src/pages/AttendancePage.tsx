@@ -351,20 +351,33 @@ const AttendancePage = () => {
           </Card>
         </div>
 
+        {/* Calendar View - below stats */}
+        {(isAdmin || isModerator) && adminTab === 'all' && (
+          <div className="mb-6">
+            <AttendanceCalendarView
+              onDateSelect={(date: string) => {
+                setFilterDate(date);
+                setSelectedMonth(new Date(date));
+              }}
+              selectedDate={filterDate}
+            />
+          </div>
+        )}
+
         <Tabs defaultValue="attendance">
           <TabsList className="mb-4">
             <TabsTrigger value="attendance"><Clock className="w-4 h-4 mr-1" />출퇴근 기록</TabsTrigger>
             <TabsTrigger value="leave"><CalendarDays className="w-4 h-4 mr-1" />휴가 관리</TabsTrigger>
-            {(isAdmin || isModerator) && (
-              <TabsTrigger value="calendar"><CalendarRange className="w-4 h-4 mr-1" />캘린더</TabsTrigger>
-            )}
           </TabsList>
 
           <TabsContent value="attendance">
             <Card>
                <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="text-base">
-                  {format(selectedMonth, 'yyyy년 M월', { locale: ko })} 출퇴근 기록
+                  {filterDate
+                    ? `${format(new Date(filterDate), 'yyyy년 M월 d일 (EEE)', { locale: ko })} 출퇴근 기록`
+                    : `${format(selectedMonth, 'yyyy년 M월', { locale: ko })} 출퇴근 기록`
+                  }
                 </CardTitle>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1">
@@ -592,12 +605,6 @@ const AttendancePage = () => {
               </CardContent>
             </Card>
           </TabsContent>
-
-          {(isAdmin || isModerator) && (
-            <TabsContent value="calendar">
-              <AttendanceCalendarView />
-            </TabsContent>
-          )}
         </Tabs>
       </div>
 
