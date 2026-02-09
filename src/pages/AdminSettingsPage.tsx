@@ -3,12 +3,12 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Code, Settings, Lock, Wrench, UserCog, Link } from "lucide-react";
+import { ArrowLeft, Code, Settings, Lock, Wrench, UserCog, Link, Users } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const AdminSettingsPage = () => {
   const navigate = useNavigate();
-  const { userRole, loading } = useAuth();
+  const { userRole, isAdmin, loading } = useAuth();
 
   useEffect(() => {
     if (!loading && userRole !== 'admin' && userRole !== 'moderator') {
@@ -187,6 +187,26 @@ const AdminSettingsPage = () => {
                   Pluuug 연동
                 </Button>
               </div>
+
+              {isAdmin && (
+                <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
+                  <h3 className="font-medium mb-2 flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    직원 프로필 관리
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    직원들의 상세 프로필 정보를 조회하고 수정합니다. (관리자 전용)
+                  </p>
+                  <Button
+                    onClick={() => navigate('/employee-profiles')}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <Users className="w-4 h-4" />
+                    직원 프로필 관리
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
