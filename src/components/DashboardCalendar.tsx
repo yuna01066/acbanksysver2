@@ -65,7 +65,17 @@ const DashboardCalendar = () => {
         .not('meeting_date', 'is', null)
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
       if (error) throw error;
-      return data || [];
+      if (!data || data.length === 0) return [];
+
+      // Fetch profile names for participants
+      const participantIds = [...new Set(data.flatMap(m => [m.sender_id, m.receiver_id]))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', participantIds);
+      const nameMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+
+      return data.map(m => ({ ...m, sender_name: nameMap.get(m.sender_id) || '?', receiver_name: nameMap.get(m.receiver_id) || '?' }));
     },
     enabled: !!user,
   });
@@ -125,7 +135,7 @@ const DashboardCalendar = () => {
         if (!isNaN(date.getTime())) {
           result.push({
             id: m.id,
-            projectName: `☕ 1:1 미팅${m.meeting_time ? ` ${m.meeting_time}` : ''}`,
+            projectName: `☕ ${m.sender_name} ↔ ${m.receiver_name}${m.meeting_time ? ` ${m.meeting_time}` : ''}`,
             type: 'meeting',
             date,
             userId: m.sender_id === user?.id ? m.receiver_id : m.sender_id,
