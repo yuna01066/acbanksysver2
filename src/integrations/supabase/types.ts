@@ -151,6 +151,54 @@ export type Database = {
         }
         Relationships: []
       }
+      attendance_records: {
+        Row: {
+          check_in: string | null
+          check_in_location: Json | null
+          check_out: string | null
+          check_out_location: Json | null
+          created_at: string
+          date: string
+          id: string
+          memo: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          user_name: string
+          work_hours: number | null
+        }
+        Insert: {
+          check_in?: string | null
+          check_in_location?: Json | null
+          check_out?: string | null
+          check_out_location?: Json | null
+          created_at?: string
+          date?: string
+          id?: string
+          memo?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          user_name: string
+          work_hours?: number | null
+        }
+        Update: {
+          check_in?: string | null
+          check_in_location?: Json | null
+          check_out?: string | null
+          check_out_location?: Json | null
+          created_at?: string
+          date?: string
+          id?: string
+          memo?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          user_name?: string
+          work_hours?: number | null
+        }
+        Relationships: []
+      }
       category_logic_slots: {
         Row: {
           category: string
@@ -253,6 +301,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      leave_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          approved_by_name: string | null
+          created_at: string
+          days: number
+          end_date: string
+          id: string
+          leave_type: string
+          reason: string | null
+          reject_reason: string | null
+          start_date: string
+          status: string
+          updated_at: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_name?: string | null
+          created_at?: string
+          days?: number
+          end_date: string
+          id?: string
+          leave_type?: string
+          reason?: string | null
+          reject_reason?: string | null
+          start_date: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_name?: string | null
+          created_at?: string
+          days?: number
+          end_date?: string
+          id?: string
+          leave_type?: string
+          reason?: string | null
+          reject_reason?: string | null
+          start_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
       }
       notifications: {
         Row: {

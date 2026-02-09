@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2 } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock } from "lucide-react";
 import DashboardCalendar from '@/components/DashboardCalendar';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
@@ -65,6 +65,13 @@ const Home = () => {
     url: "/recipients",
     requiresAuth: true,
     action: () => navigate("/recipients")
+  }, {
+    title: "근태 관리",
+    icon: Clock,
+    description: "출퇴근 기록 및 휴가 관리",
+    url: "/attendance",
+    requiresAuth: true,
+    action: () => navigate("/attendance")
   }, {
     title: "인스타그램",
     icon: Instagram,
