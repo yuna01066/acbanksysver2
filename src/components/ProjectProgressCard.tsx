@@ -53,26 +53,18 @@ function getQuoteProgress(stage: string): number {
 }
 
 function getNotionProgress(startDate: string, endDate: string, status: string): number {
-  // If date range exists, calculate by time
-  if (startDate && endDate) {
-    const start = parseISO(startDate);
-    const end = parseISO(endDate);
-    const now = new Date();
-    if (isValid(start) && isValid(end)) {
-      const total = differenceInDays(end, start);
-      if (total <= 0) return 100;
-      const elapsed = differenceInDays(now, start);
-      if (elapsed <= 0) return 0;
-      if (elapsed >= total) return 100;
-      return Math.round((elapsed / total) * 100);
-    }
-  }
-  // Fallback to status-based progress
-  const s = status.toLowerCase();
-  if (s === 'done' || s === '완료') return 100;
-  if (s === 'in progress' || s === '진행중' || s === '진행 중') return 50;
-  if (s === 'not started' || s === '시작 전') return 0;
-  return 0;
+  // Must have both start and end dates to show progress
+  if (!startDate || !endDate) return -1;
+  const start = parseISO(startDate);
+  const end = parseISO(endDate);
+  const now = new Date();
+  if (!isValid(start) || !isValid(end)) return -1;
+  const total = differenceInDays(end, start);
+  if (total <= 0) return 100;
+  const elapsed = differenceInDays(now, start);
+  if (elapsed <= 0) return 0;
+  if (elapsed >= total) return 100;
+  return Math.round((elapsed / total) * 100);
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -121,7 +113,7 @@ const ProjectProgressCard = () => {
       ...p,
       progress: getNotionProgress(p.startDate, p.endDate, p.status),
     }))
-    .filter((p) => p.progress < 100)
+    .filter((p) => p.progress >= 0 && p.progress < 100)
     .slice(0, 5);
 
   const quoteWithProgress = (quoteProjects || []).map((q) => ({
