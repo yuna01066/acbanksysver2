@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Building2, FileText, Link2, Unlink, Trash2, ExternalLink, Plus, Phone, Mail, User } from 'lucide-react';
+import ProjectStageSelect from '@/components/ProjectStageSelect';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -81,7 +82,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('saved_quotes')
-        .select('id, quote_number, project_name, total, quote_date, project_stage, items, desired_delivery_date, recipient_address')
+        .select('id, quote_number, project_name, total, quote_date, project_stage, items, desired_delivery_date, recipient_address, pluuug_estimate_id, pluuug_synced, user_id')
         .eq('project_id', projectId)
         .order('quote_date', { ascending: false });
       if (error) throw error;
@@ -196,9 +197,18 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
               {/* 견적 단계 */}
               {linkedQuotes.length > 0 && (
                 <InfoRow label="견적 단계">
-                  <Badge variant="secondary" className={`text-[10px] ${stageColors[linkedQuotes[0].project_stage] || ''}`}>
-                    {stageLabels[linkedQuotes[0].project_stage] || linkedQuotes[0].project_stage}
-                  </Badge>
+                  <ProjectStageSelect
+                    quoteId={linkedQuotes[0].id}
+                    currentStage={linkedQuotes[0].project_stage}
+                    quoteNumber={linkedQuotes[0].quote_number}
+                    pluuugEstimateId={linkedQuotes[0].pluuug_estimate_id}
+                    pluuugSynced={linkedQuotes[0].pluuug_synced}
+                    quoteUserId={linkedQuotes[0].user_id}
+                    onStageChanged={() => {
+                      queryClient.invalidateQueries({ queryKey: ['project-quotes', projectId] });
+                      queryClient.invalidateQueries({ queryKey: ['projects'] });
+                    }}
+                  />
                 </InfoRow>
               )}
 
