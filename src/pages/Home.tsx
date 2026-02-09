@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2 } from "lucide-react";
 import DashboardCalendar from '@/components/DashboardCalendar';
+import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
 import AnnouncementCard from '@/components/AnnouncementCard';
 import { useAuth } from '@/contexts/AuthContext';
@@ -170,11 +171,7 @@ const Home = () => {
           {user && (
             <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <AnnouncementCard />
-              <Card className="w-full flex items-center justify-center min-h-[160px] border-dashed border-2 border-border/50">
-                <CardContent className="p-8 text-center">
-                  <p className="text-sm text-muted-foreground">준비 중입니다</p>
-                </CardContent>
-              </Card>
+              <ProjectProgressCard />
             </div>
           )}
 
