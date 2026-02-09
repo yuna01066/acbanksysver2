@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowLeft, Plus, FolderOpen, Building2, FileText, Search, Trash2, Users, CircleDollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import ProjectDetailPanel from '@/components/project/ProjectDetailPanel';
+import CreateProjectDialog from '@/components/project/CreateProjectDialog';
 
 const ProjectManagementPage = () => {
   const navigate = useNavigate();
@@ -22,8 +21,6 @@ const ProjectManagementPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newDesc, setNewDesc] = useState('');
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ['projects'],
@@ -69,25 +66,7 @@ const ProjectManagementPage = () => {
     enabled: !!user,
   });
 
-  const createProject = useMutation({
-    mutationFn: async () => {
-      if (!user) throw new Error('로그인 필요');
-      const { error } = await supabase.from('projects').insert({
-        name: newName.trim(),
-        description: newDesc.trim() || null,
-        user_id: user.id,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      setCreateOpen(false);
-      setNewName('');
-      setNewDesc('');
-      toast.success('프로젝트가 생성되었습니다.');
-    },
-    onError: () => toast.error('프로젝트 생성에 실패했습니다.'),
-  });
+  
 
   const filteredProjects = projects.filter((p: any) =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -138,44 +117,10 @@ const ProjectManagementPage = () => {
                   className="pl-9"
                 />
               </div>
-              <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="gap-1 shrink-0">
-                    <Plus className="h-4 w-4" /> 새 프로젝트
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>새 프로젝트 만들기</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 mt-2">
-                    <div>
-                      <label className="text-sm font-medium mb-1 block">프로젝트명 *</label>
-                      <Input
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        placeholder="프로젝트명을 입력하세요"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-1 block">설명</label>
-                      <Textarea
-                        value={newDesc}
-                        onChange={(e) => setNewDesc(e.target.value)}
-                        placeholder="프로젝트 설명 (선택)"
-                        rows={3}
-                      />
-                    </div>
-                    <Button
-                      onClick={() => createProject.mutate()}
-                      disabled={!newName.trim() || createProject.isPending}
-                      className="w-full"
-                    >
-                      {createProject.isPending ? '생성 중...' : '프로젝트 생성'}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button size="sm" className="gap-1 shrink-0" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-4 w-4" /> 새 프로젝트
+              </Button>
+              <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
             </div>
 
             <div className="space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto">
