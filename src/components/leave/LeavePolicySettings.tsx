@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Settings2, Calendar, Clock, Shield, Sparkles, ChevronRight, Loader2, Save, Trash2 } from 'lucide-react';
+import ResignationAdjustmentDialog from './ResignationAdjustmentDialog';
+import LeavePromotionDialog from './LeavePromotionDialog';
 
 interface LeavePolicy {
   id: string;
@@ -61,6 +63,8 @@ const LeavePolicySettings: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<LeavePolicy | null>(null);
   const [saving, setSaving] = useState(false);
+  const [resignationDialogOpen, setResignationDialogOpen] = useState(false);
+  const [promotionDialogOpen, setPromotionDialogOpen] = useState(false);
 
   const [form, setForm] = useState({
     policy_name: '',
@@ -208,7 +212,7 @@ const LeavePolicySettings: React.FC = () => {
       <section>
         <h2 className="text-lg font-bold mb-4">연차 설정</h2>
         <div className="space-y-3">
-          <Card>
+          <Card className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => setResignationDialogOpen(true)}>
             <CardContent className="p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
@@ -225,7 +229,7 @@ const LeavePolicySettings: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => setPromotionDialogOpen(true)}>
             <CardContent className="p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
@@ -395,6 +399,13 @@ const LeavePolicySettings: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ResignationAdjustmentDialog open={resignationDialogOpen} onOpenChange={setResignationDialogOpen} />
+      <LeavePromotionDialog
+        open={promotionDialogOpen}
+        onOpenChange={setPromotionDialogOpen}
+        smartPromotionEnabled={policies.some(p => p.smart_promotion === 'enabled')}
+      />
     </div>
   );
 };
