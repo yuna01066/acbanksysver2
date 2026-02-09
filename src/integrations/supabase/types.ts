@@ -1274,6 +1274,47 @@ export type Database = {
         }
         Relationships: []
       }
+      projects: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          recipient_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          recipient_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          recipient_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_memos: {
         Row: {
           content: string
@@ -1397,6 +1438,7 @@ export type Database = {
           pluuug_estimate_id: string | null
           pluuug_synced: boolean | null
           pluuug_synced_at: string | null
+          project_id: string | null
           project_name: string | null
           project_stage: string
           quote_date: string
@@ -1433,6 +1475,7 @@ export type Database = {
           pluuug_estimate_id?: string | null
           pluuug_synced?: boolean | null
           pluuug_synced_at?: string | null
+          project_id?: string | null
           project_name?: string | null
           project_stage?: string
           quote_date?: string
@@ -1469,6 +1512,7 @@ export type Database = {
           pluuug_estimate_id?: string | null
           pluuug_synced?: boolean | null
           pluuug_synced_at?: string | null
+          project_id?: string | null
           project_name?: string | null
           project_stage?: string
           quote_date?: string
@@ -1487,7 +1531,15 @@ export type Database = {
           user_id?: string
           valid_until?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "saved_quotes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       slot_types: {
         Row: {
