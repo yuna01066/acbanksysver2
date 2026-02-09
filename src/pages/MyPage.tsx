@@ -680,7 +680,7 @@ const MyPage = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="quotes" className="space-y-6">
+        <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 max-w-lg">
             <TabsTrigger value="quotes">내 견적서</TabsTrigger>
             <TabsTrigger value="stats">통계</TabsTrigger>
