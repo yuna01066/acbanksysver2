@@ -209,6 +209,17 @@ const ContractManagement: React.FC = () => {
         requested_at: new Date().toISOString(),
       }));
       await bulkCreate(contractsToSave);
+
+      // Send notifications to each employee
+      const notifications = contractsToSave.map(c => ({
+        user_id: c.user_id!,
+        type: 'system',
+        title: '새 계약서가 도착했습니다',
+        description: `근로계약서가 발송되었습니다. 마이페이지에서 검토 후 서명해주세요.`,
+        data: { contract_user_name: c.user_name },
+      }));
+      await supabase.from('notifications').insert(notifications);
+
       toast.success(`${contractsToSave.length}명에게 계약을 요청했습니다.`);
       setShowContractEditor(false);
       setSelectedEmployees(new Set());

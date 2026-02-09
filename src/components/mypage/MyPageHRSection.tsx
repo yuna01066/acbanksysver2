@@ -6,10 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { FileText, Lock, Loader2 } from 'lucide-react';
+import { FileText, Lock, Loader2, PenLine } from 'lucide-react';
 import { toast } from 'sonner';
 import ProfileInfoCard from '@/components/ProfileInfoCard';
 import EmployeeDocumentsPanel from '@/components/employee/EmployeeDocumentsPanel';
+import MyContractsList from '@/components/contract/MyContractsList';
 
 const MyPageHRSection: React.FC = () => {
   const { user, profile } = useAuth();
@@ -41,14 +42,21 @@ const MyPageHRSection: React.FC = () => {
 
   return (
     <Tabs defaultValue="profile" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-3 max-w-md">
+      <TabsList className="grid w-full grid-cols-4 max-w-lg">
         <TabsTrigger value="profile">프로필</TabsTrigger>
+        <TabsTrigger value="contracts" className="gap-1">
+          <PenLine className="h-3.5 w-3.5" />계약서
+        </TabsTrigger>
         <TabsTrigger value="documents">문서함</TabsTrigger>
         <TabsTrigger value="password">비밀번호</TabsTrigger>
       </TabsList>
 
       <TabsContent value="profile" className="space-y-4">
         <ProfileInfoCard />
+      </TabsContent>
+
+      <TabsContent value="contracts" className="space-y-4">
+        <MyContractsList />
       </TabsContent>
 
       <TabsContent value="documents" className="space-y-4">
