@@ -3,16 +3,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Plus, Star, Target, MessageSquare, TrendingUp, Loader2, ChevronDown, ChevronUp, Send, Pencil } from 'lucide-react';
+import { Plus, Star, Target, MessageSquare, TrendingUp, Loader2, ChevronDown, ChevronUp, Send, Pencil, Lock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -82,7 +82,9 @@ interface Props {
 }
 
 const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin, isModerator } = useAuth();
+  const canViewDetails = isAdmin || isModerator;
+
   const [cycles, setCycles] = useState<ReviewCycle[]>([]);
   const [categories, setCategories] = useState<ReviewCategory[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -90,6 +92,7 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
   const [loading, setLoading] = useState(true);
   const [expandedReview, setExpandedReview] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [hasExistingReview, setHasExistingReview] = useState(false);
 
   // Form state
   const [formReviewerType, setFormReviewerType] = useState('superior');
@@ -106,7 +109,10 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
   }, [userId]);
 
   useEffect(() => {
-    if (selectedCycleId) fetchReviews();
+    if (selectedCycleId) {
+      fetchReviews();
+      checkExistingReview();
+    }
   }, [selectedCycleId]);
 
   const fetchData = async () => {
@@ -123,6 +129,18 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
     }
     if (catsRes.data) setCategories(catsRes.data as ReviewCategory[]);
     setLoading(false);
+  };
+
+  const checkExistingReview = async () => {
+    if (!user || !selectedCycleId) return;
+    const { data } = await supabase
+      .from('performance_reviews')
+      .select('id')
+      .eq('cycle_id', selectedCycleId)
+      .eq('reviewer_id', user.id)
+      .eq('reviewee_id', userId)
+      .limit(1);
+    setHasExistingReview(!!(data && data.length > 0));
   };
 
   const fetchReviews = async () => {
@@ -163,6 +181,10 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
   };
 
   const openForm = () => {
+    if (hasExistingReview) {
+      toast.error('이 분기에 이미 해당 직원에 대한 평가를 작성하셨습니다.');
+      return;
+    }
     resetForm();
     setShowForm(true);
   };
@@ -194,7 +216,15 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
         .select()
         .single();
 
-      if (reviewError) throw reviewError;
+      if (reviewError) {
+        if (reviewError.message?.includes('unique_review_per_cycle_reviewer_reviewee')) {
+          toast.error('이 분기에 이미 해당 직원에 대한 평가를 작성하셨습니다.');
+          setHasExistingReview(true);
+          setShowForm(false);
+          return;
+        }
+        throw reviewError;
+      }
 
       const scoreInserts = Object.entries(formScores).map(([catId, val]) => ({
         review_id: review.id,
@@ -210,6 +240,7 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
 
       toast.success(asDraft ? '임시 저장되었습니다.' : '평가가 제출되었습니다.');
       setShowForm(false);
+      setHasExistingReview(true);
       fetchReviews();
     } catch (e: any) {
       toast.error('저장 실패: ' + (e.message || ''));
@@ -232,6 +263,13 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
   };
 
   const selectedCycle = cycles.find(c => c.id === selectedCycleId);
+  const isCycleActive = selectedCycle?.status === 'active';
+
+  const getWriteButtonTooltip = () => {
+    if (hasExistingReview) return '이미 이 분기에 평가를 작성하셨습니다';
+    if (!isCycleActive) return selectedCycle?.status === 'draft' ? '평가 기간 준비중입니다' : '평가 기간이 종료되었습니다';
+    return '';
+  };
 
   if (loading) {
     return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>;
@@ -258,9 +296,20 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
             </Badge>
           )}
         </div>
-        <Button size="sm" className="h-8 text-xs gap-1.5" onClick={openForm} disabled={!selectedCycleId}>
-          <Plus className="h-3.5 w-3.5" /> 평가 작성
-        </Button>
+        <div className="flex items-center gap-2">
+          {hasExistingReview && (
+            <span className="text-xs text-muted-foreground">평가 완료</span>
+          )}
+          <Button
+            size="sm"
+            className="h-8 text-xs gap-1.5"
+            onClick={openForm}
+            disabled={!selectedCycleId || !isCycleActive || hasExistingReview}
+            title={getWriteButtonTooltip()}
+          >
+            <Plus className="h-3.5 w-3.5" /> 평가 작성
+          </Button>
+        </div>
       </div>
 
       {cycles.length === 0 && (
@@ -318,20 +367,39 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
         </Card>
       )}
 
+      {!canViewDetails && reviews.length > 0 && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Lock className="h-3 w-3" />
+          평가 상세 내용은 관리자만 열람할 수 있습니다
+        </div>
+      )}
+
       <div className="space-y-2">
-        {reviews.map(review => (
+        {reviews.map((review, index) => (
           <Card key={review.id} className="overflow-hidden">
             <button
               className="w-full text-left p-4 hover:bg-accent/30 transition-colors"
-              onClick={() => setExpandedReview(expandedReview === review.id ? null : review.id)}
+              onClick={() => {
+                if (!canViewDetails) {
+                  toast.info('평가 상세 내용은 관리자만 열람할 수 있습니다.');
+                  return;
+                }
+                setExpandedReview(expandedReview === review.id ? null : review.id);
+              }}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{review.reviewer_name}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {REVIEWER_TYPES.find(t => t.value === review.reviewer_type)?.label || review.reviewer_type}
-                    </Badge>
+                    {canViewDetails ? (
+                      <>
+                        <span className="text-sm font-medium">{review.reviewer_name}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {REVIEWER_TYPES.find(t => t.value === review.reviewer_type)?.label || review.reviewer_type}
+                        </Badge>
+                      </>
+                    ) : (
+                      <span className="text-sm font-medium text-muted-foreground">평가 #{index + 1}</span>
+                    )}
                   </div>
                   {review.overall_grade && (
                     <span className={`px-2 py-0.5 rounded text-xs font-bold border ${gradeColor(review.overall_grade)}`}>
@@ -353,16 +421,20 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
                       <Star className="h-3 w-3" />{getWeightedAvg(review.scores || [])}
                     </span>
                   )}
-                  <span className="text-xs text-muted-foreground">
-                    {format(new Date(review.created_at), 'yyyy.MM.dd', { locale: ko })}
-                  </span>
-                  {expandedReview === review.id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  {canViewDetails && (
+                    <>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(review.created_at), 'yyyy.MM.dd', { locale: ko })}
+                      </span>
+                      {expandedReview === review.id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                    </>
+                  )}
+                  {!canViewDetails && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
                 </div>
               </div>
             </button>
-            {expandedReview === review.id && (
+            {canViewDetails && expandedReview === review.id && (
               <div className="border-t px-4 pb-4 space-y-4 bg-muted/20">
-                {/* Category scores */}
                 {review.scores && review.scores.length > 0 && (
                   <div className="pt-4">
                     <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-3">항목별 점수</h4>
@@ -383,7 +455,6 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
                     </div>
                   </div>
                 )}
-                {/* Comments */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                   {review.strengths && (
                     <div>
@@ -421,7 +492,6 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
           </DialogHeader>
           <ScrollArea className="max-h-[70vh] px-6 pb-6">
             <div className="space-y-6 pt-4">
-              {/* Reviewer type & grade */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">평가 유형</Label>
@@ -450,7 +520,6 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
                 </div>
               </div>
 
-              {/* Goal achievement */}
               <div>
                 <Label className="text-xs text-muted-foreground flex items-center justify-between">
                   <span>목표 달성률</span>
@@ -467,7 +536,6 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
 
               <Separator />
 
-              {/* Category scores */}
               <div>
                 <h3 className="text-sm font-semibold mb-3">항목별 평가 (0~10점)</h3>
                 <div className="space-y-4">
@@ -493,7 +561,6 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
 
               <Separator />
 
-              {/* Comments */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">강점</Label>
@@ -509,7 +576,6 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName }) => {
                 <Textarea value={formComment} onChange={e => setFormComment(e.target.value)} rows={3} placeholder="종합적인 평가 의견을 작성하세요" className="mt-1 text-sm resize-none" />
               </div>
 
-              {/* Actions */}
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" size="sm" onClick={() => handleSubmit(true)} disabled={saving}>
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}

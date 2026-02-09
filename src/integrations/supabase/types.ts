@@ -1124,6 +1124,71 @@ export type Database = {
           },
         ]
       }
+      performance_review_summaries: {
+        Row: {
+          avg_goal_rate: number | null
+          avg_score: number | null
+          category_scores: Json | null
+          created_at: string
+          cycle_id: string
+          general_comment: string | null
+          id: string
+          improvements_summary: string | null
+          overall_grade: string | null
+          reviewee_id: string
+          reviewee_name: string
+          sent_at: string
+          sent_by: string
+          sent_by_name: string
+          strengths_summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          avg_goal_rate?: number | null
+          avg_score?: number | null
+          category_scores?: Json | null
+          created_at?: string
+          cycle_id: string
+          general_comment?: string | null
+          id?: string
+          improvements_summary?: string | null
+          overall_grade?: string | null
+          reviewee_id: string
+          reviewee_name: string
+          sent_at?: string
+          sent_by: string
+          sent_by_name: string
+          strengths_summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avg_goal_rate?: number | null
+          avg_score?: number | null
+          category_scores?: Json | null
+          created_at?: string
+          cycle_id?: string
+          general_comment?: string | null
+          id?: string
+          improvements_summary?: string | null
+          overall_grade?: string | null
+          reviewee_id?: string
+          reviewee_name?: string
+          sent_at?: string
+          sent_by?: string
+          sent_by_name?: string
+          strengths_summary?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_review_summaries_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "performance_review_cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       performance_reviews: {
         Row: {
           created_at: string

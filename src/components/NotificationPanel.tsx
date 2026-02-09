@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart } from 'lucide-react';
+import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart, Star } from 'lucide-react';
 import { AppNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -137,6 +137,8 @@ const NotificationPanel = ({
         return <CalendarX className="h-4 w-4 text-red-500" />;
       case 'peer_feedback':
         return <Heart className="h-4 w-4 text-pink-500" />;
+      case 'performance_review_summary':
+        return <Star className="h-4 w-4 text-yellow-500" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
@@ -340,6 +342,21 @@ const NotificationPanel = ({
                       >
                         <Heart className="h-3 w-3 mr-1" />
                         바로가기
+                      </Button>
+                    )}
+
+                    {notification.type === 'performance_review_summary' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          navigate('/my-page?tab=business');
+                          setOpen(false);
+                        }}
+                      >
+                        <Star className="h-3 w-3 mr-1" />
+                        확인하기
                       </Button>
                     )}
 
