@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import AvatarUpload from '@/components/employee/AvatarUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +53,7 @@ interface ProfileData {
   education: string;
   special_notes: string;
   family_info: string;
+  avatar_url: string;
 }
 
 const defaultProfile: ProfileData = {
@@ -62,7 +64,7 @@ const defaultProfile: ProfileData = {
   work_type: '', work_hours_per_week: 40, overtime_policy: '', salary_info: '',
   wage_contract: '', leave_policy: '', holidays: '', leave_history: '',
   awards: '', disciplinary: '', career_history: '', education: '',
-  special_notes: '', family_info: '',
+  special_notes: '', family_info: '', avatar_url: '',
 };
 
 const ProfileInfoCard = () => {
@@ -119,6 +121,7 @@ const ProfileInfoCard = () => {
         education: d.education || '',
         special_notes: d.special_notes || '',
         family_info: d.family_info || '',
+        avatar_url: d.avatar_url || '',
       });
     }
     setLoading(false);
@@ -354,9 +357,14 @@ const ProfileInfoCard = () => {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center text-2xl font-bold text-primary">
-            {profileData.full_name?.charAt(0) || '?'}
-          </div>
+          <AvatarUpload
+            userId={user!.id}
+            avatarUrl={profileData.avatar_url || null}
+            name={profileData.full_name}
+            size="lg"
+            editable
+            onUploaded={(url) => setProfileData({ ...profileData, avatar_url: url })}
+          />
           <div>
             <CardTitle className="text-xl">{profileData.full_name}</CardTitle>
             <p className="text-sm text-muted-foreground">

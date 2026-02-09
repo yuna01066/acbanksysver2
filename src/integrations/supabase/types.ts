@@ -640,6 +640,7 @@ export type Database = {
       profiles: {
         Row: {
           address: string | null
+          avatar_url: string | null
           awards: string | null
           bank_account: string | null
           bank_name: string | null
@@ -680,6 +681,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          avatar_url?: string | null
           awards?: string | null
           bank_account?: string | null
           bank_name?: string | null
@@ -720,6 +722,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          avatar_url?: string | null
           awards?: string | null
           bank_account?: string | null
           bank_name?: string | null

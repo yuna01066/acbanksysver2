@@ -43,6 +43,7 @@ export interface EmployeeProfile {
   education: string;
   special_notes: string;
   family_info: string;
+  avatar_url: string;
 }
 
 interface EmployeeListSidebarProps {
@@ -126,8 +127,12 @@ const EmployeeListSidebar: React.FC<EmployeeListSidebarProps> = ({
               )}
             >
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-sm font-bold text-primary shrink-0">
-                  {emp.full_name?.charAt(0) || '?'}
+                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-sm font-bold text-primary shrink-0 overflow-hidden">
+                  {emp.avatar_url ? (
+                    <img src={emp.avatar_url} alt={emp.full_name} className="w-full h-full object-cover" />
+                  ) : (
+                    emp.full_name?.charAt(0) || '?'
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">

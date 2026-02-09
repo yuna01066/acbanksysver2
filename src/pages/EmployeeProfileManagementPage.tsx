@@ -22,6 +22,7 @@ const mapProfileData = (d: any): EmployeeProfile => ({
   leave_policy: d.leave_policy || '', holidays: d.holidays || '', leave_history: d.leave_history || '',
   awards: d.awards || '', disciplinary: d.disciplinary || '', career_history: d.career_history || '',
   education: d.education || '', special_notes: d.special_notes || '', family_info: d.family_info || '',
+  avatar_url: d.avatar_url || '',
 });
 
 const EmployeeProfileManagementPage = () => {
