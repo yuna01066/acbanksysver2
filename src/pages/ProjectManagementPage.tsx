@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ArrowLeft, Plus, FolderOpen, Building2, FileText, Search, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, FolderOpen, Building2, FileText, Search, Trash2, Users, CircleDollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -38,19 +38,33 @@ const ProjectManagementPage = () => {
     enabled: !!user,
   });
 
-  const { data: quoteCounts = {} } = useQuery({
-    queryKey: ['project-quote-counts'],
+  const { data: quoteData = {} } = useQuery({
+    queryKey: ['project-quote-summary'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('saved_quotes')
-        .select('project_id')
+        .select('project_id, total')
         .not('project_id', 'is', null);
       if (error) throw error;
-      const counts: Record<string, number> = {};
+      const summary: Record<string, { count: number; totalAmount: number }> = {};
       data?.forEach((q: any) => {
-        counts[q.project_id] = (counts[q.project_id] || 0) + 1;
+        if (!summary[q.project_id]) summary[q.project_id] = { count: 0, totalAmount: 0 };
+        summary[q.project_id].count += 1;
+        summary[q.project_id].totalAmount += Number(q.total || 0);
       });
-      return counts;
+      return summary;
+    },
+    enabled: !!user,
+  });
+
+  const { data: allAssignments = [] } = useQuery({
+    queryKey: ['project-assignments-all'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('project_assignments')
+        .select('project_id, user_name');
+      if (error) throw error;
+      return data;
     },
     enabled: !!user,
   });
@@ -173,44 +187,68 @@ const ProjectManagementPage = () => {
                   </p>
                 </div>
               ) : (
-                filteredProjects.map((project: any) => (
-                  <Card
-                    key={project.id}
-                    className={`cursor-pointer transition-all hover:shadow-md ${
-                      selectedProjectId === project.id ? 'ring-2 ring-primary' : ''
-                    }`}
-                    onClick={() => setSelectedProjectId(project.id)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-semibold text-sm truncate">{project.name}</h3>
-                          {project.description && (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{project.description}</p>
-                          )}
+                filteredProjects.map((project: any) => {
+                  const qs = (quoteData as any)[project.id];
+                  const assignees = allAssignments
+                    .filter((a: any) => a.project_id === project.id)
+                    .map((a: any) => a.user_name);
+
+                  return (
+                    <Card
+                      key={project.id}
+                      className={`cursor-pointer transition-all hover:shadow-md ${
+                        selectedProjectId === project.id ? 'ring-2 ring-primary' : ''
+                      }`}
+                      onClick={() => setSelectedProjectId(project.id)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <h3 className="font-semibold text-sm truncate">{project.name}</h3>
+                              {qs && qs.count > 0 && (
+                                <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                              )}
+                            </div>
+                            {project.description && (
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{project.description}</p>
+                            )}
+                          </div>
+                          <Badge variant="secondary" className={`text-[10px] shrink-0 ${statusColors[project.status] || ''}`}>
+                            {statusLabels[project.status] || project.status}
+                          </Badge>
                         </div>
-                        <Badge variant="secondary" className={`text-[10px] shrink-0 ${statusColors[project.status] || ''}`}>
-                          {statusLabels[project.status] || project.status}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
-                        {project.recipients && (
-                          <span className="flex items-center gap-1">
-                            <Building2 className="h-3 w-3" />
-                            {project.recipients.company_name}
+
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[11px] text-muted-foreground">
+                          {project.recipients && (
+                            <span className="flex items-center gap-1">
+                              <Building2 className="h-3 w-3" />
+                              {project.recipients.company_name}
+                              {project.recipients.contact_person && (
+                                <span className="text-muted-foreground/70">· {project.recipients.contact_person}</span>
+                              )}
+                            </span>
+                          )}
+                          {qs && qs.count > 0 && (
+                            <span className="flex items-center gap-1">
+                              <CircleDollarSign className="h-3 w-3" />
+                              ₩{Math.round(qs.totalAmount).toLocaleString()}
+                            </span>
+                          )}
+                          {assignees.length > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {assignees.length <= 2 ? assignees.join(', ') : `${assignees[0]} 외 ${assignees.length - 1}명`}
+                            </span>
+                          )}
+                          <span className="ml-auto">
+                            {format(new Date(project.created_at), 'yy.MM.dd', { locale: ko })}
                           </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <FileText className="h-3 w-3" />
-                          견적 {(quoteCounts as any)[project.id] || 0}건
-                        </span>
-                        <span className="ml-auto">
-                          {format(new Date(project.created_at), 'yy.MM.dd', { locale: ko })}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
               )}
             </div>
           </div>
