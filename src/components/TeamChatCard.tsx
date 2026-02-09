@@ -9,6 +9,10 @@ import { MessageSquare, Send, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { useMentionSuggestions, MentionUser } from '@/hooks/useMentionSuggestions';
+import EmojiPicker from '@/components/chat/EmojiPicker';
+import MentionDropdown from '@/components/chat/MentionDropdown';
+import MessageContent from '@/components/chat/MessageContent';
 
 interface ChatMessage {
   id: string;
@@ -27,12 +31,18 @@ const TeamChatCard: React.FC = () => {
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Mention state
+  const { filterUsers } = useMentionSuggestions();
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const mentionResults = mentionQuery !== null ? filterUsers(mentionQuery) : [];
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  // Fetch recent messages
   useEffect(() => {
     const fetchMessages = async () => {
       const { data, error } = await supabase
@@ -40,45 +50,80 @@ const TeamChatCard: React.FC = () => {
         .select('*')
         .order('created_at', { ascending: true })
         .limit(100);
-
-      if (!error && data) {
-        setMessages(data);
-      }
+      if (!error && data) setMessages(data);
       setLoading(false);
       setTimeout(scrollToBottom, 100);
     };
     fetchMessages();
   }, [scrollToBottom]);
 
-  // Realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel('team-chat')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'team_messages' },
-        (payload) => {
-          const newMsg = payload.new as ChatMessage;
-          setMessages(prev => [...prev, newMsg]);
-          setTimeout(scrollToBottom, 50);
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'team_messages' },
-        (payload) => {
-          setMessages(prev => prev.filter(m => m.id !== payload.old.id));
-        }
-      )
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'team_messages' }, (payload) => {
+        setMessages(prev => [...prev, payload.new as ChatMessage]);
+        setTimeout(scrollToBottom, 50);
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'team_messages' }, (payload) => {
+        setMessages(prev => prev.filter(m => m.id !== payload.old.id));
+      })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [scrollToBottom]);
+
+  // Detect @mention in input
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setNewMessage(val);
+
+    const cursorPos = e.target.selectionStart || val.length;
+    const textBeforeCursor = val.slice(0, cursorPos);
+    const mentionMatch = textBeforeCursor.match(/@([^\s]*)$/);
+
+    if (mentionMatch) {
+      setMentionQuery(mentionMatch[1]);
+      setMentionIndex(0);
+    } else {
+      setMentionQuery(null);
+    }
+  };
+
+  const insertMention = (mentionUser: MentionUser) => {
+    const cursorPos = inputRef.current?.selectionStart || newMessage.length;
+    const textBeforeCursor = newMessage.slice(0, cursorPos);
+    const textAfterCursor = newMessage.slice(cursorPos);
+    const beforeMention = textBeforeCursor.replace(/@([^\s]*)$/, '');
+    const updated = `${beforeMention}@${mentionUser.full_name} ${textAfterCursor}`;
+    setNewMessage(updated);
+    setMentionQuery(null);
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (mentionQuery !== null && mentionResults.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex(i => (i + 1) % mentionResults.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex(i => (i - 1 + mentionResults.length) % mentionResults.length);
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertMention(mentionResults[mentionIndex]);
+      } else if (e.key === 'Escape') {
+        setMentionQuery(null);
+      }
+    }
+  };
+
+  const handleEmojiSelect = (emoji: string) => {
+    setNewMessage(prev => prev + emoji);
+    inputRef.current?.focus();
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (mentionQuery !== null && mentionResults.length > 0) return; // Don't submit while selecting mention
     if (!user || !newMessage.trim() || sending) return;
 
     setSending(true);
@@ -88,7 +133,6 @@ const TeamChatCard: React.FC = () => {
       avatar_url: profile?.avatar_url || null,
       message: newMessage.trim(),
     });
-
     if (error) {
       toast.error('메시지 전송 실패');
     } else {
@@ -108,9 +152,7 @@ const TeamChatCard: React.FC = () => {
     const date = new Date(dateStr);
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
-    if (isToday) {
-      return format(date, 'a h:mm', { locale: ko });
-    }
+    if (isToday) return format(date, 'a h:mm', { locale: ko });
     return format(date, 'M/d a h:mm', { locale: ko });
   };
 
@@ -175,7 +217,7 @@ const TeamChatCard: React.FC = () => {
                             : 'bg-muted rounded-bl-sm'
                         }`}
                       >
-                        {msg.message}
+                        <MessageContent message={msg.message} isMine={isMine} />
                       </div>
                     </div>
                     {showTime && (
@@ -193,18 +235,31 @@ const TeamChatCard: React.FC = () => {
       </ScrollArea>
 
       {/* Input */}
-      <form onSubmit={handleSend} className="p-3 border-t shrink-0 flex gap-2">
-        <Input
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="메시지를 입력하세요..."
-          className="h-9 text-sm"
-          maxLength={500}
-          disabled={sending}
-        />
-        <Button type="submit" size="sm" className="h-9 px-3 shrink-0" disabled={!newMessage.trim() || sending}>
-          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </Button>
+      <form onSubmit={handleSend} className="p-3 border-t shrink-0 relative">
+        {mentionQuery !== null && mentionResults.length > 0 && (
+          <MentionDropdown
+            users={mentionResults}
+            selectedIndex={mentionIndex}
+            onSelect={insertMention}
+          />
+        )}
+        <div className="flex gap-1.5 items-center">
+          <Input
+            ref={inputRef}
+            value={newMessage}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            onBlur={() => setTimeout(() => setMentionQuery(null), 150)}
+            placeholder="메시지 입력... (@로 멘션)"
+            className="h-9 text-sm"
+            maxLength={500}
+            disabled={sending}
+          />
+          <EmojiPicker onSelect={handleEmojiSelect} />
+          <Button type="submit" size="sm" className="h-9 px-3 shrink-0" disabled={!newMessage.trim() || sending}>
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </div>
       </form>
     </div>
   );
