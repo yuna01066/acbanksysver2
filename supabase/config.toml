@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.notion-projects]
 verify_jwt = false
+
+[functions.leave-promotion-check]
+verify_jwt = false
