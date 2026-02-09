@@ -21,7 +21,6 @@ serve(async (req) => {
 
     console.log('Fetching Notion database:', DATABASE_ID);
 
-    // Query the Notion database
     const response = await fetch(`${NOTION_API_URL}/databases/${DATABASE_ID}/query`, {
       method: 'POST',
       headers: {
@@ -43,14 +42,15 @@ serve(async (req) => {
     const data = await response.json();
     console.log(`Fetched ${data.results?.length || 0} projects from Notion`);
 
-    // Extract relevant fields from each page
     const projects = data.results.map((page: any) => {
       const properties = page.properties;
       
-      // Try to find title, date, and person properties dynamically
       let title = '';
       let createdDate = page.created_time;
+      let startDate = '';
+      let endDate = '';
       let assignee = '';
+      let status = '';
 
       for (const [key, value] of Object.entries(properties)) {
         const prop = value as any;
@@ -60,14 +60,17 @@ serve(async (req) => {
           title = prop.title.map((t: any) => t.plain_text).join('');
         }
         
-        // Get date property (use first date property found, prefer ones named with common date names)
+        // Get date property with start and end
         if (prop.type === 'date' && prop.date?.start) {
+          startDate = prop.date.start;
+          endDate = prop.date.end || '';
+          // Also use as the main date for calendar
           createdDate = prop.date.start;
         }
         
         // Get created_time property
         if (prop.type === 'created_time') {
-          createdDate = prop.created_time;
+          if (!startDate) createdDate = prop.created_time;
         }
 
         // Get person/people
@@ -75,9 +78,19 @@ serve(async (req) => {
           assignee = prop.people.map((p: any) => p.name || p.person?.email || '').filter(Boolean).join(', ');
         }
         
-        // Get select for assignee-like fields
-        if (prop.type === 'select' && prop.select?.name && (key.includes('담당') || key.includes('assign'))) {
-          assignee = prop.select.name;
+        // Get status
+        if (prop.type === 'status' && prop.status?.name) {
+          status = prop.status.name;
+        }
+        
+        // Get select for status-like fields
+        if (prop.type === 'select' && prop.select?.name) {
+          if (key.includes('상태') || key.includes('status') || key.includes('Status')) {
+            status = prop.select.name;
+          }
+          if (key.includes('담당') || key.includes('assign')) {
+            assignee = prop.select.name;
+          }
         }
       }
 
@@ -85,7 +98,10 @@ serve(async (req) => {
         id: page.id,
         title: title || 'Untitled',
         date: createdDate,
+        startDate,
+        endDate,
         assignee,
+        status,
         url: page.url,
       };
     });
