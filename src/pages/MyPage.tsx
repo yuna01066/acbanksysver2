@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { RecipientEditDialog } from '@/components/RecipientEditDialog';
+import ProfileInfoCard from '@/components/ProfileInfoCard';
 
 interface SavedQuote {
   id: string;
@@ -1136,48 +1137,8 @@ const MyPage = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="profile">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  프로필 수정
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleUpdateProfile} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="fullName">이름</Label>
-                    <Input
-                      id="fullName"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">이메일</Label>
-                    <Input
-                      id="email"
-                      value={profile?.email || ''}
-                      disabled
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">전화번호</Label>
-                    <Input
-                      id="phone"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="010-1234-5678"
-                    />
-                  </div>
-                  <Button type="submit" className="w-full">
-                    프로필 업데이트
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+          <TabsContent value="profile" className="space-y-4">
+            <ProfileInfoCard />
 
             <Card className="mt-4">
               <CardHeader>
