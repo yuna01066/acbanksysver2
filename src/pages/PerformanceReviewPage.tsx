@@ -7,7 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Star, Search, Loader2, User, Shield, AlertTriangle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Star, Search, Loader2, User, Shield, AlertTriangle, CalendarDays } from 'lucide-react';
 import PerformanceReviewPanel from '@/components/employee/PerformanceReviewPanel';
 import AdminReviewDashboard from '@/components/performance/AdminReviewDashboard';
 import IncidentReportPanel from '@/components/performance/IncidentReportPanel';
@@ -20,41 +21,22 @@ interface Employee {
   avatar_url: string | null;
 }
 
+interface ReviewCycle {
+  id: string;
+  title: string;
+  year: number;
+  quarter: number;
+  status: string;
+}
+
 const PerformanceReviewPage = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading, isAdmin, isModerator } = useAuth();
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const canAccessAdmin = isAdmin || isModerator;
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
   }, [user, authLoading, navigate]);
-
-  useEffect(() => {
-    if (user) fetchEmployees();
-  }, [user]);
-
-  const fetchEmployees = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name, department, position, avatar_url')
-      .eq('is_approved', true)
-      .order('full_name');
-    if (data) setEmployees(data);
-    setLoading(false);
-  };
-
-  const filteredEmployees = employees.filter(e => {
-    if (!search.trim()) return true;
-    const s = search.toLowerCase();
-    return e.full_name.toLowerCase().includes(s) ||
-      (e.department && e.department.toLowerCase().includes(s)) ||
-      (e.position && e.position.toLowerCase().includes(s));
-  });
 
   if (authLoading || !user) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
@@ -88,14 +70,7 @@ const PerformanceReviewPage = () => {
             </TabsList>
 
             <TabsContent value="review">
-              <ReviewEmployeeList
-                employees={filteredEmployees}
-                loading={loading}
-                search={search}
-                setSearch={setSearch}
-                selectedEmployee={selectedEmployee}
-                setSelectedEmployee={setSelectedEmployee}
-              />
+              <ReviewEmployeeList />
             </TabsContent>
 
             <TabsContent value="admin">
@@ -118,14 +93,7 @@ const PerformanceReviewPage = () => {
             </TabsList>
 
             <TabsContent value="review">
-              <ReviewEmployeeList
-                employees={filteredEmployees}
-                loading={loading}
-                search={search}
-                setSearch={setSearch}
-                selectedEmployee={selectedEmployee}
-                setSelectedEmployee={setSelectedEmployee}
-              />
+              <ReviewEmployeeList />
             </TabsContent>
 
             <TabsContent value="my-incidents">
@@ -138,19 +106,75 @@ const PerformanceReviewPage = () => {
   );
 };
 
-// Extracted employee list + review panel
-interface ReviewEmployeeListProps {
-  employees: Employee[];
-  loading: boolean;
-  search: string;
-  setSearch: (v: string) => void;
-  selectedEmployee: Employee | null;
-  setSelectedEmployee: (e: Employee | null) => void;
-}
+const ReviewEmployeeList: React.FC = () => {
+  const [cycles, setCycles] = useState<ReviewCycle[]>([]);
+  const [selectedCycleId, setSelectedCycleId] = useState('');
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
-const ReviewEmployeeList: React.FC<ReviewEmployeeListProps> = ({
-  employees, loading, search, setSearch, selectedEmployee, setSelectedEmployee
-}) => {
+  // Load cycles on mount
+  useEffect(() => {
+    const fetchCycles = async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('performance_review_cycles')
+        .select('id, title, year, quarter, status')
+        .order('year', { ascending: false })
+        .order('quarter', { ascending: false });
+      if (data && data.length > 0) {
+        setCycles(data as ReviewCycle[]);
+        // Default to first active cycle, or first cycle
+        const active = data.find(c => c.status === 'active');
+        setSelectedCycleId(active ? active.id : data[0].id);
+      }
+      setLoading(false);
+    };
+    fetchCycles();
+  }, []);
+
+  // Load target employees when cycle changes
+  useEffect(() => {
+    if (!selectedCycleId) {
+      setEmployees([]);
+      return;
+    }
+    const fetchTargets = async () => {
+      setEmployeesLoading(true);
+      // Get target user IDs for this cycle
+      const { data: targets } = await supabase
+        .from('review_cycle_targets')
+        .select('user_id, user_name')
+        .eq('cycle_id', selectedCycleId);
+
+      if (targets && targets.length > 0) {
+        const userIds = targets.map(t => t.user_id);
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, department, position, avatar_url')
+          .in('id', userIds)
+          .order('full_name');
+        setEmployees(profiles || []);
+      } else {
+        setEmployees([]);
+      }
+      setEmployeesLoading(false);
+    };
+    fetchTargets();
+  }, [selectedCycleId]);
+
+  const filteredEmployees = employees.filter(e => {
+    if (!search.trim()) return true;
+    const s = search.toLowerCase();
+    return e.full_name.toLowerCase().includes(s) ||
+      (e.department && e.department.toLowerCase().includes(s)) ||
+      (e.position && e.position.toLowerCase().includes(s));
+  });
+
+  const selectedCycle = cycles.find(c => c.id === selectedCycleId);
+
   if (selectedEmployee) {
     return (
       <div className="space-y-4">
@@ -173,46 +197,92 @@ const ReviewEmployeeList: React.FC<ReviewEmployeeListProps> = ({
               )}
             </div>
           </div>
+          {selectedCycle && (
+            <Badge variant="outline" className="text-xs ml-auto">
+              <CalendarDays className="h-3 w-3 mr-1" />{selectedCycle.title}
+            </Badge>
+          )}
         </div>
         <PerformanceReviewPanel userId={selectedEmployee.id} userName={selectedEmployee.full_name} />
       </div>
     );
   }
 
+  if (loading) {
+    return <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin" /></div>;
+  }
+
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">평가할 직원을 선택하세요.</p>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="이름, 부서, 직급으로 검색..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
+      {/* Cycle selector */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <Select value={selectedCycleId} onValueChange={v => { setSelectedCycleId(v); setSearch(''); }}>
+          <SelectTrigger className="w-60 h-9 text-sm">
+            <SelectValue placeholder="평가 주기 선택" />
+          </SelectTrigger>
+          <SelectContent>
+            {cycles.map(c => (
+              <SelectItem key={c.id} value={c.id}>
+                <span className="flex items-center gap-2">
+                  {c.title}
+                  {c.status === 'active' && <Badge className="text-[10px] px-1.5 py-0">진행중</Badge>}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {employees.length > 0 && (
+          <span className="text-xs text-muted-foreground">대상자 {employees.length}명</span>
+        )}
       </div>
-      {loading ? (
+
+      {!selectedCycleId ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground text-sm">
+            평가 주기를 선택해주세요.
+          </CardContent>
+        </Card>
+      ) : employeesLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin" /></div>
       ) : employees.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8 text-sm">검색 결과가 없습니다.</p>
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground text-sm">
+            이 주기에 지정된 평가 대상자가 없습니다.
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {employees.map(emp => (
-            <Card key={emp.id} className="cursor-pointer hover:border-primary/40 transition-all" onClick={() => setSelectedEmployee(emp)}>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  {emp.avatar_url ? (
-                    <img src={emp.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
-                  ) : (
-                    <User className="h-5 w-5 text-primary" />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">{emp.full_name}</p>
-                  <div className="flex items-center gap-1.5">
-                    {emp.department && <Badge variant="secondary" className="text-xs">{emp.department}</Badge>}
-                    {emp.position && <span className="text-xs text-muted-foreground">{emp.position}</span>}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="이름, 부서, 직급으로 검색..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
+          </div>
+          {filteredEmployees.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8 text-sm">검색 결과가 없습니다.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {filteredEmployees.map(emp => (
+                <Card key={emp.id} className="cursor-pointer hover:border-primary/40 transition-all" onClick={() => setSelectedEmployee(emp)}>
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      {emp.avatar_url ? (
+                        <img src={emp.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                      ) : (
+                        <User className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">{emp.full_name}</p>
+                      <div className="flex items-center gap-1.5">
+                        {emp.department && <Badge variant="secondary" className="text-xs">{emp.department}</Badge>}
+                        {emp.position && <span className="text-xs text-muted-foreground">{emp.position}</span>}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
