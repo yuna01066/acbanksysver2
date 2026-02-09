@@ -158,7 +158,7 @@ const Home = () => {
           {user && (
             <div className="mb-4 space-y-4">
               {/* Quick icon links */}
-              <div className="flex justify-center gap-3">
+              <div className="flex justify-end gap-3">
                 {quickLinks.map((ql, i) => {
                   const QIcon = ql.icon;
                   return (
