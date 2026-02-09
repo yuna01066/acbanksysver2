@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AvatarUpload from '@/components/employee/AvatarUpload';
+import LaborLawPanel from '@/components/employee/LaborLawPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,7 @@ import { ko } from 'date-fns/locale';
 import {
   User, Mail, Phone, MapPin, Building2, Briefcase,
   Calendar, CreditCard, Globe, Hash, Pencil, Save, X, Loader2,
-  Clock, Award, AlertTriangle, GraduationCap, Heart, FileText, Wallet, CalendarDays
+  Clock, Award, AlertTriangle, GraduationCap, Heart, FileText, Wallet, CalendarDays, Calculator
 } from 'lucide-react';
 
 interface ProfileData {
@@ -490,6 +491,19 @@ const ProfileInfoCard = () => {
 
         <Separator />
         <SimpleSection sectionKey="family" title="가족" icon={<Heart className="h-4 w-4" />} fieldKey="family_info" label="가족" />
+
+        {/* 근로기준법 */}
+        <Separator />
+        <div className="py-4">
+          <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-3">
+            <Calculator className="h-4 w-4" />
+            근로기준법 적용
+          </h3>
+          <LaborLawPanel
+            joinDate={profileData.join_date}
+            weeklyWorkHours={profileData.work_hours_per_week}
+          />
+        </div>
       </CardContent>
     </Card>
   );

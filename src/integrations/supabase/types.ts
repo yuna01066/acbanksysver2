@@ -302,6 +302,42 @@ export type Database = {
           },
         ]
       }
+      labor_law_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          minimum_hourly_wage: number
+          monthly_work_hours: number
+          notes: string | null
+          updated_at: string | null
+          weekly_holiday_hours: number
+          weekly_work_hours: number
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          minimum_hourly_wage?: number
+          monthly_work_hours?: number
+          notes?: string | null
+          updated_at?: string | null
+          weekly_holiday_hours?: number
+          weekly_work_hours?: number
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          minimum_hourly_wage?: number
+          monthly_work_hours?: number
+          notes?: string | null
+          updated_at?: string | null
+          weekly_holiday_hours?: number
+          weekly_work_hours?: number
+          year?: number
+        }
+        Relationships: []
+      }
       leave_requests: {
         Row: {
           approved_at: string | null
