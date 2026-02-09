@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Plus, Save, X } from 'lucide-react';
+import { Building2, Plus, Save, X, Phone, Mail, User } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -65,24 +65,22 @@ const ProjectRecipientSection: React.FC<Props> = ({ projectId, recipient, onReci
 
   if (recipient) {
     return (
-      <div className="p-3 bg-muted/30 rounded-lg text-sm space-y-2">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-          <div>
-            <span className="text-muted-foreground text-[10px] block">업체명</span>
-            <p className="font-medium">{recipient.company_name}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground text-[10px] block">담당자</span>
-            <p>{recipient.contact_person}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground text-[10px] block">연락처</span>
-            <p>{recipient.phone}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground text-[10px] block">이메일</span>
-            <p>{recipient.email}</p>
-          </div>
+      <div className="p-3 bg-muted/30 rounded-lg text-sm space-y-1.5">
+        <div className="flex items-center gap-2 mb-1">
+          <Building2 className="h-4 w-4 text-muted-foreground" />
+          <span className="font-bold">{recipient.company_name}</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <User className="h-3.5 w-3.5 text-muted-foreground" />
+          <span>{recipient.contact_person}</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+          <span>{recipient.phone}</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+          <span>{recipient.email}</span>
         </div>
       </div>
     );
