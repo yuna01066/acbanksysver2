@@ -37,7 +37,7 @@ const EmployeeProfileManagementPage = () => {
   const [search, setSearch] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
-  const [activeTab, setActiveTab] = useState('employees');
+  const [activeTab, setActiveTab] = useState<string>('employees');
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdmin)) {
@@ -86,7 +86,7 @@ const EmployeeProfileManagementPage = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="h-screen flex flex-col bg-background">
       {/* Top Bar */}
       <div className="border-b px-4 py-2 flex items-center justify-between bg-card shrink-0">
         <div className="flex items-center gap-3">
@@ -99,84 +99,76 @@ const EmployeeProfileManagementPage = () => {
           </h1>
         </div>
         <TabsList className="bg-muted h-8">
-          <TabsTrigger value="employees" className="text-xs h-7 gap-1" onClick={() => setActiveTab('employees')}>
+          <TabsTrigger value="employees" className="text-xs h-7 gap-1">
             <Users className="h-3.5 w-3.5" /> 구성원
           </TabsTrigger>
-          <TabsTrigger value="document-settings" className="text-xs h-7 gap-1" onClick={() => setActiveTab('document-settings')}>
+          <TabsTrigger value="document-settings" className="text-xs h-7 gap-1">
             <FileText className="h-3.5 w-3.5" /> 문서함 설정
           </TabsTrigger>
-          <TabsTrigger value="document-status" className="text-xs h-7 gap-1" onClick={() => setActiveTab('document-status')}>
+          <TabsTrigger value="document-status" className="text-xs h-7 gap-1">
             <BarChart3 className="h-3.5 w-3.5" /> 제출 현황
           </TabsTrigger>
-          <TabsTrigger value="contracts" className="text-xs h-7 gap-1" onClick={() => setActiveTab('contracts')}>
+          <TabsTrigger value="contracts" className="text-xs h-7 gap-1">
             <FileSignature className="h-3.5 w-3.5" /> 전자계약
           </TabsTrigger>
         </TabsList>
       </div>
 
       {/* Main Content */}
-      {activeTab === 'employees' && (
-        <div className="flex-1 flex min-h-0">
-          {loading ? (
-            <div className="flex-1 flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin" />
-            </div>
-          ) : (
-            <>
-              <EmployeeListSidebar
-                employees={filteredEmployees}
-                selectedId={selectedEmployee?.id || null}
-                search={search}
-                onSearchChange={setSearch}
-                departmentFilter={departmentFilter}
-                onDepartmentFilterChange={setDepartmentFilter}
-                onSelect={setSelectedEmployee}
-                departments={departments}
+      <TabsContent value="employees" className="flex-1 flex min-h-0 mt-0">
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        ) : (
+          <>
+            <EmployeeListSidebar
+              employees={filteredEmployees}
+              selectedId={selectedEmployee?.id || null}
+              search={search}
+              onSearchChange={setSearch}
+              departmentFilter={departmentFilter}
+              onDepartmentFilterChange={setDepartmentFilter}
+              onSelect={setSelectedEmployee}
+              departments={departments}
+            />
+            {selectedEmployee ? (
+              <EmployeeProfileDetail
+                key={selectedEmployee.id}
+                employee={selectedEmployee}
+                onUpdated={handleEmployeeUpdated}
               />
-              {selectedEmployee ? (
-                <EmployeeProfileDetail
-                  key={selectedEmployee.id}
-                  employee={selectedEmployee}
-                  onUpdated={handleEmployeeUpdated}
-                />
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                  <div className="text-center">
-                    <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                    <p className="text-sm">좌측에서 구성원을 선택하세요</p>
-                  </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">좌측에서 구성원을 선택하세요</p>
                 </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
+              </div>
+            )}
+          </>
+        )}
+      </TabsContent>
 
-      {activeTab === 'document-settings' && (
-        <div className="flex-1 overflow-y-auto">
-          <div className="container max-w-3xl mx-auto px-6 py-8">
-            <DocumentBoxSettings />
-          </div>
+      <TabsContent value="document-settings" className="flex-1 overflow-y-auto mt-0">
+        <div className="container max-w-3xl mx-auto px-6 py-8">
+          <DocumentBoxSettings />
         </div>
-      )}
+      </TabsContent>
 
-      {activeTab === 'document-status' && (
-        <div className="flex-1 overflow-y-auto">
-          <div className="container max-w-5xl mx-auto px-6 py-8">
-            <h2 className="text-lg font-bold mb-4">서류 제출 현황</h2>
-            <DocumentSubmissionDashboard />
-          </div>
+      <TabsContent value="document-status" className="flex-1 overflow-y-auto mt-0">
+        <div className="container max-w-5xl mx-auto px-6 py-8">
+          <h2 className="text-lg font-bold mb-4">서류 제출 현황</h2>
+          <DocumentSubmissionDashboard />
         </div>
-      )}
+      </TabsContent>
 
-      {activeTab === 'contracts' && (
-        <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="container max-w-6xl mx-auto px-6 py-6">
-            <ContractManagement />
-          </div>
+      <TabsContent value="contracts" className="flex-1 overflow-y-auto min-h-0 mt-0">
+        <div className="container max-w-6xl mx-auto px-6 py-6">
+          <ContractManagement />
         </div>
-      )}
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 };
 
