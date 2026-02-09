@@ -17,6 +17,7 @@ import LinkQuoteDialog from './LinkQuoteDialog';
 import QuotePreviewSheet from './QuotePreviewSheet';
 import ProjectAssignments from './ProjectAssignments';
 import ProjectSpecsCard from './ProjectSpecsCard';
+import ProjectUpdatesFeed from './ProjectUpdatesFeed';
 import PaymentStatusSelect from './PaymentStatusSelect';
 import RecipientDetailSheet from './RecipientDetailSheet';
 import LinkContactDialog, { ContactInfo } from './LinkContactDialog';
@@ -189,8 +190,9 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
       {/* Two-column layout: Left 3/4, Right 1/4 */}
       <div className="flex gap-4">
         {/* Left: Specs Card */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 space-y-4">
           <ProjectSpecsCard projectId={projectId} specs={project.specs as any} linkedQuotes={linkedQuotes} />
+          <ProjectUpdatesFeed projectId={projectId} />
         </div>
 
         {/* Right: Info Card (1/4 width) */}
