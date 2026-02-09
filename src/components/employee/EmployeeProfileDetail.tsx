@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, differenceInMonths, differenceInDays } from 'date-fns';
@@ -20,9 +21,10 @@ import {
   User, Building2, Briefcase, Hash, Calendar, Globe, MapPin,
   CreditCard, Clock, Award, AlertTriangle, GraduationCap,
   Heart, FileText, Wallet, CalendarDays, Pencil, Save, X, Loader2,
-  Mail, Phone, FileSignature
+  Mail, Phone, FileSignature, Shield
 } from 'lucide-react';
-import type { EmployeeProfile } from './EmployeeListSidebar';
+import type { EmployeeProfile, AppRoleType } from './EmployeeListSidebar';
+import { ROLE_BADGE_MAP } from './EmployeeListSidebar';
 
 type FieldDef = { key: string; label: string; type?: string; disabled?: boolean; multiline?: boolean };
 
@@ -114,12 +116,39 @@ const etcSections: SectionDef[] = [
 interface EmployeeProfileDetailProps {
   employee: EmployeeProfile;
   onUpdated: (updated: EmployeeProfile) => void;
+  currentRole?: AppRoleType;
+  onRoleChanged?: (userId: string, newRole: AppRoleType) => void;
 }
 
-const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee, onUpdated }) => {
+const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee, onUpdated, currentRole, onRoleChanged }) => {
   const [editingTab, setEditingTab] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
+  const [savingRole, setSavingRole] = useState(false);
+
+  const ROLE_OPTIONS: { value: AppRoleType; label: string }[] = [
+    { value: 'admin', label: '관리자' },
+    { value: 'moderator', label: '중간관리자' },
+    { value: 'manager', label: '담당자' },
+    { value: 'employee', label: '직원' },
+  ];
+
+  const handleRoleChange = async (newRole: AppRoleType) => {
+    setSavingRole(true);
+    try {
+      // Delete existing roles
+      await supabase.from('user_roles').delete().eq('user_id', employee.id);
+      // Insert new role
+      const { error } = await supabase.from('user_roles').insert({ user_id: employee.id, role: newRole as any });
+      if (error) throw error;
+      toast.success(`${employee.full_name}님의 권한이 변경되었습니다.`);
+      onRoleChanged?.(employee.id, newRole);
+    } catch (e: any) {
+      toast.error('권한 변경 실패: ' + (e.message || ''));
+    } finally {
+      setSavingRole(false);
+    }
+  };
 
   const startTabEdit = (tabKey: string) => {
     setEditingTab(tabKey);
@@ -287,6 +316,11 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-xl font-bold truncate">{employee.full_name}</h1>
+              {currentRole && ROLE_BADGE_MAP[currentRole] && (
+                <Badge variant="outline" className={`text-xs ${ROLE_BADGE_MAP[currentRole]!.className}`}>
+                  {ROLE_BADGE_MAP[currentRole]!.label}
+                </Badge>
+              )}
               {!employee.is_approved && <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">미승인</Badge>}
               {employee.join_date && getTenureBadge(employee.join_date) && <Badge variant="secondary" className="text-xs">{getTenureBadge(employee.join_date)}</Badge>}
             </div>
@@ -315,6 +349,9 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
             <TabsTrigger value="contracts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">전자계약</TabsTrigger>
             <TabsTrigger value="attendance" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">근태기록</TabsTrigger>
             <TabsTrigger value="leave" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">연차·휴가</TabsTrigger>
+            <TabsTrigger value="role" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
+              <Shield className="h-3.5 w-3.5 mr-1" />권한
+            </TabsTrigger>
           </TabsList>
         </div>
         <ScrollArea className="flex-1">
@@ -345,6 +382,43 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
             </TabsContent>
             <TabsContent value="leave" className="mt-0 py-4">
               <EmployeeLeavePanel userId={employee.id} />
+            </TabsContent>
+            <TabsContent value="role" className="mt-0 py-4">
+              <div className="max-w-md space-y-6">
+                <div>
+                  <h3 className="text-sm font-semibold flex items-center gap-2 mb-1">
+                    <Shield className="h-4 w-4 text-primary" /> 계정 권한 설정
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    이 구성원의 시스템 접근 권한을 설정합니다.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">권한</Label>
+                  <Select
+                    value={currentRole || 'employee'}
+                    onValueChange={(v) => handleRoleChange(v as AppRoleType)}
+                    disabled={savingRole}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ROLE_OPTIONS.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    관리자: 전체 시스템 관리 · 중간관리자: 근무/프로젝트 관리 · 담당자: 프로젝트 참여 · 직원: 기본 접근
+                  </p>
+                </div>
+                {savingRole && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" /> 권한 변경 중...
+                  </div>
+                )}
+              </div>
             </TabsContent>
           </div>
         </ScrollArea>
