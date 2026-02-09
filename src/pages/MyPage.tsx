@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, User, Briefcase } from 'lucide-react';
+import { ArrowLeft, User, Briefcase, Users } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MyPageHRSection from '@/components/mypage/MyPageHRSection';
 import MyPageBusinessSection from '@/components/mypage/MyPageBusinessSection';
+import MyPageClientSection from '@/components/mypage/MyPageClientSection';
 
 const MyPage = () => {
   const { user, profile, signOut, loading: authLoading } = useAuth();
@@ -42,7 +43,7 @@ const MyPage = () => {
         </div>
 
         <Tabs defaultValue="hr" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 max-w-sm">
+          <TabsList className="grid w-full grid-cols-3 max-w-md">
             <TabsTrigger value="hr" className="gap-2">
               <User className="h-4 w-4" />
               인사 관리
@@ -50,6 +51,10 @@ const MyPage = () => {
             <TabsTrigger value="business" className="gap-2">
               <Briefcase className="h-4 w-4" />
               업무 관리
+            </TabsTrigger>
+            <TabsTrigger value="clients" className="gap-2">
+              <Users className="h-4 w-4" />
+              거래처 관리
             </TabsTrigger>
           </TabsList>
 
@@ -59,6 +64,10 @@ const MyPage = () => {
 
           <TabsContent value="business">
             <MyPageBusinessSection />
+          </TabsContent>
+
+          <TabsContent value="clients">
+            <MyPageClientSection />
           </TabsContent>
         </Tabs>
       </div>
