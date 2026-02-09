@@ -15,6 +15,7 @@ import TimeGreeting from '@/components/TimeGreeting';
 import OnlineEmployeesCard from '@/components/OnlineEmployeesCard';
 import MeetingRequestPopup from '@/components/MeetingRequestPopup';
 import TeamChatCard from '@/components/TeamChatCard';
+import PerformanceReviewDashboardCard from '@/components/PerformanceReviewDashboardCard';
 import { useNotifications } from '@/hooks/useNotifications';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -194,6 +195,7 @@ const Home = () => {
               <ActivityFeedCard />
               <ProjectProgressCard />
               </div>
+              <PerformanceReviewDashboardCard />
             </div>
           )}
 

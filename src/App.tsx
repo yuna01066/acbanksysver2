@@ -37,6 +37,7 @@ import TeamChatPage from "./pages/TeamChatPage";
 import CompanySettingsPage from "./pages/CompanySettingsPage";
 import ProjectManagementPage from "./pages/ProjectManagementPage";
 import ReviewSettingsPage from "./pages/ReviewSettingsPage";
+import PerformanceReviewPage from "./pages/PerformanceReviewPage";
 
 const queryClient = new QueryClient();
 
@@ -79,6 +80,7 @@ const App = () => (
             <Route path="/company-settings" element={<CompanySettingsPage />} />
             <Route path="/project-management" element={<ProjectManagementPage />} />
             <Route path="/review-settings" element={<ReviewSettingsPage />} />
+            <Route path="/performance-review" element={<PerformanceReviewPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
             </Routes>
