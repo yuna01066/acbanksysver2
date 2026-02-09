@@ -46,7 +46,7 @@ const OnlineEmployeesCard: React.FC = () => {
       .from('attendance_records')
       .select('user_id, user_name, check_in')
       .eq('date', today)
-      .eq('status', 'checked_in');
+      .in('status', ['checked_in', 'present']);
 
     if (attError || !attendanceData) {
       setLoading(false);
