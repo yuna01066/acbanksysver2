@@ -11,6 +11,7 @@ interface Profile {
   department?: string;
   position?: string;
   is_approved?: boolean;
+  avatar_url?: string | null;
 }
 
 export type AppRole = 'admin' | 'moderator' | 'manager' | 'employee';

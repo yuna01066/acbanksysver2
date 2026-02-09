@@ -165,9 +165,8 @@ const Home = () => {
                   <Button variant="ghost" size="icon" onClick={() => window.open('https://desk.channel.io/acbank/groups/단체방-401443', '_blank')} title="팀챗">
                     <MessageCircle className="h-5 w-5" />
                   </Button>
-                  <Button variant="outline" onClick={() => navigate('/my-page')} className="gap-2">
-                    <User className="h-4 w-4" />
-                    {profile?.full_name || user.email}
+                  <Button variant="ghost" size="icon" onClick={() => navigate('/my-page')} title="마이페이지">
+                    <User className="h-5 w-5" />
                   </Button>
                   <Button variant="ghost" onClick={signOut} className="gap-2">
                     <LogOut className="h-4 w-4" />
@@ -191,7 +190,7 @@ const Home = () => {
 
           {user && (
             <div className="mb-4 space-y-4">
-              <TimeGreeting name={profile?.full_name || user.email?.split('@')[0] || '사용자'} />
+              <TimeGreeting name={profile?.full_name || user.email?.split('@')[0] || '사용자'} avatarUrl={profile?.avatar_url} />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <QuickAttendanceButton />
                 <DailyQuoteCard />
