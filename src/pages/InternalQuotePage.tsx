@@ -18,6 +18,7 @@ import bankAccount from "@/assets/arcbank-bank-account.jpg";
 import arcbankLogo from "@/assets/arcbank-logo.png";
 import { FileText } from "lucide-react";
 import { saveQuoteWithPluuugSync } from "@/utils/pluuugSync";
+import { useActivityLog } from "@/hooks/useActivityLog";
 import { generateAndUploadQuotePdf, createPdfAttachmentMetadata } from "@/utils/generateQuotePdf";
 
 const InternalQuotePage = () => {
@@ -25,6 +26,7 @@ const InternalQuotePage = () => {
   const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [syncToPluuug, setSyncToPluuug] = useState(true);
+  const { logActivity } = useActivityLog();
   const printContainerRef = useRef<HTMLDivElement>(null);
   const {
     quotes,
@@ -130,7 +132,8 @@ const InternalQuotePage = () => {
       }
 
       toast.success('견적서가 저장되었습니다.');
-      clearQuotes(); // 저장 후 컨텍스트 클리어 (다음 견적서는 새 번호로 시작)
+      logActivity('quote_created', result.quoteId || null, recipient?.projectName || quoteNumber);
+      clearQuotes();
       navigate('/saved-quotes');
     } catch (error: any) {
       console.error('Error saving quote:', error);
