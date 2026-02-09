@@ -10,8 +10,10 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useMentionSuggestions, MentionUser } from '@/hooks/useMentionSuggestions';
+import { useProjectSuggestions, TaggableProject } from '@/hooks/useProjectSuggestions';
 import EmojiPicker from '@/components/chat/EmojiPicker';
 import MentionDropdown from '@/components/chat/MentionDropdown';
+import ProjectDropdown from '@/components/chat/ProjectDropdown';
 import MessageContent from '@/components/chat/MessageContent';
 
 interface ChatMessage {
@@ -23,6 +25,8 @@ interface ChatMessage {
   created_at: string;
 }
 
+type DropdownMode = 'mention' | 'project' | null;
+
 const TeamChatCard: React.FC = () => {
   const { user, profile } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -33,11 +37,17 @@ const TeamChatCard: React.FC = () => {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Mention state
+  // Suggestion state
   const { filterUsers } = useMentionSuggestions();
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [mentionIndex, setMentionIndex] = useState(0);
-  const mentionResults = mentionQuery !== null ? filterUsers(mentionQuery) : [];
+  const { filterProjects } = useProjectSuggestions();
+  const [dropdownMode, setDropdownMode] = useState<DropdownMode>(null);
+  const [query, setQuery] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const mentionResults = dropdownMode === 'mention' ? filterUsers(query) : [];
+  const projectResults = dropdownMode === 'project' ? filterProjects(query) : [];
+  const hasResults = mentionResults.length > 0 || projectResults.length > 0;
+  const resultCount = mentionResults.length || projectResults.length;
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -71,47 +81,73 @@ const TeamChatCard: React.FC = () => {
     return () => { supabase.removeChannel(channel); };
   }, [scrollToBottom]);
 
-  // Detect @mention in input
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setNewMessage(val);
 
     const cursorPos = e.target.selectionStart || val.length;
     const textBeforeCursor = val.slice(0, cursorPos);
-    const mentionMatch = textBeforeCursor.match(/@([^\s]*)$/);
 
+    // Check for @mention
+    const mentionMatch = textBeforeCursor.match(/@([^\s]*)$/);
     if (mentionMatch) {
-      setMentionQuery(mentionMatch[1]);
-      setMentionIndex(0);
-    } else {
-      setMentionQuery(null);
+      setDropdownMode('mention');
+      setQuery(mentionMatch[1]);
+      setSelectedIndex(0);
+      return;
     }
+
+    // Check for #project tag
+    const projectMatch = textBeforeCursor.match(/#([^\s]*)$/);
+    if (projectMatch) {
+      setDropdownMode('project');
+      setQuery(projectMatch[1]);
+      setSelectedIndex(0);
+      return;
+    }
+
+    setDropdownMode(null);
   };
 
-  const insertMention = (mentionUser: MentionUser) => {
+  const insertTag = (text: string, triggerChar: string) => {
     const cursorPos = inputRef.current?.selectionStart || newMessage.length;
     const textBeforeCursor = newMessage.slice(0, cursorPos);
     const textAfterCursor = newMessage.slice(cursorPos);
-    const beforeMention = textBeforeCursor.replace(/@([^\s]*)$/, '');
-    const updated = `${beforeMention}@${mentionUser.full_name} ${textAfterCursor}`;
+    const regex = triggerChar === '@' ? /@([^\s]*)$/ : /#([^\s]*)$/;
+    const beforeTag = textBeforeCursor.replace(regex, '');
+    // Replace spaces in project names with underscores for tag continuity
+    const tagText = text.replace(/\s+/g, '_');
+    const updated = `${beforeTag}${triggerChar}${tagText} ${textAfterCursor}`;
     setNewMessage(updated);
-    setMentionQuery(null);
+    setDropdownMode(null);
     inputRef.current?.focus();
   };
 
+  const insertMention = (mentionUser: MentionUser) => {
+    insertTag(mentionUser.full_name, '@');
+  };
+
+  const insertProject = (project: TaggableProject) => {
+    insertTag(project.title, '#');
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (mentionQuery !== null && mentionResults.length > 0) {
+    if (dropdownMode !== null && hasResults) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setMentionIndex(i => (i + 1) % mentionResults.length);
+        setSelectedIndex(i => (i + 1) % resultCount);
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setMentionIndex(i => (i - 1 + mentionResults.length) % mentionResults.length);
+        setSelectedIndex(i => (i - 1 + resultCount) % resultCount);
       } else if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
-        insertMention(mentionResults[mentionIndex]);
+        if (dropdownMode === 'mention') {
+          insertMention(mentionResults[selectedIndex]);
+        } else {
+          insertProject(projectResults[selectedIndex]);
+        }
       } else if (e.key === 'Escape') {
-        setMentionQuery(null);
+        setDropdownMode(null);
       }
     }
   };
@@ -123,7 +159,7 @@ const TeamChatCard: React.FC = () => {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (mentionQuery !== null && mentionResults.length > 0) return; // Don't submit while selecting mention
+    if (dropdownMode !== null && hasResults) return;
     if (!user || !newMessage.trim() || sending) return;
 
     setSending(true);
@@ -236,11 +272,18 @@ const TeamChatCard: React.FC = () => {
 
       {/* Input */}
       <form onSubmit={handleSend} className="p-3 border-t shrink-0 relative">
-        {mentionQuery !== null && mentionResults.length > 0 && (
+        {dropdownMode === 'mention' && mentionResults.length > 0 && (
           <MentionDropdown
             users={mentionResults}
-            selectedIndex={mentionIndex}
+            selectedIndex={selectedIndex}
             onSelect={insertMention}
+          />
+        )}
+        {dropdownMode === 'project' && projectResults.length > 0 && (
+          <ProjectDropdown
+            projects={projectResults}
+            selectedIndex={selectedIndex}
+            onSelect={insertProject}
           />
         )}
         <div className="flex gap-1.5 items-center">
@@ -249,8 +292,8 @@ const TeamChatCard: React.FC = () => {
             value={newMessage}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            onBlur={() => setTimeout(() => setMentionQuery(null), 150)}
-            placeholder="메시지 입력... (@로 멘션)"
+            onBlur={() => setTimeout(() => setDropdownMode(null), 150)}
+            placeholder="메시지 입력... (@멘션, #프로젝트)"
             className="h-9 text-sm"
             maxLength={500}
             disabled={sending}
