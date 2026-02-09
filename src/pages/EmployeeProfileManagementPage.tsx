@@ -50,7 +50,7 @@ const EmployeeProfileManagementPage = () => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .order('full_name');
+      .order('full_name', { ascending: true });
     if (!error && data) {
       setEmployees(data.map(mapProfileData));
     }
@@ -67,13 +67,15 @@ const EmployeeProfileManagementPage = () => {
   }, [employees]);
 
   const filteredEmployees = useMemo(() => {
-    return employees.filter(e => {
-      if (departmentFilter && e.department !== departmentFilter) return false;
-      if (!search.trim()) return true;
-      const s = search.toLowerCase();
-      return e.full_name.toLowerCase().includes(s) || e.email.toLowerCase().includes(s) ||
-        e.department.toLowerCase().includes(s) || e.phone.includes(s);
-    });
+    return employees
+      .filter(e => {
+        if (departmentFilter && e.department !== departmentFilter) return false;
+        if (!search.trim()) return true;
+        const s = search.toLowerCase();
+        return e.full_name.toLowerCase().includes(s) || e.email.toLowerCase().includes(s) ||
+          e.department.toLowerCase().includes(s) || e.phone.includes(s);
+      })
+      .sort((a, b) => a.full_name.localeCompare(b.full_name, 'ko'));
   }, [employees, search, departmentFilter]);
 
   const handleEmployeeUpdated = (updated: EmployeeProfile) => {
