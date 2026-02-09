@@ -5,7 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Palette, Layers, Square, Maximize, Ruler, CalendarClock, MapPin, Package, Pencil, Check, X, RefreshCw } from 'lucide-react';
+import { Palette, Layers, Square, Maximize, Ruler, CalendarClock, MapPin, Package, Pencil, Check, X, RefreshCw, MessageSquareText } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -21,6 +22,7 @@ export interface ProjectSpecs {
   productionSizes: string[];
   deliveryDates: string[];
   deliveryAddresses: string[];
+  clientRequests: string;
 }
 
 /** Extract specs from linked quote items */
@@ -59,6 +61,7 @@ export function extractSpecsFromQuotes(linkedQuotes: any[]): ProjectSpecs {
     productionSizes,
     deliveryDates: [...new Set(linkedQuotes.map((q: any) => q.desired_delivery_date).filter(Boolean))],
     deliveryAddresses: [...new Set(linkedQuotes.map((q: any) => q.recipient_address).filter(Boolean))],
+    clientRequests: linkedQuotes.map((q: any) => q.recipient_memo).filter(Boolean).join('\n') || '',
   };
 }
 
@@ -325,6 +328,22 @@ const ProjectSpecsCard: React.FC<Props> = ({ projectId, specs: savedSpecs, linke
           {specs.deliveryAddresses.length > 0 ? (
             <div className="space-y-0.5">{specs.deliveryAddresses.map((a, i) => <p key={i} className="text-sm">{a}</p>)}</div>
           ) : <span className="text-xs text-muted-foreground">미지정</span>}
+        </SpecRow>
+
+        {/* 클라이언트 요청 사항 */}
+        <SpecRow icon={MessageSquareText} label="요청 사항" editMode={editing}
+          editContent={
+            <Textarea
+              value={editSpecs?.clientRequests || ''}
+              onChange={(e) => updateField('clientRequests', e.target.value)}
+              placeholder="클라이언트 요청 사항을 입력하세요..."
+              className="text-xs min-h-[60px]"
+            />
+          }
+        >
+          {specs.clientRequests ? (
+            <p className="text-sm whitespace-pre-wrap">{specs.clientRequests}</p>
+          ) : <span className="text-xs text-muted-foreground">없음</span>}
         </SpecRow>
       </CardContent>
     </Card>
