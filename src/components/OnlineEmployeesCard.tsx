@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,6 +9,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Heart, MessageSquare, Users2, Send, Loader2 } from 'lucide-react';
+import { useProjectSuggestions, TaggableProject } from '@/hooks/useProjectSuggestions';
+import ProjectDropdown from '@/components/chat/ProjectDropdown';
 
 interface CheckedInEmployee {
   user_id: string;
@@ -45,6 +47,14 @@ const OnlineEmployeesCard: React.FC = () => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [activeEmpId, setActiveEmpId] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Project tagging
+  const { filterProjects } = useProjectSuggestions();
+  const [projectQuery, setProjectQuery] = useState('');
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const [projectSelectedIndex, setProjectSelectedIndex] = useState(0);
+  const projectResults = showProjectDropdown ? filterProjects(projectQuery) : [];
 
   // Status tracking via Realtime Presence
   const [myStatus, setMyStatus] = useState<WorkStatus>('available');
@@ -174,6 +184,49 @@ const OnlineEmployeesCard: React.FC = () => {
     setSelectedEmployee(emp);
     setFeedbackType(type);
     setMessage('');
+    setShowProjectDropdown(false);
+  };
+
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setMessage(val);
+
+    const cursorPos = e.target.selectionStart || val.length;
+    const textBeforeCursor = val.slice(0, cursorPos);
+    const projectMatch = textBeforeCursor.match(/#([^\s]*)$/);
+    if (projectMatch) {
+      setShowProjectDropdown(true);
+      setProjectQuery(projectMatch[1]);
+      setProjectSelectedIndex(0);
+    } else {
+      setShowProjectDropdown(false);
+    }
+  };
+
+  const insertProjectTag = (project: TaggableProject) => {
+    const cursorPos = textareaRef.current?.selectionStart || message.length;
+    const before = message.slice(0, cursorPos).replace(/#([^\s]*)$/, '');
+    const after = message.slice(cursorPos);
+    const tagText = project.title.replace(/\s+/g, '_');
+    setMessage(`${before}#${tagText} ${after}`);
+    setShowProjectDropdown(false);
+    textareaRef.current?.focus();
+  };
+
+  const handleMessageKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!showProjectDropdown || projectResults.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setProjectSelectedIndex(i => (i + 1) % projectResults.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setProjectSelectedIndex(i => (i - 1 + projectResults.length) % projectResults.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      insertProjectTag(projectResults[projectSelectedIndex]);
+    } else if (e.key === 'Escape') {
+      setShowProjectDropdown(false);
+    }
   };
 
   const getEmployeeStatus = (userId: string): WorkStatus => {
@@ -339,14 +392,37 @@ const OnlineEmployeesCard: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <Textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder={FEEDBACK_CONFIG[feedbackType].placeholder}
-                rows={4}
-                className="resize-none"
-                maxLength={500}
-              />
+              {feedbackType !== 'meeting' && (
+                <div className="relative">
+                  {showProjectDropdown && projectResults.length > 0 && (
+                    <ProjectDropdown
+                      projects={projectResults}
+                      selectedIndex={projectSelectedIndex}
+                      onSelect={insertProjectTag}
+                    />
+                  )}
+                  <Textarea
+                    ref={textareaRef}
+                    value={message}
+                    onChange={handleMessageChange}
+                    onKeyDown={handleMessageKeyDown}
+                    placeholder={`${FEEDBACK_CONFIG[feedbackType].placeholder}\n#으로 프로젝트를 태그할 수 있어요`}
+                    rows={4}
+                    className="resize-none"
+                    maxLength={500}
+                  />
+                </div>
+              )}
+              {feedbackType === 'meeting' && (
+                <Textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder={FEEDBACK_CONFIG[feedbackType].placeholder}
+                  rows={4}
+                  className="resize-none"
+                  maxLength={500}
+                />
+              )}
               <div className="flex justify-between items-center">
                 <span className="text-xs text-muted-foreground">{message.length}/500</span>
                 <Button onClick={handleSendFeedback} disabled={!message.trim() || sending} className="gap-2">
