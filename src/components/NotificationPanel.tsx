@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX } from 'lucide-react';
+import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart } from 'lucide-react';
 import { AppNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -135,6 +135,8 @@ const NotificationPanel = ({
         return <CalendarCheck className="h-4 w-4 text-green-500" />;
       case 'leave_rejected':
         return <CalendarX className="h-4 w-4 text-red-500" />;
+      case 'peer_feedback':
+        return <Heart className="h-4 w-4 text-pink-500" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
@@ -322,6 +324,21 @@ const NotificationPanel = ({
                         }}
                       >
                         <CalendarDays className="h-3 w-3 mr-1" />
+                        바로가기
+                      </Button>
+                    )}
+
+                    {notification.type === 'peer_feedback' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          navigate('/my-page');
+                          setOpen(false);
+                        }}
+                      >
+                        <Heart className="h-3 w-3 mr-1" />
                         바로가기
                       </Button>
                     )}
