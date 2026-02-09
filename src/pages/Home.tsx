@@ -175,9 +175,24 @@ const Home = () => {
             </div>
           )}
 
-          {/* Calendar - 로그인한 사용자만 */}
+          {/* 채널톡 팀챗 + Calendar */}
           {user && (
-            <div className="mb-10">
+            <div className="mb-10 space-y-4">
+              <Card
+                className="cursor-pointer group hover:scale-[1.01] transition-all duration-300"
+                onClick={() => window.open('https://desk.channel.io', '_blank')}
+              >
+                <CardContent className="flex items-center gap-4 p-4">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0">
+                    <MessageCircle className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm">채널톡 팀챗</h3>
+                    <p className="text-xs text-muted-foreground">팀원들과 실시간 대화하기</p>
+                  </div>
+                  <Badge variant="outline" className="text-xs shrink-0">열기 →</Badge>
+                </CardContent>
+              </Card>
               <DashboardCalendar />
             </div>
           )}
