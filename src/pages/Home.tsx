@@ -192,6 +192,7 @@ const Home = () => {
           {user && (
             <div className="mb-4 space-y-4">
               <TimeGreeting name={profile?.full_name || user.email?.split('@')[0] || '사용자'} />
+              <DashboardCalendar />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <QuickAttendanceButton />
                 <DailyQuoteCard />
@@ -201,13 +202,6 @@ const Home = () => {
               <ActivityFeedCard />
               <ProjectProgressCard />
               </div>
-            </div>
-          )}
-
-          {/* Calendar - 로그인한 사용자만 */}
-          {user && (
-            <div className="mb-10">
-              <DashboardCalendar />
             </div>
           )}
 
