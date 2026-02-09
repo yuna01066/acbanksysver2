@@ -42,6 +42,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { RecipientEditDialog } from '@/components/RecipientEditDialog';
 import ProfileInfoCard from '@/components/ProfileInfoCard';
+import EmployeeDocumentsPanel from '@/components/employee/EmployeeDocumentsPanel';
 
 interface SavedQuote {
   id: string;
@@ -680,9 +681,10 @@ const MyPage = () => {
         </div>
 
         <Tabs defaultValue="quotes" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-md">
+          <TabsList className="grid w-full grid-cols-4 max-w-lg">
             <TabsTrigger value="quotes">내 견적서</TabsTrigger>
             <TabsTrigger value="stats">통계</TabsTrigger>
+            <TabsTrigger value="documents">문서함</TabsTrigger>
             <TabsTrigger value="profile">프로필</TabsTrigger>
           </TabsList>
 
@@ -1133,6 +1135,21 @@ const MyPage = () => {
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="documents" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  내 문서함
+                </CardTitle>
+                <CardDescription>요청된 서류를 업로드하고 관리하세요.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {user && <EmployeeDocumentsPanel userId={user.id} />}
               </CardContent>
             </Card>
           </TabsContent>

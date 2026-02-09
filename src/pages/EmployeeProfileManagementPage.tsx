@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Users } from 'lucide-react';
+import { ArrowLeft, Loader2, Users, FileText, BarChart3 } from 'lucide-react';
 import EmployeeListSidebar, { type EmployeeProfile } from '@/components/employee/EmployeeListSidebar';
 import EmployeeProfileDetail from '@/components/employee/EmployeeProfileDetail';
+import DocumentBoxSettings from '@/components/employee/DocumentBoxSettings';
+import DocumentSubmissionDashboard from '@/components/employee/DocumentSubmissionDashboard';
 
 const mapProfileData = (d: any): EmployeeProfile => ({
   id: d.id, full_name: d.full_name || '', email: d.email || '', phone: d.phone || '',
@@ -33,6 +36,7 @@ const EmployeeProfileManagementPage = () => {
   const [search, setSearch] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
+  const [activeTab, setActiveTab] = useState('employees');
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdmin)) {
@@ -93,43 +97,73 @@ const EmployeeProfileManagementPage = () => {
             구성원 관리
           </h1>
         </div>
+        <TabsList className="bg-muted h-8">
+          <TabsTrigger value="employees" className="text-xs h-7 gap-1" onClick={() => setActiveTab('employees')}>
+            <Users className="h-3.5 w-3.5" /> 구성원
+          </TabsTrigger>
+          <TabsTrigger value="document-settings" className="text-xs h-7 gap-1" onClick={() => setActiveTab('document-settings')}>
+            <FileText className="h-3.5 w-3.5" /> 문서함 설정
+          </TabsTrigger>
+          <TabsTrigger value="document-status" className="text-xs h-7 gap-1" onClick={() => setActiveTab('document-status')}>
+            <BarChart3 className="h-3.5 w-3.5" /> 제출 현황
+          </TabsTrigger>
+        </TabsList>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex min-h-0">
-        {loading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-        ) : (
-          <>
-            <EmployeeListSidebar
-              employees={filteredEmployees}
-              selectedId={selectedEmployee?.id || null}
-              search={search}
-              onSearchChange={setSearch}
-              departmentFilter={departmentFilter}
-              onDepartmentFilterChange={setDepartmentFilter}
-              onSelect={setSelectedEmployee}
-              departments={departments}
-            />
-            {selectedEmployee ? (
-              <EmployeeProfileDetail
-                key={selectedEmployee.id}
-                employee={selectedEmployee}
-                onUpdated={handleEmployeeUpdated}
+      {activeTab === 'employees' && (
+        <div className="flex-1 flex min-h-0">
+          {loading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : (
+            <>
+              <EmployeeListSidebar
+                employees={filteredEmployees}
+                selectedId={selectedEmployee?.id || null}
+                search={search}
+                onSearchChange={setSearch}
+                departmentFilter={departmentFilter}
+                onDepartmentFilterChange={setDepartmentFilter}
+                onSelect={setSelectedEmployee}
+                departments={departments}
               />
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                  <p className="text-sm">좌측에서 구성원을 선택하세요</p>
+              {selectedEmployee ? (
+                <EmployeeProfileDetail
+                  key={selectedEmployee.id}
+                  employee={selectedEmployee}
+                  onUpdated={handleEmployeeUpdated}
+                />
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                    <p className="text-sm">좌측에서 구성원을 선택하세요</p>
+                  </div>
                 </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'document-settings' && (
+        <div className="flex-1 overflow-y-auto">
+          <div className="container max-w-3xl mx-auto px-6 py-8">
+            <DocumentBoxSettings />
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'document-status' && (
+        <div className="flex-1 overflow-y-auto">
+          <div className="container max-w-5xl mx-auto px-6 py-8">
+            <h2 className="text-lg font-bold mb-4">서류 제출 현황</h2>
+            <DocumentSubmissionDashboard />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
