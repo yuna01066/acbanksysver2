@@ -26,6 +26,7 @@ const DashboardCalendar = () => {
   const navigate = useNavigate();
   const { user, isAdmin, isModerator } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
   const { data: quotes } = useQuery({
     queryKey: ['calendar-quotes'],
@@ -196,7 +197,7 @@ const DashboardCalendar = () => {
                   {format(day, 'd')}
                 </span>
                 <div className="mt-0.5 space-y-0.5">
-                  {dayEvents.slice(0, 3).map((event, idx) => (
+                  {(expandedDay === day.toISOString() ? dayEvents : dayEvents.slice(0, 3)).map((event, idx) => (
                     <button
                       key={`${event.id}-${event.type}-${idx}`}
                       onClick={() => handleEventClick(event)}
@@ -225,9 +226,12 @@ const DashboardCalendar = () => {
                     </button>
                   ))}
                   {dayEvents.length > 3 && (
-                    <span className="text-[10px] text-muted-foreground px-1">
-                      +{dayEvents.length - 3}건
-                    </span>
+                    <button
+                      className="text-[10px] text-muted-foreground px-1 hover:text-foreground transition-colors cursor-pointer"
+                      onClick={() => setExpandedDay(expandedDay === day.toISOString() ? null : day.toISOString())}
+                    >
+                      {expandedDay === day.toISOString() ? '접기' : `+${dayEvents.length - 3}건`}
+                    </button>
                   )}
                 </div>
               </div>
