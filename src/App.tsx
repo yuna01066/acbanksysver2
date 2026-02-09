@@ -31,6 +31,7 @@ import AnnouncementsPage from "./pages/AnnouncementsPage";
 import RecipientManagementPage from "./pages/RecipientManagementPage";
 import AttendancePage from "./pages/AttendancePage";
 import EmployeeProfileManagementPage from "./pages/EmployeeProfileManagementPage";
+import EmployeeWorkManagementPage from "./pages/EmployeeWorkManagementPage";
 import LeaveManagementPage from "./pages/LeaveManagementPage";
 import TeamChatPage from "./pages/TeamChatPage";
 import CompanySettingsPage from "./pages/CompanySettingsPage";
@@ -71,6 +72,7 @@ const App = () => (
             <Route path="/recipients" element={<RecipientManagementPage />} />
             <Route path="/attendance" element={<AttendancePage />} />
             <Route path="/employee-profiles" element={<EmployeeProfileManagementPage />} />
+            <Route path="/employee-work" element={<EmployeeWorkManagementPage />} />
             <Route path="/leave-management" element={<LeaveManagementPage />} />
             <Route path="/team-chat" element={<TeamChatPage />} />
             <Route path="/company-settings" element={<CompanySettingsPage />} />

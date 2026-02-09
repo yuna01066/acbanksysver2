@@ -1,9 +1,8 @@
-
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Code, Settings, Lock, Wrench, UserCog, Link, Users, Building2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ArrowLeft, Lock, Settings, Users, Briefcase, UserCog, Code, Wrench, Link, Building2, BarChart3, FolderKanban } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const AdminSettingsPage = () => {
@@ -19,9 +18,7 @@ const AdminSettingsPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="text-muted-foreground">로딩 중...</div>
-        </div>
+        <div className="text-muted-foreground">로딩 중...</div>
       </div>
     );
   }
@@ -35,15 +32,10 @@ const AdminSettingsPage = () => {
               <Lock className="w-6 h-6 text-destructive" />
             </div>
             <CardTitle>접근 권한 없음</CardTitle>
-            <p className="text-sm text-muted-foreground mt-2">
-              이 페이지에 접근할 권한이 없습니다.
-            </p>
+            <p className="text-sm text-muted-foreground mt-2">이 페이지에 접근할 권한이 없습니다.</p>
           </CardHeader>
           <CardContent>
-            <Button
-              onClick={() => navigate('/')}
-              className="w-full"
-            >
+            <Button onClick={() => navigate('/')} className="w-full">
               <ArrowLeft className="w-4 h-4 mr-2" />
               홈으로 돌아가기
             </Button>
@@ -57,160 +49,148 @@ const AdminSettingsPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 p-4">
       <div className="w-full max-w-6xl mx-auto">
         <div className="mb-6">
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2"
-            size="sm"
-          >
+          <Button variant="outline" onClick={() => navigate('/')} className="flex items-center gap-2" size="sm">
             <ArrowLeft className="w-4 h-4" />
             홈으로 돌아가기
           </Button>
         </div>
-        
-        <Card className="w-full">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Settings className="w-6 h-6" />
-              관리자 설정
-            </CardTitle>
-            <p className="text-muted-foreground">
-              계산기 관리 및 설정을 할 수 있습니다.
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4">
-              <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
-                <h3 className="font-medium mb-2 flex items-center gap-2">
-                  <Code className="w-4 h-4" />
-                  위젯 관리
-                </h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  외부 사이트에 임베드할 수 있는 위젯 코드를 관리합니다.
-                </p>
-                <Button
-                  onClick={() => navigate('/embed-code')}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <Code className="w-4 h-4" />
-                  위젯 코드 생성
-                </Button>
-              </div>
-              
-              <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
-                <h3 className="font-medium mb-2 flex items-center gap-2">
-                  <Settings className="w-4 h-4" />
-                  원판 관리
-                </h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  원판 사이즈, 두께, 가격을 관리합니다. 견적 계산기와 수율 계산기에서 공유됩니다.
-                </p>
-                <Button
-                  onClick={() => navigate('/panel-management')}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <Settings className="w-4 h-4" />
-                  원판 관리
-                </Button>
-              </div>
 
-              <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
-                <h3 className="font-medium mb-2 flex items-center gap-2">
-                  <Wrench className="w-4 h-4" />
-                  가공 가격 관리
-                </h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  추가 옵션 및 가공 방식의 배수와 활성화 상태를 관리합니다.
-                </p>
-                <Button
-                  onClick={() => navigate('/processing-price-management')}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <Wrench className="w-4 h-4" />
-                  가공 가격 설정
-                </Button>
-              </div>
-              
-              <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
-                <h3 className="font-medium mb-2 flex items-center gap-2">
-                  <UserCog className="w-4 h-4" />
-                  담당자별 통계
-                </h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  각 담당자별 견적 현황 및 통계를 확인합니다.
-                </p>
-                <Button
-                  onClick={() => navigate('/user-statistics')}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <UserCog className="w-4 h-4" />
-                  통계 보기
-                </Button>
-              </div>
-              
+        <h1 className="text-xl font-bold flex items-center gap-2 mb-6">
+          <Settings className="w-6 h-6" />
+          관리자 설정
+        </h1>
 
-              <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
-                <h3 className="font-medium mb-2 flex items-center gap-2">
-                  <Link className="w-4 h-4" />
-                  Pluuug 연동
-                </h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Pluuug와 고객, 견적서, 계약, 정산 데이터를 동기화합니다.
-                </p>
-                <Button
-                  onClick={() => navigate('/pluuug-integration')}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <Link className="w-4 h-4" />
-                  Pluuug 연동
-                </Button>
-              </div>
-
-              <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
-                <h3 className="font-medium mb-2 flex items-center gap-2">
-                  <Building2 className="w-4 h-4" />
-                  회사 설정
-                </h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  회사 정보 및 휴일을 관리합니다.
-                </p>
-                <Button
-                  onClick={() => navigate('/company-settings')}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <Building2 className="w-4 h-4" />
-                  회사 설정
-                </Button>
-              </div>
-
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* 직원 관리 Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Users className="w-5 h-5 text-primary" />
+                직원 관리
+              </CardTitle>
+              <CardDescription>직원 프로필, 근무 관리 및 회사 설정</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
               {isAdmin && (
-                <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
-                  <h3 className="font-medium mb-2 flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    직원 프로필 관리
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    직원들의 상세 프로필 정보를 조회하고 수정합니다. (관리자 전용)
-                  </p>
-                  <Button
-                    onClick={() => navigate('/employee-profiles')}
-                    variant="outline"
-                    className="flex items-center gap-2"
-                  >
-                    <Users className="w-4 h-4" />
-                    직원 프로필 관리
-                  </Button>
-                </div>
+                <button
+                  onClick={() => navigate('/employee-profiles')}
+                  className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <UserCog className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">직원 프로필 관리</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">인사 정보, 급여, 계약, 문서함 등 민감 정보 관리 (관리자 전용)</p>
+                  </div>
+                </button>
               )}
-            </div>
-          </CardContent>
-        </Card>
+
+              <button
+                onClick={() => navigate('/employee-work')}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Briefcase className="w-4 h-4 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">직원 근무 관리</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">근태기록, 연차·휴가, 근무 정보 열람</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate('/company-settings')}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Building2 className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">회사 설정</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">회사 정보 및 휴일 관리</p>
+                </div>
+              </button>
+            </CardContent>
+          </Card>
+
+          {/* 프로젝트 관리 Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FolderKanban className="w-5 h-5 text-primary" />
+                프로젝트 관리
+              </CardTitle>
+              <CardDescription>견적, 원판, 가공 가격 및 외부 연동 관리</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <button
+                onClick={() => navigate('/panel-management')}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Settings className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">원판 관리</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">원판 사이즈, 두께, 가격 관리</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate('/processing-price-management')}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Wrench className="w-4 h-4 text-orange-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">가공 가격 관리</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">추가 옵션 및 가공 방식 배수 관리</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate('/user-statistics')}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <BarChart3 className="w-4 h-4 text-violet-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">담당자별 통계</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">각 담당자별 견적 현황 및 통계 확인</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate('/embed-code')}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Code className="w-4 h-4 text-cyan-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">위젯 관리</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">외부 사이트 임베드 위젯 코드 관리</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate('/pluuug-integration')}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-pink-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Link className="w-4 h-4 text-pink-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Pluuug 연동</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">고객, 견적서, 계약 데이터 동기화</p>
+                </div>
+              </button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
