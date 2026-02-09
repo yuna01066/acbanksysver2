@@ -50,8 +50,11 @@ const personnelSections: SectionDef[] = [
   ]},
   { key: 'join', title: '입사 정보', icon: <Calendar className="h-4 w-4" />, fields: [
     { key: 'join_date', label: '입사일', type: 'date' },
+    { key: 'group_join_date', label: '그룹 입사일', type: 'date' },
+    { key: 'join_type', label: '입사 유형' },
   ]},
   { key: 'personal', title: '개인 정보', icon: <Globe className="h-4 w-4" />, fields: [
+    { key: 'resident_registration_number', label: '주민등록번호' },
     { key: 'birthday', label: '생일', type: 'date' }, { key: 'nationality', label: '국적' },
     { key: 'phone', label: '휴대전화번호' },
   ]},
@@ -98,8 +101,13 @@ const etcSections: SectionDef[] = [
   { key: 'special', title: '특이사항', icon: <FileText className="h-4 w-4" />, fields: [
     { key: 'special_notes', label: '특이사항', multiline: true },
   ]},
-  { key: 'family', title: '가족', icon: <Heart className="h-4 w-4" />, fields: [
-    { key: 'family_info', label: '가족', multiline: true },
+  { key: 'family', title: '가족 정보', icon: <Heart className="h-4 w-4" />, fields: [
+    { key: 'family_info', label: '가족 구성원', multiline: true },
+  ]},
+  { key: 'family_deduction', title: '가족 공제 정보', icon: <Heart className="h-4 w-4" />, fields: [
+    { key: 'family_basic_deduction', label: '기본 공제 대상 (명)', type: 'number' },
+    { key: 'family_child_tax_credit', label: '자녀 세액공제 (명)', type: 'number' },
+    { key: 'family_health_dependents', label: '건강보험 피부양자 (명)', type: 'number' },
   ]},
 ];
 
@@ -179,10 +187,18 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
   const renderSectionContent = (section: SectionDef) => {
     const val = (key: string) => (employee as any)[key] || '';
     if (section.key === 'join') {
-      return <InfoRow label="입사일" value={val('join_date') ? format(new Date(val('join_date')), 'yyyy년 M월 d일', { locale: ko }) : undefined} badge={getTenureBadge(val('join_date')) ? <Badge variant="default" className="text-xs shrink-0">{getTenureBadge(val('join_date'))}</Badge> : undefined} />;
+      return (
+        <div className="space-y-0">
+          <InfoRow label="입사일" value={val('join_date') ? format(new Date(val('join_date')), 'yyyy년 M월 d일', { locale: ko }) : undefined} badge={getTenureBadge(val('join_date')) ? <Badge variant="default" className="text-xs shrink-0">{getTenureBadge(val('join_date'))}</Badge> : undefined} />
+          <InfoRow label="그룹 입사일" value={val('group_join_date') ? format(new Date(val('group_join_date')), 'yyyy년 M월 d일', { locale: ko }) : undefined} />
+          <InfoRow label="입사 유형" value={val('join_type')} />
+        </div>
+      );
     }
     if (section.key === 'personal') {
-      return (<div className="space-y-0"><InfoRow label="생일" value={val('birthday') ? format(new Date(val('birthday')), 'yyyy년 M월 d일', { locale: ko }) : undefined} /><InfoRow label="국적" value={val('nationality')} /><InfoRow label="휴대전화" value={val('phone')} /></div>);
+      const rrn = val('resident_registration_number');
+      const maskedRrn = rrn ? rrn.substring(0, 8) + '•••••••' : undefined;
+      return (<div className="space-y-0"><InfoRow label="주민등록번호" value={maskedRrn} /><InfoRow label="생일" value={val('birthday') ? format(new Date(val('birthday')), 'yyyy년 M월 d일', { locale: ko }) : undefined} /><InfoRow label="국적" value={val('nationality')} /><InfoRow label="휴대전화" value={val('phone')} /></div>);
     }
     if (section.key === 'address') {
       return (<div className="space-y-0"><InfoRow label="주소" value={[val('address'), val('detail_address')].filter(Boolean).join(' ') || undefined} />{val('zipcode') && <InfoRow label="우편번호" value={val('zipcode')} />}</div>);
@@ -192,6 +208,9 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
     }
     if (section.key === 'work') {
       return (<div className="space-y-0"><InfoRow label="근무 유형" value={val('work_type')} /><InfoRow label="주당 근무시간" value={val('work_hours_per_week') ? `주 ${val('work_hours_per_week')}시간` : undefined} /></div>);
+    }
+    if (section.key === 'family_deduction') {
+      return (<div className="space-y-0"><InfoRow label="기본 공제" value={`${val('family_basic_deduction') || 0}명`} /><InfoRow label="자녀 세액공제" value={`${val('family_child_tax_credit') || 0}명`} /><InfoRow label="건강보험 피부양자" value={`${val('family_health_dependents') || 0}명`} /></div>);
     }
     return (<div className="space-y-0">{section.fields.map(f => (<InfoRow key={f.key} label={f.label} value={val(f.key)} />))}</div>);
   };
