@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Users, Search, Clock, CalendarDays, Briefcase, FileText, Mail, Phone, Hash, Building2, Calendar, Star } from 'lucide-react';
+import { ArrowLeft, Loader2, Users, Search, Clock, CalendarDays, Briefcase, FileText, Mail, Phone, Hash, Building2, Calendar, Star, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, differenceInMonths, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -17,6 +17,7 @@ import EmployeeLeavePanel from '@/components/employee/EmployeeLeavePanel';
 import AvatarUpload from '@/components/employee/AvatarUpload';
 import PerformanceReviewPanel from '@/components/employee/PerformanceReviewPanel';
 import ReviewCycleManager from '@/components/employee/ReviewCycleManager';
+import EmployeeIncidentList from '@/components/performance/EmployeeIncidentList';
 
 interface WorkEmployee {
   id: string;
@@ -236,6 +237,9 @@ const EmployeeWorkManagementPage = () => {
                       </TabsContent>
                       <TabsContent value="review" className="mt-0 py-4">
                         <PerformanceReviewPanel userId={selectedEmployee.id} userName={selectedEmployee.full_name} summaryOnly />
+                        <div className="mt-6">
+                          <EmployeeIncidentList userId={selectedEmployee.id} />
+                        </div>
                         <div className="mt-3 flex justify-end">
                           <Button
                             variant="outline"
