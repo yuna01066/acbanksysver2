@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Heart, MessageSquare, Users2, Send, Loader2 } from 'lucide-react';
@@ -19,11 +20,19 @@ interface CheckedInEmployee {
 }
 
 type FeedbackType = 'recognition' | 'feedback' | 'one_on_one';
+type WorkStatus = 'available' | 'busy' | 'focusing' | 'meeting';
 
 const FEEDBACK_CONFIG: Record<FeedbackType, { label: string; emoji: string; placeholder: string; color: string }> = {
   recognition: { label: '인정 보내기', emoji: '🙏💕', placeholder: '동료의 어떤 점이 인상적이었는지 알려주세요...', color: 'text-pink-600' },
   feedback: { label: '피드백 보내기', emoji: '💬', placeholder: '도움이 될 만한 피드백을 남겨주세요...', color: 'text-blue-600' },
   one_on_one: { label: '1:1 미팅 요청', emoji: '☕', placeholder: '미팅 주제나 이유를 간단히 적어주세요...', color: 'text-amber-600' },
+};
+
+const STATUS_CONFIG: Record<WorkStatus, { label: string; emoji: string; color: string; borderColor: string; dotColor: string }> = {
+  available: { label: '여유', emoji: '🟢', color: 'text-green-600', borderColor: 'border-green-200 dark:border-green-800', dotColor: 'bg-green-500' },
+  busy: { label: '바쁨', emoji: '🔴', color: 'text-red-600', borderColor: 'border-red-200 dark:border-red-800', dotColor: 'bg-red-500' },
+  focusing: { label: '집중 중', emoji: '🟡', color: 'text-yellow-600', borderColor: 'border-yellow-200 dark:border-yellow-800', dotColor: 'bg-yellow-500' },
+  meeting: { label: '미팅 중', emoji: '🟣', color: 'text-purple-600', borderColor: 'border-purple-200 dark:border-purple-800', dotColor: 'bg-purple-500' },
 };
 
 const OnlineEmployeesCard: React.FC = () => {
@@ -36,8 +45,54 @@ const OnlineEmployeesCard: React.FC = () => {
   const [sending, setSending] = useState(false);
   const [activeEmpId, setActiveEmpId] = useState<string | null>(null);
 
+  // Status tracking via Realtime Presence
+  const [myStatus, setMyStatus] = useState<WorkStatus>('available');
+  const [statusMap, setStatusMap] = useState<Record<string, WorkStatus>>({});
+  const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
+
   useEffect(() => {
     fetchCheckedInEmployees();
+  }, []);
+
+  // Realtime Presence for status
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase.channel('employee-status', {
+      config: { presence: { key: user.id } },
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const newMap: Record<string, WorkStatus> = {};
+        for (const [userId, presences] of Object.entries(state)) {
+          const latest = presences[presences.length - 1] as any;
+          if (latest?.status) {
+            newMap[userId] = latest.status as WorkStatus;
+          }
+        }
+        setStatusMap(newMap);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ status: myStatus, online_at: new Date().toISOString() });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  // Update presence when status changes
+  const updateMyStatus = useCallback(async (newStatus: WorkStatus) => {
+    setMyStatus(newStatus);
+    setStatusPopoverOpen(false);
+
+    const channel = supabase.channel('employee-status');
+    await channel.track({ status: newStatus, online_at: new Date().toISOString() });
+    toast.success(`상태가 "${STATUS_CONFIG[newStatus].label}"(으)로 변경되었습니다`);
   }, []);
 
   const fetchCheckedInEmployees = async () => {
@@ -54,7 +109,6 @@ const OnlineEmployeesCard: React.FC = () => {
       return;
     }
 
-    // Fetch profiles for avatar
     const userIds = attendanceData.map(a => a.user_id);
     const { data: profiles } = await supabase
       .from('profiles')
@@ -74,6 +128,16 @@ const OnlineEmployeesCard: React.FC = () => {
     setLoading(false);
   };
 
+  // Sort: current user first
+  const sortedEmployees = React.useMemo(() => {
+    if (!user) return employees;
+    return [...employees].sort((a, b) => {
+      if (a.user_id === user.id) return -1;
+      if (b.user_id === user.id) return 1;
+      return 0;
+    });
+  }, [employees, user]);
+
   const handleSendFeedback = async () => {
     if (!user || !selectedEmployee || !feedbackType || !message.trim()) return;
     setSending(true);
@@ -87,7 +151,6 @@ const OnlineEmployeesCard: React.FC = () => {
       });
       if (error) throw error;
 
-      // Create notification for receiver
       await supabase.from('notifications').insert({
         user_id: selectedEmployee.user_id,
         type: 'peer_feedback',
@@ -110,6 +173,10 @@ const OnlineEmployeesCard: React.FC = () => {
     setSelectedEmployee(emp);
     setFeedbackType(type);
     setMessage('');
+  };
+
+  const getEmployeeStatus = (userId: string): WorkStatus => {
+    return statusMap[userId] || 'available';
   };
 
   if (loading) {
@@ -137,51 +204,94 @@ const OnlineEmployeesCard: React.FC = () => {
           <p className="text-sm text-muted-foreground text-center py-3">현재 출근한 직원이 없습니다.</p>
         ) : (
           <div className="flex flex-wrap gap-3">
-            {employees.map(emp => (
-              <div key={emp.user_id} className="relative">
-                <div className="flex flex-col items-center gap-1.5">
-                  <div className="relative">
-                    <Avatar
-                      className="h-12 w-12 rounded-lg border-2 border-green-200 dark:border-green-800 shadow-sm cursor-pointer transition-transform hover:scale-110"
-                      onClick={() => {
-                        if (user && emp.user_id !== user.id) {
-                          setActiveEmpId(activeEmpId === emp.user_id ? null : emp.user_id);
-                        }
-                      }}
-                    >
-                      <AvatarImage src={emp.avatar_url || undefined} alt={emp.user_name} className="object-cover" />
-                      <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-sm font-semibold">
-                        {emp.user_name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-card" />
-                  </div>
-                  <span className="text-xs text-muted-foreground font-medium max-w-[56px] truncate">{emp.user_name}</span>
-                </div>
-                {/* Click-triggered actions */}
-                {user && emp.user_id !== user.id && activeEmpId === emp.user_id && (
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full z-10 animate-fade-in">
-                    <div className="bg-card border rounded-lg shadow-lg p-1.5 flex gap-1 whitespace-nowrap">
-                      <button
-                        onClick={() => { openFeedbackDialog(emp, 'recognition'); setActiveEmpId(null); }}
-                        className="p-1.5 rounded-md hover:bg-pink-50 dark:hover:bg-pink-950/30 transition-colors text-sm"
-                        title="인정 보내기"
-                      >🙏</button>
-                      <button
-                        onClick={() => { openFeedbackDialog(emp, 'feedback'); setActiveEmpId(null); }}
-                        className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors text-sm"
-                        title="피드백 보내기"
-                      >💬</button>
-                      <button
-                        onClick={() => { openFeedbackDialog(emp, 'one_on_one'); setActiveEmpId(null); }}
-                        className="p-1.5 rounded-md hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors text-sm"
-                        title="1:1 미팅 요청"
-                      >☕</button>
+            {sortedEmployees.map(emp => {
+              const isMe = user && emp.user_id === user.id;
+              const empStatus = getEmployeeStatus(emp.user_id);
+              const statusCfg = STATUS_CONFIG[empStatus];
+
+              return (
+                <div key={emp.user_id} className="relative">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div className="relative">
+                      {isMe ? (
+                        <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
+                          <PopoverTrigger asChild>
+                            <Avatar
+                              className={`h-12 w-12 rounded-lg border-2 ${statusCfg.borderColor} shadow-sm cursor-pointer transition-transform hover:scale-110 ring-2 ring-primary/20`}
+                            >
+                              <AvatarImage src={emp.avatar_url || undefined} alt={emp.user_name} className="object-cover" />
+                              <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-sm font-semibold">
+                                {emp.user_name.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-44 p-1.5" side="bottom" align="center">
+                            <p className="text-[10px] font-medium text-muted-foreground px-2 py-1">내 상태 변경</p>
+                            {(Object.entries(STATUS_CONFIG) as [WorkStatus, typeof STATUS_CONFIG[WorkStatus]][]).map(([key, cfg]) => (
+                              <button
+                                key={key}
+                                onClick={() => updateMyStatus(key)}
+                                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
+                                  myStatus === key ? 'bg-accent font-medium' : 'hover:bg-muted'
+                                }`}
+                              >
+                                <span>{cfg.emoji}</span>
+                                <span>{cfg.label}</span>
+                              </button>
+                            ))}
+                          </PopoverContent>
+                        </Popover>
+                      ) : (
+                        <Avatar
+                          className={`h-12 w-12 rounded-lg border-2 ${statusCfg.borderColor} shadow-sm cursor-pointer transition-transform hover:scale-110`}
+                          onClick={() => {
+                            setActiveEmpId(activeEmpId === emp.user_id ? null : emp.user_id);
+                          }}
+                        >
+                          <AvatarImage src={emp.avatar_url || undefined} alt={emp.user_name} className="object-cover" />
+                          <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-sm font-semibold">
+                            {emp.user_name.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                      <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ${statusCfg.dotColor} border-2 border-card`} />
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs text-muted-foreground font-medium max-w-[56px] truncate">
+                        {isMe ? '나' : emp.user_name}
+                      </span>
+                      {empStatus !== 'available' && (
+                        <span className={`text-[9px] ${statusCfg.color} font-medium`}>
+                          {statusCfg.label}
+                        </span>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-            ))}
+                  {/* Click-triggered actions for others */}
+                  {user && !isMe && activeEmpId === emp.user_id && (
+                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full z-10 animate-fade-in">
+                      <div className="bg-card border rounded-lg shadow-lg p-1.5 flex gap-1 whitespace-nowrap">
+                        <button
+                          onClick={() => { openFeedbackDialog(emp, 'recognition'); setActiveEmpId(null); }}
+                          className="p-1.5 rounded-md hover:bg-pink-50 dark:hover:bg-pink-950/30 transition-colors text-sm"
+                          title="인정 보내기"
+                        >🙏</button>
+                        <button
+                          onClick={() => { openFeedbackDialog(emp, 'feedback'); setActiveEmpId(null); }}
+                          className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors text-sm"
+                          title="피드백 보내기"
+                        >💬</button>
+                        <button
+                          onClick={() => { openFeedbackDialog(emp, 'one_on_one'); setActiveEmpId(null); }}
+                          className="p-1.5 rounded-md hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors text-sm"
+                          title="1:1 미팅 요청"
+                        >☕</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
