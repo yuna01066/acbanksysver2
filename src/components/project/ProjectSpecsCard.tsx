@@ -5,8 +5,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Palette, Layers, Square, Maximize, Ruler, CalendarClock, MapPin, Package, Pencil, Check, X, RefreshCw, MessageSquareText } from 'lucide-react';
+import { Palette, Layers, Square, Maximize, Ruler, CalendarClock, MapPin, Package, Pencil, Check, X, RefreshCw, MessageSquareText, CalendarIcon, Plus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -308,7 +311,43 @@ const ProjectSpecsCard: React.FC<Props> = ({ projectId, specs: savedSpecs, linke
 
         {/* 납기 희망일 */}
         <SpecRow icon={CalendarClock} label="납기 희망일" editMode={editing}
-          editContent={<EditableTagList values={editSpecs?.deliveryDates || []} onChange={(v) => updateField('deliveryDates', v)} placeholder="날짜 추가 (yyyy-MM-dd)..." />}
+          editContent={
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap gap-1">
+                {(editSpecs?.deliveryDates || []).map((d, i) => (
+                  <Badge key={i} variant="secondary" className="text-xs gap-1 pr-1">
+                    {(() => { try { return format(new Date(d), 'yyyy년 M월 d일', { locale: ko }); } catch { return String(d); } })()}
+                    <button onClick={() => updateField('deliveryDates', (editSpecs?.deliveryDates || []).filter((_, idx) => idx !== i))} className="ml-0.5 hover:bg-muted rounded-full p-0.5">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                    <Plus className="h-3 w-3" /> 날짜 추가
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    onSelect={(date) => {
+                      if (date) {
+                        const dateStr = format(date, 'yyyy-MM-dd');
+                        if (!(editSpecs?.deliveryDates || []).includes(dateStr)) {
+                          updateField('deliveryDates', [...(editSpecs?.deliveryDates || []), dateStr]);
+                        }
+                      }
+                    }}
+                    locale={ko}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          }
         >
           {specs.deliveryDates.length > 0 ? (
             <div className="space-y-0.5">
