@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock, CalendarDays } from "lucide-react";
 import DashboardCalendar from '@/components/DashboardCalendar';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
@@ -73,6 +73,13 @@ const Home = () => {
     url: "/attendance",
     requiresAuth: true,
     action: () => navigate("/attendance")
+  }, {
+    title: "연차 관리",
+    icon: CalendarDays,
+    description: "연차 신청/승인/잔여일수 관리",
+    url: "/leave-management",
+    requiresAuth: true,
+    action: () => navigate("/leave-management")
   }, {
     title: "인스타그램",
     icon: Instagram,
