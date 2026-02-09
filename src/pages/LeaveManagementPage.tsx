@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, CalendarDays, Clock, Loader2, Settings2 } from 'lucide-react';
-import { useLeaveRequests, calculateAnnualLeaveDays } from '@/hooks/useLeaveRequests';
+import { useLeaveRequests, calculatePolicyBasedLeaveDays } from '@/hooks/useLeaveRequests';
 import { useLeavePolicy } from '@/hooks/useLeavePolicy';
 import LeaveRequestForm from '@/components/leave/LeaveRequestForm';
 import LeaveRequestList from '@/components/leave/LeaveRequestList';
@@ -31,7 +31,10 @@ const LeaveManagementPage = () => {
       });
   }, [user]);
 
-  const totalAnnualDays = useMemo(() => calculateAnnualLeaveDays(joinDate), [joinDate]);
+  const totalAnnualDays = useMemo(
+    () => calculatePolicyBasedLeaveDays(joinDate, policy.grant_method, policy.grant_basis),
+    [joinDate, policy.grant_method, policy.grant_basis]
+  );
 
   const myRequests = useMemo(() => requests.filter(r => r.user_id === user?.id), [requests, user]);
   const pendingRequests = useMemo(() => requests.filter(r => r.status === 'pending'), [requests]);
