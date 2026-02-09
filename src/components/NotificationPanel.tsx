@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit } from 'lucide-react';
+import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX } from 'lucide-react';
 import { AppNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -129,6 +129,12 @@ const NotificationPanel = ({
         return <UserCheck className="h-4 w-4 text-primary" />;
       case 'quote_modified':
         return <Edit className="h-4 w-4 text-accent" />;
+      case 'leave_request':
+        return <CalendarDays className="h-4 w-4 text-yellow-500" />;
+      case 'leave_approved':
+        return <CalendarCheck className="h-4 w-4 text-green-500" />;
+      case 'leave_rejected':
+        return <CalendarX className="h-4 w-4 text-red-500" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
@@ -301,6 +307,21 @@ const NotificationPanel = ({
                         }}
                       >
                         <FileText className="h-3 w-3 mr-1" />
+                        바로가기
+                      </Button>
+                    )}
+
+                    {(notification.type === 'leave_request' || notification.type === 'leave_approved' || notification.type === 'leave_rejected') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          navigate('/leave-management');
+                          setOpen(false);
+                        }}
+                      >
+                        <CalendarDays className="h-3 w-3 mr-1" />
                         바로가기
                       </Button>
                     )}
