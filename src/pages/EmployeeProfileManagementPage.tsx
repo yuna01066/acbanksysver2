@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { ArrowLeft, Loader2, Users, FileText, BarChart3, FileSignature, Shield } from 'lucide-react';
-import EmployeeListSidebar, { type EmployeeProfile } from '@/components/employee/EmployeeListSidebar';
+import EmployeeListSidebar, { type EmployeeProfile, type AppRoleType } from '@/components/employee/EmployeeListSidebar';
 import EmployeeProfileDetail from '@/components/employee/EmployeeProfileDetail';
 import DocumentBoxSettings from '@/components/employee/DocumentBoxSettings';
 import DocumentSubmissionDashboard from '@/components/employee/DocumentSubmissionDashboard';
@@ -45,6 +45,7 @@ const EmployeeProfileManagementPage = () => {
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
   const [activeTab, setActiveTab] = useState<string>('employees');
+  const [employeeRoles, setEmployeeRoles] = useState<Record<string, AppRoleType>>({});
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdmin)) {
@@ -64,8 +65,27 @@ const EmployeeProfileManagementPage = () => {
     setLoading(false);
   };
 
+  const fetchRoles = async () => {
+    const { data } = await supabase.from('user_roles').select('user_id, role');
+    if (data) {
+      const roleMap: Record<string, AppRoleType> = {};
+      // Priority: admin > moderator > manager > employee
+      const priority: AppRoleType[] = ['employee', 'manager', 'moderator', 'admin'];
+      for (const r of data) {
+        const current = roleMap[r.user_id];
+        const newIdx = priority.indexOf(r.role as AppRoleType);
+        const curIdx = current ? priority.indexOf(current) : -1;
+        if (newIdx > curIdx) roleMap[r.user_id] = r.role as AppRoleType;
+      }
+      setEmployeeRoles(roleMap);
+    }
+  };
+
   useEffect(() => {
-    if (user && isAdmin) fetchEmployees();
+    if (user && isAdmin) {
+      fetchEmployees();
+      fetchRoles();
+    }
   }, [user, isAdmin]);
 
   const departments = useMemo(() => {
@@ -89,6 +109,10 @@ const EmployeeProfileManagementPage = () => {
     setEmployees(prev => prev.map(e => e.id === updated.id ? updated : e));
     setSelectedEmployee(updated);
   };
+
+  const handleRoleChanged = useCallback((userId: string, newRole: AppRoleType) => {
+    setEmployeeRoles(prev => ({ ...prev, [userId]: newRole }));
+  }, []);
 
   if (authLoading || !isAdmin) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
@@ -143,12 +167,15 @@ const EmployeeProfileManagementPage = () => {
               onDepartmentFilterChange={setDepartmentFilter}
               onSelect={setSelectedEmployee}
               departments={departments}
+              employeeRoles={employeeRoles}
             />
             {selectedEmployee ? (
               <EmployeeProfileDetail
                 key={selectedEmployee.id}
                 employee={selectedEmployee}
                 onUpdated={handleEmployeeUpdated}
+                currentRole={employeeRoles[selectedEmployee.id]}
+                onRoleChanged={handleRoleChanged}
               />
             ) : (
               <div className="flex-1 flex items-center justify-center text-muted-foreground">

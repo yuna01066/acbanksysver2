@@ -5,6 +5,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, Users, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+export type AppRoleType = 'admin' | 'moderator' | 'manager' | 'employee';
+
+export const ROLE_BADGE_MAP: Record<AppRoleType, { label: string; className: string } | null> = {
+  admin: { label: '관리자', className: 'bg-red-100 text-red-700 border-red-200' },
+  moderator: { label: '중간관리자', className: 'bg-blue-100 text-blue-700 border-blue-200' },
+  manager: null,
+  employee: null,
+};
+
 export interface EmployeeProfile {
   id: string;
   full_name: string;
@@ -61,12 +70,13 @@ interface EmployeeListSidebarProps {
   onDepartmentFilterChange: (val: string) => void;
   onSelect: (emp: EmployeeProfile) => void;
   departments: string[];
+  employeeRoles?: Record<string, AppRoleType>;
 }
 
 const EmployeeListSidebar: React.FC<EmployeeListSidebarProps> = ({
   employees, selectedId, search, onSearchChange,
   departmentFilter, onDepartmentFilterChange,
-  onSelect, departments,
+  onSelect, departments, employeeRoles = {},
 }) => {
   return (
     <div className="w-full lg:w-80 xl:w-96 border-r bg-card flex flex-col h-full">
@@ -143,6 +153,16 @@ const EmployeeListSidebar: React.FC<EmployeeListSidebarProps> = ({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-medium truncate">{emp.full_name}</span>
+                    {(() => {
+                      const role = employeeRoles[emp.id];
+                      const badgeInfo = role ? ROLE_BADGE_MAP[role] : null;
+                      if (badgeInfo) return (
+                        <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4", badgeInfo.className)}>
+                          {badgeInfo.label}
+                        </Badge>
+                      );
+                      return null;
+                    })()}
                     {!emp.is_approved && (
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-300 text-amber-600">
                         미승인
