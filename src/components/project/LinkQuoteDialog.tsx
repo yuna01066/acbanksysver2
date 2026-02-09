@@ -22,7 +22,7 @@ const LinkQuoteDialog: React.FC<Props> = ({ open, onOpenChange, projectId }) => 
     queryFn: async () => {
       const { data, error } = await supabase
         .from('saved_quotes')
-        .select('id, quote_number, project_name, total, quote_date, project_id')
+        .select('id, quote_number, project_name, total, quote_date, project_id, recipient_company')
         .is('project_id', null)
         .order('quote_date', { ascending: false })
         .limit(100);
@@ -34,16 +34,45 @@ const LinkQuoteDialog: React.FC<Props> = ({ open, onOpenChange, projectId }) => 
 
   const linkQuote = useMutation({
     mutationFn: async (quoteId: string) => {
+      // 1. Link quote to project
       const { error } = await supabase
         .from('saved_quotes')
         .update({ project_id: projectId })
         .eq('id', quoteId);
       if (error) throw error;
+
+      // 2. Auto-link recipient if project has none
+      const { data: project } = await supabase
+        .from('projects')
+        .select('recipient_id')
+        .eq('id', projectId)
+        .single();
+
+      if (project && !project.recipient_id) {
+        const quote = quotes.find((q: any) => q.id === quoteId);
+        if (quote?.recipient_company) {
+          const { data: recipient } = await supabase
+            .from('recipients')
+            .select('id')
+            .eq('company_name', quote.recipient_company)
+            .limit(1)
+            .maybeSingle();
+
+          if (recipient) {
+            await supabase
+              .from('projects')
+              .update({ recipient_id: recipient.id })
+              .eq('id', projectId);
+          }
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-quotes', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project-quote-counts'] });
       queryClient.invalidateQueries({ queryKey: ['unlinked-quotes-for-project'] });
+      queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       toast.success('견적서가 연결되었습니다.');
     },
     onError: () => toast.error('연결에 실패했습니다.'),
