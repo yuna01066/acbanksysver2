@@ -49,27 +49,29 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name }) => {
   }, []);
 
   return (
-    <div className="animate-fade-in flex items-center justify-between gap-4 px-2 py-3">
-      <div className="flex items-center gap-3">
-        <div className="animate-scale-in">
-          {greeting.icon}
+    <div className="animate-fade-in rounded-xl border bg-card p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="animate-scale-in flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+            {greeting.icon}
+          </div>
+          <div>
+            <p className="text-lg font-semibold text-foreground">
+              {name} 님, {greeting.message}
+            </p>
+            {greeting.sub && (
+              <p className="text-sm text-muted-foreground">{greeting.sub}</p>
+            )}
+          </div>
         </div>
-        <div>
-          <p className="text-lg font-semibold text-foreground">
-            {name} 님, {greeting.message}
+        <div className="text-right shrink-0">
+          <p className="text-2xl font-bold tabular-nums text-foreground tracking-tight">
+            {formatTime(now)}
           </p>
-          {greeting.sub && (
-            <p className="text-sm text-muted-foreground">{greeting.sub}</p>
-          )}
+          <p className="text-xs text-muted-foreground">
+            {formatDate(now)}
+          </p>
         </div>
-      </div>
-      <div className="text-right shrink-0">
-        <p className="text-2xl font-bold tabular-nums text-foreground tracking-tight">
-          {formatTime(now)}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {formatDate(now)}
-        </p>
       </div>
     </div>
   );
