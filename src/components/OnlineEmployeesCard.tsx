@@ -263,7 +263,7 @@ const OnlineEmployeesCard: React.FC = () => {
 
   return (
     <>
-      <div className="rounded-xl border bg-card p-5 shadow-sm animate-fade-in">
+      <div className="rounded-xl border bg-card p-5 shadow-sm animate-fade-in flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Users2 className="h-4 w-4 text-green-500" />
@@ -272,108 +272,110 @@ const OnlineEmployeesCard: React.FC = () => {
           </h3>
         </div>
 
-        {employees.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-3">현재 출근한 직원이 없습니다.</p>
-        ) : (
-          <div className="flex flex-wrap gap-3">
-            {sortedEmployees.map(emp => {
-              const isMe = user && emp.user_id === user.id;
-              const empStatus = getEmployeeStatus(emp.user_id);
-              const statusCfg = STATUS_CONFIG[empStatus];
+        <div className="flex-1">
+          {employees.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-3">현재 출근한 직원이 없습니다.</p>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {sortedEmployees.map(emp => {
+                const isMe = user && emp.user_id === user.id;
+                const empStatus = getEmployeeStatus(emp.user_id);
+                const statusCfg = STATUS_CONFIG[empStatus];
 
-              return (
-                <div key={emp.user_id} className="relative">
-                  <div className="flex flex-col items-center gap-1.5">
-                    <div className="relative">
-                      {isMe ? (
-                        <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
-                          <PopoverTrigger asChild>
-                            <Avatar
-                              className={`h-20 w-20 rounded-xl border-2 ${statusCfg.borderColor} shadow-md cursor-pointer transition-transform hover:scale-110 ring-2 ring-primary/30`}
-                            >
-                              <AvatarImage src={emp.avatar_url || undefined} alt={emp.user_name} className="object-cover" />
-                              <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-sm font-semibold">
-                                {emp.user_name.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-44 p-1.5" side="bottom" align="center">
-                            <p className="text-[10px] font-medium text-muted-foreground px-2 py-1">내 상태 변경</p>
-                            {(Object.entries(STATUS_CONFIG) as [WorkStatus, typeof STATUS_CONFIG[WorkStatus]][]).map(([key, cfg]) => (
-                              <button
-                                key={key}
-                                onClick={() => updateMyStatus(key)}
-                                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
-                                  myStatus === key ? 'bg-accent font-medium' : 'hover:bg-muted'
-                                }`}
+                return (
+                  <div key={emp.user_id} className="relative">
+                    <div className="flex flex-col items-center gap-1.5">
+                      <div className="relative">
+                        {isMe ? (
+                          <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
+                            <PopoverTrigger asChild>
+                              <Avatar
+                                className={`h-20 w-20 rounded-xl border-2 ${statusCfg.borderColor} shadow-md cursor-pointer transition-transform hover:scale-110 ring-2 ring-primary/30`}
                               >
-                                <span>{cfg.emoji}</span>
-                                <span>{cfg.label}</span>
-                              </button>
-                            ))}
-                          </PopoverContent>
-                        </Popover>
-                      ) : (
-                        <Avatar
-                          className={`h-16 w-16 rounded-xl border-2 ${statusCfg.borderColor} shadow-sm cursor-pointer transition-transform hover:scale-110`}
-                          onClick={() => {
-                            setActiveEmpId(activeEmpId === emp.user_id ? null : emp.user_id);
-                          }}
-                        >
-                          <AvatarImage src={emp.avatar_url || undefined} alt={emp.user_name} className="object-cover" />
-                          <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-sm font-semibold">
-                            {emp.user_name.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                      <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ${statusCfg.dotColor} border-2 border-card`} />
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <span className="text-xs text-muted-foreground font-medium max-w-[56px] truncate">
-                        {isMe ? '나' : emp.user_name}
-                      </span>
-                      {empStatus !== 'available' && (
-                        <span className={`text-[9px] ${statusCfg.color} font-medium`}>
-                          {statusCfg.label}
+                                <AvatarImage src={emp.avatar_url || undefined} alt={emp.user_name} className="object-cover" />
+                                <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-sm font-semibold">
+                                  {emp.user_name.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-44 p-1.5" side="bottom" align="center">
+                              <p className="text-[10px] font-medium text-muted-foreground px-2 py-1">내 상태 변경</p>
+                              {(Object.entries(STATUS_CONFIG) as [WorkStatus, typeof STATUS_CONFIG[WorkStatus]][]).map(([key, cfg]) => (
+                                <button
+                                  key={key}
+                                  onClick={() => updateMyStatus(key)}
+                                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
+                                    myStatus === key ? 'bg-accent font-medium' : 'hover:bg-muted'
+                                  }`}
+                                >
+                                  <span>{cfg.emoji}</span>
+                                  <span>{cfg.label}</span>
+                                </button>
+                              ))}
+                            </PopoverContent>
+                          </Popover>
+                        ) : (
+                          <Avatar
+                            className={`h-16 w-16 rounded-xl border-2 ${statusCfg.borderColor} shadow-sm cursor-pointer transition-transform hover:scale-110`}
+                            onClick={() => {
+                              setActiveEmpId(activeEmpId === emp.user_id ? null : emp.user_id);
+                            }}
+                          >
+                            <AvatarImage src={emp.avatar_url || undefined} alt={emp.user_name} className="object-cover" />
+                            <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-sm font-semibold">
+                              {emp.user_name.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                        <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ${statusCfg.dotColor} border-2 border-card`} />
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs text-muted-foreground font-medium max-w-[56px] truncate">
+                          {isMe ? '나' : emp.user_name}
                         </span>
-                      )}
-                    </div>
-                  </div>
-                  {/* Click-triggered actions for others */}
-                  {user && !isMe && activeEmpId === emp.user_id && (
-                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full z-10 animate-fade-in">
-                      <div className="bg-card border rounded-lg shadow-lg p-1.5 flex gap-1 whitespace-nowrap">
-                        <button
-                          onClick={() => { openFeedbackDialog(emp, 'recognition'); setActiveEmpId(null); }}
-                          className="p-1.5 rounded-md hover:bg-pink-50 dark:hover:bg-pink-950/30 transition-colors text-sm"
-                          title="인정 보내기"
-                        >❤️</button>
-                        <button
-                          onClick={() => { openFeedbackDialog(emp, 'feedback'); setActiveEmpId(null); }}
-                          className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors text-sm"
-                          title="피드백 보내기"
-                        >💬</button>
-                        <button
-                          onClick={() => { openFeedbackDialog(emp, 'one_on_one'); setActiveEmpId(null); }}
-                          className="p-1.5 rounded-md hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors text-sm"
-                          title="업무 요청"
-                        >🙏</button>
-                        <button
-                          onClick={() => { openFeedbackDialog(emp, 'meeting'); setActiveEmpId(null); }}
-                          className="p-1.5 rounded-md hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-colors text-sm"
-                          title="1:1 미팅 요청"
-                        >☕</button>
+                        {empStatus !== 'available' && (
+                          <span className={`text-[9px] ${statusCfg.color} font-medium`}>
+                            {statusCfg.label}
+                          </span>
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+                    {/* Click-triggered actions for others */}
+                    {user && !isMe && activeEmpId === emp.user_id && (
+                      <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full z-10 animate-fade-in">
+                        <div className="bg-card border rounded-lg shadow-lg p-1.5 flex gap-1 whitespace-nowrap">
+                          <button
+                            onClick={() => { openFeedbackDialog(emp, 'recognition'); setActiveEmpId(null); }}
+                            className="p-1.5 rounded-md hover:bg-pink-50 dark:hover:bg-pink-950/30 transition-colors text-sm"
+                            title="인정 보내기"
+                          >❤️</button>
+                          <button
+                            onClick={() => { openFeedbackDialog(emp, 'feedback'); setActiveEmpId(null); }}
+                            className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors text-sm"
+                            title="피드백 보내기"
+                          >💬</button>
+                          <button
+                            onClick={() => { openFeedbackDialog(emp, 'one_on_one'); setActiveEmpId(null); }}
+                            className="p-1.5 rounded-md hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors text-sm"
+                            title="업무 요청"
+                          >🙏</button>
+                          <button
+                            onClick={() => { openFeedbackDialog(emp, 'meeting'); setActiveEmpId(null); }}
+                            className="p-1.5 rounded-md hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-colors text-sm"
+                            title="1:1 미팅 요청"
+                          >☕</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-        {/* Feature guide */}
-        <div className="mt-4 pt-4 border-t space-y-2">
+        {/* Feature guide - bottom aligned */}
+        <div className="mt-auto pt-4 border-t space-y-2">
           <p className="text-[11px] font-semibold text-muted-foreground">💡 사용 방법</p>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-muted-foreground">
             <div className="flex items-center gap-1.5">
