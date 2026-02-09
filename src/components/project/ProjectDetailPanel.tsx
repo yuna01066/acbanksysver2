@@ -7,13 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, FileText, Link2, Unlink, Trash2, ExternalLink, Plus } from 'lucide-react';
+import { Building2, FileText, Link2, Unlink, Trash2, ExternalLink, Plus, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import LinkRecipientDialog from './LinkRecipientDialog';
 import LinkQuoteDialog from './LinkQuoteDialog';
 import QuotePreviewSheet from './QuotePreviewSheet';
+import ProjectAssignments from './ProjectAssignments';
+import ProjectRecipientSection from './ProjectRecipientSection';
 
 interface Props {
   projectId: string;
@@ -170,6 +172,18 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
         </CardHeader>
       </Card>
 
+      {/* Assigned Employees */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Users className="h-4 w-4" /> 담당 직원
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <ProjectAssignments projectId={projectId} />
+        </CardContent>
+      </Card>
+
       {/* Linked Recipient */}
       <Card>
         <CardHeader className="pb-2">
@@ -178,14 +192,16 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
               <Building2 className="h-4 w-4" /> 연결된 고객사
             </CardTitle>
             {project.recipient_id ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs gap-1 text-destructive"
-                onClick={() => linkRecipient.mutate(null)}
-              >
-                <Unlink className="h-3 w-3" /> 연결 해제
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1 text-destructive"
+                  onClick={() => linkRecipient.mutate(null)}
+                >
+                  <Unlink className="h-3 w-3" /> 연결 해제
+                </Button>
+              </div>
             ) : (
               <Button
                 variant="outline"
@@ -193,22 +209,17 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
                 className="h-7 text-xs gap-1"
                 onClick={() => setRecipientDialogOpen(true)}
               >
-                <Link2 className="h-3 w-3" /> 고객사 연결
+                <Link2 className="h-3 w-3" /> 기존 고객사 연결
               </Button>
             )}
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          {project.recipients ? (
-            <div className="p-3 bg-muted/30 rounded-lg text-sm space-y-1">
-              <p className="font-medium">{project.recipients.company_name}</p>
-              <p className="text-muted-foreground text-xs">
-                {project.recipients.contact_person} · {project.recipients.phone} · {project.recipients.email}
-              </p>
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground py-2">연결된 고객사가 없습니다.</p>
-          )}
+          <ProjectRecipientSection
+            projectId={projectId}
+            recipient={project.recipients}
+            onRecipientLinked={(id) => linkRecipient.mutate(id)}
+          />
         </CardContent>
       </Card>
 
