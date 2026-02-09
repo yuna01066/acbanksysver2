@@ -3,6 +3,8 @@ import AvatarUpload from './AvatarUpload';
 import LaborLawPanel from './LaborLawPanel';
 import EmployeeDocumentsPanel from './EmployeeDocumentsPanel';
 import EmployeeContractsPanel from './EmployeeContractsPanel';
+import EmployeeAttendancePanel from './EmployeeAttendancePanel';
+import EmployeeLeavePanel from './EmployeeLeavePanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -349,6 +351,12 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
             <TabsTrigger value="contracts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
               전자계약
             </TabsTrigger>
+            <TabsTrigger value="attendance" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
+              근태기록
+            </TabsTrigger>
+            <TabsTrigger value="leave" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
+              연차·휴가
+            </TabsTrigger>
           </TabsList>
         </div>
         <ScrollArea className="flex-1">
@@ -377,6 +385,12 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
             </TabsContent>
             <TabsContent value="contracts" className="mt-0 py-4">
               <EmployeeContractsPanel userId={employee.id} isAdmin />
+            </TabsContent>
+            <TabsContent value="attendance" className="mt-0 py-4">
+              <EmployeeAttendancePanel userId={employee.id} userName={employee.full_name} />
+            </TabsContent>
+            <TabsContent value="leave" className="mt-0 py-4">
+              <EmployeeLeavePanel userId={employee.id} />
             </TabsContent>
           </div>
         </ScrollArea>
