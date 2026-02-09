@@ -947,6 +947,27 @@ export type Database = {
         }
         Relationships: []
       }
+      page_access_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          page_key: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          page_key: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          page_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       panel_masters: {
         Row: {
           created_at: string | null

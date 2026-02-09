@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QuoteProvider } from "@/contexts/QuoteContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import PageAccessGuard from "@/components/PageAccessGuard";
 import Index from "./pages/Index";
 import Calculator from "./pages/Calculator";
 import NotFound from "./pages/NotFound";
@@ -41,6 +42,10 @@ import PerformanceReviewPage from "./pages/PerformanceReviewPage";
 
 const queryClient = new QueryClient();
 
+const G: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <PageAccessGuard>{children}</PageAccessGuard>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -54,33 +59,33 @@ const App = () => (
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/quote" element={<QuotePage />} />
             <Route path="/customer-quote" element={<CustomerQuotePage />} />
-            <Route path="/quotes-summary" element={<QuotesSummaryPage />} />
-            <Route path="/customer-quotes-summary" element={<CustomerQuotesSummaryPage />} />
+            <Route path="/quotes-summary" element={<G><QuotesSummaryPage /></G>} />
+            <Route path="/customer-quotes-summary" element={<G><CustomerQuotesSummaryPage /></G>} />
             <Route path="/internal-quote" element={<InternalQuotePage />} />
             <Route path="/embed-code" element={<EmbedCodePage />} />
             <Route path="/admin-settings" element={<AdminSettingsPage />} />
             <Route path="/price-management" element={<PriceManagement />} />
             <Route path="/panel-management" element={<PanelManagementPage />} />
             <Route path="/processing-price-management" element={<ProcessingPriceManagement />} />
-            <Route path="/saved-quotes" element={<SavedQuotesPage />} />
-            <Route path="/saved-quotes/:id" element={<SavedQuoteDetailPage />} />
+            <Route path="/saved-quotes" element={<G><SavedQuotesPage /></G>} />
+            <Route path="/saved-quotes/:id" element={<G><SavedQuoteDetailPage /></G>} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/my-page" element={<MyPage />} />
             <Route path="/user-management" element={<Navigate to="/employee-profiles" replace />} />
             <Route path="/user-statistics" element={<UserStatisticsPage />} />
             <Route path="/pluuug-integration" element={<PluuugIntegrationPage />} />
-            <Route path="/announcements" element={<AnnouncementsPage />} />
-            <Route path="/recipients" element={<RecipientManagementPage />} />
-            <Route path="/attendance" element={<AttendancePage />} />
+            <Route path="/announcements" element={<G><AnnouncementsPage /></G>} />
+            <Route path="/recipients" element={<G><RecipientManagementPage /></G>} />
+            <Route path="/attendance" element={<G><AttendancePage /></G>} />
             <Route path="/employee-profiles" element={<EmployeeProfileManagementPage />} />
             <Route path="/employee-work" element={<EmployeeWorkManagementPage />} />
-            <Route path="/leave-management" element={<LeaveManagementPage />} />
-            <Route path="/team-chat" element={<TeamChatPage />} />
+            <Route path="/leave-management" element={<G><LeaveManagementPage /></G>} />
+            <Route path="/team-chat" element={<G><TeamChatPage /></G>} />
             <Route path="/company-settings" element={<CompanySettingsPage />} />
-            <Route path="/project-management" element={<ProjectManagementPage />} />
+            <Route path="/project-management" element={<G><ProjectManagementPage /></G>} />
             <Route path="/review-settings" element={<ReviewSettingsPage />} />
-            <Route path="/performance-review" element={<PerformanceReviewPage />} />
+            <Route path="/performance-review" element={<G><PerformanceReviewPage /></G>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
             </Routes>
