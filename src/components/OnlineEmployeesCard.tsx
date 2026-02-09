@@ -34,6 +34,7 @@ const OnlineEmployeesCard: React.FC = () => {
   const [feedbackType, setFeedbackType] = useState<FeedbackType | null>(null);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [activeEmpId, setActiveEmpId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCheckedInEmployees();
@@ -137,10 +138,17 @@ const OnlineEmployeesCard: React.FC = () => {
         ) : (
           <div className="flex flex-wrap gap-3">
             {employees.map(emp => (
-              <div key={emp.user_id} className="group relative">
+              <div key={emp.user_id} className="relative">
                 <div className="flex flex-col items-center gap-1.5">
                   <div className="relative">
-                    <Avatar className="h-12 w-12 rounded-lg border-2 border-green-200 dark:border-green-800 shadow-sm cursor-pointer transition-transform hover:scale-110">
+                    <Avatar
+                      className="h-12 w-12 rounded-lg border-2 border-green-200 dark:border-green-800 shadow-sm cursor-pointer transition-transform hover:scale-110"
+                      onClick={() => {
+                        if (user && emp.user_id !== user.id) {
+                          setActiveEmpId(activeEmpId === emp.user_id ? null : emp.user_id);
+                        }
+                      }}
+                    >
                       <AvatarImage src={emp.avatar_url || undefined} alt={emp.user_name} className="object-cover" />
                       <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-sm font-semibold">
                         {emp.user_name.charAt(0)}
@@ -150,22 +158,22 @@ const OnlineEmployeesCard: React.FC = () => {
                   </div>
                   <span className="text-xs text-muted-foreground font-medium max-w-[56px] truncate">{emp.user_name}</span>
                 </div>
-                {/* Hover actions */}
-                {user && emp.user_id !== user.id && (
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full opacity-0 group-hover:opacity-100 transition-all duration-200 z-10 pointer-events-none group-hover:pointer-events-auto">
+                {/* Click-triggered actions */}
+                {user && emp.user_id !== user.id && activeEmpId === emp.user_id && (
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full z-10 animate-fade-in">
                     <div className="bg-card border rounded-lg shadow-lg p-1.5 flex gap-1 whitespace-nowrap">
                       <button
-                        onClick={() => openFeedbackDialog(emp, 'recognition')}
+                        onClick={() => { openFeedbackDialog(emp, 'recognition'); setActiveEmpId(null); }}
                         className="p-1.5 rounded-md hover:bg-pink-50 dark:hover:bg-pink-950/30 transition-colors text-sm"
                         title="인정 보내기"
                       >🙏</button>
                       <button
-                        onClick={() => openFeedbackDialog(emp, 'feedback')}
+                        onClick={() => { openFeedbackDialog(emp, 'feedback'); setActiveEmpId(null); }}
                         className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors text-sm"
                         title="피드백 보내기"
                       >💬</button>
                       <button
-                        onClick={() => openFeedbackDialog(emp, 'one_on_one')}
+                        onClick={() => { openFeedbackDialog(emp, 'one_on_one'); setActiveEmpId(null); }}
                         className="p-1.5 rounded-md hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors text-sm"
                         title="1:1 미팅 요청"
                       >☕</button>
