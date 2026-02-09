@@ -19,13 +19,14 @@ interface CheckedInEmployee {
   position?: string | null;
 }
 
-type FeedbackType = 'recognition' | 'feedback' | 'one_on_one';
+type FeedbackType = 'recognition' | 'feedback' | 'one_on_one' | 'meeting';
 type WorkStatus = 'available' | 'busy' | 'focusing' | 'meeting';
 
 const FEEDBACK_CONFIG: Record<FeedbackType, { label: string; emoji: string; placeholder: string; color: string }> = {
   recognition: { label: '인정 보내기', emoji: '❤️', placeholder: '동료의 어떤 점이 인상적이었는지 알려주세요...', color: 'text-pink-600' },
   feedback: { label: '피드백 보내기', emoji: '💬', placeholder: '도움이 될 만한 피드백을 남겨주세요...', color: 'text-blue-600' },
   one_on_one: { label: '업무 요청', emoji: '🙏', placeholder: '요청할 업무 내용을 간단히 적어주세요...', color: 'text-amber-600' },
+  meeting: { label: '1:1 미팅 요청', emoji: '☕', placeholder: '미팅 주제나 이유를 간단히 적어주세요...', color: 'text-orange-600' },
 };
 
 const STATUS_CONFIG: Record<WorkStatus, { label: string; emoji: string; color: string; borderColor: string; dotColor: string }> = {
@@ -154,7 +155,7 @@ const OnlineEmployeesCard: React.FC = () => {
       await supabase.from('notifications').insert({
         user_id: selectedEmployee.user_id,
         type: 'peer_feedback',
-        title: feedbackType === 'recognition' ? '❤️ 인정을 받았어요!' : feedbackType === 'one_on_one' ? '🙏 업무 요청이 도착했어요' : '💬 피드백이 도착했어요',
+        title: feedbackType === 'recognition' ? '❤️ 인정을 받았어요!' : feedbackType === 'one_on_one' ? '🙏 업무 요청이 도착했어요' : feedbackType === 'meeting' ? '☕ 1:1 미팅 요청' : '💬 피드백이 도착했어요',
         description: message.trim().substring(0, 100),
       });
 
@@ -286,6 +287,11 @@ const OnlineEmployeesCard: React.FC = () => {
                           className="p-1.5 rounded-md hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors text-sm"
                           title="업무 요청"
                         >🙏</button>
+                        <button
+                          onClick={() => { openFeedbackDialog(emp, 'meeting'); setActiveEmpId(null); }}
+                          className="p-1.5 rounded-md hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-colors text-sm"
+                          title="1:1 미팅 요청"
+                        >☕</button>
                       </div>
                     </div>
                   )}
