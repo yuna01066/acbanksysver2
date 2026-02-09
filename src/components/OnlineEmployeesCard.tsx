@@ -186,6 +186,15 @@ const OnlineEmployeesCard: React.FC = () => {
       const { error } = await supabase.from('peer_feedback').insert(insertData);
       if (error) throw error;
 
+      // Also create a DM so the conversation appears in the messenger
+      const feedbackLabel = FEEDBACK_CONFIG[feedbackType].label;
+      const dmMessage = `[${feedbackLabel}] ${finalMessage}`;
+      await supabase.from('direct_messages').insert({
+        sender_id: user.id,
+        receiver_id: selectedEmployee.user_id,
+        message: dmMessage,
+      });
+
       await supabase.from('notifications').insert({
         user_id: selectedEmployee.user_id,
         type: 'peer_feedback',
