@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, CalendarDays, Loader2 } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, Loader2 } from 'lucide-react';
 import { useLeaveRequests, calculateAnnualLeaveDays } from '@/hooks/useLeaveRequests';
 import LeaveRequestForm from '@/components/leave/LeaveRequestForm';
 import LeaveRequestList from '@/components/leave/LeaveRequestList';
@@ -62,7 +62,13 @@ const LeaveManagementPage = () => {
             연차 관리
           </h1>
         </div>
-        <LeaveRequestForm onSubmit={createRequest} remainingDays={remainingDays} />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate('/attendance')} className="gap-1">
+            <Clock className="h-4 w-4" />
+            근태 관리
+          </Button>
+          <LeaveRequestForm onSubmit={createRequest} remainingDays={remainingDays} />
+        </div>
       </div>
 
       <div className="container max-w-4xl mx-auto px-4 py-6 space-y-6">
