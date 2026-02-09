@@ -8,9 +8,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Heart, MessageSquare, Users2, Send, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
+import { Heart, MessageSquare, Users2, Send, Loader2, CalendarIcon, Clock } from 'lucide-react';
 import { useProjectSuggestions, TaggableProject } from '@/hooks/useProjectSuggestions';
 import ProjectDropdown from '@/components/chat/ProjectDropdown';
+import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 interface CheckedInEmployee {
   user_id: string;
@@ -55,6 +60,10 @@ const OnlineEmployeesCard: React.FC = () => {
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [projectSelectedIndex, setProjectSelectedIndex] = useState(0);
   const projectResults = showProjectDropdown ? filterProjects(projectQuery) : [];
+
+  // Meeting date/time
+  const [meetingDate, setMeetingDate] = useState<Date | undefined>(undefined);
+  const [meetingTime, setMeetingTime] = useState<string>('');
 
   // Status tracking via Realtime Presence
   const [myStatus, setMyStatus] = useState<WorkStatus>('available');
@@ -153,11 +162,18 @@ const OnlineEmployeesCard: React.FC = () => {
     if (!user || !selectedEmployee || !feedbackType || !message.trim()) return;
     setSending(true);
     try {
+      let finalMessage = message.trim();
+      if (feedbackType === 'meeting' && meetingDate) {
+        const dateStr = format(meetingDate, 'yyyy-MM-dd (EEE)', { locale: ko });
+        const timeStr = meetingTime || '시간 미정';
+        finalMessage = `📅 ${dateStr} ${timeStr}\n${finalMessage}`;
+      }
+
       const { error } = await supabase.from('peer_feedback').insert({
         sender_id: user.id,
         receiver_id: selectedEmployee.user_id,
         feedback_type: feedbackType,
-        message: message.trim(),
+        message: finalMessage,
         emoji: FEEDBACK_CONFIG[feedbackType].emoji,
       });
       if (error) throw error;
@@ -185,6 +201,8 @@ const OnlineEmployeesCard: React.FC = () => {
     setFeedbackType(type);
     setMessage('');
     setShowProjectDropdown(false);
+    setMeetingDate(undefined);
+    setMeetingTime('');
   };
 
   const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -392,36 +410,60 @@ const OnlineEmployeesCard: React.FC = () => {
                   </p>
                 </div>
               </div>
-              {feedbackType !== 'meeting' && (
-                <div className="relative">
-                  {showProjectDropdown && projectResults.length > 0 && (
-                    <ProjectDropdown
-                      projects={projectResults}
-                      selectedIndex={projectSelectedIndex}
-                      onSelect={insertProjectTag}
-                    />
-                  )}
-                  <Textarea
-                    ref={textareaRef}
-                    value={message}
-                    onChange={handleMessageChange}
-                    onKeyDown={handleMessageKeyDown}
-                    placeholder={`${FEEDBACK_CONFIG[feedbackType].placeholder}\n#으로 프로젝트를 태그할 수 있어요`}
-                    rows={4}
-                    className="resize-none"
-                    maxLength={500}
+              <div className="relative">
+                {showProjectDropdown && projectResults.length > 0 && (
+                  <ProjectDropdown
+                    projects={projectResults}
+                    selectedIndex={projectSelectedIndex}
+                    onSelect={insertProjectTag}
                   />
-                </div>
-              )}
-              {feedbackType === 'meeting' && (
+                )}
                 <Textarea
+                  ref={textareaRef}
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder={FEEDBACK_CONFIG[feedbackType].placeholder}
+                  onChange={handleMessageChange}
+                  onKeyDown={handleMessageKeyDown}
+                  placeholder={`${FEEDBACK_CONFIG[feedbackType].placeholder}\n#으로 프로젝트를 태그할 수 있어요`}
                   rows={4}
                   className="resize-none"
                   maxLength={500}
                 />
+              </div>
+              {feedbackType === 'meeting' && (
+                <div className="flex gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className={cn("flex-1 justify-start text-left font-normal", !meetingDate && "text-muted-foreground")}>
+                        <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+                        {meetingDate ? format(meetingDate, 'MM/dd (EEE)', { locale: ko }) : '날짜 선택'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={meetingDate}
+                        onSelect={setMeetingDate}
+                        disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Select value={meetingTime} onValueChange={setMeetingTime}>
+                    <SelectTrigger className="w-[120px]">
+                      <Clock className="h-3.5 w-3.5 mr-1.5" />
+                      <SelectValue placeholder="시간" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 19 }, (_, i) => {
+                        const h = Math.floor(i / 2) + 9;
+                        const m = i % 2 === 0 ? '00' : '30';
+                        const time = `${String(h).padStart(2, '0')}:${m}`;
+                        return <SelectItem key={time} value={time}>{time}</SelectItem>;
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
               <div className="flex justify-between items-center">
                 <span className="text-xs text-muted-foreground">{message.length}/500</span>
