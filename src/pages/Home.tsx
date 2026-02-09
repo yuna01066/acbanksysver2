@@ -36,12 +36,11 @@ const Home = () => {
     requiresAuth: true,
     action: () => window.open("https://acbank.co.kr/acbankform", "_blank")
   }, {
-    title: "채널톡",
+    title: "팀 채팅",
     icon: MessageCircle,
-    description: "실시간 상담",
-    url: "https://acbank.channel.io",
+    description: "팀 메시지",
+    url: "/team-chat",
     requiresAuth: true,
-    action: () => window.open("https://acbank.channel.io", "_blank")
   }, {
     title: "수율 계산기",
     icon: TrendingUp,
@@ -164,7 +163,7 @@ const Home = () => {
             <div className="flex items-center gap-4">
               {user ? (
                 <>
-                  <Button variant="ghost" size="icon" onClick={() => window.open('https://desk.channel.io/acbank/groups/단체방-401443', '_blank')} title="팀챗">
+                  <Button variant="ghost" size="icon" onClick={() => navigate('/team-chat')} title="팀챗">
                     <MessageCircle className="h-5 w-5" />
                   </Button>
                   <Button variant="ghost" size="icon" onClick={() => navigate('/my-page')} title="마이페이지">
