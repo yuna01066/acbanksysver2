@@ -420,6 +420,9 @@ export type Database = {
           annual_salary: number | null
           base_pay: number | null
           birth_date: string | null
+          comprehensive_wage_basis: string | null
+          comprehensive_wage_hours: number | null
+          comprehensive_wage_type: string | null
           contract_date: string
           contract_end_date: string | null
           contract_start_date: string | null
@@ -446,6 +449,8 @@ export type Database = {
           updated_at: string
           user_id: string
           user_name: string
+          wage_basis: string | null
+          wage_start_date: string | null
           work_days: string | null
           work_type: string | null
         }
@@ -453,6 +458,9 @@ export type Database = {
           annual_salary?: number | null
           base_pay?: number | null
           birth_date?: string | null
+          comprehensive_wage_basis?: string | null
+          comprehensive_wage_hours?: number | null
+          comprehensive_wage_type?: string | null
           contract_date?: string
           contract_end_date?: string | null
           contract_start_date?: string | null
@@ -479,6 +487,8 @@ export type Database = {
           updated_at?: string
           user_id: string
           user_name: string
+          wage_basis?: string | null
+          wage_start_date?: string | null
           work_days?: string | null
           work_type?: string | null
         }
@@ -486,6 +496,9 @@ export type Database = {
           annual_salary?: number | null
           base_pay?: number | null
           birth_date?: string | null
+          comprehensive_wage_basis?: string | null
+          comprehensive_wage_hours?: number | null
+          comprehensive_wage_type?: string | null
           contract_date?: string
           contract_end_date?: string | null
           contract_start_date?: string | null
@@ -512,6 +525,8 @@ export type Database = {
           updated_at?: string
           user_id?: string
           user_name?: string
+          wage_basis?: string | null
+          wage_start_date?: string | null
           work_days?: string | null
           work_type?: string | null
         }
