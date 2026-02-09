@@ -1,0 +1,2 @@
+ALTER TABLE public.peer_feedback DROP CONSTRAINT peer_feedback_feedback_type_check;
+ALTER TABLE public.peer_feedback ADD CONSTRAINT peer_feedback_feedback_type_check CHECK (feedback_type = ANY (ARRAY['recognition'::text, 'feedback'::text, 'one_on_one'::text, 'meeting'::text]));
