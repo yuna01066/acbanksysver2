@@ -219,10 +219,14 @@ const AttendancePage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 p-4">
       <div className="w-full max-w-6xl mx-auto">
-        <div className="mb-6">
+        <div className="mb-6 flex items-center gap-2">
           <Button variant="outline" onClick={() => navigate('/')} size="sm" className="flex items-center gap-2">
             <ArrowLeft className="w-4 h-4" />
             홈으로 돌아가기
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/leave-management')} size="sm" className="flex items-center gap-2">
+            <CalendarDays className="w-4 h-4" />
+            연차 관리
           </Button>
         </div>
 
