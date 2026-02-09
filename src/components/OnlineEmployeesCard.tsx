@@ -217,7 +217,7 @@ const OnlineEmployeesCard: React.FC = () => {
                         <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
                           <PopoverTrigger asChild>
                             <Avatar
-                              className={`h-16 w-16 rounded-lg border-2 ${statusCfg.borderColor} shadow-md cursor-pointer transition-transform hover:scale-110 ring-2 ring-primary/30`}
+                              className={`h-20 w-20 rounded-xl border-2 ${statusCfg.borderColor} shadow-md cursor-pointer transition-transform hover:scale-110 ring-2 ring-primary/30`}
                             >
                               <AvatarImage src={emp.avatar_url || undefined} alt={emp.user_name} className="object-cover" />
                               <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-sm font-semibold">
@@ -243,7 +243,7 @@ const OnlineEmployeesCard: React.FC = () => {
                         </Popover>
                       ) : (
                         <Avatar
-                          className={`h-12 w-12 rounded-lg border-2 ${statusCfg.borderColor} shadow-sm cursor-pointer transition-transform hover:scale-110`}
+                          className={`h-16 w-16 rounded-xl border-2 ${statusCfg.borderColor} shadow-sm cursor-pointer transition-transform hover:scale-110`}
                           onClick={() => {
                             setActiveEmpId(activeEmpId === emp.user_id ? null : emp.user_id);
                           }}
