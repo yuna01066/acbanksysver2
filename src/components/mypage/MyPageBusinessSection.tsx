@@ -27,8 +27,9 @@ import { ko } from 'date-fns/locale';
 import {
   Calendar, DollarSign, FileText, TrendingUp, Trash2, Users,
   Cloud, CloudOff, Upload, Loader2, RefreshCw, AlertTriangle,
-  CheckCircle2, Pencil, Download, Search, X, Filter,
+  CheckCircle2, Pencil, Download, Search, X, Filter, Star,
 } from 'lucide-react';
+import MyPerformanceReviewResults from './MyPerformanceReviewResults';
 
 interface SavedQuote {
   id: string;
@@ -352,9 +353,12 @@ const MyPageBusinessSection: React.FC = () => {
   return (
     <>
       <Tabs defaultValue="quotes" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 max-w-md">
+        <TabsList className="grid w-full grid-cols-4 max-w-lg">
           <TabsTrigger value="quotes">내 견적서</TabsTrigger>
           <TabsTrigger value="recipients">거래처</TabsTrigger>
+          <TabsTrigger value="reviews" className="gap-1">
+            <Star className="h-3.5 w-3.5" />업무평가
+          </TabsTrigger>
           <TabsTrigger value="stats">통계</TabsTrigger>
         </TabsList>
 
@@ -594,6 +598,11 @@ const MyPageBusinessSection: React.FC = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* 업무평가 */}
+        <TabsContent value="reviews" className="space-y-4">
+          <MyPerformanceReviewResults />
         </TabsContent>
 
         {/* 통계 */}
