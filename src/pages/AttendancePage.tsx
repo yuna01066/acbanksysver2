@@ -14,12 +14,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ArrowLeft, Clock, LogIn, LogOut, MapPin, CalendarDays, Plus, Loader2, Check, X, BarChart3, Pencil } from 'lucide-react';
+import { ArrowLeft, Clock, LogIn, LogOut, MapPin, CalendarDays, Plus, Loader2, Check, X, BarChart3, Pencil, CalendarRange, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import AttendanceEditDialog from '@/components/attendance/AttendanceEditDialog';
+import AttendanceCalendarView from '@/components/attendance/AttendanceCalendarView';
 
 const LEAVE_TYPES = [
   { value: 'annual', label: '연차' },
@@ -46,6 +47,7 @@ const AttendancePage = () => {
   const [adminTab, setAdminTab] = useState('my');
   const [editRecord, setEditRecord] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [filterDate, setFilterDate] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -318,18 +320,38 @@ const AttendancePage = () => {
           <TabsList className="mb-4">
             <TabsTrigger value="attendance"><Clock className="w-4 h-4 mr-1" />출퇴근 기록</TabsTrigger>
             <TabsTrigger value="leave"><CalendarDays className="w-4 h-4 mr-1" />휴가 관리</TabsTrigger>
+            {(isAdmin || isModerator) && (
+              <TabsTrigger value="calendar"><CalendarRange className="w-4 h-4 mr-1" />캘린더</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="attendance">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
+               <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="text-base">
                   {format(selectedMonth, 'yyyy년 M월', { locale: ko })} 출퇴근 기록
                 </CardTitle>
-                <div className="flex gap-1">
-                  <Button variant="outline" size="sm" onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1))}>◀</Button>
-                  <Button variant="outline" size="sm" onClick={() => setSelectedMonth(new Date())}>오늘</Button>
-                  <Button variant="outline" size="sm" onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1))}>▶</Button>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <Search className="w-3.5 h-3.5 text-muted-foreground" />
+                    <Input
+                      type="date"
+                      value={filterDate}
+                      onChange={(e) => setFilterDate(e.target.value)}
+                      className="h-8 w-[140px] text-xs"
+                      placeholder="날짜 선택"
+                    />
+                    {filterDate && (
+                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setFilterDate('')}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1))}>◀</Button>
+                    <Button variant="outline" size="sm" onClick={() => setSelectedMonth(new Date())}>오늘</Button>
+                    <Button variant="outline" size="sm" onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1))}>▶</Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -347,10 +369,14 @@ const AttendancePage = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {monthlyRecords.length === 0 ? (
-                        <TableRow><TableCell colSpan={adminTab === 'all' ? 6 : 5} className="text-center py-8 text-muted-foreground">기록이 없습니다</TableCell></TableRow>
-                      ) : (
-                        monthlyRecords.map((r: any) => (
+                      {(() => {
+                        const filtered = filterDate
+                          ? monthlyRecords.filter((r: any) => r.date === filterDate)
+                          : monthlyRecords;
+                        if (filtered.length === 0) return (
+                          <TableRow><TableCell colSpan={adminTab === 'all' ? 7 : 5} className="text-center py-8 text-muted-foreground">{filterDate ? `${filterDate}의 기록이 없습니다` : '기록이 없습니다'}</TableCell></TableRow>
+                        );
+                        return filtered.map((r: any) => (
                           <TableRow key={r.id}>
                             <TableCell className="font-medium">{format(new Date(r.date), 'M/d (EEE)', { locale: ko })}</TableCell>
                             {adminTab === 'all' && <TableCell>{r.user_name}</TableCell>}
@@ -361,22 +387,22 @@ const AttendancePage = () => {
                               <Badge variant="outline" className="text-xs">
                                 {r.status === 'checked_out' ? '완료' : (r.status === 'checked_in' || r.status === 'present') ? '근무 중' : r.status}
                               </Badge>
-                             </TableCell>
-                             {(isAdmin || isModerator) && adminTab === 'all' && (
-                               <TableCell>
-                                 <Button
-                                   size="sm"
-                                   variant="ghost"
-                                   className="h-7 w-7 p-0"
-                                   onClick={() => { setEditRecord(r); setEditDialogOpen(true); }}
-                                 >
-                                   <Pencil className="w-3.5 h-3.5" />
-                                 </Button>
-                               </TableCell>
-                             )}
+                            </TableCell>
+                            {(isAdmin || isModerator) && adminTab === 'all' && (
+                              <TableCell>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => { setEditRecord(r); setEditDialogOpen(true); }}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                              </TableCell>
+                            )}
                           </TableRow>
-                        ))
-                      )}
+                        ));
+                      })()}
                     </TableBody>
                   </Table>
                 </div>
@@ -480,6 +506,12 @@ const AttendancePage = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {(isAdmin || isModerator) && (
+            <TabsContent value="calendar">
+              <AttendanceCalendarView />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 
