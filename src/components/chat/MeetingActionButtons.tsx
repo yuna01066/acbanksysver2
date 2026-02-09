@@ -149,8 +149,8 @@ const MeetingActionButtons: React.FC<MeetingActionButtonsProps> = ({
     }
   };
 
-  // No actions if not pending
-  if (meetingStatus !== 'pending') return null;
+  // No actions if already declined
+  if (meetingStatus === 'declined') return null;
 
   // Reschedule mode UI
   if (rescheduleMode) {
@@ -221,19 +221,22 @@ const MeetingActionButtons: React.FC<MeetingActionButtonsProps> = ({
     );
   }
 
-  // Receiver actions: accept / decline / reschedule
+  // Receiver actions
   if (isReceiver) {
+    const isPending = meetingStatus === 'pending';
     return (
       <div className="flex gap-1.5 mt-2 justify-center">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
-          disabled={processing}
-          onClick={handleDecline}
-        >
-          <X className="h-3 w-3" /> 거절
-        </Button>
+        {isPending && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+            disabled={processing}
+            onClick={handleDecline}
+          >
+            <X className="h-3 w-3" /> 거절
+          </Button>
+        )}
         <Button
           size="sm"
           variant="ghost"
@@ -243,23 +246,34 @@ const MeetingActionButtons: React.FC<MeetingActionButtonsProps> = ({
         >
           <RefreshCw className="h-3 w-3" /> 일정 변경
         </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 text-xs text-green-600 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20 gap-1"
-          disabled={processing}
-          onClick={handleAccept}
-        >
-          <Check className="h-3 w-3" /> 수락
-        </Button>
+        {isPending && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs text-green-600 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20 gap-1"
+            disabled={processing}
+            onClick={handleAccept}
+          >
+            <Check className="h-3 w-3" /> 수락
+          </Button>
+        )}
       </div>
     );
   }
 
-  // Sender action: cancel
+  // Sender action: cancel or reschedule
   if (isSender) {
     return (
-      <div className="flex justify-center mt-2">
+      <div className="flex gap-1.5 justify-center mt-2">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 text-xs text-orange-600 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20 gap-1"
+          disabled={processing}
+          onClick={() => setRescheduleMode(true)}
+        >
+          <RefreshCw className="h-3 w-3" /> 일정 변경
+        </Button>
         <Button
           size="sm"
           variant="ghost"
