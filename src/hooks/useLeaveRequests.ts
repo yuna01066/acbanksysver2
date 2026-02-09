@@ -88,6 +88,36 @@ export const useLeaveRequests = () => {
     fetchRequests();
   }, [fetchRequests]);
 
+  // Helper: send notifications to all admins
+  const notifyAdmins = async (title: string, description: string, type: string, data?: Record<string, any>) => {
+    const { data: adminRoles } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .in('role', ['admin', 'moderator']);
+    if (!adminRoles) return;
+    const uniqueIds = [...new Set(adminRoles.map(r => r.user_id))];
+    for (const adminId of uniqueIds) {
+      await supabase.from('notifications').insert({
+        user_id: adminId,
+        type,
+        title,
+        description,
+        data: data || {},
+      });
+    }
+  };
+
+  // Helper: send notification to a specific user
+  const notifyUser = async (userId: string, title: string, description: string, type: string, data?: Record<string, any>) => {
+    await supabase.from('notifications').insert({
+      user_id: userId,
+      type,
+      title,
+      description,
+      data: data || {},
+    });
+  };
+
   const createRequest = async (params: {
     leave_type: string;
     start_date: string;
@@ -106,12 +136,24 @@ export const useLeaveRequests = () => {
       return false;
     }
     toast.success('연차가 신청되었습니다.');
+
+    // Notify admins
+    const leaveLabel = LEAVE_TYPES[params.leave_type] || params.leave_type;
+    await notifyAdmins(
+      '연차 신청',
+      `${profile.full_name}님이 ${leaveLabel} ${params.days}일을 신청했습니다. (${params.start_date} ~ ${params.end_date})`,
+      'leave_request',
+      { leave_type: params.leave_type, start_date: params.start_date, end_date: params.end_date, days: params.days, user_name: profile.full_name },
+    );
+
     await fetchRequests();
     return true;
   };
 
   const approveRequest = async (id: string) => {
     if (!user || !profile) return;
+    // Find the request to get requester info
+    const target = requests.find(r => r.id === id);
     const { error } = await supabase.from('leave_requests').update({
       status: 'approved',
       approved_by: user.id,
@@ -123,11 +165,25 @@ export const useLeaveRequests = () => {
       return;
     }
     toast.success('승인되었습니다.');
+
+    // Notify the requester
+    if (target) {
+      const leaveLabel = LEAVE_TYPES[target.leave_type] || target.leave_type;
+      await notifyUser(
+        target.user_id,
+        '연차 승인',
+        `${leaveLabel} ${target.days}일 (${target.start_date} ~ ${target.end_date}) 신청이 승인되었습니다.`,
+        'leave_approved',
+        { leave_request_id: id },
+      );
+    }
+
     await fetchRequests();
   };
 
   const rejectRequest = async (id: string, rejectReason: string) => {
     if (!user || !profile) return;
+    const target = requests.find(r => r.id === id);
     const { error } = await supabase.from('leave_requests').update({
       status: 'rejected',
       approved_by: user.id,
@@ -140,6 +196,19 @@ export const useLeaveRequests = () => {
       return;
     }
     toast.success('반려되었습니다.');
+
+    // Notify the requester
+    if (target) {
+      const leaveLabel = LEAVE_TYPES[target.leave_type] || target.leave_type;
+      await notifyUser(
+        target.user_id,
+        '연차 반려',
+        `${leaveLabel} ${target.days}일 (${target.start_date} ~ ${target.end_date}) 신청이 반려되었습니다. 사유: ${rejectReason}`,
+        'leave_rejected',
+        { leave_request_id: id, reject_reason: rejectReason },
+      );
+    }
+
     await fetchRequests();
   };
 
