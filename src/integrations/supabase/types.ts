@@ -1274,6 +1274,41 @@ export type Database = {
         }
         Relationships: []
       }
+      quote_memos: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          quote_id: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          quote_id: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          quote_id?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_memos_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recipients: {
         Row: {
           address: string | null
