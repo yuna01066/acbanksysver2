@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Code, Settings, Lock, Wrench, UserCog, Link, Users } from "lucide-react";
+import { ArrowLeft, Code, Settings, Lock, Wrench, UserCog, Link, Users, Building2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const AdminSettingsPage = () => {
@@ -168,6 +168,24 @@ const AdminSettingsPage = () => {
                 >
                   <Link className="w-4 h-4" />
                   Pluuug 연동
+                </Button>
+              </div>
+
+              <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
+                <h3 className="font-medium mb-2 flex items-center gap-2">
+                  <Building2 className="w-4 h-4" />
+                  회사 설정
+                </h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  회사 정보 및 휴일을 관리합니다.
+                </p>
+                <Button
+                  onClick={() => navigate('/company-settings')}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Building2 className="w-4 h-4" />
+                  회사 설정
                 </Button>
               </div>
 
