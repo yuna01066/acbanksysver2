@@ -355,7 +355,7 @@ const AttendancePage = () => {
                             <TableCell>{r.work_hours ? `${Number(r.work_hours).toFixed(1)}h` : '-'}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className="text-xs">
-                                {r.status === 'checked_out' ? '완료' : r.status === 'checked_in' ? '출근중' : r.status}
+                                {r.status === 'checked_out' ? '완료' : (r.status === 'checked_in' || r.status === 'present') ? '근무 중' : r.status}
                               </Badge>
                             </TableCell>
                           </TableRow>
