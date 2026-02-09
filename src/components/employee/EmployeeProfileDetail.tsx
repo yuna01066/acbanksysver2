@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import AvatarUpload from './AvatarUpload';
 import LaborLawPanel from './LaborLawPanel';
 import EmployeeDocumentsPanel from './EmployeeDocumentsPanel';
+import EmployeeContractsPanel from './EmployeeContractsPanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +19,7 @@ import {
   User, Building2, Briefcase, Hash, Calendar, Globe, MapPin,
   CreditCard, Clock, Award, AlertTriangle, GraduationCap,
   Heart, FileText, Wallet, CalendarDays, Pencil, Save, X, Loader2,
-  Mail, Phone
+  Mail, Phone, FileSignature
 } from 'lucide-react';
 import type { EmployeeProfile } from './EmployeeListSidebar';
 
@@ -345,6 +346,9 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
             <TabsTrigger value="documents" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
               문서함
             </TabsTrigger>
+            <TabsTrigger value="contracts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
+              전자계약
+            </TabsTrigger>
           </TabsList>
         </div>
         <ScrollArea className="flex-1">
@@ -370,6 +374,9 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
             </TabsContent>
             <TabsContent value="documents" className="mt-0 py-4">
               <EmployeeDocumentsPanel userId={employee.id} isAdmin />
+            </TabsContent>
+            <TabsContent value="contracts" className="mt-0 py-4">
+              <EmployeeContractsPanel userId={employee.id} isAdmin />
             </TabsContent>
           </div>
         </ScrollArea>
