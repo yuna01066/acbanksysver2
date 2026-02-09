@@ -33,6 +33,7 @@ import AttendancePage from "./pages/AttendancePage";
 import EmployeeProfileManagementPage from "./pages/EmployeeProfileManagementPage";
 import LeaveManagementPage from "./pages/LeaveManagementPage";
 import TeamChatPage from "./pages/TeamChatPage";
+import CompanySettingsPage from "./pages/CompanySettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -71,6 +72,7 @@ const App = () => (
             <Route path="/employee-profiles" element={<EmployeeProfileManagementPage />} />
             <Route path="/leave-management" element={<LeaveManagementPage />} />
             <Route path="/team-chat" element={<TeamChatPage />} />
+            <Route path="/company-settings" element={<CompanySettingsPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
             </Routes>
