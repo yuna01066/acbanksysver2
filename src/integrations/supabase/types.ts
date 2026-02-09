@@ -1306,6 +1306,47 @@ export type Database = {
           },
         ]
       }
+      project_updates: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          notion_links: Json | null
+          project_id: string
+          updated_at: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          notion_links?: Json | null
+          project_id: string
+          updated_at?: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          notion_links?: Json | null
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_updates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           contact_email: string | null
