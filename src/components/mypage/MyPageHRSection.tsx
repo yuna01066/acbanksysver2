@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import ProfileInfoCard from '@/components/ProfileInfoCard';
 import EmployeeDocumentsPanel from '@/components/employee/EmployeeDocumentsPanel';
 import MyContractsList from '@/components/contract/MyContractsList';
+import ReceivedFeedbackPanel from '@/components/mypage/ReceivedFeedbackPanel';
 
 const MyPageHRSection: React.FC = () => {
   const { user, profile } = useAuth();
@@ -42,8 +43,9 @@ const MyPageHRSection: React.FC = () => {
 
   return (
     <Tabs defaultValue="profile" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-4 max-w-lg">
+      <TabsList className="grid w-full grid-cols-5 max-w-2xl">
         <TabsTrigger value="profile">프로필</TabsTrigger>
+        <TabsTrigger value="feedback" className="gap-1">🙏 피드백</TabsTrigger>
         <TabsTrigger value="contracts" className="gap-1">
           <PenLine className="h-3.5 w-3.5" />계약서
         </TabsTrigger>
@@ -53,6 +55,10 @@ const MyPageHRSection: React.FC = () => {
 
       <TabsContent value="profile" className="space-y-4">
         <ProfileInfoCard />
+      </TabsContent>
+
+      <TabsContent value="feedback" className="space-y-4">
+        <ReceivedFeedbackPanel />
       </TabsContent>
 
       <TabsContent value="contracts" className="space-y-4">
