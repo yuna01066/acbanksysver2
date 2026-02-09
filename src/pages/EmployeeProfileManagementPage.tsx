@@ -162,20 +162,20 @@ const EmployeeProfileManagementPage = () => {
         </div>
       </TabsContent>
 
-      <TabsContent value="document-status" className="flex-1 overflow-y-auto mt-0">
+      <TabsContent value="document-status" className="overflow-y-auto mt-0">
         <div className="container max-w-5xl mx-auto px-6 py-8">
           <h2 className="text-lg font-bold mb-4">서류 제출 현황</h2>
           <DocumentSubmissionDashboard />
         </div>
       </TabsContent>
 
-      <TabsContent value="contracts" className="flex-1 overflow-y-auto min-h-0 mt-0">
+      <TabsContent value="contracts" className="overflow-y-auto mt-0">
         <div className="container max-w-6xl mx-auto px-6 py-6">
           <ContractManagement />
         </div>
       </TabsContent>
 
-      <TabsContent value="accounts" className="flex-1 overflow-y-auto mt-0">
+      <TabsContent value="accounts" className="overflow-y-auto mt-0">
         <div className="container max-w-5xl mx-auto px-6 py-8">
           <UserAccountManagement />
         </div>
