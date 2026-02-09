@@ -44,9 +44,11 @@ const ActivityFeedCard = () => {
   const { data: activityLogs = [] } = useQuery({
     queryKey: ['activity-logs'],
     queryFn: async () => {
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from('activity_logs')
         .select('*')
+        .gte('created_at', oneDayAgo)
         .order('created_at', { ascending: false })
         .limit(20);
       if (error) throw error;
@@ -63,9 +65,9 @@ const ActivityFeedCard = () => {
       const { data } = await supabase.functions.invoke('notion-projects');
       if (!data?.projects) return [];
       const now = new Date();
-      const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       return (data.projects as NotionProject[])
-        .filter((p) => new Date(p.lastEditedTime) > threeDaysAgo)
+        .filter((p) => new Date(p.lastEditedTime) > oneDayAgo)
         .sort((a, b) => new Date(b.lastEditedTime).getTime() - new Date(a.lastEditedTime).getTime())
         .slice(0, 10);
     },
