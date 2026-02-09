@@ -8,13 +8,15 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Users, Search, Clock, CalendarDays, Briefcase, FileText, Mail, Phone, Hash, Building2, Calendar } from 'lucide-react';
+import { ArrowLeft, Loader2, Users, Search, Clock, CalendarDays, Briefcase, FileText, Mail, Phone, Hash, Building2, Calendar, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, differenceInMonths, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import EmployeeAttendancePanel from '@/components/employee/EmployeeAttendancePanel';
 import EmployeeLeavePanel from '@/components/employee/EmployeeLeavePanel';
 import AvatarUpload from '@/components/employee/AvatarUpload';
+import PerformanceReviewPanel from '@/components/employee/PerformanceReviewPanel';
+import ReviewCycleManager from '@/components/employee/ReviewCycleManager';
 
 interface WorkEmployee {
   id: string;
@@ -216,6 +218,9 @@ const EmployeeWorkManagementPage = () => {
                       <TabsTrigger value="leave" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
                         <CalendarDays className="h-3.5 w-3.5 mr-1.5" />연차·휴가
                       </TabsTrigger>
+                      <TabsTrigger value="review" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
+                        <Star className="h-3.5 w-3.5 mr-1.5" />업무평가
+                      </TabsTrigger>
                       <TabsTrigger value="work-info" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
                         <Briefcase className="h-3.5 w-3.5 mr-1.5" />근무 정보
                       </TabsTrigger>
@@ -228,6 +233,9 @@ const EmployeeWorkManagementPage = () => {
                       </TabsContent>
                       <TabsContent value="leave" className="mt-0 py-4">
                         <EmployeeLeavePanel userId={selectedEmployee.id} />
+                      </TabsContent>
+                      <TabsContent value="review" className="mt-0 py-4">
+                        <PerformanceReviewPanel userId={selectedEmployee.id} userName={selectedEmployee.full_name} />
                       </TabsContent>
                       <TabsContent value="work-info" className="mt-0 py-4">
                         <div className="space-y-4">

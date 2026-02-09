@@ -1013,6 +1013,179 @@ export type Database = {
         }
         Relationships: []
       }
+      performance_review_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      performance_review_cycles: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          quarter: number
+          start_date: string
+          status: string
+          title: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          quarter: number
+          start_date: string
+          status?: string
+          title: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          quarter?: number
+          start_date?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      performance_review_scores: {
+        Row: {
+          category_id: string
+          comment: string | null
+          created_at: string
+          id: string
+          review_id: string
+          score: number
+        }
+        Insert: {
+          category_id: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          review_id: string
+          score?: number
+        }
+        Update: {
+          category_id?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          review_id?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_review_scores_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "performance_review_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_review_scores_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "performance_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      performance_reviews: {
+        Row: {
+          created_at: string
+          cycle_id: string
+          general_comment: string | null
+          goal_achievement_rate: number | null
+          id: string
+          improvements: string | null
+          overall_grade: string | null
+          reviewee_id: string
+          reviewee_name: string
+          reviewer_id: string
+          reviewer_name: string
+          reviewer_type: string
+          status: string
+          strengths: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cycle_id: string
+          general_comment?: string | null
+          goal_achievement_rate?: number | null
+          id?: string
+          improvements?: string | null
+          overall_grade?: string | null
+          reviewee_id: string
+          reviewee_name: string
+          reviewer_id: string
+          reviewer_name: string
+          reviewer_type?: string
+          status?: string
+          strengths?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cycle_id?: string
+          general_comment?: string | null
+          goal_achievement_rate?: number | null
+          id?: string
+          improvements?: string | null
+          overall_grade?: string | null
+          reviewee_id?: string
+          reviewee_name?: string
+          reviewer_id?: string
+          reviewer_name?: string
+          reviewer_type?: string
+          status?: string
+          strengths?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_reviews_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "performance_review_cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pluuug_sync_events: {
         Row: {
           created_at: string

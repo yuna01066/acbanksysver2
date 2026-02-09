@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Lock, Settings, Users, Briefcase, UserCog, Code, Wrench, Link, Building2, BarChart3, FolderKanban } from "lucide-react";
+import { ArrowLeft, Lock, Settings, Users, Briefcase, UserCog, Code, Wrench, Link, Building2, BarChart3, FolderKanban, Star } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const AdminSettingsPage = () => {
@@ -95,7 +95,20 @@ const AdminSettingsPage = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium">직원 근무 관리</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">근태기록, 연차·휴가, 근무 정보 열람</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">근태기록, 연차·휴가, 업무평가, 근무 정보 열람</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate('/review-settings')}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Star className="w-4 h-4 text-yellow-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">업무평가 설정</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">평가 주기, 평가 항목 및 가중치 관리</p>
                 </div>
               </button>
 
