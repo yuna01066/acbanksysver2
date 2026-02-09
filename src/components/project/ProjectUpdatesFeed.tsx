@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Send, Trash2, MessageSquarePlus, Hash, ExternalLink } from 'lucide-react';
+import { Send, Trash2, MessageSquarePlus, Hash, ExternalLink, Paperclip, Download, X, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -26,6 +26,13 @@ interface NotionLink {
   url: string;
 }
 
+interface Attachment {
+  name: string;
+  path: string;
+  size: number;
+  type: string;
+}
+
 interface ProjectUpdate {
   id: string;
   project_id: string;
@@ -33,6 +40,7 @@ interface ProjectUpdate {
   user_name: string;
   content: string;
   notion_links: NotionLink[];
+  attachments: Attachment[];
   created_at: string;
 }
 
@@ -45,9 +53,11 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
   const [notionLinks, setNotionLinks] = useState<NotionLink[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
   const [notionSearchOpen, setNotionSearchOpen] = useState(false);
   const [notionSearch, setNotionSearch] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch updates
   const { data: updates = [] } = useQuery({
@@ -62,6 +72,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
       return (data || []).map((u: any) => ({
         ...u,
         notion_links: Array.isArray(u.notion_links) ? u.notion_links : [],
+        attachments: Array.isArray(u.attachments) ? u.attachments : [],
       })) as ProjectUpdate[];
     },
   });
@@ -101,15 +112,30 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
     return () => { supabase.removeChannel(channel); };
   }, [projectId, queryClient]);
 
+  const uploadFiles = async (): Promise<Attachment[]> => {
+    const uploaded: Attachment[] = [];
+    for (const file of files) {
+      const path = `${user!.id}/${projectId}/${Date.now()}_${file.name}`;
+      const { error } = await supabase.storage.from('project-update-attachments').upload(path, file);
+      if (!error) {
+        uploaded.push({ name: file.name, path, size: file.size, type: file.type });
+      }
+    }
+    return uploaded;
+  };
+
   const addUpdate = useMutation({
     mutationFn: async () => {
       if (!user || !profile) throw new Error('로그인 필요');
+      if (!content.trim() && files.length === 0) throw new Error('내용 또는 파일을 추가해주세요.');
+      const attachments = files.length > 0 ? await uploadFiles() : [];
       const { error } = await supabase.from('project_updates').insert({
         project_id: projectId,
         user_id: user.id,
         user_name: profile.full_name,
         content: content.trim(),
         notion_links: notionLinks as any,
+        attachments: attachments as any,
       });
       if (error) throw error;
     },
@@ -117,9 +143,10 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
       queryClient.invalidateQueries({ queryKey: ['project-updates', projectId] });
       setContent('');
       setNotionLinks([]);
+      setFiles([]);
       toast.success('업데이트가 추가되었습니다.');
     },
-    onError: () => toast.error('업데이트 추가에 실패했습니다.'),
+    onError: (e: any) => toast.error(e.message || '업데이트 추가에 실패했습니다.'),
   });
 
   const deleteUpdate = useMutation({
@@ -143,6 +170,26 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
     }
     setNotionSearchOpen(false);
     setNotionSearch('');
+  };
+
+  const downloadAttachment = async (att: Attachment) => {
+    const { data } = await supabase.storage.from('project-update-attachments').createSignedUrl(att.path, 300);
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+    else toast.error('파일 다운로드에 실패했습니다.');
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || []);
+    const valid = selected.filter(f => f.size <= 10 * 1024 * 1024);
+    if (valid.length !== selected.length) toast.error('10MB를 초과하는 파일이 제외되었습니다.');
+    setFiles(prev => [...prev, ...valid]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
   };
 
   const canDelete = (update: ProjectUpdate) =>
@@ -187,45 +234,75 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
             </div>
           )}
 
+          {/* File previews */}
+          {files.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {files.map((file, i) => (
+                <Badge key={i} variant="outline" className="text-[10px] gap-1 pr-1 bg-muted/50">
+                  <Paperclip className="h-2.5 w-2.5" />
+                  {file.name} ({formatFileSize(file.size)})
+                  <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))} className="hover:bg-muted rounded-full p-0.5 ml-0.5">×</button>
+                </Badge>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
-            <Popover open={notionSearchOpen} onOpenChange={setNotionSearchOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground">
-                  <Hash className="h-3 w-3" /> Notion 링크
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[280px] p-2" align="start">
-                <input
-                  className="w-full text-sm border rounded px-2 py-1.5 mb-2 outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="Notion 프로젝트 검색..."
-                  value={notionSearch}
-                  onChange={(e) => setNotionSearch(e.target.value)}
-                  autoFocus
-                />
-                <ScrollArea className="max-h-[160px]">
-                  {filteredNotionProjects.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-3">
-                      {notionProjects.length === 0 ? 'Notion 프로젝트를 불러오는 중...' : '검색 결과 없음'}
-                    </p>
-                  ) : (
-                    filteredNotionProjects.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => addNotionLink(p)}
-                        className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-muted flex items-center gap-1.5"
-                      >
-                        <Hash className="h-3 w-3 text-muted-foreground shrink-0" />
-                        <span className="truncate">{p.title}</span>
-                      </button>
-                    ))
-                  )}
-                </ScrollArea>
-              </PopoverContent>
-            </Popover>
+            <div className="flex items-center gap-1">
+              <Popover open={notionSearchOpen} onOpenChange={setNotionSearchOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground">
+                    <Hash className="h-3 w-3" /> Notion 링크
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[280px] p-2" align="start">
+                  <input
+                    className="w-full text-sm border rounded px-2 py-1.5 mb-2 outline-none focus:ring-1 focus:ring-ring"
+                    placeholder="Notion 프로젝트 검색..."
+                    value={notionSearch}
+                    onChange={(e) => setNotionSearch(e.target.value)}
+                    autoFocus
+                  />
+                  <ScrollArea className="max-h-[160px]">
+                    {filteredNotionProjects.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-3">
+                        {notionProjects.length === 0 ? 'Notion 프로젝트를 불러오는 중...' : '검색 결과 없음'}
+                      </p>
+                    ) : (
+                      filteredNotionProjects.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => addNotionLink(p)}
+                          className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-muted flex items-center gap-1.5"
+                        >
+                          <Hash className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span className="truncate">{p.title}</span>
+                        </button>
+                      ))
+                    )}
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1 text-muted-foreground"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Paperclip className="h-3 w-3" /> 첨부
+              </Button>
+            </div>
             <Button
               size="sm"
               className="h-7 text-xs gap-1"
-              disabled={!content.trim() || addUpdate.isPending}
+              disabled={(!content.trim() && files.length === 0) || addUpdate.isPending}
               onClick={() => addUpdate.mutate()}
             >
               <Send className="h-3 w-3" />
@@ -265,7 +342,24 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
                     </Button>
                   )}
                 </div>
-                <p className="text-sm whitespace-pre-wrap leading-relaxed">{update.content}</p>
+                {update.content && (
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{update.content}</p>
+                )}
+                {update.attachments && update.attachments.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {update.attachments.map((att, i) => (
+                      <button
+                        key={i}
+                        onClick={() => downloadAttachment(att)}
+                        className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded px-1.5 py-1 transition-colors"
+                      >
+                        <FileText className="h-2.5 w-2.5 shrink-0" />
+                        <span className="truncate max-w-[120px]">{att.name}</span>
+                        <Download className="h-2.5 w-2.5 shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {update.notion_links.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1.5">
                     {update.notion_links.map((link) => (
