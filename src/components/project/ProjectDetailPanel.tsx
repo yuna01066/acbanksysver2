@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import LinkRecipientDialog from './LinkRecipientDialog';
 import LinkQuoteDialog from './LinkQuoteDialog';
+import QuotePreviewSheet from './QuotePreviewSheet';
 
 interface Props {
   projectId: string;
@@ -25,6 +26,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
   const queryClient = useQueryClient();
   const [recipientDialogOpen, setRecipientDialogOpen] = useState(false);
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
+  const [previewQuoteId, setPreviewQuoteId] = useState<string | null>(null);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project-detail', projectId],
@@ -250,7 +252,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7"
-                      onClick={() => navigate(`/saved-quotes/${q.id}`)}
+                      onClick={() => setPreviewQuoteId(q.id)}
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
                     </Button>
@@ -280,6 +282,11 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
         open={quoteDialogOpen}
         onOpenChange={setQuoteDialogOpen}
         projectId={projectId}
+      />
+      <QuotePreviewSheet
+        quoteId={previewQuoteId}
+        open={!!previewQuoteId}
+        onOpenChange={(open) => !open && setPreviewQuoteId(null)}
       />
     </div>
   );
