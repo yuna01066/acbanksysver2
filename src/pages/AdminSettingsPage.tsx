@@ -152,23 +152,6 @@ const AdminSettingsPage = () => {
                 </Button>
               </div>
               
-              <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
-                <h3 className="font-medium mb-2 flex items-center gap-2">
-                  <UserCog className="w-4 h-4" />
-                  담당자 관리
-                </h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  사용자 계정 및 권한을 관리합니다. (구성원 관리 &gt; 계정/권한 탭으로 통합)
-                </p>
-                <Button
-                  onClick={() => navigate('/employee-profiles')}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <UserCog className="w-4 h-4" />
-                  구성원 관리로 이동
-                </Button>
-              </div>
 
               <div className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors">
                 <h3 className="font-medium mb-2 flex items-center gap-2">
