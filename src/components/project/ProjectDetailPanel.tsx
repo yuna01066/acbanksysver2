@@ -242,7 +242,17 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
         </CardHeader>
         <CardContent className="pt-0">
           {linkedQuotes.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2">연결된 견적서가 없습니다.</p>
+            <div className="flex flex-col items-center gap-2 py-4">
+              <p className="text-xs text-muted-foreground">연결된 견적서가 없습니다.</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs gap-1"
+                onClick={() => navigate('/calculator')}
+              >
+                <FileText className="h-3 w-3" /> 새 견적서 발행하기
+              </Button>
+            </div>
           ) : (
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
               {linkedQuotes.map((q: any) => (
