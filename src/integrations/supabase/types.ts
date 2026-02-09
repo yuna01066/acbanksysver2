@@ -1763,6 +1763,38 @@ export type Database = {
         }
         Relationships: []
       }
+      review_cycle_targets: {
+        Row: {
+          created_at: string
+          cycle_id: string
+          id: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          created_at?: string
+          cycle_id: string
+          id?: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          created_at?: string
+          cycle_id?: string
+          id?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_cycle_targets_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "performance_review_cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_quotes: {
         Row: {
           attachments: Json | null
