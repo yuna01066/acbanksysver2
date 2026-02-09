@@ -23,9 +23,9 @@ type FeedbackType = 'recognition' | 'feedback' | 'one_on_one';
 type WorkStatus = 'available' | 'busy' | 'focusing' | 'meeting';
 
 const FEEDBACK_CONFIG: Record<FeedbackType, { label: string; emoji: string; placeholder: string; color: string }> = {
-  recognition: { label: '인정 보내기', emoji: '🙏💕', placeholder: '동료의 어떤 점이 인상적이었는지 알려주세요...', color: 'text-pink-600' },
+  recognition: { label: '인정 보내기', emoji: '❤️', placeholder: '동료의 어떤 점이 인상적이었는지 알려주세요...', color: 'text-pink-600' },
   feedback: { label: '피드백 보내기', emoji: '💬', placeholder: '도움이 될 만한 피드백을 남겨주세요...', color: 'text-blue-600' },
-  one_on_one: { label: '1:1 미팅 요청', emoji: '☕', placeholder: '미팅 주제나 이유를 간단히 적어주세요...', color: 'text-amber-600' },
+  one_on_one: { label: '1:1 미팅 요청', emoji: '🙏', placeholder: '미팅 주제나 이유를 간단히 적어주세요...', color: 'text-amber-600' },
 };
 
 const STATUS_CONFIG: Record<WorkStatus, { label: string; emoji: string; color: string; borderColor: string; dotColor: string }> = {
@@ -154,7 +154,7 @@ const OnlineEmployeesCard: React.FC = () => {
       await supabase.from('notifications').insert({
         user_id: selectedEmployee.user_id,
         type: 'peer_feedback',
-        title: feedbackType === 'recognition' ? '🙏 인정을 받았어요!' : feedbackType === 'one_on_one' ? '☕ 1:1 미팅 요청' : '💬 피드백이 도착했어요',
+        title: feedbackType === 'recognition' ? '❤️ 인정을 받았어요!' : feedbackType === 'one_on_one' ? '🙏 요청이 도착했어요' : '💬 피드백이 도착했어요',
         description: message.trim().substring(0, 100),
       });
 
@@ -275,7 +275,7 @@ const OnlineEmployeesCard: React.FC = () => {
                           onClick={() => { openFeedbackDialog(emp, 'recognition'); setActiveEmpId(null); }}
                           className="p-1.5 rounded-md hover:bg-pink-50 dark:hover:bg-pink-950/30 transition-colors text-sm"
                           title="인정 보내기"
-                        >🙏</button>
+                        >❤️</button>
                         <button
                           onClick={() => { openFeedbackDialog(emp, 'feedback'); setActiveEmpId(null); }}
                           className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors text-sm"
@@ -285,7 +285,7 @@ const OnlineEmployeesCard: React.FC = () => {
                           onClick={() => { openFeedbackDialog(emp, 'one_on_one'); setActiveEmpId(null); }}
                           className="p-1.5 rounded-md hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors text-sm"
                           title="1:1 미팅 요청"
-                        >☕</button>
+                        >🙏</button>
                       </div>
                     </div>
                   )}
