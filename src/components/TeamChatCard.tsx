@@ -137,8 +137,13 @@ const TeamChatCard: React.FC = () => {
               <p className="text-xs text-muted-foreground/60">첫 번째 메시지를 보내보세요!</p>
             </div>
           ) : (
-            messages.map((msg) => {
+            messages.map((msg, idx) => {
               const isMine = isMyMessage(msg);
+              const timeStr = formatTime(msg.created_at);
+              const nextMsg = messages[idx + 1];
+              const nextTimeStr = nextMsg ? formatTime(nextMsg.created_at) : null;
+              const nextIsSameUserAndTime = nextMsg && nextMsg.user_id === msg.user_id && nextTimeStr === timeStr;
+              const showTime = !nextIsSameUserAndTime;
               return (
                 <div key={msg.id} className={`flex gap-2 ${isMine ? 'flex-row-reverse' : ''}`}>
                   {!isMine && (
@@ -173,9 +178,11 @@ const TeamChatCard: React.FC = () => {
                         {msg.message}
                       </div>
                     </div>
-                    <span className={`text-[10px] text-muted-foreground/50 mt-0.5 ${isMine ? 'mr-1 text-right' : 'ml-1'}`}>
-                      {formatTime(msg.created_at)}
-                    </span>
+                    {showTime && (
+                      <span className={`text-[10px] text-muted-foreground/50 mt-0.5 ${isMine ? 'mr-1 text-right' : 'ml-1'}`}>
+                        {timeStr}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
