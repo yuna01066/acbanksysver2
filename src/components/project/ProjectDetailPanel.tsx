@@ -84,7 +84,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('saved_quotes')
-        .select('id, quote_number, project_name, total, quote_date, project_stage, items, desired_delivery_date, recipient_address, pluuug_estimate_id, pluuug_synced, user_id')
+        .select('id, quote_number, project_name, total, quote_date, project_stage, items, desired_delivery_date, recipient_address, recipient_memo, pluuug_estimate_id, pluuug_synced, user_id')
         .eq('project_id', projectId)
         .order('quote_date', { ascending: false });
       if (error) throw error;
