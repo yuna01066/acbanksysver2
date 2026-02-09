@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 interface CalendarEvent {
   id: string;
   projectName: string;
-  type: 'quote' | 'delivery' | 'notion' | 'meeting';
+  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'holiday';
   date: Date;
   userId: string;
   url?: string;
@@ -67,7 +67,6 @@ const DashboardCalendar = () => {
       if (error) throw error;
       if (!data || data.length === 0) return [];
 
-      // Fetch profile names for participants
       const participantIds = [...new Set(data.flatMap(m => [m.sender_id, m.receiver_id]))];
       const { data: profiles } = await supabase
         .from('profiles')
@@ -80,9 +79,37 @@ const DashboardCalendar = () => {
     enabled: !!user,
   });
 
+  const { data: holidays } = useQuery({
+    queryKey: ['company-holidays'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('company_holidays')
+        .select('*')
+        .order('start_date', { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const events = useMemo(() => {
-    if (!quotes && !notionProjects && !meetings) return [];
+    if (!quotes && !notionProjects && !meetings && !holidays) return [];
     const result: CalendarEvent[] = [];
+
+    // 휴일 이벤트
+    holidays?.forEach((h: any) => {
+      const start = new Date(h.start_date);
+      const end = new Date(h.end_date);
+      const days = eachDayOfInterval({ start, end });
+      days.forEach(d => {
+        result.push({
+          id: h.id,
+          projectName: `🎌 ${h.name}`,
+          type: 'holiday',
+          date: d,
+          userId: '',
+        });
+      });
+    });
 
     // 견적 이벤트
     quotes?.forEach((q) => {
@@ -145,7 +172,7 @@ const DashboardCalendar = () => {
     });
 
     return result;
-  }, [quotes, notionProjects, meetings, user]);
+  }, [quotes, notionProjects, meetings, holidays, user]);
 
   const handleEventClick = useCallback((event: CalendarEvent) => {
     if (event.type === 'notion') {
@@ -201,6 +228,9 @@ const DashboardCalendar = () => {
           <span className="flex items-center gap-1">
             <Coffee className="h-3 w-3 text-amber-600" /> 1:1 미팅
           </span>
+          <span className="flex items-center gap-1">
+            <PartyPopper className="h-3 w-3 text-red-500" /> 휴일
+          </span>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -226,20 +256,23 @@ const DashboardCalendar = () => {
           {days.map((day) => {
             const dayEvents = getEventsForDay(day);
             const dayOfWeek = getDay(day);
+            const hasHoliday = dayEvents.some(e => e.type === 'holiday');
             return (
               <div
                 key={day.toISOString()}
                 className={cn(
                   "min-h-[80px] border-t border-border/30 p-1 transition-colors",
                   isToday(day) && "bg-primary/5",
+                  hasHoliday && !isToday(day) && "bg-red-50 dark:bg-red-950/20",
                   !isSameMonth(day, currentMonth) && "opacity-40"
                 )}
               >
                 <span className={cn(
                   "text-xs font-medium inline-flex items-center justify-center w-6 h-6 rounded-full",
                   isToday(day) && "bg-primary text-primary-foreground",
-                  dayOfWeek === 0 && !isToday(day) && "text-red-500",
-                  dayOfWeek === 6 && !isToday(day) && "text-blue-500"
+                  hasHoliday && !isToday(day) && "text-red-500",
+                  dayOfWeek === 0 && !isToday(day) && !hasHoliday && "text-red-500",
+                  dayOfWeek === 6 && !isToday(day) && !hasHoliday && "text-blue-500"
                 )}>
                   {format(day, 'd')}
                 </span>
@@ -247,7 +280,7 @@ const DashboardCalendar = () => {
                   {(expandedDay === day.toISOString() ? dayEvents : dayEvents.slice(0, 3)).map((event, idx) => (
                     <button
                       key={`${event.id}-${event.type}-${idx}`}
-                      onClick={() => handleEventClick(event)}
+                      onClick={() => event.type !== 'holiday' && handleEventClick(event)}
                       className={cn(
                         "w-full text-left text-[10px] leading-tight px-1 py-0.5 rounded truncate flex items-center gap-0.5 hover:opacity-80 transition-opacity",
                         event.type === 'quote'
@@ -256,15 +289,11 @@ const DashboardCalendar = () => {
                           ? "bg-orange-500/10 text-orange-600"
                           : event.type === 'meeting'
                           ? "bg-amber-500/10 text-amber-700"
+                          : event.type === 'holiday'
+                          ? "bg-red-500/10 text-red-600 cursor-default"
                           : "bg-violet-500/10 text-violet-600"
                       )}
-                      title={
-                        event.type === 'notion'
-                          ? `${event.projectName}${event.assignee ? ` (${event.assignee})` : ''}`
-                          : event.type === 'meeting'
-                          ? event.projectName
-                          : `${event.projectName} (${event.type === 'quote' ? '견적 발행일' : '납기 희망일'})`
-                      }
+                      title={event.projectName}
                     >
                       {event.type === 'quote' ? (
                         <FileText className="h-2.5 w-2.5 shrink-0" />
@@ -272,6 +301,8 @@ const DashboardCalendar = () => {
                         <Truck className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'meeting' ? (
                         <Coffee className="h-2.5 w-2.5 shrink-0" />
+                      ) : event.type === 'holiday' ? (
+                        <PartyPopper className="h-2.5 w-2.5 shrink-0" />
                       ) : (
                         <BookOpen className="h-2.5 w-2.5 shrink-0" />
                       )}

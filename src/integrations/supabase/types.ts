@@ -302,6 +302,99 @@ export type Database = {
           },
         ]
       }
+      company_holidays: {
+        Row: {
+          created_at: string
+          end_date: string
+          holiday_type: string
+          id: string
+          is_recurring: boolean
+          name: string
+          start_date: string
+          substitute_holiday: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          holiday_type?: string
+          id?: string
+          is_recurring?: boolean
+          name: string
+          start_date: string
+          substitute_holiday?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          holiday_type?: string
+          id?: string
+          is_recurring?: boolean
+          name?: string
+          start_date?: string
+          substitute_holiday?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      company_info: {
+        Row: {
+          address: string | null
+          business_number: string | null
+          business_type: string | null
+          ceo_name: string | null
+          company_name: string
+          created_at: string
+          detail_address: string | null
+          email: string | null
+          established_date: string | null
+          fax: string | null
+          id: string
+          industry: string | null
+          logo_url: string | null
+          phone: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          business_number?: string | null
+          business_type?: string | null
+          ceo_name?: string | null
+          company_name?: string
+          created_at?: string
+          detail_address?: string | null
+          email?: string | null
+          established_date?: string | null
+          fax?: string | null
+          id?: string
+          industry?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          business_number?: string | null
+          business_type?: string | null
+          ceo_name?: string | null
+          company_name?: string
+          created_at?: string
+          detail_address?: string | null
+          email?: string | null
+          established_date?: string | null
+          fax?: string | null
+          id?: string
+          industry?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       contract_templates: {
         Row: {
           created_at: string

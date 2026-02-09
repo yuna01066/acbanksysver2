@@ -87,6 +87,20 @@ const Home = () => {
     requiresAuth: true,
     action: () => navigate("/announcements")
   }, {
+    title: "회사 설정",
+    icon: Building2,
+    description: "회사 정보 · 휴일 관리",
+    url: "/company-settings",
+    requiresAuth: true,
+    requiresAdmin: true,
+    action: () => {
+      if (isAdmin || isModerator) {
+        navigate("/company-settings");
+      } else {
+        toast.error('관리자 또는 중간관리자만 접근할 수 있습니다.');
+      }
+    }
+  }, {
     title: "관리자 설정",
     icon: Settings,
     description: "가격 및 옵션 관리",
