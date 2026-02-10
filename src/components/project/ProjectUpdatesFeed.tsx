@@ -9,7 +9,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Send, Trash2, MessageSquarePlus, Hash, ExternalLink, Paperclip, Download, FileText, AtSign, Pencil, Check, X } from 'lucide-react';
+import { Send, Trash2, MessageSquarePlus, Hash, ExternalLink, Paperclip, Download, FileText, AtSign, Pencil, Check, X, ZoomIn } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -54,6 +55,30 @@ interface Props {
   projectId: string;
 }
 
+// Image thumbnail component for attachments
+const ImageThumbnail: React.FC<{ attachment: Attachment; onClick: (url: string) => void }> = ({ attachment, onClick }) => {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.storage.from('project-update-attachments').createSignedUrl(attachment.path, 600)
+      .then(({ data }) => { if (data?.signedUrl) setUrl(data.signedUrl); });
+  }, [attachment.path]);
+
+  if (!url) return <div className="w-20 h-20 bg-muted rounded animate-pulse" />;
+
+  return (
+    <button
+      onClick={() => onClick(url)}
+      className="relative group w-20 h-20 rounded overflow-hidden border hover:border-primary transition-colors"
+    >
+      <img src={url} alt={attachment.name} className="w-full h-full object-cover" />
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+        <ZoomIn className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
+    </button>
+  );
+};
+
 const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
   const { user, profile, isAdmin, isModerator } = useAuth();
   const queryClient = useQueryClient();
@@ -69,6 +94,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
   const [mentionCursorPos, setMentionCursorPos] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mentionRef = useRef<HTMLDivElement>(null);
@@ -328,6 +354,13 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
     if (bytes < 1024) return `${bytes}B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  };
+
+  const isImageFile = (type: string) => type.startsWith('image/');
+
+  const getAttachmentUrl = async (path: string): Promise<string | null> => {
+    const { data } = await supabase.storage.from('project-update-attachments').createSignedUrl(path, 300);
+    return data?.signedUrl || null;
   };
 
   const canDelete = (update: ProjectUpdate) =>
@@ -603,18 +636,31 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
                   renderContent(update.content, update.mentioned_user_ids)
                 )}
                 {update.attachments && update.attachments.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-1.5">
-                    {update.attachments.map((att, i) => (
-                      <button
-                        key={i}
-                        onClick={() => downloadAttachment(att)}
-                        className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded px-1.5 py-1 transition-colors"
-                      >
-                        <FileText className="h-2.5 w-2.5 shrink-0" />
-                        <span className="truncate max-w-[120px]">{att.name}</span>
-                        <Download className="h-2.5 w-2.5 shrink-0" />
-                      </button>
-                    ))}
+                  <div className="mt-1.5 space-y-1.5">
+                    {/* Image attachments */}
+                    {update.attachments.filter(att => isImageFile(att.type)).length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {update.attachments.filter(att => isImageFile(att.type)).map((att, i) => (
+                          <ImageThumbnail key={`img-${i}`} attachment={att} onClick={setPreviewImage} />
+                        ))}
+                      </div>
+                    )}
+                    {/* Non-image attachments */}
+                    {update.attachments.filter(att => !isImageFile(att.type)).length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {update.attachments.filter(att => !isImageFile(att.type)).map((att, i) => (
+                          <button
+                            key={`file-${i}`}
+                            onClick={() => downloadAttachment(att)}
+                            className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded px-1.5 py-1 transition-colors"
+                          >
+                            <FileText className="h-2.5 w-2.5 shrink-0" />
+                            <span className="truncate max-w-[120px]">{att.name}</span>
+                            <Download className="h-2.5 w-2.5 shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 {update.notion_links.length > 0 && (
@@ -638,6 +684,15 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
             ))
           )}
         </div>
+
+        {/* Image lightbox */}
+        <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+          <DialogContent className="max-w-3xl p-1 bg-black/90 border-none">
+            {previewImage && (
+              <img src={previewImage} alt="미리보기" className="w-full h-auto max-h-[80vh] object-contain rounded" />
+            )}
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
