@@ -1727,8 +1727,11 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          linked_project_id: string | null
           name: string
+          notion_url: string | null
           payment_status: string
+          project_type: string
           recipient_id: string | null
           specs: Json | null
           status: string
@@ -1742,8 +1745,11 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          linked_project_id?: string | null
           name: string
+          notion_url?: string | null
           payment_status?: string
+          project_type?: string
           recipient_id?: string | null
           specs?: Json | null
           status?: string
@@ -1757,8 +1763,11 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          linked_project_id?: string | null
           name?: string
+          notion_url?: string | null
           payment_status?: string
+          project_type?: string
           recipient_id?: string | null
           specs?: Json | null
           status?: string
@@ -1766,6 +1775,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "projects_linked_project_id_fkey"
+            columns: ["linked_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "projects_recipient_id_fkey"
             columns: ["recipient_id"]

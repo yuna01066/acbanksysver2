@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Plus, FolderOpen, Building2, FileText, Search, Trash2, Users, CircleDollarSign } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, Plus, FolderOpen, Building2, FileText, Search, Trash2, Users, CircleDollarSign, Briefcase, Home } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -21,6 +22,7 @@ const ProjectManagementPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'client' | 'internal'>('client');
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ['projects'],
@@ -69,6 +71,7 @@ const ProjectManagementPage = () => {
   
 
   const filteredProjects = projects.filter((p: any) =>
+    (p.project_type || 'client') === activeTab &&
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -107,6 +110,17 @@ const ProjectManagementPage = () => {
         <div className="flex gap-6">
           {/* Left: Project List */}
           <div className="w-[380px] shrink-0 space-y-4">
+            <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as any); setSelectedProjectId(null); }}>
+              <TabsList className="w-full">
+                <TabsTrigger value="client" className="flex-1 gap-1.5">
+                  <Briefcase className="h-3.5 w-3.5" /> 클라이언트 (매출)
+                </TabsTrigger>
+                <TabsTrigger value="internal" className="flex-1 gap-1.5">
+                  <Home className="h-3.5 w-3.5" /> 내부 (매입)
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
