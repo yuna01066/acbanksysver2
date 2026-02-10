@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper, Users, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper, Users, User, Cake } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 interface CalendarEvent {
   id: string;
   projectName: string;
-  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'holiday';
+  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'holiday' | 'birthday';
   date: Date;
   userId: string;
   url?: string;
@@ -93,8 +93,21 @@ const DashboardCalendar = () => {
     },
   });
 
+  const { data: birthdays } = useQuery({
+    queryKey: ['employee-birthdays'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, birthday')
+        .eq('is_approved', true)
+        .not('birthday', 'is', null);
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const events = useMemo(() => {
-    if (!quotes && !notionProjects && !meetings && !holidays) return [];
+    if (!quotes && !notionProjects && !meetings && !holidays && !birthdays) return [];
     const result: CalendarEvent[] = [];
 
     // 휴일 이벤트
@@ -174,8 +187,29 @@ const DashboardCalendar = () => {
       }
     });
 
+    // 생일 이벤트
+    birthdays?.forEach((p: any) => {
+      if (p.birthday) {
+        // birthday format: YYYY-MM-DD or MM-DD
+        const parts = p.birthday.split('-');
+        const month = parts.length >= 3 ? parseInt(parts[1]) - 1 : parseInt(parts[0]) - 1;
+        const day = parts.length >= 3 ? parseInt(parts[2]) : parseInt(parts[1]);
+        const year = currentMonth.getFullYear();
+        const birthdayDate = new Date(year, month, day);
+        if (!isNaN(birthdayDate.getTime())) {
+          result.push({
+            id: `birthday-${p.id}`,
+            projectName: `🎂 ${p.full_name}`,
+            type: 'birthday',
+            date: birthdayDate,
+            userId: p.id,
+          });
+        }
+      }
+    });
+
     return result;
-  }, [quotes, notionProjects, meetings, holidays, user]);
+  }, [quotes, notionProjects, meetings, holidays, birthdays, user, currentMonth]);
 
   // Filter events based on view mode
   const filteredEvents = useMemo(() => {
@@ -183,8 +217,9 @@ const DashboardCalendar = () => {
     if (!user) return events;
     const myName = profile?.full_name || '';
     return events.filter(e => {
-      // Always show holidays
+      // Always show holidays and birthdays
       if (e.type === 'holiday') return true;
+      if (e.type === 'birthday') return true;
       // Meetings are already filtered to current user
       if (e.type === 'meeting') return true;
       // Quotes/deliveries: only show mine
@@ -267,6 +302,9 @@ const DashboardCalendar = () => {
           <span className="flex items-center gap-1">
             <PartyPopper className="h-3 w-3 text-red-500" /> 휴일
           </span>
+          <span className="flex items-center gap-1">
+            <Cake className="h-3 w-3 text-pink-500" /> 생일
+          </span>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -316,7 +354,7 @@ const DashboardCalendar = () => {
                   {(expandedDay === day.toISOString() ? dayEvents : dayEvents.slice(0, 3)).map((event, idx) => (
                     <button
                       key={`${event.id}-${event.type}-${idx}`}
-                      onClick={() => event.type !== 'holiday' && handleEventClick(event)}
+                      onClick={() => event.type !== 'holiday' && event.type !== 'birthday' && handleEventClick(event)}
                       className={cn(
                         "w-full text-left text-[10px] leading-tight px-1 py-0.5 rounded truncate flex items-center gap-0.5 hover:opacity-80 transition-opacity",
                         event.type === 'quote'
@@ -327,6 +365,8 @@ const DashboardCalendar = () => {
                           ? "bg-amber-500/10 text-amber-700"
                           : event.type === 'holiday'
                           ? "bg-red-500/10 text-red-600 cursor-default"
+                          : event.type === 'birthday'
+                          ? "bg-pink-500/10 text-pink-600 cursor-default"
                           : "bg-violet-500/10 text-violet-600"
                       )}
                       title={event.projectName}
@@ -339,6 +379,8 @@ const DashboardCalendar = () => {
                         <Coffee className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'holiday' ? (
                         <PartyPopper className="h-2.5 w-2.5 shrink-0" />
+                      ) : event.type === 'birthday' ? (
+                        <Cake className="h-2.5 w-2.5 shrink-0" />
                       ) : (
                         <BookOpen className="h-2.5 w-2.5 shrink-0" />
                       )}
