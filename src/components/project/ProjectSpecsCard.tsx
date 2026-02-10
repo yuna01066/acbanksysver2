@@ -74,16 +74,16 @@ interface Props {
   linkedQuotes: any[];
 }
 
-const SpecRow = ({ icon: Icon, label, children, editMode, editContent }: {
+const SpecRow = ({ icon: Icon, label, children, editMode, editContent, fullWidth }: {
   icon: any; label: string; children: React.ReactNode;
-  editMode?: boolean; editContent?: React.ReactNode;
+  editMode?: boolean; editContent?: React.ReactNode; fullWidth?: boolean;
 }) => (
-  <div className="flex items-start gap-3 py-3 border-b last:border-b-0">
-    <div className="flex items-center gap-2 w-28 shrink-0">
-      <Icon className="h-4 w-4 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">{label}</span>
+  <div className={fullWidth ? 'col-span-2' : ''}>
+    <div className="flex items-center gap-1.5 mb-1">
+      <Icon className="h-3 w-3 text-muted-foreground" />
+      <span className="text-[11px] text-muted-foreground font-medium">{label}</span>
     </div>
-    <div className="flex-1 text-sm">{editMode ? editContent : children}</div>
+    <div className="text-xs">{editMode ? editContent : children}</div>
   </div>
 );
 
@@ -227,163 +227,165 @@ const ProjectSpecsCard: React.FC<Props> = ({ projectId, specs: savedSpecs, linke
           </div>
         </div>
 
-        {/* 재질/품질 */}
-        <SpecRow icon={Layers} label="재질 / 품질" editMode={editing}
-          editContent={
-            <div className="space-y-2">
-              <EditableTagList values={editSpecs?.materials || []} onChange={(v) => updateField('materials', v)} placeholder="재질 추가..." />
-              <EditableTagList values={editSpecs?.qualities || []} onChange={(v) => updateField('qualities', v)} placeholder="품질 추가..." />
-            </div>
-          }
-        >
-          <div className="flex flex-wrap gap-1.5">
-            {specs.materials.map((m, i) => <Badge key={`m-${i}`} variant="secondary" className="text-xs">{m}</Badge>)}
-            {specs.qualities.map((q, i) => <Badge key={`q-${i}`} variant="outline" className="text-xs">{q}</Badge>)}
-            {specs.materials.length === 0 && specs.qualities.length === 0 && <span className="text-xs text-muted-foreground">-</span>}
-          </div>
-        </SpecRow>
-
-        {/* 컬러 */}
-        <SpecRow icon={Palette} label="컬러" editMode={editing}
-          editContent={
-            <EditableTagList
-              values={editSpecs?.colors.map(c => c.name) || []}
-              onChange={(v) => updateField('colors', v.map(name => ({ name })))}
-              placeholder="컬러 추가..."
-            />
-          }
-        >
-          <div className="flex flex-wrap gap-1.5">
-            {specs.colors.length > 0 ? specs.colors.map((c, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                {c.hex && <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: c.hex }} />}
-                <Badge variant="secondary" className="text-xs">{c.name}</Badge>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          {/* 재질/품질 */}
+          <SpecRow icon={Layers} label="재질 / 품질" editMode={editing}
+            editContent={
+              <div className="space-y-2">
+                <EditableTagList values={editSpecs?.materials || []} onChange={(v) => updateField('materials', v)} placeholder="재질 추가..." />
+                <EditableTagList values={editSpecs?.qualities || []} onChange={(v) => updateField('qualities', v)} placeholder="품질 추가..." />
               </div>
-            )) : <span className="text-xs text-muted-foreground">-</span>}
-          </div>
-        </SpecRow>
-
-        {/* 두께 */}
-        <SpecRow icon={Layers} label="두께" editMode={editing}
-          editContent={<EditableTagList values={editSpecs?.thicknesses || []} onChange={(v) => updateField('thicknesses', v)} placeholder="두께 추가..." />}
-        >
-          <div className="flex flex-wrap gap-1.5">
-            {specs.thicknesses.length > 0 ? specs.thicknesses.map((t, i) => <Badge key={i} variant="secondary" className="text-xs">{t}</Badge>) : <span className="text-xs text-muted-foreground">-</span>}
-          </div>
-        </SpecRow>
-
-        {/* 양단면 */}
-        <SpecRow icon={Square} label="양단면" editMode={editing}
-          editContent={<EditableTagList values={editSpecs?.surfaces || []} onChange={(v) => updateField('surfaces', v)} placeholder="면수 추가..." />}
-        >
-          <div className="flex flex-wrap gap-1.5">
-            {specs.surfaces.length > 0 ? specs.surfaces.map((s, i) => <Badge key={i} variant="outline" className="text-xs">{s}</Badge>) : <span className="text-xs text-muted-foreground">-</span>}
-          </div>
-        </SpecRow>
-
-        {/* 원판사이즈 및 수량 */}
-        <SpecRow icon={Maximize} label="원판사이즈" editMode={editing}
-          editContent={
-            <div className="space-y-2">
-              <EditableTagList values={editSpecs?.sizes || []} onChange={(v) => updateField('sizes', v)} placeholder="사이즈 추가..." />
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">총 수량:</span>
-                <Input type="number" className="h-7 text-xs w-20" value={editSpecs?.quantity || 0} onChange={(e) => updateField('quantity', parseInt(e.target.value) || 0)} />
-                <span className="text-xs">개</span>
-              </div>
+            }
+          >
+            <div className="flex flex-wrap gap-1">
+              {specs.materials.map((m, i) => <Badge key={`m-${i}`} variant="secondary" className="text-[11px] px-1.5 py-0">{m}</Badge>)}
+              {specs.qualities.map((q, i) => <Badge key={`q-${i}`} variant="outline" className="text-[11px] px-1.5 py-0">{q}</Badge>)}
+              {specs.materials.length === 0 && specs.qualities.length === 0 && <span className="text-[11px] text-muted-foreground">-</span>}
             </div>
-          }
-        >
-          <div className="space-y-1">
-            {specs.sizes.length > 0 ? specs.sizes.map((s, i) => <Badge key={i} variant="secondary" className="text-xs">{s}</Badge>) : <span className="text-xs text-muted-foreground">-</span>}
-            <p className="text-xs text-muted-foreground">총 수량: {specs.quantity}개</p>
-          </div>
-        </SpecRow>
+          </SpecRow>
 
-        {/* 제작 사이즈 */}
-        <SpecRow icon={Ruler} label="제작 사이즈" editMode={editing}
-          editContent={<EditableTagList values={editSpecs?.productionSizes || []} onChange={(v) => updateField('productionSizes', v)} placeholder="제작 사이즈 추가..." />}
-        >
-          {specs.productionSizes.length > 0 ? (
-            <div className="space-y-0.5">{specs.productionSizes.map((s, i) => <p key={i} className="text-xs">{s}</p>)}</div>
-          ) : <span className="text-xs text-muted-foreground">-</span>}
-        </SpecRow>
+          {/* 컬러 */}
+          <SpecRow icon={Palette} label="컬러" editMode={editing}
+            editContent={
+              <EditableTagList
+                values={editSpecs?.colors.map(c => c.name) || []}
+                onChange={(v) => updateField('colors', v.map(name => ({ name })))}
+                placeholder="컬러 추가..."
+              />
+            }
+          >
+            <div className="flex flex-wrap gap-1">
+              {specs.colors.length > 0 ? specs.colors.map((c, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  {c.hex && <div className="w-3 h-3 rounded-full border" style={{ backgroundColor: c.hex }} />}
+                  <Badge variant="secondary" className="text-[11px] px-1.5 py-0">{c.name}</Badge>
+                </div>
+              )) : <span className="text-[11px] text-muted-foreground">-</span>}
+            </div>
+          </SpecRow>
 
-        {/* 납기 희망일 */}
-        <SpecRow icon={CalendarClock} label="납기 희망일" editMode={editing}
-          editContent={
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap gap-1">
-                {(editSpecs?.deliveryDates || []).map((d, i) => (
-                  <Badge key={i} variant="secondary" className="text-xs gap-1 pr-1">
+          {/* 두께 */}
+          <SpecRow icon={Layers} label="두께" editMode={editing}
+            editContent={<EditableTagList values={editSpecs?.thicknesses || []} onChange={(v) => updateField('thicknesses', v)} placeholder="두께 추가..." />}
+          >
+            <div className="flex flex-wrap gap-1">
+              {specs.thicknesses.length > 0 ? specs.thicknesses.map((t, i) => <Badge key={i} variant="secondary" className="text-[11px] px-1.5 py-0">{t}</Badge>) : <span className="text-[11px] text-muted-foreground">-</span>}
+            </div>
+          </SpecRow>
+
+          {/* 양단면 */}
+          <SpecRow icon={Square} label="양단면" editMode={editing}
+            editContent={<EditableTagList values={editSpecs?.surfaces || []} onChange={(v) => updateField('surfaces', v)} placeholder="면수 추가..." />}
+          >
+            <div className="flex flex-wrap gap-1">
+              {specs.surfaces.length > 0 ? specs.surfaces.map((s, i) => <Badge key={i} variant="outline" className="text-[11px] px-1.5 py-0">{s}</Badge>) : <span className="text-[11px] text-muted-foreground">-</span>}
+            </div>
+          </SpecRow>
+
+          {/* 원판사이즈 */}
+          <SpecRow icon={Maximize} label="원판사이즈" editMode={editing}
+            editContent={
+              <div className="space-y-2">
+                <EditableTagList values={editSpecs?.sizes || []} onChange={(v) => updateField('sizes', v)} placeholder="사이즈 추가..." />
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground">총 수량:</span>
+                  <Input type="number" className="h-6 text-[11px] w-16" value={editSpecs?.quantity || 0} onChange={(e) => updateField('quantity', parseInt(e.target.value) || 0)} />
+                  <span className="text-[11px]">개</span>
+                </div>
+              </div>
+            }
+          >
+            <div>
+              {specs.sizes.length > 0 ? specs.sizes.map((s, i) => <Badge key={i} variant="secondary" className="text-[11px] px-1.5 py-0 mr-1">{s}</Badge>) : <span className="text-[11px] text-muted-foreground">-</span>}
+              <p className="text-[10px] text-muted-foreground mt-0.5">총 수량: {specs.quantity}개</p>
+            </div>
+          </SpecRow>
+
+          {/* 제작 사이즈 */}
+          <SpecRow icon={Ruler} label="제작 사이즈" editMode={editing}
+            editContent={<EditableTagList values={editSpecs?.productionSizes || []} onChange={(v) => updateField('productionSizes', v)} placeholder="제작 사이즈 추가..." />}
+          >
+            {specs.productionSizes.length > 0 ? (
+              <div className="space-y-0.5">{specs.productionSizes.map((s, i) => <p key={i} className="text-[11px]">{s}</p>)}</div>
+            ) : <span className="text-[11px] text-muted-foreground">-</span>}
+          </SpecRow>
+
+          {/* 납기 희망일 */}
+          <SpecRow icon={CalendarClock} label="납기 희망일" editMode={editing}
+            editContent={
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap gap-1">
+                  {(editSpecs?.deliveryDates || []).map((d, i) => (
+                    <Badge key={i} variant="secondary" className="text-[11px] gap-1 pr-1">
+                      {(() => { try { return format(new Date(d), 'yyyy년 M월 d일', { locale: ko }); } catch { return String(d); } })()}
+                      <button onClick={() => updateField('deliveryDates', (editSpecs?.deliveryDates || []).filter((_, idx) => idx !== i))} className="ml-0.5 hover:bg-muted rounded-full p-0.5">
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-6 text-[11px] gap-1">
+                      <Plus className="h-2.5 w-2.5" /> 날짜 추가
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      onSelect={(date) => {
+                        if (date) {
+                          const dateStr = format(date, 'yyyy-MM-dd');
+                          if (!(editSpecs?.deliveryDates || []).includes(dateStr)) {
+                            updateField('deliveryDates', [...(editSpecs?.deliveryDates || []), dateStr]);
+                          }
+                        }
+                      }}
+                      locale={ko}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            }
+          >
+            {specs.deliveryDates.length > 0 ? (
+              <div className="space-y-0.5">
+                {specs.deliveryDates.map((d, i) => (
+                  <p key={i} className="text-[11px] font-medium">
                     {(() => { try { return format(new Date(d), 'yyyy년 M월 d일', { locale: ko }); } catch { return String(d); } })()}
-                    <button onClick={() => updateField('deliveryDates', (editSpecs?.deliveryDates || []).filter((_, idx) => idx !== i))} className="ml-0.5 hover:bg-muted rounded-full p-0.5">
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </Badge>
+                  </p>
                 ))}
               </div>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
-                    <Plus className="h-3 w-3" /> 날짜 추가
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    onSelect={(date) => {
-                      if (date) {
-                        const dateStr = format(date, 'yyyy-MM-dd');
-                        if (!(editSpecs?.deliveryDates || []).includes(dateStr)) {
-                          updateField('deliveryDates', [...(editSpecs?.deliveryDates || []), dateStr]);
-                        }
-                      }
-                    }}
-                    locale={ko}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          }
-        >
-          {specs.deliveryDates.length > 0 ? (
-            <div className="space-y-0.5">
-              {specs.deliveryDates.map((d, i) => (
-                <p key={i} className="text-sm font-medium">
-                  {(() => { try { return format(new Date(d), 'yyyy년 M월 d일', { locale: ko }); } catch { return String(d); } })()}
-                </p>
-              ))}
-            </div>
-          ) : <span className="text-xs text-muted-foreground">미정</span>}
-        </SpecRow>
+            ) : <span className="text-[11px] text-muted-foreground">미정</span>}
+          </SpecRow>
 
-        {/* 납품 배송지 */}
-        <SpecRow icon={MapPin} label="납품 배송지" editMode={editing}
-          editContent={<EditableTagList values={editSpecs?.deliveryAddresses || []} onChange={(v) => updateField('deliveryAddresses', v)} placeholder="배송지 추가..." />}
-        >
-          {specs.deliveryAddresses.length > 0 ? (
-            <div className="space-y-0.5">{specs.deliveryAddresses.map((a, i) => <p key={i} className="text-sm">{a}</p>)}</div>
-          ) : <span className="text-xs text-muted-foreground">미지정</span>}
-        </SpecRow>
+          {/* 납품 배송지 */}
+          <SpecRow icon={MapPin} label="납품 배송지" editMode={editing}
+            editContent={<EditableTagList values={editSpecs?.deliveryAddresses || []} onChange={(v) => updateField('deliveryAddresses', v)} placeholder="배송지 추가..." />}
+          >
+            {specs.deliveryAddresses.length > 0 ? (
+              <div className="space-y-0.5">{specs.deliveryAddresses.map((a, i) => <p key={i} className="text-[11px]">{a}</p>)}</div>
+            ) : <span className="text-[11px] text-muted-foreground">-</span>}
+          </SpecRow>
 
-        {/* 클라이언트 요청 사항 */}
-        <SpecRow icon={MessageSquareText} label="요청 사항" editMode={editing}
-          editContent={
-            <Textarea
-              value={editSpecs?.clientRequests || ''}
-              onChange={(e) => updateField('clientRequests', e.target.value)}
-              placeholder="클라이언트 요청 사항을 입력하세요..."
-              className="text-xs min-h-[60px]"
-            />
-          }
-        >
-          {specs.clientRequests ? (
-            <p className="text-sm whitespace-pre-wrap">{specs.clientRequests}</p>
-          ) : <span className="text-xs text-muted-foreground">없음</span>}
-        </SpecRow>
+          {/* 클라이언트 요청 사항 - full width */}
+          <SpecRow icon={MessageSquareText} label="요청 사항" editMode={editing} fullWidth
+            editContent={
+              <Textarea
+                value={editSpecs?.clientRequests || ''}
+                onChange={(e) => updateField('clientRequests', e.target.value)}
+                placeholder="클라이언트 요청 사항을 입력하세요..."
+                className="text-[11px] min-h-[50px]"
+              />
+            }
+          >
+            {specs.clientRequests ? (
+              <p className="text-[11px] whitespace-pre-line">{specs.clientRequests}</p>
+            ) : <span className="text-[11px] text-muted-foreground">없음</span>}
+          </SpecRow>
+        </div>
       </CardContent>
     </Card>
   );
