@@ -10,7 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { X, FileText, Users } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { X, FileText, Users, Briefcase, Home, Link as LinkIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -32,6 +34,9 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [status, setStatus] = useState('pending');
+  const [projectType, setProjectType] = useState<'client' | 'internal'>('client');
+  const [notionUrl, setNotionUrl] = useState('');
+  const [linkedProjectId, setLinkedProjectId] = useState<string | null>(null);
   const [selectedEmployees, setSelectedEmployees] = useState<{ id: string; name: string }[]>([]);
   const [linkQuotes, setLinkQuotes] = useState(false);
   const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
@@ -63,7 +68,22 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
       if (error) throw error;
       return data;
     },
-    enabled: open && linkQuotes,
+    enabled: open && linkQuotes && projectType === 'client',
+  });
+
+  // Fetch client projects for linking (resale case)
+  const { data: clientProjects = [] } = useQuery({
+    queryKey: ['client-projects-for-link'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name')
+        .eq('project_type', 'client')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && projectType === 'internal',
   });
 
   const createProject = useMutation({
@@ -77,8 +97,11 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
           name: name.trim(),
           description: desc.trim() || null,
           status,
+          project_type: projectType,
+          notion_url: projectType === 'internal' && notionUrl.trim() ? notionUrl.trim() : null,
+          linked_project_id: projectType === 'internal' && linkedProjectId ? linkedProjectId : null,
           user_id: user.id,
-        })
+        } as any)
         .select('id')
         .single();
       if (error) throw error;
@@ -120,6 +143,9 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
     setName('');
     setDesc('');
     setStatus('pending');
+    setProjectType('client');
+    setNotionUrl('');
+    setLinkedProjectId(null);
     setSelectedEmployees([]);
     setLinkQuotes(false);
     setSelectedQuoteIds([]);
@@ -147,6 +173,29 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
         </DialogHeader>
 
         <div className="space-y-5 mt-2">
+          {/* 프로젝트 유형 */}
+          <div>
+            <label className="text-sm font-medium mb-2 block">프로젝트 유형 *</label>
+            <RadioGroup value={projectType} onValueChange={(v) => setProjectType(v as any)} className="flex gap-3">
+              <Label className={`flex items-center gap-2 border rounded-lg px-4 py-3 cursor-pointer transition-all flex-1 ${projectType === 'client' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50'}`}>
+                <RadioGroupItem value="client" />
+                <Briefcase className="h-4 w-4" />
+                <div>
+                  <div className="text-sm font-medium">클라이언트</div>
+                  <div className="text-[10px] text-muted-foreground">매출 프로젝트</div>
+                </div>
+              </Label>
+              <Label className={`flex items-center gap-2 border rounded-lg px-4 py-3 cursor-pointer transition-all flex-1 ${projectType === 'internal' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50'}`}>
+                <RadioGroupItem value="internal" />
+                <Home className="h-4 w-4" />
+                <div>
+                  <div className="text-sm font-medium">내부</div>
+                  <div className="text-[10px] text-muted-foreground">매입 프로젝트</div>
+                </div>
+              </Label>
+            </RadioGroup>
+          </div>
+
           {/* 프로젝트명 */}
           <div>
             <label className="text-sm font-medium mb-1 block">프로젝트명 *</label>
@@ -173,6 +222,44 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
               </SelectContent>
             </Select>
           </div>
+
+          {/* 노션 링크 (내부 프로젝트) */}
+          {projectType === 'internal' && (
+            <div>
+              <label className="text-sm font-medium mb-1 block">
+                <LinkIcon className="h-3.5 w-3.5 inline mr-1" />
+                노션 링크
+              </label>
+              <Input
+                value={notionUrl}
+                onChange={(e) => setNotionUrl(e.target.value)}
+                placeholder="https://www.notion.so/..."
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">노션 페이지 URL을 입력하면 프로젝트 상세에서 임베드로 확인할 수 있습니다.</p>
+            </div>
+          )}
+
+          {/* 연결된 클라이언트 프로젝트 (사입 → 판매 연결) */}
+          {projectType === 'internal' && (
+            <div>
+              <label className="text-sm font-medium mb-1 block">
+                <Briefcase className="h-3.5 w-3.5 inline mr-1" />
+                연결 클라이언트 프로젝트 (사입→판매)
+              </label>
+              <Select value={linkedProjectId || 'none'} onValueChange={(v) => setLinkedProjectId(v === 'none' ? null : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="선택 안 함" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">선택 안 함</SelectItem>
+                  {clientProjects.map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground mt-1">이 매입이 특정 클라이언트 프로젝트(매출)와 관련된 경우 연결하세요.</p>
+            </div>
+          )}
 
           {/* 담당 직원 */}
           <div>
@@ -206,8 +293,8 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
             </ScrollArea>
           </div>
 
-          {/* 견적서 연결 */}
-          <div>
+          {/* 견적서 연결 (클라이언트만) */}
+          {projectType === 'client' && <div>
             <label className="flex items-center gap-2 text-sm font-medium mb-1.5 cursor-pointer">
               <Checkbox checked={linkQuotes} onCheckedChange={(v) => { setLinkQuotes(!!v); if (!v) setSelectedQuoteIds([]); }} />
               <FileText className="h-3.5 w-3.5" />
@@ -236,7 +323,7 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
                 )}
               </ScrollArea>
             )}
-          </div>
+          </div>}
 
           <Button
             onClick={() => createProject.mutate()}

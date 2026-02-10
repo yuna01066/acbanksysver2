@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, FileText, Link2, Unlink, Trash2, ExternalLink, Plus, Phone, Mail, User } from 'lucide-react';
+import { Building2, FileText, Link2, Unlink, Trash2, ExternalLink, Plus, Phone, Mail, User, Briefcase, Home, Link as LinkIcon } from 'lucide-react';
 import ProjectStageSelect from '@/components/ProjectStageSelect';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -56,6 +56,42 @@ const InfoRow = ({ label, children, action }: { label: string; children: React.R
     </div>
   </div>
 );
+
+const LinkedClientProjectCard = ({ linkedProjectId }: { linkedProjectId: string }) => {
+  const { data: linkedProject } = useQuery({
+    queryKey: ['linked-project', linkedProjectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, status, payment_status')
+        .eq('id', linkedProjectId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  if (!linkedProject) return null;
+
+  const statusLabels: Record<string, string> = { pending: '진행 예정', active: '진행중', completed: '완료', cancelled: '취소' };
+
+  return (
+    <Card className="shadow-none border-primary/20 bg-primary/5">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 text-sm">
+          <Briefcase className="h-4 w-4 text-primary" />
+          <span className="font-medium">연결된 클라이언트 프로젝트 (매출)</span>
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <span className="text-sm font-semibold">{linkedProject.name}</span>
+          <Badge variant="secondary" className="text-[10px]">
+            {statusLabels[linkedProject.status] || linkedProject.status}
+          </Badge>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
   const navigate = useNavigate();
@@ -170,7 +206,16 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-xl font-bold">{project.name}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold">{project.name}</h2>
+            <Badge variant="outline" className="text-[10px] gap-1">
+              {(project as any).project_type === 'internal' ? (
+                <><Home className="h-3 w-3" /> 내부 (매입)</>
+              ) : (
+                <><Briefcase className="h-3 w-3" /> 클라이언트 (매출)</>
+              )}
+            </Badge>
+          </div>
           {project.description && (
             <p className="text-sm text-muted-foreground mt-0.5">{project.description}</p>
           )}
@@ -191,7 +236,43 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
       <div className="flex gap-4">
         {/* Left: Specs Card */}
         <div className="flex-1 min-w-0 space-y-4">
-          <ProjectSpecsCard projectId={projectId} specs={project.specs as any} linkedQuotes={linkedQuotes} />
+          {(project as any).project_type !== 'internal' && (
+            <ProjectSpecsCard projectId={projectId} specs={project.specs as any} linkedQuotes={linkedQuotes} />
+          )}
+
+          {/* 노션 임베드 (내부 프로젝트) */}
+          {(project as any).project_type === 'internal' && (project as any).notion_url && (
+            <Card className="shadow-none">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium flex items-center gap-1.5">
+                    <LinkIcon className="h-3.5 w-3.5" /> 노션
+                  </span>
+                  <a
+                    href={(project as any).notion_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    새 탭에서 열기 <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+                <div className="border rounded-lg overflow-hidden bg-white">
+                  <iframe
+                    src={(project as any).notion_url.replace('notion.so', 'notion.site')}
+                    className="w-full h-[500px] border-0"
+                    allowFullScreen
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 연결된 클라이언트 프로젝트 (사입→판매) */}
+          {(project as any).project_type === 'internal' && (project as any).linked_project_id && (
+            <LinkedClientProjectCard linkedProjectId={(project as any).linked_project_id} />
+          )}
+
           <ProjectUpdatesFeed projectId={projectId} />
         </div>
 
