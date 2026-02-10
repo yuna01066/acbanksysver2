@@ -52,12 +52,12 @@ const Home = () => {
     requiresAuth: true,
     action: () => navigate("/leave-management")
   }, {
-    title: "업무 평가",
-    icon: Star,
-    description: "직원 업무 평가 작성",
-    url: "/performance-review",
+    title: "고객사 관리",
+    icon: Building2,
+    description: "거래처 정보 관리",
+    url: "/recipient-management",
     requiresAuth: true,
-    action: () => navigate("/performance-review")
+    action: () => navigate("/recipient-management")
   }, {
     title: "프로젝트 관리",
     icon: FolderOpen,
@@ -93,6 +93,13 @@ const Home = () => {
     url: "/saved-quotes",
     requiresAuth: true,
     action: () => navigate("/saved-quotes")
+  }, {
+    title: "업무 평가",
+    icon: Star,
+    description: "직원 업무 평가 작성",
+    url: "/performance-review",
+    requiresAuth: true,
+    action: () => navigate("/performance-review")
   }, {
     title: "관리자 설정",
     icon: Settings,
