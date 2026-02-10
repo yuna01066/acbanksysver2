@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import CustomerQuoteCard from '@/components/CustomerQuoteCard';
 import QuoteCard from '@/components/QuoteCard';
-import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, Cloud, CloudOff, Loader2 } from 'lucide-react';
+import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, Cloud, CloudOff, Loader2, FolderOpen } from 'lucide-react';
 import PluuugSyncEventsBanner from '@/components/PluuugSyncEventsBanner';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
@@ -18,6 +18,14 @@ import { Badge } from '@/components/ui/badge';
 import { syncQuoteToPluuug, convertQuoteToPluuugFormat } from '@/utils/pluuugSync';
 import BulkPdfGenerator from '@/components/BulkPdfGenerator';
 import ProjectStageSelect, { PROJECT_STAGES, getStageInfo } from '@/components/ProjectStageSelect';
+import { getPaymentStatusInfo } from '@/components/project/PaymentStatusSelect';
+
+interface LinkedProject {
+  id: string;
+  name: string;
+  status: string;
+  payment_status: string | null;
+}
 
 interface SavedQuote {
   id: string;
@@ -46,6 +54,8 @@ interface SavedQuote {
   issuer_email: string | null;
   attachments: any;
   project_stage?: string;
+  project_id?: string | null;
+  linked_project?: LinkedProject | null;
 }
 
 interface UserProfile {
@@ -145,7 +155,24 @@ const SavedQuotesPage = () => {
           ...q,
           items: Array.isArray(q.items) ? q.items : []
         }));
-        setQuotes(formattedData);
+        
+        // Fetch linked projects
+        const projectIds = formattedData.filter(q => q.project_id).map(q => q.project_id);
+        let projectMap: Record<string, LinkedProject> = {};
+        if (projectIds.length > 0) {
+          const { data: projects } = await supabase
+            .from('projects')
+            .select('id, name, status, payment_status')
+            .in('id', projectIds);
+          if (projects) {
+            projectMap = Object.fromEntries(projects.map(p => [p.id, p]));
+          }
+        }
+        
+        setQuotes(formattedData.map(q => ({
+          ...q,
+          linked_project: q.project_id ? projectMap[q.project_id] || null : null
+        })));
       } 
       // 일반 사용자인 경우 (자신의 견적서만)
       else {
@@ -170,7 +197,24 @@ const SavedQuotesPage = () => {
           ...q,
           items: Array.isArray(q.items) ? q.items : []
         }));
-        setQuotes(formattedData);
+        
+        // Fetch linked projects
+        const projectIds = formattedData.filter(q => q.project_id).map(q => q.project_id);
+        let projectMap2: Record<string, LinkedProject> = {};
+        if (projectIds.length > 0) {
+          const { data: projects } = await supabase
+            .from('projects')
+            .select('id, name, status, payment_status')
+            .in('id', projectIds);
+          if (projects) {
+            projectMap2 = Object.fromEntries(projects.map(p => [p.id, p]));
+          }
+        }
+        
+        setQuotes(formattedData.map(q => ({
+          ...q,
+          linked_project: q.project_id ? projectMap2[q.project_id] || null : null
+        })));
       }
     } catch (error) {
       console.error('Error fetching quotes:', error);
@@ -633,6 +677,29 @@ const SavedQuotesPage = () => {
                         }}
                       />
                     </div>
+
+                    {/* Linked Project */}
+                    {quote.linked_project && (
+                      <div
+                        className="mb-3 p-3 rounded-lg border border-primary/20 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/projects?id=${quote.linked_project!.id}`);
+                        }}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <FolderOpen className="w-4 h-4 text-primary flex-shrink-0" />
+                          <span className="text-sm font-semibold text-foreground truncate">{quote.linked_project.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 ml-6">
+                          {quote.linked_project.payment_status && (
+                            <Badge className={`text-xs ${getPaymentStatusInfo(quote.linked_project.payment_status).color}`}>
+                              {getPaymentStatusInfo(quote.linked_project.payment_status).label}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Info Grid */}
                     <div className="space-y-3 mb-4">
