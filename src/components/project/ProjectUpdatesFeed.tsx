@@ -249,9 +249,14 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
     const uploaded: Attachment[] = [];
     for (const file of files) {
       const path = `${user!.id}/${projectId}/${Date.now()}_${file.name}`;
-      const { error } = await supabase.storage.from('project-update-attachments').upload(path, file);
-      if (!error) {
-        uploaded.push({ name: file.name, path, size: file.size, type: file.type });
+      const { error } = await supabase.storage.from('project-update-attachments').upload(path, file, {
+        contentType: file.type || 'application/octet-stream',
+      });
+      if (error) {
+        console.error('파일 업로드 실패:', file.name, error);
+        toast.error(`파일 업로드 실패: ${file.name}`);
+      } else {
+        uploaded.push({ name: file.name, path, size: file.size, type: file.type || 'application/octet-stream' });
       }
     }
     return uploaded;
@@ -548,6 +553,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
                 ref={fileInputRef}
                 type="file"
                 multiple
+                accept="*/*"
                 className="hidden"
                 onChange={handleFileChange}
               />
