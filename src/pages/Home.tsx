@@ -16,12 +16,26 @@ import OnlineEmployeesCard from '@/components/OnlineEmployeesCard';
 import MeetingRequestPopup from '@/components/MeetingRequestPopup';
 import TeamChatCard from '@/components/TeamChatCard';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 const Home = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, isAdmin, isModerator } = useAuth();
   const { notifications, unviewedCount, markAsViewed, removeNotification, refresh: refreshNotifications } = useNotifications();
+  const { data: activeCycle } = useQuery({
+    queryKey: ['active-review-cycle'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('performance_review_cycles')
+        .select('title')
+        .eq('status', 'active')
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
   // Quick icon links displayed above greeting card
   const quickLinks = [
     { title: "홈페이지", icon: HomeIcon, action: () => window.open("https://acbank.co.kr", "_blank") },
@@ -96,7 +110,7 @@ const Home = () => {
   }, {
     title: "업무 평가",
     icon: Star,
-    description: "직원 업무 평가 작성",
+    description: activeCycle ? `진행중: ${activeCycle.title}` : "직원 업무 평가 작성",
     url: "/performance-review",
     requiresAuth: true,
     action: () => navigate("/performance-review")
