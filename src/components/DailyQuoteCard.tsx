@@ -49,8 +49,8 @@ const DailyQuoteCard: React.FC = () => {
     <Card className="w-full">
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center shrink-0">
-            <Sparkles className="h-5 w-5 text-accent" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center shrink-0">
+            <Sparkles className="h-5 w-5 text-primary" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold mb-1">오늘의 명언</p>
