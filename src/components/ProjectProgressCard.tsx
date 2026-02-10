@@ -116,17 +116,10 @@ const ProjectProgressCard = () => {
   // Helper: check if current user's name matches any Notion assignee
   const isNotionAssignedToMe = (assigneeList: string[]) => {
     if (!profile?.full_name || assigneeList.length === 0) return false;
-    const myName = profile.full_name.trim();
+    const myChars = profile.full_name.replace(/\s/g, '').split('').sort().join('');
     return assigneeList.some((name) => {
-      const n = name.trim();
-      // Exact match or partial match (handles "윤아 정" vs "정윤아", "주현 양" vs "양주현")
-      if (n === myName) return true;
-      // Check if all characters in one name exist in the other (for reversed name order)
-      const nChars = n.replace(/\s/g, '');
-      const myChars = myName.replace(/\s/g, '');
-      return nChars === myChars || 
-        (nChars.length >= 2 && myChars.length >= 2 && 
-         [...nChars].every(c => myChars.includes(c)) && nChars.length === myChars.length);
+      const nChars = name.replace(/\s/g, '').split('').sort().join('');
+      return myChars === nChars;
     });
   };
 
@@ -137,14 +130,13 @@ const ProjectProgressCard = () => {
       ...p,
       progress: getNotionProgress(p.startDate, p.endDate, p.status),
     }))
-    .filter((p) => p.progress >= 0 && p.progress < 100)
-    .slice(0, 5);
+    .filter((p) => p.progress >= 0 && p.progress < 100);
 
   // Quotes: RLS already filters by user_id for non-admin, so no extra filter needed
   const quoteWithProgress = (quoteProjects || []).map((q) => ({
     ...q,
     progress: getQuoteProgress(q.project_stage),
-  })).slice(0, 5);
+  }));
 
   const isLoading = notionLoading || quotesLoading;
   const hasData = notionWithProgress.length > 0 || quoteWithProgress.length > 0;
