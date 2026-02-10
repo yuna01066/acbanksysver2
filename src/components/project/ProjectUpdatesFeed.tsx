@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Send, Trash2, MessageSquarePlus, Hash, ExternalLink, Paperclip, Download, FileText, AtSign } from 'lucide-react';
+import { Send, Trash2, MessageSquarePlus, Hash, ExternalLink, Paperclip, Download, FileText, AtSign, Pencil, Check, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -67,6 +67,8 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
   const [mentionSearch, setMentionSearch] = useState('');
   const [mentionIndex, setMentionIndex] = useState(0);
   const [mentionCursorPos, setMentionCursorPos] = useState(0);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mentionRef = useRef<HTMLDivElement>(null);
@@ -279,6 +281,21 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
       queryClient.invalidateQueries({ queryKey: ['project-updates', projectId] });
       toast.success('삭제되었습니다.');
     },
+  });
+
+  const editUpdate = useMutation({
+    mutationFn: async ({ id, content }: { id: string; content: string }) => {
+      if (!content.trim()) throw new Error('내용을 입력해주세요.');
+      const { error } = await supabase.from('project_updates').update({ content: content.trim() }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-updates', projectId] });
+      setEditingId(null);
+      setEditContent('');
+      toast.success('수정되었습니다.');
+    },
+    onError: (e: any) => toast.error(e.message || '수정에 실패했습니다.'),
   });
 
   const filteredNotionProjects = notionProjects.filter((p) =>
@@ -543,17 +560,48 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
                     </span>
                   </div>
                   {canDelete(update) && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                      onClick={() => deleteUpdate.mutate(update.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {update.user_id === user?.id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                          onClick={() => { setEditingId(update.id); setEditContent(update.content); }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                        onClick={() => deleteUpdate.mutate(update.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   )}
                 </div>
-                {renderContent(update.content, update.mentioned_user_ids)}
+                {editingId === update.id ? (
+                  <div className="space-y-1.5">
+                    <Textarea
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      className="text-sm min-h-[50px] resize-none"
+                      autoFocus
+                    />
+                    <div className="flex items-center gap-1 justify-end">
+                      <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => { setEditingId(null); setEditContent(''); }}>
+                        <X className="h-3 w-3" /> 취소
+                      </Button>
+                      <Button size="sm" className="h-6 text-xs gap-1" disabled={!editContent.trim() || editUpdate.isPending} onClick={() => editUpdate.mutate({ id: update.id, content: editContent })}>
+                        <Check className="h-3 w-3" /> {editUpdate.isPending ? '저장 중...' : '저장'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  renderContent(update.content, update.mentioned_user_ids)
+                )}
                 {update.attachments && update.attachments.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
                     {update.attachments.map((att, i) => (
