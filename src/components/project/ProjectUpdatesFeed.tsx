@@ -316,16 +316,32 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
   const canDelete = (update: ProjectUpdate) =>
     update.user_id === user?.id || isAdmin || isModerator;
 
-  // Render content with highlighted mentions
+  // Render a text segment with clickable URLs
+  const renderWithLinks = (text: string, keyPrefix: string) => {
+    const urlPattern = /(https?:\/\/[^\s<]+)/g;
+    const parts = text.split(urlPattern);
+    return parts.map((part, i) => {
+      if (urlPattern.test(part)) {
+        return (
+          <a key={`${keyPrefix}-${i}`} href={part} target="_blank" rel="noopener noreferrer" className="text-primary underline hover:text-primary/80 break-all">
+            {part}
+          </a>
+        );
+      }
+      return <React.Fragment key={`${keyPrefix}-${i}`}>{part}</React.Fragment>;
+    });
+  };
+
+  // Render content with highlighted mentions and clickable links
   const renderContent = (text: string, mentionIds: string[]) => {
     if (!text) return null;
-    if (mentionIds.length === 0) return <p className="text-sm whitespace-pre-wrap leading-relaxed">{text}</p>;
+    if (mentionIds.length === 0) return <p className="text-sm whitespace-pre-wrap leading-relaxed">{renderWithLinks(text, 'link')}</p>;
 
     const mentionNames = mentionIds
       .map(id => allEmployees.find(e => e.id === id)?.full_name)
       .filter(Boolean) as string[];
 
-    if (mentionNames.length === 0) return <p className="text-sm whitespace-pre-wrap leading-relaxed">{text}</p>;
+    if (mentionNames.length === 0) return <p className="text-sm whitespace-pre-wrap leading-relaxed">{renderWithLinks(text, 'link')}</p>;
 
     const pattern = new RegExp(`@(${mentionNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'g');
     const parts = text.split(pattern);
@@ -340,7 +356,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
               </span>
             );
           }
-          return <React.Fragment key={i}>{part}</React.Fragment>;
+          return <React.Fragment key={i}>{renderWithLinks(part, `part-${i}`)}</React.Fragment>;
         })}
       </p>
     );
