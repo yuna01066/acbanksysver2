@@ -270,7 +270,7 @@ const OnlineEmployeesCard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="rounded-xl border bg-card p-5 shadow-sm">
+      <div className="glass-card p-5">
         <div className="flex items-center justify-center py-4">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
@@ -280,7 +280,7 @@ const OnlineEmployeesCard: React.FC = () => {
 
   return (
     <>
-      <div className="rounded-xl border bg-card p-5 shadow-sm animate-fade-in flex flex-col">
+      <div className="glass-card p-5 animate-fade-in flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Users2 className="h-4 w-4 text-green-500" />

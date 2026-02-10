@@ -193,7 +193,7 @@ const TeamChatCard: React.FC = () => {
   };
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm animate-fade-in flex flex-col h-[400px]">
+    <div className="glass-card animate-fade-in flex flex-col h-[400px]">
       {/* Header */}
       <div className="flex items-center gap-2 p-4 border-b shrink-0">
         <MessageSquare className="h-4 w-4 text-primary" />
