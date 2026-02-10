@@ -38,20 +38,27 @@ const stageLabels: Record<string, string> = {
 };
 
 const stageColors: Record<string, string> = {
-  quote_issued: 'bg-blue-100 text-blue-700',
-  invoice_issued: 'bg-purple-100 text-purple-700',
-  in_progress: 'bg-yellow-100 text-yellow-700',
-  panel_ordered: 'bg-orange-100 text-orange-700',
-  manufacturing: 'bg-cyan-100 text-cyan-700',
-  completed: 'bg-green-100 text-green-700',
-  cancelled: 'bg-red-100 text-red-700',
+  quote_issued: 'bg-blue-50 text-blue-700 border-blue-200',
+  invoice_issued: 'bg-purple-50 text-purple-700 border-purple-200',
+  in_progress: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+  panel_ordered: 'bg-orange-50 text-orange-700 border-orange-200',
+  manufacturing: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  completed: 'bg-green-50 text-green-700 border-green-200',
+  cancelled: 'bg-red-50 text-red-600 border-red-200',
 };
 
+const SectionLabel = ({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) => (
+  <div className="flex items-center justify-between mb-2">
+    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{children}</span>
+    {action}
+  </div>
+);
+
 const InfoRow = ({ label, children, action }: { label: string; children: React.ReactNode; action?: React.ReactNode }) => (
-  <div className="flex items-center justify-between py-3 border-b last:border-b-0">
-    <span className="text-sm text-muted-foreground">{label}</span>
-    <div className="flex items-center gap-2">
-      <div className="text-sm font-medium text-right">{children}</div>
+  <div className="flex items-center justify-between py-2.5 border-b border-border/50 last:border-b-0">
+    <span className="text-xs text-muted-foreground">{label}</span>
+    <div className="flex items-center gap-1.5">
+      <div className="text-xs font-medium text-right">{children}</div>
       {action}
     </div>
   </div>
@@ -76,20 +83,18 @@ const LinkedClientProjectCard = ({ linkedProjectId }: { linkedProjectId: string 
   const statusLabels: Record<string, string> = { pending: '진행 예정', active: '진행중', completed: '완료', cancelled: '취소' };
 
   return (
-    <Card className="shadow-none border-primary/20 bg-primary/5">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 text-sm">
-          <Briefcase className="h-4 w-4 text-primary" />
-          <span className="font-medium">연결된 클라이언트 프로젝트 (매출)</span>
-        </div>
-        <div className="mt-2 flex items-center gap-2">
-          <span className="text-sm font-semibold">{linkedProject.name}</span>
-          <Badge variant="secondary" className="text-[10px]">
-            {statusLabels[linkedProject.status] || linkedProject.status}
-          </Badge>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="rounded-lg border border-primary/20 bg-primary/[0.03] p-3">
+      <div className="flex items-center gap-2 text-xs">
+        <Briefcase className="h-3.5 w-3.5 text-primary" />
+        <span className="font-medium text-muted-foreground">연결된 클라이언트 프로젝트 (매출)</span>
+      </div>
+      <div className="mt-1.5 flex items-center gap-2">
+        <span className="text-sm font-semibold">{linkedProject.name}</span>
+        <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+          {statusLabels[linkedProject.status] || linkedProject.status}
+        </Badge>
+      </div>
+    </div>
   );
 };
 
@@ -198,7 +203,12 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
   const totalQuoteAmount = linkedQuotes.reduce((sum: number, q: any) => sum + Number(q.total || 0), 0);
 
   if (isLoading || !project) {
-    return <div className="text-center py-8 text-muted-foreground text-sm">로딩 중...</div>;
+    return (
+      <div className="space-y-3">
+        <div className="h-8 bg-muted/50 rounded-lg animate-pulse w-2/3" />
+        <div className="h-64 bg-muted/50 rounded-lg animate-pulse" />
+      </div>
+    );
   }
 
   return (
@@ -207,34 +217,34 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold">{project.name}</h2>
-            <Badge variant="outline" className="text-[10px] gap-1">
+            <h2 className="text-lg font-bold tracking-tight">{project.name}</h2>
+            <Badge variant="outline" className="text-[10px] gap-1 font-normal">
               {(project as any).project_type === 'internal' ? (
-                <><Home className="h-3 w-3" /> 내부 (매입)</>
+                <><Home className="h-2.5 w-2.5" /> 내부 (매입)</>
               ) : (
-                <><Briefcase className="h-3 w-3" /> 클라이언트 (매출)</>
+                <><Briefcase className="h-2.5 w-2.5" /> 클라이언트 (매출)</>
               )}
             </Badge>
           </div>
           {project.description && (
-            <p className="text-sm text-muted-foreground mt-0.5">{project.description}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{project.description}</p>
           )}
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-destructive hover:text-destructive shrink-0"
+          className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
           onClick={() => {
             if (confirm('이 프로젝트를 삭제하시겠습니까?')) deleteProject.mutate();
           }}
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
 
-      {/* Two-column layout: Left 3/4, Right 1/4 */}
+      {/* Two-column layout */}
       <div className="flex gap-4">
-        {/* Left: Specs Card */}
+        {/* Left: Specs / Notion / Updates */}
         <div className="flex-1 min-w-0 space-y-4">
           {(project as any).project_type !== 'internal' && (
             <ProjectSpecsCard projectId={projectId} specs={project.specs as any} linkedQuotes={linkedQuotes} />
@@ -242,33 +252,31 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
 
           {/* 노션 임베드 (내부 프로젝트) */}
           {(project as any).project_type === 'internal' && (project as any).notion_url && (
-            <Card className="shadow-none">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium flex items-center gap-1.5">
-                    <LinkIcon className="h-3.5 w-3.5" /> 노션
-                  </span>
-                  <a
-                    href={(project as any).notion_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
-                    새 탭에서 열기 <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-                <div className="border rounded-lg overflow-hidden bg-white">
-                  <iframe
-                    src={(project as any).notion_url.replace('notion.so', 'notion.site')}
-                    className="w-full h-[500px] border-0"
-                    allowFullScreen
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            <div className="rounded-lg border bg-card">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b">
+                <span className="text-xs font-medium flex items-center gap-1.5">
+                  <LinkIcon className="h-3 w-3" /> 노션
+                </span>
+                <a
+                  href={(project as any).notion_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                >
+                  새 탭에서 열기 <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+              </div>
+              <div className="bg-white rounded-b-lg overflow-hidden">
+                <iframe
+                  src={(project as any).notion_url.replace('notion.so', 'notion.site')}
+                  className="w-full h-[500px] border-0"
+                  allowFullScreen
+                />
+              </div>
+            </div>
           )}
 
-          {/* 연결된 클라이언트 프로젝트 (사입→판매) */}
+          {/* 연결된 클라이언트 프로젝트 */}
           {(project as any).project_type === 'internal' && (project as any).linked_project_id && (
             <LinkedClientProjectCard linkedProjectId={(project as any).linked_project_id} />
           )}
@@ -276,185 +284,188 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
           <ProjectUpdatesFeed projectId={projectId} />
         </div>
 
-        {/* Right: Info Card (1/4 width) */}
-        <div className="w-[280px] shrink-0">
-          <Card className="shadow-none">
-            <CardContent className="p-4">
-              {/* 단계 */}
-              <InfoRow label="단계">
-                <Select value={project.status} onValueChange={(v) => updateStatus.mutate(v)}>
-                  <SelectTrigger className="w-[100px] h-7 text-xs border-0 bg-transparent p-0 justify-end gap-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">진행 예정</SelectItem>
-                    <SelectItem value="active">진행중</SelectItem>
-                    <SelectItem value="completed">완료</SelectItem>
-                    <SelectItem value="cancelled">취소</SelectItem>
-                  </SelectContent>
-                </Select>
-              </InfoRow>
+        {/* Right: Info sidebar */}
+        <div className="w-[260px] shrink-0 space-y-3">
+          {/* Status card */}
+          <div className="rounded-lg border bg-card p-3.5 space-y-0">
+            <InfoRow label="단계">
+              <Select value={project.status} onValueChange={(v) => updateStatus.mutate(v)}>
+                <SelectTrigger className="w-[90px] h-6 text-[11px] border-0 bg-transparent p-0 justify-end gap-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">진행 예정</SelectItem>
+                  <SelectItem value="active">진행중</SelectItem>
+                  <SelectItem value="completed">완료</SelectItem>
+                  <SelectItem value="cancelled">취소</SelectItem>
+                </SelectContent>
+              </Select>
+            </InfoRow>
 
-              {/* 견적 단계 */}
-              {linkedQuotes.length > 0 && (
-                <InfoRow label="견적 단계">
-                  <ProjectStageSelect
-                    quoteId={linkedQuotes[0].id}
-                    currentStage={linkedQuotes[0].project_stage}
-                    quoteNumber={linkedQuotes[0].quote_number}
-                    pluuugEstimateId={linkedQuotes[0].pluuug_estimate_id}
-                    pluuugSynced={linkedQuotes[0].pluuug_synced}
-                    quoteUserId={linkedQuotes[0].user_id}
-                    onStageChanged={() => {
-                      queryClient.invalidateQueries({ queryKey: ['project-quotes', projectId] });
-                      queryClient.invalidateQueries({ queryKey: ['projects'] });
-                    }}
-                  />
-                </InfoRow>
+            {linkedQuotes.length > 0 && (
+              <InfoRow label="견적 단계">
+                <ProjectStageSelect
+                  quoteId={linkedQuotes[0].id}
+                  currentStage={linkedQuotes[0].project_stage}
+                  quoteNumber={linkedQuotes[0].quote_number}
+                  pluuugEstimateId={linkedQuotes[0].pluuug_estimate_id}
+                  pluuugSynced={linkedQuotes[0].pluuug_synced}
+                  quoteUserId={linkedQuotes[0].user_id}
+                  onStageChanged={() => {
+                    queryClient.invalidateQueries({ queryKey: ['project-quotes', projectId] });
+                    queryClient.invalidateQueries({ queryKey: ['projects'] });
+                  }}
+                />
+              </InfoRow>
+            )}
+
+            <InfoRow label="입금 상태">
+              <PaymentStatusSelect projectId={projectId} currentStatus={(project as any).payment_status || 'unpaid'} />
+            </InfoRow>
+
+            <InfoRow label="예상 견적">
+              {totalQuoteAmount > 0 ? (
+                <span className="font-bold text-[11px]">₩{Math.round(totalQuoteAmount).toLocaleString()}</span>
+              ) : (
+                <span className="text-[11px] text-muted-foreground">없음</span>
               )}
+            </InfoRow>
 
-              {/* 입금 상태 */}
-              <InfoRow label="입금 상태">
-                <PaymentStatusSelect projectId={projectId} currentStatus={(project as any).payment_status || 'unpaid'} />
-              </InfoRow>
+            <InfoRow label="생성일">
+              <span className="text-[11px] tabular-nums">{format(new Date(project.created_at), 'yy.MM.dd', { locale: ko })}</span>
+            </InfoRow>
+          </div>
 
-              {/* 담당 직원 */}
-              <div className="py-3 border-b">
-                <span className="text-sm text-muted-foreground mb-2 block">담당 직원</span>
-                <ProjectAssignments projectId={projectId} />
-              </div>
+          {/* Employees */}
+          <div className="rounded-lg border bg-card p-3.5">
+            <SectionLabel>담당 직원</SectionLabel>
+            <ProjectAssignments projectId={projectId} />
+          </div>
 
-              {/* 예상 견적 */}
-              <InfoRow label="예상 견적">
-                {totalQuoteAmount > 0 ? (
-                  <span className="font-bold text-xs">₩{Math.round(totalQuoteAmount).toLocaleString()}</span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">없음</span>
-                )}
-              </InfoRow>
-
-              {/* 생성일 */}
-              <InfoRow label="생성일">
-                <span className="text-xs">{format(new Date(project.created_at), 'yy.MM.dd', { locale: ko })}</span>
-              </InfoRow>
-
-              {/* 고객사 */}
-              <div className="py-3 border-b">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-muted-foreground">고객사</span>
-                  {project.recipient_id ? (
-                    <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-1 text-destructive px-1" onClick={() => linkRecipient.mutate(null)}>
-                      <Unlink className="h-2.5 w-2.5" /> 해제
-                    </Button>
-                  ) : (
-                    <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-1 px-1" onClick={() => setRecipientDialogOpen(true)}>
-                      <Link2 className="h-2.5 w-2.5" /> 연결
-                    </Button>
-                  )}
-                </div>
-                {project.recipients ? (
-                  <div className="space-y-1 pl-0.5">
-                    <button
-                      className="flex items-center gap-1.5 text-xs font-medium hover:text-primary transition-colors text-left"
-                      onClick={() => setRecipientSheetOpen(true)}
-                    >
-                      <Building2 className="h-3 w-3 text-muted-foreground" />
-                      <span className="underline underline-offset-2">{project.recipients.company_name}</span>
-                    </button>
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <User className="h-2.5 w-2.5" /> {project.recipients.contact_person}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <Phone className="h-2.5 w-2.5" /> {project.recipients.phone}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <Mail className="h-2.5 w-2.5" /> {project.recipients.email}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-[11px] text-muted-foreground">연결된 고객사가 없습니다.</p>
-                )}
-              </div>
-
-              {/* 담당자 */}
-              <div className="py-3 border-b">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-muted-foreground">담당자</span>
-                  {(project as any).contact_name ? (
-                    <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-1 text-destructive px-1" onClick={() => updateContact.mutate(null)}>
-                      <Unlink className="h-2.5 w-2.5" /> 해제
-                    </Button>
-                  ) : (
-                    <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-1 px-1" onClick={() => setContactDialogOpen(true)}>
-                      <Link2 className="h-2.5 w-2.5" /> 연결
-                    </Button>
-                  )}
-                </div>
-                {(project as any).contact_name ? (
-                  <div className="space-y-1 pl-0.5">
-                    <div className="flex items-center gap-1.5 text-xs font-medium">
-                      <User className="h-3 w-3 text-muted-foreground" />
-                      {(project as any).contact_name}
-                    </div>
-                    {(project as any).contact_phone && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <Phone className="h-2.5 w-2.5" /> {(project as any).contact_phone}
-                      </div>
-                    )}
-                    {(project as any).contact_email && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <Mail className="h-2.5 w-2.5" /> {(project as any).contact_email}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-[11px] text-muted-foreground">연결된 담당자가 없습니다.</p>
-                )}
-              </div>
-
-              {/* 연결된 견적서 */}
-              <div className="pt-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-muted-foreground">견적서 ({linkedQuotes.length})</span>
-                  <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-1 px-1" onClick={() => setQuoteDialogOpen(true)}>
-                    <Plus className="h-2.5 w-2.5" /> 연결
+          {/* Client */}
+          <div className="rounded-lg border bg-card p-3.5">
+            <SectionLabel
+              action={
+                project.recipient_id ? (
+                  <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-0.5 text-destructive px-1 -mr-1" onClick={() => linkRecipient.mutate(null)}>
+                    <Unlink className="h-2.5 w-2.5" /> 해제
                   </Button>
-                </div>
-                {linkedQuotes.length === 0 ? (
-                  <div className="flex flex-col items-center gap-2 py-2">
-                    <p className="text-[11px] text-muted-foreground">없음</p>
-                    <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={() => navigate('/calculator')}>
-                      <FileText className="h-2.5 w-2.5" /> 새 견적서
-                    </Button>
-                  </div>
                 ) : (
-                  <div className="space-y-1 max-h-[200px] overflow-y-auto">
-                    {linkedQuotes.map((q: any) => (
-                      <div key={q.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg text-xs group">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-[10px] text-muted-foreground">{q.quote_number}</span>
-                            <Badge variant="secondary" className={`text-[9px] px-1 py-0 ${stageColors[q.project_stage] || ''}`}>
-                              {stageLabels[q.project_stage] || q.project_stage}
-                            </Badge>
-                          </div>
-                          <p className="text-[10px] mt-0.5 truncate">₩{q.total?.toLocaleString()}</p>
-                        </div>
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setPreviewQuoteId(q.id)}>
-                            <ExternalLink className="h-2.5 w-2.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => unlinkQuote.mutate(q.id)}>
-                            <Unlink className="h-2.5 w-2.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                  <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-0.5 px-1 -mr-1" onClick={() => setRecipientDialogOpen(true)}>
+                    <Link2 className="h-2.5 w-2.5" /> 연결
+                  </Button>
+                )
+              }
+            >
+              고객사
+            </SectionLabel>
+            {project.recipients ? (
+              <div className="space-y-1">
+                <button
+                  className="flex items-center gap-1.5 text-xs font-medium hover:text-primary transition-colors text-left"
+                  onClick={() => setRecipientSheetOpen(true)}
+                >
+                  <Building2 className="h-3 w-3 text-muted-foreground" />
+                  <span className="underline underline-offset-2">{project.recipients.company_name}</span>
+                </button>
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <User className="h-2.5 w-2.5" /> {project.recipients.contact_person}
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <Phone className="h-2.5 w-2.5" /> {project.recipients.phone}
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <Mail className="h-2.5 w-2.5" /> {project.recipients.email}
+                </div>
+              </div>
+            ) : (
+              <p className="text-[10px] text-muted-foreground">연결된 고객사가 없습니다.</p>
+            )}
+          </div>
+
+          {/* Contact */}
+          <div className="rounded-lg border bg-card p-3.5">
+            <SectionLabel
+              action={
+                (project as any).contact_name ? (
+                  <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-0.5 text-destructive px-1 -mr-1" onClick={() => updateContact.mutate(null)}>
+                    <Unlink className="h-2.5 w-2.5" /> 해제
+                  </Button>
+                ) : (
+                  <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-0.5 px-1 -mr-1" onClick={() => setContactDialogOpen(true)}>
+                    <Link2 className="h-2.5 w-2.5" /> 연결
+                  </Button>
+                )
+              }
+            >
+              담당자
+            </SectionLabel>
+            {(project as any).contact_name ? (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-medium">
+                  <User className="h-3 w-3 text-muted-foreground" />
+                  {(project as any).contact_name}
+                </div>
+                {(project as any).contact_phone && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <Phone className="h-2.5 w-2.5" /> {(project as any).contact_phone}
+                  </div>
+                )}
+                {(project as any).contact_email && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <Mail className="h-2.5 w-2.5" /> {(project as any).contact_email}
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            ) : (
+              <p className="text-[10px] text-muted-foreground">연결된 담당자가 없습니다.</p>
+            )}
+          </div>
+
+          {/* Quotes */}
+          <div className="rounded-lg border bg-card p-3.5">
+            <SectionLabel
+              action={
+                <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-0.5 px-1 -mr-1" onClick={() => setQuoteDialogOpen(true)}>
+                  <Plus className="h-2.5 w-2.5" /> 연결
+                </Button>
+              }
+            >
+              견적서 ({linkedQuotes.length})
+            </SectionLabel>
+            {linkedQuotes.length === 0 ? (
+              <div className="flex flex-col items-center gap-1.5 py-2">
+                <p className="text-[10px] text-muted-foreground">없음</p>
+                <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={() => navigate('/calculator')}>
+                  <FileText className="h-2.5 w-2.5" /> 새 견적서
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-1 max-h-[180px] overflow-y-auto">
+                {linkedQuotes.map((q: any) => (
+                  <div key={q.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-md text-[11px] group">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-[10px] text-muted-foreground">{q.quote_number}</span>
+                        <Badge variant="secondary" className={`text-[8px] px-1 py-0 h-[14px] border ${stageColors[q.project_stage] || ''}`}>
+                          {stageLabels[q.project_stage] || q.project_stage}
+                        </Badge>
+                      </div>
+                      <p className="text-[10px] mt-0.5 truncate">₩{q.total?.toLocaleString()}</p>
+                    </div>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setPreviewQuoteId(q.id)}>
+                        <ExternalLink className="h-2.5 w-2.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => unlinkQuote.mutate(q.id)}>
+                        <Unlink className="h-2.5 w-2.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

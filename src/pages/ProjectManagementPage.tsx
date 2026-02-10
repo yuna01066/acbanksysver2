@@ -4,21 +4,24 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Plus, FolderOpen, Building2, FileText, Search, Trash2, Users, CircleDollarSign, Briefcase, Home } from 'lucide-react';
-import { toast } from 'sonner';
+import { ArrowLeft, Plus, FolderOpen, Building2, FileText, Search, Users, CircleDollarSign, Briefcase, Home } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import ProjectDetailPanel from '@/components/project/ProjectDetailPanel';
 import CreateProjectDialog from '@/components/project/CreateProjectDialog';
 
+const paymentStatusConfig: Record<string, { label: string; dot: string }> = {
+  unpaid: { label: '미입금', dot: 'bg-gray-400' },
+  deposit_paid: { label: '계약금', dot: 'bg-amber-400' },
+  interim_paid: { label: '중도금', dot: 'bg-blue-400' },
+  fully_paid: { label: '완료', dot: 'bg-emerald-400' },
+};
+
 const ProjectManagementPage = () => {
   const navigate = useNavigate();
-  const { user, profile, isAdmin, isModerator } = useAuth();
-  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -68,18 +71,16 @@ const ProjectManagementPage = () => {
     enabled: !!user,
   });
 
-  
-
   const filteredProjects = projects.filter((p: any) =>
     (p.project_type || 'client') === activeTab &&
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const statusColors: Record<string, string> = {
-    pending: 'bg-gray-100 text-gray-700',
-    active: 'bg-green-100 text-green-700',
-    completed: 'bg-blue-100 text-blue-700',
-    cancelled: 'bg-red-100 text-red-700',
+    pending: 'bg-muted text-muted-foreground',
+    active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    completed: 'bg-blue-50 text-blue-700 border-blue-200',
+    cancelled: 'bg-red-50 text-red-600 border-red-200',
   };
 
   const statusLabels: Record<string, string> = {
@@ -98,53 +99,77 @@ const ProjectManagementPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="flex items-center gap-3 mb-6">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-2xl font-bold">프로젝트 관리</h1>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2.5">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/')}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <h1 className="text-xl font-bold tracking-tight">프로젝트 관리</h1>
+          </div>
         </div>
 
-        <div className="flex gap-6">
+        <div className="flex gap-5">
           {/* Left: Project List */}
-          <div className="w-[380px] shrink-0 space-y-4">
-            <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as any); setSelectedProjectId(null); }}>
-              <TabsList className="w-full">
-                <TabsTrigger value="client" className="flex-1 gap-1.5">
-                  <Briefcase className="h-3.5 w-3.5" /> 클라이언트 (매출)
-                </TabsTrigger>
-                <TabsTrigger value="internal" className="flex-1 gap-1.5">
-                  <Home className="h-3.5 w-3.5" /> 내부 (매입)
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+          <div className="w-[360px] shrink-0 flex flex-col">
+            {/* Tab buttons */}
+            <div className="flex bg-muted rounded-lg p-0.5 mb-3">
+              <button
+                onClick={() => { setActiveTab('client'); setSelectedProjectId(null); }}
+                className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-md transition-all ${
+                  activeTab === 'client'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Briefcase className="h-3.5 w-3.5" />
+                클라이언트 (매출)
+              </button>
+              <button
+                onClick={() => { setActiveTab('internal'); setSelectedProjectId(null); }}
+                className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-md transition-all ${
+                  activeTab === 'internal'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Home className="h-3.5 w-3.5" />
+                내부 (매입)
+              </button>
+            </div>
 
-            <div className="flex items-center gap-2">
+            {/* Search + Create */}
+            <div className="flex items-center gap-2 mb-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="프로젝트 검색..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="pl-8 h-8 text-xs"
                 />
               </div>
-              <Button size="sm" className="gap-1 shrink-0" onClick={() => setCreateOpen(true)}>
-                <Plus className="h-4 w-4" /> 새 프로젝트
+              <Button size="sm" className="gap-1 h-8 text-xs shrink-0" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-3.5 w-3.5" /> 새 프로젝트
               </Button>
               <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
             </div>
 
-            <div className="space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto">
+            {/* Project list */}
+            <div className="space-y-1.5 max-h-[calc(100vh-200px)] overflow-y-auto pr-0.5">
               {isLoading ? (
-                <p className="text-sm text-muted-foreground text-center py-8">로딩 중...</p>
+                <div className="space-y-2 py-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-16 bg-muted/50 rounded-lg animate-pulse" />
+                  ))}
+                </div>
               ) : filteredProjects.length === 0 ? (
-                <div className="text-center py-12">
-                  <FolderOpen className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    {searchQuery ? '검색 결과가 없습니다.' : '아직 프로젝트가 없습니다.'}
+                <div className="text-center py-16">
+                  <FolderOpen className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                  <p className="text-xs text-muted-foreground">
+                    {searchQuery ? '검색 결과가 없습니다.' : '프로젝트가 없습니다.'}
                   </p>
                 </div>
               ) : (
@@ -153,61 +178,73 @@ const ProjectManagementPage = () => {
                   const assignees = allAssignments
                     .filter((a: any) => a.project_id === project.id)
                     .map((a: any) => a.user_name);
+                  const isSelected = selectedProjectId === project.id;
+                  const payment = paymentStatusConfig[(project as any).payment_status || 'unpaid'];
 
                   return (
-                    <Card
+                    <div
                       key={project.id}
-                      className={`cursor-pointer transition-all hover:shadow-md ${
-                        selectedProjectId === project.id ? 'ring-2 ring-primary' : ''
-                      }`}
                       onClick={() => setSelectedProjectId(project.id)}
+                      className={`group cursor-pointer rounded-lg border p-3 transition-all ${
+                        isSelected
+                          ? 'border-primary/40 bg-primary/[0.03] shadow-sm'
+                          : 'border-transparent hover:bg-muted/50 hover:border-border'
+                      }`}
                     >
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <h3 className="font-semibold text-sm truncate">{project.name}</h3>
-                              {qs && qs.count > 0 && (
-                                <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
-                              )}
-                            </div>
-                            {project.description && (
-                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{project.description}</p>
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <h3 className="font-semibold text-[13px] truncate leading-tight">{project.name}</h3>
+                            {qs && qs.count > 0 && (
+                              <FileText className="h-3 w-3 text-primary/60 shrink-0" />
                             )}
                           </div>
-                          <Badge variant="secondary" className={`text-[10px] shrink-0 ${statusColors[project.status] || ''}`}>
-                            {statusLabels[project.status] || project.status}
-                          </Badge>
                         </div>
+                        <Badge
+                          variant="secondary"
+                          className={`text-[10px] px-1.5 py-0 h-[18px] font-medium border shrink-0 ${statusColors[project.status] || ''}`}
+                        >
+                          {statusLabels[project.status] || project.status}
+                        </Badge>
+                      </div>
 
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[11px] text-muted-foreground">
-                          {project.recipients && (
-                            <span className="flex items-center gap-1">
-                              <Building2 className="h-3 w-3" />
-                              {project.recipients.company_name}
-                              {project.recipients.contact_person && (
-                                <span className="text-muted-foreground/70">· {project.recipients.contact_person}</span>
-                              )}
-                            </span>
-                          )}
-                          {qs && qs.count > 0 && (
-                            <span className="flex items-center gap-1">
-                              <CircleDollarSign className="h-3 w-3" />
-                              ₩{Math.round(qs.totalAmount).toLocaleString()}
-                            </span>
-                          )}
-                          {assignees.length > 0 && (
-                            <span className="flex items-center gap-1">
-                              <Users className="h-3 w-3" />
-                              {assignees.length <= 2 ? assignees.join(', ') : `${assignees[0]} 외 ${assignees.length - 1}명`}
-                            </span>
-                          )}
-                          <span className="ml-auto">
-                            {format(new Date(project.created_at), 'yy.MM.dd', { locale: ko })}
+                      {project.description && (
+                        <p className="text-[11px] text-muted-foreground line-clamp-1 mb-1.5">{project.description}</p>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10px] text-muted-foreground">
+                        {project.recipients && (
+                          <span className="flex items-center gap-0.5">
+                            <Building2 className="h-2.5 w-2.5" />
+                            {project.recipients.company_name}
+                            {project.recipients.contact_person && (
+                              <span className="opacity-60">· {project.recipients.contact_person}</span>
+                            )}
                           </span>
-                        </div>
-                      </CardContent>
-                    </Card>
+                        )}
+                        {qs && qs.count > 0 && (
+                          <span className="flex items-center gap-0.5">
+                            <CircleDollarSign className="h-2.5 w-2.5" />
+                            ₩{Math.round(qs.totalAmount).toLocaleString()}
+                          </span>
+                        )}
+                        {assignees.length > 0 && (
+                          <span className="flex items-center gap-0.5">
+                            <Users className="h-2.5 w-2.5" />
+                            {assignees.length <= 2 ? assignees.join(', ') : `${assignees[0]} 외 ${assignees.length - 1}명`}
+                          </span>
+                        )}
+                        {payment && (
+                          <span className="flex items-center gap-1">
+                            <span className={`w-1.5 h-1.5 rounded-full ${payment.dot}`} />
+                            {payment.label}
+                          </span>
+                        )}
+                        <span className="ml-auto tabular-nums">
+                          {format(new Date(project.created_at), 'yy.MM.dd', { locale: ko })}
+                        </span>
+                      </div>
+                    </div>
                   );
                 })
               )}
@@ -222,10 +259,13 @@ const ProjectManagementPage = () => {
                 onDeleted={() => setSelectedProjectId(null)}
               />
             ) : (
-              <div className="flex items-center justify-center h-[400px] border-2 border-dashed rounded-lg">
+              <div className="flex items-center justify-center h-[500px] border border-dashed rounded-xl bg-muted/20">
                 <div className="text-center">
-                  <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
-                  <p className="text-muted-foreground">프로젝트를 선택하세요</p>
+                  <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
+                    <FolderOpen className="h-5 w-5 text-muted-foreground/50" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">프로젝트를 선택하세요</p>
+                  <p className="text-[11px] text-muted-foreground/60 mt-0.5">좌측 목록에서 프로젝트를 클릭하면 상세 정보가 표시됩니다</p>
                 </div>
               </div>
             )}
