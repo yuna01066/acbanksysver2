@@ -90,7 +90,8 @@ export default {
 			boxShadow: {
 				'minimal': 'var(--shadow-minimal)',
 				'smooth': 'var(--shadow-smooth)',
-				'depth': 'var(--shadow-depth)'
+				'depth': 'var(--shadow-depth)',
+				'glass': 'var(--shadow-glass)'
 			},
 			backdropBlur: {
 				xs: '2px'

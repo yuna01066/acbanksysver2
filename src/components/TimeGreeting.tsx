@@ -130,7 +130,7 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
   };
 
   return (
-    <div className={`animate-fade-in rounded-xl border p-5 shadow-sm bg-gradient-to-r ${greeting.gradient} transition-colors duration-1000`}>
+    <div className={`animate-fade-in glass-card p-5 bg-gradient-to-r ${greeting.gradient} transition-colors duration-1000`}>
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="relative">

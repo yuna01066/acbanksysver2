@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
 const Home = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, isAdmin, isModerator } = useAuth();
@@ -36,7 +37,7 @@ const Home = () => {
     },
     enabled: !!user,
   });
-  // Quick icon links displayed above greeting card
+
   const quickLinks = [
     { title: "홈페이지", icon: HomeIcon, action: () => window.open("https://acbank.co.kr", "_blank") },
     { title: "팀 채팅", icon: MessageCircle, action: () => navigate("/team-chat") },
@@ -129,6 +130,7 @@ const Home = () => {
       }
     }
   }];
+
   const handleCardClick = (link: typeof links[0]) => {
     if (link.requiresAuth && !user) {
       toast.error('로그인이 필요한 서비스입니다.');
@@ -137,7 +139,9 @@ const Home = () => {
     }
     link.action();
   };
-  return <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
+
+  return (
+    <div className="min-h-screen">
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-6xl mx-auto">
           {/* Top Bar */}
@@ -153,22 +157,22 @@ const Home = () => {
                 />
               )}
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               {user ? (
                 <>
-                  <Button variant="ghost" size="icon" onClick={() => navigate('/team-chat')} title="팀챗">
+                  <Button variant="ghost" size="icon" onClick={() => navigate('/team-chat')} title="팀챗" className="rounded-full">
                     <MessageCircle className="h-5 w-5" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => navigate('/my-page')} title="마이페이지">
+                  <Button variant="ghost" size="icon" onClick={() => navigate('/my-page')} title="마이페이지" className="rounded-full">
                     <User className="h-5 w-5" />
                   </Button>
-                  <Button variant="ghost" onClick={signOut} className="gap-2">
+                  <Button variant="ghost" onClick={signOut} className="gap-2 rounded-full">
                     <LogOut className="h-4 w-4" />
                     로그아웃
                   </Button>
                 </>
               ) : (
-                <Button onClick={() => navigate('/auth')} className="gap-2">
+                <Button onClick={() => navigate('/auth')} className="gap-2 rounded-full">
                   <LogIn className="h-4 w-4" />
                   로그인
                 </Button>
@@ -179,11 +183,11 @@ const Home = () => {
           {/* Header */}
           <div className="text-center mb-16 animate-fade-up">
             <h1 className="text-5xl font-bold mb-4 text-foreground" style={{ fontFamily: 'Horizon, sans-serif' }}>ACBANK</h1>
-            <p className="text-xl text-muted-foreground">아크뱅크 내부 관리 시스템</p>
+            <p className="text-lg text-muted-foreground font-light tracking-wide">아크뱅크 내부 관리 시스템</p>
           </div>
 
           {user && (
-            <div className="mb-4 space-y-4">
+            <div className="mb-6 space-y-5">
               {/* Quick icon links */}
               <div className="flex justify-end gap-3">
                 {quickLinks.map((ql, i) => {
@@ -195,7 +199,7 @@ const Home = () => {
                       className="flex flex-col items-center gap-1 group"
                       title={ql.title}
                     >
-                      <div className="w-10 h-10 rounded-xl bg-muted/60 hover:bg-primary/10 flex items-center justify-center transition-all group-hover:scale-110">
+                      <div className="w-10 h-10 rounded-full glass-surface flex items-center justify-center transition-all group-hover:scale-110 group-hover:shadow-smooth">
                         <QIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                       </div>
                       <span className="text-[10px] text-muted-foreground group-hover:text-foreground transition-colors">{ql.title}</span>
@@ -210,75 +214,75 @@ const Home = () => {
               </div>
               <DashboardCalendar />
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <AnnouncementCard />
-              <ActivityFeedCard />
-              <ProjectProgressCard />
+                <AnnouncementCard />
+                <ActivityFeedCard />
+                <ProjectProgressCard />
               </div>
             </div>
           )}
 
           {/* Online Employees & Team Chat */}
           {user && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
               <OnlineEmployeesCard />
               <TeamChatCard />
             </div>
           )}
 
           {/* Links Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
             {links.map((link, index) => {
-            const Icon = link.icon;
-            const isLocked = link.requiresAuth && !user;
-            const isAdminOnly = (link as any).requiresAdmin && !isAdmin && !isModerator;
-            return <Card 
-              key={index} 
-              className={cn(
-                "cursor-pointer group transition-all duration-300",
-                (isLocked || isAdminOnly)
-                  ? "opacity-60 hover:opacity-70 cursor-not-allowed" 
-                  : "hover:scale-105"
-              )} 
-              onClick={() => handleCardClick(link)}
-            >
-                  <CardContent className="p-8 text-center relative">
-                    {isLocked && (
-                      <div className="absolute top-2 right-2">
-                        <Badge variant="secondary" className="text-xs">
-                          로그인 필요
-                        </Badge>
-                      </div>
-                    )}
-                    {isAdminOnly && (
-                      <div className="absolute top-2 right-2">
-                        <Badge variant="secondary" className="text-xs">
-                          관리자 전용
-                        </Badge>
-                      </div>
-                    )}
-                    <div className="mb-4 flex justify-center">
-                      <div className={cn(
-                        "w-16 h-16 rounded-2xl bg-gradient-to-br flex items-center justify-center transition-all duration-300",
-                        (isLocked || isAdminOnly)
-                          ? "from-muted/20 to-muted/30" 
-                          : "from-primary/20 to-accent/20 group-hover:from-primary/30 group-hover:to-accent/30"
-                      )}>
-                        {Icon && <Icon className={cn(
-                          "w-8 h-8",
-                          (isLocked || isAdminOnly) ? "text-muted-foreground" : "text-primary"
-                        )} />}
-                      </div>
+              const Icon = link.icon;
+              const isLocked = link.requiresAuth && !user;
+              const isAdminOnly = (link as any).requiresAdmin && !isAdmin && !isModerator;
+              return (
+                <div
+                  key={index}
+                  className={cn(
+                    "glass-card p-8 text-center cursor-pointer group relative",
+                    (isLocked || isAdminOnly)
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  )}
+                  onClick={() => handleCardClick(link)}
+                >
+                  {isLocked && (
+                    <div className="absolute top-3 right-3">
+                      <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">
+                        로그인 필요
+                      </Badge>
                     </div>
-                    <h3 className="text-xl font-semibold mb-2">{link.title}</h3>
-                    <p className="text-sm text-muted-foreground">{link.description}</p>
-                  </CardContent>
-                </Card>;
-          })}
+                  )}
+                  {isAdminOnly && (
+                    <div className="absolute top-3 right-3">
+                      <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">
+                        관리자 전용
+                      </Badge>
+                    </div>
+                  )}
+                  <div className="mb-4 flex justify-center">
+                    <div className={cn(
+                      "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300",
+                      (isLocked || isAdminOnly)
+                        ? "glass-surface"
+                        : "glass-surface group-hover:shadow-smooth group-hover:scale-110"
+                    )}>
+                      {Icon && <Icon className={cn(
+                        "w-7 h-7",
+                        (isLocked || isAdminOnly) ? "text-muted-foreground" : "text-primary"
+                      )} />}
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-1.5">{link.title}</h3>
+                  <p className="text-sm text-muted-foreground">{link.description}</p>
+                </div>
+              );
+            })}
           </div>
 
           {/* Footer */}
           <div className="mt-16 text-center space-y-4">
-            <div className="p-4 bg-muted/50 rounded-lg border border-border/50">
+            <div className="p-4 glass-surface rounded-2xl">
               <p className="text-sm text-muted-foreground leading-relaxed">
                 본 프로그램은 아크뱅크 내부용 시스템 프로그램으로, 무단 복제 및 배포, 유출을 금지하고 있습니다.<br />
                 위반 시 법적인 책임을 질 수 있습니다.
@@ -289,6 +293,7 @@ const Home = () => {
         </div>
       </div>
       {user && <MeetingRequestPopup />}
-    </div>;
+    </div>
+  );
 };
 export default Home;
