@@ -16,6 +16,7 @@ const paymentStatusConfig: Record<string, { label: string; dot: string }> = {
   unpaid: { label: '미입금', dot: 'bg-gray-400' },
   deposit_paid: { label: '계약금', dot: 'bg-amber-400' },
   interim_paid: { label: '중도금', dot: 'bg-blue-400' },
+  card_paid: { label: '카드결제', dot: 'bg-violet-400' },
   fully_paid: { label: '완료', dot: 'bg-emerald-400' },
 };
 

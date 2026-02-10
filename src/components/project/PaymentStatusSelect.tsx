@@ -9,6 +9,7 @@ export const PAYMENT_STATUSES = [
   { value: 'unpaid', label: '미입금', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
   { value: 'deposit_paid', label: '계약금 입금', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
   { value: 'interim_paid', label: '중도금 입금', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  { value: 'card_paid', label: '카드 결제', color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' },
   { value: 'fully_paid', label: '입금', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
 ] as const;
 
