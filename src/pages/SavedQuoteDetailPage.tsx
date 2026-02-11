@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { List, Save, Edit, X, Download, Users, Building2, Home, Calculator, FileText, Calendar as CalendarIcon } from "lucide-react";
+import { List, Save, Edit, X, Download, Users, Building2, Home, Calculator, FileText, Calendar as CalendarIcon, FolderOpen, ExternalLink } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import QuoteCard from "@/components/QuoteCard";
@@ -78,14 +78,41 @@ const SavedQuoteDetailPage = () => {
   const [editedItems, setEditedItems] = useState<any[]>([]);
   const [quotePdf, setQuotePdf] = useState<QuotePdfAttachment | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [linkedProject, setLinkedProject] = useState<{ id: string; name: string; payment_status: string | null } | null>(null);
   const printContainerRef = useRef<HTMLDivElement>(null);
   const { user, isAdmin, isModerator } = useAuth();
 
   useEffect(() => {
     if (id) {
       fetchQuote();
+      fetchLinkedProject();
     }
   }, [id]);
+
+  const fetchLinkedProject = async () => {
+    if (!id) return;
+    try {
+      const { data: quoteData } = await supabase
+        .from('saved_quotes')
+        .select('project_id')
+        .eq('id', id)
+        .single();
+
+      if (quoteData?.project_id) {
+        const { data: project } = await supabase
+          .from('projects')
+          .select('id, name, payment_status')
+          .eq('id', quoteData.project_id)
+          .single();
+        
+        if (project) setLinkedProject(project);
+      } else {
+        setLinkedProject(null);
+      }
+    } catch {
+      setLinkedProject(null);
+    }
+  };
 
   // PDF 파일명 설정
   useEffect(() => {
@@ -878,7 +905,36 @@ const SavedQuoteDetailPage = () => {
           </Card>
         </div>
         {/* 우측 메모 패널 */}
-        <div className="w-[300px] shrink-0 print:hidden sticky top-4 self-start hidden lg:block">
+        <div className="w-[300px] shrink-0 print:hidden sticky top-4 self-start hidden lg:block space-y-4">
+          {/* 연결된 프로젝트 */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <FolderOpen className="w-4 h-4" />
+                연결된 프로젝트
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {linkedProject ? (
+                <button
+                  onClick={() => navigate(`/projects?id=${linkedProject.id}`)}
+                  className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium truncate">{linkedProject.name}</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </div>
+                  {linkedProject.payment_status && (
+                    <Badge variant="outline" className="mt-1.5 text-xs">
+                      {linkedProject.payment_status}
+                    </Badge>
+                  )}
+                </button>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-2">연결된 프로젝트가 없습니다</p>
+              )}
+            </CardContent>
+          </Card>
           {id && <QuoteMemoPanel quoteId={id} />}
         </div>
         </div>
