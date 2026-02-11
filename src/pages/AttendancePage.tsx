@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ArrowLeft, Clock, LogIn, LogOut, MapPin, CalendarDays, Plus, Loader2, Check, X, BarChart3, Pencil, CalendarRange, Search } from 'lucide-react';
+import { ArrowLeft, Clock, LogIn, LogOut, MapPin, CalendarDays, Plus, Loader2, Check, X, BarChart3, Pencil, CalendarRange, Search, LayoutDashboard } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import AttendanceEditDialog from '@/components/attendance/AttendanceEditDialog';
 import AttendanceCalendarView from '@/components/attendance/AttendanceCalendarView';
 import ScrollTimePicker from '@/components/ui/scroll-time-picker';
+import AttendanceDashboard from '@/components/attendance/AttendanceDashboard';
 
 const LEAVE_TYPES = [
   { value: 'annual', label: '연차' },
@@ -365,11 +366,20 @@ const AttendancePage = () => {
           </div>
         )}
 
-        <Tabs defaultValue="attendance">
+        <Tabs defaultValue={((isAdmin || isModerator) && adminTab === 'all') ? 'dashboard' : 'attendance'}>
           <TabsList className="mb-4">
+            {(isAdmin || isModerator) && adminTab === 'all' && (
+              <TabsTrigger value="dashboard"><LayoutDashboard className="w-4 h-4 mr-1" />근태 대시보드</TabsTrigger>
+            )}
             <TabsTrigger value="attendance"><Clock className="w-4 h-4 mr-1" />출퇴근 기록</TabsTrigger>
             <TabsTrigger value="leave"><CalendarDays className="w-4 h-4 mr-1" />휴가 관리</TabsTrigger>
           </TabsList>
+
+          {(isAdmin || isModerator) && adminTab === 'all' && (
+            <TabsContent value="dashboard">
+              <AttendanceDashboard />
+            </TabsContent>
+          )}
 
           <TabsContent value="attendance">
             <Card>
