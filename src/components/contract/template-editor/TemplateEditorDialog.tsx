@@ -12,6 +12,7 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
 import HorizontalRule from '@tiptap/extension-horizontal-rule';
+import Mention from '@tiptap/extension-mention';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,15 +20,15 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { X, Save, Loader2, FileText, Eye, Pencil, FileSignature, DollarSign, ChevronDown } from 'lucide-react';
+import { X, Save, Loader2, FileText, Eye, Pencil, FileSignature, DollarSign, ChevronDown, AlertTriangle } from 'lucide-react';
 import EditorToolbar from './EditorToolbar';
 import PlaceholderSidebar from './PlaceholderSidebar';
 import { PREBUILT_TEMPLATES } from './prebuiltTemplates';
-import { ALL_PLACEHOLDER_FIELDS } from './placeholderFields';
+import { SAMPLE_DATA } from './placeholderFields';
 import type { ContractTemplate } from '@/hooks/useContracts';
 
 interface TemplateEditorDialogProps {
@@ -36,6 +37,23 @@ interface TemplateEditorDialogProps {
   editingTemplate?: ContractTemplate & { content?: JSONContent | null };
   onSaved: () => void;
 }
+
+// Custom TextStyle extension to support fontSize
+const CustomTextStyle = TextStyle.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      fontSize: {
+        default: null,
+        parseHTML: element => element.style.fontSize || null,
+        renderHTML: attributes => {
+          if (!attributes.fontSize) return {};
+          return { style: `font-size: ${attributes.fontSize}` };
+        },
+      },
+    };
+  },
+});
 
 const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
   open, onClose, editingTemplate, onSaved,
@@ -59,10 +77,27 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
       TableCell,
       TableHeader,
       Placeholder.configure({ placeholder: '서식의 내용을 입력해 주세요.' }),
-      TextStyle,
+      CustomTextStyle,
       Color,
       Highlight.configure({ multicolor: true }),
       HorizontalRule,
+      Mention.configure({
+        HTMLAttributes: {
+          class: 'placeholder-mention',
+        },
+        renderText({ node }) {
+          return `@${node.attrs.label ?? node.attrs.id}`;
+        },
+        suggestion: {
+          items: () => [],
+          render: () => ({
+            onStart: () => {},
+            onUpdate: () => {},
+            onExit: () => {},
+            onKeyDown: () => false,
+          }),
+        },
+      }),
     ],
     editorProps: {
       attributes: {
@@ -143,46 +178,37 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
   const getPreviewHtml = () => {
     if (!editor) return '';
     let html = editor.getHTML();
-    const sampleData: Record<string, string> = {
-      '{{회사명}}': '주식회사 아크뱅크',
-      '{{회사주소}}': '서울특별시 강남구 테헤란로 123',
-      '{{사업자등록번호}}': '123-45-67890',
-      '{{대표자명}}': '홍길동',
-      '{{업태}}': '서비스업',
-      '{{업종}}': '소프트웨어 개발',
-      '{{회사전화}}': '02-1234-5678',
-      '{{회사이메일}}': 'info@arcbank.co.kr',
-      '{{구성원이름}}': '김철수',
-      '{{생년월일}}': '1990-01-15',
-      '{{부서}}': '개발팀',
-      '{{직위}}': '대리',
-      '{{직책}}': '프론트엔드 개발자',
-      '{{입사일}}': '2024-03-01',
-      '{{주소}}': '서울특별시 서초구 반포대로 456',
-      '{{전화번호}}': '010-1234-5678',
-      '{{이메일}}': 'chulsoo@email.com',
-      '{{연봉}}': '48,000,000',
-      '{{월급}}': '4,000,000',
-      '{{기본급}}': '3,500,000',
-      '{{고정연장수당}}': '500,000',
-      '{{고정연장시간}}': '20',
-      '{{급여일}}': '25',
-      '{{계약일}}': '2024-03-01',
-      '{{계약시작일}}': '2024-03-01',
-      '{{계약종료일}}': '2025-02-28',
-      '{{수습시작일}}': '2024-03-01',
-      '{{수습종료일}}': '2024-05-31',
-      '{{수습기간}}': '3개월',
-      '{{근무형태}}': '고정 근무제',
-      '{{근무요일}}': '월,화,수,목,금요일',
-    };
-    for (const [key, value] of Object.entries(sampleData)) {
-      html = html.split(key).join(`<span style="color:#2563eb;font-weight:600;text-decoration:underline">${value}</span>`);
+
+    // Replace mention nodes: <span data-type="mention" ... data-id="xxx">@yyy</span>
+    html = html.replace(
+      /<span[^>]*data-type="mention"[^>]*data-id="([^"]*)"[^>]*>[^<]*<\/span>/g,
+      (_match, id) => {
+        const value = SAMPLE_DATA[id] || id;
+        return `<span style="color:#2563eb;font-weight:600;text-decoration:underline">${value}</span>`;
+      }
+    );
+
+    // Also handle legacy {{placeholder}} format
+    for (const [key, value] of Object.entries(SAMPLE_DATA)) {
+      html = html.split(`{{${key}}}`).join(`<span style="color:#2563eb;font-weight:600;text-decoration:underline">${value}</span>`);
     }
+
     return html;
   };
 
+  // Check if required fields are present
+  const hasRequiredFields = () => {
+    if (!editor) return { hasDate: false, hasSignature: false };
+    const html = editor.getHTML();
+    const hasDate = html.includes('data-id="계약일"') || html.includes('{{계약일}}');
+    const hasSignature = html.includes('data-id="구성원직인"') || html.includes('{{구성원직인}}') || html.includes('구성원 직인');
+    return { hasDate, hasSignature };
+  };
+
   if (!open) return null;
+
+  const { hasDate, hasSignature } = hasRequiredFields();
+  const showWarning = activeTab === 'edit' && (!hasDate || !hasSignature);
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
@@ -220,6 +246,17 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
         <div className="flex-1 flex flex-col overflow-hidden">
           {activeTab === 'edit' ? (
             <>
+              {/* Warning banner */}
+              {showWarning && (
+                <div className="mx-6 mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-2.5 text-sm text-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>법적 효력을 위해 {!hasDate && "'계약일'"}{!hasDate && !hasSignature && '과 '}{!hasSignature && "'구성원 직인'"} 필드를 추가하세요.</span>
+                  <button onClick={() => {}} className="ml-auto text-amber-600 hover:text-amber-800">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+
               {/* Meta fields */}
               <div className="border-b px-6 py-3 space-y-3 bg-muted/10 shrink-0">
                 <div className="flex items-center gap-3">

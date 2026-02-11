@@ -320,3 +320,20 @@
   border-color: hsl(var(--border));
   margin: 1.5rem 0;
 }
+
+/* Mention placeholder styling for contract editor */
+.placeholder-mention {
+  background-color: #dcfce7;
+  color: #166534;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.9em;
+  white-space: nowrap;
+  box-decoration-break: clone;
+}
+
+.dark .placeholder-mention {
+  background-color: rgba(22, 101, 52, 0.3);
+  color: #86efac;
+}
