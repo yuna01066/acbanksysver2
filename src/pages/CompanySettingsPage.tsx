@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,7 +12,10 @@ import FeatureAccessManager from '@/components/company/FeatureAccessManager';
 
 const CompanySettingsPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, isAdmin, isModerator } = useAuth();
+
+  const defaultTab = searchParams.get('tab') || 'holidays';
 
   if (!user || (!isAdmin && !isModerator)) {
     return (
@@ -26,13 +29,13 @@ const CompanySettingsPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex items-center gap-3 mb-6">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/admin-settings')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-2xl font-bold">회사 설정</h1>
         </div>
 
-        <Tabs defaultValue="holidays" className="space-y-4">
+        <Tabs defaultValue={defaultTab} className="space-y-4">
           <TabsList>
             <TabsTrigger value="info" className="gap-1.5">
               <Building2 className="h-4 w-4" /> 회사 정보
