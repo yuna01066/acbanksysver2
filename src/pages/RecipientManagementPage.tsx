@@ -16,6 +16,7 @@ import {
 import {
   Home, Search, Building2, User, FileText, Eye, Pencil, Trash2,
   Cloud, CloudOff, Loader2, ArrowLeft, Upload, ChevronDown, ChevronUp,
+  ArrowUpDown, SortAsc,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
@@ -50,6 +51,7 @@ const RecipientManagementPage = () => {
   const [editRecipient, setEditRecipient] = useState<Recipient | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'name' | 'date'>('name');
 
   // Pre-select company from search params
   const companyFilter = searchParams.get('company');
@@ -154,6 +156,11 @@ const RecipientManagementPage = () => {
       r.email.toLowerCase().includes(s) ||
       (r.business_registration_number || '').includes(s)
     );
+  }).sort((a, b) => {
+    if (sortBy === 'name') {
+      return a.company_name.localeCompare(b.company_name, 'ko');
+    }
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
   // Auto-select first matching recipient when filtering by company from URL
@@ -285,6 +292,24 @@ const RecipientManagementPage = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
                   />
+                </div>
+                <div className="flex gap-1 mt-2">
+                  <Button
+                    variant={sortBy === 'name' ? 'default' : 'outline'}
+                    size="sm"
+                    className="text-xs flex-1"
+                    onClick={() => setSortBy('name')}
+                  >
+                    가나다순
+                  </Button>
+                  <Button
+                    variant={sortBy === 'date' ? 'default' : 'outline'}
+                    size="sm"
+                    className="text-xs flex-1"
+                    onClick={() => setSortBy('date')}
+                  >
+                    최신순
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="p-0 max-h-[60vh] overflow-y-auto">
