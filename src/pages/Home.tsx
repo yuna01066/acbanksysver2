@@ -70,9 +70,9 @@ const Home = () => {
     title: "고객사 관리",
     icon: Building2,
     description: "거래처 정보 관리",
-    url: "/recipient-management",
+    url: "/recipients",
     requiresAuth: true,
-    action: () => navigate("/recipient-management")
+    action: () => navigate("/recipients")
   }, {
     title: "프로젝트 관리",
     icon: FolderOpen,
