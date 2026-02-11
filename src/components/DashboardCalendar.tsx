@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper, Users, User, Cake, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper, Users, User, Cake, Calendar, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 interface CalendarEvent {
   id: string;
   projectName: string;
-  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'holiday' | 'birthday' | 'announcement_meeting';
+  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'holiday' | 'birthday' | 'announcement_meeting' | 'project';
   date: Date;
   userId: string;
   url?: string;
@@ -119,8 +119,32 @@ const DashboardCalendar = () => {
     },
   });
 
+  const { data: managedProjects } = useQuery({
+    queryKey: ['calendar-managed-projects'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, status, created_at, user_id');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const { data: projectAssignments } = useQuery({
+    queryKey: ['calendar-project-assignments', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('project_assignments')
+        .select('project_id, user_id');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
   const events = useMemo(() => {
-    if (!quotes && !notionProjects && !meetings && !holidays && !birthdays && !announcementMeetings) return [];
+    if (!quotes && !notionProjects && !meetings && !holidays && !birthdays && !announcementMeetings && !managedProjects) return [];
     const result: CalendarEvent[] = [];
 
     // 휴일 이벤트
@@ -237,14 +261,33 @@ const DashboardCalendar = () => {
       }
     });
 
+    // 프로젝트 관리 이벤트
+    managedProjects?.forEach((p: any) => {
+      if (p.created_at) {
+        const date = new Date(p.created_at);
+        if (!isNaN(date.getTime())) {
+          result.push({
+            id: p.id,
+            projectName: p.name,
+            type: 'project',
+            date,
+            userId: p.user_id,
+          });
+        }
+      }
+    });
+
     return result;
-  }, [quotes, notionProjects, meetings, holidays, birthdays, announcementMeetings, user, currentMonth]);
+  }, [quotes, notionProjects, meetings, holidays, birthdays, announcementMeetings, managedProjects, user, currentMonth]);
 
   // Filter events based on view mode
   const filteredEvents = useMemo(() => {
     if (viewMode === 'all') return events;
     if (!user) return events;
     const myName = profile?.full_name || '';
+    const myAssignedProjectIds = new Set(
+      projectAssignments?.filter(a => a.user_id === user.id).map(a => a.project_id) || []
+    );
     return events.filter(e => {
       // Always show holidays and birthdays
       if (e.type === 'holiday') return true;
@@ -259,9 +302,13 @@ const DashboardCalendar = () => {
         if (!e.assignee || !myName) return false;
         return e.assignee.includes(myName) || myName.includes(e.assignee);
       }
+      // Projects: show if creator or assigned
+      if (e.type === 'project') {
+        return e.userId === user.id || myAssignedProjectIds.has(e.id);
+      }
       return true;
     });
-  }, [events, viewMode, user, profile]);
+  }, [events, viewMode, user, profile, projectAssignments]);
 
   const handleEventClick = useCallback((event: CalendarEvent) => {
     if (event.type === 'notion') {
@@ -272,6 +319,10 @@ const DashboardCalendar = () => {
     }
     if (event.type === 'announcement_meeting') {
       navigate('/announcements');
+      return;
+    }
+    if (event.type === 'project') {
+      navigate(`/project-management?project=${event.id}`);
       return;
     }
     if (isAdmin || isModerator || event.userId === user?.id) {
@@ -342,6 +393,9 @@ const DashboardCalendar = () => {
           <span className="flex items-center gap-1">
             <Cake className="h-3 w-3 text-pink-500" /> 생일
           </span>
+          <span className="flex items-center gap-1">
+            <FolderOpen className="h-3 w-3 text-emerald-600" /> 프로젝트
+          </span>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -406,6 +460,8 @@ const DashboardCalendar = () => {
                           ? "bg-red-500/10 text-red-600 cursor-default"
                           : event.type === 'birthday'
                           ? "bg-pink-500/10 text-pink-600 cursor-default"
+                          : event.type === 'project'
+                          ? "bg-emerald-500/10 text-emerald-700 cursor-pointer"
                           : "bg-violet-500/10 text-violet-600"
                       )}
                       title={event.projectName}
@@ -422,6 +478,8 @@ const DashboardCalendar = () => {
                         <PartyPopper className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'birthday' ? (
                         <Cake className="h-2.5 w-2.5 shrink-0" />
+                      ) : event.type === 'project' ? (
+                        <FolderOpen className="h-2.5 w-2.5 shrink-0" />
                       ) : (
                         <BookOpen className="h-2.5 w-2.5 shrink-0" />
                       )}
