@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, type AppRole, ROLE_HIERARCHY } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 
 /**
  * Hook that checks if the current user has access to a given page.
  * Rules:
- * - Admin and Moderator always have access
- * - If no permissions are set for a page, it's open to all authenticated users
- * - If permissions exist, only listed users (+ admin/moderator) can access
+ * - If no role restriction is set for a page, it's open to all authenticated users
+ * - If a min_role is set, only users with that role or higher can access
+ * - Role hierarchy: admin > moderator > manager > employee
  */
 export const usePageAccess = () => {
-  const { user, isAdmin, isModerator, loading: authLoading } = useAuth();
+  const { user, userRole, loading: authLoading } = useAuth();
   const location = useLocation();
   const [allowed, setAllowed] = useState(true);
   const [checking, setChecking] = useState(true);
@@ -22,34 +22,30 @@ export const usePageAccess = () => {
       return;
     }
 
-    // Admins and moderators always have access
-    if (isAdmin || isModerator) {
-      setAllowed(true);
-      setChecking(false);
-      return;
-    }
-
     const checkAccess = async () => {
       const pageKey = location.pathname;
 
-      // Check if there are any permissions set for this page
       const { data, error } = await supabase
-        .from('page_access_permissions')
-        .select('user_id')
-        .eq('page_key', pageKey);
+        .from('page_role_access')
+        .select('min_role')
+        .eq('page_key', pageKey)
+        .maybeSingle();
 
-      if (error || !data || data.length === 0) {
-        // No restrictions set — page is open to all
+      if (error || !data) {
+        // No restriction — open to all
         setAllowed(true);
       } else {
-        // Check if current user is in the allowed list
-        setAllowed(data.some(p => p.user_id === user.id));
+        const minRole = data.min_role as AppRole;
+        const minIdx = ROLE_HIERARCHY.indexOf(minRole);
+        const userIdx = userRole ? ROLE_HIERARCHY.indexOf(userRole) : ROLE_HIERARCHY.length;
+        // Lower index = higher privilege
+        setAllowed(userIdx <= minIdx);
       }
       setChecking(false);
     };
 
     checkAccess();
-  }, [user, isAdmin, isModerator, authLoading, location.pathname]);
+  }, [user, userRole, authLoading, location.pathname]);
 
   return { allowed, checking };
 };
