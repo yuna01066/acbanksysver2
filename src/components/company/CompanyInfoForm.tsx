@@ -62,34 +62,65 @@ const CompanyInfoForm: React.FC = () => {
     setLoading(false);
   };
 
-  const handleGetCurrentLocation = () => {
+  const handleGetCurrentLocation = async () => {
     if (!navigator.geolocation) {
       toast.error('브라우저에서 위치 기능을 지원하지 않습니다.');
       return;
     }
+
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setForm(prev => ({
-          ...prev,
-          workplace_lat: pos.coords.latitude.toFixed(6),
-          workplace_lng: pos.coords.longitude.toFixed(6),
-        }));
-        toast.success('현재 위치가 입력되었습니다.');
-        setLocating(false);
-      },
-      (err) => {
-        const reasons: Record<number, string> = {
-          1: '위치 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.',
-          2: '위치 정보를 가져올 수 없습니다. GPS 또는 네트워크를 확인해주세요.',
-          3: '위치 요청 시간이 초과되었습니다. 다시 시도해주세요.',
-        };
-        toast.error(reasons[err.code] || `위치 오류: ${err.message}`);
-        console.error('Geolocation error:', err.code, err.message);
-        setLocating(false);
-      },
-      { timeout: 15000, enableHighAccuracy: false }
-    );
+
+    // Check permission state first if available
+    if (navigator.permissions) {
+      try {
+        const permStatus = await navigator.permissions.query({ name: 'geolocation' });
+        if (permStatus.state === 'denied') {
+          toast.error('위치 권한이 차단되어 있습니다. 브라우저 주소창 왼쪽의 자물쇠/설정 아이콘을 클릭하여 위치 권한을 허용해주세요.');
+          setLocating(false);
+          return;
+        }
+      } catch {
+        // permissions API not supported, continue anyway
+      }
+    }
+
+    // Try with high accuracy first, fallback to low accuracy
+    const tryGetPosition = (highAccuracy: boolean): Promise<GeolocationPosition> => {
+      return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          timeout: highAccuracy ? 10000 : 20000,
+          enableHighAccuracy: highAccuracy,
+          maximumAge: 60000,
+        });
+      });
+    };
+
+    try {
+      let pos: GeolocationPosition;
+      try {
+        pos = await tryGetPosition(true);
+      } catch {
+        // Fallback to low accuracy
+        pos = await tryGetPosition(false);
+      }
+      setForm(prev => ({
+        ...prev,
+        workplace_lat: pos.coords.latitude.toFixed(6),
+        workplace_lng: pos.coords.longitude.toFixed(6),
+      }));
+      toast.success(`현재 위치가 입력되었습니다. (정확도: ±${Math.round(pos.coords.accuracy)}m)`);
+    } catch (err: any) {
+      const geoErr = err as GeolocationPositionError;
+      const reasons: Record<number, string> = {
+        1: '위치 권한이 거부되었습니다. 브라우저 주소창 왼쪽의 자물쇠 아이콘 → 위치 → 허용으로 변경해주세요.',
+        2: '위치 정보를 가져올 수 없습니다. Wi-Fi를 켜거나 실외에서 다시 시도해주세요.',
+        3: '위치 요청 시간이 초과되었습니다. Wi-Fi를 켜고 다시 시도해주세요.',
+      };
+      toast.error(reasons[geoErr?.code] || `위치 오류: ${geoErr?.message || err}`);
+      console.error('Geolocation error:', geoErr?.code, geoErr?.message);
+    } finally {
+      setLocating(false);
+    }
   };
 
   const handleSave = async () => {
