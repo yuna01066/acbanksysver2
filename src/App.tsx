@@ -77,6 +77,7 @@ const App = () => (
             <Route path="/pluuug-integration" element={<PluuugIntegrationPage />} />
             <Route path="/announcements" element={<G><AnnouncementsPage /></G>} />
             <Route path="/recipients" element={<G><RecipientManagementPage /></G>} />
+            <Route path="/recipient-management" element={<Navigate to="/recipients" replace />} />
             <Route path="/attendance" element={<G><AttendancePage /></G>} />
             <Route path="/employee-profiles" element={<EmployeeProfileManagementPage />} />
             <Route path="/employee-work" element={<Navigate to="/employee-profiles" replace />} />
