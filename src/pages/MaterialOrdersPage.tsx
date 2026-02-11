@@ -54,6 +54,7 @@ interface ImportItemForm {
   color_code: string;
   surface_type: string;
   summary: string;
+  production_note: string;
 }
 
 const MaterialOrdersPage: React.FC = () => {
@@ -141,7 +142,7 @@ const MaterialOrdersPage: React.FC = () => {
   const THICKNESS_OPTIONS = ['1.3T', '1.5T', '2T', '3T', '4T', '5T', '6T', '8T', '10T', '12T', '15T', '20T', '25T', '30T'];
   const SIZE_OPTIONS = ['3*6', '대3*6', '소3*6', '4*5', '대4*5', '4*6', '4*8', '4*10', '5*5', '5*6', '5*8', '1*2', '소1*2'];
   const SURFACE_OPTIONS = ['단면', '양면'];
-  const SPECIAL_COLOR_OPTIONS = ['조색', '미정'];
+  const SPECIAL_COLOR_OPTIONS = ['조색', '미정', '기타'];
 
   // Fetch quote items for project import
   const { data: projectQuoteItems = [] } = useQuery({
@@ -332,6 +333,7 @@ const MaterialOrdersPage: React.FC = () => {
         quantity: item.quantity,
         color_code: item.color_code,
         surface_type: item.surface_type,
+        memo: item.production_note || '',
         project_id: importSource === 'project' ? selectedProjectForImport : '',
         quote_id: importSource === 'quote' ? selectedQuoteForImport : '',
         quote_item_summary: item.summary,
@@ -372,6 +374,7 @@ const MaterialOrdersPage: React.FC = () => {
         color_code: colorCode,
         surface_type: surfaceType,
         summary: isProductManufacturing ? `재단 사이즈: ${item.size_name}` : item.summary,
+        production_note: '',
       };
     }));
   }, []);
@@ -383,7 +386,7 @@ const MaterialOrdersPage: React.FC = () => {
   const addManualImportItem = () => {
     setImportItems(prev => [...prev, {
       material: '', quality: '', thickness: '', size_name: '',
-      width: 0, height: 0, quantity: 1, color_code: '', surface_type: '', summary: '수동 입력',
+      width: 0, height: 0, quantity: 1, color_code: '', surface_type: '', summary: '수동 입력', production_note: '',
     }]);
   };
 
@@ -794,6 +797,10 @@ const MaterialOrdersPage: React.FC = () => {
                             <Label className="text-[10px]">수량</Label>
                             <Input className="h-7 text-xs" type="number" value={item.quantity} onChange={e => updateImportItem(i, 'quantity', Number(e.target.value) || 1)} />
                           </div>
+                        </div>
+                        <div>
+                          <Label className="text-[10px]">원판생산 참고사항</Label>
+                          <Input className="h-7 text-xs" placeholder="특이사항 기재" value={item.production_note} onChange={e => updateImportItem(i, 'production_note', e.target.value)} />
                         </div>
                       </CardContent>
                     </Card>
