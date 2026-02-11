@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package } from "lucide-react";
 import DashboardCalendar from '@/components/DashboardCalendar';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
@@ -81,12 +81,12 @@ const Home = () => {
     requiresAuth: true,
     action: () => navigate("/project-management")
   }, {
-    title: "클라이언트 상담폼",
-    icon: FileText,
-    description: "상담 신청하기",
-    url: "https://acbank.co.kr/acbankform",
+    title: "원판 발주 관리",
+    icon: Package,
+    description: "자재 발주 내역 관리",
+    url: "/material-orders",
     requiresAuth: true,
-    action: () => window.open("https://acbank.co.kr/acbankform", "_blank")
+    action: () => navigate("/material-orders")
   }, {
     title: "수율 계산기",
     icon: TrendingUp,
@@ -108,6 +108,13 @@ const Home = () => {
     url: "/saved-quotes",
     requiresAuth: true,
     action: () => navigate("/saved-quotes")
+  }, {
+    title: "클라이언트 상담폼",
+    icon: FileText,
+    description: "상담 신청하기",
+    url: "https://acbank.co.kr/acbankform",
+    requiresAuth: true,
+    action: () => window.open("https://acbank.co.kr/acbankform", "_blank")
   }, {
     title: "업무 평가",
     icon: Star,
