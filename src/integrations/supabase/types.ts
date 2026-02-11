@@ -125,6 +125,7 @@ export type Database = {
           author_name: string
           content: string
           created_at: string
+          event_end_date: string | null
           id: string
           is_pinned: boolean
           meeting_date: string | null
@@ -139,6 +140,7 @@ export type Database = {
           author_name: string
           content: string
           created_at?: string
+          event_end_date?: string | null
           id?: string
           is_pinned?: boolean
           meeting_date?: string | null
@@ -153,6 +155,7 @@ export type Database = {
           author_name?: string
           content?: string
           created_at?: string
+          event_end_date?: string | null
           id?: string
           is_pinned?: boolean
           meeting_date?: string | null

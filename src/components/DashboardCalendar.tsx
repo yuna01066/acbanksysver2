@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 interface CalendarEvent {
   id: string;
   projectName: string;
-  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'holiday' | 'birthday' | 'announcement_meeting' | 'project';
+  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'holiday' | 'birthday' | 'announcement_meeting' | 'project' | 'announcement_event';
   date: Date;
   userId: string;
   url?: string;
@@ -111,8 +111,8 @@ const DashboardCalendar = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('announcements')
-        .select('id, title, meeting_date, meeting_time, meeting_location')
-        .eq('announcement_type', 'meeting')
+        .select('id, title, meeting_date, meeting_time, meeting_location, announcement_type, event_end_date')
+        .in('announcement_type', ['meeting', 'event'])
         .not('meeting_date', 'is', null);
       if (error) throw error;
       return data;
@@ -245,18 +245,37 @@ const DashboardCalendar = () => {
       }
     });
 
-    // 회의 공지 이벤트
+    // 회의/이벤트 공지 이벤트
     announcementMeetings?.forEach((am: any) => {
       if (am.meeting_date) {
-        const date = new Date(am.meeting_date);
-        if (!isNaN(date.getTime())) {
-          result.push({
-            id: am.id,
-            projectName: `📋 ${am.title}${am.meeting_time ? ` ${am.meeting_time}` : ''}`,
-            type: 'announcement_meeting',
-            date,
-            userId: '',
-          });
+        if (am.announcement_type === 'event' && am.event_end_date) {
+          // Multi-day event
+          const start = new Date(am.meeting_date);
+          const end = new Date(am.event_end_date);
+          if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+            const eventDays = eachDayOfInterval({ start, end });
+            eventDays.forEach(d => {
+              result.push({
+                id: am.id,
+                projectName: `🎉 ${am.title}`,
+                type: 'announcement_event',
+                date: d,
+                userId: '',
+              });
+            });
+          }
+        } else {
+          // Single-day meeting
+          const date = new Date(am.meeting_date);
+          if (!isNaN(date.getTime())) {
+            result.push({
+              id: am.id,
+              projectName: `📋 ${am.title}${am.meeting_time ? ` ${am.meeting_time}` : ''}`,
+              type: 'announcement_meeting',
+              date,
+              userId: '',
+            });
+          }
         }
       }
     });
@@ -293,6 +312,7 @@ const DashboardCalendar = () => {
       if (e.type === 'holiday') return true;
       if (e.type === 'birthday') return true;
       if (e.type === 'announcement_meeting') return true;
+      if (e.type === 'announcement_event') return true;
       // Meetings are already filtered to current user
       if (e.type === 'meeting') return true;
       // Quotes/deliveries: only show mine
@@ -317,7 +337,7 @@ const DashboardCalendar = () => {
       }
       return;
     }
-    if (event.type === 'announcement_meeting') {
+    if (event.type === 'announcement_meeting' || event.type === 'announcement_event') {
       navigate('/announcements');
       return;
     }
@@ -388,6 +408,9 @@ const DashboardCalendar = () => {
             <Calendar className="h-3 w-3 text-blue-600" /> 회의
           </span>
           <span className="flex items-center gap-1">
+            <PartyPopper className="h-3 w-3 text-emerald-500" /> 이벤트
+          </span>
+          <span className="flex items-center gap-1">
             <PartyPopper className="h-3 w-3 text-red-500" /> 휴일
           </span>
           <span className="flex items-center gap-1">
@@ -456,6 +479,8 @@ const DashboardCalendar = () => {
                           ? "bg-amber-500/10 text-amber-700"
                           : event.type === 'announcement_meeting'
                           ? "bg-blue-500/10 text-blue-700 cursor-pointer"
+                          : event.type === 'announcement_event'
+                          ? "bg-emerald-500/10 text-emerald-600 cursor-pointer"
                           : event.type === 'holiday'
                           ? "bg-red-500/10 text-red-600 cursor-default"
                           : event.type === 'birthday'
@@ -474,6 +499,8 @@ const DashboardCalendar = () => {
                         <Coffee className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'announcement_meeting' ? (
                         <Calendar className="h-2.5 w-2.5 shrink-0" />
+                      ) : event.type === 'announcement_event' ? (
+                        <PartyPopper className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'holiday' ? (
                         <PartyPopper className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'birthday' ? (
