@@ -358,11 +358,14 @@ const MaterialOrdersPage: React.FC = () => {
       else if (surfaceRaw.includes('단면')) surfaceType = '단면';
       // Extract color code from quote data
       const colorCode = item.selectedColor || item.colorType || '';
+      // Extract base size name (e.g. "4*8" from "4*8 (1220×2420)")
+      const rawSizeName = isProductManufacturing ? '' : (item.size_name || '');
+      const baseSizeName = rawSizeName.replace(/\s*\(.*\)$/, '');
       return {
         material: item.material,
         quality: item.quality,
         thickness: item.thickness,
-        size_name: isProductManufacturing ? '' : item.size_name,
+        size_name: baseSizeName,
         width: isProductManufacturing ? 0 : (item.width || 0),
         height: isProductManufacturing ? 0 : (item.height || 0),
         quantity: item.quantity,
