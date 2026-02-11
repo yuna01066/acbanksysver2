@@ -161,8 +161,8 @@ const EmployeeProfileManagementPage = () => {
       </div>
 
       {/* Main Content */}
-      <TabsContent value="employees" className="flex-1 mt-0 overflow-hidden" style={{ minHeight: 0 }}>
-        <div className="flex h-full overflow-hidden">
+      <TabsContent value="employees" className="flex-1 mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col" style={{ minHeight: 0 }}>
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           {loading ? (
             <div className="flex-1 flex items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin" />
