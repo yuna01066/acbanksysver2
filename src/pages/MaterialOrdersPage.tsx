@@ -299,7 +299,7 @@ const MaterialOrdersPage: React.FC = () => {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)} className="gap-1.5 text-xs">
               <FolderOpen className="h-3.5 w-3.5" />
-              견적서 불러오기
+              프로젝트에서 불러오기
             </Button>
             <Button size="sm" onClick={openNew} className="gap-1.5 text-xs">
               <Plus className="h-3.5 w-3.5" />
@@ -517,7 +517,7 @@ const MaterialOrdersPage: React.FC = () => {
       <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>견적서에서 불러오기</DialogTitle>
+            <DialogTitle>프로젝트에서 불러오기</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
