@@ -60,6 +60,17 @@ const emptyForm = {
   status: 'ordered',
 };
 
+interface ImportItemForm {
+  material: string;
+  quality: string;
+  thickness: string;
+  size_name: string;
+  width: number;
+  height: number;
+  quantity: number;
+  summary: string;
+}
+
 const MaterialOrdersPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, isModerator } = useAuth();
@@ -72,7 +83,7 @@ const MaterialOrdersPage: React.FC = () => {
   const [showAllOrders, setShowAllOrders] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedProjectForImport, setSelectedProjectForImport] = useState('');
-
+  const [importItems, setImportItems] = useState<ImportItemForm[]>([]);
   // Fetch orders for current month
   const monthStart = format(startOfMonth(calendarMonth), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(calendarMonth), 'yyyy-MM-dd');
@@ -260,8 +271,13 @@ const MaterialOrdersPage: React.FC = () => {
     setDialogOpen(true);
   };
 
-  const handleImportItems = (items: typeof projectQuoteItems) => {
-    items.forEach(item => {
+  const handleImportItems = () => {
+    const validItems = importItems.filter(item => item.material && item.size_name);
+    if (validItems.length === 0) {
+      toast.error('원판 정보를 입력해주세요.');
+      return;
+    }
+    validItems.forEach(item => {
       createMutation.mutate({
         ...emptyForm,
         order_date: format(selectedDate, 'yyyy-MM-dd'),
@@ -278,6 +294,35 @@ const MaterialOrdersPage: React.FC = () => {
     });
     setImportDialogOpen(false);
     setSelectedProjectForImport('');
+    setImportItems([]);
+  };
+
+  const initImportItems = useCallback((items: typeof projectQuoteItems) => {
+    setImportItems(items.map(item => ({
+      material: item.material,
+      quality: item.quality,
+      thickness: item.thickness,
+      size_name: '',
+      width: 0,
+      height: 0,
+      quantity: item.quantity,
+      summary: item.summary,
+    })));
+  }, []);
+
+  const updateImportItem = (index: number, field: keyof ImportItemForm, value: string | number) => {
+    setImportItems(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
+  };
+
+  const addManualImportItem = () => {
+    setImportItems(prev => [...prev, {
+      material: '', quality: '', thickness: '', size_name: '',
+      width: 0, height: 0, quantity: 1, summary: '수동 입력',
+    }]);
+  };
+
+  const removeImportItem = (index: number) => {
+    setImportItems(prev => prev.filter((_, i) => i !== index));
   };
 
   const canManage = isAdmin || isModerator;
@@ -513,16 +558,22 @@ const MaterialOrdersPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Import from Quote Dialog */}
-      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-        <DialogContent className="max-w-md">
+      {/* Import from Project Dialog */}
+      <Dialog open={importDialogOpen} onOpenChange={(open) => {
+        setImportDialogOpen(open);
+        if (!open) { setSelectedProjectForImport(''); setImportItems([]); }
+      }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>프로젝트에서 불러오기</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label className="text-xs">프로젝트 선택</Label>
-              <Select value={selectedProjectForImport} onValueChange={setSelectedProjectForImport}>
+              <Select value={selectedProjectForImport} onValueChange={(v) => {
+                setSelectedProjectForImport(v);
+                setImportItems([]);
+              }}>
                 <SelectTrigger><SelectValue placeholder="프로젝트를 선택하세요" /></SelectTrigger>
                 <SelectContent>
                   {projects.map(p => (
@@ -531,28 +582,104 @@ const MaterialOrdersPage: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            {projectQuoteItems.length > 0 ? (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                <p className="text-xs text-muted-foreground">{projectQuoteItems.length}개 항목이 발견되었습니다.</p>
-                {projectQuoteItems.map((item, i) => (
-                  <div key={i} className="p-2 rounded-lg border text-xs">
-                    <span className="font-medium">{item.material} {item.quality} {item.thickness}</span>
-                    <span className="ml-2 text-muted-foreground">{item.size_name} ×{item.quantity}</span>
-                  </div>
-                ))}
+
+            {projectQuoteItems.length > 0 && importItems.length === 0 ? (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  {projectQuoteItems.length}개 견적 항목이 발견되었습니다. (재단 사이즈 기준)
+                </p>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {projectQuoteItems.map((item, i) => (
+                    <div key={i} className="p-2 rounded-lg border text-xs bg-muted/30">
+                      <span className="font-medium">{item.material} {item.quality} {item.thickness}</span>
+                      <span className="ml-2 text-muted-foreground">{item.size_name} ×{item.quantity}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  ※ 위 항목은 재단 후 최종 사이즈입니다. 원판 정보를 입력하려면 아래 버튼을 눌러주세요.
+                </p>
+                <Button variant="outline" size="sm" className="w-full" onClick={() => initImportItems(projectQuoteItems)}>
+                  원판 정보 입력하기
+                </Button>
               </div>
-            ) : selectedProjectForImport ? (
-              <p className="text-xs text-muted-foreground text-center py-4">연결된 견적서가 없거나 원판 항목이 없습니다.</p>
+            ) : selectedProjectForImport && projectQuoteItems.length === 0 && importItems.length === 0 ? (
+              <div className="text-center py-4 space-y-3">
+                <p className="text-xs text-muted-foreground">연결된 견적서가 없습니다.</p>
+                <Button variant="outline" size="sm" onClick={addManualImportItem}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  수동으로 원판 추가
+                </Button>
+              </div>
             ) : null}
+
+            {importItems.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium">원판 발주 정보 입력</p>
+                  <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" onClick={addManualImportItem}>
+                    <Plus className="h-3 w-3" />
+                    항목 추가
+                  </Button>
+                </div>
+                <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
+                  {importItems.map((item, i) => (
+                    <Card key={i} className="border-border/50">
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-muted-foreground">
+                            {item.summary ? `참조: ${item.summary}` : `항목 ${i + 1}`}
+                          </span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeImportItem(i)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <Label className="text-[10px]">소재</Label>
+                            <Input className="h-7 text-xs" value={item.material} onChange={e => updateImportItem(i, 'material', e.target.value)} placeholder="알루미늄" />
+                          </div>
+                          <div>
+                            <Label className="text-[10px]">품질</Label>
+                            <Input className="h-7 text-xs" value={item.quality} onChange={e => updateImportItem(i, 'quality', e.target.value)} placeholder="일반" />
+                          </div>
+                          <div>
+                            <Label className="text-[10px]">두께</Label>
+                            <Input className="h-7 text-xs" value={item.thickness} onChange={e => updateImportItem(i, 'thickness', e.target.value)} placeholder="3T" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                          <div>
+                            <Label className="text-[10px]">사이즈명</Label>
+                            <Input className="h-7 text-xs" value={item.size_name} onChange={e => updateImportItem(i, 'size_name', e.target.value)} placeholder="4x8" />
+                          </div>
+                          <div>
+                            <Label className="text-[10px]">가로(mm)</Label>
+                            <Input className="h-7 text-xs" type="number" value={item.width || ''} onChange={e => updateImportItem(i, 'width', Number(e.target.value))} />
+                          </div>
+                          <div>
+                            <Label className="text-[10px]">세로(mm)</Label>
+                            <Input className="h-7 text-xs" type="number" value={item.height || ''} onChange={e => updateImportItem(i, 'height', Number(e.target.value))} />
+                          </div>
+                          <div>
+                            <Label className="text-[10px]">수량</Label>
+                            <Input className="h-7 text-xs" type="number" value={item.quantity} onChange={e => updateImportItem(i, 'quantity', Number(e.target.value) || 1)} />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setImportDialogOpen(false); setSelectedProjectForImport(''); }}>취소</Button>
-            <Button
-              disabled={projectQuoteItems.length === 0}
-              onClick={() => handleImportItems(projectQuoteItems)}
-            >
-              전체 추가 ({projectQuoteItems.length}건)
-            </Button>
+            <Button variant="outline" onClick={() => { setImportDialogOpen(false); setSelectedProjectForImport(''); setImportItems([]); }}>취소</Button>
+            {importItems.length > 0 && (
+              <Button onClick={handleImportItems} disabled={createMutation.isPending}>
+                발주 등록 ({importItems.filter(it => it.material && it.size_name).length}건)
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
