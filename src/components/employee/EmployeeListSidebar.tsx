@@ -2,7 +2,7 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Users, Phone, Star } from 'lucide-react';
+import { Search, Users, Phone, Star, ArrowDownAZ, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -90,25 +90,54 @@ interface EmployeeListSidebarProps {
   onSelect: (emp: EmployeeProfile) => void;
   departments: string[];
   employeeRoles?: Record<string, AppRoleType>;
+  sortMode?: 'name' | 'role';
+  onSortModeChange?: (mode: 'name' | 'role') => void;
 }
 
 const EmployeeListSidebar: React.FC<EmployeeListSidebarProps> = ({
   employees, selectedId, search, onSearchChange,
   departmentFilter, onDepartmentFilterChange,
   onSelect, departments, employeeRoles = {},
+  sortMode = 'name', onSortModeChange,
 }) => {
   return (
     <div className="w-full lg:w-80 xl:w-96 border-r bg-card flex flex-col shrink-0 overflow-hidden" style={{ minHeight: 0 }}>
       {/* Header */}
       <div className="p-4 border-b space-y-3">
-        <div className="flex items-center justify-between">
+         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold flex items-center gap-2">
             <Users className="h-4 w-4 text-primary" />
             구성원
           </h2>
-          <Badge variant="secondary" className="text-xs">
-            {employees.length}명
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            {onSortModeChange && (
+              <div className="flex items-center bg-muted rounded-md p-0.5">
+                <button
+                  onClick={() => onSortModeChange('name')}
+                  className={cn(
+                    "p-1 rounded transition-colors",
+                    sortMode === 'name' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="가나다순"
+                >
+                  <ArrowDownAZ className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => onSortModeChange('role')}
+                  className={cn(
+                    "p-1 rounded transition-colors",
+                    sortMode === 'role' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="권한순"
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+            <Badge variant="secondary" className="text-xs">
+              {employees.length}명
+            </Badge>
+          </div>
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
