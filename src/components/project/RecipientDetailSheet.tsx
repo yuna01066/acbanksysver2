@@ -55,11 +55,19 @@ const RecipientDetailSheet: React.FC<Props> = ({ recipientId, open, onOpenChange
           </div>
         ) : (
           <div className="space-y-6 mt-4">
-            {/* 기본 정보 */}
+            {/* 업체 정보 */}
             <div>
-              <h3 className="text-sm font-bold mb-2">기본 정보</h3>
+              <h3 className="text-sm font-bold mb-2">업체 정보</h3>
               <div className="bg-muted/30 rounded-lg p-4">
-                <InfoRow icon={Building2} label="업체명" value={recipient.company_name} />
+                <InfoRow icon={Building2} label="회사명" value={recipient.company_name} />
+                <InfoRow icon={Building2} label="사업자명" value={recipient.business_name} />
+              </div>
+            </div>
+
+            {/* 프로젝트 담당자 */}
+            <div>
+              <h3 className="text-sm font-bold mb-2">프로젝트 담당자</h3>
+              <div className="bg-muted/30 rounded-lg p-4">
                 <InfoRow icon={User} label="담당자" value={recipient.contact_person} />
                 <InfoRow icon={User} label="직위" value={recipient.position} />
                 <InfoRow icon={Phone} label="연락처" value={recipient.phone} />
@@ -67,6 +75,17 @@ const RecipientDetailSheet: React.FC<Props> = ({ recipientId, open, onOpenChange
                 <InfoRow icon={MapPin} label="주소" value={
                   [recipient.address, recipient.detail_address].filter(Boolean).join(' ') || null
                 } />
+              </div>
+            </div>
+
+            {/* 회계 담당자 */}
+            <div>
+              <h3 className="text-sm font-bold mb-2">회계 담당자</h3>
+              <div className="bg-muted/30 rounded-lg p-4">
+                <InfoRow icon={User} label="담당자" value={recipient.accounting_contact_person} />
+                <InfoRow icon={User} label="직위" value={recipient.accounting_position} />
+                <InfoRow icon={Phone} label="연락처" value={recipient.accounting_phone} />
+                <InfoRow icon={Mail} label="이메일" value={recipient.accounting_email} />
               </div>
             </div>
 
