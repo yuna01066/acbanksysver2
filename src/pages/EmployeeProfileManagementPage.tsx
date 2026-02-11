@@ -160,86 +160,98 @@ const EmployeeProfileManagementPage = () => {
         </TabsList>
       </div>
 
-      {/* Main Content */}
-      <TabsContent value="employees" className="flex-1 mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col" style={{ minHeight: 0 }}>
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          {loading ? (
-            <div className="flex-1 flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin" />
-            </div>
-          ) : (
-            <>
-              <EmployeeListSidebar
-                employees={filteredEmployees}
-                selectedId={selectedEmployee?.id || null}
-                search={search}
-                onSearchChange={setSearch}
-                departmentFilter={departmentFilter}
-                onDepartmentFilterChange={setDepartmentFilter}
-                onSelect={setSelectedEmployee}
-                departments={departments}
-                employeeRoles={employeeRoles}
-              />
-              {selectedEmployee ? (
-                <EmployeeProfileDetail
-                  key={selectedEmployee.id}
-                  employee={selectedEmployee}
-                  onUpdated={handleEmployeeUpdated}
-                  currentRole={employeeRoles[selectedEmployee.id]}
-                  onRoleChanged={handleRoleChanged}
+      {/* Content area - rendered outside TabsContent to avoid Radix display issues */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        {activeTab === 'employees' && (
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+            {loading ? (
+              <div className="flex-1 flex items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : (
+              <>
+                <EmployeeListSidebar
+                  employees={filteredEmployees}
+                  selectedId={selectedEmployee?.id || null}
+                  search={search}
+                  onSearchChange={setSearch}
+                  departmentFilter={departmentFilter}
+                  onDepartmentFilterChange={setDepartmentFilter}
+                  onSelect={setSelectedEmployee}
+                  departments={departments}
+                  employeeRoles={employeeRoles}
                 />
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                  <div className="text-center">
-                    <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                    <p className="text-sm">좌측에서 구성원을 선택하세요</p>
+                {selectedEmployee ? (
+                  <EmployeeProfileDetail
+                    key={selectedEmployee.id}
+                    employee={selectedEmployee}
+                    onUpdated={handleEmployeeUpdated}
+                    currentRole={employeeRoles[selectedEmployee.id]}
+                    onRoleChanged={handleRoleChanged}
+                  />
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                      <p className="text-sm">좌측에서 구성원을 선택하세요</p>
+                    </div>
                   </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </TabsContent>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
-      <TabsContent value="employee-table" className="flex-1 flex min-h-0 mt-0">
-        <EmployeeTableView
-          employees={filteredEmployees}
-          search={search}
-          onSearchChange={setSearch}
-          departmentFilter={departmentFilter}
-          onDepartmentFilterChange={setDepartmentFilter}
-          departments={departments}
-          onSelect={(emp) => {
-            setSelectedEmployee(emp);
-            setActiveTab('employees');
-          }}
-        />
-      </TabsContent>
+        {activeTab === 'employee-table' && (
+          <div className="flex flex-1 min-h-0">
+            <EmployeeTableView
+              employees={filteredEmployees}
+              search={search}
+              onSearchChange={setSearch}
+              departmentFilter={departmentFilter}
+              onDepartmentFilterChange={setDepartmentFilter}
+              departments={departments}
+              onSelect={(emp) => {
+                setSelectedEmployee(emp);
+                setActiveTab('employees');
+              }}
+            />
+          </div>
+        )}
 
-      <TabsContent value="document-settings" className="flex-1 overflow-y-auto mt-0">
-        <div className="container max-w-3xl mx-auto px-6 py-8">
-          <DocumentBoxSettings />
-        </div>
-      </TabsContent>
+        {activeTab === 'document-settings' && (
+          <div className="flex-1 overflow-y-auto">
+            <div className="container max-w-3xl mx-auto px-6 py-8">
+              <DocumentBoxSettings />
+            </div>
+          </div>
+        )}
 
-      <TabsContent value="document-status" className="flex-1 overflow-y-auto mt-0">
-        <div className="container max-w-5xl mx-auto px-6 py-8">
-          <h2 className="text-lg font-bold mb-4">서류 제출 현황</h2>
-          <DocumentSubmissionDashboard />
-        </div>
-      </TabsContent>
+        {activeTab === 'document-status' && (
+          <div className="flex-1 overflow-y-auto">
+            <div className="container max-w-5xl mx-auto px-6 py-8">
+              <h2 className="text-lg font-bold mb-4">서류 제출 현황</h2>
+              <DocumentSubmissionDashboard />
+            </div>
+          </div>
+        )}
 
-      <TabsContent value="contracts" className="flex-1 overflow-y-auto mt-0">
-        <div className="container max-w-6xl mx-auto px-6 py-6">
-          <ContractManagement />
-        </div>
-      </TabsContent>
+        {activeTab === 'contracts' && (
+          <div className="flex-1 overflow-y-auto">
+            <div className="container max-w-6xl mx-auto px-6 py-6">
+              <ContractManagement />
+            </div>
+          </div>
+        )}
 
-      <TabsContent value="accounts" className="flex-1 overflow-y-auto mt-0">
-        <div className="container max-w-5xl mx-auto px-6 py-8">
-          <UserAccountManagement />
-        </div>
-      </TabsContent>
+        {activeTab === 'accounts' && (
+          <div className="flex-1 overflow-y-auto">
+            <div className="container max-w-5xl mx-auto px-6 py-8">
+              <UserAccountManagement />
+            </div>
+          </div>
+        )}
+      </div>
     </Tabs>
   );
 };
