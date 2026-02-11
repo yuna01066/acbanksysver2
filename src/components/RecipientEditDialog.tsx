@@ -52,6 +52,7 @@ export function RecipientEditDialog({
   const [accountingPhone, setAccountingPhone] = useState('');
   const [accountingEmail, setAccountingEmail] = useState('');
   const [memo, setMemo] = useState('');
+  const [businessDocumentUrl, setBusinessDocumentUrl] = useState('');
 
   // Reset form when recipient changes
   useEffect(() => {
@@ -74,6 +75,7 @@ export function RecipientEditDialog({
       setAccountingPhone(recipient.accounting_phone || '');
       setAccountingEmail(recipient.accounting_email || '');
       setMemo(recipient.memo || '');
+      setBusinessDocumentUrl(recipient.business_document_url || '');
     }
   }, [recipient]);
 
@@ -95,12 +97,30 @@ export function RecipientEditDialog({
 
     setExtracting(true);
     try {
-      // Convert file to base64
+      // Upload file to storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${recipient?.id || 'new'}_${Date.now()}.${fileExt}`;
+      const filePath = `business-docs/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('recipient-documents')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        toast.error('파일 업로드에 실패했습니다.');
+      } else {
+        const { data: urlData } = supabase.storage
+          .from('recipient-documents')
+          .getPublicUrl(filePath);
+        setBusinessDocumentUrl(urlData.publicUrl);
+      }
+
+      // Convert file to base64 for OCR
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
           const result = reader.result as string;
-          // Remove data URL prefix
           const base64Data = result.split(',')[1];
           resolve(base64Data);
         };
@@ -121,7 +141,6 @@ export function RecipientEditDialog({
       if (data?.success && data?.data) {
         const extracted = data.data;
         
-        // Auto-fill fields with extracted data
         if (extracted.business_name) setBusinessName(extracted.business_name);
         if (extracted.ceo_name) setCeoName(extracted.ceo_name);
         if (extracted.business_registration_number) setBusinessRegistrationNumber(extracted.business_registration_number);
@@ -131,7 +150,7 @@ export function RecipientEditDialog({
         if (extracted.detail_address) setDetailAddress(extracted.detail_address);
         if (extracted.branch_number) setBranchNumber(extracted.branch_number);
 
-        toast.success('사업자등록증 정보가 자동 입력되었습니다!');
+        toast.success('사업자등록증이 업로드되고 정보가 자동 입력되었습니다!');
       } else {
         toast.error(data?.error || '문서에서 정보를 추출하지 못했습니다.');
       }
@@ -140,7 +159,6 @@ export function RecipientEditDialog({
       toast.error('사업자등록증 분석 중 오류가 발생했습니다.');
     } finally {
       setExtracting(false);
-      // Reset file input
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -188,6 +206,7 @@ export function RecipientEditDialog({
         accounting_phone: accountingPhone.trim() || undefined,
         accounting_email: accountingEmail.trim() || undefined,
         memo: memo.trim() || undefined,
+        business_document_url: businessDocumentUrl || undefined,
       };
 
       const result = await onSave(recipient.id, updates);

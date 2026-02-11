@@ -26,6 +26,7 @@ export interface Recipient {
   pluuug_client_id: number | null;
   pluuug_synced_at: string | null;
   memo: string | null;
+  business_document_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -49,6 +50,7 @@ export interface RecipientInput {
   accounting_phone?: string;
   accounting_email?: string;
   memo?: string;
+  business_document_url?: string;
 }
 
 export interface PluuugClientData {
