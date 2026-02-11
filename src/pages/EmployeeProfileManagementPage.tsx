@@ -49,6 +49,7 @@ const EmployeeProfileManagementPage = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
   const [activeTab, setActiveTab] = useState<string>('employees');
   const [employeeRoles, setEmployeeRoles] = useState<Record<string, AppRoleType>>({});
+  const [sortMode, setSortMode] = useState<'name' | 'role'>('name');
 
   useEffect(() => {
     if (!authLoading && (!user || !hasAccess)) {
@@ -96,6 +97,8 @@ const EmployeeProfileManagementPage = () => {
     return Array.from(depts).sort();
   }, [employees]);
 
+  const ROLE_PRIORITY: Record<string, number> = { admin: 0, moderator: 1, manager: 2, employee: 3 };
+
   const filteredEmployees = useMemo(() => {
     return employees
       .filter(e => {
@@ -105,8 +108,15 @@ const EmployeeProfileManagementPage = () => {
         return e.full_name.toLowerCase().includes(s) || e.email.toLowerCase().includes(s) ||
           e.department.toLowerCase().includes(s) || e.phone.includes(s);
       })
-      .sort((a, b) => a.full_name.localeCompare(b.full_name, 'ko'));
-  }, [employees, search, departmentFilter]);
+      .sort((a, b) => {
+        if (sortMode === 'role') {
+          const ra = ROLE_PRIORITY[employeeRoles[a.id] || 'employee'] ?? 3;
+          const rb = ROLE_PRIORITY[employeeRoles[b.id] || 'employee'] ?? 3;
+          if (ra !== rb) return ra - rb;
+        }
+        return a.full_name.localeCompare(b.full_name, 'ko');
+      });
+  }, [employees, search, departmentFilter, sortMode, employeeRoles]);
 
   const handleEmployeeUpdated = (updated: EmployeeProfile) => {
     setEmployees(prev => prev.map(e => e.id === updated.id ? updated : e));
@@ -180,6 +190,8 @@ const EmployeeProfileManagementPage = () => {
                   onSelect={setSelectedEmployee}
                   departments={departments}
                   employeeRoles={employeeRoles}
+                  sortMode={sortMode}
+                  onSortModeChange={setSortMode}
                 />
                 {selectedEmployee ? (
                   <EmployeeProfileDetail
