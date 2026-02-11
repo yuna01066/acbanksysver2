@@ -93,7 +93,7 @@ const MessageContent: React.FC<MessageContentProps> = ({ message, isMine }) => {
             </React.Fragment>
           );
         }
-        return <span key={i}>{part}</span>;
+        return <span key={i} className="whitespace-pre-line">{part}</span>;
       })}
     </>
   );
