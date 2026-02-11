@@ -324,18 +324,21 @@ const MaterialOrdersPage: React.FC = () => {
   };
 
   const initImportItems = useCallback((items: any[]) => {
-    setImportItems(items.map(item => ({
-      material: item.material,
-      quality: item.quality,
-      thickness: item.thickness,
-      size_name: '',
-      width: 0,
-      height: 0,
-      quantity: item.quantity,
-      color_code: '',
-      surface_type: '',
-      summary: item.summary,
-    })));
+    setImportItems(items.map(item => {
+      const isProductManufacturing = item.material === '제품 제작';
+      return {
+        material: item.material,
+        quality: item.quality,
+        thickness: item.thickness,
+        size_name: isProductManufacturing ? '' : item.size_name,
+        width: isProductManufacturing ? 0 : (item.width || 0),
+        height: isProductManufacturing ? 0 : (item.height || 0),
+        quantity: item.quantity,
+        color_code: '',
+        surface_type: '',
+        summary: isProductManufacturing ? `재단 사이즈: ${item.size_name}` : item.summary,
+      };
+    }));
   }, []);
 
   const updateImportItem = (index: number, field: keyof ImportItemForm, value: string | number) => {
@@ -616,27 +619,43 @@ const MaterialOrdersPage: React.FC = () => {
             )}
 
             {/* Reference items */}
-            {importSource && currentReferenceItems.length > 0 && importItems.length === 0 && (
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">
-                  {currentReferenceItems.length}개 견적 항목이 발견되었습니다. (재단 사이즈 기준)
-                </p>
-                <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                  {currentReferenceItems.map((item: any, i: number) => (
-                    <div key={i} className="p-2 rounded-lg border text-xs bg-muted/30">
-                      <span className="font-medium">{item.material} {item.quality} {item.thickness}</span>
-                      <span className="ml-2 text-muted-foreground">{item.size_name} ×{item.quantity}</span>
-                    </div>
-                  ))}
+            {importSource && currentReferenceItems.length > 0 && importItems.length === 0 && (() => {
+              const hasProductItems = currentReferenceItems.some((item: any) => item.material === '제품 제작');
+              const allProductItems = currentReferenceItems.every((item: any) => item.material === '제품 제작');
+              return (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    {currentReferenceItems.length}개 견적 항목이 발견되었습니다.
+                    {allProductItems ? ' (재단 사이즈 기준)' : hasProductItems ? ' (원판/재단 사이즈 혼합)' : ' (원판 사이즈 기준)'}
+                  </p>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {currentReferenceItems.map((item: any, i: number) => (
+                      <div key={i} className="p-2 rounded-lg border text-xs bg-muted/30">
+                        <div className="flex items-center gap-1.5">
+                          {item.material === '제품 제작' && (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-amber-50 text-amber-700 border-amber-200">재단</Badge>
+                          )}
+                          <span className="font-medium">{item.material} {item.quality} {item.thickness}</span>
+                          <span className="text-muted-foreground">{item.size_name} ×{item.quantity}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {hasProductItems ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      ※ <span className="text-amber-600 font-medium">재단</span> 표시 항목은 재단 후 최종 사이즈입니다. 원판 정보를 별도로 입력해주세요.
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">
+                      ※ 위 항목은 원판 사이즈 기준입니다. 필요시 수정하여 발주를 등록할 수 있습니다.
+                    </p>
+                  )}
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => initImportItems(currentReferenceItems)}>
+                    {hasProductItems ? '원판 정보 입력하기' : '발주 정보 확인/수정'}
+                  </Button>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
-                  ※ 위 항목은 재단 후 최종 사이즈입니다. 원판 정보를 입력하려면 아래 버튼을 눌러주세요.
-                </p>
-                <Button variant="outline" size="sm" className="w-full" onClick={() => initImportItems(currentReferenceItems)}>
-                  원판 정보 입력하기
-                </Button>
-              </div>
-            )}
+              );
+            })()}
 
             {/* No items found */}
             {importSource && (
