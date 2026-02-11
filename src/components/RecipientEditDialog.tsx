@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Loader2, Pencil, FileUp, Sparkles } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Recipient, RecipientInput } from '@/hooks/useRecipients';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,6 +30,7 @@ export function RecipientEditDialog({
   onOpenChange,
   onSave,
 }: RecipientEditDialogProps) {
+  const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,10 +99,9 @@ export function RecipientEditDialog({
 
     setExtracting(true);
     try {
-      // Upload file to storage
+      // Upload file to storage (same path pattern as RecipientDocumentUpload)
       const fileExt = file.name.split('.').pop();
-      const fileName = `${recipient?.id || 'new'}_${Date.now()}.${fileExt}`;
-      const filePath = `business-docs/${fileName}`;
+      const filePath = `${user?.id}/${recipient?.id}/business-doc.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('recipient-documents')
@@ -110,10 +111,12 @@ export function RecipientEditDialog({
         console.error('Upload error:', uploadError);
         toast.error('파일 업로드에 실패했습니다.');
       } else {
-        const { data: urlData } = supabase.storage
-          .from('recipient-documents')
-          .getPublicUrl(filePath);
-        setBusinessDocumentUrl(urlData.publicUrl);
+        // Save path to recipients table directly
+        await supabase
+          .from('recipients')
+          .update({ business_document_url: filePath } as any)
+          .eq('id', recipient?.id);
+        setBusinessDocumentUrl(filePath);
       }
 
       // Convert file to base64 for OCR
