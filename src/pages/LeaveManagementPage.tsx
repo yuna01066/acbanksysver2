@@ -4,10 +4,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, CalendarDays, Clock, Loader2, Settings2 } from 'lucide-react';
-import { useLeaveRequests, calculatePolicyBasedLeaveDays } from '@/hooks/useLeaveRequests';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, CalendarDays, Clock, Loader2, Plus, Settings2 } from 'lucide-react';
+import { useLeaveRequests, calculatePolicyBasedLeaveDays, LEAVE_TYPES, calculateBusinessDays } from '@/hooks/useLeaveRequests';
 import { useLeavePolicy } from '@/hooks/useLeavePolicy';
+import { useQuery } from '@tanstack/react-query';
 import { calculateExpiredLeave } from '@/utils/leaveExpiration';
+import { toast } from 'sonner';
 import LeaveRequestForm from '@/components/leave/LeaveRequestForm';
 import LeaveRequestList from '@/components/leave/LeaveRequestList';
 import LeaveSummaryCards from '@/components/leave/LeaveSummaryCards';
@@ -16,9 +23,24 @@ import LeavePolicySettings from '@/components/leave/LeavePolicySettings';
 const LeaveManagementPage = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, isModerator, loading: authLoading } = useAuth();
-  const { requests, loading, createRequest, approveRequest, rejectRequest, cancelRequest } = useLeaveRequests();
+  const { requests, loading, createRequest, approveRequest, rejectRequest, cancelRequest, refresh } = useLeaveRequests();
   const { policy, loading: policyLoading, unitLabel, canRequest } = useLeavePolicy();
   const [joinDate, setJoinDate] = useState<string>('');
+
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    userId: '', userName: '', leaveType: 'annual', startDate: '', endDate: '', reason: '',
+  });
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+
+  const { data: employees = [] } = useQuery({
+    queryKey: ['approved-profiles-leave'],
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('id, full_name').eq('is_approved', true).order('full_name');
+      return data || [];
+    },
+    enabled: isAdmin || isModerator,
+  });
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -70,6 +92,41 @@ const LeaveManagementPage = () => {
   }, [joinDate, policy.grant_basis, policy.auto_expire_type, policy.auto_expire_enabled, usedDays, usedMonthlyDays]);
 
   const remainingDays = totalAnnualDays - usedDays - expiration.expiredDays;
+
+  const handleManualLeaveSubmit = async () => {
+    if (!manualForm.userId || !manualForm.startDate || !manualForm.endDate) {
+      toast.warning('직원, 시작일, 종료일을 모두 입력해주세요.');
+      return;
+    }
+    setManualSubmitting(true);
+    try {
+      const isHalf = manualForm.leaveType === 'half_am' || manualForm.leaveType === 'half_pm';
+      const days = isHalf ? 0.5 : calculateBusinessDays(manualForm.startDate, manualForm.endDate);
+
+      const { error } = await supabase.from('leave_requests').insert({
+        user_id: manualForm.userId,
+        user_name: manualForm.userName,
+        leave_type: manualForm.leaveType,
+        start_date: manualForm.startDate,
+        end_date: isHalf ? manualForm.startDate : manualForm.endDate,
+        days,
+        reason: manualForm.reason || null,
+        status: 'approved',
+        approved_by: user?.id,
+        approved_by_name: profile?.full_name,
+        approved_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      toast.success(`${manualForm.userName}님의 휴가가 등록되었습니다.`);
+      setManualOpen(false);
+      setManualForm({ userId: '', userName: '', leaveType: 'annual', startDate: '', endDate: '', reason: '' });
+      refresh();
+    } catch (e: any) {
+      toast.error('등록 실패: ' + (e.message || ''));
+    } finally {
+      setManualSubmitting(false);
+    }
+  };
 
   if (authLoading || policyLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
@@ -163,7 +220,80 @@ const LeaveManagementPage = () => {
           </TabsContent>
 
           {(isAdmin || isModerator) && (
-            <TabsContent value="all" className="mt-4">
+            <TabsContent value="all" className="mt-4 space-y-4">
+              <div className="flex justify-end">
+                <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-1">
+                      <Plus className="h-4 w-4" />
+                      수동 등록
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>직원 휴가 수동 등록</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-2">
+                      <div>
+                        <Label className="text-sm">직원 선택</Label>
+                        <Select
+                          value={manualForm.userId}
+                          onValueChange={(val) => {
+                            const emp = employees.find(e => e.id === val);
+                            setManualForm(f => ({ ...f, userId: val, userName: emp?.full_name || '' }));
+                          }}
+                        >
+                          <SelectTrigger className="mt-1"><SelectValue placeholder="직원을 선택하세요" /></SelectTrigger>
+                          <SelectContent>
+                            {employees.map(e => (
+                              <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-sm">휴가 유형</Label>
+                        <Select value={manualForm.leaveType} onValueChange={(val) => setManualForm(f => ({ ...f, leaveType: val }))}>
+                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(LEAVE_TYPES).map(([key, label]) => (
+                              <SelectItem key={key} value={key}>{label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm">시작일</Label>
+                          <Input type="date" value={manualForm.startDate} onChange={e => setManualForm(f => ({ ...f, startDate: e.target.value }))} className="mt-1" />
+                        </div>
+                        <div>
+                          <Label className="text-sm">종료일</Label>
+                          <Input
+                            type="date"
+                            value={manualForm.leaveType === 'half_am' || manualForm.leaveType === 'half_pm' ? manualForm.startDate : manualForm.endDate}
+                            onChange={e => setManualForm(f => ({ ...f, endDate: e.target.value }))}
+                            disabled={manualForm.leaveType === 'half_am' || manualForm.leaveType === 'half_pm'}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm">사유 (선택)</Label>
+                        <Textarea value={manualForm.reason} onChange={e => setManualForm(f => ({ ...f, reason: e.target.value }))} placeholder="사유를 입력하세요" className="mt-1" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">※ 관리자가 수동 등록한 휴가는 즉시 승인 상태로 등록됩니다.</p>
+                      <div className="flex gap-2 justify-end">
+                        <Button variant="outline" onClick={() => setManualOpen(false)}>취소</Button>
+                        <Button onClick={handleManualLeaveSubmit} disabled={manualSubmitting}>
+                          {manualSubmitting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                          등록
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
               {loading ? (
                 <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
               ) : (
