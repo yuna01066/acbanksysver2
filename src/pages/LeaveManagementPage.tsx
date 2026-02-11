@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, CalendarDays, Clock, Loader2, Plus, Settings2 } from 'lucide-react';
 import { useLeaveRequests, calculatePolicyBasedLeaveDays, LEAVE_TYPES, calculateBusinessDays } from '@/hooks/useLeaveRequests';
+import AdminLeaveOverview from '@/components/leave/AdminLeaveOverview';
 import { useLeavePolicy } from '@/hooks/useLeavePolicy';
 import { useQuery } from '@tanstack/react-query';
 import { calculateExpiredLeave } from '@/utils/leaveExpiration';
@@ -36,7 +37,7 @@ const LeaveManagementPage = () => {
   const { data: employees = [] } = useQuery({
     queryKey: ['approved-profiles-leave'],
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name').eq('is_approved', true).order('full_name');
+      const { data } = await supabase.from('profiles').select('id, full_name, join_date, department').eq('is_approved', true).order('full_name');
       return data || [];
     },
     enabled: isAdmin || isModerator,
@@ -63,17 +64,17 @@ const LeaveManagementPage = () => {
   const pendingRequests = useMemo(() => requests.filter(r => r.status === 'pending'), [requests]);
 
   const usedDays = useMemo(() =>
-    myRequests.filter(r => r.status === 'approved' && (r.leave_type === 'annual' || r.leave_type === 'half_am' || r.leave_type === 'half_pm'))
+    myRequests.filter(r => r.status === 'approved' && (r.leave_type === 'annual' || r.leave_type === 'monthly' || r.leave_type === 'half_am' || r.leave_type === 'half_pm'))
       .reduce((sum, r) => sum + r.days, 0),
     [myRequests]
   );
   const usedMonthlyDays = useMemo(() =>
-    myRequests.filter(r => r.status === 'approved' && r.leave_type === 'annual' && /* monthly context checked by join date */ true)
+    myRequests.filter(r => r.status === 'approved' && (r.leave_type === 'monthly' || r.leave_type === 'annual'))
       .reduce((sum, r) => sum + r.days, 0),
     [myRequests]
   );
   const pendingDays = useMemo(() =>
-    myRequests.filter(r => r.status === 'pending' && (r.leave_type === 'annual' || r.leave_type === 'half_am' || r.leave_type === 'half_pm'))
+    myRequests.filter(r => r.status === 'pending' && (r.leave_type === 'annual' || r.leave_type === 'monthly' || r.leave_type === 'half_am' || r.leave_type === 'half_pm'))
       .reduce((sum, r) => sum + r.days, 0),
     [myRequests]
   );
@@ -294,6 +295,14 @@ const LeaveManagementPage = () => {
                   </DialogContent>
                 </Dialog>
               </div>
+
+              <AdminLeaveOverview
+                employees={employees}
+                allRequests={requests}
+                grantMethod={policy.grant_method}
+                grantBasis={policy.grant_basis}
+              />
+
               {loading ? (
                 <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
               ) : (
