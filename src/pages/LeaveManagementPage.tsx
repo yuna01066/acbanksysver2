@@ -17,6 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { calculateExpiredLeave } from '@/utils/leaveExpiration';
 import { toast } from 'sonner';
 import LeaveSummaryCards from '@/components/leave/LeaveSummaryCards';
+import LeaveDetailTable from '@/components/leave/LeaveDetailTable';
 import LeavePolicySettings from '@/components/leave/LeavePolicySettings';
 import LeaveTypeCards from '@/components/leave/LeaveTypeCards';
 import LeaveUsageHistory from '@/components/leave/LeaveUsageHistory';
@@ -199,36 +200,12 @@ const LeaveManagementPage = () => {
 
           {/* 연차 상세 Tab */}
           <TabsContent value="detail" className="mt-6 space-y-6">
-            <LeaveSummaryCards
-              totalDays={totalAnnualDays}
-              usedDays={usedDays}
-              pendingDays={pendingDays}
-              remainingDays={remainingDays}
-              unitLabel={unitLabel}
-              allowAdvanceUse={policy.allow_advance_use}
-              expiredDays={expiration.expiredDays}
-              expiringSoonDays={expiration.expiringSoonDays}
-              expirationDate={expiration.expirationDate}
+            <LeaveDetailTable
+              joinDate={joinDate}
+              requests={myRequests}
+              grantMethod={policy.grant_method}
+              grantBasis={policy.grant_basis}
             />
-
-            {policy.allow_advance_use && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3 text-sm text-blue-800 dark:text-blue-300">
-                ℹ️ 당겨쓰기가 허용되어 잔여 연차를 초과하여 신청할 수 있습니다.
-              </div>
-            )}
-
-            {loading ? (
-              <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
-            ) : (
-              <LeaveRequestList
-                requests={myRequests}
-                isAdmin={false}
-                currentUserId={user?.id || ''}
-                onApprove={approveRequest}
-                onReject={rejectRequest}
-                onCancel={cancelRequest}
-              />
-            )}
           </TabsContent>
 
           {/* 연차 사용 계획 Tab */}
