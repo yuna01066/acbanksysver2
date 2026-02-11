@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart, Star } from 'lucide-react';
+import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart, Star, FolderOpen } from 'lucide-react';
 import { AppNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -139,6 +139,8 @@ const NotificationPanel = ({
         return <Heart className="h-4 w-4 text-pink-500" />;
       case 'performance_review_summary':
         return <Star className="h-4 w-4 text-yellow-500" />;
+      case 'project_mention':
+        return <FolderOpen className="h-4 w-4 text-blue-500" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
@@ -291,11 +293,28 @@ const NotificationPanel = ({
                         variant="outline"
                         className="h-7 text-xs"
                         onClick={() => {
+                          onRemove(notification.id);
                           navigate('/announcements');
                           setOpen(false);
                         }}
                       >
                         <Megaphone className="h-3 w-3 mr-1" />
+                        바로가기
+                      </Button>
+                    )}
+
+                    {notification.type === 'project_mention' && notification.data?.projectId && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          onRemove(notification.id);
+                          navigate(`/project-management?project=${notification.data?.projectId}`);
+                          setOpen(false);
+                        }}
+                      >
+                        <FolderOpen className="h-3 w-3 mr-1" />
                         바로가기
                       </Button>
                     )}
@@ -306,6 +325,7 @@ const NotificationPanel = ({
                         variant="outline"
                         className="h-7 text-xs"
                         onClick={() => {
+                          onRemove(notification.id);
                           navigate(`/saved-quotes/${notification.data?.quoteId}`);
                           setOpen(false);
                         }}
@@ -321,6 +341,7 @@ const NotificationPanel = ({
                         variant="outline"
                         className="h-7 text-xs"
                         onClick={() => {
+                          onRemove(notification.id);
                           navigate('/leave-management');
                           setOpen(false);
                         }}
@@ -336,6 +357,7 @@ const NotificationPanel = ({
                         variant="outline"
                         className="h-7 text-xs"
                         onClick={() => {
+                          onRemove(notification.id);
                           navigate('/my-page');
                           setOpen(false);
                         }}
@@ -351,6 +373,7 @@ const NotificationPanel = ({
                         variant="outline"
                         className="h-7 text-xs"
                         onClick={() => {
+                          onRemove(notification.id);
                           navigate('/my-page?tab=business');
                           setOpen(false);
                         }}

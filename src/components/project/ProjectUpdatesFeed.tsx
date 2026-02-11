@@ -266,10 +266,10 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
     if (mentionIds.length === 0 || !user || !profile) return;
     const notifications = mentionIds.map(uid => ({
       user_id: uid,
-      type: 'system',
+      type: 'project_mention',
       title: '프로젝트 업데이트에서 태그됨',
       description: `${profile.full_name}님이 프로젝트 업데이트에서 회원님을 태그했습니다.`,
-      data: { project_id: projectId } as any,
+      data: { projectId: projectId } as any,
     }));
     await supabase.from('notifications').insert(notifications);
   };
