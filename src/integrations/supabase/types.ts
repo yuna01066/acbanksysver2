@@ -160,6 +160,7 @@ export type Database = {
           created_at: string
           date: string
           id: string
+          location_memo: string | null
           memo: string | null
           status: string
           updated_at: string
@@ -175,6 +176,7 @@ export type Database = {
           created_at?: string
           date?: string
           id?: string
+          location_memo?: string | null
           memo?: string | null
           status?: string
           updated_at?: string
@@ -190,6 +192,7 @@ export type Database = {
           created_at?: string
           date?: string
           id?: string
+          location_memo?: string | null
           memo?: string | null
           status?: string
           updated_at?: string
@@ -356,6 +359,9 @@ export type Database = {
           phone: string | null
           updated_at: string
           website: string | null
+          workplace_lat: number | null
+          workplace_lng: number | null
+          workplace_radius: number | null
         }
         Insert: {
           address?: string | null
@@ -374,6 +380,9 @@ export type Database = {
           phone?: string | null
           updated_at?: string
           website?: string | null
+          workplace_lat?: number | null
+          workplace_lng?: number | null
+          workplace_radius?: number | null
         }
         Update: {
           address?: string | null
@@ -392,6 +401,9 @@ export type Database = {
           phone?: string | null
           updated_at?: string
           website?: string | null
+          workplace_lat?: number | null
+          workplace_lng?: number | null
+          workplace_radius?: number | null
         }
         Relationships: []
       }
