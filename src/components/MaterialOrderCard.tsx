@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Package, FolderOpen, FileText, Pencil, Trash2, User } from 'lucide-react';
+import { FolderOpen, FileText, Pencil, Trash2, User, Palette, Ruler, Layers, Box, Hash, MessageSquareText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -47,72 +47,116 @@ interface Props {
   showDate?: boolean;
 }
 
+const InfoRow: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  iconColor?: string;
+}> = ({ icon, label, value, iconColor = 'text-muted-foreground' }) => (
+  <div className="flex items-center gap-2.5 py-1">
+    <span className={cn('shrink-0', iconColor)}>{icon}</span>
+    <span className="text-muted-foreground font-medium min-w-[80px] shrink-0">{label}</span>
+    <span className="text-foreground font-semibold">{value}</span>
+  </div>
+);
+
 const MaterialOrderCard: React.FC<Props> = ({ order, canManage, currentUserId, onEdit, onDelete, compact, showDate }) => {
   const navigate = useNavigate();
   const st = STATUS_MAP[order.status] || STATUS_MAP.ordered;
 
   return (
-    <Card className={cn("group", compact && "border-border/50")}>
-      <CardContent className={cn("p-4", compact && "p-3")}>
+    <Card className={cn("group hover:shadow-md transition-shadow", compact && "border-border/50")}>
+      <CardContent className={cn("p-5", compact && "p-3.5")}>
         <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0 space-y-1.5">
-            {/* Header line */}
+          <div className="flex-1 min-w-0 space-y-2">
+            {/* Project / Quote Link + Status */}
             <div className="flex items-center gap-2 flex-wrap">
-              <Package className="h-4 w-4 text-primary shrink-0" />
-              <span className={cn("font-medium", compact ? "text-xs" : "text-sm")}>
-                {order.material} {order.quality} {order.thickness}
-              </span>
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                {order.size_name} ({order.width}×{order.height})
-              </Badge>
-              <Badge className={cn('text-[10px] px-1.5 py-0 text-white', st.color)}>
-                {st.label}
-              </Badge>
-            </div>
-
-            {/* Detail rows */}
-            <div className="space-y-0.5 text-xs text-muted-foreground">
-              {order.color_code && (
-                <div>컬러: {order.color_code}</div>
-              )}
-              {order.surface_type && (
-                <div>면수: {order.surface_type}</div>
-              )}
-              <div>수량: {order.quantity}장</div>
-              {showDate && <div>발주일: {order.order_date}</div>}
-            </div>
-
-            {/* Memo */}
-            {order.memo && (
-              <p className="text-xs text-muted-foreground">참고: {order.memo}</p>
-            )}
-
-            {/* Links */}
-            <div className="flex items-center gap-3 flex-wrap">
               {order.projects && (
                 <button
-                  className="flex items-center gap-1 text-xs text-primary hover:underline"
+                  className="flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
                   onClick={() => navigate(`/project-management?project=${order.projects!.id}`)}
                 >
-                  <FolderOpen className="h-3 w-3" />
+                  <FolderOpen className="h-4 w-4" />
                   {order.projects.project_name}
                 </button>
               )}
               {order.saved_quotes && (
                 <button
-                  className="flex items-center gap-1 text-xs text-primary hover:underline"
+                  className="flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
                   onClick={() => navigate(`/saved-quotes/${order.saved_quotes!.id}`)}
                 >
-                  <FileText className="h-3 w-3" />
+                  <FileText className="h-4 w-4" />
                   {order.saved_quotes.quote_number}
+                  {order.saved_quotes.project_name ? ` - ${order.saved_quotes.project_name}` : ''}
                 </button>
               )}
+              {!order.projects && !order.saved_quotes && (
+                <span className="text-sm text-muted-foreground italic">연결 없음</span>
+              )}
+              <Badge className={cn('text-[11px] px-2 py-0.5 text-white ml-auto', st.color)}>
+                {st.label}
+              </Badge>
             </div>
 
+            {showDate && (
+              <div className="text-xs text-muted-foreground">발주일: {order.order_date}</div>
+            )}
+
+            {/* Detail Grid */}
+            <div className={cn("grid gap-x-6 text-[13px]", compact ? "grid-cols-1" : "grid-cols-2")}>
+              <InfoRow
+                icon={<Box className="h-4 w-4" />}
+                label="재질"
+                value={`${order.material} ${order.quality}`}
+                iconColor="text-primary"
+              />
+              <InfoRow
+                icon={<Palette className="h-4 w-4" />}
+                label="컬러"
+                value={order.color_code || '-'}
+                iconColor="text-pink-500"
+              />
+              <InfoRow
+                icon={<Layers className="h-4 w-4" />}
+                label="두께"
+                value={order.thickness}
+                iconColor="text-amber-500"
+              />
+              <InfoRow
+                icon={<Ruler className="h-4 w-4" />}
+                label="양단면"
+                value={order.surface_type || '-'}
+                iconColor="text-teal-500"
+              />
+              <InfoRow
+                icon={<Hash className="h-4 w-4" />}
+                label="원판 사이즈"
+                value={`${order.size_name} (${order.width}×${order.height})`}
+                iconColor="text-indigo-500"
+              />
+              <InfoRow
+                icon={<Hash className="h-4 w-4" />}
+                label="수량"
+                value={`${order.quantity}장`}
+                iconColor="text-emerald-500"
+              />
+            </div>
+
+            {/* Production Note */}
+            {order.memo && (
+              <div className="flex items-start gap-2.5 rounded-lg bg-accent/60 p-3 text-[13px]">
+                <MessageSquareText className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-muted-foreground font-medium">원판생산 참고사항</span>
+                  <p className="text-foreground font-medium mt-0.5">{order.memo}</p>
+                </div>
+              </div>
+            )}
+
             {/* Author */}
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <User className="h-2.5 w-2.5" />
-              {order.user_name}
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1 border-t border-border/50">
+              <User className="h-3.5 w-3.5" />
+              <span>발주 담당: <span className="font-semibold text-foreground">{order.user_name}</span></span>
             </div>
           </div>
 
@@ -120,13 +164,13 @@ const MaterialOrderCard: React.FC<Props> = ({ order, canManage, currentUserId, o
           {(onEdit || onDelete) && (canManage || order.user_id === currentUserId) && (
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               {onEdit && (
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(order)}>
-                  <Pencil className="h-3.5 w-3.5" />
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(order)}>
+                  <Pencil className="h-4 w-4" />
                 </Button>
               )}
               {onDelete && (
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(order.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDelete(order.id)}>
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               )}
             </div>
