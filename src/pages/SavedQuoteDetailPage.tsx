@@ -19,6 +19,7 @@ import QuoteAttachments, { QuotePdfAttachment } from "@/components/QuoteAttachme
 import EditableQuoteItem from "@/components/EditableQuoteItem";
 import { useAuth } from "@/contexts/AuthContext";
 import QuoteMemoPanel from "@/components/QuoteMemoPanel";
+import QuoteMaterialOrders from "@/components/QuoteMaterialOrders";
 
 interface SavedQuote {
   id: string;
@@ -733,6 +734,8 @@ const SavedQuoteDetailPage = () => {
               )}
             </CardContent>
           </Card>
+          {/* 원판 발주 */}
+          {id && <QuoteMaterialOrders quoteId={id} />}
           {id && <QuoteMemoPanel quoteId={id} />}
         </div>
         </div>

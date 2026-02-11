@@ -943,6 +943,7 @@ export type Database = {
       }
       material_orders: {
         Row: {
+          color_code: string | null
           created_at: string
           height: number
           id: string
@@ -952,9 +953,11 @@ export type Database = {
           project_id: string | null
           quality: string
           quantity: number
+          quote_id: string | null
           quote_item_summary: string | null
           size_name: string
           status: string
+          surface_type: string | null
           thickness: string
           updated_at: string
           user_id: string
@@ -962,6 +965,7 @@ export type Database = {
           width: number
         }
         Insert: {
+          color_code?: string | null
           created_at?: string
           height?: number
           id?: string
@@ -971,9 +975,11 @@ export type Database = {
           project_id?: string | null
           quality: string
           quantity?: number
+          quote_id?: string | null
           quote_item_summary?: string | null
           size_name: string
           status?: string
+          surface_type?: string | null
           thickness: string
           updated_at?: string
           user_id: string
@@ -981,6 +987,7 @@ export type Database = {
           width?: number
         }
         Update: {
+          color_code?: string | null
           created_at?: string
           height?: number
           id?: string
@@ -990,9 +997,11 @@ export type Database = {
           project_id?: string | null
           quality?: string
           quantity?: number
+          quote_id?: string | null
           quote_item_summary?: string | null
           size_name?: string
           status?: string
+          surface_type?: string | null
           thickness?: string
           updated_at?: string
           user_id?: string
@@ -1005,6 +1014,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_orders_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
             referencedColumns: ["id"]
           },
         ]
