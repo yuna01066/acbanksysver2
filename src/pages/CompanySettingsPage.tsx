@@ -1,15 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Building2, CalendarDays, FileSignature, Shield, Calendar } from 'lucide-react';
+import { ArrowLeft, Building2, CalendarDays, FileSignature, Calendar, Shield } from 'lucide-react';
 import CompanyInfoForm from '@/components/company/CompanyInfoForm';
 import CompanyHolidayManager from '@/components/company/CompanyHolidayManager';
 import ContractTemplateSettings from '@/components/contract/ContractTemplateSettings';
-import PageAccessManager from '@/components/company/PageAccessManager';
 import LeavePolicySettings from '@/components/leave/LeavePolicySettings';
+import FeatureAccessManager from '@/components/company/FeatureAccessManager';
 
 const CompanySettingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -44,11 +43,6 @@ const CompanySettingsPage: React.FC = () => {
             <TabsTrigger value="contracts" className="gap-1.5">
               <FileSignature className="h-4 w-4" /> 계약서 관리
             </TabsTrigger>
-            {isAdmin && (
-              <TabsTrigger value="access" className="gap-1.5">
-                <Shield className="h-4 w-4" /> 접근 권한
-              </TabsTrigger>
-            )}
             <TabsTrigger value="leave" className="gap-1.5">
               <Calendar className="h-4 w-4" /> 연차 설정
             </TabsTrigger>
@@ -62,15 +56,24 @@ const CompanySettingsPage: React.FC = () => {
           <TabsContent value="contracts">
             <ContractTemplateSettings />
           </TabsContent>
-          {isAdmin && (
-            <TabsContent value="access">
-              <PageAccessManager />
-            </TabsContent>
-          )}
           <TabsContent value="leave">
             <LeavePolicySettings />
           </TabsContent>
         </Tabs>
+
+        {/* 기능별 접근 권한 — 관리자만 */}
+        {isAdmin && (
+          <div className="mt-10">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-bold">기능별 접근 권한</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              각 기능에 접근할 수 있는 <strong>최소 역할</strong>을 설정합니다. 설정된 역할 이상의 직원만 해당 기능을 사용할 수 있습니다.
+            </p>
+            <FeatureAccessManager />
+          </div>
+        )}
       </div>
     </div>
   );
