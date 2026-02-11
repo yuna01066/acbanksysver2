@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Palette, Layers, Square, Maximize, Ruler, CalendarClock, MapPin, Package, Pencil, Check, X, RefreshCw, MessageSquareText, Plus, Trash2, Type } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -132,6 +133,8 @@ const CustomFieldDisplay = ({ field, editing, onUpdate, onRemove }: {
       try { return format(new Date(field.value as string), 'yyyy년 M월 d일', { locale: ko }); } catch { return String(field.value); }
     }
     if (field.type === 'tags' && Array.isArray(field.value)) return (field.value as string[]).join(', ') || '-';
+    if (field.type === 'single_select') return field.value ? String(field.value) : '-';
+    if (field.type === 'multi_select' && Array.isArray(field.value)) return (field.value as string[]).join(', ') || '-';
     return field.value ? String(field.value) : '-';
   };
 
@@ -159,6 +162,42 @@ const CustomFieldDisplay = ({ field, editing, onUpdate, onRemove }: {
         return <Switch checked={!!field.value} onCheckedChange={onUpdate} />;
       case 'tags':
         return <EditableTagList values={Array.isArray(field.value) ? field.value as string[] : []} onChange={onUpdate} placeholder="값 추가..." />;
+      case 'single_select':
+        return (
+          <Select value={String(field.value || '')} onValueChange={onUpdate}>
+            <SelectTrigger className="h-6 text-xs"><SelectValue placeholder="선택..." /></SelectTrigger>
+            <SelectContent>
+              {(field.options || []).map(opt => (
+                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      case 'multi_select': {
+        const selected = Array.isArray(field.value) ? field.value as string[] : [];
+        return (
+          <div className="space-y-1">
+            <div className="flex flex-wrap gap-1">
+              {selected.map((v, i) => (
+                <Badge key={i} variant="secondary" className="text-[10px] gap-0.5 pr-0.5 h-5">
+                  {v}
+                  <button onClick={() => onUpdate(selected.filter((_, idx) => idx !== i))} className="ml-0.5 hover:bg-muted rounded-full p-0.5">
+                    <X className="h-2 w-2" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+            <Select onValueChange={(v) => { if (!selected.includes(v)) onUpdate([...selected, v]); }}>
+              <SelectTrigger className="h-6 text-xs"><SelectValue placeholder="항목 추가..." /></SelectTrigger>
+              <SelectContent>
+                {(field.options || []).filter(o => !selected.includes(o)).map(opt => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        );
+      }
       default:
         return <Input className="h-6 text-xs" value={String(field.value || '')} onChange={(e) => onUpdate(e.target.value)} />;
     }
