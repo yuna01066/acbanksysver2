@@ -55,6 +55,9 @@ const AttendancePage = () => {
   const [bulkCheckIn, setBulkCheckIn] = useState('');
   const [bulkCheckOut, setBulkCheckOut] = useState('');
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [manualDialogOpen, setManualDialogOpen] = useState(false);
+  const [manualForm, setManualForm] = useState({ userId: '', userName: '', date: '', checkIn: '09:00', checkOut: '18:00', status: 'checked_out', memo: '' });
+  const [manualSaving, setManualSaving] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -95,6 +98,16 @@ const AttendancePage = () => {
       return data || [];
     },
     enabled: !!user,
+  });
+
+  // Employee list for manual registration
+  const { data: employees = [] } = useQuery({
+    queryKey: ['all-employees-for-attendance'],
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('id, full_name, department').eq('is_approved', true).order('full_name');
+      return data || [];
+    },
+    enabled: !!user && (isAdmin || isModerator),
   });
 
   // Leave requests
@@ -215,7 +228,34 @@ const AttendancePage = () => {
     }
   };
 
-  const handleBulkTimeUpdate = async () => {
+  const handleManualAttendanceAdd = async () => {
+    if (!manualForm.userId || !manualForm.date) { toast.warning('직원과 날짜를 선택해주세요.'); return; }
+    setManualSaving(true);
+    try {
+      const checkIn = manualForm.checkIn ? new Date(`${manualForm.date}T${manualForm.checkIn}:00+09:00`).toISOString() : null;
+      const checkOut = manualForm.checkOut ? new Date(`${manualForm.date}T${manualForm.checkOut}:00+09:00`).toISOString() : null;
+      const { error } = await supabase.from('attendance_records').insert({
+        user_id: manualForm.userId,
+        user_name: manualForm.userName,
+        date: manualForm.date,
+        check_in: checkIn,
+        check_out: checkOut,
+        status: checkOut ? 'checked_out' : 'checked_in',
+        memo: manualForm.memo || null,
+      });
+      if (error) throw error;
+      toast.success('근태 기록이 등록되었습니다.');
+      setManualDialogOpen(false);
+      setManualForm({ userId: '', userName: '', date: '', checkIn: '09:00', checkOut: '18:00', status: 'checked_out', memo: '' });
+      queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+    } catch (e: any) {
+      toast.error('등록 실패: ' + (e.message || ''));
+    } finally {
+      setManualSaving(false);
+    }
+  };
+
+
     if (selectedIds.size === 0) { toast.warning('직원을 선택해주세요.'); return; }
     if (!bulkCheckIn && !bulkCheckOut) { toast.warning('출근 또는 퇴근 시간을 입력해주세요.'); return; }
     setBulkProcessing(true);
@@ -281,6 +321,11 @@ const AttendancePage = () => {
             <div className="flex gap-2">
               <Button variant={adminTab === 'my' ? 'default' : 'outline'} size="sm" onClick={() => setAdminTab('my')}>내 기록</Button>
               <Button variant={adminTab === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setAdminTab('all')}>전체 직원</Button>
+              {adminTab === 'all' && (
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => setManualDialogOpen(true)}>
+                  <Plus className="w-4 h-4" />수동 등록
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -618,6 +663,56 @@ const AttendancePage = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Manual Attendance Registration Dialog */}
+      <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>근태 수동 등록</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <label className="text-sm font-medium">직원 선택</label>
+              <Select value={manualForm.userId} onValueChange={(v) => {
+                const emp = employees.find((e: any) => e.id === v);
+                setManualForm(f => ({ ...f, userId: v, userName: emp?.full_name || '' }));
+              }}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="직원을 선택하세요" /></SelectTrigger>
+                <SelectContent>
+                  {employees.map((e: any) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.full_name}{e.department ? ` (${e.department})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">날짜</label>
+              <Input type="date" value={manualForm.date} onChange={(e) => setManualForm(f => ({ ...f, date: e.target.value }))} className="mt-1" max={format(new Date(), 'yyyy-MM-dd')} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">출근 시간</label>
+                <ScrollTimePicker value={manualForm.checkIn} onChange={(v) => setManualForm(f => ({ ...f, checkIn: v }))} className="mt-1 w-full h-9 text-sm" placeholder="출근 시간" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">퇴근 시간</label>
+                <ScrollTimePicker value={manualForm.checkOut} onChange={(v) => setManualForm(f => ({ ...f, checkOut: v }))} className="mt-1 w-full h-9 text-sm" placeholder="퇴근 시간" />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">메모</label>
+              <Textarea value={manualForm.memo} onChange={(e) => setManualForm(f => ({ ...f, memo: e.target.value }))} placeholder="수동 등록 사유를 입력하세요" className="mt-1" />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setManualDialogOpen(false)}>취소</Button>
+              <Button onClick={handleManualAttendanceAdd} disabled={manualSaving}>
+                {manualSaving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                등록
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AttendanceEditDialog
         record={editRecord}
