@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper, Users, User, Cake } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper, Users, User, Cake, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 interface CalendarEvent {
   id: string;
   projectName: string;
-  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'holiday' | 'birthday';
+  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'holiday' | 'birthday' | 'announcement_meeting';
   date: Date;
   userId: string;
   url?: string;
@@ -106,8 +106,21 @@ const DashboardCalendar = () => {
     },
   });
 
+  const { data: announcementMeetings } = useQuery({
+    queryKey: ['announcement-meetings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('id, title, meeting_date, meeting_time, meeting_location')
+        .eq('announcement_type', 'meeting')
+        .not('meeting_date', 'is', null);
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const events = useMemo(() => {
-    if (!quotes && !notionProjects && !meetings && !holidays && !birthdays) return [];
+    if (!quotes && !notionProjects && !meetings && !holidays && !birthdays && !announcementMeetings) return [];
     const result: CalendarEvent[] = [];
 
     // 휴일 이벤트
@@ -208,8 +221,24 @@ const DashboardCalendar = () => {
       }
     });
 
+    // 회의 공지 이벤트
+    announcementMeetings?.forEach((am: any) => {
+      if (am.meeting_date) {
+        const date = new Date(am.meeting_date);
+        if (!isNaN(date.getTime())) {
+          result.push({
+            id: am.id,
+            projectName: `📋 ${am.title}${am.meeting_time ? ` ${am.meeting_time}` : ''}`,
+            type: 'announcement_meeting',
+            date,
+            userId: '',
+          });
+        }
+      }
+    });
+
     return result;
-  }, [quotes, notionProjects, meetings, holidays, birthdays, user, currentMonth]);
+  }, [quotes, notionProjects, meetings, holidays, birthdays, announcementMeetings, user, currentMonth]);
 
   // Filter events based on view mode
   const filteredEvents = useMemo(() => {
@@ -220,6 +249,7 @@ const DashboardCalendar = () => {
       // Always show holidays and birthdays
       if (e.type === 'holiday') return true;
       if (e.type === 'birthday') return true;
+      if (e.type === 'announcement_meeting') return true;
       // Meetings are already filtered to current user
       if (e.type === 'meeting') return true;
       // Quotes/deliveries: only show mine
@@ -238,6 +268,10 @@ const DashboardCalendar = () => {
       if (event.url) {
         window.open(event.url, '_blank');
       }
+      return;
+    }
+    if (event.type === 'announcement_meeting') {
+      navigate('/announcements');
       return;
     }
     if (isAdmin || isModerator || event.userId === user?.id) {
@@ -298,6 +332,9 @@ const DashboardCalendar = () => {
           </span>
           <span className="flex items-center gap-1">
             <Coffee className="h-3 w-3 text-amber-600" /> 1:1 미팅
+          </span>
+          <span className="flex items-center gap-1">
+            <Calendar className="h-3 w-3 text-blue-600" /> 회의
           </span>
           <span className="flex items-center gap-1">
             <PartyPopper className="h-3 w-3 text-red-500" /> 휴일
@@ -363,6 +400,8 @@ const DashboardCalendar = () => {
                           ? "bg-orange-500/10 text-orange-600"
                           : event.type === 'meeting'
                           ? "bg-amber-500/10 text-amber-700"
+                          : event.type === 'announcement_meeting'
+                          ? "bg-blue-500/10 text-blue-700 cursor-pointer"
                           : event.type === 'holiday'
                           ? "bg-red-500/10 text-red-600 cursor-default"
                           : event.type === 'birthday'
@@ -377,6 +416,8 @@ const DashboardCalendar = () => {
                         <Truck className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'meeting' ? (
                         <Coffee className="h-2.5 w-2.5 shrink-0" />
+                      ) : event.type === 'announcement_meeting' ? (
+                        <Calendar className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'holiday' ? (
                         <PartyPopper className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'birthday' ? (

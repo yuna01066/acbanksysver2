@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Sun, Moon, Coffee, Utensils, Clock } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Sun, Moon, Coffee, Utensils, Clock, Calendar } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 type WorkStatus = 'available' | 'busy' | 'focusing' | 'meeting';
@@ -57,6 +59,42 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
   const [now, setNow] = useState(new Date());
   const [myStatus, setMyStatus] = useState<WorkStatus>('available');
   const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
+
+  // Fetch today's meetings from announcements
+  const { data: todayMeetings } = useQuery({
+    queryKey: ['today-announcement-meetings'],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('id, title, meeting_date, meeting_time, meeting_location')
+        .eq('announcement_type', 'meeting')
+        .eq('meeting_date', today)
+        .not('meeting_time', 'is', null);
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 60000, // refetch every minute
+  });
+
+  // Check for upcoming meetings within 30 minutes
+  const upcomingMeeting = useMemo(() => {
+    if (!todayMeetings || todayMeetings.length === 0) return null;
+    const nowDate = new Date();
+    const currentMin = nowDate.getHours() * 60 + nowDate.getMinutes();
+
+    for (const m of todayMeetings) {
+      if (!m.meeting_time) continue;
+      const [h, min] = m.meeting_time.split(':').map(Number);
+      if (isNaN(h) || isNaN(min)) continue;
+      const meetingMin = h * 60 + min;
+      const diff = meetingMin - currentMin;
+      if (diff > 0 && diff <= 30) {
+        return { ...m, minutesLeft: diff };
+      }
+    }
+    return null;
+  }, [todayMeetings, now]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -241,6 +279,23 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
           </span>
         </div>
       </div>
+
+      {/* Upcoming meeting reminder */}
+      {upcomingMeeting && (
+        <div className="mt-3 px-3 py-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex items-center gap-2.5">
+          <Calendar className="h-4 w-4 text-amber-600 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              📋 {upcomingMeeting.minutesLeft}분 후 회의가 예정되어 있습니다.
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 truncate">
+              {upcomingMeeting.title}
+              {upcomingMeeting.meeting_time && ` · ${upcomingMeeting.meeting_time}`}
+              {upcomingMeeting.meeting_location && ` · ${upcomingMeeting.meeting_location}`}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

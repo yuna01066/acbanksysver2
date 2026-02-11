@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Megaphone, ArrowLeft, Plus, Loader2, Trash2, Edit, Pin } from 'lucide-react';
+import { Megaphone, ArrowLeft, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -21,6 +21,10 @@ interface Announcement {
   author_id: string;
   author_name: string;
   is_pinned: boolean;
+  announcement_type: string;
+  meeting_date: string | null;
+  meeting_time: string | null;
+  meeting_location: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -33,6 +37,10 @@ const AnnouncementsPage = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [announcementType, setAnnouncementType] = useState<'general' | 'meeting'>('general');
+  const [meetingDate, setMeetingDate] = useState('');
+  const [meetingTime, setMeetingTime] = useState('');
+  const [meetingLocation, setMeetingLocation] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const canManage = isAdmin || isModerator;
@@ -58,21 +66,39 @@ const AnnouncementsPage = () => {
       if (editingId) {
         const { error } = await supabase
           .from('announcements')
-          .update({ title, content })
+          .update({ title, content, announcement_type: announcementType, meeting_date: announcementType === 'meeting' ? meetingDate || null : null, meeting_time: announcementType === 'meeting' ? meetingTime || null : null, meeting_location: announcementType === 'meeting' ? meetingLocation || null : null })
           .eq('id', editingId);
         if (error) throw error;
       } else {
+        const insertData: any = {
+          title,
+          content,
+          author_id: user.id,
+          author_name: profile.full_name || user.email || '관리자',
+          announcement_type: announcementType,
+        };
+        if (announcementType === 'meeting') {
+          insertData.meeting_date = meetingDate || null;
+          insertData.meeting_time = meetingTime || null;
+          insertData.meeting_location = meetingLocation || null;
+        }
         const { data: announcement, error } = await supabase
           .from('announcements')
-          .insert({
-            title,
-            content,
-            author_id: user.id,
-            author_name: profile.full_name || user.email || '관리자',
-          })
+          .insert(insertData)
           .select()
           .single();
         if (error) throw error;
+
+        // Post to team chat if meeting
+        if (announcementType === 'meeting') {
+          const meetingInfo = `📋 회의 공지: ${title}\n📅 ${meetingDate || '미정'}${meetingTime ? ` ⏰ ${meetingTime}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}`;
+          await supabase.from('team_messages').insert({
+            user_id: user.id,
+            user_name: profile.full_name || user.email || '관리자',
+            avatar_url: profile.avatar_url || null,
+            message: meetingInfo,
+          });
+        }
 
         // Notify all users
         const { data: allProfiles } = await supabase
@@ -81,13 +107,17 @@ const AnnouncementsPage = () => {
           .eq('is_approved', true);
 
         if (allProfiles && allProfiles.length > 0) {
+          const notiTitle = announcementType === 'meeting' ? '📋 회의 공지' : '새 공지사항';
+          const notiDesc = announcementType === 'meeting'
+            ? `회의가 등록되었습니다: ${title} (${meetingDate || '날짜 미정'}${meetingTime ? ` ${meetingTime}` : ''})`
+            : `공지사항이 등록되었습니다: ${title}`;
           const notifications = allProfiles
             .filter(p => p.id !== user.id)
             .map(p => ({
               user_id: p.id,
               type: 'system',
-              title: '새 공지사항',
-              description: `공지사항이 등록되었습니다: ${title}`,
+              title: notiTitle,
+              description: notiDesc,
               data: { announcementId: announcement.id },
             }));
           if (notifications.length > 0) {
@@ -145,6 +175,10 @@ const AnnouncementsPage = () => {
   const resetForm = () => {
     setTitle('');
     setContent('');
+    setAnnouncementType('general');
+    setMeetingDate('');
+    setMeetingTime('');
+    setMeetingLocation('');
     setEditingId(null);
     setShowForm(false);
   };
@@ -153,6 +187,10 @@ const AnnouncementsPage = () => {
     setEditingId(a.id);
     setTitle(a.title);
     setContent(a.content);
+    setAnnouncementType((a.announcement_type || 'general') as 'general' | 'meeting');
+    setMeetingDate(a.meeting_date || '');
+    setMeetingTime(a.meeting_time || '');
+    setMeetingLocation(a.meeting_location || '');
     setShowForm(true);
   };
 
@@ -165,8 +203,24 @@ const AnnouncementsPage = () => {
               {a.is_pinned && (
                 <Pin className="h-3.5 w-3.5 text-primary shrink-0" />
               )}
+              {a.announcement_type === 'meeting' && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-500 text-amber-600">회의</Badge>
+              )}
               <h3 className="font-semibold text-lg">{a.title}</h3>
             </div>
+            {a.announcement_type === 'meeting' && (a.meeting_date || a.meeting_time || a.meeting_location) && (
+              <div className="flex items-center gap-3 text-sm text-muted-foreground mb-2 flex-wrap">
+                {a.meeting_date && (
+                  <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{a.meeting_date}</span>
+                )}
+                {a.meeting_time && (
+                  <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{a.meeting_time}</span>
+                )}
+                {a.meeting_location && (
+                  <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{a.meeting_location}</span>
+                )}
+              </div>
+            )}
             {(() => {
               const isLong = a.content.split('\n').length > 5 || a.content.length > 300;
               const isExpanded = expandedIds.has(a.id);
@@ -279,13 +333,39 @@ const AnnouncementsPage = () => {
         {canManage && showForm && (
           <Card className="mb-6">
             <CardContent className="pt-6 space-y-3">
+              {/* Type selection */}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={announcementType === 'general' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setAnnouncementType('general')}
+                >
+                  <Megaphone className="h-4 w-4 mr-1" />공지
+                </Button>
+                <Button
+                  type="button"
+                  variant={announcementType === 'meeting' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setAnnouncementType('meeting')}
+                >
+                  <Calendar className="h-4 w-4 mr-1" />회의
+                </Button>
+              </div>
               <Input
-                placeholder="공지 제목"
+                placeholder={announcementType === 'meeting' ? '회의 제목' : '공지 제목'}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
+              {announcementType === 'meeting' && (
+                <div className="grid grid-cols-3 gap-2">
+                  <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} placeholder="날짜" />
+                  <Input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} placeholder="시간" />
+                  <Input placeholder="장소" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} />
+                </div>
+              )}
               <Textarea
-                placeholder="공지 내용을 입력하세요..."
+                placeholder="내용을 입력하세요..."
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={5}
@@ -295,7 +375,7 @@ const AnnouncementsPage = () => {
                 <Button variant="ghost" onClick={resetForm}>취소</Button>
                 <Button
                   onClick={() => postMutation.mutate()}
-                  disabled={!title.trim() || !content.trim() || postMutation.isPending}
+                  disabled={!title.trim() || !content.trim() || (announcementType === 'meeting' && !meetingDate) || postMutation.isPending}
                 >
                   {postMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   {editingId ? '수정' : '등록'}

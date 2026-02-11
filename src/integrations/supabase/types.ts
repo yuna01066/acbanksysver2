@@ -120,32 +120,44 @@ export type Database = {
       }
       announcements: {
         Row: {
+          announcement_type: string
           author_id: string
           author_name: string
           content: string
           created_at: string
           id: string
           is_pinned: boolean
+          meeting_date: string | null
+          meeting_location: string | null
+          meeting_time: string | null
           title: string
           updated_at: string
         }
         Insert: {
+          announcement_type?: string
           author_id: string
           author_name: string
           content: string
           created_at?: string
           id?: string
           is_pinned?: boolean
+          meeting_date?: string | null
+          meeting_location?: string | null
+          meeting_time?: string | null
           title: string
           updated_at?: string
         }
         Update: {
+          announcement_type?: string
           author_id?: string
           author_name?: string
           content?: string
           created_at?: string
           id?: string
           is_pinned?: boolean
+          meeting_date?: string | null
+          meeting_location?: string | null
+          meeting_time?: string | null
           title?: string
           updated_at?: string
         }
