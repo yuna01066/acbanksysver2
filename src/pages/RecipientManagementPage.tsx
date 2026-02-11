@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRecipients, Recipient } from '@/hooks/useRecipients';
-import { usePluuugApi } from '@/hooks/usePluuugApi';
 import { RecipientEditDialog } from '@/components/RecipientEditDialog';
 import { RecipientDocumentUpload } from '@/components/RecipientDocumentUpload';
 import { Button } from '@/components/ui/button';
@@ -15,8 +14,7 @@ import {
 } from '@/components/ui/table';
 import {
   Home, Search, Building2, User, FileText, Eye, Pencil, Trash2,
-  Cloud, CloudOff, Loader2, ArrowLeft, Upload, ChevronDown, ChevronUp,
-  ArrowUpDown, SortAsc,
+  Loader2, ArrowLeft, Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
@@ -29,7 +27,6 @@ interface QuoteHistoryItem {
   project_name: string | null;
   total: number;
   project_stage: string;
-  pluuug_synced: boolean | null;
 }
 
 const RecipientManagementPage = () => {
@@ -38,9 +35,7 @@ const RecipientManagementPage = () => {
   const { user } = useAuth();
   const {
     recipients, loading, fetchRecipients, updateRecipient, deleteRecipient,
-    markAsSyncedToPluuug, toPluuugClientData,
   } = useRecipients();
-  const { getClients, getClientStatuses, createClient, updateClient, loading: pluuugLoading } = usePluuugApi();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(
@@ -50,10 +45,8 @@ const RecipientManagementPage = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [editRecipient, setEditRecipient] = useState<Recipient | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [syncingId, setSyncingId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'date'>('name');
 
-  // Pre-select company from search params
   const companyFilter = searchParams.get('company');
 
   useEffect(() => {
@@ -66,7 +59,6 @@ const RecipientManagementPage = () => {
     }
   }, [companyFilter]);
 
-  // Auto-select recipient from URL param
   useEffect(() => {
     const idParam = searchParams.get('id');
     if (idParam && recipients.length > 0) {
@@ -77,7 +69,6 @@ const RecipientManagementPage = () => {
     }
   }, [searchParams, recipients]);
 
-  // Fetch quote history when recipient selected
   useEffect(() => {
     if (selectedRecipientId) {
       const recipient = recipients.find(r => r.id === selectedRecipientId);
@@ -91,7 +82,7 @@ const RecipientManagementPage = () => {
     try {
       const { data, error } = await supabase
         .from('saved_quotes')
-        .select('id, quote_number, quote_date, project_name, total, project_stage, pluuug_synced')
+        .select('id, quote_number, quote_date, project_name, total, project_stage')
         .eq('recipient_company', companyName)
         .order('quote_date', { ascending: false });
 
@@ -117,37 +108,6 @@ const RecipientManagementPage = () => {
     }
   };
 
-  const handleSyncToPluuug = async (recipient: Recipient) => {
-    if (recipient.pluuug_client_id) {
-      toast.info('이미 Pluuug에 등록된 고객입니다.');
-      return;
-    }
-    setSyncingId(recipient.id);
-    try {
-      const statuses = await getClientStatuses();
-      const statusId = statuses.data?.results?.[0]?.id;
-      if (!statusId) {
-        toast.error('Pluuug 고객 상태를 불러오지 못했습니다.');
-        return;
-      }
-      const clientData = toPluuugClientData(recipient, statusId);
-      const result = await createClient(clientData as any);
-      if (result.data && !result.error && result.status >= 200 && result.status < 300) {
-        const pluuugClientId = result.data.id;
-        if (pluuugClientId) await markAsSyncedToPluuug(recipient.id, pluuugClientId);
-        toast.success('Pluuug에 고객이 등록되었습니다!');
-        await fetchRecipients();
-      } else {
-        toast.error(`Pluuug 등록 실패: ${result.error || '알 수 없는 오류'}`);
-      }
-    } catch (err) {
-      console.error('Pluuug 동기화 에러:', err);
-      toast.error('Pluuug 동기화 중 오류가 발생했습니다.');
-    } finally {
-      setSyncingId(null);
-    }
-  };
-
   const filteredRecipients = recipients.filter(r => {
     const s = searchTerm.toLowerCase();
     return (
@@ -163,14 +123,12 @@ const RecipientManagementPage = () => {
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
-  // Auto-select first matching recipient when filtering by company from URL
   useEffect(() => {
     if (companyFilter && !selectedRecipientId && filteredRecipients.length > 0) {
       setSelectedRecipientId(filteredRecipients[0].id);
     }
   }, [companyFilter, filteredRecipients, selectedRecipientId]);
 
-  // If company filter is set but no recipients found, try to find from saved_quotes
   const [unregisteredCompany, setUnregisteredCompany] = useState<{
     company: string;
     name: string | null;
@@ -181,7 +139,6 @@ const RecipientManagementPage = () => {
 
   useEffect(() => {
     if (companyFilter && !loading && filteredRecipients.length === 0) {
-      // Fetch info from saved_quotes
       const fetchFromQuotes = async () => {
         const { data } = await supabase
           .from('saved_quotes')
@@ -204,7 +161,6 @@ const RecipientManagementPage = () => {
     }
   }, [companyFilter, loading, filteredRecipients.length]);
 
-  // Fetch quote history for unregistered company
   const [unregisteredQuoteHistory, setUnregisteredQuoteHistory] = useState<QuoteHistoryItem[]>([]);
   useEffect(() => {
     if (unregisteredCompany) {
@@ -212,7 +168,7 @@ const RecipientManagementPage = () => {
         setHistoryLoading(true);
         const { data } = await supabase
           .from('saved_quotes')
-          .select('id, quote_number, quote_date, project_name, total, project_stage, pluuug_synced')
+          .select('id, quote_number, quote_date, project_name, total, project_stage')
           .eq('recipient_company', unregisteredCompany.company)
           .order('quote_date', { ascending: false });
         setUnregisteredQuoteHistory(data || []);
@@ -331,12 +287,6 @@ const RecipientManagementPage = () => {
                       >
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-semibold text-sm truncate">{r.company_name}</span>
-                          {r.pluuug_client_id ? (
-                            <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700 shrink-0">
-                              <Cloud className="w-3 h-3 mr-1" />
-                              Pluuug
-                            </Badge>
-                          ) : null}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <User className="w-3 h-3" />
@@ -380,21 +330,6 @@ const RecipientManagementPage = () => {
                           <Pencil className="w-4 h-4 mr-1" />
                           수정
                         </Button>
-                        {!selectedRecipient.pluuug_client_id && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSyncToPluuug(selectedRecipient)}
-                            disabled={syncingId === selectedRecipient.id}
-                          >
-                            {syncingId === selectedRecipient.id ? (
-                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                            ) : (
-                              <Upload className="w-4 h-4 mr-1" />
-                            )}
-                            Pluuug 등록
-                          </Button>
-                        )}
                         <Button
                           variant="outline"
                           size="sm"
@@ -445,14 +380,6 @@ const RecipientManagementPage = () => {
                           <InfoRow label="업태" value={selectedRecipient.business_type} />
                           <InfoRow label="업종" value={selectedRecipient.business_class} />
                           <InfoRow label="종사업장번호" value={selectedRecipient.branch_number} />
-                          {selectedRecipient.pluuug_client_id && (
-                            <div className="flex items-center gap-2 mt-2">
-                              <Badge className="bg-emerald-100 text-emerald-700">
-                                <Cloud className="w-3 h-3 mr-1" />
-                                Pluuug 연동됨 (ID: {selectedRecipient.pluuug_client_id})
-                              </Badge>
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -540,7 +467,6 @@ const RecipientManagementPage = () => {
               </>
             ) : unregisteredCompany ? (
               <>
-                {/* Unregistered Company Info */}
                 <Card>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
@@ -568,7 +494,6 @@ const RecipientManagementPage = () => {
                   </CardContent>
                 </Card>
 
-                {/* Quote History for unregistered */}
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center gap-2">
@@ -635,11 +560,9 @@ const RecipientManagementPage = () => {
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
         onSave={async (id, updates) => {
-          // 수정 전 기존 정보 저장 (견적서 매칭용)
           const oldRecipient = recipients.find(r => r.id === id);
           const result = await updateRecipient(id, updates);
           if (result && oldRecipient) {
-            // 1. 관련 견적서의 수신자 정보도 일괄 업데이트
             try {
               const quoteUpdates: Record<string, any> = {};
               if (updates.company_name) quoteUpdates.recipient_company = updates.company_name;
@@ -666,41 +589,7 @@ const RecipientManagementPage = () => {
               console.error('견적서 동기화 에러:', err);
             }
 
-            // 2. Pluuug 연동된 고객이면 Pluuug에도 업데이트
-            if (oldRecipient.pluuug_client_id) {
-              try {
-                const pluuugUpdates: Record<string, any> = {};
-                if (updates.company_name) pluuugUpdates.companyName = updates.company_name;
-                if (updates.contact_person) pluuugUpdates.inCharge = updates.contact_person;
-                if (updates.phone) pluuugUpdates.contact = updates.phone;
-                if (updates.email) pluuugUpdates.email = updates.email;
-                if (updates.position) pluuugUpdates.position = updates.position;
-                if (updates.ceo_name) pluuugUpdates.ceoName = updates.ceo_name;
-                if (updates.business_registration_number) pluuugUpdates.businessRegistrationNumber = updates.business_registration_number;
-                if (updates.business_type) pluuugUpdates.businessType = updates.business_type;
-                if (updates.business_class) pluuugUpdates.businessClass = updates.business_class;
-                if (updates.branch_number) pluuugUpdates.branchNumber = updates.branch_number;
-                if (updates.address !== undefined) pluuugUpdates.companyAddress = updates.address || '미지정';
-                if (updates.detail_address !== undefined) pluuugUpdates.companyDetailAddress = updates.detail_address || '미지정';
-                if (updates.memo !== undefined) pluuugUpdates.content = updates.memo || '';
-
-                if (Object.keys(pluuugUpdates).length > 0) {
-                  const pluuugResult = await updateClient(oldRecipient.pluuug_client_id, pluuugUpdates);
-                  if (pluuugResult.error) {
-                    console.error('Pluuug 고객 정보 동기화 에러:', pluuugResult.error);
-                    toast.error('Pluuug 고객 정보 동기화에 실패했습니다.');
-                  } else {
-                    toast.success('Pluuug 고객 정보도 함께 업데이트되었습니다.');
-                  }
-                }
-              } catch (err) {
-                console.error('Pluuug 동기화 에러:', err);
-                toast.error('Pluuug 동기화 중 오류가 발생했습니다.');
-              }
-            }
-
             await fetchRecipients();
-            // 견적 히스토리도 새로고침
             if (selectedRecipientId === id) {
               const newCompany = updates.company_name || oldRecipient.company_name;
               const newContact = updates.contact_person || oldRecipient.contact_person;

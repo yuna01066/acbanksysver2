@@ -287,69 +287,6 @@ const SavedQuoteDetailPage = () => {
     window.print();
   };
 
-  // PDF 자동 생성 및 저장
-  const handleGeneratePdf = async () => {
-    if (!user || !quote) {
-      toast.error('로그인이 필요합니다.');
-      return;
-    }
-
-    setIsGeneratingPdf(true);
-    try {
-      toast.info('PDF를 생성하고 있습니다...');
-      
-      const pdfResult = await generateAndUploadQuotePdf(
-        'saved-quote-print-container',
-        user.id,
-        quote.quote_number,
-        quote.project_name || undefined
-      );
-
-      if (pdfResult.success && pdfResult.pdfUrl && pdfResult.pdfPath) {
-        // PDF 첨부파일 메타데이터 생성
-        const pdfAttachment = createPdfAttachmentMetadata(
-          quote.quote_number,
-          pdfResult.pdfUrl,
-          pdfResult.pdfPath
-        );
-        
-        // 기존 attachments에서 quote_pdf 타입 제거 후 새로 추가
-        const currentAttachments = Array.isArray(quote.attachments) ? quote.attachments : [];
-        const newAttachments = [
-          ...currentAttachments.filter((a: any) => a?.type !== 'quote_pdf'),
-          { ...pdfAttachment, type: 'quote_pdf', uploadedAt: new Date().toISOString() }
-        ];
-        
-        // DB 업데이트
-        const { error } = await supabase
-          .from('saved_quotes')
-          .update({ attachments: newAttachments })
-          .eq('id', quote.id);
-
-        if (error) throw error;
-
-        // 상태 업데이트
-        setQuotePdf({
-          name: pdfAttachment.name,
-          path: pdfAttachment.path,
-          size: pdfAttachment.size,
-          url: pdfAttachment.url,
-          uploadedAt: new Date().toISOString()
-        });
-        setAttachments(newAttachments);
-        
-        toast.success('PDF가 생성되어 저장되었습니다!');
-        console.log('[PDF Generator] PDF saved successfully:', pdfResult.pdfUrl);
-      } else {
-        throw new Error(pdfResult.error || 'PDF 생성 실패');
-      }
-    } catch (error: any) {
-      console.error('[PDF Generator] Error:', error);
-      toast.error(`PDF 생성 실패: ${error.message}`);
-    } finally {
-      setIsGeneratingPdf(false);
-    }
-  };
 
   const toggleViewMode = () => {
     setViewMode(prev => prev === 'internal' ? 'customer' : 'internal');
@@ -403,44 +340,6 @@ const SavedQuoteDetailPage = () => {
               홈으로 돌아가기
             </Button>
             
-            {/* PDF 생성 버튼 - 중간관리자 이상만 */}
-            {!quotePdf && (isAdmin || isModerator) && (
-              <Button 
-                variant="outline" 
-                onClick={handleGeneratePdf}
-                disabled={isGeneratingPdf}
-                className="flex items-center gap-2 ml-2"
-                size="sm"
-              >
-                {isGeneratingPdf ? (
-                  <>
-                    <span className="animate-spin">⏳</span>
-                    PDF 생성 중...
-                  </>
-                ) : (
-                  <>
-                    <FileText className="w-4 h-4" />
-                    PDF 생성 및 저장
-                  </>
-                )}
-              </Button>
-            )}
-            
-            {quotePdf && (
-              <div className="inline-flex items-center gap-2 ml-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-md text-sm">
-                <FileText className="w-4 h-4" />
-                <span>PDF 저장됨</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleGeneratePdf}
-                  disabled={isGeneratingPdf}
-                  className="h-6 px-2 text-xs text-green-600 hover:text-green-800"
-                >
-                  {isGeneratingPdf ? '생성 중...' : '다시 생성'}
-                </Button>
-              </div>
-            )}
           </div>
 
           <QuoteSummaryHeader 
