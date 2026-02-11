@@ -1412,45 +1412,6 @@ export type Database = {
           },
         ]
       }
-      pluuug_sync_events: {
-        Row: {
-          created_at: string
-          details: Json | null
-          event_type: string
-          id: string
-          pluuug_estimate_id: string
-          quote_id: string
-          resolved_action: string | null
-          resolved_at: string | null
-          status: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          details?: Json | null
-          event_type: string
-          id?: string
-          pluuug_estimate_id: string
-          quote_id: string
-          resolved_action?: string | null
-          resolved_at?: string | null
-          status?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          details?: Json | null
-          event_type?: string
-          id?: string
-          pluuug_estimate_id?: string
-          quote_id?: string
-          resolved_action?: string | null
-          resolved_at?: string | null
-          status?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       processing_categories: {
         Row: {
           category_key: string
@@ -1899,8 +1860,6 @@ export type Database = {
           id: string
           memo: string | null
           phone: string
-          pluuug_client_id: number | null
-          pluuug_synced_at: string | null
           position: string | null
           updated_at: string
           user_id: string
@@ -1926,8 +1885,6 @@ export type Database = {
           id?: string
           memo?: string | null
           phone: string
-          pluuug_client_id?: number | null
-          pluuug_synced_at?: string | null
           position?: string | null
           updated_at?: string
           user_id: string
@@ -1953,8 +1910,6 @@ export type Database = {
           id?: string
           memo?: string | null
           phone?: string
-          pluuug_client_id?: number | null
-          pluuug_synced_at?: string | null
           position?: string | null
           updated_at?: string
           user_id?: string
@@ -2009,9 +1964,6 @@ export type Database = {
           issuer_position: string | null
           items: Json
           payment_condition: string | null
-          pluuug_estimate_id: string | null
-          pluuug_synced: boolean | null
-          pluuug_synced_at: string | null
           project_id: string | null
           project_name: string | null
           project_stage: string
@@ -2046,9 +1998,6 @@ export type Database = {
           issuer_position?: string | null
           items: Json
           payment_condition?: string | null
-          pluuug_estimate_id?: string | null
-          pluuug_synced?: boolean | null
-          pluuug_synced_at?: string | null
           project_id?: string | null
           project_name?: string | null
           project_stage?: string
@@ -2083,9 +2032,6 @@ export type Database = {
           issuer_position?: string | null
           items?: Json
           payment_condition?: string | null
-          pluuug_estimate_id?: string | null
-          pluuug_synced?: boolean | null
-          pluuug_synced_at?: string | null
           project_id?: string | null
           project_name?: string | null
           project_stage?: string

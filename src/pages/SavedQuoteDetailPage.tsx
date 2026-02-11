@@ -17,9 +17,7 @@ import RecipientInfoForm from "@/components/RecipientInfoForm";
 import { QuoteRecipient } from "@/contexts/QuoteContext";
 import QuoteAttachments, { QuotePdfAttachment } from "@/components/QuoteAttachments";
 import EditableQuoteItem from "@/components/EditableQuoteItem";
-import { generateAndUploadQuotePdf, createPdfAttachmentMetadata } from "@/utils/generateQuotePdf";
 import { useAuth } from "@/contexts/AuthContext";
-import { syncQuoteToPluuug, convertQuoteToPluuugFormat } from "@/utils/pluuugSync";
 import QuoteMemoPanel from "@/components/QuoteMemoPanel";
 
 interface SavedQuote {
@@ -48,8 +46,6 @@ interface SavedQuote {
   subtotal: number;
   tax: number;
   total: number;
-  pluuug_synced: boolean | null;
-  pluuug_estimate_id: string | null;
 }
 
 const SavedQuoteDetailPage = () => {
@@ -77,7 +73,6 @@ const SavedQuoteDetailPage = () => {
   const [attachments, setAttachments] = useState<any[]>([]);
   const [editedItems, setEditedItems] = useState<any[]>([]);
   const [quotePdf, setQuotePdf] = useState<QuotePdfAttachment | null>(null);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [linkedProject, setLinkedProject] = useState<{ id: string; name: string; payment_status: string | null } | null>(null);
   const printContainerRef = useRef<HTMLDivElement>(null);
   const { user, isAdmin, isModerator } = useAuth();
@@ -262,102 +257,6 @@ const SavedQuoteDetailPage = () => {
 
       toast.success('견적서가 수정되었습니다.');
       setIsEditing(false);
-      
-      // PDF 자동 재생성
-      if (user && quote) {
-        toast.info('수정된 견적서의 PDF를 재생성하고 있습니다...');
-        try {
-          // fetchQuote 먼저 실행하여 화면 업데이트
-          await fetchQuote();
-          // 약간의 딜레이로 DOM 렌더링 대기
-          await new Promise(resolve => setTimeout(resolve, 800));
-          
-          const pdfResult = await generateAndUploadQuotePdf(
-            'saved-quote-print-container',
-            user.id,
-            quote.quote_number,
-            recipientData.projectName || undefined
-          );
-
-          if (pdfResult.success && pdfResult.pdfUrl && pdfResult.pdfPath) {
-            const pdfAttachment = createPdfAttachmentMetadata(
-              quote.quote_number,
-              pdfResult.pdfUrl,
-              pdfResult.pdfPath
-            );
-
-            const updatedAttachments = [
-              ...allAttachments.filter((a: any) => a?.type !== 'quote_pdf'),
-              { ...pdfAttachment, type: 'quote_pdf', uploadedAt: new Date().toISOString() }
-            ];
-
-            await supabase
-              .from('saved_quotes')
-              .update({ attachments: updatedAttachments })
-              .eq('id', id);
-
-            setQuotePdf({
-              name: pdfAttachment.name,
-              path: pdfAttachment.path,
-              size: pdfAttachment.size,
-              url: pdfAttachment.url,
-              uploadedAt: new Date().toISOString()
-            });
-
-            toast.success('PDF가 재생성되었습니다.');
-
-            // Pluuug 동기화된 견적서이면 Pluuug도 업데이트
-            if (quote.pluuug_synced && quote.pluuug_estimate_id) {
-              toast.info('Pluuug 의뢰를 업데이트하고 있습니다...');
-              try {
-                const pluuugRecipient = {
-                  projectName: recipientData.projectName,
-                  companyName: recipientData.companyName,
-                  contactPerson: recipientData.contactPerson,
-                  phoneNumber: recipientData.phoneNumber,
-                  email: recipientData.email,
-                  deliveryAddress: recipientData.deliveryAddress,
-                  clientMemo: recipientData.clientMemo,
-                };
-
-                const pluuugData = convertQuoteToPluuugFormat(
-                  editedItems,
-                  pluuugRecipient,
-                  quote.quote_number,
-                  roundedSubtotal,
-                  newTax,
-                  newTotal,
-                  pdfResult.pdfUrl
-                );
-
-                const syncResult = await syncQuoteToPluuug(
-                  pluuugData,
-                  user.id,
-                  pluuugRecipient,
-                  null,
-                  editedItems,
-                  quote.pluuug_estimate_id
-                );
-
-                if (syncResult.success) {
-                  toast.success('Pluuug 의뢰가 업데이트되었습니다!');
-                } else {
-                  toast.warning(`Pluuug 업데이트 실패: ${syncResult.error}`);
-                }
-              } catch (syncErr: any) {
-                console.error('[Save Edit] Pluuug sync error:', syncErr);
-                toast.warning('Pluuug 업데이트에 실패했습니다.');
-              }
-            }
-          } else {
-            console.warn('[Save Edit] PDF regeneration failed:', pdfResult.error);
-            toast.warning('PDF 재생성에 실패했습니다.');
-          }
-        } catch (pdfErr: any) {
-          console.error('[Save Edit] PDF regeneration error:', pdfErr);
-        }
-      }
-      
       fetchQuote();
     } catch (error) {
       console.error('Error updating quote:', error);

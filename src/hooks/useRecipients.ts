@@ -23,8 +23,6 @@ export interface Recipient {
   accounting_position: string | null;
   accounting_phone: string | null;
   accounting_email: string | null;
-  pluuug_client_id: number | null;
-  pluuug_synced_at: string | null;
   memo: string | null;
   business_document_url: string | null;
   created_at: string;
@@ -51,24 +49,6 @@ export interface RecipientInput {
   accounting_email?: string;
   memo?: string;
   business_document_url?: string;
-}
-
-export interface PluuugClientData {
-  companyName: string;
-  inCharge: string;
-  contact: string;
-  email: string;
-  position: string;
-  content: string;
-  status: { id: number };
-  ceoName: string;
-  businessRegistrationNumber: string;
-  companyAddress: string;
-  companyDetailAddress: string;
-  businessType: string;
-  businessClass: string;
-  branchNumber: string;
-  fieldSet: { field: { id: number }; value: string }[];
 }
 
 export function useRecipients() {
@@ -176,7 +156,6 @@ export function useRecipients() {
 
       if (error) {
         if (error.code === '23505') {
-          // Unique constraint violation - recipient already exists
           return await findRecipient(input.company_name, input.contact_person);
         }
         console.error('담당자 생성 에러:', error);
@@ -234,64 +213,11 @@ export function useRecipients() {
     return true;
   }, [user]);
 
-  const markAsSyncedToPluuug = useCallback(async (
-    id: string,
-    pluuugClientId: number
-  ): Promise<boolean> => {
-    if (!user) return false;
-
-    const { error } = await supabase
-      .from('recipients')
-      .update({
-        pluuug_client_id: pluuugClientId,
-        pluuug_synced_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('Pluuug 동기화 상태 업데이트 에러:', error);
-      return false;
-    }
-
-    return true;
-  }, [user]);
-
-  // Convert recipient to Pluuug client data format
-  const toPluuugClientData = useCallback((
-    recipient: Recipient,
-    statusId: number
-  ): PluuugClientData => {
-    const email = recipient.email && recipient.email.includes('@')
-      ? recipient.email
-      : `${recipient.company_name.replace(/\s/g, '').toLowerCase()}@example.com`;
-
-    return {
-      companyName: recipient.company_name || '미지정',
-      inCharge: recipient.contact_person || '담당자',
-      contact: recipient.phone || '010-0000-0000',
-      email,
-      position: recipient.position || '담당자',
-      content: recipient.memo || (recipient.address ? `주소: ${recipient.address}` : '정보 없음'),
-      status: { id: statusId },
-      ceoName: recipient.ceo_name || recipient.contact_person || '대표자',
-      businessRegistrationNumber: recipient.business_registration_number || '000-00-00000',
-      companyAddress: recipient.address || '미지정',
-      companyDetailAddress: recipient.detail_address || '미지정',
-      businessType: recipient.business_type || '서비스업',
-      businessClass: recipient.business_class || '기타',
-      branchNumber: recipient.branch_number || '00',
-      fieldSet: [{ field: { id: 1 }, value: '기본값' }],
-    };
-  }, []);
-
-  // Migrate existing recipients from saved_quotes
   const migrateFromSavedQuotes = useCallback(async (): Promise<number> => {
     if (!user) return 0;
 
     setLoading(true);
     try {
-      // Fetch unique recipients from saved_quotes
       const { data: quotes, error: quotesError } = await supabase
         .from('saved_quotes')
         .select('recipient_company, recipient_name, recipient_phone, recipient_email, recipient_address')
@@ -304,7 +230,6 @@ export function useRecipients() {
         return 0;
       }
 
-      // Deduplicate
       const uniqueMap = new Map<string, RecipientInput>();
       quotes.forEach((q) => {
         const key = `${q.recipient_company}-${q.recipient_name}`;
@@ -338,32 +263,6 @@ export function useRecipients() {
     }
   }, [user, findRecipient, createRecipient, fetchRecipients]);
 
-  // Clear Pluuug sync status for a recipient (when client was deleted from Pluuug)
-  const clearPluuugSyncStatus = useCallback(async (id: string): Promise<boolean> => {
-    if (!user) return false;
-
-    const { error } = await supabase
-      .from('recipients')
-      .update({
-        pluuug_client_id: null,
-        pluuug_synced_at: null,
-      })
-      .eq('id', id)
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('Pluuug 동기화 상태 초기화 에러:', error);
-      return false;
-    }
-
-    return true;
-  }, [user]);
-
-  // Get all synced recipients (those with pluuug_client_id)
-  const getSyncedRecipients = useCallback((): Recipient[] => {
-    return recipients.filter(r => r.pluuug_client_id !== null);
-  }, [recipients]);
-
   return {
     recipients,
     loading,
@@ -373,10 +272,6 @@ export function useRecipients() {
     createRecipient,
     updateRecipient,
     deleteRecipient,
-    markAsSyncedToPluuug,
-    clearPluuugSyncStatus,
-    getSyncedRecipients,
-    toPluuugClientData,
     migrateFromSavedQuotes,
   };
 }

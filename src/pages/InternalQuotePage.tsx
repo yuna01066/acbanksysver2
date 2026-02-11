@@ -17,15 +17,13 @@ import businessRegistration from "@/assets/arcbank-business-registration.jpg";
 import bankAccount from "@/assets/arcbank-bank-account.jpg";
 import arcbankLogo from "@/assets/arcbank-logo.png";
 import { FileText } from "lucide-react";
-import { saveQuoteWithPluuugSync } from "@/utils/pluuugSync";
 import { useActivityLog } from "@/hooks/useActivityLog";
-import { generateAndUploadQuotePdf, createPdfAttachmentMetadata } from "@/utils/generateQuotePdf";
 
 const InternalQuotePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
-  const [syncToPluuug, setSyncToPluuug] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const { logActivity } = useActivityLog();
   const printContainerRef = useRef<HTMLDivElement>(null);
   const {
@@ -74,65 +72,48 @@ const InternalQuotePage = () => {
 
     setIsSaving(true);
     try {
-      // PDF 자동 생성
-      toast.info('PDF를 생성하고 있습니다...');
-      
-      const pdfResult = await generateAndUploadQuotePdf(
-        'quote-print-container',
-        user.id,
-        quoteNumber,
-        recipient?.projectName
-      );
-
-      let attachmentsWithPdf = recipient?.attachments || [];
-      
-      if (pdfResult.success && pdfResult.pdfUrl && pdfResult.pdfPath) {
-        // PDF 첨부파일 메타데이터 추가
-        const pdfAttachment = createPdfAttachmentMetadata(
-          quoteNumber,
-          pdfResult.pdfUrl,
-          pdfResult.pdfPath
-        );
-        
-        // 기존 quote_pdf 타입 첨부파일 제거 후 새로 추가
-        attachmentsWithPdf = [
-          ...attachmentsWithPdf.filter((a: any) => a.type !== 'quote_pdf'),
-          pdfAttachment
-        ];
-        
-        console.log('[Save Quote] PDF generated and attached:', pdfResult.pdfUrl);
-      } else {
-        console.warn('[Save Quote] PDF generation failed:', pdfResult.error);
-        toast.warning('PDF 생성에 실패했지만 견적서는 저장됩니다.');
-      }
-
-      // recipient에 PDF 첨부파일 추가
-      const recipientWithPdf = {
-        ...recipient,
-        attachments: attachmentsWithPdf
-      };
-
       const subtotal = getTotalPrice();
       const tax = subtotal * 0.1;
       const total = getTotalPriceWithTax();
 
-      const result = await saveQuoteWithPluuugSync(
-        user.id,
-        quotes,
-        recipientWithPdf,
-        quoteNumber,
-        subtotal,
-        tax,
-        total,
-        syncToPluuug
-      );
+      const quoteData = {
+        user_id: user.id,
+        quote_number: quoteNumber,
+        quote_date: new Date().toISOString(),
+        quote_date_display: recipient?.quoteDate?.toISOString() || new Date().toISOString(),
+        project_name: recipient?.projectName || '',
+        recipient_name: recipient?.contactPerson || '',
+        recipient_company: recipient?.companyName || '',
+        recipient_phone: recipient?.phoneNumber || '',
+        recipient_email: recipient?.email || '',
+        recipient_address: recipient?.deliveryAddress || '',
+        recipient_memo: recipient?.clientMemo || '',
+        desired_delivery_date: recipient?.desiredDeliveryDate?.toISOString() || null,
+        valid_until: recipient?.validUntil || '',
+        delivery_period: recipient?.deliveryPeriod || '',
+        payment_condition: recipient?.paymentCondition || '',
+        issuer_name: recipient?.issuerName || '',
+        issuer_email: recipient?.issuerEmail || '',
+        issuer_phone: recipient?.issuerPhone || '',
+        issuer_department: recipient?.issuerDepartment || '',
+        issuer_position: recipient?.issuerPosition || '',
+        items: quotes.map(q => ({ ...q })),
+        subtotal: Math.round(subtotal),
+        tax: Math.round(tax),
+        total: Math.round(total),
+        attachments: recipient?.attachments || [],
+      };
 
-      if (!result.success) {
-        throw new Error(result.error);
-      }
+      const { data, error } = await supabase
+        .from('saved_quotes')
+        .insert(quoteData)
+        .select('id')
+        .single();
+
+      if (error) throw error;
 
       toast.success('견적서가 저장되었습니다.');
-      logActivity('quote_created', result.quoteId || null, recipient?.projectName || quoteNumber);
+      logActivity('quote_created', data?.id || null, recipient?.projectName || quoteNumber);
       clearQuotes();
       navigate('/saved-quotes');
     } catch (error: any) {
@@ -169,20 +150,6 @@ const InternalQuotePage = () => {
             </Button>
           </div>
 
-          {/* Pluuug 동기화 옵션 */}
-          <div className="mb-4 flex items-center justify-end gap-3 print:hidden">
-            <div className="flex items-center space-x-2 bg-white border border-gray-200 rounded-lg px-4 py-2">
-              <Switch 
-                id="pluuug-sync" 
-                checked={syncToPluuug} 
-                onCheckedChange={setSyncToPluuug}
-              />
-              <Label htmlFor="pluuug-sync" className="flex items-center gap-2 cursor-pointer">
-                <Link className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-medium">Pluuug 동기화</span>
-              </Label>
-            </div>
-          </div>
           
           <QuoteSummaryHeader 
             onClearQuotes={clearQuotes}
