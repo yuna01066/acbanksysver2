@@ -314,7 +314,7 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
       {/* Profile Header */}
       <div className="p-6 border-b bg-card">
         <div className="flex items-start gap-4">

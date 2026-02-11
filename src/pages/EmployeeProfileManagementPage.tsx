@@ -122,7 +122,7 @@ const EmployeeProfileManagementPage = () => {
   }
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="h-screen flex flex-col bg-background">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="h-dvh flex flex-col bg-background overflow-hidden">
       {/* Top Bar */}
       <div className="border-b px-4 py-2 flex items-center justify-between bg-card shrink-0">
         <div className="flex items-center gap-3">
@@ -161,8 +161,8 @@ const EmployeeProfileManagementPage = () => {
       </div>
 
       {/* Main Content */}
-      <TabsContent value="employees" className="flex-1 min-h-0 mt-0 relative">
-        <div className="flex absolute inset-0 overflow-hidden">
+      <TabsContent value="employees" className="flex-1 mt-0 overflow-hidden" style={{ minHeight: 0 }}>
+        <div className="flex h-full overflow-hidden">
           {loading ? (
             <div className="flex-1 flex items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin" />
