@@ -489,10 +489,10 @@ const MaterialOrdersPage: React.FC = () => {
             </div>
             <div>
               <Label className="text-xs">연결 프로젝트</Label>
-              <Select value={form.project_id} onValueChange={v => setForm(f => ({ ...f, project_id: v }))}>
+              <Select value={form.project_id || '__none__'} onValueChange={v => setForm(f => ({ ...f, project_id: v === '__none__' ? '' : v }))}>
                 <SelectTrigger><SelectValue placeholder="선택 (선택사항)" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">없음</SelectItem>
+                  <SelectItem value="__none__">없음</SelectItem>
                   {projects.map(p => (
                     <SelectItem key={p.id} value={p.id}>{p.project_name}</SelectItem>
                   ))}
