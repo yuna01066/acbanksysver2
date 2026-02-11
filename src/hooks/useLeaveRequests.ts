@@ -29,6 +29,15 @@ export const LEAVE_TYPES: Record<string, string> = {
   sick: '병가',
   special: '특별휴가',
   unpaid: '무급휴가',
+  family_care: '가족돌봄',
+  infertility: '난임 치료',
+  marriage_self: '결혼 - 본인',
+  marriage_child: '결혼 - 자녀',
+  refresh: '리프레시',
+  emergency: '비상',
+  summer: '여름(바캉스)',
+  condolence_close: '조의 - 부모/배우자/자녀',
+  condolence_extended: '조의 - 조부모/형제/자매',
 };
 
 export const LEAVE_STATUS: Record<string, { label: string; color: string }> = {

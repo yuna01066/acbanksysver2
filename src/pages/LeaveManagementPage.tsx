@@ -16,10 +16,11 @@ import { useLeavePolicy } from '@/hooks/useLeavePolicy';
 import { useQuery } from '@tanstack/react-query';
 import { calculateExpiredLeave } from '@/utils/leaveExpiration';
 import { toast } from 'sonner';
-import LeaveRequestForm from '@/components/leave/LeaveRequestForm';
-import LeaveRequestList from '@/components/leave/LeaveRequestList';
 import LeaveSummaryCards from '@/components/leave/LeaveSummaryCards';
 import LeavePolicySettings from '@/components/leave/LeavePolicySettings';
+import LeaveTypeCards from '@/components/leave/LeaveTypeCards';
+import LeaveUsageHistory from '@/components/leave/LeaveUsageHistory';
+import LeaveRequestList from '@/components/leave/LeaveRequestList';
 
 const LeaveManagementPage = () => {
   const navigate = useNavigate();
@@ -84,11 +85,7 @@ const LeaveManagementPage = () => {
       return { expiredDays: 0, expiringSoonDays: 0, expirationDate: null, details: [] };
     }
     return calculateExpiredLeave(
-      joinDate,
-      policy.grant_basis,
-      policy.auto_expire_type,
-      usedDays,
-      usedMonthlyDays,
+      joinDate, policy.grant_basis, policy.auto_expire_type, usedDays, usedMonthlyDays,
     );
   }, [joinDate, policy.grant_basis, policy.auto_expire_type, policy.auto_expire_enabled, usedDays, usedMonthlyDays]);
 
@@ -140,55 +137,28 @@ const LeaveManagementPage = () => {
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-base font-semibold flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-primary" />
-            연차 관리
-          </h1>
+          <h1 className="text-lg font-semibold">내 휴가</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate('/attendance')} className="gap-1">
-            <Clock className="h-4 w-4" />
-            근태 관리
-          </Button>
-          <LeaveRequestForm
-            onSubmit={createRequest}
-            remainingDays={remainingDays}
-            leavePolicy={policy}
-            canRequest={canRequest}
-          />
-        </div>
+        <Button variant="outline" size="sm" onClick={() => navigate('/attendance')} className="gap-1">
+          <Clock className="h-4 w-4" />
+          근태 관리
+        </Button>
       </div>
 
-      <div className="container max-w-4xl mx-auto px-4 py-6 space-y-6">
-        <LeaveSummaryCards
-          totalDays={totalAnnualDays}
-          usedDays={usedDays}
-          pendingDays={pendingDays}
-          remainingDays={remainingDays}
-          unitLabel={unitLabel}
-          allowAdvanceUse={policy.allow_advance_use}
-          expiredDays={expiration.expiredDays}
-          expiringSoonDays={expiration.expiringSoonDays}
-          expirationDate={expiration.expirationDate}
-        />
-
-        {!joinDate && (
-          <div className="rounded-lg border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/20 p-3 text-sm text-yellow-800 dark:text-yellow-300">
-            ⚠️ 입사일이 등록되지 않아 연차가 0일로 계산됩니다. 마이페이지 또는 관리자에게 입사일 등록을 요청하세요.
-          </div>
-        )}
-
-        {policy.allow_advance_use && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3 text-sm text-blue-800 dark:text-blue-300">
-            ℹ️ 당겨쓰기가 허용되어 잔여 연차를 초과하여 신청할 수 있습니다.
-          </div>
-        )}
-
-        <Tabs defaultValue="my">
-          <TabsList className="bg-muted">
-            <TabsTrigger value="my">내 신청 내역</TabsTrigger>
+      <div className="container max-w-5xl mx-auto px-4 py-6">
+        <Tabs defaultValue="overview">
+          <TabsList className="bg-transparent border-b rounded-none w-full justify-start px-0 h-auto pb-0">
+            <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3">
+              휴가 개요
+            </TabsTrigger>
+            <TabsTrigger value="detail" className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3">
+              연차 상세
+            </TabsTrigger>
+            <TabsTrigger value="plan" className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3">
+              연차 사용 계획
+            </TabsTrigger>
             {(isAdmin || isModerator) && (
-              <TabsTrigger value="all" className="relative">
+              <TabsTrigger value="admin" className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 relative">
                 전체 관리
                 {pendingRequests.length > 0 && (
                   <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-xs bg-destructive text-destructive-foreground rounded-full">
@@ -198,14 +168,55 @@ const LeaveManagementPage = () => {
               </TabsTrigger>
             )}
             {(isAdmin || isModerator) && (
-              <TabsTrigger value="settings">
+              <TabsTrigger value="settings" className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3">
                 <Settings2 className="h-3.5 w-3.5 mr-1" />
                 연차 설정
               </TabsTrigger>
             )}
           </TabsList>
 
-          <TabsContent value="my" className="mt-4">
+          {/* 휴가 개요 Tab */}
+          <TabsContent value="overview" className="mt-6 space-y-8">
+            {!joinDate && (
+              <div className="rounded-lg border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/20 p-3 text-sm text-yellow-800 dark:text-yellow-300">
+                ⚠️ 입사일이 등록되지 않아 연차가 0일로 계산됩니다. 마이페이지 또는 관리자에게 입사일 등록을 요청하세요.
+              </div>
+            )}
+
+            <LeaveTypeCards
+              onSubmit={createRequest}
+              remainingDays={remainingDays}
+              leavePolicy={policy}
+              canRequest={canRequest}
+            />
+
+            <LeaveUsageHistory
+              requests={myRequests}
+              currentUserId={user?.id || ''}
+              onCancel={cancelRequest}
+            />
+          </TabsContent>
+
+          {/* 연차 상세 Tab */}
+          <TabsContent value="detail" className="mt-6 space-y-6">
+            <LeaveSummaryCards
+              totalDays={totalAnnualDays}
+              usedDays={usedDays}
+              pendingDays={pendingDays}
+              remainingDays={remainingDays}
+              unitLabel={unitLabel}
+              allowAdvanceUse={policy.allow_advance_use}
+              expiredDays={expiration.expiredDays}
+              expiringSoonDays={expiration.expiringSoonDays}
+              expirationDate={expiration.expirationDate}
+            />
+
+            {policy.allow_advance_use && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3 text-sm text-blue-800 dark:text-blue-300">
+                ℹ️ 당겨쓰기가 허용되어 잔여 연차를 초과하여 신청할 수 있습니다.
+              </div>
+            )}
+
             {loading ? (
               <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
             ) : (
@@ -220,8 +231,18 @@ const LeaveManagementPage = () => {
             )}
           </TabsContent>
 
+          {/* 연차 사용 계획 Tab */}
+          <TabsContent value="plan" className="mt-6">
+            <div className="rounded-lg border bg-muted/30 py-12 flex flex-col items-center justify-center text-muted-foreground">
+              <CalendarDays className="h-8 w-8 mb-3" />
+              <p className="text-sm font-medium">연차 사용 계획 기능</p>
+              <p className="text-xs mt-1">준비 중입니다.</p>
+            </div>
+          </TabsContent>
+
+          {/* 전체 관리 Tab (Admin) */}
           {(isAdmin || isModerator) && (
-            <TabsContent value="all" className="mt-4 space-y-4">
+            <TabsContent value="admin" className="mt-6 space-y-4">
               <div className="flex justify-end">
                 <Dialog open={manualOpen} onOpenChange={setManualOpen}>
                   <DialogTrigger asChild>
@@ -317,8 +338,9 @@ const LeaveManagementPage = () => {
               )}
             </TabsContent>
           )}
+
           {(isAdmin || isModerator) && (
-            <TabsContent value="settings" className="mt-4">
+            <TabsContent value="settings" className="mt-6">
               <LeavePolicySettings />
             </TabsContent>
           )}
