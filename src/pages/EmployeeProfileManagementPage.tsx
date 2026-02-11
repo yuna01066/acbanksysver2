@@ -49,7 +49,7 @@ const EmployeeProfileManagementPage = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
   const [activeTab, setActiveTab] = useState<string>('employees');
   const [employeeRoles, setEmployeeRoles] = useState<Record<string, AppRoleType>>({});
-  const [sortMode, setSortMode] = useState<'name' | 'role'>('name');
+  const [sortMode, setSortMode] = useState<'name' | 'role'>('role');
 
   useEffect(() => {
     if (!authLoading && (!user || !hasAccess)) {
