@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquare, Send, Loader2, Trash2, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
@@ -93,7 +93,7 @@ const TeamChatCard: React.FC = () => {
     return () => { supabase.removeChannel(channel); };
   }, [scrollToBottom]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const val = e.target.value;
     setNewMessage(val);
 
@@ -161,6 +161,12 @@ const TeamChatCard: React.FC = () => {
       } else if (e.key === 'Escape') {
         setDropdownMode(null);
       }
+      return;
+    }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const form = (e.target as HTMLElement).closest('form');
+      if (form) form.requestSubmit();
     }
   };
 
@@ -364,16 +370,17 @@ const TeamChatCard: React.FC = () => {
           >
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
           </Button>
-          <Input
-            ref={inputRef}
+          <Textarea
+            ref={inputRef as any}
             value={newMessage}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onBlur={() => setTimeout(() => setDropdownMode(null), 150)}
             placeholder="메시지 입력... (@멘션, #프로젝트)"
-            className="h-9 text-sm"
+            className="h-9 min-h-[36px] max-h-[120px] text-sm resize-none py-2"
             maxLength={500}
             disabled={sending}
+            rows={1}
           />
           <EmojiPicker onSelect={handleEmojiSelect} />
           <Button type="submit" size="sm" className="h-9 px-3 shrink-0" disabled={(!newMessage.trim() && pendingFiles.length === 0) || sending}>
