@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageSquare, Send, Loader2, Trash2 } from 'lucide-react';
+import { MessageSquare, Send, Loader2, Trash2, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -15,6 +15,14 @@ import EmojiPicker from '@/components/chat/EmojiPicker';
 import MentionDropdown from '@/components/chat/MentionDropdown';
 import ProjectDropdown from '@/components/chat/ProjectDropdown';
 import MessageContent from '@/components/chat/MessageContent';
+import ChatAttachments from '@/components/chat/ChatAttachments';
+
+interface ChatAttachment {
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+}
 
 interface ChatMessage {
   id: string;
@@ -22,6 +30,7 @@ interface ChatMessage {
   user_name: string;
   avatar_url: string | null;
   message: string;
+  attachments: ChatAttachment[] | null;
   created_at: string;
 }
 
@@ -36,6 +45,9 @@ const TeamChatCard: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingFiles, setPendingFiles] = useState<ChatAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   // Suggestion state
   const { filterUsers } = useMentionSuggestions();
@@ -60,7 +72,7 @@ const TeamChatCard: React.FC = () => {
         .select('*')
         .order('created_at', { ascending: true })
         .limit(100);
-      if (!error && data) setMessages(data);
+      if (!error && data) setMessages(data as unknown as ChatMessage[]);
       setLoading(false);
       setTimeout(scrollToBottom, 100);
     };
@@ -157,22 +169,62 @@ const TeamChatCard: React.FC = () => {
     inputRef.current?.focus();
   };
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !user) return;
+    setUploading(true);
+    const newAttachments: ChatAttachment[] = [];
+
+    for (const file of Array.from(files)) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name}: 10MB 이하만 업로드 가능합니다.`);
+        continue;
+      }
+      const path = `${user.id}/${Date.now()}_${file.name}`;
+      const { error } = await supabase.storage
+        .from('team-chat-attachments')
+        .upload(path, file);
+      if (error) {
+        toast.error(`${file.name} 업로드 실패`);
+        continue;
+      }
+      const { data: urlData } = supabase.storage
+        .from('team-chat-attachments')
+        .getPublicUrl(path);
+      newAttachments.push({
+        name: file.name,
+        url: urlData.publicUrl,
+        type: file.type,
+        size: file.size,
+      });
+    }
+    setPendingFiles(prev => [...prev, ...newAttachments]);
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removePendingFile = (index: number) => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (dropdownMode !== null && hasResults) return;
-    if (!user || !newMessage.trim() || sending) return;
+    if (!user || (!newMessage.trim() && pendingFiles.length === 0) || sending) return;
 
     setSending(true);
-    const { error } = await supabase.from('team_messages').insert({
+    const { error } = await supabase.from('team_messages').insert([{
       user_id: user.id,
       user_name: profile?.full_name || user.email?.split('@')[0] || '사용자',
       avatar_url: profile?.avatar_url || null,
-      message: newMessage.trim(),
-    });
+      message: newMessage.trim() || (pendingFiles.length > 0 ? '📎 파일 첨부' : ''),
+      attachments: (pendingFiles.length > 0 ? pendingFiles : []) as any,
+    }]);
     if (error) {
       toast.error('메시지 전송 실패');
     } else {
       setNewMessage('');
+      setPendingFiles([]);
     }
     setSending(false);
   };
@@ -254,6 +306,7 @@ const TeamChatCard: React.FC = () => {
                         }`}
                       >
                         <MessageContent message={msg.message} isMine={isMine} />
+                        <ChatAttachments attachments={msg.attachments || []} />
                       </div>
                     </div>
                     {showTime && (
@@ -286,7 +339,31 @@ const TeamChatCard: React.FC = () => {
             onSelect={insertProject}
           />
         )}
+        {/* Pending files preview */}
+        {pendingFiles.length > 0 && (
+          <div className="mb-2">
+            <ChatAttachments attachments={pendingFiles} isPreview onRemove={removePendingFile} />
+          </div>
+        )}
         <div className="flex gap-1.5 items-center">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFileSelect}
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-9 w-9 px-0 shrink-0"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+          </Button>
           <Input
             ref={inputRef}
             value={newMessage}
@@ -299,7 +376,7 @@ const TeamChatCard: React.FC = () => {
             disabled={sending}
           />
           <EmojiPicker onSelect={handleEmojiSelect} />
-          <Button type="submit" size="sm" className="h-9 px-3 shrink-0" disabled={!newMessage.trim() || sending}>
+          <Button type="submit" size="sm" className="h-9 px-3 shrink-0" disabled={(!newMessage.trim() && pendingFiles.length === 0) || sending}>
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>

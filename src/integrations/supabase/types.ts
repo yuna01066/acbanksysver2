@@ -2117,6 +2117,7 @@ export type Database = {
       }
       team_messages: {
         Row: {
+          attachments: Json | null
           avatar_url: string | null
           created_at: string
           id: string
@@ -2125,6 +2126,7 @@ export type Database = {
           user_name: string
         }
         Insert: {
+          attachments?: Json | null
           avatar_url?: string | null
           created_at?: string
           id?: string
@@ -2133,6 +2135,7 @@ export type Database = {
           user_name: string
         }
         Update: {
+          attachments?: Json | null
           avatar_url?: string | null
           created_at?: string
           id?: string

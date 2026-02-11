@@ -1,19 +1,20 @@
 import React from 'react';
 import { useProjectSuggestions, TaggableProject } from '@/hooks/useProjectSuggestions';
+import { ExternalLink } from 'lucide-react';
 
 interface MessageContentProps {
   message: string;
   isMine: boolean;
 }
 
+const URL_REGEX = /(https?:\/\/[^\s]+)/g;
+
 const MessageContent: React.FC<MessageContentProps> = ({ message, isMine }) => {
   const { findProject } = useProjectSuggestions();
 
-  const parts = message.split(/(#\S+|@\S+)/g);
-
   const handleProjectClick = (tag: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const name = tag.slice(1); // remove #
+    const name = tag.slice(1);
     const project = findProject(name);
     if (!project) return;
 
@@ -23,6 +24,9 @@ const MessageContent: React.FC<MessageContentProps> = ({ message, isMine }) => {
       window.open(`/saved-quotes/${project.id}`, '_self');
     }
   };
+
+  // Split by @mentions, #projects, and URLs
+  const parts = message.split(/(#\S+|@\S+|https?:\/\/[^\s]+)/g);
 
   return (
     <>
@@ -57,6 +61,36 @@ const MessageContent: React.FC<MessageContentProps> = ({ message, isMine }) => {
             >
               {part}
             </span>
+          );
+        }
+        if (part.match(URL_REGEX)) {
+          // Clean trailing punctuation
+          const cleanUrl = part.replace(/[).,;!?]+$/, '');
+          const trailing = part.slice(cleanUrl.length);
+          let displayUrl = cleanUrl;
+          try {
+            const urlObj = new URL(cleanUrl);
+            displayUrl = urlObj.hostname + (urlObj.pathname !== '/' ? urlObj.pathname : '');
+            if (displayUrl.length > 35) displayUrl = displayUrl.substring(0, 35) + '…';
+          } catch {}
+          return (
+            <React.Fragment key={i}>
+              <a
+                href={cleanUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className={`inline-flex items-center gap-0.5 underline underline-offset-2 break-all ${
+                  isMine
+                    ? 'text-primary-foreground/90 hover:text-primary-foreground'
+                    : 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300'
+                }`}
+              >
+                <ExternalLink className="h-3 w-3 shrink-0 inline" />
+                {displayUrl}
+              </a>
+              {trailing}
+            </React.Fragment>
           );
         }
         return <span key={i}>{part}</span>;
