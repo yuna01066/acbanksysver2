@@ -5,8 +5,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Users, FileText, BarChart3, FileSignature, Shield } from 'lucide-react';
+import { ArrowLeft, Loader2, Users, FileText, BarChart3, FileSignature, Shield, TableProperties } from 'lucide-react';
 import EmployeeListSidebar, { type EmployeeProfile, type AppRoleType } from '@/components/employee/EmployeeListSidebar';
+import EmployeeTableView from '@/components/employee/EmployeeTableView';
 import EmployeeProfileDetail from '@/components/employee/EmployeeProfileDetail';
 import DocumentBoxSettings from '@/components/employee/DocumentBoxSettings';
 import DocumentSubmissionDashboard from '@/components/employee/DocumentSubmissionDashboard';
@@ -135,6 +136,9 @@ const EmployeeProfileManagementPage = () => {
           <TabsTrigger value="employees" className="text-xs h-7 gap-1">
             <Users className="h-3.5 w-3.5" /> 구성원
           </TabsTrigger>
+          <TabsTrigger value="employee-table" className="text-xs h-7 gap-1">
+            <TableProperties className="h-3.5 w-3.5" /> 구성원 목록
+          </TabsTrigger>
           <TabsTrigger value="document-settings" className="text-xs h-7 gap-1">
             <FileText className="h-3.5 w-3.5" /> 문서함 설정
           </TabsTrigger>
@@ -187,6 +191,21 @@ const EmployeeProfileManagementPage = () => {
             )}
           </>
         )}
+      </TabsContent>
+
+      <TabsContent value="employee-table" className="flex-1 flex min-h-0 mt-0">
+        <EmployeeTableView
+          employees={filteredEmployees}
+          search={search}
+          onSearchChange={setSearch}
+          departmentFilter={departmentFilter}
+          onDepartmentFilterChange={setDepartmentFilter}
+          departments={departments}
+          onSelect={(emp) => {
+            setSelectedEmployee(emp);
+            setActiveTab('employees');
+          }}
+        />
       </TabsContent>
 
       <TabsContent value="document-settings" className="flex-1 overflow-y-auto mt-0">
