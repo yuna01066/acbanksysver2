@@ -28,7 +28,7 @@ import {
   Mail, Phone, FileSignature, Shield, Star
 } from 'lucide-react';
 import type { EmployeeProfile, AppRoleType } from './EmployeeListSidebar';
-import { ROLE_BADGE_MAP } from './EmployeeListSidebar';
+import { RoleStar } from './EmployeeListSidebar';
 
 type FieldDef = { key: string; label: string; type?: string; disabled?: boolean; multiline?: boolean };
 
@@ -322,11 +322,7 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-xl font-bold truncate">{employee.full_name}</h1>
-              {currentRole && ROLE_BADGE_MAP[currentRole] && (
-                <Badge variant="outline" className={`text-xs ${ROLE_BADGE_MAP[currentRole]!.className}`}>
-                  {ROLE_BADGE_MAP[currentRole]!.label}
-                </Badge>
-              )}
+              <RoleStar role={currentRole} />
               {!employee.is_approved && <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">미승인</Badge>}
               {employee.join_date && getTenureBadge(employee.join_date) && <Badge variant="secondary" className="text-xs">{getTenureBadge(employee.join_date)}</Badge>}
             </div>
