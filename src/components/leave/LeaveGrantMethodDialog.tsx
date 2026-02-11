@@ -25,10 +25,15 @@ interface LeaveGrantMethodDialogProps {
   }) => void;
 }
 
-const MONTHLY_LEAVE_OPTIONS = [
+const MONTHLY_LEAVE_OPTIONS_FISCAL = [
   { value: 'monthly_accrual', label: '매월 개근시 1일 부여', recommended: true },
   { value: 'upfront_11', label: '입사일에 11일 선부여', recommended: false },
   { value: 'upfront_to_fiscal', label: '입사일에 회계일까지의 월차 선부여', recommended: false },
+];
+
+const MONTHLY_LEAVE_OPTIONS_JOIN = [
+  { value: 'monthly_accrual', label: '매월 개근시 1일 부여', recommended: true },
+  { value: 'upfront_11', label: '입사일에 11일 선부여', recommended: false },
 ];
 
 const ANNUAL_LEAVE_OPTIONS_FISCAL = [
@@ -39,6 +44,7 @@ const ANNUAL_LEAVE_OPTIONS_FISCAL = [
 
 const ANNUAL_LEAVE_OPTIONS_JOIN = [
   { value: 'annual_15', label: '1년 만근시 15일 부여', recommended: true },
+  { value: 'upfront_join_15', label: '입사일에 15일 선부여', recommended: false },
 ];
 
 const DECIMAL_ROUNDING_OPTIONS = [
@@ -57,12 +63,14 @@ const LeaveGrantMethodDialog: React.FC<LeaveGrantMethodDialogProps> = ({
   annualLeaveMethod, decimalRounding, onUpdate,
 }) => {
   const [tab, setTab] = useState<'fiscal_year' | 'join_date'>(grantBasis === 'fiscal_year' ? 'fiscal_year' : 'join_date');
+  const [settingsExpanded, setSettingsExpanded] = useState(true);
 
   const handleTabChange = (newTab: 'fiscal_year' | 'join_date') => {
     setTab(newTab);
     onUpdate({ grant_basis: newTab === 'fiscal_year' ? 'fiscal_year' : 'join_date' });
   };
 
+  const monthlyOptions = tab === 'fiscal_year' ? MONTHLY_LEAVE_OPTIONS_FISCAL : MONTHLY_LEAVE_OPTIONS_JOIN;
   const annualOptions = tab === 'fiscal_year' ? ANNUAL_LEAVE_OPTIONS_FISCAL : ANNUAL_LEAVE_OPTIONS_JOIN;
 
   // Preview: generate auto-grant schedule based on today as join date
@@ -249,7 +257,7 @@ const LeaveGrantMethodDialog: React.FC<LeaveGrantMethodDialogProps> = ({
               <Select value={monthlyLeaveMethod} onValueChange={v => onUpdate({ monthly_leave_method: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {MONTHLY_LEAVE_OPTIONS.map(opt => (
+                  {monthlyOptions.map(opt => (
                     <SelectItem key={opt.value} value={opt.value}>
                       <div className="flex items-center gap-2">
                         {opt.label}
@@ -288,8 +296,30 @@ const LeaveGrantMethodDialog: React.FC<LeaveGrantMethodDialogProps> = ({
             </div>
           </div>
 
-          {/* Decimal rounding (fiscal year only) */}
-          {tab === 'fiscal_year' && (
+          {/* Helper links */}
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <Info className="h-3.5 w-3.5" />
+              <span>법적으로 정해진 연차 외에 추가 부여가 필요한가요?</span>
+              <button className="text-primary underline hover:no-underline font-medium">연차 추가 부여하기</button>
+            </div>
+            <div className="flex items-center gap-1">
+              <Info className="h-3.5 w-3.5" />
+              <span>그룹 입사일이 설정된 구성원이 있나요?</span>
+              <button className="text-primary underline hover:no-underline font-medium">그룹 입사일 기준으로 설정하기</button>
+            </div>
+          </div>
+
+          {/* Collapsible settings toggle */}
+          <button
+            className="text-sm text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
+            onClick={() => setSettingsExpanded(v => !v)}
+          >
+            설정 {settingsExpanded ? '닫기' : '열기'} {settingsExpanded ? '∧' : '∨'}
+          </button>
+
+          {/* Decimal rounding (fiscal year only, inside collapsible) */}
+          {settingsExpanded && tab === 'fiscal_year' && (
             <div className="space-y-1.5">
               <TooltipProvider>
                 <div className="flex items-center gap-1">
