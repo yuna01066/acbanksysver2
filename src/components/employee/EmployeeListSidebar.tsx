@@ -98,7 +98,7 @@ const EmployeeListSidebar: React.FC<EmployeeListSidebarProps> = ({
   onSelect, departments, employeeRoles = {},
 }) => {
   return (
-    <div className="w-full lg:w-80 xl:w-96 border-r bg-card flex flex-col h-full">
+    <div className="w-full lg:w-80 xl:w-96 border-r bg-card flex flex-col shrink-0 overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b space-y-3">
         <div className="flex items-center justify-between">
