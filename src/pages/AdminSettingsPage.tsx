@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, Link, Building2, BarChart3, FolderKanban, Star } from "lucide-react";
+import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, Link, Building2, BarChart3, FolderKanban, Star, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const AdminSettingsPage = () => {
@@ -108,9 +108,24 @@ const AdminSettingsPage = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium">회사 설정</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">회사 정보 및 휴일 관리</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">회사 정보, 휴일, 계약서, 연차 설정</p>
                 </div>
               </button>
+
+              {isAdmin && (
+                <button
+                  onClick={() => navigate('/company-settings?tab=access')}
+                  className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Shield className="w-4 h-4 text-red-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">접근 권한</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">기능별 민감 정보 접근 권한 관리</p>
+                  </div>
+                </button>
+              )}
             </CardContent>
           </Card>
 
