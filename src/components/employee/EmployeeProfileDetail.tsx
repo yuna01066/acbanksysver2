@@ -342,20 +342,40 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
       <Tabs defaultValue="attendance" className="flex-1 flex flex-col min-h-0">
         <div className="border-b px-6 overflow-x-auto">
           <TabsList className="bg-transparent h-10 p-0 gap-0 flex-nowrap">
-            <TabsTrigger value="attendance" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">근태기록</TabsTrigger>
-            <TabsTrigger value="leave" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">연차·휴가</TabsTrigger>
-            <TabsTrigger value="review" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">업무평가</TabsTrigger>
+            <TabsTrigger value="attendance" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5 shrink-0" title="중간관리자 이상" />근태기록
+            </TabsTrigger>
+            <TabsTrigger value="leave" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5 shrink-0" title="중간관리자 이상" />연차·휴가
+            </TabsTrigger>
+            <TabsTrigger value="review" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5 shrink-0" title="중간관리자 이상" />업무평가
+            </TabsTrigger>
             {isAdmin && (
               <>
-                <TabsTrigger value="personnel" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">인사 정보</TabsTrigger>
-                <TabsTrigger value="work" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">근무 · 휴가</TabsTrigger>
-                <TabsTrigger value="salary" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">급여 · 계약</TabsTrigger>
-                <TabsTrigger value="etc" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">기타 정보</TabsTrigger>
-                <TabsTrigger value="labor" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">근로기준법</TabsTrigger>
-                <TabsTrigger value="documents" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">문서함</TabsTrigger>
-                <TabsTrigger value="contracts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">전자계약</TabsTrigger>
+                <TabsTrigger value="personnel" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">
+                  <span className="w-2 h-2 rounded-full bg-red-500 mr-1.5 shrink-0" title="관리자 전용" />인사 정보
+                </TabsTrigger>
+                <TabsTrigger value="work" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">
+                  <span className="w-2 h-2 rounded-full bg-red-500 mr-1.5 shrink-0" title="관리자 전용" />근무 · 휴가
+                </TabsTrigger>
+                <TabsTrigger value="salary" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">
+                  <span className="w-2 h-2 rounded-full bg-red-500 mr-1.5 shrink-0" title="관리자 전용" />급여 · 계약
+                </TabsTrigger>
+                <TabsTrigger value="etc" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">
+                  <span className="w-2 h-2 rounded-full bg-red-500 mr-1.5 shrink-0" title="관리자 전용" />기타 정보
+                </TabsTrigger>
+                <TabsTrigger value="labor" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">
+                  <span className="w-2 h-2 rounded-full bg-red-500 mr-1.5 shrink-0" title="관리자 전용" />근로기준법
+                </TabsTrigger>
+                <TabsTrigger value="documents" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">
+                  <span className="w-2 h-2 rounded-full bg-red-500 mr-1.5 shrink-0" title="관리자 전용" />문서함
+                </TabsTrigger>
+                <TabsTrigger value="contracts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">
+                  <span className="w-2 h-2 rounded-full bg-red-500 mr-1.5 shrink-0" title="관리자 전용" />전자계약
+                </TabsTrigger>
                 <TabsTrigger value="role" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">
-                  <Shield className="h-3.5 w-3.5 mr-1" />권한
+                  <span className="w-2 h-2 rounded-full bg-red-500 mr-1.5 shrink-0" title="관리자 전용" /><Shield className="h-3.5 w-3.5 mr-1" />권한
                 </TabsTrigger>
               </>
             )}
