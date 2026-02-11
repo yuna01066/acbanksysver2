@@ -161,42 +161,44 @@ const EmployeeProfileManagementPage = () => {
       </div>
 
       {/* Main Content */}
-      <TabsContent value="employees" className="flex-1 min-h-0 mt-0 overflow-hidden data-[state=active]:flex">
-        {loading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-        ) : (
-          <>
-            <EmployeeListSidebar
-              employees={filteredEmployees}
-              selectedId={selectedEmployee?.id || null}
-              search={search}
-              onSearchChange={setSearch}
-              departmentFilter={departmentFilter}
-              onDepartmentFilterChange={setDepartmentFilter}
-              onSelect={setSelectedEmployee}
-              departments={departments}
-              employeeRoles={employeeRoles}
-            />
-            {selectedEmployee ? (
-              <EmployeeProfileDetail
-                key={selectedEmployee.id}
-                employee={selectedEmployee}
-                onUpdated={handleEmployeeUpdated}
-                currentRole={employeeRoles[selectedEmployee.id]}
-                onRoleChanged={handleRoleChanged}
+      <TabsContent value="employees" className="flex-1 min-h-0 mt-0">
+        <div className="flex h-full overflow-hidden">
+          {loading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : (
+            <>
+              <EmployeeListSidebar
+                employees={filteredEmployees}
+                selectedId={selectedEmployee?.id || null}
+                search={search}
+                onSearchChange={setSearch}
+                departmentFilter={departmentFilter}
+                onDepartmentFilterChange={setDepartmentFilter}
+                onSelect={setSelectedEmployee}
+                departments={departments}
+                employeeRoles={employeeRoles}
               />
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                  <p className="text-sm">좌측에서 구성원을 선택하세요</p>
+              {selectedEmployee ? (
+                <EmployeeProfileDetail
+                  key={selectedEmployee.id}
+                  employee={selectedEmployee}
+                  onUpdated={handleEmployeeUpdated}
+                  currentRole={employeeRoles[selectedEmployee.id]}
+                  onRoleChanged={handleRoleChanged}
+                />
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                    <p className="text-sm">좌측에서 구성원을 선택하세요</p>
+                  </div>
                 </div>
-              </div>
-            )}
-          </>
-        )}
+              )}
+            </>
+          )}
+        </div>
       </TabsContent>
 
       <TabsContent value="employee-table" className="flex-1 flex min-h-0 mt-0">
