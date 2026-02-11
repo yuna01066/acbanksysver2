@@ -2250,6 +2250,175 @@ export type Database = {
         }
         Relationships: []
       }
+      tax_deduction_items: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          dependent_id: string | null
+          description: string | null
+          id: string
+          settlement_id: string
+          sub_category: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          category: string
+          created_at?: string
+          dependent_id?: string | null
+          description?: string | null
+          id?: string
+          settlement_id: string
+          sub_category: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          dependent_id?: string | null
+          description?: string | null
+          id?: string
+          settlement_id?: string
+          sub_category?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_deduction_items_dependent_id_fkey"
+            columns: ["dependent_id"]
+            isOneToOne: false
+            referencedRelation: "tax_dependents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_deduction_items_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "year_end_tax_settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_dependents: {
+        Row: {
+          basic_deduction: boolean | null
+          birth_date: string | null
+          created_at: string
+          disability_type: string | null
+          has_income_limit: boolean | null
+          id: string
+          is_child_under6: boolean | null
+          is_disabled: boolean | null
+          is_senior: boolean | null
+          is_single_parent: boolean | null
+          is_woman_deduction: boolean | null
+          name: string
+          relationship: string
+          resident_number: string | null
+          settlement_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          basic_deduction?: boolean | null
+          birth_date?: string | null
+          created_at?: string
+          disability_type?: string | null
+          has_income_limit?: boolean | null
+          id?: string
+          is_child_under6?: boolean | null
+          is_disabled?: boolean | null
+          is_senior?: boolean | null
+          is_single_parent?: boolean | null
+          is_woman_deduction?: boolean | null
+          name: string
+          relationship: string
+          resident_number?: string | null
+          settlement_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          basic_deduction?: boolean | null
+          birth_date?: string | null
+          created_at?: string
+          disability_type?: string | null
+          has_income_limit?: boolean | null
+          id?: string
+          is_child_under6?: boolean | null
+          is_disabled?: boolean | null
+          is_senior?: boolean | null
+          is_single_parent?: boolean | null
+          is_woman_deduction?: boolean | null
+          name?: string
+          relationship?: string
+          resident_number?: string | null
+          settlement_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_dependents_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "year_end_tax_settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_documents: {
+        Row: {
+          document_type: string
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          memo: string | null
+          mime_type: string | null
+          settlement_id: string
+          uploaded_at: string
+          user_id: string
+        }
+        Insert: {
+          document_type: string
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          memo?: string | null
+          mime_type?: string | null
+          settlement_id: string
+          uploaded_at?: string
+          user_id: string
+        }
+        Update: {
+          document_type?: string
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          memo?: string | null
+          mime_type?: string | null
+          settlement_id?: string
+          uploaded_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_documents_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "year_end_tax_settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_messages: {
         Row: {
           attachments: Json | null
@@ -2295,6 +2464,81 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      year_end_tax_settlements: {
+        Row: {
+          confirmed_at: string | null
+          created_at: string
+          estimated_refund: number | null
+          estimated_tax: number | null
+          final_refund: number | null
+          final_tax: number | null
+          id: string
+          installment_enabled: boolean | null
+          installment_months: number | null
+          review_comment: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewed_by_name: string | null
+          status: string
+          submitted_at: string | null
+          tax_year: number
+          total_local_tax_paid: number | null
+          total_salary: number | null
+          total_tax_paid: number | null
+          updated_at: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          created_at?: string
+          estimated_refund?: number | null
+          estimated_tax?: number | null
+          final_refund?: number | null
+          final_tax?: number | null
+          id?: string
+          installment_enabled?: boolean | null
+          installment_months?: number | null
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          status?: string
+          submitted_at?: string | null
+          tax_year?: number
+          total_local_tax_paid?: number | null
+          total_salary?: number | null
+          total_tax_paid?: number | null
+          updated_at?: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          created_at?: string
+          estimated_refund?: number | null
+          estimated_tax?: number | null
+          final_refund?: number | null
+          final_tax?: number | null
+          id?: string
+          installment_enabled?: boolean | null
+          installment_months?: number | null
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          status?: string
+          submitted_at?: string | null
+          tax_year?: number
+          total_local_tax_paid?: number | null
+          total_salary?: number | null
+          total_tax_paid?: number | null
+          updated_at?: string
+          user_id?: string
+          user_name?: string
         }
         Relationships: []
       }

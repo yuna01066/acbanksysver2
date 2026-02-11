@@ -40,6 +40,8 @@ import ProjectManagementPage from "./pages/ProjectManagementPage";
 import ReviewSettingsPage from "./pages/ReviewSettingsPage";
 import PerformanceReviewPage from "./pages/PerformanceReviewPage";
 import MaterialOrdersPage from "./pages/MaterialOrdersPage";
+import YearEndTaxPage from "./pages/YearEndTaxPage";
+import YearEndTaxAdminPage from "./pages/YearEndTaxAdminPage";
 
 const queryClient = new QueryClient();
 
@@ -89,6 +91,8 @@ const App = () => (
             <Route path="/review-settings" element={<ReviewSettingsPage />} />
             <Route path="/performance-review" element={<G><PerformanceReviewPage /></G>} />
             <Route path="/material-orders" element={<G><MaterialOrdersPage /></G>} />
+            <Route path="/year-end-tax" element={<YearEndTaxPage />} />
+            <Route path="/year-end-tax-admin" element={<YearEndTaxAdminPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
             </Routes>
