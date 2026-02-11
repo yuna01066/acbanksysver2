@@ -25,17 +25,16 @@ const AnnouncementCard = () => {
   const [meetingTime, setMeetingTime] = useState('');
   const [meetingLocation, setMeetingLocation] = useState('');
 
-  const { data: latestAnnouncement } = useQuery({
-    queryKey: ['latest-announcement'],
+  const { data: latestAnnouncements = [] } = useQuery({
+    queryKey: ['latest-announcements'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('announcements')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(2);
       if (error) throw error;
-      return data;
+      return data || [];
     },
     enabled: !!user,
   });
@@ -112,7 +111,7 @@ const AnnouncementCard = () => {
       setMeetingTime('');
       setMeetingLocation('');
       setShowForm(false);
-      queryClient.invalidateQueries({ queryKey: ['latest-announcement'] });
+      queryClient.invalidateQueries({ queryKey: ['latest-announcements'] });
     },
     onError: (err: any) => {
       toast.error('등록 실패: ' + (err.message || '알 수 없는 오류'));
@@ -220,29 +219,31 @@ const AnnouncementCard = () => {
           </div>
         )}
 
-        {/* Latest announcement */}
-        {latestAnnouncement ? (
-          <div
-            className="cursor-pointer rounded-lg border p-3 hover:bg-muted/30 transition-colors"
-            onClick={() => navigate('/announcements')}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-medium truncate">{latestAnnouncement.title}</p>
-                <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line line-clamp-5 leading-relaxed">
-                  {latestAnnouncement.content}
+        {/* Latest announcements */}
+        {latestAnnouncements.length > 0 ? (
+          <div className="space-y-2">
+            {latestAnnouncements.map((ann) => (
+              <div
+                key={ann.id}
+                className="cursor-pointer rounded-lg border p-3 hover:bg-muted/30 transition-colors"
+                onClick={() => navigate('/announcements')}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{ann.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-line line-clamp-2 leading-relaxed">
+                      {ann.content}
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-[10px] shrink-0">
+                    {format(new Date(ann.created_at), 'M/d', { locale: ko })}
+                  </Badge>
+                </div>
+                <p className="text-[10px] text-muted-foreground/60 mt-1">
+                  {ann.author_name}
                 </p>
-                {latestAnnouncement.content.split('\n').length > 5 && (
-                  <span className="text-sm text-primary mt-1 inline-block">... 더보기</span>
-                )}
               </div>
-              <Badge variant="secondary" className="text-xs shrink-0">
-                {format(new Date(latestAnnouncement.created_at), 'M/d', { locale: ko })}
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground/60 mt-1">
-              {latestAnnouncement.author_name}
-            </p>
+            ))}
           </div>
         ) : (
           <div className="text-center py-4 text-sm text-muted-foreground">
