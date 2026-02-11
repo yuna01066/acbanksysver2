@@ -141,13 +141,13 @@ const CustomLeaveTypeManager: React.FC = () => {
         <div className="space-y-1">
           {leaveTypes.map(lt => (
             <div key={lt.id} className="flex items-center justify-between py-3 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b last:border-b-0">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => openEdit(lt)}>
                 <div className="w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center">
                   {ICON_MAP[lt.icon_name] || ICON_MAP.Calendar}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{lt.name}</span>
+                    <span className="text-sm font-medium hover:underline">{lt.name}</span>
                     {lt.is_required && (
                       <Badge variant="outline" className="text-[10px] px-1 py-0 border-primary text-primary">필수</Badge>
                     )}

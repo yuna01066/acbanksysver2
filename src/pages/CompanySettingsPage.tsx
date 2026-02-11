@@ -4,11 +4,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Building2, CalendarDays, FileSignature, Shield } from 'lucide-react';
+import { ArrowLeft, Building2, CalendarDays, FileSignature, Shield, Calendar } from 'lucide-react';
 import CompanyInfoForm from '@/components/company/CompanyInfoForm';
 import CompanyHolidayManager from '@/components/company/CompanyHolidayManager';
 import ContractTemplateSettings from '@/components/contract/ContractTemplateSettings';
 import PageAccessManager from '@/components/company/PageAccessManager';
+import LeavePolicySettings from '@/components/leave/LeavePolicySettings';
 
 const CompanySettingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -48,6 +49,9 @@ const CompanySettingsPage: React.FC = () => {
                 <Shield className="h-4 w-4" /> 접근 권한
               </TabsTrigger>
             )}
+            <TabsTrigger value="leave" className="gap-1.5">
+              <Calendar className="h-4 w-4" /> 연차 설정
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="info">
             <CompanyInfoForm />
@@ -63,6 +67,9 @@ const CompanySettingsPage: React.FC = () => {
               <PageAccessManager />
             </TabsContent>
           )}
+          <TabsContent value="leave">
+            <LeavePolicySettings />
+          </TabsContent>
         </Tabs>
       </div>
     </div>
