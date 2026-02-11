@@ -39,7 +39,9 @@ const mapProfileData = (d: any): EmployeeProfile => ({
 
 const EmployeeProfileManagementPage = () => {
   const navigate = useNavigate();
-  const { user, isAdmin, loading: authLoading } = useAuth();
+  const { user, isAdmin, userRole, loading: authLoading } = useAuth();
+  const isModerator = userRole === 'moderator';
+  const hasAccess = isAdmin || isModerator;
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -49,11 +51,11 @@ const EmployeeProfileManagementPage = () => {
   const [employeeRoles, setEmployeeRoles] = useState<Record<string, AppRoleType>>({});
 
   useEffect(() => {
-    if (!authLoading && (!user || !isAdmin)) {
-      toast.error('관리자만 접근할 수 있습니다.');
+    if (!authLoading && (!user || !hasAccess)) {
+      toast.error('관리자 또는 중간관리자만 접근할 수 있습니다.');
       navigate('/');
     }
-  }, [user, isAdmin, authLoading, navigate]);
+  }, [user, hasAccess, authLoading, navigate]);
 
   const fetchEmployees = async () => {
     const { data, error } = await supabase
@@ -83,11 +85,11 @@ const EmployeeProfileManagementPage = () => {
   };
 
   useEffect(() => {
-    if (user && isAdmin) {
+    if (user && hasAccess) {
       fetchEmployees();
       fetchRoles();
     }
-  }, [user, isAdmin]);
+  }, [user, hasAccess]);
 
   const departments = useMemo(() => {
     const depts = new Set(employees.map(e => e.department).filter(Boolean));
@@ -115,7 +117,7 @@ const EmployeeProfileManagementPage = () => {
     setEmployeeRoles(prev => ({ ...prev, [userId]: newRole }));
   }, []);
 
-  if (authLoading || !isAdmin) {
+  if (authLoading || !hasAccess) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
 
@@ -139,18 +141,22 @@ const EmployeeProfileManagementPage = () => {
           <TabsTrigger value="employee-table" className="text-xs h-7 gap-1">
             <TableProperties className="h-3.5 w-3.5" /> 구성원 목록
           </TabsTrigger>
-          <TabsTrigger value="document-settings" className="text-xs h-7 gap-1">
-            <FileText className="h-3.5 w-3.5" /> 문서함 설정
-          </TabsTrigger>
-          <TabsTrigger value="document-status" className="text-xs h-7 gap-1">
-            <BarChart3 className="h-3.5 w-3.5" /> 제출 현황
-          </TabsTrigger>
-          <TabsTrigger value="contracts" className="text-xs h-7 gap-1">
-            <FileSignature className="h-3.5 w-3.5" /> 전자계약
-          </TabsTrigger>
-          <TabsTrigger value="accounts" className="text-xs h-7 gap-1">
-            <Shield className="h-3.5 w-3.5" /> 계정/권한
-          </TabsTrigger>
+          {isAdmin && (
+            <>
+              <TabsTrigger value="document-settings" className="text-xs h-7 gap-1">
+                <FileText className="h-3.5 w-3.5" /> 문서함 설정
+              </TabsTrigger>
+              <TabsTrigger value="document-status" className="text-xs h-7 gap-1">
+                <BarChart3 className="h-3.5 w-3.5" /> 제출 현황
+              </TabsTrigger>
+              <TabsTrigger value="contracts" className="text-xs h-7 gap-1">
+                <FileSignature className="h-3.5 w-3.5" /> 전자계약
+              </TabsTrigger>
+              <TabsTrigger value="accounts" className="text-xs h-7 gap-1">
+                <Shield className="h-3.5 w-3.5" /> 계정/권한
+              </TabsTrigger>
+            </>
+          )}
         </TabsList>
       </div>
 
