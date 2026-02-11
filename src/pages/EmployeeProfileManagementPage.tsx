@@ -122,7 +122,7 @@ const EmployeeProfileManagementPage = () => {
   }
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="h-dvh flex flex-col bg-background overflow-hidden">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="fixed inset-0 flex flex-col bg-background overflow-hidden">
       {/* Top Bar */}
       <div className="border-b px-4 py-2 flex items-center justify-between bg-card shrink-0">
         <div className="flex items-center gap-3">
