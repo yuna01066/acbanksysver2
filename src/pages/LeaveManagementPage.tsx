@@ -39,7 +39,7 @@ const LeaveManagementPage = () => {
   const { data: employees = [] } = useQuery({
     queryKey: ['approved-profiles-leave'],
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name, join_date, department').eq('is_approved', true).order('full_name');
+      const { data } = await supabase.from('profiles').select('id, full_name, join_date, department, position, avatar_url').eq('is_approved', true).order('full_name');
       return data || [];
     },
     enabled: isAdmin || isModerator,
