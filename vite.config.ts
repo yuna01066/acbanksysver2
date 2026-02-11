@@ -38,6 +38,8 @@ export default defineConfig(({ mode }) => ({
       '@tiptap/extension-text-style',
       '@tiptap/extension-highlight',
       '@tiptap/extension-horizontal-rule',
+      '@tiptap/extension-mention',
+      '@tiptap/suggestion',
     ],
     force: true,
   },
