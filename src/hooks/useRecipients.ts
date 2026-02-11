@@ -7,6 +7,7 @@ export interface Recipient {
   id: string;
   user_id: string;
   company_name: string;
+  business_name: string | null;
   contact_person: string;
   position: string;
   phone: string;
@@ -18,6 +19,10 @@ export interface Recipient {
   business_type: string;
   business_class: string;
   branch_number: string;
+  accounting_contact_person: string | null;
+  accounting_position: string | null;
+  accounting_phone: string | null;
+  accounting_email: string | null;
   pluuug_client_id: number | null;
   pluuug_synced_at: string | null;
   memo: string | null;
@@ -27,6 +32,7 @@ export interface Recipient {
 
 export interface RecipientInput {
   company_name: string;
+  business_name?: string;
   contact_person: string;
   position?: string;
   phone: string;
@@ -38,6 +44,10 @@ export interface RecipientInput {
   business_type?: string;
   business_class?: string;
   branch_number?: string;
+  accounting_contact_person?: string;
+  accounting_position?: string;
+  accounting_phone?: string;
+  accounting_email?: string;
   memo?: string;
 }
 
@@ -141,6 +151,7 @@ export function useRecipients() {
         .insert({
           user_id: user.id,
           company_name: input.company_name,
+          business_name: input.business_name || null,
           contact_person: input.contact_person,
           position: input.position || '담당자',
           phone: input.phone,
@@ -152,6 +163,10 @@ export function useRecipients() {
           business_type: input.business_type || '서비스업',
           business_class: input.business_class || '기타',
           branch_number: input.branch_number || '00',
+          accounting_contact_person: input.accounting_contact_person || null,
+          accounting_position: input.accounting_position || null,
+          accounting_phone: input.accounting_phone || null,
+          accounting_email: input.accounting_email || null,
           memo: input.memo || null,
         })
         .select()

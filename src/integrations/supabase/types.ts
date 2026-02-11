@@ -1879,10 +1879,15 @@ export type Database = {
       }
       recipients: {
         Row: {
+          accounting_contact_person: string | null
+          accounting_email: string | null
+          accounting_phone: string | null
+          accounting_position: string | null
           address: string | null
           branch_number: string | null
           business_class: string | null
           business_document_url: string | null
+          business_name: string | null
           business_registration_number: string | null
           business_type: string | null
           ceo_name: string | null
@@ -1901,10 +1906,15 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          accounting_contact_person?: string | null
+          accounting_email?: string | null
+          accounting_phone?: string | null
+          accounting_position?: string | null
           address?: string | null
           branch_number?: string | null
           business_class?: string | null
           business_document_url?: string | null
+          business_name?: string | null
           business_registration_number?: string | null
           business_type?: string | null
           ceo_name?: string | null
@@ -1923,10 +1933,15 @@ export type Database = {
           user_id: string
         }
         Update: {
+          accounting_contact_person?: string | null
+          accounting_email?: string | null
+          accounting_phone?: string | null
+          accounting_position?: string | null
           address?: string | null
           branch_number?: string | null
           business_class?: string | null
           business_document_url?: string | null
+          business_name?: string | null
           business_registration_number?: string | null
           business_type?: string | null
           ceo_name?: string | null

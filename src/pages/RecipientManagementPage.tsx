@@ -383,9 +383,17 @@ const RecipientManagementPage = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      {/* 기본 정보 */}
+                      {/* 업체 정보 */}
+                      <div className="space-y-2 md:col-span-2">
+                        <h4 className="font-semibold text-muted-foreground border-b pb-1">업체 정보</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <InfoRow label="회사명" value={selectedRecipient.company_name} />
+                          <InfoRow label="사업자명" value={(selectedRecipient as any).business_name} />
+                        </div>
+                      </div>
+                      {/* 프로젝트 담당자 */}
                       <div className="space-y-2">
-                        <h4 className="font-semibold text-muted-foreground border-b pb-1">기본 정보</h4>
+                        <h4 className="font-semibold text-muted-foreground border-b pb-1">프로젝트 담당자</h4>
                         <InfoRow label="담당자" value={selectedRecipient.contact_person} />
                         <InfoRow label="직책" value={selectedRecipient.position} />
                         <InfoRow label="연락처" value={selectedRecipient.phone} />
@@ -395,22 +403,32 @@ const RecipientManagementPage = () => {
                           <InfoRow label="상세주소" value={selectedRecipient.detail_address} />
                         )}
                       </div>
-                      {/* 사업자 정보 */}
+                      {/* 회계 담당자 */}
                       <div className="space-y-2">
+                        <h4 className="font-semibold text-muted-foreground border-b pb-1">회계 담당자</h4>
+                        <InfoRow label="담당자" value={(selectedRecipient as any).accounting_contact_person} />
+                        <InfoRow label="직책" value={(selectedRecipient as any).accounting_position} />
+                        <InfoRow label="연락처" value={(selectedRecipient as any).accounting_phone} />
+                        <InfoRow label="이메일" value={(selectedRecipient as any).accounting_email} />
+                      </div>
+                      {/* 사업자 정보 */}
+                      <div className="space-y-2 md:col-span-2">
                         <h4 className="font-semibold text-muted-foreground border-b pb-1">사업자 정보</h4>
-                        <InfoRow label="대표자명" value={selectedRecipient.ceo_name} />
-                        <InfoRow label="사업자등록번호" value={selectedRecipient.business_registration_number} />
-                        <InfoRow label="업태" value={selectedRecipient.business_type} />
-                        <InfoRow label="업종" value={selectedRecipient.business_class} />
-                        <InfoRow label="종사업장번호" value={selectedRecipient.branch_number} />
-                        {selectedRecipient.pluuug_client_id && (
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge className="bg-emerald-100 text-emerald-700">
-                              <Cloud className="w-3 h-3 mr-1" />
-                              Pluuug 연동됨 (ID: {selectedRecipient.pluuug_client_id})
-                            </Badge>
-                          </div>
-                        )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <InfoRow label="대표자명" value={selectedRecipient.ceo_name} />
+                          <InfoRow label="사업자등록번호" value={selectedRecipient.business_registration_number} />
+                          <InfoRow label="업태" value={selectedRecipient.business_type} />
+                          <InfoRow label="업종" value={selectedRecipient.business_class} />
+                          <InfoRow label="종사업장번호" value={selectedRecipient.branch_number} />
+                          {selectedRecipient.pluuug_client_id && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge className="bg-emerald-100 text-emerald-700">
+                                <Cloud className="w-3 h-3 mr-1" />
+                                Pluuug 연동됨 (ID: {selectedRecipient.pluuug_client_id})
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                     {selectedRecipient.memo && (

@@ -32,6 +32,7 @@ export function RecipientEditDialog({
   
   // Form state
   const [companyName, setCompanyName] = useState('');
+  const [businessName, setBusinessName] = useState('');
   const [contactPerson, setContactPerson] = useState('');
   const [position, setPosition] = useState('');
   const [phone, setPhone] = useState('');
@@ -43,12 +44,17 @@ export function RecipientEditDialog({
   const [businessType, setBusinessType] = useState('');
   const [businessClass, setBusinessClass] = useState('');
   const [branchNumber, setBranchNumber] = useState('');
+  const [accountingContactPerson, setAccountingContactPerson] = useState('');
+  const [accountingPosition, setAccountingPosition] = useState('');
+  const [accountingPhone, setAccountingPhone] = useState('');
+  const [accountingEmail, setAccountingEmail] = useState('');
   const [memo, setMemo] = useState('');
 
   // Reset form when recipient changes
   useEffect(() => {
     if (recipient) {
       setCompanyName(recipient.company_name || '');
+      setBusinessName(recipient.business_name || '');
       setContactPerson(recipient.contact_person || '');
       setPosition(recipient.position || '');
       setPhone(recipient.phone || '');
@@ -60,6 +66,10 @@ export function RecipientEditDialog({
       setBusinessType(recipient.business_type || '');
       setBusinessClass(recipient.business_class || '');
       setBranchNumber(recipient.branch_number || '');
+      setAccountingContactPerson(recipient.accounting_contact_person || '');
+      setAccountingPosition(recipient.accounting_position || '');
+      setAccountingPhone(recipient.accounting_phone || '');
+      setAccountingEmail(recipient.accounting_email || '');
       setMemo(recipient.memo || '');
     }
   }, [recipient]);
@@ -69,13 +79,12 @@ export function RecipientEditDialog({
     
     if (!recipient) return;
 
-    // Validation
     if (!companyName.trim()) {
       toast.error('회사명을 입력해주세요.');
       return;
     }
     if (!contactPerson.trim()) {
-      toast.error('담당자명을 입력해주세요.');
+      toast.error('프로젝트 담당자명을 입력해주세요.');
       return;
     }
     if (!phone.trim()) {
@@ -91,6 +100,7 @@ export function RecipientEditDialog({
     try {
       const updates: Partial<RecipientInput> = {
         company_name: companyName.trim(),
+        business_name: businessName.trim() || undefined,
         contact_person: contactPerson.trim(),
         position: position.trim() || '담당자',
         phone: phone.trim(),
@@ -102,18 +112,22 @@ export function RecipientEditDialog({
         business_type: businessType.trim() || '서비스업',
         business_class: businessClass.trim() || '기타',
         branch_number: branchNumber.trim() || '00',
+        accounting_contact_person: accountingContactPerson.trim() || undefined,
+        accounting_position: accountingPosition.trim() || undefined,
+        accounting_phone: accountingPhone.trim() || undefined,
+        accounting_email: accountingEmail.trim() || undefined,
         memo: memo.trim() || undefined,
       };
 
       const result = await onSave(recipient.id, updates);
       
       if (result) {
-        toast.success('담당자 정보가 수정되었습니다.');
+        toast.success('고객사 정보가 수정되었습니다.');
         onOpenChange(false);
       }
     } catch (err) {
-      console.error('담당자 수정 에러:', err);
-      toast.error('담당자 정보 수정에 실패했습니다.');
+      console.error('고객사 수정 에러:', err);
+      toast.error('고객사 정보 수정에 실패했습니다.');
     } finally {
       setSaving(false);
     }
@@ -125,18 +139,18 @@ export function RecipientEditDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="h-5 w-5" />
-            담당자 정보 수정
+            고객사 정보 수정
           </DialogTitle>
           <DialogDescription>
-            Pluuug 연동에 필요한 상세 정보를 수정할 수 있습니다.
+            고객사 상세 정보를 수정할 수 있습니다.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* 기본 정보 */}
+          {/* 업체 정보 */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
-              기본 정보
+              업체 정보
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -150,6 +164,25 @@ export function RecipientEditDialog({
                   maxLength={100}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="businessName">사업자명</Label>
+                <Input
+                  id="businessName"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  placeholder="회사명과 다를 경우 입력"
+                  maxLength={100}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 프로젝트 담당자 */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+              프로젝트 담당자
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="contactPerson">담당자명 *</Label>
                 <Input
@@ -182,7 +215,7 @@ export function RecipientEditDialog({
                   maxLength={20}
                 />
               </div>
-              <div className="col-span-2 space-y-2">
+              <div className="space-y-2">
                 <Label htmlFor="email">이메일 *</Label>
                 <Input
                   id="email"
@@ -197,7 +230,57 @@ export function RecipientEditDialog({
             </div>
           </div>
 
-          {/* 사업자 정보 (Pluuug 필수) */}
+          {/* 회계 담당자 */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+              회계 담당자
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="accountingContactPerson">담당자명</Label>
+                <Input
+                  id="accountingContactPerson"
+                  value={accountingContactPerson}
+                  onChange={(e) => setAccountingContactPerson(e.target.value)}
+                  placeholder="회계 담당자명"
+                  maxLength={50}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="accountingPosition">직책</Label>
+                <Input
+                  id="accountingPosition"
+                  value={accountingPosition}
+                  onChange={(e) => setAccountingPosition(e.target.value)}
+                  placeholder="예: 과장, 팀장"
+                  maxLength={30}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="accountingPhone">연락처</Label>
+                <Input
+                  id="accountingPhone"
+                  value={accountingPhone}
+                  onChange={(e) => setAccountingPhone(e.target.value)}
+                  placeholder="010-1234-5678"
+                  maxLength={20}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="accountingEmail">이메일</Label>
+                <Input
+                  id="accountingEmail"
+                  type="email"
+                  value={accountingEmail}
+                  onChange={(e) => setAccountingEmail(e.target.value)}
+                  placeholder="accounting@company.com"
+                  maxLength={100}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 사업자 정보 */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
               사업자 정보 (Pluuug 연동용)
@@ -294,7 +377,7 @@ export function RecipientEditDialog({
               <Textarea
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}
-                placeholder="담당자에 대한 메모를 입력하세요"
+                placeholder="고객사에 대한 메모를 입력하세요"
                 rows={3}
                 maxLength={500}
               />
