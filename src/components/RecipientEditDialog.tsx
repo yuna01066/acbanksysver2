@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,9 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2, Pencil } from 'lucide-react';
+import { Loader2, Pencil, FileUp, Sparkles } from 'lucide-react';
 import { Recipient, RecipientInput } from '@/hooks/useRecipients';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface RecipientEditDialogProps {
   recipient: Recipient | null;
@@ -29,6 +30,8 @@ export function RecipientEditDialog({
   onSave,
 }: RecipientEditDialogProps) {
   const [saving, setSaving] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form state
   const [companyName, setCompanyName] = useState('');
@@ -73,6 +76,74 @@ export function RecipientEditDialog({
       setMemo(recipient.memo || '');
     }
   }, [recipient]);
+
+  const handleExtractFromDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('JPG, PNG, WEBP, GIF 또는 PDF 파일만 지원됩니다.');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('파일 크기는 10MB 이하여야 합니다.');
+      return;
+    }
+
+    setExtracting(true);
+    try {
+      // Convert file to base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remove data URL prefix
+          const base64Data = result.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke('extract-business-info', {
+        body: { imageBase64: base64, mimeType: file.type },
+      });
+
+      if (error) {
+        console.error('OCR error:', error);
+        toast.error('사업자등록증 분석에 실패했습니다.');
+        return;
+      }
+
+      if (data?.success && data?.data) {
+        const extracted = data.data;
+        
+        // Auto-fill fields with extracted data
+        if (extracted.business_name) setBusinessName(extracted.business_name);
+        if (extracted.ceo_name) setCeoName(extracted.ceo_name);
+        if (extracted.business_registration_number) setBusinessRegistrationNumber(extracted.business_registration_number);
+        if (extracted.business_type) setBusinessType(extracted.business_type);
+        if (extracted.business_class) setBusinessClass(extracted.business_class);
+        if (extracted.address) setAddress(extracted.address);
+        if (extracted.detail_address) setDetailAddress(extracted.detail_address);
+        if (extracted.branch_number) setBranchNumber(extracted.branch_number);
+
+        toast.success('사업자등록증 정보가 자동 입력되었습니다!');
+      } else {
+        toast.error(data?.error || '문서에서 정보를 추출하지 못했습니다.');
+      }
+    } catch (err) {
+      console.error('Extract error:', err);
+      toast.error('사업자등록증 분석 중 오류가 발생했습니다.');
+    } finally {
+      setExtracting(false);
+      // Reset file input
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -282,9 +353,41 @@ export function RecipientEditDialog({
 
           {/* 사업자 정보 */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
-              사업자 정보 (Pluuug 연동용)
-            </h3>
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="text-sm font-semibold text-muted-foreground">
+                사업자 정보 (Pluuug 연동용)
+              </h3>
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={handleExtractFromDocument}
+                  className="hidden"
+                  id="business-doc-upload"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs gap-1.5"
+                  disabled={extracting}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {extracting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      분석 중...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      사업자등록증 스캔
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="ceoName">담당자명 (Pluuug)</Label>
