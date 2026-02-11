@@ -23,7 +23,6 @@ const InternalQuotePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const { logActivity } = useActivityLog();
   const printContainerRef = useRef<HTMLDivElement>(null);
   const {
@@ -106,7 +105,7 @@ const InternalQuotePage = () => {
 
       const { data, error } = await supabase
         .from('saved_quotes')
-        .insert(quoteData)
+        .insert([quoteData as any])
         .select('id')
         .single();
 
