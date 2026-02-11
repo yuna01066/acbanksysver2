@@ -4,12 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Save, Loader2, Building2 } from 'lucide-react';
+import { Save, Loader2, Building2, MapPin, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
 
 const CompanyInfoForm: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [id, setId] = useState<string | null>(null);
   const [form, setForm] = useState({
     company_name: '',
@@ -23,6 +24,9 @@ const CompanyInfoForm: React.FC = () => {
     website: '',
     industry: '',
     business_type: '',
+    workplace_lat: '',
+    workplace_lng: '',
+    workplace_radius: '500',
   });
 
   useEffect(() => {
@@ -50,24 +54,69 @@ const CompanyInfoForm: React.FC = () => {
         website: data.website || '',
         industry: data.industry || '',
         business_type: data.business_type || '',
+        workplace_lat: (data as any).workplace_lat?.toString() || '',
+        workplace_lng: (data as any).workplace_lng?.toString() || '',
+        workplace_radius: (data as any).workplace_radius?.toString() || '500',
       });
     }
     setLoading(false);
   };
 
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('브라우저에서 위치 기능을 지원하지 않습니다.');
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm(prev => ({
+          ...prev,
+          workplace_lat: pos.coords.latitude.toFixed(6),
+          workplace_lng: pos.coords.longitude.toFixed(6),
+        }));
+        toast.success('현재 위치가 입력되었습니다.');
+        setLocating(false);
+      },
+      () => {
+        toast.error('위치를 가져올 수 없습니다.');
+        setLocating(false);
+      },
+      { timeout: 10000 }
+    );
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
+      const payload: any = {
+        company_name: form.company_name,
+        ceo_name: form.ceo_name,
+        business_number: form.business_number,
+        address: form.address,
+        detail_address: form.detail_address,
+        phone: form.phone,
+        fax: form.fax,
+        email: form.email,
+        website: form.website,
+        industry: form.industry,
+        business_type: form.business_type,
+        workplace_lat: form.workplace_lat ? parseFloat(form.workplace_lat) : null,
+        workplace_lng: form.workplace_lng ? parseFloat(form.workplace_lng) : null,
+        workplace_radius: form.workplace_radius ? parseFloat(form.workplace_radius) : 500,
+        updated_at: new Date().toISOString(),
+      };
+
       if (id) {
         const { error } = await supabase
           .from('company_info')
-          .update({ ...form, updated_at: new Date().toISOString() })
+          .update(payload)
           .eq('id', id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('company_info')
-          .insert(form);
+          .insert(payload);
         if (error) throw error;
       }
       toast.success('회사 정보가 저장되었습니다');
@@ -104,34 +153,93 @@ const CompanyInfoForm: React.FC = () => {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Building2 className="h-5 w-5" /> 회사 기본 정보
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {fields.map(({ key, label }) => (
-            <div key={key} className="space-y-1.5">
-              <Label htmlFor={key} className="text-sm">{label}</Label>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Building2 className="h-5 w-5" /> 회사 기본 정보
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {fields.map(({ key, label }) => (
+              <div key={key} className="space-y-1.5">
+                <Label htmlFor={key} className="text-sm">{label}</Label>
+                <Input
+                  id={key}
+                  value={form[key]}
+                  onChange={(e) => setForm(prev => ({ ...prev, [key]: e.target.value }))}
+                  placeholder={label}
+                />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <MapPin className="h-5 w-5" /> 근무지 위치 설정
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            근무지 GPS 좌표를 설정하면, 직원이 해당 범위 밖에서 출퇴근할 때 확인 절차가 진행됩니다.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm">위도 (Latitude)</Label>
               <Input
-                id={key}
-                value={form[key]}
-                onChange={(e) => setForm(prev => ({ ...prev, [key]: e.target.value }))}
-                placeholder={label}
+                value={form.workplace_lat}
+                onChange={(e) => setForm(prev => ({ ...prev, workplace_lat: e.target.value }))}
+                placeholder="37.XXXXXX"
               />
             </div>
-          ))}
-        </div>
-        <div className="flex justify-end pt-2">
-          <Button onClick={handleSave} disabled={saving} className="gap-1.5">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            저장
+            <div className="space-y-1.5">
+              <Label className="text-sm">경도 (Longitude)</Label>
+              <Input
+                value={form.workplace_lng}
+                onChange={(e) => setForm(prev => ({ ...prev, workplace_lng: e.target.value }))}
+                placeholder="127.XXXXXX"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">허용 반경 (미터)</Label>
+              <Input
+                type="number"
+                value={form.workplace_radius}
+                onChange={(e) => setForm(prev => ({ ...prev, workplace_radius: e.target.value }))}
+                placeholder="500"
+              />
+            </div>
+          </div>
+          <Button variant="outline" onClick={handleGetCurrentLocation} disabled={locating} className="gap-1.5">
+            {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
+            현재 위치로 설정
           </Button>
-        </div>
-      </CardContent>
-    </Card>
+          {form.workplace_lat && form.workplace_lng && (
+            <div className="text-xs text-muted-foreground">
+              <a
+                href={`https://maps.google.com/?q=${form.workplace_lat},${form.workplace_lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline flex items-center gap-1"
+              >
+                <MapPin className="w-3 h-3" /> 지도에서 확인하기
+              </a>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          저장
+        </Button>
+      </div>
+    </div>
   );
 };
 
