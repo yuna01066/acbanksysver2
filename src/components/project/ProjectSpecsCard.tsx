@@ -246,7 +246,7 @@ const ProjectSpecsCard: React.FC<Props> = ({ projectId, specs: savedSpecs, linke
 
   if (!hasQuoteItems && !savedSpecs) {
     return (
-      <Card className="shadow-none h-full">
+      <Card className="shadow-none">
         <CardContent className="p-4 flex items-center justify-center h-full">
           <div className="text-center">
             <Package className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
@@ -260,7 +260,7 @@ const ProjectSpecsCard: React.FC<Props> = ({ projectId, specs: savedSpecs, linke
   const specs = editing && editSpecs ? editSpecs : displaySpecs;
 
   return (
-    <Card className="shadow-none h-full">
+    <Card className="shadow-none">
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-bold">제작 사양</h3>
