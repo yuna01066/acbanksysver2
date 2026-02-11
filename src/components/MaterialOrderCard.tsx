@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FolderOpen, FileText, Pencil, Trash2, User, Palette, Ruler, Layers, Box, Hash, MessageSquareText } from 'lucide-react';
+import { FolderOpen, FileText, Pencil, Trash2, User, Palette, Ruler, Layers, Box, Hash, MessageSquareText, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   ordered: { label: '발주완료', color: 'bg-blue-500' },
@@ -63,6 +64,42 @@ const InfoRow: React.FC<{
 const MaterialOrderCard: React.FC<Props> = ({ order, canManage, currentUserId, onEdit, onDelete, compact, showDate }) => {
   const navigate = useNavigate();
   const st = STATUS_MAP[order.status] || STATUS_MAP.ordered;
+
+  const handleCopyText = () => {
+    const projectName = order.projects?.project_name
+      ? order.projects.project_name.slice(0, 2)
+      : order.saved_quotes?.project_name
+        ? order.saved_quotes.project_name.slice(0, 2)
+        : '-';
+    const sizeText = order.width && order.height
+      ? `${order.size_name} (${order.width}×${order.height})`
+      : order.size_name;
+
+    const lines = [
+      `<아크뱅크 원판발주>`,
+      projectName,
+      ``,
+      order.material + ' ' + order.quality,
+      ``,
+      order.color_code || '-',
+      ``,
+      order.thickness,
+      ``,
+      order.surface_type || '-',
+      ``,
+      sizeText,
+      ``,
+      `${order.quantity}장`,
+      ``,
+      order.memo || '-',
+      ``,
+      `발주 담당자 : ${order.user_name}`,
+    ];
+
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+      toast({ title: '클립보드에 복사되었습니다' });
+    });
+  };
 
   return (
     <Card className={cn("group hover:shadow-md transition-shadow", compact && "border-border/50")}>
@@ -128,20 +165,25 @@ const MaterialOrderCard: React.FC<Props> = ({ order, canManage, currentUserId, o
               <User className="h-3.5 w-3.5" />
               <span>발주 담당: <span className="font-semibold text-foreground">{order.user_name}</span></span>
             </div>
-            {(onEdit || onDelete) && (canManage || order.user_id === currentUserId) && (
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {onEdit && (
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(order)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                )}
-                {onDelete && (
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDelete(order.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            )}
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCopyText}>
+                <Copy className="h-4 w-4" />
+              </Button>
+              {(onEdit || onDelete) && (canManage || order.user_id === currentUserId) && (
+                <>
+                  {onEdit && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(order)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDelete(order.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>
