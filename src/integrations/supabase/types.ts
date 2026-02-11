@@ -992,6 +992,30 @@ export type Database = {
         }
         Relationships: []
       }
+      page_role_access: {
+        Row: {
+          created_at: string
+          id: string
+          min_role: string
+          page_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          min_role?: string
+          page_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          min_role?: string
+          page_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       panel_masters: {
         Row: {
           created_at: string | null
