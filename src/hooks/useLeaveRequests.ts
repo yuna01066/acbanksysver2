@@ -23,6 +23,7 @@ export interface LeaveRequest {
 
 export const LEAVE_TYPES: Record<string, string> = {
   annual: '연차',
+  monthly: '월차',
   half_am: '오전 반차',
   half_pm: '오후 반차',
   sick: '병가',
@@ -132,6 +133,35 @@ export const calculatePolicyBasedLeaveDays = (
     default:
       return calculateAnnualLeaveDays(joinDate);
   }
+};
+
+/**
+ * 월차 계산: 1년 미만 근무자에게 매월 1일씩 부여 (최대 11일)
+ */
+export const calculateMonthlyLeaveDays = (joinDate: string): number => {
+  if (!joinDate) return 0;
+  const jd = new Date(joinDate);
+  const now = new Date();
+  const totalMonths = differenceInMonths(now, jd);
+  if (totalMonths >= 12) return 0; // 1년 이상 근무자는 월차 없음 (연차로 전환)
+  return Math.min(totalMonths, 11);
+};
+
+/**
+ * 연차 계산 (월차 제외, 1년 이상 근무자만)
+ */
+export const calculateAnnualOnlyDays = (joinDate: string): number => {
+  if (!joinDate) return 0;
+  const jd = new Date(joinDate);
+  const now = new Date();
+  const totalMonths = differenceInMonths(now, jd);
+  const totalYears = differenceInYears(now, jd);
+  if (totalMonths < 12) return 0; // 1년 미만은 월차만
+  let days = 15;
+  if (totalYears >= 3) {
+    days += Math.min(Math.floor((totalYears - 1) / 2), 10);
+  }
+  return Math.min(days, 25);
 };
 
 export const calculateBusinessDays = (start: string, end: string): number => {
