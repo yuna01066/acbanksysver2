@@ -346,10 +346,26 @@ const AttendancePage = () => {
                         : '⏳ 아직 출근 기록이 없습니다'}
                   </p>
                   {todayRecord?.check_in_location && (
-                    <p className="text-xs text-muted-foreground/60 mt-1 flex items-center gap-1">
+                    <a
+                      href={`https://maps.google.com/?q=${(todayRecord.check_in_location as any).lat},${(todayRecord.check_in_location as any).lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary/70 hover:underline mt-1 flex items-center gap-1"
+                    >
                       <MapPin className="w-3 h-3" />
-                      출근 위치 기록됨
-                    </p>
+                      출근 위치: {(todayRecord.check_in_location as any).lat.toFixed(5)}, {(todayRecord.check_in_location as any).lng.toFixed(5)}
+                    </a>
+                  )}
+                  {todayRecord?.check_out_location && (
+                    <a
+                      href={`https://maps.google.com/?q=${(todayRecord.check_out_location as any).lat},${(todayRecord.check_out_location as any).lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary/70 hover:underline mt-0.5 flex items-center gap-1"
+                    >
+                      <MapPin className="w-3 h-3" />
+                      퇴근 위치: {(todayRecord.check_out_location as any).lat.toFixed(5)}, {(todayRecord.check_out_location as any).lng.toFixed(5)}
+                    </a>
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -509,6 +525,7 @@ const AttendancePage = () => {
                         <TableHead>퇴근</TableHead>
                         <TableHead>근무시간</TableHead>
                         <TableHead>상태</TableHead>
+                        <TableHead>위치</TableHead>
                         {(isAdmin || isModerator) && adminTab === 'all' && <TableHead>수정</TableHead>}
                       </TableRow>
                     </TableHeader>
@@ -518,7 +535,7 @@ const AttendancePage = () => {
                           ? monthlyRecords.filter((r: any) => r.date === filterDate)
                           : monthlyRecords;
                         if (filtered.length === 0) return (
-                          <TableRow><TableCell colSpan={adminTab === 'all' ? 8 : 5} className="text-center py-8 text-muted-foreground">{filterDate ? `${filterDate}의 기록이 없습니다` : '기록이 없습니다'}</TableCell></TableRow>
+                          <TableRow><TableCell colSpan={adminTab === 'all' ? 9 : 6} className="text-center py-8 text-muted-foreground">{filterDate ? `${filterDate}의 기록이 없습니다` : '기록이 없습니다'}</TableCell></TableRow>
                         );
                         return filtered.map((r: any) => (
                           <TableRow key={r.id} className={selectedIds.has(r.id) ? 'bg-primary/5' : ''}>
@@ -543,6 +560,35 @@ const AttendancePage = () => {
                               <Badge variant="outline" className="text-xs">
                                 {r.status === 'checked_out' ? '완료' : (r.status === 'checked_in' || r.status === 'present') ? '근무 중' : r.status}
                               </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col gap-0.5">
+                                {r.check_in_location && (
+                                  <a
+                                    href={`https://maps.google.com/?q=${(r.check_in_location as any).lat},${(r.check_in_location as any).lng}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-primary hover:underline flex items-center gap-0.5"
+                                    title={`출근: ${(r.check_in_location as any).lat.toFixed(5)}, ${(r.check_in_location as any).lng.toFixed(5)}`}
+                                  >
+                                    <MapPin className="w-3 h-3" />출근
+                                  </a>
+                                )}
+                                {r.check_out_location && (
+                                  <a
+                                    href={`https://maps.google.com/?q=${(r.check_out_location as any).lat},${(r.check_out_location as any).lng}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-primary hover:underline flex items-center gap-0.5"
+                                    title={`퇴근: ${(r.check_out_location as any).lat.toFixed(5)}, ${(r.check_out_location as any).lng.toFixed(5)}`}
+                                  >
+                                    <MapPin className="w-3 h-3" />퇴근
+                                  </a>
+                                )}
+                                {!r.check_in_location && !r.check_out_location && (
+                                  <span className="text-xs text-muted-foreground">-</span>
+                                )}
+                              </div>
                             </TableCell>
                             {(isAdmin || isModerator) && adminTab === 'all' && (
                               <TableCell>
