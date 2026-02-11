@@ -7,13 +7,13 @@ import { Loader2 } from 'lucide-react';
 import { useActivityLog } from '@/hooks/useActivityLog';
 
 export const PROJECT_STAGES = [
-  { value: 'quote_issued', label: '견적 발행', pluuugStatusId: 120348, color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  { value: 'invoice_issued', label: '계산서 발행', pluuugStatusId: 120349, color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' },
-  { value: 'in_progress', label: '진행중', pluuugStatusId: 120343, color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-  { value: 'panel_ordered', label: '원판발주', pluuugStatusId: 120345, color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
-  { value: 'manufacturing', label: '제작중', pluuugStatusId: 120344, color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
-  { value: 'completed', label: '제작완료', pluuugStatusId: 120346, color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-  { value: 'cancelled', label: '취소된 프로젝트', pluuugStatusId: 120347, color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  { value: 'quote_issued', label: '견적 발행', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  { value: 'invoice_issued', label: '계산서 발행', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' },
+  { value: 'in_progress', label: '진행중', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+  { value: 'panel_ordered', label: '원판발주', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+  { value: 'manufacturing', label: '제작중', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  { value: 'completed', label: '제작완료', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+  { value: 'cancelled', label: '취소된 프로젝트', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 ] as const;
 
 export type ProjectStageValue = typeof PROJECT_STAGES[number]['value'];
@@ -27,8 +27,6 @@ interface ProjectStageSelectProps {
   currentStage: string;
   quoteNumber?: string;
   quoteUserId?: string;
-  pluuugEstimateId: string | null;
-  pluuugSynced: boolean | null;
   onStageChanged?: (newStage: string) => void;
 }
 
@@ -37,8 +35,6 @@ const ProjectStageSelect = ({
   currentStage,
   quoteNumber,
   quoteUserId,
-  pluuugEstimateId,
-  pluuugSynced,
   onStageChanged,
 }: ProjectStageSelectProps) => {
   const { user } = useAuth();
@@ -72,32 +68,6 @@ const ProjectStageSelect = ({
         });
       }
 
-      // 2. Sync to Pluuug if connected
-      if (pluuugSynced && pluuugEstimateId) {
-        const stageInfo = getStageInfo(newStage);
-        const { data, error: syncError } = await supabase.functions.invoke('pluuug-api', {
-          body: {
-            action: 'inquiry.update',
-            inquiryId: pluuugEstimateId,
-            data: {
-              status: { id: stageInfo.pluuugStatusId },
-            },
-          },
-        });
-
-        if (syncError) {
-          console.error('[Stage Sync] Pluuug sync error:', syncError);
-          toast.warning(`단계가 변경되었지만 Pluuug 동기화에 실패했습니다.`);
-        } else if (data?.error) {
-          console.error('[Stage Sync] Pluuug API error:', data.error);
-          toast.warning(`단계가 변경되었지만 Pluuug 동기화에 실패했습니다: ${data.error}`);
-        } else {
-          toast.success(`${stageInfo.label}(으)로 변경 완료 (Pluuug 동기화됨)`);
-          logActivity('stage_changed', quoteId, quoteNumber || quoteId, { oldStage: currentStage, newStage, newStageLabel: stageInfo.label });
-          onStageChanged?.(newStage);
-          return;
-        }
-      }
 
       const stageInfo = getStageInfo(newStage);
       toast.success(`${stageInfo.label}(으)로 변경되었습니다.`);

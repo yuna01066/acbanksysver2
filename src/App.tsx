@@ -26,7 +26,7 @@ import AuthPage from "./pages/AuthPage";
 import MyPage from "./pages/MyPage";
 
 import UserStatisticsPage from "./pages/UserStatisticsPage";
-import PluuugIntegrationPage from "./pages/PluuugIntegrationPage";
+
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import RecipientManagementPage from "./pages/RecipientManagementPage";
@@ -74,7 +74,7 @@ const App = () => (
             <Route path="/my-page" element={<MyPage />} />
             <Route path="/user-management" element={<Navigate to="/employee-profiles" replace />} />
             <Route path="/user-statistics" element={<UserStatisticsPage />} />
-            <Route path="/pluuug-integration" element={<PluuugIntegrationPage />} />
+            
             <Route path="/announcements" element={<G><AnnouncementsPage /></G>} />
             <Route path="/recipients" element={<G><RecipientManagementPage /></G>} />
             <Route path="/recipient-management" element={<Navigate to="/recipients" replace />} />

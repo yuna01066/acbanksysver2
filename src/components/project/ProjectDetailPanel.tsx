@@ -126,7 +126,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('saved_quotes')
-        .select('id, quote_number, project_name, total, quote_date, project_stage, items, desired_delivery_date, recipient_address, recipient_memo, pluuug_estimate_id, pluuug_synced, user_id')
+        .select('id, quote_number, project_name, total, quote_date, project_stage, items, desired_delivery_date, recipient_address, recipient_memo, user_id')
         .eq('project_id', projectId)
         .order('quote_date', { ascending: false });
       if (error) throw error;
@@ -308,8 +308,6 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
                   quoteId={linkedQuotes[0].id}
                   currentStage={linkedQuotes[0].project_stage}
                   quoteNumber={linkedQuotes[0].quote_number}
-                  pluuugEstimateId={linkedQuotes[0].pluuug_estimate_id}
-                  pluuugSynced={linkedQuotes[0].pluuug_synced}
                   quoteUserId={linkedQuotes[0].user_id}
                   onStageChanged={() => {
                     queryClient.invalidateQueries({ queryKey: ['project-quotes', projectId] });

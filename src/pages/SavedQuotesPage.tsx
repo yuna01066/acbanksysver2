@@ -9,14 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import CustomerQuoteCard from '@/components/CustomerQuoteCard';
 import QuoteCard from '@/components/QuoteCard';
-import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, Cloud, CloudOff, Loader2, FolderOpen } from 'lucide-react';
-import PluuugSyncEventsBanner from '@/components/PluuugSyncEventsBanner';
+import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { syncQuoteToPluuug, convertQuoteToPluuugFormat } from '@/utils/pluuugSync';
-import BulkPdfGenerator from '@/components/BulkPdfGenerator';
 import ProjectStageSelect, { PROJECT_STAGES, getStageInfo } from '@/components/ProjectStageSelect';
 import { getPaymentStatusInfo } from '@/components/project/PaymentStatusSelect';
 
@@ -43,9 +40,6 @@ interface SavedQuote {
   tax: number;
   total: number;
   user_id: string;
-  pluuug_synced: boolean | null;
-  pluuug_synced_at: string | null;
-  pluuug_estimate_id: string | null;
   valid_until: string | null;
   delivery_period: string | null;
   payment_condition: string | null;
@@ -77,10 +71,9 @@ const SavedQuotesPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
-  const [userFilter, setUserFilter] = useState<string>('all'); // 'all' or user_id
+  const [userFilter, setUserFilter] = useState<string>('all');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [stageFilter, setStageFilter] = useState<string>('all');
-  const [syncingQuoteId, setSyncingQuoteId] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 50;
 
   useEffect(() => {
@@ -98,7 +91,7 @@ const SavedQuotesPage = () => {
   }, [searchTerm, dateFilter, quotes, sortBy, stageFilter]);
 
   useEffect(() => {
-    setCurrentPage(1); // 검색어 변경 시 첫 페이지로
+    setCurrentPage(1);
   }, [searchTerm, dateFilter, userFilter]);
 
   const fetchUsers = async () => {
@@ -125,9 +118,7 @@ const SavedQuotesPage = () => {
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
 
-      // 관리자인 경우
       if (isAdmin) {
-        // userFilter에 따라 쿼리 조건 분기
         let countQuery = supabase
           .from('saved_quotes')
           .select('*', { count: 'exact', head: true });
@@ -138,7 +129,6 @@ const SavedQuotesPage = () => {
           .order('quote_date', { ascending: false })
           .range(from, to);
 
-        // 특정 사용자 필터가 적용된 경우
         if (userFilter !== 'all') {
           countQuery = countQuery.eq('user_id', userFilter);
           dataQuery = dataQuery.eq('user_id', userFilter);
@@ -156,7 +146,6 @@ const SavedQuotesPage = () => {
           items: Array.isArray(q.items) ? q.items : []
         }));
         
-        // Fetch linked projects
         const projectIds = formattedData.filter(q => q.project_id).map(q => q.project_id);
         let projectMap: Record<string, LinkedProject> = {};
         if (projectIds.length > 0) {
@@ -173,9 +162,7 @@ const SavedQuotesPage = () => {
           ...q,
           linked_project: q.project_id ? projectMap[q.project_id] || null : null
         })));
-      } 
-      // 일반 사용자인 경우 (자신의 견적서만)
-      else {
+      } else {
         const { count, error: countError } = await supabase
           .from('saved_quotes')
           .select('*', { count: 'exact', head: true })
@@ -198,7 +185,6 @@ const SavedQuotesPage = () => {
           items: Array.isArray(q.items) ? q.items : []
         }));
         
-        // Fetch linked projects
         const projectIds = formattedData.filter(q => q.project_id).map(q => q.project_id);
         let projectMap2: Record<string, LinkedProject> = {};
         if (projectIds.length > 0) {
@@ -246,7 +232,6 @@ const SavedQuotesPage = () => {
       filtered = filtered.filter(quote => quote.project_stage === stageFilter);
     }
 
-    // 정렬 적용
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'date-desc':
@@ -287,7 +272,6 @@ const SavedQuotesPage = () => {
 
       if (error) throw error;
       
-      // 실제로 삭제된 행이 있는지 확인
       if (!data || data.length === 0) {
         toast.error('견적서를 삭제할 권한이 없습니다.');
         return;
@@ -318,7 +302,6 @@ const SavedQuotesPage = () => {
     }
 
     try {
-      // 원본 견적서 가져오기
       const { data: originalQuote, error: fetchError } = await supabase
         .from('saved_quotes')
         .select('*')
@@ -331,11 +314,8 @@ const SavedQuotesPage = () => {
         return;
       }
 
-      // 새 견적번호 생성
       const newQuoteNumber = generateNewQuoteNumber();
 
-      // 복제 데이터 생성 (id, created_at, updated_at 제외)
-      // 기존 attachments에서 quote_pdf 타입 제외 (새 PDF는 저장 시 다시 생성됨)
       const originalAttachments = Array.isArray(originalQuote.attachments) ? originalQuote.attachments : [];
       const filteredAttachments = originalAttachments.filter((a: any) => a?.type !== 'quote_pdf');
       
@@ -365,10 +345,7 @@ const SavedQuotesPage = () => {
         issuer_position: originalQuote.issuer_position,
         custom_color_name: originalQuote.custom_color_name,
         custom_opacity: originalQuote.custom_opacity,
-        attachments: filteredAttachments, // quote_pdf 제외한 첨부파일만 복사
-        pluuug_synced: false, // Pluuug 동기화 상태 초기화
-        pluuug_synced_at: null,
-        pluuug_estimate_id: null,
+        attachments: filteredAttachments,
         desired_delivery_date: originalQuote.desired_delivery_date,
       };
 
@@ -381,95 +358,10 @@ const SavedQuotesPage = () => {
       if (insertError) throw insertError;
 
       toast.success('견적서가 복제되었습니다.');
-      fetchQuotes(); // 목록 새로고침
-      
-      // 새 견적서 상세 페이지로 이동 (선택사항)
-      // navigate(`/saved-quotes/${newQuote.id}`);
+      fetchQuotes();
     } catch (error) {
       console.error('Error duplicating quote:', error);
       toast.error('견적서 복제에 실패했습니다.');
-    }
-  };
-
-  const handleSyncToPluuug = async (quote: SavedQuote) => {
-    if (!user) {
-      toast.error('로그인이 필요합니다.');
-      return;
-    }
-
-    // 이미 동기화된 경우 업데이트 모드로 진행 (재동기화)
-    const isResync = quote.pluuug_synced && quote.pluuug_estimate_id;
-    if (isResync) {
-      console.log('[Pluuug Resync] Updating existing inquiry:', quote.pluuug_estimate_id);
-    }
-
-    setSyncingQuoteId(quote.id);
-    
-    try {
-      // 견적 데이터를 Pluuug 형식으로 변환
-      const recipient = {
-        projectName: quote.project_name,
-        companyName: quote.recipient_company,
-        contactPerson: quote.recipient_name,
-        phoneNumber: quote.recipient_phone,
-        email: quote.recipient_email,
-        deliveryAddress: quote.recipient_address,
-        clientMemo: quote.recipient_memo,
-      };
-
-      // attachments에서 견적서 PDF URL 추출
-      const attachmentsArray = Array.isArray(quote.attachments) ? quote.attachments : [];
-      const quotePdfAttachment = attachmentsArray.find((a: any) => 
-        typeof a === 'object' && a !== null && a.type === 'quote_pdf'
-      ) as { url?: string } | undefined;
-      const quotePdfUrl = quotePdfAttachment?.url;
-
-      // PDF가 없으면 경고 표시
-      if (!quotePdfUrl) {
-        console.log('[Pluuug Sync] No PDF attachment found, syncing without PDF link');
-      }
-
-      const pluuugData = convertQuoteToPluuugFormat(
-        quote.items,
-        recipient,
-        quote.quote_number,
-        quote.subtotal,
-        quote.tax,
-        quote.total,
-        quotePdfUrl
-      );
-
-      // Pluuug에 동기화 (고객 자동 등록 포함) - 기존 ID가 있으면 업데이트
-      const syncResult = await syncQuoteToPluuug(
-        pluuugData,
-        user.id,
-        recipient,
-        null, // recipientId가 없으면 자동 등록
-        quote.items, // quotes 데이터 전달 (fieldSet 생성용)
-        isResync ? quote.pluuug_estimate_id : null // 기존 의뢰 ID (재동기화 시)
-      );
-
-      if (syncResult.success) {
-        // DB 업데이트
-        await supabase
-          .from('saved_quotes')
-          .update({
-            pluuug_synced: true,
-            pluuug_synced_at: new Date().toISOString(),
-            pluuug_estimate_id: syncResult.pluuugInquiryId?.toString()
-          })
-          .eq('id', quote.id);
-
-        toast.success(isResync ? 'Pluuug 의뢰가 업데이트되었습니다!' : 'Pluuug에 견적서가 동기화되었습니다!');
-        fetchQuotes(); // 목록 새로고침
-      } else {
-        toast.error(`동기화 실패: ${syncResult.error || '알 수 없는 오류'}`);
-      }
-    } catch (error: any) {
-      console.error('Error syncing to Pluuug:', error);
-      toast.error(`동기화 중 오류 발생: ${error.message}`);
-    } finally {
-      setSyncingQuoteId(null);
     }
   };
 
@@ -487,7 +379,6 @@ const SavedQuotesPage = () => {
         {/* Header */}
         <div className="mb-8">
           <div className="flex justify-end gap-2 mb-4">
-            <BulkPdfGenerator onComplete={fetchQuotes} />
             <Button onClick={() => navigate('/')} variant="outline">
               <Home className="w-4 h-4 mr-2" />
               홈으로
@@ -500,8 +391,6 @@ const SavedQuotesPage = () => {
             <p className="text-muted-foreground">저장된 견적서를 확인하고 관리합니다</p>
           </div>
         </div>
-        {/* Pluuug Sync Events */}
-        <PluuugSyncEventsBanner onQuoteDeleted={fetchQuotes} />
 
         {/* Search, Filter and Sort */}
         <Card className="mb-6">
@@ -635,31 +524,6 @@ const SavedQuotesPage = () => {
                             day: 'numeric' 
                           })}
                         </Badge>
-                        {quote.pluuug_synced ? (
-                          <Badge variant="secondary" className="text-xs flex items-center gap-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                            <Cloud className="w-3 h-3" />
-                            Pluuug
-                          </Badge>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSyncToPluuug(quote);
-                            }}
-                            disabled={syncingQuoteId === quote.id}
-                            className="h-6 px-2 text-xs flex items-center gap-1 text-muted-foreground hover:text-primary hover:border-primary"
-                            title="Pluuug에 동기화"
-                          >
-                            {syncingQuoteId === quote.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <CloudOff className="w-3 h-3" />
-                            )}
-                            {syncingQuoteId === quote.id ? '동기화 중...' : '미연동'}
-                          </Button>
-                        )}
                       </div>
                     </div>
 
@@ -670,8 +534,6 @@ const SavedQuotesPage = () => {
                         currentStage={quote.project_stage || 'quote_issued'}
                         quoteNumber={quote.quote_number}
                         quoteUserId={quote.user_id}
-                        pluuugEstimateId={quote.pluuug_estimate_id}
-                        pluuugSynced={quote.pluuug_synced}
                         onStageChanged={(newStage) => {
                           setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, project_stage: newStage } : q));
                         }}
