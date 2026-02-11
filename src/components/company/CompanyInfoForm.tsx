@@ -78,11 +78,17 @@ const CompanyInfoForm: React.FC = () => {
         toast.success('현재 위치가 입력되었습니다.');
         setLocating(false);
       },
-      () => {
-        toast.error('위치를 가져올 수 없습니다.');
+      (err) => {
+        const reasons: Record<number, string> = {
+          1: '위치 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.',
+          2: '위치 정보를 가져올 수 없습니다. GPS 또는 네트워크를 확인해주세요.',
+          3: '위치 요청 시간이 초과되었습니다. 다시 시도해주세요.',
+        };
+        toast.error(reasons[err.code] || `위치 오류: ${err.message}`);
+        console.error('Geolocation error:', err.code, err.message);
         setLocating(false);
       },
-      { timeout: 10000 }
+      { timeout: 15000, enableHighAccuracy: false }
     );
   };
 
