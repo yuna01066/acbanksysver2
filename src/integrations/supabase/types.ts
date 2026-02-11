@@ -421,6 +421,7 @@ export type Database = {
       }
       contract_templates: {
         Row: {
+          content: Json | null
           created_at: string
           description: string | null
           id: string
@@ -431,6 +432,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          content?: Json | null
           created_at?: string
           description?: string | null
           id?: string
@@ -441,6 +443,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          content?: Json | null
           created_at?: string
           description?: string | null
           id?: string

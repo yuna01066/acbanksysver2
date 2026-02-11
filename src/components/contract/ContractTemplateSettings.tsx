@@ -1,15 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -17,7 +10,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, FileText, Pencil, Trash2, Loader2, FileSignature, DollarSign } from 'lucide-react';
-import { useContractTemplates, type ContractTemplate } from '@/hooks/useContracts';
+import { type ContractTemplate } from '@/hooks/useContracts';
+import TemplateEditorDialog from './template-editor/TemplateEditorDialog';
 
 const TEMPLATE_TYPES: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   labor: {
@@ -32,86 +26,21 @@ const TEMPLATE_TYPES: Record<string, { label: string; icon: React.ReactNode; col
   },
 };
 
-interface TemplateForm {
-  name: string;
-  template_type: string;
-  description: string;
-  pay_day: number;
-  is_active: boolean;
-}
-
-const emptyForm: TemplateForm = {
-  name: '',
-  template_type: 'labor',
-  description: '',
-  pay_day: 25,
-  is_active: true,
-};
-
 const ContractTemplateSettings: React.FC = () => {
   const { templates, loading, refresh } = useContractTemplatesWithRefresh();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<TemplateForm>(emptyForm);
-  const [saving, setSaving] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<ContractTemplate | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const openCreate = () => {
-    setEditingId(null);
-    setForm(emptyForm);
-    setDialogOpen(true);
+    setEditingTemplate(undefined);
+    setEditorOpen(true);
   };
 
-  const openEdit = (t: ContractTemplate) => {
-    setEditingId(t.id);
-    setForm({
-      name: t.name,
-      template_type: t.template_type,
-      description: t.description || '',
-      pay_day: t.pay_day,
-      is_active: t.is_active,
-    });
-    setDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (!form.name.trim()) { toast.error('양식 이름을 입력해주세요.'); return; }
-    setSaving(true);
-    try {
-      if (editingId) {
-        const { error } = await supabase
-          .from('contract_templates')
-          .update({
-            name: form.name.trim(),
-            template_type: form.template_type,
-            description: form.description.trim() || null,
-            pay_day: form.pay_day,
-            is_active: form.is_active,
-          })
-          .eq('id', editingId);
-        if (error) throw error;
-        toast.success('양식이 수정되었습니다.');
-      } else {
-        const { error } = await supabase
-          .from('contract_templates')
-          .insert({
-            name: form.name.trim(),
-            template_type: form.template_type,
-            description: form.description.trim() || null,
-            pay_day: form.pay_day,
-            is_active: form.is_active,
-          });
-        if (error) throw error;
-        toast.success('양식이 생성되었습니다.');
-      }
-      setDialogOpen(false);
-      refresh();
-    } catch (e: any) {
-      toast.error('저장 실패: ' + e.message);
-    } finally {
-      setSaving(false);
-    }
+  const openEdit = (t: ContractTemplate & { content?: any }) => {
+    setEditingTemplate(t);
+    setEditorOpen(true);
   };
 
   const handleDelete = async () => {
@@ -194,7 +123,7 @@ const ContractTemplateSettings: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t as any)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteTarget(t)}>
@@ -216,77 +145,13 @@ const ContractTemplateSettings: React.FC = () => {
         </div>
       )}
 
-      {/* Create / Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editingId ? '양식 수정' : '새 계약서 양식 만들기'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div className="space-y-2">
-              <Label>양식 이름 *</Label>
-              <Input
-                placeholder="예: 정규직 근로계약서"
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>계약서 유형 *</Label>
-              <Select value={form.template_type} onValueChange={v => setForm(f => ({ ...f, template_type: v }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="labor">
-                    <span className="flex items-center gap-2">
-                      <FileSignature className="h-4 w-4 text-blue-600" /> 근로계약서
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="salary">
-                    <span className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-green-600" /> 연봉계약서
-                    </span>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>급여일</Label>
-              <Select value={String(form.pay_day)} onValueChange={v => setForm(f => ({ ...f, pay_day: Number(v) }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 5, 10, 15, 20, 25].map(d => (
-                    <SelectItem key={d} value={String(d)}>매월 {d}일</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>설명</Label>
-              <Textarea
-                placeholder="양식에 대한 설명을 입력하세요"
-                value={form.description}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                rows={3}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label>활성 상태</Label>
-              <Switch checked={form.is_active} onCheckedChange={v => setForm(f => ({ ...f, is_active: v }))} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {editingId ? '수정' : '생성'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Template Editor */}
+      <TemplateEditorDialog
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        editingTemplate={editingTemplate}
+        onSaved={refresh}
+      />
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
@@ -312,7 +177,7 @@ const ContractTemplateSettings: React.FC = () => {
 
 // Extended hook that includes refresh and returns all templates (not just active)
 function useContractTemplatesWithRefresh() {
-  const [templates, setTemplates] = React.useState<ContractTemplate[]>([]);
+  const [templates, setTemplates] = React.useState<(ContractTemplate & { content?: any })[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   const fetch = React.useCallback(async () => {
@@ -321,7 +186,7 @@ function useContractTemplatesWithRefresh() {
       .from('contract_templates')
       .select('*')
       .order('created_at');
-    if (data) setTemplates(data as ContractTemplate[]);
+    if (data) setTemplates(data as any[]);
     setLoading(false);
   }, []);
 
