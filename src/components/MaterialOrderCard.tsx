@@ -77,21 +77,13 @@ const MaterialOrderCard: React.FC<Props> = ({ order, canManage, currentUserId, o
 
     const lines = [
       `<아크뱅크 원판발주> ${projectName}`,
-      ``,
       `재질: ${order.material} ${order.quality}`,
-      ``,
       `컬러 (아크뱅크 코드 (AC- )): ${order.color_code || '-'}`,
-      ``,
       `두께: ${order.thickness}`,
-      ``,
       `양단면: ${order.surface_type || '-'}`,
-      ``,
       `원판 사이즈: ${sizeText}`,
-      ``,
       `수량: ${order.quantity}장`,
-      ``,
       `원판 생산 참고사항: ${order.memo || '-'}`,
-      ``,
       `발주 담당자 : ${order.user_name}`,
     ];
 
