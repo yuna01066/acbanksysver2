@@ -122,6 +122,27 @@ const MaterialOrdersPage: React.FC = () => {
     enabled: !!user,
   });
 
+  const { data: colorOptions = [] } = useQuery({
+    queryKey: ['color-options-for-orders'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('color_options')
+        .select('color_name')
+        .eq('is_active', true)
+        .order('color_name');
+      if (error) throw error;
+      return (data || []).map(c => c.color_name);
+    },
+    enabled: !!user,
+  });
+
+  const MATERIAL_OPTIONS = ['아크릴 판', '제품 제작'];
+  const QUALITY_OPTIONS = ['Bright (브라이트)', 'Clear (클리어)', 'Astel (아스텔)', 'Mirror (미러)', 'Astel Mirror (아스텔미러)', 'Satin (사틴)'];
+  const THICKNESS_OPTIONS = ['1.3T', '1.5T', '2T', '3T', '4T', '5T', '6T', '8T', '10T', '12T', '15T', '20T', '25T', '30T'];
+  const SIZE_OPTIONS = ['3*6', '대3*6', '소3*6', '4*5', '대4*5', '4*6', '4*8', '4*10', '5*5', '5*6', '5*8', '1*2', '소1*2'];
+  const SURFACE_OPTIONS = ['단면', '양면'];
+  const SPECIAL_COLOR_OPTIONS = ['조색', '미정'];
+
   // Fetch quote items for project import
   const { data: projectQuoteItems = [] } = useQuery({
     queryKey: ['project-quote-items', selectedProjectForImport],
@@ -142,6 +163,8 @@ const MaterialOrdersPage: React.FC = () => {
         quality: item.quality || item.품질 || '',
         thickness: item.thickness || item.두께 || '',
         size_name: item.size || item.사이즈 || item.size_name || '',
+        surface: item.surface || '',
+        selectedColor: item.selectedColor || item.colorType || '',
         width: item.width || item.가로 || 0,
         height: item.height || item.세로 || 0,
         quantity: item.quantity || item.수량 || 1,
@@ -161,6 +184,8 @@ const MaterialOrdersPage: React.FC = () => {
       quality: item.quality || item.품질 || '',
       thickness: item.thickness || item.두께 || '',
       size_name: item.size || item.사이즈 || item.size_name || '',
+      surface: item.surface || '',
+      selectedColor: item.selectedColor || item.colorType || '',
       width: item.width || item.가로 || 0,
       height: item.height || item.세로 || 0,
       quantity: item.quantity || item.수량 || 1,
@@ -326,6 +351,13 @@ const MaterialOrdersPage: React.FC = () => {
   const initImportItems = useCallback((items: any[]) => {
     setImportItems(items.map(item => {
       const isProductManufacturing = item.material === '제품 제작';
+      // Extract surface type from quote surface field (e.g. "4*8 (1220*2420): 양면" → "양면")
+      const surfaceRaw = item.surface || '';
+      let surfaceType = '';
+      if (surfaceRaw.includes('양면')) surfaceType = '양면';
+      else if (surfaceRaw.includes('단면')) surfaceType = '단면';
+      // Extract color code from quote data
+      const colorCode = item.selectedColor || item.colorType || '';
       return {
         material: item.material,
         quality: item.quality,
@@ -334,8 +366,8 @@ const MaterialOrdersPage: React.FC = () => {
         width: isProductManufacturing ? 0 : (item.width || 0),
         height: isProductManufacturing ? 0 : (item.height || 0),
         quantity: item.quantity,
-        color_code: '',
-        surface_type: '',
+        color_code: colorCode,
+        surface_type: surfaceType,
         summary: isProductManufacturing ? `재단 사이즈: ${item.size_name}` : item.summary,
       };
     }));
@@ -695,40 +727,66 @@ const MaterialOrdersPage: React.FC = () => {
                         <div className="grid grid-cols-3 gap-2">
                           <div>
                             <Label className="text-[10px]">소재</Label>
-                            <Input className="h-7 text-xs" value={item.material} onChange={e => updateImportItem(i, 'material', e.target.value)} />
+                            <Select value={item.material} onValueChange={v => updateImportItem(i, 'material', v)}>
+                              <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="선택" /></SelectTrigger>
+                              <SelectContent>
+                                {MATERIAL_OPTIONS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
                           </div>
                           <div>
                             <Label className="text-[10px]">품질</Label>
-                            <Input className="h-7 text-xs" value={item.quality} onChange={e => updateImportItem(i, 'quality', e.target.value)} />
+                            <Select value={item.quality} onValueChange={v => updateImportItem(i, 'quality', v)}>
+                              <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="선택" /></SelectTrigger>
+                              <SelectContent>
+                                {QUALITY_OPTIONS.map(q => <SelectItem key={q} value={q}>{q}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
                           </div>
                           <div>
                             <Label className="text-[10px]">두께</Label>
-                            <Input className="h-7 text-xs" value={item.thickness} onChange={e => updateImportItem(i, 'thickness', e.target.value)} />
+                            <Select value={item.thickness} onValueChange={v => updateImportItem(i, 'thickness', v)}>
+                              <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="선택" /></SelectTrigger>
+                              <SelectContent>
+                                {THICKNESS_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           <div>
-                            <Label className="text-[10px]">컬러 코드 (AC-)</Label>
-                            <Input className="h-7 text-xs" value={item.color_code} onChange={e => updateImportItem(i, 'color_code', e.target.value)} placeholder="AC-001" />
+                            <Label className="text-[10px]">컬러 코드</Label>
+                            <Select value={item.color_code} onValueChange={v => updateImportItem(i, 'color_code', v)}>
+                              <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="선택" /></SelectTrigger>
+                              <SelectContent className="max-h-60">
+                                {SPECIAL_COLOR_OPTIONS.map(s => (
+                                  <SelectItem key={s} value={s} className="font-medium">{s}</SelectItem>
+                                ))}
+                                <div className="h-px bg-border my-1" />
+                                {colorOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
                           </div>
                           <div>
                             <Label className="text-[10px]">양단면</Label>
-                            <Input className="h-7 text-xs" value={item.surface_type} onChange={e => updateImportItem(i, 'surface_type', e.target.value)} placeholder="단면/양면" />
+                            <Select value={item.surface_type} onValueChange={v => updateImportItem(i, 'surface_type', v)}>
+                              <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="선택" /></SelectTrigger>
+                              <SelectContent>
+                                {SURFACE_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
                           </div>
-                        </div>
-                        <div className="grid grid-cols-4 gap-2">
                           <div>
                             <Label className="text-[10px]">사이즈명</Label>
-                            <Input className="h-7 text-xs" value={item.size_name} onChange={e => updateImportItem(i, 'size_name', e.target.value)} placeholder="4x8" />
+                            <Select value={item.size_name} onValueChange={v => updateImportItem(i, 'size_name', v)}>
+                              <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="선택" /></SelectTrigger>
+                              <SelectContent>
+                                {SIZE_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
                           </div>
-                          <div>
-                            <Label className="text-[10px]">가로(mm)</Label>
-                            <Input className="h-7 text-xs" type="number" value={item.width || ''} onChange={e => updateImportItem(i, 'width', Number(e.target.value))} />
-                          </div>
-                          <div>
-                            <Label className="text-[10px]">세로(mm)</Label>
-                            <Input className="h-7 text-xs" type="number" value={item.height || ''} onChange={e => updateImportItem(i, 'height', Number(e.target.value))} />
-                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
                           <div>
                             <Label className="text-[10px]">수량</Label>
                             <Input className="h-7 text-xs" type="number" value={item.quantity} onChange={e => updateImportItem(i, 'quantity', Number(e.target.value) || 1)} />
