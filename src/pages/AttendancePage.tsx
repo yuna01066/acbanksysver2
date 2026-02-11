@@ -256,6 +256,7 @@ const AttendancePage = () => {
   };
 
 
+  const handleBulkTimeUpdate = async () => {
     if (selectedIds.size === 0) { toast.warning('직원을 선택해주세요.'); return; }
     if (!bulkCheckIn && !bulkCheckOut) { toast.warning('출근 또는 퇴근 시간을 입력해주세요.'); return; }
     setBulkProcessing(true);
