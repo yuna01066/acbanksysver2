@@ -131,7 +131,7 @@ const MaterialOrderCard: React.FC<Props> = ({ order, canManage, currentUserId, o
               <InfoRow
                 icon={<Hash className="h-4 w-4" />}
                 label="원판 사이즈"
-                value={`${order.size_name} (${order.width}×${order.height})`}
+                value={order.width && order.height ? `${order.size_name} (${order.width}×${order.height})` : order.size_name}
                 iconColor="text-indigo-500"
               />
               <InfoRow

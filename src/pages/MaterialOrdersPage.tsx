@@ -474,17 +474,19 @@ const MaterialOrdersPage: React.FC = () => {
               {showAllOrders ? '이번 달 발주 내역이 없습니다.' : '해당 날짜의 발주 내역이 없습니다.'}
             </div>
           ) : (
-            displayOrders.map(order => (
-              <MaterialOrderCard
-                key={order.id}
-                order={order}
-                canManage={canManage}
-                currentUserId={user?.id}
-                onEdit={openEdit}
-                onDelete={(id) => deleteMutation.mutate(id)}
-                showDate={showAllOrders}
-              />
-            ))
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {displayOrders.map(order => (
+                <MaterialOrderCard
+                  key={order.id}
+                  order={order}
+                  canManage={canManage}
+                  currentUserId={user?.id}
+                  onEdit={openEdit}
+                  onDelete={(id) => deleteMutation.mutate(id)}
+                  showDate={showAllOrders}
+                />
+              ))}
+            </div>
           )}
         </div>
       </div>
