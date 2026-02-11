@@ -2,16 +2,35 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Users, Phone } from 'lucide-react';
+import { Search, Users, Phone, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export type AppRoleType = 'admin' | 'moderator' | 'manager' | 'employee';
 
 export const ROLE_BADGE_MAP: Record<AppRoleType, { label: string; className: string } | null> = {
-  admin: { label: '관리자', className: 'bg-red-100 text-red-700 border-red-200' },
-  moderator: { label: '중간관리자', className: 'bg-blue-100 text-blue-700 border-blue-200' },
+  admin: { label: '관리자', className: 'text-red-500' },
+  moderator: { label: '중간관리자', className: 'text-blue-500' },
   manager: null,
   employee: null,
+};
+
+export const RoleStar: React.FC<{ role: AppRoleType | undefined }> = ({ role }) => {
+  if (!role) return null;
+  const info = ROLE_BADGE_MAP[role];
+  if (!info) return null;
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Star className={cn("h-3.5 w-3.5 shrink-0 fill-current", info.className)} />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {info.label}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 };
 
 export interface EmployeeProfile {
@@ -153,16 +172,7 @@ const EmployeeListSidebar: React.FC<EmployeeListSidebarProps> = ({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-medium truncate">{emp.full_name}</span>
-                    {(() => {
-                      const role = employeeRoles[emp.id];
-                      const badgeInfo = role ? ROLE_BADGE_MAP[role] : null;
-                      if (badgeInfo) return (
-                        <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4", badgeInfo.className)}>
-                          {badgeInfo.label}
-                        </Badge>
-                      );
-                      return null;
-                    })()}
+                    <RoleStar role={employeeRoles[emp.id]} />
                     {!emp.is_approved && (
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-300 text-amber-600">
                         미승인
