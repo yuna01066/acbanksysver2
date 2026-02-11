@@ -13,10 +13,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
-import { format, isSameDay, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ArrowLeft, Plus, Package, FolderOpen, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ArrowLeft, Plus, FolderOpen, FileText, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import MaterialOrderCard, { MaterialOrderData } from '@/components/MaterialOrderCard';
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   ordered: { label: '발주완료', color: 'bg-blue-500' },
@@ -24,26 +24,6 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   delivered: { label: '입고완료', color: 'bg-emerald-500' },
   cancelled: { label: '취소', color: 'bg-destructive' },
 };
-
-interface MaterialOrder {
-  id: string;
-  order_date: string;
-  material: string;
-  quality: string;
-  thickness: string;
-  size_name: string;
-  width: number;
-  height: number;
-  quantity: number;
-  project_id: string | null;
-  quote_item_summary: string | null;
-  user_id: string;
-  user_name: string;
-  memo: string | null;
-  status: string;
-  created_at: string;
-  projects?: { id: string; project_name: string } | null;
-}
 
 const emptyForm = {
   order_date: format(new Date(), 'yyyy-MM-dd'),
@@ -54,7 +34,10 @@ const emptyForm = {
   width: 0,
   height: 0,
   quantity: 1,
+  color_code: '',
+  surface_type: '',
   project_id: '',
+  quote_id: '',
   quote_item_summary: '',
   memo: '',
   status: 'ordered',
@@ -68,6 +51,8 @@ interface ImportItemForm {
   width: number;
   height: number;
   quantity: number;
+  color_code: string;
+  surface_type: string;
   summary: string;
 }
 
@@ -78,13 +63,15 @@ const MaterialOrdersPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingOrder, setEditingOrder] = useState<MaterialOrder | null>(null);
+  const [editingOrder, setEditingOrder] = useState<MaterialOrderData | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [showAllOrders, setShowAllOrders] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importSource, setImportSource] = useState<'project' | 'quote' | null>(null);
   const [selectedProjectForImport, setSelectedProjectForImport] = useState('');
+  const [selectedQuoteForImport, setSelectedQuoteForImport] = useState('');
   const [importItems, setImportItems] = useState<ImportItemForm[]>([]);
-  // Fetch orders for current month
+
   const monthStart = format(startOfMonth(calendarMonth), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(calendarMonth), 'yyyy-MM-dd');
 
@@ -93,22 +80,21 @@ const MaterialOrdersPage: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('material_orders')
-        .select('*, projects(id, name)')
+        .select('*, projects(id, name), saved_quotes(id, quote_number, project_name)')
         .gte('order_date', monthStart)
         .lte('order_date', monthEnd)
         .order('order_date', { ascending: false })
         .order('created_at', { ascending: false });
       if (error) throw error;
-      // Map name to project_name for our interface
       return (data || []).map((d: any) => ({
         ...d,
         projects: d.projects ? { id: d.projects.id, project_name: d.projects.name } : null,
-      })) as MaterialOrder[];
+        saved_quotes: d.saved_quotes || null,
+      })) as MaterialOrderData[];
     },
     enabled: !!user,
   });
 
-  // Fetch projects for linking
   const { data: projects = [] } = useQuery({
     queryKey: ['projects-for-orders'],
     queryFn: async () => {
@@ -122,24 +108,34 @@ const MaterialOrdersPage: React.FC = () => {
     enabled: !!user,
   });
 
-  // Fetch quote items for import
+  const { data: allQuotes = [] } = useQuery({
+    queryKey: ['quotes-for-orders'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('saved_quotes')
+        .select('id, quote_number, project_name, items')
+        .order('quote_date', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  // Fetch quote items for project import
   const { data: projectQuoteItems = [] } = useQuery({
     queryKey: ['project-quote-items', selectedProjectForImport],
     queryFn: async () => {
       if (!selectedProjectForImport) return [];
-      // Get quotes linked to this project
       const { data: quotes } = await supabase
         .from('saved_quotes')
         .select('items')
         .eq('project_id', selectedProjectForImport);
       if (!quotes || quotes.length === 0) return [];
-
-      // Merge all items from all linked quotes
       const allItems: any[] = [];
       quotes.forEach(q => {
         if (Array.isArray(q.items)) allItems.push(...q.items);
       });
-
       return allItems.map((item: any, idx: number) => ({
         idx,
         material: item.material || item.소재 || '',
@@ -155,13 +151,26 @@ const MaterialOrdersPage: React.FC = () => {
     enabled: !!selectedProjectForImport,
   });
 
-  // Calendar day markers
+  const selectedQuoteItems = useMemo(() => {
+    if (!selectedQuoteForImport) return [];
+    const quote = allQuotes.find(q => q.id === selectedQuoteForImport);
+    if (!quote || !Array.isArray(quote.items)) return [];
+    return quote.items.map((item: any, idx: number) => ({
+      idx,
+      material: item.material || item.소재 || '',
+      quality: item.quality || item.품질 || '',
+      thickness: item.thickness || item.두께 || '',
+      size_name: item.size || item.사이즈 || item.size_name || '',
+      width: item.width || item.가로 || 0,
+      height: item.height || item.세로 || 0,
+      quantity: item.quantity || item.수량 || 1,
+      summary: `${item.material || item.소재 || ''} ${item.quality || item.품질 || ''} ${item.thickness || item.두께 || ''} ${item.size || item.사이즈 || ''}`,
+    }));
+  }, [selectedQuoteForImport, allQuotes]);
+
   const orderDates = useMemo(() => {
     const dateMap = new Map<string, number>();
-    orders.forEach(o => {
-      const d = o.order_date;
-      dateMap.set(d, (dateMap.get(d) || 0) + 1);
-    });
+    orders.forEach(o => { dateMap.set(o.order_date, (dateMap.get(o.order_date) || 0) + 1); });
     return dateMap;
   }, [orders]);
 
@@ -172,7 +181,6 @@ const MaterialOrdersPage: React.FC = () => {
 
   const displayOrders = showAllOrders ? orders : selectedDayOrders;
 
-  // Mutations
   const createMutation = useMutation({
     mutationFn: async (data: typeof emptyForm) => {
       const { error } = await supabase.from('material_orders').insert({
@@ -184,13 +192,16 @@ const MaterialOrdersPage: React.FC = () => {
         width: data.width,
         height: data.height,
         quantity: data.quantity,
+        color_code: data.color_code || null,
+        surface_type: data.surface_type || null,
         project_id: data.project_id || null,
+        quote_id: data.quote_id || null,
         quote_item_summary: data.quote_item_summary || null,
         memo: data.memo || null,
         status: data.status,
         user_id: user!.id,
         user_name: profile?.full_name || user!.email || '',
-      });
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -207,9 +218,12 @@ const MaterialOrdersPage: React.FC = () => {
       const { error } = await supabase.from('material_orders').update({
         ...data,
         project_id: data.project_id || null,
+        quote_id: data.quote_id || null,
         quote_item_summary: data.quote_item_summary || null,
         memo: data.memo || null,
-      }).eq('id', id);
+        color_code: data.color_code || null,
+        surface_type: data.surface_type || null,
+      } as any).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -246,7 +260,7 @@ const MaterialOrdersPage: React.FC = () => {
     }
   };
 
-  const openEdit = (order: MaterialOrder) => {
+  const openEdit = (order: MaterialOrderData) => {
     setEditingOrder(order);
     setForm({
       order_date: order.order_date,
@@ -257,7 +271,10 @@ const MaterialOrdersPage: React.FC = () => {
       width: order.width,
       height: order.height,
       quantity: order.quantity,
+      color_code: (order as any).color_code || '',
+      surface_type: (order as any).surface_type || '',
       project_id: order.project_id || '',
+      quote_id: (order as any).quote_id || '',
       quote_item_summary: order.quote_item_summary || '',
       memo: order.memo || '',
       status: order.status,
@@ -288,16 +305,25 @@ const MaterialOrdersPage: React.FC = () => {
         width: item.width,
         height: item.height,
         quantity: item.quantity,
-        project_id: selectedProjectForImport,
+        color_code: item.color_code,
+        surface_type: item.surface_type,
+        project_id: importSource === 'project' ? selectedProjectForImport : '',
+        quote_id: importSource === 'quote' ? selectedQuoteForImport : '',
         quote_item_summary: item.summary,
       });
     });
+    closeImportDialog();
+  };
+
+  const closeImportDialog = () => {
     setImportDialogOpen(false);
+    setImportSource(null);
     setSelectedProjectForImport('');
+    setSelectedQuoteForImport('');
     setImportItems([]);
   };
 
-  const initImportItems = useCallback((items: typeof projectQuoteItems) => {
+  const initImportItems = useCallback((items: any[]) => {
     setImportItems(items.map(item => ({
       material: item.material,
       quality: item.quality,
@@ -306,6 +332,8 @@ const MaterialOrdersPage: React.FC = () => {
       width: 0,
       height: 0,
       quantity: item.quantity,
+      color_code: '',
+      surface_type: '',
       summary: item.summary,
     })));
   }, []);
@@ -317,7 +345,7 @@ const MaterialOrdersPage: React.FC = () => {
   const addManualImportItem = () => {
     setImportItems(prev => [...prev, {
       material: '', quality: '', thickness: '', size_name: '',
-      width: 0, height: 0, quantity: 1, summary: '수동 입력',
+      width: 0, height: 0, quantity: 1, color_code: '', surface_type: '', summary: '수동 입력',
     }]);
   };
 
@@ -326,6 +354,8 @@ const MaterialOrdersPage: React.FC = () => {
   };
 
   const canManage = isAdmin || isModerator;
+
+  const currentReferenceItems = importSource === 'project' ? projectQuoteItems : selectedQuoteItems;
 
   return (
     <div className="min-h-screen bg-background">
@@ -343,8 +373,8 @@ const MaterialOrdersPage: React.FC = () => {
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)} className="gap-1.5 text-xs">
-              <FolderOpen className="h-3.5 w-3.5" />
-              프로젝트에서 불러오기
+              <Download className="h-3.5 w-3.5" />
+              불러오기
             </Button>
             <Button size="sm" onClick={openNew} className="gap-1.5 text-xs">
               <Plus className="h-3.5 w-3.5" />
@@ -364,22 +394,15 @@ const MaterialOrdersPage: React.FC = () => {
               onMonthChange={setCalendarMonth}
               locale={ko}
               className="mx-auto"
-              modifiers={{
-                hasOrders: (date) => orderDates.has(format(date, 'yyyy-MM-dd')),
-              }}
-              modifiersClassNames={{
-                hasOrders: 'font-bold text-primary',
-              }}
+              modifiers={{ hasOrders: (date) => orderDates.has(format(date, 'yyyy-MM-dd')) }}
+              modifiersClassNames={{ hasOrders: 'font-bold text-primary' }}
               components={{
                 DayContent: ({ date }) => {
-                  const dateStr = format(date, 'yyyy-MM-dd');
-                  const count = orderDates.get(dateStr);
+                  const count = orderDates.get(format(date, 'yyyy-MM-dd'));
                   return (
                     <div className="relative flex flex-col items-center">
                       <span>{date.getDate()}</span>
-                      {count && (
-                        <span className="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-primary" />
-                      )}
+                      {count && <span className="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-primary" />}
                     </div>
                   );
                 },
@@ -394,16 +417,10 @@ const MaterialOrdersPage: React.FC = () => {
             <h2 className="text-sm font-semibold">
               {showAllOrders
                 ? `${format(calendarMonth, 'yyyy년 M월', { locale: ko })} 전체 발주`
-                : `${format(selectedDate, 'M월 d일 (EEE)', { locale: ko })} 발주`
-              }
+                : `${format(selectedDate, 'M월 d일 (EEE)', { locale: ko })} 발주`}
               <span className="ml-2 text-muted-foreground font-normal">{displayOrders.length}건</span>
             </h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs gap-1"
-              onClick={() => setShowAllOrders(!showAllOrders)}
-            >
+            <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => setShowAllOrders(!showAllOrders)}>
               {showAllOrders ? '선택일만' : '전체 보기'}
               {showAllOrders ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </Button>
@@ -416,67 +433,24 @@ const MaterialOrdersPage: React.FC = () => {
               {showAllOrders ? '이번 달 발주 내역이 없습니다.' : '해당 날짜의 발주 내역이 없습니다.'}
             </div>
           ) : (
-            displayOrders.map(order => {
-              const st = STATUS_MAP[order.status] || STATUS_MAP.ordered;
-              return (
-                <Card key={order.id} className="group">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0 space-y-1.5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Package className="h-4 w-4 text-primary shrink-0" />
-                          <span className="font-medium text-sm">
-                            {order.material} {order.quality} {order.thickness}
-                          </span>
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {order.size_name}
-                          </Badge>
-                          <Badge className={cn('text-[10px] px-1.5 py-0 text-white', st.color)}>
-                            {st.label}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span>{order.width}×{order.height}mm</span>
-                          <span>수량: {order.quantity}장</span>
-                          {showAllOrders && <span>{format(new Date(order.order_date), 'M/d')}</span>}
-                        </div>
-                        {order.projects && (
-                          <button
-                            className="flex items-center gap-1 text-xs text-primary hover:underline"
-                            onClick={() => navigate(`/project-management?project=${order.projects!.id}`)}
-                          >
-                            <FolderOpen className="h-3 w-3" />
-                            {order.projects.project_name}
-                          </button>
-                        )}
-                        {order.memo && (
-                          <p className="text-xs text-muted-foreground truncate">{order.memo}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {(canManage || order.user_id === user?.id) && (
-                          <>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(order)}>
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteMutation.mutate(order.id)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })
+            displayOrders.map(order => (
+              <MaterialOrderCard
+                key={order.id}
+                order={order}
+                canManage={canManage}
+                currentUserId={user?.id}
+                onEdit={openEdit}
+                onDelete={(id) => deleteMutation.mutate(id)}
+                showDate={showAllOrders}
+              />
+            ))
           )}
         </div>
       </div>
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingOrder ? '발주 수정' : '발주 등록'}</DialogTitle>
           </DialogHeader>
@@ -501,17 +475,27 @@ const MaterialOrdersPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">소재</Label>
-                <Input value={form.material} onChange={e => setForm(f => ({ ...f, material: e.target.value }))} placeholder="예: 알루미늄" />
+                <Input value={form.material} onChange={e => setForm(f => ({ ...f, material: e.target.value }))} placeholder="예: 아크릴 판" />
               </div>
               <div>
                 <Label className="text-xs">품질</Label>
-                <Input value={form.quality} onChange={e => setForm(f => ({ ...f, quality: e.target.value }))} placeholder="예: 일반" />
+                <Input value={form.quality} onChange={e => setForm(f => ({ ...f, quality: e.target.value }))} placeholder="예: Bright (브라이트)" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">두께</Label>
-                <Input value={form.thickness} onChange={e => setForm(f => ({ ...f, thickness: e.target.value }))} placeholder="예: 3T" />
+                <Input value={form.thickness} onChange={e => setForm(f => ({ ...f, thickness: e.target.value }))} placeholder="예: 5T" />
+              </div>
+              <div>
+                <Label className="text-xs">컬러 코드 (AC-)</Label>
+                <Input value={form.color_code} onChange={e => setForm(f => ({ ...f, color_code: e.target.value }))} placeholder="예: AC-001" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">양단면</Label>
+                <Input value={form.surface_type} onChange={e => setForm(f => ({ ...f, surface_type: e.target.value }))} placeholder="예: 단면, 양면" />
               </div>
               <div>
                 <Label className="text-xs">사이즈명</Label>
@@ -545,7 +529,19 @@ const MaterialOrdersPage: React.FC = () => {
               </Select>
             </div>
             <div>
-              <Label className="text-xs">메모</Label>
+              <Label className="text-xs">연결 견적서</Label>
+              <Select value={form.quote_id || '__none__'} onValueChange={v => setForm(f => ({ ...f, quote_id: v === '__none__' ? '' : v }))}>
+                <SelectTrigger><SelectValue placeholder="선택 (선택사항)" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">없음</SelectItem>
+                  {allQuotes.map(q => (
+                    <SelectItem key={q.id} value={q.id}>{q.quote_number} {q.project_name ? `- ${q.project_name}` : ''}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">원판 관련 참고사항</Label>
               <Textarea value={form.memo} onChange={e => setForm(f => ({ ...f, memo: e.target.value }))} rows={2} />
             </div>
           </div>
@@ -558,38 +554,75 @@ const MaterialOrdersPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Import from Project Dialog */}
-      <Dialog open={importDialogOpen} onOpenChange={(open) => {
-        setImportDialogOpen(open);
-        if (!open) { setSelectedProjectForImport(''); setImportItems([]); }
-      }}>
+      {/* Import Dialog */}
+      <Dialog open={importDialogOpen} onOpenChange={(open) => { if (!open) closeImportDialog(); else setImportDialogOpen(true); }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>프로젝트에서 불러오기</DialogTitle>
+            <DialogTitle>불러오기</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label className="text-xs">프로젝트 선택</Label>
-              <Select value={selectedProjectForImport} onValueChange={(v) => {
-                setSelectedProjectForImport(v);
-                setImportItems([]);
-              }}>
-                <SelectTrigger><SelectValue placeholder="프로젝트를 선택하세요" /></SelectTrigger>
-                <SelectContent>
-                  {projects.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.project_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Source selection */}
+            {!importSource && (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  className="flex flex-col items-center gap-2 p-6 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/5 transition-colors"
+                  onClick={() => setImportSource('project')}
+                >
+                  <FolderOpen className="h-8 w-8 text-primary" />
+                  <span className="text-sm font-medium">프로젝트에서</span>
+                  <span className="text-[10px] text-muted-foreground text-center">프로젝트에 연결된 견적 항목을 참조합니다</span>
+                </button>
+                <button
+                  className="flex flex-col items-center gap-2 p-6 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/5 transition-colors"
+                  onClick={() => setImportSource('quote')}
+                >
+                  <FileText className="h-8 w-8 text-primary" />
+                  <span className="text-sm font-medium">견적서에서</span>
+                  <span className="text-[10px] text-muted-foreground text-center">특정 견적서의 항목을 참조합니다</span>
+                </button>
+              </div>
+            )}
 
-            {projectQuoteItems.length > 0 && importItems.length === 0 ? (
+            {/* Project selection */}
+            {importSource === 'project' && (
+              <div>
+                <Label className="text-xs">프로젝트 선택</Label>
+                <Select value={selectedProjectForImport} onValueChange={v => { setSelectedProjectForImport(v); setImportItems([]); }}>
+                  <SelectTrigger><SelectValue placeholder="프로젝트를 선택하세요" /></SelectTrigger>
+                  <SelectContent>
+                    {projects.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.project_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Quote selection */}
+            {importSource === 'quote' && (
+              <div>
+                <Label className="text-xs">견적서 선택</Label>
+                <Select value={selectedQuoteForImport} onValueChange={v => { setSelectedQuoteForImport(v); setImportItems([]); }}>
+                  <SelectTrigger><SelectValue placeholder="견적서를 선택하세요" /></SelectTrigger>
+                  <SelectContent>
+                    {allQuotes.map(q => (
+                      <SelectItem key={q.id} value={q.id}>
+                        {q.quote_number} {q.project_name ? `- ${q.project_name}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Reference items */}
+            {importSource && currentReferenceItems.length > 0 && importItems.length === 0 && (
               <div className="space-y-3">
                 <p className="text-xs text-muted-foreground">
-                  {projectQuoteItems.length}개 견적 항목이 발견되었습니다. (재단 사이즈 기준)
+                  {currentReferenceItems.length}개 견적 항목이 발견되었습니다. (재단 사이즈 기준)
                 </p>
                 <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                  {projectQuoteItems.map((item, i) => (
+                  {currentReferenceItems.map((item: any, i: number) => (
                     <div key={i} className="p-2 rounded-lg border text-xs bg-muted/30">
                       <span className="font-medium">{item.material} {item.quality} {item.thickness}</span>
                       <span className="ml-2 text-muted-foreground">{item.size_name} ×{item.quantity}</span>
@@ -599,27 +632,33 @@ const MaterialOrdersPage: React.FC = () => {
                 <p className="text-[11px] text-muted-foreground">
                   ※ 위 항목은 재단 후 최종 사이즈입니다. 원판 정보를 입력하려면 아래 버튼을 눌러주세요.
                 </p>
-                <Button variant="outline" size="sm" className="w-full" onClick={() => initImportItems(projectQuoteItems)}>
+                <Button variant="outline" size="sm" className="w-full" onClick={() => initImportItems(currentReferenceItems)}>
                   원판 정보 입력하기
                 </Button>
               </div>
-            ) : selectedProjectForImport && projectQuoteItems.length === 0 && importItems.length === 0 ? (
+            )}
+
+            {/* No items found */}
+            {importSource && (
+              (importSource === 'project' && selectedProjectForImport && currentReferenceItems.length === 0 && importItems.length === 0) ||
+              (importSource === 'quote' && selectedQuoteForImport && currentReferenceItems.length === 0 && importItems.length === 0)
+            ) && (
               <div className="text-center py-4 space-y-3">
-                <p className="text-xs text-muted-foreground">연결된 견적서가 없습니다.</p>
+                <p className="text-xs text-muted-foreground">견적 항목이 없습니다.</p>
                 <Button variant="outline" size="sm" onClick={addManualImportItem}>
                   <Plus className="h-3.5 w-3.5 mr-1" />
                   수동으로 원판 추가
                 </Button>
               </div>
-            ) : null}
+            )}
 
+            {/* Import items form */}
             {importItems.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium">원판 발주 정보 입력</p>
                   <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" onClick={addManualImportItem}>
-                    <Plus className="h-3 w-3" />
-                    항목 추가
+                    <Plus className="h-3 w-3" /> 항목 추가
                   </Button>
                 </div>
                 <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
@@ -631,21 +670,31 @@ const MaterialOrdersPage: React.FC = () => {
                             {item.summary ? `참조: ${item.summary}` : `항목 ${i + 1}`}
                           </span>
                           <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeImportItem(i)}>
-                            <Trash2 className="h-3 w-3" />
+                            <span className="text-xs">✕</span>
                           </Button>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                           <div>
                             <Label className="text-[10px]">소재</Label>
-                            <Input className="h-7 text-xs" value={item.material} onChange={e => updateImportItem(i, 'material', e.target.value)} placeholder="알루미늄" />
+                            <Input className="h-7 text-xs" value={item.material} onChange={e => updateImportItem(i, 'material', e.target.value)} />
                           </div>
                           <div>
                             <Label className="text-[10px]">품질</Label>
-                            <Input className="h-7 text-xs" value={item.quality} onChange={e => updateImportItem(i, 'quality', e.target.value)} placeholder="일반" />
+                            <Input className="h-7 text-xs" value={item.quality} onChange={e => updateImportItem(i, 'quality', e.target.value)} />
                           </div>
                           <div>
                             <Label className="text-[10px]">두께</Label>
-                            <Input className="h-7 text-xs" value={item.thickness} onChange={e => updateImportItem(i, 'thickness', e.target.value)} placeholder="3T" />
+                            <Input className="h-7 text-xs" value={item.thickness} onChange={e => updateImportItem(i, 'thickness', e.target.value)} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-[10px]">컬러 코드 (AC-)</Label>
+                            <Input className="h-7 text-xs" value={item.color_code} onChange={e => updateImportItem(i, 'color_code', e.target.value)} placeholder="AC-001" />
+                          </div>
+                          <div>
+                            <Label className="text-[10px]">양단면</Label>
+                            <Input className="h-7 text-xs" value={item.surface_type} onChange={e => updateImportItem(i, 'surface_type', e.target.value)} placeholder="단면/양면" />
                           </div>
                         </div>
                         <div className="grid grid-cols-4 gap-2">
@@ -672,9 +721,16 @@ const MaterialOrdersPage: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Back button */}
+            {importSource && (
+              <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setImportSource(null); setSelectedProjectForImport(''); setSelectedQuoteForImport(''); setImportItems([]); }}>
+                ← 소스 선택으로 돌아가기
+              </Button>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setImportDialogOpen(false); setSelectedProjectForImport(''); setImportItems([]); }}>취소</Button>
+            <Button variant="outline" onClick={closeImportDialog}>취소</Button>
             {importItems.length > 0 && (
               <Button onClick={handleImportItems} disabled={createMutation.isPending}>
                 발주 등록 ({importItems.filter(it => it.material && it.size_name).length}건)

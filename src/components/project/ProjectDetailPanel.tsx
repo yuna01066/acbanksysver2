@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Building2, FileText, Link2, Unlink, Trash2, ExternalLink, Plus, Phone, Mail, User, Briefcase, Home, Link as LinkIcon } from 'lucide-react';
+import ProjectMaterialOrders from './ProjectMaterialOrders';
 import ProjectStageSelect from '@/components/ProjectStageSelect';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -422,6 +423,9 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
               <p className="text-[10px] text-muted-foreground">연결된 담당자가 없습니다.</p>
             )}
           </div>
+
+          {/* Material Orders */}
+          <ProjectMaterialOrders projectId={projectId} />
 
           {/* Quotes */}
           <div className="rounded-lg border bg-card p-3.5">
