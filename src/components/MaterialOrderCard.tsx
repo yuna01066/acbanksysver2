@@ -67,114 +67,82 @@ const MaterialOrderCard: React.FC<Props> = ({ order, canManage, currentUserId, o
   return (
     <Card className={cn("group hover:shadow-md transition-shadow", compact && "border-border/50")}>
       <CardContent className={cn("p-5", compact && "p-3.5")}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0 space-y-2">
-            {/* Project / Quote Link + Status */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {order.projects && (
-                <button
-                  className="flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
-                  onClick={() => navigate(`/project-management?project=${order.projects!.id}`)}
-                >
-                  <FolderOpen className="h-4 w-4" />
-                  {order.projects.project_name}
-                </button>
-              )}
-              {order.saved_quotes && (
-                <button
-                  className="flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
-                  onClick={() => navigate(`/saved-quotes/${order.saved_quotes!.id}`)}
-                >
-                  <FileText className="h-4 w-4" />
-                  {order.saved_quotes.quote_number}
-                  {order.saved_quotes.project_name ? ` - ${order.saved_quotes.project_name}` : ''}
-                </button>
-              )}
-              {!order.projects && !order.saved_quotes && (
-                <span className="text-sm text-muted-foreground italic">연결 없음</span>
-              )}
-              <Badge className={cn('text-[11px] px-2 py-0.5 text-white ml-auto', st.color)}>
-                {st.label}
-              </Badge>
-            </div>
-
-            {showDate && (
-              <div className="text-xs text-muted-foreground">발주일: {order.order_date}</div>
+        <div className="space-y-2">
+          {/* Project / Quote Link + Status */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {order.projects && (
+              <button
+                className="flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
+                onClick={() => navigate(`/project-management?project=${order.projects!.id}`)}
+              >
+                <FolderOpen className="h-4 w-4" />
+                {order.projects.project_name}
+              </button>
             )}
+            {order.saved_quotes && (
+              <button
+                className="flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
+                onClick={() => navigate(`/saved-quotes/${order.saved_quotes!.id}`)}
+              >
+                <FileText className="h-4 w-4" />
+                {order.saved_quotes.quote_number}
+                {order.saved_quotes.project_name ? ` - ${order.saved_quotes.project_name}` : ''}
+              </button>
+            )}
+            {!order.projects && !order.saved_quotes && (
+              <span className="text-sm text-muted-foreground italic">연결 없음</span>
+            )}
+            <Badge className={cn('text-[11px] px-2 py-0.5 text-white ml-auto', st.color)}>
+              {st.label}
+            </Badge>
+          </div>
 
-            {/* Detail Grid */}
-            <div className={cn("grid gap-x-6 text-[13px]", compact ? "grid-cols-1" : "grid-cols-2")}>
-              <InfoRow
-                icon={<Box className="h-4 w-4" />}
-                label="재질"
-                value={`${order.material} ${order.quality}`}
-                iconColor="text-primary"
-              />
-              <InfoRow
-                icon={<Palette className="h-4 w-4" />}
-                label="컬러"
-                value={order.color_code || '-'}
-                iconColor="text-pink-500"
-              />
-              <InfoRow
-                icon={<Layers className="h-4 w-4" />}
-                label="두께"
-                value={order.thickness}
-                iconColor="text-amber-500"
-              />
-              <InfoRow
-                icon={<Ruler className="h-4 w-4" />}
-                label="양단면"
-                value={order.surface_type || '-'}
-                iconColor="text-teal-500"
-              />
-              <InfoRow
-                icon={<Hash className="h-4 w-4" />}
-                label="원판 사이즈"
-                value={order.width && order.height ? `${order.size_name} (${order.width}×${order.height})` : order.size_name}
-                iconColor="text-indigo-500"
-              />
-              <InfoRow
-                icon={<Hash className="h-4 w-4" />}
-                label="수량"
-                value={`${order.quantity}장`}
-                iconColor="text-emerald-500"
-              />
-            </div>
+          {showDate && (
+            <div className="text-xs text-muted-foreground">발주일: {order.order_date}</div>
+          )}
 
-            {/* Production Note */}
-            {order.memo && (
-              <div className="flex items-start gap-2.5 rounded-lg bg-accent/60 p-3 text-[13px]">
-                <MessageSquareText className="h-4 w-4 text-warning shrink-0 mt-0.5" />
-                <div>
-                  <span className="text-muted-foreground font-medium">원판생산 참고사항</span>
-                  <p className="text-foreground font-medium mt-0.5">{order.memo}</p>
-                </div>
+          {/* Detail Grid */}
+          <div className={cn("grid gap-x-6 text-[13px]", compact ? "grid-cols-1" : "grid-cols-2")}>
+            <InfoRow icon={<Box className="h-4 w-4" />} label="재질" value={`${order.material} ${order.quality}`} iconColor="text-primary" />
+            <InfoRow icon={<Palette className="h-4 w-4" />} label="컬러" value={order.color_code || '-'} iconColor="text-pink-500" />
+            <InfoRow icon={<Layers className="h-4 w-4" />} label="두께" value={order.thickness} iconColor="text-amber-500" />
+            <InfoRow icon={<Ruler className="h-4 w-4" />} label="양단면" value={order.surface_type || '-'} iconColor="text-teal-500" />
+            <InfoRow icon={<Hash className="h-4 w-4" />} label="원판 사이즈" value={order.width && order.height ? `${order.size_name} (${order.width}×${order.height})` : order.size_name} iconColor="text-indigo-500" />
+            <InfoRow icon={<Hash className="h-4 w-4" />} label="수량" value={`${order.quantity}장`} iconColor="text-emerald-500" />
+          </div>
+
+          {/* Production Note */}
+          {order.memo && (
+            <div className="flex items-start gap-2.5 rounded-lg bg-accent/60 p-3 text-[13px]">
+              <MessageSquareText className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+              <div>
+                <span className="text-muted-foreground font-medium">원판생산 참고사항</span>
+                <p className="text-foreground font-medium mt-0.5">{order.memo}</p>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Author */}
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1 border-t border-border/50">
+          {/* Author + Actions */}
+          <div className="flex items-center justify-between pt-1 border-t border-border/50">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <User className="h-3.5 w-3.5" />
               <span>발주 담당: <span className="font-semibold text-foreground">{order.user_name}</span></span>
             </div>
+            {(onEdit || onDelete) && (canManage || order.user_id === currentUserId) && (
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {onEdit && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(order)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
+                {onDelete && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDelete(order.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
-
-          {/* Actions */}
-          {(onEdit || onDelete) && (canManage || order.user_id === currentUserId) && (
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {onEdit && (
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(order)}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              )}
-              {onDelete && (
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDelete(order.id)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>
