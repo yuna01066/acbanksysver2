@@ -458,6 +458,54 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_leave_types: {
+        Row: {
+          approval_required: boolean | null
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          icon_name: string | null
+          id: string
+          is_active: boolean | null
+          is_required: boolean | null
+          max_days: number | null
+          name: string
+          paid: boolean | null
+          reference_required: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          approval_required?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          max_days?: number | null
+          name: string
+          paid?: boolean | null
+          reference_required?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          approval_required?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          max_days?: number | null
+          name?: string
+          paid?: boolean | null
+          reference_required?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       direct_messages: {
         Row: {
           created_at: string
@@ -842,48 +890,60 @@ export type Database = {
       leave_policy_settings: {
         Row: {
           allow_advance_use: boolean
+          annual_leave_method: string | null
           approver_required: boolean
           auto_expire_enabled: boolean
           auto_expire_type: string
           created_at: string | null
+          decimal_rounding: string | null
           description: string | null
+          fiscal_year_month: number | null
           grant_basis: string
           grant_method: string
           id: string
           is_default: boolean
           leave_unit: string
+          monthly_leave_method: string | null
           policy_name: string
           smart_promotion: string
           updated_at: string | null
         }
         Insert: {
           allow_advance_use?: boolean
+          annual_leave_method?: string | null
           approver_required?: boolean
           auto_expire_enabled?: boolean
           auto_expire_type?: string
           created_at?: string | null
+          decimal_rounding?: string | null
           description?: string | null
+          fiscal_year_month?: number | null
           grant_basis?: string
           grant_method?: string
           id?: string
           is_default?: boolean
           leave_unit?: string
+          monthly_leave_method?: string | null
           policy_name?: string
           smart_promotion?: string
           updated_at?: string | null
         }
         Update: {
           allow_advance_use?: boolean
+          annual_leave_method?: string | null
           approver_required?: boolean
           auto_expire_enabled?: boolean
           auto_expire_type?: string
           created_at?: string | null
+          decimal_rounding?: string | null
           description?: string | null
+          fiscal_year_month?: number | null
           grant_basis?: string
           grant_method?: string
           id?: string
           is_default?: boolean
           leave_unit?: string
+          monthly_leave_method?: string | null
           policy_name?: string
           smart_promotion?: string
           updated_at?: string | null

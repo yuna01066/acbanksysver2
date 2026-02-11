@@ -2,17 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Settings2, Calendar, Clock, Shield, Sparkles, ChevronRight, Loader2, Save, Trash2 } from 'lucide-react';
+import { Plus, Settings2, Calendar, Clock, Shield, Sparkles, ChevronRight, Loader2, Save, Trash2, Info } from 'lucide-react';
 import ResignationAdjustmentDialog from './ResignationAdjustmentDialog';
 import LeavePromotionDialog from './LeavePromotionDialog';
+import LeaveGrantMethodDialog from './LeaveGrantMethodDialog';
+import CustomLeaveTypeManager from './CustomLeaveTypeManager';
 
 interface LeavePolicy {
   id: string;
@@ -27,6 +28,10 @@ interface LeavePolicy {
   smart_promotion: string;
   approver_required: boolean;
   is_default: boolean;
+  fiscal_year_month: number;
+  monthly_leave_method: string;
+  annual_leave_method: string;
+  decimal_rounding: string;
 }
 
 const GRANT_BASIS_LABELS: Record<string, string> = {
@@ -40,12 +45,6 @@ const LEAVE_UNIT_LABELS: Record<string, string> = {
   day: '일',
 };
 
-const GRANT_METHOD_LABELS: Record<string, string> = {
-  monthly_accrual: '매월 개근시 1일 부여 · 첫 회계일에 근무한 ...',
-  annual_grant: '연 단위 일괄 부여',
-  proportional: '비례 부여',
-};
-
 const AUTO_EXPIRE_LABELS: Record<string, string> = {
   annual_monthly: '연차 · 월차 설정됨',
   annual_only: '연차만 설정됨',
@@ -57,6 +56,19 @@ const SMART_PROMOTION_LABELS: Record<string, string> = {
   enabled: '사용',
 };
 
+const MONTHLY_METHOD_LABELS: Record<string, string> = {
+  monthly_accrual: '매월 개근시 1일 부여',
+  upfront_11: '입사일에 11일 선부여',
+  upfront_to_fiscal: '입사일에 회계일까지의 월차 선부여',
+};
+
+const ANNUAL_METHOD_LABELS: Record<string, string> = {
+  first_fiscal_15: '첫 회계일에 15일 부여',
+  proportional_grant: '첫 회계일에 근무한 기간의 연차 부여',
+  upfront_to_fiscal: '입사일에 회계일까지 연차 선부여',
+  annual_15: '1년 만근시 15일 부여',
+};
+
 const LeavePolicySettings: React.FC = () => {
   const [policies, setPolicies] = useState<LeavePolicy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +77,7 @@ const LeavePolicySettings: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [resignationDialogOpen, setResignationDialogOpen] = useState(false);
   const [promotionDialogOpen, setPromotionDialogOpen] = useState(false);
+  const [grantMethodDialogOpen, setGrantMethodDialogOpen] = useState(false);
 
   const [form, setForm] = useState({
     policy_name: '',
@@ -77,6 +90,10 @@ const LeavePolicySettings: React.FC = () => {
     auto_expire_type: 'annual_monthly',
     smart_promotion: 'none',
     approver_required: false,
+    fiscal_year_month: 1,
+    monthly_leave_method: 'monthly_accrual',
+    annual_leave_method: 'proportional_grant',
+    decimal_rounding: 'round_up_day',
   });
 
   const fetchPolicies = async () => {
@@ -97,6 +114,8 @@ const LeavePolicySettings: React.FC = () => {
       allow_advance_use: false, grant_method: 'monthly_accrual',
       auto_expire_enabled: true, auto_expire_type: 'annual_monthly',
       smart_promotion: 'none', approver_required: false,
+      fiscal_year_month: 1, monthly_leave_method: 'monthly_accrual',
+      annual_leave_method: 'proportional_grant', decimal_rounding: 'round_up_day',
     });
     setDialogOpen(true);
   };
@@ -114,6 +133,10 @@ const LeavePolicySettings: React.FC = () => {
       auto_expire_type: policy.auto_expire_type,
       smart_promotion: policy.smart_promotion,
       approver_required: policy.approver_required,
+      fiscal_year_month: policy.fiscal_year_month || 1,
+      monthly_leave_method: policy.monthly_leave_method || 'monthly_accrual',
+      annual_leave_method: policy.annual_leave_method || 'proportional_grant',
+      decimal_rounding: policy.decimal_rounding || 'round_up_day',
     });
     setDialogOpen(true);
   };
@@ -157,6 +180,12 @@ const LeavePolicySettings: React.FC = () => {
     }
     toast.success('삭제되었습니다.');
     await fetchPolicies();
+  };
+
+  const getGrantMethodSummary = () => {
+    const monthlyLabel = MONTHLY_METHOD_LABELS[form.monthly_leave_method] || form.monthly_leave_method;
+    const annualLabel = ANNUAL_METHOD_LABELS[form.annual_leave_method] || form.annual_leave_method;
+    return `${monthlyLabel} · ${annualLabel}`.substring(0, 30) + '...';
   };
 
   if (loading) {
@@ -246,6 +275,13 @@ const LeavePolicySettings: React.FC = () => {
         </div>
       </section>
 
+      <Separator />
+
+      {/* 맞춤 휴가 */}
+      <section>
+        <CustomLeaveTypeManager />
+      </section>
+
       {/* Policy Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
@@ -287,7 +323,7 @@ const LeavePolicySettings: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">{form.approver_required ? '사용' : '사용 안 함'}</span>
-                    <Switch checked={form.approver_required} onCheckedChange={v => setForm({ ...form, approver_required: v })} />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </div>
 
@@ -333,17 +369,35 @@ const LeavePolicySettings: React.FC = () => {
                     <p className="text-sm font-medium">연차 부여 방식</p>
                     <p className="text-xs text-muted-foreground">연차 부여 기준을 설정할 수 있어요.</p>
                   </div>
-                  <button
-                    className="text-sm text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
-                    onClick={() => {
-                      const methods = Object.keys(GRANT_METHOD_LABELS);
-                      const idx = methods.indexOf(form.grant_method);
-                      setForm({ ...form, grant_method: methods[(idx + 1) % methods.length] });
-                    }}
-                  >
-                    {GRANT_METHOD_LABELS[form.grant_method]?.substring(0, 25)}...
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          className="text-sm text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors max-w-[250px] text-right"
+                          onClick={() => setGrantMethodDialogOpen(true)}
+                        >
+                          <span className="truncate">{getGrantMethodSummary()}</span>
+                          <ChevronRight className="h-4 w-4 shrink-0" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-xs">
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between gap-4">
+                            <span>회계일</span>
+                            <span className="font-medium">{form.fiscal_year_month}월 1일</span>
+                          </div>
+                          <div className="flex justify-between gap-4">
+                            <span>입사자 월차</span>
+                            <span className="font-medium">{MONTHLY_METHOD_LABELS[form.monthly_leave_method]}</span>
+                          </div>
+                          <div className="flex justify-between gap-4">
+                            <span>입사자 1년 만근 연차</span>
+                            <span className="font-medium">{ANNUAL_METHOD_LABELS[form.annual_leave_method]}</span>
+                          </div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
 
                 {/* 자동 소멸 설정 */}
@@ -399,6 +453,24 @@ const LeavePolicySettings: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Grant Method Detail Dialog */}
+      <LeaveGrantMethodDialog
+        open={grantMethodDialogOpen}
+        onOpenChange={setGrantMethodDialogOpen}
+        grantBasis={form.grant_basis}
+        fiscalYearMonth={form.fiscal_year_month}
+        monthlyLeaveMethod={form.monthly_leave_method}
+        annualLeaveMethod={form.annual_leave_method}
+        decimalRounding={form.decimal_rounding}
+        onUpdate={(updates) => {
+          setForm(f => ({
+            ...f,
+            ...updates,
+            ...(updates.grant_basis ? { grant_basis: updates.grant_basis } : {}),
+          }));
+        }}
+      />
 
       <ResignationAdjustmentDialog open={resignationDialogOpen} onOpenChange={setResignationDialogOpen} />
       <LeavePromotionDialog
