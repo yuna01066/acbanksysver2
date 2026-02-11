@@ -113,7 +113,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('projects')
-        .select('*, recipients(id, company_name, contact_person, phone, email)')
+        .select('*, recipients(id, company_name, contact_person, phone, email, accounting_contact_person, accounting_phone, accounting_email)')
         .eq('id', projectId)
         .single();
       if (error) throw error;
@@ -358,7 +358,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
               고객사
             </SectionLabel>
             {project.recipients ? (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <button
                   className="flex items-center gap-1.5 text-xs font-medium hover:text-primary transition-colors text-left"
                   onClick={() => setRecipientSheetOpen(true)}
@@ -366,14 +366,17 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
                   <Building2 className="h-3 w-3 text-muted-foreground" />
                   <span className="underline underline-offset-2">{project.recipients.company_name}</span>
                 </button>
-                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                  <User className="h-2.5 w-2.5" /> {project.recipients.contact_person}
-                </div>
-                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                  <Phone className="h-2.5 w-2.5" /> {project.recipients.phone}
-                </div>
-                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                  <Mail className="h-2.5 w-2.5" /> {project.recipients.email}
+                <div className="pt-1 border-t border-border/40">
+                  <p className="text-[9px] text-muted-foreground/70 mb-1">회계 담당자</p>
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <User className="h-2.5 w-2.5" /> {(project.recipients as any).accounting_contact_person || '-'}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <Phone className="h-2.5 w-2.5" /> {(project.recipients as any).accounting_phone || '-'}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <Mail className="h-2.5 w-2.5" /> {(project.recipients as any).accounting_email || '-'}
+                  </div>
                 </div>
               </div>
             ) : (
