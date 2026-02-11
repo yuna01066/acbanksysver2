@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import AvatarUpload from './AvatarUpload';
 import LaborLawPanel from './LaborLawPanel';
 import EmployeeDocumentsPanel from './EmployeeDocumentsPanel';
 import EmployeeContractsPanel from './EmployeeContractsPanel';
 import EmployeeAttendancePanel from './EmployeeAttendancePanel';
 import EmployeeLeavePanel from './EmployeeLeavePanel';
+import PerformanceReviewPanel from './PerformanceReviewPanel';
+import EmployeeIncidentList from '@/components/performance/EmployeeIncidentList';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +25,7 @@ import {
   User, Building2, Briefcase, Hash, Calendar, Globe, MapPin,
   CreditCard, Clock, Award, AlertTriangle, GraduationCap,
   Heart, FileText, Wallet, CalendarDays, Pencil, Save, X, Loader2,
-  Mail, Phone, FileSignature, Shield
+  Mail, Phone, FileSignature, Shield, Star
 } from 'lucide-react';
 import type { EmployeeProfile, AppRoleType } from './EmployeeListSidebar';
 import { ROLE_BADGE_MAP } from './EmployeeListSidebar';
@@ -121,6 +125,8 @@ interface EmployeeProfileDetailProps {
 }
 
 const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee, onUpdated, currentRole, onRoleChanged }) => {
+  const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [editingTab, setEditingTab] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
@@ -337,89 +343,114 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
       </div>
 
       {/* Tabbed Content */}
-      <Tabs defaultValue="personnel" className="flex-1 flex flex-col min-h-0">
-        <div className="border-b px-6">
-          <TabsList className="bg-transparent h-10 p-0 gap-0">
-            <TabsTrigger value="personnel" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">인사 정보</TabsTrigger>
-            <TabsTrigger value="work" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">근무 · 휴가</TabsTrigger>
-            <TabsTrigger value="salary" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">급여 · 계약</TabsTrigger>
-            <TabsTrigger value="etc" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">기타 정보</TabsTrigger>
-            <TabsTrigger value="labor" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">근로기준법</TabsTrigger>
-            <TabsTrigger value="documents" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">문서함</TabsTrigger>
-            <TabsTrigger value="contracts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">전자계약</TabsTrigger>
-            <TabsTrigger value="attendance" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">근태기록</TabsTrigger>
-            <TabsTrigger value="leave" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">연차·휴가</TabsTrigger>
-            <TabsTrigger value="role" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
-              <Shield className="h-3.5 w-3.5 mr-1" />권한
-            </TabsTrigger>
+      <Tabs defaultValue="attendance" className="flex-1 flex flex-col min-h-0">
+        <div className="border-b px-6 overflow-x-auto">
+          <TabsList className="bg-transparent h-10 p-0 gap-0 flex-nowrap">
+            <TabsTrigger value="attendance" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">근태기록</TabsTrigger>
+            <TabsTrigger value="leave" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">연차·휴가</TabsTrigger>
+            <TabsTrigger value="review" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">업무평가</TabsTrigger>
+            {isAdmin && (
+              <>
+                <TabsTrigger value="personnel" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">인사 정보</TabsTrigger>
+                <TabsTrigger value="work" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">근무 · 휴가</TabsTrigger>
+                <TabsTrigger value="salary" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">급여 · 계약</TabsTrigger>
+                <TabsTrigger value="etc" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">기타 정보</TabsTrigger>
+                <TabsTrigger value="labor" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">근로기준법</TabsTrigger>
+                <TabsTrigger value="documents" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">문서함</TabsTrigger>
+                <TabsTrigger value="contracts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">전자계약</TabsTrigger>
+                <TabsTrigger value="role" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 text-sm whitespace-nowrap">
+                  <Shield className="h-3.5 w-3.5 mr-1" />권한
+                </TabsTrigger>
+              </>
+            )}
           </TabsList>
         </div>
         <ScrollArea className="flex-1">
           <div className="px-6 pb-6">
-            <TabsContent value="personnel" className="mt-0">
-              {renderTabWithEdit('personnel', personnelSections)}
-            </TabsContent>
-            <TabsContent value="work" className="mt-0">
-              {renderTabWithEdit('work', workSections)}
-            </TabsContent>
-            <TabsContent value="salary" className="mt-0 py-4">
-              <EmployeeContractsPanel userId={employee.id} isAdmin />
-            </TabsContent>
-            <TabsContent value="etc" className="mt-0">
-              {renderTabWithEdit('etc', etcSections)}
-            </TabsContent>
-            <TabsContent value="labor" className="mt-0">
-              <LaborLawPanel joinDate={employee.join_date} weeklyWorkHours={employee.work_hours_per_week} isAdmin />
-            </TabsContent>
-            <TabsContent value="documents" className="mt-0 py-4">
-              <EmployeeDocumentsPanel userId={employee.id} isAdmin />
-            </TabsContent>
-            <TabsContent value="contracts" className="mt-0 py-4">
-              <EmployeeContractsPanel userId={employee.id} isAdmin />
-            </TabsContent>
             <TabsContent value="attendance" className="mt-0 py-4">
               <EmployeeAttendancePanel userId={employee.id} userName={employee.full_name} />
             </TabsContent>
             <TabsContent value="leave" className="mt-0 py-4">
               <EmployeeLeavePanel userId={employee.id} />
             </TabsContent>
-            <TabsContent value="role" className="mt-0 py-4">
-              <div className="max-w-md space-y-6">
-                <div>
-                  <h3 className="text-sm font-semibold flex items-center gap-2 mb-1">
-                    <Shield className="h-4 w-4 text-primary" /> 계정 권한 설정
-                  </h3>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    이 구성원의 시스템 접근 권한을 설정합니다.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm">권한</Label>
-                  <Select
-                    value={currentRole || 'employee'}
-                    onValueChange={(v) => handleRoleChange(v as AppRoleType)}
-                    disabled={savingRole}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ROLE_OPTIONS.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    관리자: 전체 시스템 관리 · 중간관리자: 근무/프로젝트 관리 · 담당자: 프로젝트 참여 · 직원: 기본 접근
-                  </p>
-                </div>
-                {savingRole && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" /> 권한 변경 중...
-                  </div>
-                )}
+            <TabsContent value="review" className="mt-0 py-4">
+              <PerformanceReviewPanel userId={employee.id} userName={employee.full_name} summaryOnly />
+              <div className="mt-6">
+                <EmployeeIncidentList userId={employee.id} />
+              </div>
+              <div className="mt-3 flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs"
+                  onClick={() => navigate(`/review-settings?tab=history&employeeId=${employee.id}`)}
+                >
+                  <Star className="h-3.5 w-3.5" /> 평가 더보기
+                </Button>
               </div>
             </TabsContent>
+            {isAdmin && (
+              <>
+                <TabsContent value="personnel" className="mt-0">
+                  {renderTabWithEdit('personnel', personnelSections)}
+                </TabsContent>
+                <TabsContent value="work" className="mt-0">
+                  {renderTabWithEdit('work', workSections)}
+                </TabsContent>
+                <TabsContent value="salary" className="mt-0 py-4">
+                  <EmployeeContractsPanel userId={employee.id} isAdmin />
+                </TabsContent>
+                <TabsContent value="etc" className="mt-0">
+                  {renderTabWithEdit('etc', etcSections)}
+                </TabsContent>
+                <TabsContent value="labor" className="mt-0">
+                  <LaborLawPanel joinDate={employee.join_date} weeklyWorkHours={employee.work_hours_per_week} isAdmin />
+                </TabsContent>
+                <TabsContent value="documents" className="mt-0 py-4">
+                  <EmployeeDocumentsPanel userId={employee.id} isAdmin />
+                </TabsContent>
+                <TabsContent value="contracts" className="mt-0 py-4">
+                  <EmployeeContractsPanel userId={employee.id} isAdmin />
+                </TabsContent>
+                <TabsContent value="role" className="mt-0 py-4">
+                  <div className="max-w-md space-y-6">
+                    <div>
+                      <h3 className="text-sm font-semibold flex items-center gap-2 mb-1">
+                        <Shield className="h-4 w-4 text-primary" /> 계정 권한 설정
+                      </h3>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        이 구성원의 시스템 접근 권한을 설정합니다.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">권한</Label>
+                      <Select
+                        value={currentRole || 'employee'}
+                        onValueChange={(v) => handleRoleChange(v as AppRoleType)}
+                        disabled={savingRole}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ROLE_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        관리자: 전체 시스템 관리 · 중간관리자: 근무/프로젝트 관리 · 담당자: 프로젝트 참여 · 직원: 기본 접근
+                      </p>
+                    </div>
+                    {savingRole && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" /> 권한 변경 중...
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </>
+            )}
           </div>
         </ScrollArea>
       </Tabs>

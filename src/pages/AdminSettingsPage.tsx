@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Lock, Settings, Users, Briefcase, UserCog, Code, Wrench, Link, Building2, BarChart3, FolderKanban, Star } from "lucide-react";
+import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, Link, Building2, BarChart3, FolderKanban, Star } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const AdminSettingsPage = () => {
@@ -71,31 +71,18 @@ const AdminSettingsPage = () => {
               <CardDescription>직원 프로필, 근무 관리 및 회사 설정</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
-              {isAdmin && (
-                <button
-                  onClick={() => navigate('/employee-profiles')}
-                  className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <UserCog className="w-4 h-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">직원 프로필 관리</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">인사 정보, 급여, 계약, 문서함 등 민감 정보 관리 (관리자 전용)</p>
-                  </div>
-                </button>
-              )}
-
               <button
-                onClick={() => navigate('/employee-work')}
+                onClick={() => navigate('/employee-profiles')}
                 className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
               >
-                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <Briefcase className="w-4 h-4 text-blue-500" />
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <UserCog className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">직원 근무 관리</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">근태기록, 연차·휴가, 업무평가, 근무 정보 열람</p>
+                  <p className="text-sm font-medium">구성원 관리</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {isAdmin ? '인사 정보, 근태, 휴가, 평가, 계약, 문서함, 권한 통합 관리' : '근태기록, 연차·휴가, 업무평가 열람'}
+                  </p>
                 </div>
               </button>
 
