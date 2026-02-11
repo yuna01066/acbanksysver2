@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, Link, Building2, BarChart3, FolderKanban, Star, Shield } from "lucide-react";
+import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, Link, Building2, BarChart3, FolderKanban, Star, Shield, Receipt } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const AdminSettingsPage = () => {
@@ -109,6 +109,19 @@ const AdminSettingsPage = () => {
                 <div>
                   <p className="text-sm font-medium">회사 설정</p>
                   <p className="text-xs text-muted-foreground mt-0.5">회사 정보, 휴일, 계약서, 연차 설정</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate('/year-end-tax-admin')}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Receipt className="w-4 h-4 text-teal-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">연말정산 관리</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">직원 연말정산 현황 및 검토/확정</p>
                 </div>
               </button>
 
