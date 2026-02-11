@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export interface AppNotification {
   id: string;
-  type: 'password_reset' | 'pending_approval' | 'system' | 'quote_update' | 'approval_complete' | 'quote_modified' | 'leave_request' | 'leave_approved' | 'leave_rejected' | 'leave_expiry_warning' | 'leave_promotion_summary' | 'peer_feedback' | 'performance_review_summary';
+  type: 'password_reset' | 'pending_approval' | 'system' | 'quote_update' | 'approval_complete' | 'quote_modified' | 'leave_request' | 'leave_approved' | 'leave_rejected' | 'leave_expiry_warning' | 'leave_promotion_summary' | 'peer_feedback' | 'performance_review_summary' | 'project_mention';
   title: string;
   description: string;
   data?: Record<string, any>;
