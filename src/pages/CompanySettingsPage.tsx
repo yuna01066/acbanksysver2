@@ -46,6 +46,11 @@ const CompanySettingsPage: React.FC = () => {
             <TabsTrigger value="leave" className="gap-1.5">
               <Calendar className="h-4 w-4" /> 연차 설정
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="access" className="gap-1.5">
+                <Shield className="h-4 w-4" /> 접근 권한
+              </TabsTrigger>
+            )}
           </TabsList>
           <TabsContent value="info">
             <CompanyInfoForm />
@@ -59,21 +64,17 @@ const CompanySettingsPage: React.FC = () => {
           <TabsContent value="leave">
             <LeavePolicySettings />
           </TabsContent>
+          {isAdmin && (
+            <TabsContent value="access">
+              <div className="mb-4">
+                <p className="text-sm text-muted-foreground">
+                  각 기능에 접근할 수 있는 <strong>최소 역할</strong>을 설정합니다. 설정된 역할 이상의 직원만 해당 기능을 사용할 수 있습니다.
+                </p>
+              </div>
+              <FeatureAccessManager />
+            </TabsContent>
+          )}
         </Tabs>
-
-        {/* 기능별 접근 권한 — 관리자만 */}
-        {isAdmin && (
-          <div className="mt-10">
-            <div className="flex items-center gap-2 mb-4">
-              <Shield className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-bold">기능별 접근 권한</h2>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              각 기능에 접근할 수 있는 <strong>최소 역할</strong>을 설정합니다. 설정된 역할 이상의 직원만 해당 기능을 사용할 수 있습니다.
-            </p>
-            <FeatureAccessManager />
-          </div>
-        )}
       </div>
     </div>
   );
