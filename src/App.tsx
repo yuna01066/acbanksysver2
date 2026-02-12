@@ -44,6 +44,7 @@ import YearEndTaxPage from "./pages/YearEndTaxPage";
 import YearEndTaxAdminPage from "./pages/YearEndTaxAdminPage";
 import StorageStatusPage from "./pages/StorageStatusPage";
 import QuoteTemplateManagementPage from "./pages/QuoteTemplateManagementPage";
+import TaxInvoicesPage from "./pages/TaxInvoicesPage";
 
 const queryClient = new QueryClient();
 
@@ -97,6 +98,7 @@ const App = () => (
             <Route path="/year-end-tax-admin" element={<YearEndTaxAdminPage />} />
             <Route path="/storage-status" element={<StorageStatusPage />} />
             <Route path="/quote-template-management" element={<QuoteTemplateManagementPage />} />
+            <Route path="/tax-invoices" element={<G><TaxInvoicesPage /></G>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
             </Routes>
