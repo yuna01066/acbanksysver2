@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Sun, Moon, Coffee, Utensils, Clock, Calendar } from 'lucide-react';
+import { Sun, Moon, Coffee, Utensils, Clock, Calendar, MapPin, Video } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
@@ -60,41 +60,52 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
   const [myStatus, setMyStatus] = useState<WorkStatus>('available');
   const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
 
-  // Fetch today's meetings from announcements
-  const { data: todayMeetings } = useQuery({
-    queryKey: ['today-announcement-meetings'],
+  // Fetch today's upcoming events (conference, meeting, event)
+  const { data: todayEvents } = useQuery({
+    queryKey: ['today-upcoming-events'],
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('announcements')
-        .select('id, title, meeting_date, meeting_time, meeting_location')
-        .eq('announcement_type', 'meeting')
-        .eq('meeting_date', today)
-        .not('meeting_time', 'is', null);
+        .select('id, title, announcement_type, meeting_date, meeting_time, meeting_location, content, author_name')
+        .in('announcement_type', ['meeting', 'conference', 'event'])
+        .or(`meeting_date.eq.${today},and(meeting_date.lte.${today},event_end_date.gte.${today})`)
+        .order('meeting_time', { ascending: true, nullsFirst: false });
       if (error) throw error;
       return data || [];
     },
-    refetchInterval: 60000, // refetch every minute
+    refetchInterval: 60000,
   });
 
-  // Check for upcoming meetings within 30 minutes
-  const upcomingMeeting = useMemo(() => {
-    if (!todayMeetings || todayMeetings.length === 0) return null;
+  // Filter upcoming events within 30 minutes
+  const upcomingEvents = useMemo(() => {
+    if (!todayEvents || todayEvents.length === 0) return [];
     const nowDate = new Date();
-    const currentMin = nowDate.getHours() * 60 + nowDate.getMinutes();
+    const currentMinute = nowDate.getHours() * 60 + nowDate.getMinutes();
 
-    for (const m of todayMeetings) {
-      if (!m.meeting_time) continue;
-      const [h, min] = m.meeting_time.split(':').map(Number);
-      if (isNaN(h) || isNaN(min)) continue;
-      const meetingMin = h * 60 + min;
-      const diff = meetingMin - currentMin;
-      if (diff > 0 && diff <= 30) {
-        return { ...m, minutesLeft: diff };
-      }
-    }
-    return null;
-  }, [todayMeetings, now]);
+    return todayEvents
+      .map(ev => {
+        if (!ev.meeting_time) {
+          // Events without time - show all day
+          return { ...ev, minutesLeft: null, isAllDay: true };
+        }
+        const [h, min] = ev.meeting_time.split(':').map(Number);
+        if (isNaN(h) || isNaN(min)) return null;
+        const eventMin = h * 60 + min;
+        const diff = eventMin - currentMinute;
+        if (diff > 0 && diff <= 30) {
+          return { ...ev, minutesLeft: diff, isAllDay: false };
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .slice(0, 3) as Array<{
+        id: string; title: string; announcement_type: string;
+        meeting_date: string | null; meeting_time: string | null;
+        meeting_location: string | null; content: string;
+        author_name: string; minutesLeft: number | null; isAllDay: boolean;
+      }>;
+  }, [todayEvents, now]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -280,20 +291,60 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
         </div>
       </div>
 
-      {/* Upcoming meeting reminder */}
-      {upcomingMeeting && (
-        <div className="mt-3 px-3 py-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex items-center gap-2.5">
-          <Calendar className="h-4 w-4 text-amber-600 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-              📋 {upcomingMeeting.minutesLeft}분 후 회의가 예정되어 있습니다.
-            </p>
-            <p className="text-xs text-amber-600 dark:text-amber-400 truncate">
-              {upcomingMeeting.title}
-              {upcomingMeeting.meeting_time && ` · ${upcomingMeeting.meeting_time}`}
-              {upcomingMeeting.meeting_location && ` · ${upcomingMeeting.meeting_location}`}
-            </p>
-          </div>
+      {/* Upcoming event reminders - separate cards */}
+      {upcomingEvents.length > 0 && (
+        <div className={`mt-3 grid gap-2.5 ${upcomingEvents.length === 1 ? 'grid-cols-1' : upcomingEvents.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          {upcomingEvents.map((ev) => {
+            const typeConfig = {
+              conference: { label: '회의', badgeBg: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300', cardBorder: 'border-violet-200 dark:border-violet-800', cardBg: 'bg-violet-50/80 dark:bg-violet-950/30', icon: <Video className="h-3.5 w-3.5" /> },
+              meeting: { label: '미팅', badgeBg: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', cardBorder: 'border-amber-200 dark:border-amber-800', cardBg: 'bg-amber-50/80 dark:bg-amber-950/30', icon: <Coffee className="h-3.5 w-3.5" /> },
+              event: { label: '이벤트', badgeBg: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300', cardBorder: 'border-emerald-200 dark:border-emerald-800', cardBg: 'bg-emerald-50/80 dark:bg-emerald-950/30', icon: <Calendar className="h-3.5 w-3.5" /> },
+            }[ev.announcement_type] || { label: '일정', badgeBg: 'bg-muted text-muted-foreground', cardBorder: 'border-border', cardBg: 'bg-muted/50', icon: <Calendar className="h-3.5 w-3.5" /> };
+
+            const formattedDate = ev.meeting_date
+              ? new Date(ev.meeting_date + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' })
+              : null;
+
+            return (
+              <div key={ev.id} className={`rounded-xl border ${typeConfig.cardBorder} ${typeConfig.cardBg} p-3 space-y-1.5`}>
+                {/* Header: badge + minutes */}
+                <div className="flex items-center justify-between">
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${typeConfig.badgeBg}`}>
+                    {typeConfig.icon}
+                    {typeConfig.label}
+                  </span>
+                  {ev.minutesLeft && (
+                    <span className="text-[10px] font-medium text-muted-foreground">{ev.minutesLeft}분 전</span>
+                  )}
+                </div>
+                {/* Title */}
+                <p className="text-sm font-semibold text-foreground leading-snug truncate">{ev.title}</p>
+                {/* Date / Time / Location */}
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-muted-foreground">
+                  {formattedDate && (
+                    <span className="flex items-center gap-0.5">
+                      <Calendar className="h-3 w-3 shrink-0" />
+                      {formattedDate}
+                    </span>
+                  )}
+                  {ev.meeting_time && (
+                    <span className="flex items-center gap-0.5">
+                      <Clock className="h-3 w-3 shrink-0" />
+                      {ev.meeting_time}
+                    </span>
+                  )}
+                  {ev.meeting_location && (
+                    <span className="flex items-center gap-0.5">
+                      <MapPin className="h-3 w-3 shrink-0 text-red-400" />
+                      {ev.meeting_location}
+                    </span>
+                  )}
+                </div>
+                {/* Author */}
+                <p className="text-[10px] text-muted-foreground/70">{ev.author_name}</p>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
