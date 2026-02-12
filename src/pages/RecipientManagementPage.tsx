@@ -408,6 +408,26 @@ const RecipientManagementPage = () => {
                   recipientId={selectedRecipient.id}
                   documentUrl={(selectedRecipient as any).business_document_url || null}
                   onDocumentChange={() => fetchRecipients()}
+                  onBusinessInfoExtracted={async (info) => {
+                    try {
+                      const updates: Record<string, string> = {};
+                      if (info.business_name) updates.business_name = info.business_name;
+                      if (info.ceo_name) updates.ceo_name = info.ceo_name;
+                      if (info.business_registration_number) updates.business_registration_number = info.business_registration_number;
+                      if (info.business_type) updates.business_type = info.business_type;
+                      if (info.business_class) updates.business_class = info.business_class;
+                      if (info.address) updates.address = info.address;
+                      if (info.detail_address) updates.detail_address = info.detail_address;
+                      if (info.branch_number) updates.branch_number = info.branch_number;
+
+                      if (Object.keys(updates).length > 0) {
+                        await updateRecipient(selectedRecipient.id, updates);
+                        await fetchRecipients();
+                      }
+                    } catch (err) {
+                      console.error('사업자 정보 업데이트 에러:', err);
+                    }
+                  }}
                 />
 
                 {/* Quote History */}
