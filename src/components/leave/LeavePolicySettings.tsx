@@ -27,6 +27,7 @@ interface LeavePolicy {
   auto_expire_type: string;
   smart_promotion: string;
   approver_required: boolean;
+  approver_level: string;
   is_default: boolean;
   fiscal_year_month: number;
   monthly_leave_method: string;
@@ -54,6 +55,13 @@ const AUTO_EXPIRE_LABELS: Record<string, string> = {
 const SMART_PROMOTION_LABELS: Record<string, string> = {
   none: '사용 안 함',
   enabled: '사용',
+};
+
+const APPROVER_LEVEL_LABELS: Record<string, string> = {
+  none: '사용 안 함',
+  manager_up: '담당자부터 상급자',
+  moderator_up: '중간관리자부터 상급자',
+  admin: '관리자',
 };
 
 const MONTHLY_METHOD_LABELS: Record<string, string> = {
@@ -90,6 +98,7 @@ const LeavePolicySettings: React.FC = () => {
     auto_expire_type: 'annual_monthly',
     smart_promotion: 'none',
     approver_required: false,
+    approver_level: 'none',
     fiscal_year_month: 1,
     monthly_leave_method: 'monthly_accrual',
     annual_leave_method: 'proportional_grant',
@@ -113,7 +122,7 @@ const LeavePolicySettings: React.FC = () => {
       policy_name: '', description: '', grant_basis: 'join_date', leave_unit: 'day',
       allow_advance_use: false, grant_method: 'monthly_accrual',
       auto_expire_enabled: true, auto_expire_type: 'annual_monthly',
-      smart_promotion: 'none', approver_required: false,
+      smart_promotion: 'none', approver_required: false, approver_level: 'none',
       fiscal_year_month: 1, monthly_leave_method: 'monthly_accrual',
       annual_leave_method: 'proportional_grant', decimal_rounding: 'round_up_day',
     });
@@ -133,6 +142,7 @@ const LeavePolicySettings: React.FC = () => {
       auto_expire_type: policy.auto_expire_type,
       smart_promotion: policy.smart_promotion,
       approver_required: policy.approver_required,
+      approver_level: (policy as any).approver_level || 'none',
       fiscal_year_month: policy.fiscal_year_month || 1,
       monthly_leave_method: policy.monthly_leave_method || 'monthly_accrual',
       annual_leave_method: policy.annual_leave_method || 'proportional_grant',
@@ -220,8 +230,7 @@ const LeavePolicySettings: React.FC = () => {
                       <p className="text-sm font-medium">{LEAVE_UNIT_LABELS[policy.leave_unit] || policy.leave_unit} 단위</p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">승인 · 참조</p>
-                      <p className="text-sm font-medium text-muted-foreground">{policy.approver_required ? '사용' : '없음'}</p>
+                      <p className="text-sm font-medium text-muted-foreground">{APPROVER_LEVEL_LABELS[(policy as any).approver_level] || (policy.approver_required ? '사용' : '없음')}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">스마트 연차 촉진</p>
@@ -321,10 +330,18 @@ const LeavePolicySettings: React.FC = () => {
                     <p className="text-sm font-medium">승인 · 참조자 선택</p>
                     <p className="text-xs text-muted-foreground">승인 참조 대상을 선택해 주세요.</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">{form.approver_required ? '사용' : '사용 안 함'}</span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
+                  <select
+                    value={form.approver_level}
+                    onChange={e => {
+                      const level = e.target.value;
+                      setForm({ ...form, approver_level: level, approver_required: level !== 'none' });
+                    }}
+                    className="border rounded-md px-3 py-1.5 text-sm bg-background min-w-[180px]"
+                  >
+                    {Object.entries(APPROVER_LEVEL_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* 연차 사용 단위 */}

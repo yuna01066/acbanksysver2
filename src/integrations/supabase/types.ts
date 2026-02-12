@@ -891,6 +891,7 @@ export type Database = {
         Row: {
           allow_advance_use: boolean
           annual_leave_method: string | null
+          approver_level: string
           approver_required: boolean
           auto_expire_enabled: boolean
           auto_expire_type: string
@@ -911,6 +912,7 @@ export type Database = {
         Insert: {
           allow_advance_use?: boolean
           annual_leave_method?: string | null
+          approver_level?: string
           approver_required?: boolean
           auto_expire_enabled?: boolean
           auto_expire_type?: string
@@ -931,6 +933,7 @@ export type Database = {
         Update: {
           allow_advance_use?: boolean
           annual_leave_method?: string | null
+          approver_level?: string
           approver_required?: boolean
           auto_expire_enabled?: boolean
           auto_expire_type?: string
