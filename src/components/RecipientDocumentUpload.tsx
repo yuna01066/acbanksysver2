@@ -11,6 +11,7 @@ interface RecipientDocumentUploadProps {
   recipientId: string;
   documentUrl: string | null;
   onDocumentChange: (url: string | null) => void;
+  onBusinessInfoExtracted?: (info: Record<string, string>) => void;
 }
 
 const ALLOWED_TYPES = [
@@ -26,10 +27,12 @@ export function RecipientDocumentUpload({
   recipientId,
   documentUrl,
   onDocumentChange,
+  onBusinessInfoExtracted,
 }: RecipientDocumentUploadProps) {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -75,6 +78,36 @@ export function RecipientDocumentUpload({
 
       onDocumentChange(filePath);
       toast.success('사업자 사본이 업로드되었습니다.');
+
+      // OCR extraction for image files
+      if (file.type.startsWith('image/') && onBusinessInfoExtracted) {
+        setExtracting(true);
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuffer);
+          let binary = '';
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
+          const base64 = btoa(binary);
+
+          const { data: extractData, error: extractError } = await supabase.functions.invoke('extract-business-info', {
+            body: { imageBase64: base64, mimeType: file.type },
+          });
+
+          if (extractError) throw extractError;
+          if (extractData?.success && extractData?.data) {
+            onBusinessInfoExtracted(extractData.data);
+            toast.success('사업자등록증 정보가 자동으로 반영되었습니다.');
+          }
+        } catch (ocrErr) {
+          console.error('OCR 추출 에러:', ocrErr);
+          toast.error('사업자 정보 자동 추출에 실패했습니다. 수동으로 입력해주세요.');
+        } finally {
+          setExtracting(false);
+        }
+      }
     } catch (err) {
       console.error('업로드 에러:', err);
       toast.error('파일 업로드에 실패했습니다.');
@@ -181,14 +214,14 @@ export function RecipientDocumentUpload({
                 variant="outline"
                 size="sm"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
+                disabled={uploading || extracting}
               >
-                {uploading ? (
+                {uploading || extracting ? (
                   <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                 ) : (
                   <Upload className="w-4 h-4 mr-1" />
                 )}
-                {uploading ? '업로드 중...' : '파일 선택'}
+                {extracting ? '정보 추출 중...' : uploading ? '업로드 중...' : '파일 선택'}
               </Button>
             </div>
           )}
