@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, Link, Building2, BarChart3, FolderKanban, Star, Shield, Receipt } from "lucide-react";
+import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, BarChart3, FolderKanban, Star, Shield, Receipt } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const AdminSettingsPage = () => {
@@ -205,15 +205,15 @@ const AdminSettingsPage = () => {
               </button>
 
               <button
-                onClick={() => navigate('/pluuug-integration')}
+                onClick={() => navigate('/storage-status')}
                 className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
               >
                 <div className="w-8 h-8 rounded-lg bg-pink-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <Link className="w-4 h-4 text-pink-500" />
+                  <HardDrive className="w-4 h-4 text-pink-500" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Pluuug 연동</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">고객, 견적서, 계약 데이터 동기화</p>
+                  <p className="text-sm font-medium">스토리지 현황</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">데이터 스토리지 잔여량 및 사용 현황</p>
                 </div>
               </button>
             </CardContent>
