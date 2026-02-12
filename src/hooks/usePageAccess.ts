@@ -25,17 +25,25 @@ export const usePageAccess = () => {
     const checkAccess = async () => {
       const pageKey = location.pathname;
 
+      // Try exact match first, then parent path (e.g. /saved-quotes/abc → /saved-quotes)
+      const pathsToCheck = [pageKey];
+      const segments = pageKey.split('/').filter(Boolean);
+      if (segments.length > 1) {
+        pathsToCheck.push('/' + segments[0]);
+      }
+
       const { data, error } = await supabase
         .from('page_role_access')
         .select('min_role')
-        .eq('page_key', pageKey)
-        .maybeSingle();
+        .in('page_key', pathsToCheck)
+        .order('min_role', { ascending: true })
+        .limit(1);
 
-      if (error || !data) {
+      if (error || !data || data.length === 0) {
         // No restriction — open to all
         setAllowed(true);
       } else {
-        const minRole = data.min_role as AppRole;
+        const minRole = data[0].min_role as AppRole;
         const minIdx = ROLE_HIERARCHY.indexOf(minRole);
         const userIdx = userRole ? ROLE_HIERARCHY.indexOf(userRole) : ROLE_HIERARCHY.length;
         // Lower index = higher privilege
