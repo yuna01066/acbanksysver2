@@ -41,29 +41,52 @@ const LinkQuoteDialog: React.FC<Props> = ({ open, onOpenChange, projectId }) => 
         .eq('id', quoteId);
       if (error) throw error;
 
-      // 2. Auto-link recipient if project has none
+      // 2. Fetch project current state
       const { data: project } = await supabase
         .from('projects')
-        .select('recipient_id')
+        .select('recipient_id, contact_name')
         .eq('id', projectId)
         .single();
 
-      if (project && !project.recipient_id) {
-        const quote = quotes.find((q: any) => q.id === quoteId);
-        if (quote?.recipient_company) {
-          const { data: recipient } = await supabase
-            .from('recipients')
-            .select('id')
-            .eq('company_name', quote.recipient_company)
-            .limit(1)
-            .maybeSingle();
+      if (!project) return;
 
-          if (recipient) {
-            await supabase
-              .from('projects')
-              .update({ recipient_id: recipient.id })
-              .eq('id', projectId);
-          }
+      const quote = quotes.find((q: any) => q.id === quoteId);
+
+      // 3. Auto-link recipient if project has none
+      if (!project.recipient_id && quote?.recipient_company) {
+        const { data: recipient } = await supabase
+          .from('recipients')
+          .select('id')
+          .eq('company_name', quote.recipient_company)
+          .limit(1)
+          .maybeSingle();
+
+        if (recipient) {
+          await supabase
+            .from('projects')
+            .update({ recipient_id: recipient.id })
+            .eq('id', projectId);
+        }
+      }
+
+      // 4. Auto-link contact if project has none and quote has contact info
+      if (!project.contact_name) {
+        // Fetch full quote data for contact info
+        const { data: fullQuote } = await supabase
+          .from('saved_quotes')
+          .select('recipient_name, recipient_phone, recipient_email')
+          .eq('id', quoteId)
+          .single();
+
+        if (fullQuote?.recipient_name) {
+          await supabase
+            .from('projects')
+            .update({
+              contact_name: fullQuote.recipient_name,
+              contact_phone: fullQuote.recipient_phone || null,
+              contact_email: fullQuote.recipient_email || null,
+            } as any)
+            .eq('id', projectId);
         }
       }
     },
