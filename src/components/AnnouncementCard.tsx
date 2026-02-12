@@ -93,7 +93,7 @@ const AnnouncementCard = () => {
           message: meetingInfo,
         });
       } else if (announcementType === 'event') {
-        const eventInfo = `🎉 이벤트 공지: ${title}\n📅 ${meetingDate || '미정'}${eventEndDate ? ` ~ ${eventEndDate}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}`;
+        const eventInfo = `❗ 이벤트 공지: ${title}\n📅 ${meetingDate || '미정'}${eventEndDate ? ` ~ ${eventEndDate}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}`;
         await supabase.from('team_messages').insert({
           user_id: user.id,
           user_name: profile.full_name || user.email || '관리자',
@@ -110,7 +110,7 @@ const AnnouncementCard = () => {
 
       if (allProfiles && allProfiles.length > 0) {
         const notiTitle = announcementType === 'meeting' ? '📋 회의 공지'
-          : announcementType === 'event' ? '🎉 이벤트 공지'
+          : announcementType === 'event' ? '❗ 이벤트 공지'
           : '새 공지사항';
         const notiDesc = announcementType === 'meeting'
           ? `회의가 등록되었습니다: ${title} (${meetingDate || '날짜 미정'}${finalMeetingTime ? ` ${finalMeetingTime}` : ''})`
