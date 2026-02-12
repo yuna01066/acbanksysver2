@@ -10,10 +10,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Megaphone, ArrowLeft, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper, Building2, Users, X, Coffee } from 'lucide-react';
+import { Megaphone, ArrowLeft, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper, Building2, Users, X, Coffee, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+
+type AnnouncementType = 'general' | 'event' | 'conference' | 'meeting';
 
 interface Announcement {
   id: string;
@@ -35,16 +37,23 @@ interface Announcement {
   updated_at: string;
 }
 
+const TAB_CONFIG: { value: string; label: string; icon: React.ReactNode; types: string[] }[] = [
+  { value: 'general', label: '공지', icon: <Megaphone className="h-4 w-4" />, types: ['general'] },
+  { value: 'event', label: '이벤트', icon: <PartyPopper className="h-4 w-4" />, types: ['event'] },
+  { value: 'conference', label: '회의', icon: <Video className="h-4 w-4" />, types: ['conference'] },
+  { value: 'meeting', label: '미팅', icon: <Coffee className="h-4 w-4" />, types: ['meeting'] },
+];
+
 const AnnouncementsPage = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, isModerator } = useAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('announcements');
+  const [activeTab, setActiveTab] = useState('general');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [announcementType, setAnnouncementType] = useState<'general' | 'meeting' | 'event'>('general');
+  const [announcementType, setAnnouncementType] = useState<AnnouncementType>('general');
   const [meetingDate, setMeetingDate] = useState('');
   const [meetingTime, setMeetingTime] = useState('');
   const [meetingLocation, setMeetingLocation] = useState('');
@@ -101,7 +110,7 @@ const AnnouncementsPage = () => {
     mutationFn: async () => {
       if (!user || !profile) throw new Error('로그인 필요');
 
-      const isMeetingOrEvent = announcementType === 'meeting' || announcementType === 'event';
+      const hasDateFields = announcementType === 'event' || announcementType === 'conference' || announcementType === 'meeting';
       const assigneeNames = selectedAssigneeIds.map(id => employees?.find(e => e.id === id)?.full_name || '').filter(Boolean);
       const recipientName = selectedRecipientId 
         ? recipients?.find(r => r.id === selectedRecipientId)?.company_name || recipientNameInput 
@@ -114,9 +123,9 @@ const AnnouncementsPage = () => {
             title,
             content,
             announcement_type: announcementType,
-            meeting_date: isMeetingOrEvent ? meetingDate || null : null,
-            meeting_time: announcementType === 'meeting' ? meetingTime || null : null,
-            meeting_location: isMeetingOrEvent ? meetingLocation || null : null,
+            meeting_date: hasDateFields ? meetingDate || null : null,
+            meeting_time: (announcementType === 'conference' || announcementType === 'meeting') ? meetingTime || null : null,
+            meeting_location: hasDateFields ? meetingLocation || null : null,
             event_end_date: announcementType === 'event' ? eventEndDate || null : null,
             recipient_id: announcementType === 'meeting' ? selectedRecipientId : null,
             recipient_name: announcementType === 'meeting' ? recipientName : null,
@@ -133,12 +142,14 @@ const AnnouncementsPage = () => {
           author_name: profile.full_name || user.email || '관리자',
           announcement_type: announcementType,
         };
-        if (isMeetingOrEvent) {
+        if (hasDateFields) {
           insertData.meeting_date = meetingDate || null;
           insertData.meeting_location = meetingLocation || null;
         }
-        if (announcementType === 'meeting') {
+        if (announcementType === 'conference' || announcementType === 'meeting') {
           insertData.meeting_time = meetingTime || null;
+        }
+        if (announcementType === 'meeting') {
           insertData.recipient_id = selectedRecipientId;
           insertData.recipient_name = recipientName;
           insertData.assignee_ids = selectedAssigneeIds;
@@ -156,21 +167,29 @@ const AnnouncementsPage = () => {
         if (error) throw error;
 
         // Post to team chat
-        if (announcementType === 'meeting') {
-          const meetingInfo = `📋 미팅: ${title}\n📅 ${meetingDate || '미정'}${meetingTime ? ` ⏰ ${meetingTime}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}${recipientName ? `\n🏢 ${recipientName}` : ''}`;
+        if (announcementType === 'conference') {
+          const info = `📋 회의 공지: ${title}\n📅 ${meetingDate || '미정'}${meetingTime ? ` ⏰ ${meetingTime}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}`;
           await supabase.from('team_messages').insert({
             user_id: user.id,
             user_name: profile.full_name || user.email || '관리자',
             avatar_url: profile.avatar_url || null,
-            message: meetingInfo,
+            message: info,
+          });
+        } else if (announcementType === 'meeting') {
+          const info = `☕ 미팅: ${title}\n📅 ${meetingDate || '미정'}${meetingTime ? ` ⏰ ${meetingTime}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}${recipientName ? `\n🏢 ${recipientName}` : ''}`;
+          await supabase.from('team_messages').insert({
+            user_id: user.id,
+            user_name: profile.full_name || user.email || '관리자',
+            avatar_url: profile.avatar_url || null,
+            message: info,
           });
         } else if (announcementType === 'event') {
-          const eventInfo = `❗ 이벤트 공지: ${title}\n📅 ${meetingDate || '미정'}${eventEndDate ? ` ~ ${eventEndDate}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}`;
+          const info = `❗ 이벤트 공지: ${title}\n📅 ${meetingDate || '미정'}${eventEndDate ? ` ~ ${eventEndDate}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}`;
           await supabase.from('team_messages').insert({
             user_id: user.id,
             user_name: profile.full_name || user.email || '관리자',
             avatar_url: profile.avatar_url || null,
-            message: eventInfo,
+            message: info,
           });
         }
 
@@ -181,10 +200,13 @@ const AnnouncementsPage = () => {
           .eq('is_approved', true);
 
         if (allProfiles && allProfiles.length > 0) {
-          const notiTitle = announcementType === 'meeting' ? '📋 미팅 등록'
+          const notiTitle = announcementType === 'conference' ? '📋 회의 공지'
+            : announcementType === 'meeting' ? '☕ 미팅 등록'
             : announcementType === 'event' ? '❗ 이벤트 공지'
             : '새 공지사항';
-          const notiDesc = announcementType === 'meeting'
+          const notiDesc = announcementType === 'conference'
+            ? `회의가 등록되었습니다: ${title} (${meetingDate || '날짜 미정'}${meetingTime ? ` ${meetingTime}` : ''})`
+            : announcementType === 'meeting'
             ? `미팅이 등록되었습니다: ${title} (${meetingDate || '날짜 미정'}${meetingTime ? ` ${meetingTime}` : ''})`
             : announcementType === 'event'
             ? `이벤트가 등록되었습니다: ${title} (${meetingDate || '날짜 미정'}${eventEndDate ? ` ~ ${eventEndDate}` : ''})`
@@ -251,7 +273,7 @@ const AnnouncementsPage = () => {
   const resetForm = () => {
     setTitle('');
     setContent('');
-    setAnnouncementType(activeTab === 'meetings' ? 'meeting' : 'general');
+    setAnnouncementType(activeTab as AnnouncementType);
     setMeetingDate('');
     setMeetingTime('');
     setMeetingLocation('');
@@ -267,7 +289,7 @@ const AnnouncementsPage = () => {
     setEditingId(a.id);
     setTitle(a.title);
     setContent(a.content);
-    setAnnouncementType((a.announcement_type || 'general') as 'general' | 'meeting' | 'event');
+    setAnnouncementType((a.announcement_type || 'general') as AnnouncementType);
     setMeetingDate(a.meeting_date || '');
     setMeetingTime(a.meeting_time || '');
     setMeetingLocation(a.meeting_location || '');
@@ -276,15 +298,11 @@ const AnnouncementsPage = () => {
     setRecipientNameInput(a.recipient_name || '');
     setSelectedAssigneeIds(a.assignee_ids || []);
     setShowForm(true);
-    // Switch to correct tab
-    if (a.announcement_type === 'meeting') {
-      setActiveTab('meetings');
-    } else {
-      setActiveTab('announcements');
-    }
+    setActiveTab(a.announcement_type || 'general');
   };
 
   const getTypeBadge = (type: string) => {
+    if (type === 'conference') return <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-blue-500 text-blue-600">회의</Badge>;
     if (type === 'meeting') return <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-500 text-amber-600">미팅</Badge>;
     if (type === 'event') return <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-emerald-500 text-emerald-600">이벤트</Badge>;
     return null;
@@ -292,8 +310,9 @@ const AnnouncementsPage = () => {
 
   const renderAnnouncementCard = (a: Announcement) => {
     const isEvent = a.announcement_type === 'event';
+    const isConference = a.announcement_type === 'conference';
     const isMeeting = a.announcement_type === 'meeting';
-    const hasDateInfo = isMeeting || isEvent;
+    const hasDateInfo = isEvent || isConference || isMeeting;
 
     return (
       <Card key={a.id} className={a.is_pinned ? 'border-primary/30 bg-primary/5' : ''}>
@@ -314,7 +333,7 @@ const AnnouncementsPage = () => {
                       {isEvent && a.event_end_date && ` ~ ${a.event_end_date}`}
                     </span>
                   )}
-                  {isMeeting && a.meeting_time && (
+                  {(isConference || isMeeting) && a.meeting_time && (
                     <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{a.meeting_time}</span>
                   )}
                   {a.meeting_location && (
@@ -381,23 +400,21 @@ const AnnouncementsPage = () => {
 
   const isFormValid = () => {
     if (!title.trim() || !content.trim()) return false;
-    if (announcementType === 'meeting' && !meetingDate) return false;
-    if (announcementType === 'event' && !meetingDate) return false;
+    if ((announcementType === 'conference' || announcementType === 'meeting' || announcementType === 'event') && !meetingDate) return false;
     return true;
   };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     resetForm();
-    if (tab === 'meetings') {
-      setAnnouncementType('meeting');
-    } else {
-      setAnnouncementType('general');
-    }
+    setAnnouncementType(tab as AnnouncementType);
   };
 
-  const announcementItems = announcements?.filter(a => a.announcement_type !== 'meeting') || [];
-  const meetingItems = announcements?.filter(a => a.announcement_type === 'meeting') || [];
+  const getItemsForTab = (tab: string) => {
+    const config = TAB_CONFIG.find(t => t.value === tab);
+    if (!config) return [];
+    return announcements?.filter(a => config.types.includes(a.announcement_type)) || [];
+  };
 
   if (!user) {
     return (
@@ -409,27 +426,30 @@ const AnnouncementsPage = () => {
 
   const renderForm = () => {
     if (!canManage || !showForm) return null;
-    const isMeetingTab = activeTab === 'meetings';
+    const isConferenceOrMeeting = announcementType === 'conference' || announcementType === 'meeting';
 
     return (
       <Card className="mb-6">
         <CardContent className="pt-6 space-y-3">
-          {!isMeetingTab && (
-            <div className="flex gap-2">
-              <Button type="button" variant={announcementType === 'general' ? 'default' : 'outline'} size="sm" onClick={() => setAnnouncementType('general')}>
-                <Megaphone className="h-4 w-4 mr-1" />공지
-              </Button>
-              <Button type="button" variant={announcementType === 'event' ? 'default' : 'outline'} size="sm" onClick={() => setAnnouncementType('event')}>
-                <PartyPopper className="h-4 w-4 mr-1" />이벤트
-              </Button>
-            </div>
-          )}
           <Input
-            placeholder={isMeetingTab ? '미팅 제목' : announcementType === 'event' ? '이벤트 제목' : '공지 제목'}
+            placeholder={
+              announcementType === 'conference' ? '회의 제목' :
+              announcementType === 'meeting' ? '미팅 제목' :
+              announcementType === 'event' ? '이벤트 제목' : '공지 제목'
+            }
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
-          {isMeetingTab && (
+          {/* 회의: date/time/location */}
+          {announcementType === 'conference' && (
+            <div className="grid grid-cols-3 gap-2">
+              <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} placeholder="날짜" />
+              <Input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} placeholder="시간" />
+              <Input placeholder="장소 (선택)" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} />
+            </div>
+          )}
+          {/* 미팅: date/time/location + recipient + assignees */}
+          {announcementType === 'meeting' && (
             <>
               <div className="grid grid-cols-3 gap-2">
                 <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} placeholder="날짜" />
@@ -488,7 +508,8 @@ const AnnouncementsPage = () => {
               </div>
             </>
           )}
-          {!isMeetingTab && announcementType === 'event' && (
+          {/* 이벤트: start/end date + location */}
+          {announcementType === 'event' && (
             <div className="grid grid-cols-3 gap-2">
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground">시작일</label>
@@ -554,6 +575,14 @@ const AnnouncementsPage = () => {
     );
   };
 
+  const tabLabels: Record<string, string> = { general: '공지', event: '이벤트', conference: '회의', meeting: '미팅' };
+  const tabEmptyIcons: Record<string, React.ReactNode> = {
+    general: <Megaphone className="h-10 w-10 mx-auto" />,
+    event: <PartyPopper className="h-10 w-10 mx-auto" />,
+    conference: <Video className="h-10 w-10 mx-auto" />,
+    meeting: <Coffee className="h-10 w-10 mx-auto" />,
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -562,51 +591,42 @@ const AnnouncementsPage = () => {
             <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-2xl font-bold">공지사항 / 미팅</h1>
+            <h1 className="text-2xl font-bold">공지사항</h1>
           </div>
           {canManage && (
-            <Button onClick={() => { resetForm(); setAnnouncementType(activeTab === 'meetings' ? 'meeting' : 'general'); setShowForm(true); }} className="gap-2">
+            <Button onClick={() => { resetForm(); setAnnouncementType(activeTab as AnnouncementType); setShowForm(true); }} className="gap-2">
               <Plus className="h-4 w-4" />
-              {activeTab === 'meetings' ? '새 미팅 등록' : '새 공지 작성'}
+              새 {tabLabels[activeTab] || '공지'} 작성
             </Button>
           )}
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="announcements" className="gap-2">
-              <Megaphone className="h-4 w-4" />
-              공지사항
-              {announcementItems.length > 0 && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 h-4 ml-1">{announcementItems.length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="meetings" className="gap-2">
-              <Coffee className="h-4 w-4" />
-              미팅
-              {meetingItems.length > 0 && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 h-4 ml-1">{meetingItems.length}</Badge>
-              )}
-            </TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4 mb-6">
+            {TAB_CONFIG.map(tab => {
+              const count = getItemsForTab(tab.value).length;
+              return (
+                <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
+                  {tab.icon}
+                  {tab.label}
+                  {count > 0 && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 h-4 ml-0.5">{count}</Badge>
+                  )}
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
 
-          <TabsContent value="announcements">
-            {renderForm()}
-            {renderList(
-              announcementItems,
-              <Megaphone className="h-10 w-10 mx-auto" />,
-              '등록된 공지사항이 없습니다.'
-            )}
-          </TabsContent>
-
-          <TabsContent value="meetings">
-            {renderForm()}
-            {renderList(
-              meetingItems,
-              <Coffee className="h-10 w-10 mx-auto" />,
-              '등록된 미팅이 없습니다.'
-            )}
-          </TabsContent>
+          {TAB_CONFIG.map(tab => (
+            <TabsContent key={tab.value} value={tab.value}>
+              {renderForm()}
+              {renderList(
+                getItemsForTab(tab.value),
+                tabEmptyIcons[tab.value],
+                `등록된 ${tab.label}이(가) 없습니다.`
+              )}
+            </TabsContent>
+          ))}
         </Tabs>
       </div>
     </div>

@@ -10,11 +10,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Megaphone, ArrowRight, Plus, Loader2, Calendar, CalendarIcon, Clock, PartyPopper } from 'lucide-react';
+import { Megaphone, ArrowRight, Plus, Loader2, CalendarIcon, Clock, PartyPopper, Video, Coffee } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+
+type AnnouncementType = 'general' | 'event' | 'conference' | 'meeting';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = ['00', '10', '20', '30', '40', '50'];
@@ -26,7 +28,7 @@ const AnnouncementCard = () => {
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [announcementType, setAnnouncementType] = useState<'general' | 'meeting' | 'event'>('general');
+  const [announcementType, setAnnouncementType] = useState<AnnouncementType>('general');
   const [meetingDate, setMeetingDate] = useState('');
   const [meetingTime, setMeetingTime] = useState('');
   const [meetingLocation, setMeetingLocation] = useState('');
@@ -55,8 +57,8 @@ const AnnouncementCard = () => {
     mutationFn: async () => {
       if (!user || !profile) throw new Error('로그인이 필요합니다.');
       
-      const finalMeetingTime = meetingTime || (announcementType === 'meeting' ? `${selectedHour}:${selectedMinute}` : '');
-      const isMeetingOrEvent = announcementType === 'meeting' || announcementType === 'event';
+      const finalMeetingTime = meetingTime || ((announcementType === 'conference' || announcementType === 'meeting') ? `${selectedHour}:${selectedMinute}` : '');
+      const hasDateFields = announcementType === 'event' || announcementType === 'conference' || announcementType === 'meeting';
 
       const insertData: any = {
         title,
@@ -65,11 +67,11 @@ const AnnouncementCard = () => {
         author_name: profile.full_name || user.email || '관리자',
         announcement_type: announcementType,
       };
-      if (isMeetingOrEvent) {
+      if (hasDateFields) {
         insertData.meeting_date = meetingDate || null;
         insertData.meeting_location = meetingLocation || null;
       }
-      if (announcementType === 'meeting') {
+      if (announcementType === 'conference' || announcementType === 'meeting') {
         insertData.meeting_time = finalMeetingTime || null;
       }
       if (announcementType === 'event') {
@@ -84,13 +86,21 @@ const AnnouncementCard = () => {
       if (error) throw error;
 
       // Post to team chat
-      if (announcementType === 'meeting') {
-        const meetingInfo = `📋 회의 공지: ${title}\n📅 ${meetingDate || '미정'}${finalMeetingTime ? ` ⏰ ${finalMeetingTime}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}`;
+      if (announcementType === 'conference') {
+        const info = `📋 회의 공지: ${title}\n📅 ${meetingDate || '미정'}${finalMeetingTime ? ` ⏰ ${finalMeetingTime}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}`;
         await supabase.from('team_messages').insert({
           user_id: user.id,
           user_name: profile.full_name || user.email || '관리자',
           avatar_url: profile.avatar_url || null,
-          message: meetingInfo,
+          message: info,
+        });
+      } else if (announcementType === 'meeting') {
+        const info = `☕ 미팅: ${title}\n📅 ${meetingDate || '미정'}${finalMeetingTime ? ` ⏰ ${finalMeetingTime}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}`;
+        await supabase.from('team_messages').insert({
+          user_id: user.id,
+          user_name: profile.full_name || user.email || '관리자',
+          avatar_url: profile.avatar_url || null,
+          message: info,
         });
       } else if (announcementType === 'event') {
         const eventInfo = `❗ 이벤트 공지: ${title}\n📅 ${meetingDate || '미정'}${eventEndDate ? ` ~ ${eventEndDate}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}`;
@@ -109,11 +119,14 @@ const AnnouncementCard = () => {
         .eq('is_approved', true);
 
       if (allProfiles && allProfiles.length > 0) {
-        const notiTitle = announcementType === 'meeting' ? '📋 회의 공지'
+        const notiTitle = announcementType === 'conference' ? '📋 회의 공지'
+          : announcementType === 'meeting' ? '☕ 미팅 등록'
           : announcementType === 'event' ? '❗ 이벤트 공지'
           : '새 공지사항';
-        const notiDesc = announcementType === 'meeting'
+        const notiDesc = announcementType === 'conference'
           ? `회의가 등록되었습니다: ${title} (${meetingDate || '날짜 미정'}${finalMeetingTime ? ` ${finalMeetingTime}` : ''})`
+          : announcementType === 'meeting'
+          ? `미팅이 등록되었습니다: ${title} (${meetingDate || '날짜 미정'}${finalMeetingTime ? ` ${finalMeetingTime}` : ''})`
           : announcementType === 'event'
           ? `이벤트가 등록되었습니다: ${title} (${meetingDate || '날짜 미정'}${eventEndDate ? ` ~ ${eventEndDate}` : ''})`
           : `공지사항이 등록되었습니다: ${title}`;
@@ -135,7 +148,8 @@ const AnnouncementCard = () => {
       return announcement;
     },
     onSuccess: () => {
-      const msg = announcementType === 'meeting' ? '회의 공지가 등록되었습니다.'
+      const msg = announcementType === 'conference' ? '회의 공지가 등록되었습니다.'
+        : announcementType === 'meeting' ? '미팅이 등록되었습니다.'
         : announcementType === 'event' ? '이벤트 공지가 등록되었습니다.'
         : '공지사항이 등록되었습니다.';
       toast.success(msg);
@@ -187,13 +201,13 @@ const AnnouncementCard = () => {
 
   const isFormValid = () => {
     if (!title.trim() || !content.trim()) return false;
-    if (announcementType === 'meeting' && !meetingDate) return false;
-    if (announcementType === 'event' && !meetingDate) return false;
+    if ((announcementType === 'conference' || announcementType === 'meeting' || announcementType === 'event') && !meetingDate) return false;
     return true;
   };
 
   const getTypeBadge = (type: string) => {
-    if (type === 'meeting') return <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-amber-500 text-amber-600">회의</Badge>;
+    if (type === 'conference') return <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-blue-500 text-blue-600">회의</Badge>;
+    if (type === 'meeting') return <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-amber-500 text-amber-600">미팅</Badge>;
     if (type === 'event') return <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-emerald-500 text-emerald-600">이벤트</Badge>;
     return null;
   };
@@ -221,20 +235,83 @@ const AnnouncementCard = () => {
       <CardContent className="pt-0 space-y-3">
         {canPost && showForm && (
           <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 flex-wrap">
               <Button type="button" variant={announcementType === 'general' ? 'default' : 'outline'} size="sm" className="h-7 text-xs" onClick={() => setAnnouncementType('general')}>
                 <Megaphone className="h-3 w-3 mr-1" />공지
               </Button>
               <Button type="button" variant={announcementType === 'event' ? 'default' : 'outline'} size="sm" className="h-7 text-xs" onClick={() => setAnnouncementType('event')}>
                 <PartyPopper className="h-3 w-3 mr-1" />이벤트
               </Button>
+              <Button type="button" variant={announcementType === 'conference' ? 'default' : 'outline'} size="sm" className="h-7 text-xs" onClick={() => setAnnouncementType('conference')}>
+                <Video className="h-3 w-3 mr-1" />회의
+              </Button>
+              <Button type="button" variant={announcementType === 'meeting' ? 'default' : 'outline'} size="sm" className="h-7 text-xs" onClick={() => setAnnouncementType('meeting')}>
+                <Coffee className="h-3 w-3 mr-1" />미팅
+              </Button>
             </div>
             <Input
-              placeholder={announcementType === 'meeting' ? '회의 제목' : announcementType === 'event' ? '이벤트 제목' : '공지 제목'}
+              placeholder={
+                announcementType === 'conference' ? '회의 제목' :
+                announcementType === 'meeting' ? '미팅 제목' :
+                announcementType === 'event' ? '이벤트 제목' : '공지 제목'
+              }
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="h-8 text-sm"
             />
+            {/* 회의/미팅: date + time + location */}
+            {(announcementType === 'conference' || announcementType === 'meeting') && (
+              <div className="grid grid-cols-3 gap-2">
+                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("h-8 text-xs justify-start font-normal", !meetingDate && "text-muted-foreground")}>
+                      <CalendarIcon className="h-3 w-3 mr-1" />
+                      {meetingDate ? format(new Date(meetingDate), 'M/d (EEE)', { locale: ko }) : '날짜'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={meetingDate ? new Date(meetingDate) : undefined}
+                      onSelect={handleDateSelect}
+                      locale={ko}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Popover open={timePickerOpen} onOpenChange={setTimePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("h-8 text-xs justify-start font-normal", !meetingTime && "text-muted-foreground")}>
+                      <Clock className="h-3 w-3 mr-1" />
+                      {meetingTime || '시간'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-2" align="start">
+                    <div className="flex gap-2">
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground text-center">시</p>
+                        <div className="h-32 overflow-y-auto space-y-0.5">
+                          {HOURS.map(h => (
+                            <button key={h} className={cn("w-full px-3 py-1 text-xs rounded hover:bg-muted", selectedHour === h && "bg-primary text-primary-foreground")} onClick={() => handleTimeSelect(h, selectedMinute)}>{h}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground text-center">분</p>
+                        <div className="h-32 overflow-y-auto space-y-0.5">
+                          {MINUTES.map(m => (
+                            <button key={m} className={cn("w-full px-3 py-1 text-xs rounded hover:bg-muted", selectedMinute === m && "bg-primary text-primary-foreground")} onClick={() => handleTimeSelect(selectedHour, m)}>{m}</button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <Input placeholder="장소 (선택)" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} className="h-8 text-sm" />
+              </div>
+            )}
+            {/* 이벤트: start/end date + location */}
             {announcementType === 'event' && (
               <div className="grid grid-cols-3 gap-2">
                 <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
@@ -255,7 +332,6 @@ const AnnouncementCard = () => {
                     />
                   </PopoverContent>
                 </Popover>
-
                 <Popover open={endDatePickerOpen} onOpenChange={setEndDatePickerOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className={cn("h-8 text-xs justify-start font-normal", !eventEndDate && "text-muted-foreground")}>
@@ -275,7 +351,6 @@ const AnnouncementCard = () => {
                     />
                   </PopoverContent>
                 </Popover>
-
                 <Input placeholder="장소 (선택)" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} className="h-8 text-sm" />
               </div>
             )}
