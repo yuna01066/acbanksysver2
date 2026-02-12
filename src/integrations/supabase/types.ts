@@ -2442,6 +2442,171 @@ export type Database = {
           },
         ]
       }
+      tax_invoices: {
+        Row: {
+          buyer_addr: string | null
+          buyer_biz_class: string | null
+          buyer_biz_type: string | null
+          buyer_ceo_name: string | null
+          buyer_contact_name: string | null
+          buyer_corp_name: string | null
+          buyer_corp_num: string
+          buyer_email: string | null
+          buyer_tel: string | null
+          charge_direction: string
+          created_at: string
+          email_sent: boolean | null
+          fax_sent: boolean | null
+          id: string
+          issue_type: string
+          items: Json
+          memo: string | null
+          popbill_issue_id: string | null
+          popbill_mgt_key: string | null
+          popbill_nts_confirm_num: string | null
+          popbill_state_code: string | null
+          popbill_state_dt: string | null
+          project_id: string | null
+          purpose_type: string
+          quote_id: string | null
+          remark1: string | null
+          remark2: string | null
+          remark3: string | null
+          sms_sent: boolean | null
+          status: string
+          supplier_addr: string | null
+          supplier_biz_class: string | null
+          supplier_biz_type: string | null
+          supplier_ceo_name: string | null
+          supplier_contact_name: string | null
+          supplier_corp_name: string | null
+          supplier_corp_num: string
+          supplier_email: string | null
+          supplier_tel: string | null
+          supply_cost_total: number
+          tax_total: number
+          tax_type: string
+          total_amount: number
+          updated_at: string
+          user_id: string
+          user_name: string
+          write_date: string
+        }
+        Insert: {
+          buyer_addr?: string | null
+          buyer_biz_class?: string | null
+          buyer_biz_type?: string | null
+          buyer_ceo_name?: string | null
+          buyer_contact_name?: string | null
+          buyer_corp_name?: string | null
+          buyer_corp_num: string
+          buyer_email?: string | null
+          buyer_tel?: string | null
+          charge_direction?: string
+          created_at?: string
+          email_sent?: boolean | null
+          fax_sent?: boolean | null
+          id?: string
+          issue_type?: string
+          items?: Json
+          memo?: string | null
+          popbill_issue_id?: string | null
+          popbill_mgt_key?: string | null
+          popbill_nts_confirm_num?: string | null
+          popbill_state_code?: string | null
+          popbill_state_dt?: string | null
+          project_id?: string | null
+          purpose_type?: string
+          quote_id?: string | null
+          remark1?: string | null
+          remark2?: string | null
+          remark3?: string | null
+          sms_sent?: boolean | null
+          status?: string
+          supplier_addr?: string | null
+          supplier_biz_class?: string | null
+          supplier_biz_type?: string | null
+          supplier_ceo_name?: string | null
+          supplier_contact_name?: string | null
+          supplier_corp_name?: string | null
+          supplier_corp_num: string
+          supplier_email?: string | null
+          supplier_tel?: string | null
+          supply_cost_total?: number
+          tax_total?: number
+          tax_type?: string
+          total_amount?: number
+          updated_at?: string
+          user_id: string
+          user_name: string
+          write_date?: string
+        }
+        Update: {
+          buyer_addr?: string | null
+          buyer_biz_class?: string | null
+          buyer_biz_type?: string | null
+          buyer_ceo_name?: string | null
+          buyer_contact_name?: string | null
+          buyer_corp_name?: string | null
+          buyer_corp_num?: string
+          buyer_email?: string | null
+          buyer_tel?: string | null
+          charge_direction?: string
+          created_at?: string
+          email_sent?: boolean | null
+          fax_sent?: boolean | null
+          id?: string
+          issue_type?: string
+          items?: Json
+          memo?: string | null
+          popbill_issue_id?: string | null
+          popbill_mgt_key?: string | null
+          popbill_nts_confirm_num?: string | null
+          popbill_state_code?: string | null
+          popbill_state_dt?: string | null
+          project_id?: string | null
+          purpose_type?: string
+          quote_id?: string | null
+          remark1?: string | null
+          remark2?: string | null
+          remark3?: string | null
+          sms_sent?: boolean | null
+          status?: string
+          supplier_addr?: string | null
+          supplier_biz_class?: string | null
+          supplier_biz_type?: string | null
+          supplier_ceo_name?: string | null
+          supplier_contact_name?: string | null
+          supplier_corp_name?: string | null
+          supplier_corp_num?: string
+          supplier_email?: string | null
+          supplier_tel?: string | null
+          supply_cost_total?: number
+          tax_total?: number
+          tax_type?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+          user_name?: string
+          write_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_invoices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_invoices_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_messages: {
         Row: {
           attachments: Json | null
