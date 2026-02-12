@@ -32,6 +32,9 @@ const MANAGED_FEATURES: FeatureDef[] = [
   { key: 'hr.view_documents', label: '직원 서류함 열람', description: '직원이 제출한 서류 및 문서 조회', icon: <Eye className="h-3.5 w-3.5" />, group: 'hr' },
 
   // 견적·프로젝트
+  { key: '/saved-quotes', label: '담은 견적서 페이지', description: '담은 견적서 목록 및 상세 페이지 접근', icon: <Eye className="h-3.5 w-3.5" />, group: 'quote' },
+  { key: '/quotes-summary', label: '견적 요약 페이지', description: '견적 요약 페이지 접근', icon: <Eye className="h-3.5 w-3.5" />, group: 'quote' },
+  { key: '/customer-quotes-summary', label: '고객 견적 요약 페이지', description: '고객용 견적 요약 페이지 접근', icon: <Eye className="h-3.5 w-3.5" />, group: 'quote' },
   { key: 'quote.view_all', label: '전체 견적 열람', description: '다른 직원이 작성한 견적서 조회', icon: <Eye className="h-3.5 w-3.5" />, group: 'quote' },
   { key: 'quote.edit_others', label: '타인 견적 수정', description: '다른 직원이 작성한 견적서 편집', icon: <Pencil className="h-3.5 w-3.5" />, group: 'quote' },
   { key: 'quote.delete', label: '견적 삭제', description: '저장된 견적서 삭제 권한', icon: <Trash2 className="h-3.5 w-3.5" />, group: 'quote' },
