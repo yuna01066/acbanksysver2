@@ -121,6 +121,8 @@ export type Database = {
       announcements: {
         Row: {
           announcement_type: string
+          assignee_ids: string[] | null
+          assignee_names: string[] | null
           author_id: string
           author_name: string
           content: string
@@ -131,11 +133,15 @@ export type Database = {
           meeting_date: string | null
           meeting_location: string | null
           meeting_time: string | null
+          recipient_id: string | null
+          recipient_name: string | null
           title: string
           updated_at: string
         }
         Insert: {
           announcement_type?: string
+          assignee_ids?: string[] | null
+          assignee_names?: string[] | null
           author_id: string
           author_name: string
           content: string
@@ -146,11 +152,15 @@ export type Database = {
           meeting_date?: string | null
           meeting_location?: string | null
           meeting_time?: string | null
+          recipient_id?: string | null
+          recipient_name?: string | null
           title: string
           updated_at?: string
         }
         Update: {
           announcement_type?: string
+          assignee_ids?: string[] | null
+          assignee_names?: string[] | null
           author_id?: string
           author_name?: string
           content?: string
@@ -161,10 +171,20 @@ export type Database = {
           meeting_date?: string | null
           meeting_location?: string | null
           meeting_time?: string | null
+          recipient_id?: string | null
+          recipient_name?: string | null
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "announcements_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       attendance_records: {
         Row: {
