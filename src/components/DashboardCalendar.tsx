@@ -153,10 +153,9 @@ const DashboardCalendar = () => {
       const end = new Date(h.end_date);
       const days = eachDayOfInterval({ start, end });
       days.forEach(d => {
-        const icon = (h.holiday_type === 'national' || h.holiday_type === 'public') ? '🇰🇷' : '❗';
         result.push({
           id: h.id,
-          projectName: `${icon} ${h.name}`,
+          projectName: h.name,
           type: 'holiday',
           date: d,
           userId: '',
@@ -236,7 +235,7 @@ const DashboardCalendar = () => {
         if (!isNaN(birthdayDate.getTime())) {
           result.push({
             id: `birthday-${p.id}`,
-            projectName: `🎂 ${p.full_name}`,
+            projectName: p.full_name,
             type: 'birthday',
             date: birthdayDate,
             userId: p.id,
@@ -257,7 +256,7 @@ const DashboardCalendar = () => {
             eventDays.forEach(d => {
               result.push({
                 id: am.id,
-                projectName: `❗ ${am.title}`,
+                projectName: am.title,
                 type: 'announcement_event',
                 date: d,
                 userId: '',
