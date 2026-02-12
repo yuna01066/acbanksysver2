@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.calculate-salary]
 verify_jwt = false
+
+[functions.popbill-api]
+verify_jwt = false
