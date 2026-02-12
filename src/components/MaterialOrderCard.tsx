@@ -53,11 +53,12 @@ const InfoRow: React.FC<{
   label: string;
   value: React.ReactNode;
   iconColor?: string;
-}> = ({ icon, label, value, iconColor = 'text-muted-foreground' }) => (
-  <div className="flex items-center gap-2.5 py-1">
+  small?: boolean;
+}> = ({ icon, label, value, iconColor = 'text-muted-foreground', small }) => (
+  <div className={cn("flex items-center", small ? "gap-1.5 py-0.5" : "gap-2.5 py-1")}>
     <span className={cn('shrink-0', iconColor)}>{icon}</span>
-    <span className="text-muted-foreground font-medium min-w-[80px] shrink-0">{label}</span>
-    <span className="text-foreground font-semibold">{value}</span>
+    <span className={cn("text-muted-foreground font-medium shrink-0", small ? "min-w-[50px]" : "min-w-[80px]")}>{label}</span>
+    <span className="text-foreground font-semibold truncate">{value}</span>
   </div>
 );
 
@@ -92,9 +93,34 @@ const MaterialOrderCard: React.FC<Props> = ({ order, canManage, currentUserId, o
     });
   };
 
+  // Compact mini card for sidebar
+  if (compact) {
+    const sizeText = order.width && order.height ? `${order.size_name} (${order.width}×${order.height})` : order.size_name;
+    return (
+      <div className="group rounded-md border border-border/50 bg-muted/20 p-2 text-[10px] space-y-1">
+        <div className="flex items-center justify-between gap-1">
+          <span className="font-medium text-[11px] truncate">{order.material} {order.quality}</span>
+          <Badge className={cn('text-[8px] px-1.5 py-0 h-[14px] text-white shrink-0', st.color)}>
+            {st.label}
+          </Badge>
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground">
+          <span>{order.thickness}</span>
+          <span>{order.color_code || '-'}</span>
+          <span>{order.surface_type || '-'}</span>
+          <span>{sizeText}</span>
+          <span>{order.quantity}장</span>
+        </div>
+        {showDate && (
+          <div className="text-muted-foreground/70">{order.order_date}</div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <Card className={cn("group hover:shadow-md transition-shadow", compact && "border-border/50")}>
-      <CardContent className={cn("p-5", compact && "p-3.5")}>
+    <Card className="group hover:shadow-md transition-shadow">
+      <CardContent className="p-5">
         <div className="space-y-2">
           {/* Project / Quote Link + Status */}
           <div className="flex items-center gap-2 flex-wrap">
@@ -130,7 +156,7 @@ const MaterialOrderCard: React.FC<Props> = ({ order, canManage, currentUserId, o
           )}
 
           {/* Detail Grid */}
-          <div className={cn("grid gap-x-6 text-[13px]", compact ? "grid-cols-1" : "grid-cols-2")}>
+          <div className="grid grid-cols-2 gap-x-6 text-[13px]">
             <InfoRow icon={<Box className="h-4 w-4" />} label="재질" value={`${order.material} ${order.quality}`} iconColor="text-primary" />
             <InfoRow icon={<Palette className="h-4 w-4" />} label="컬러" value={order.color_code || '-'} iconColor="text-pink-500" />
             <InfoRow icon={<Layers className="h-4 w-4" />} label="두께" value={order.thickness} iconColor="text-amber-500" />
