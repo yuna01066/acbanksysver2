@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import CorpStatusCheck from '@/components/CorpStatusCheck';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -381,6 +382,16 @@ const RecipientManagementPage = () => {
                           <InfoRow label="업종" value={selectedRecipient.business_class} />
                           <InfoRow label="종사업장번호" value={selectedRecipient.branch_number} />
                         </div>
+                        {selectedRecipient.business_registration_number && 
+                         selectedRecipient.business_registration_number !== '000-00-00000' && (
+                          <div className="mt-2 pt-2 border-t">
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5">사업자등록상태 조회</p>
+                            <CorpStatusCheck 
+                              initialCorpNum={selectedRecipient.business_registration_number} 
+                              compact 
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                     {selectedRecipient.memo && (

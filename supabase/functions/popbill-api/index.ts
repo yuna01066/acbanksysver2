@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts";
+import { decode as base64Decode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
@@ -37,34 +37,49 @@ async function getToken(linkID: string, secretKey: string, corpNum: string): Pro
     return cachedToken.token;
   }
 
-  const scope = ["110"]; // 전자세금계산서 서비스 코드
+  const scope = ["110", "170"]; // 전자세금계산서 + 사업자등록상태조회 서비스 코드
   const postData = JSON.stringify({
-    access_id: linkID,
+    access_id: corpNum,
     scope: scope,
   });
 
-  const uri = `/POPBILL_TEST/Token`; // 테스트: POPBILL_TEST, 운영: POPBILL
   const target = IS_TEST ? "/POPBILL_TEST/Token" : "/POPBILL/Token";
 
-  const timestamp = new Date()
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .replace("T", "")
-    .substring(0, 14);
+  // UTC ISO 8601 timestamp
+  const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+
+  // SHA-256 해시 후 base64 인코딩 (b64_sha256)
+  const postDataHash = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(postData)
+  );
+  const b64PostDataHash = base64Encode(new Uint8Array(postDataHash));
 
   // HMAC-SHA256 서명 생성
-  const hmac = createHmac("sha256", Buffer.from(secretKey, "base64"));
+  const keyBytes = base64Decode(secretKey);
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
 
   const signTarget = [
     "POST",
-    base64Encode(new TextEncoder().encode(postData)),
+    b64PostDataHash,
     timestamp,
     "",
+    "2.0",
     target,
   ].join("\n");
 
-  hmac.update(signTarget);
-  const signature = hmac.digest("base64");
+  const signatureBytes = await crypto.subtle.sign(
+    "HMAC",
+    cryptoKey,
+    new TextEncoder().encode(signTarget)
+  );
+  const signature = base64Encode(new Uint8Array(signatureBytes));
 
   const authHeader = `LINKHUB ${linkID} ${signature}`;
 
@@ -74,6 +89,7 @@ async function getToken(linkID: string, secretKey: string, corpNum: string): Pro
       "Content-Type": "application/json",
       Authorization: authHeader,
       "x-lh-date": timestamp,
+      "x-lh-version": "2.0",
       "x-lh-forwarded": "",
     },
     body: postData,
@@ -103,16 +119,18 @@ async function callPopbillAPI(
   token: string,
   corpNum: string,
   body?: any,
-  additionalHeaders?: Record<string, string>
+  additionalHeaders?: Record<string, string>,
+  basePathOverride?: string
 ): Promise<any> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
-    "x-pb-userid": "", // 팝빌 사용자 ID (필요시 설정)
+    "x-pb-userid": "",
     ...additionalHeaders,
   };
 
-  const url = `${POPBILL_API_URL}/Taxinvoice/${path}`;
+  const basePath = basePathOverride ?? "Taxinvoice";
+  const url = `${POPBILL_API_URL}/${basePath}/${path}`;
 
   const fetchOptions: RequestInit = {
     method,
@@ -357,6 +375,48 @@ serve(async (req) => {
           `${POPBILL_CORP_NUM}/Certificate`,
           token,
           POPBILL_CORP_NUM
+        );
+        break;
+      }
+
+      case "checkCorpNum": {
+        // 사업자등록상태 단건조회
+        const { checkCorpNum: targetCorpNum } = params;
+        if (!targetCorpNum) {
+          return new Response(JSON.stringify({ error: "checkCorpNum is required" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        result = await callPopbillAPI(
+          "GET",
+          `Check?CN=${targetCorpNum}`,
+          token,
+          POPBILL_CORP_NUM,
+          undefined,
+          undefined,
+          "CloseDown"
+        );
+        break;
+      }
+
+      case "checkCorpNums": {
+        // 사업자등록상태 대량조회 (최대 1,000건)
+        const { corpNums } = params;
+        if (!corpNums || !Array.isArray(corpNums) || corpNums.length === 0) {
+          return new Response(JSON.stringify({ error: "corpNums array is required" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        result = await callPopbillAPI(
+          "POST",
+          "",
+          token,
+          POPBILL_CORP_NUM,
+          corpNums,
+          undefined,
+          "CloseDown"
         );
         break;
       }
