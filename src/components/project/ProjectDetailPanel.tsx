@@ -7,8 +7,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, FileText, Link2, Unlink, Trash2, ExternalLink, Plus, Phone, Mail, User, Briefcase, Home, Link as LinkIcon } from 'lucide-react';
+import { Building2, FileText, Link2, Unlink, Trash2, ExternalLink, Plus, Phone, Mail, User, Briefcase, Home, Link as LinkIcon, Package } from 'lucide-react';
 import ProjectMaterialOrders from './ProjectMaterialOrders';
+import LinkMaterialOrderDialog from './LinkMaterialOrderDialog';
 import ProjectStageSelect from '@/components/ProjectStageSelect';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -106,6 +107,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
   const [recipientDialogOpen, setRecipientDialogOpen] = useState(false);
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  const [materialOrderDialogOpen, setMaterialOrderDialogOpen] = useState(false);
   const [previewQuoteId, setPreviewQuoteId] = useState<string | null>(null);
   const [recipientSheetOpen, setRecipientSheetOpen] = useState(false);
 
@@ -303,20 +305,6 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
               </Select>
             </InfoRow>
 
-            {linkedQuotes.length > 0 && (
-              <InfoRow label="견적 단계">
-                <ProjectStageSelect
-                  quoteId={linkedQuotes[0].id}
-                  currentStage={linkedQuotes[0].project_stage}
-                  quoteNumber={linkedQuotes[0].quote_number}
-                  quoteUserId={linkedQuotes[0].user_id}
-                  onStageChanged={() => {
-                    queryClient.invalidateQueries({ queryKey: ['project-quotes', projectId] });
-                    queryClient.invalidateQueries({ queryKey: ['projects'] });
-                  }}
-                />
-              </InfoRow>
-            )}
 
             <InfoRow label="입금 상태">
               <PaymentStatusSelect projectId={projectId} currentStatus={(project as any).payment_status || 'unpaid'} />
@@ -424,9 +412,6 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
             )}
           </div>
 
-          {/* Material Orders */}
-          <ProjectMaterialOrders projectId={projectId} />
-
           {/* Quotes */}
           <div className="rounded-lg border bg-card p-3.5">
             <SectionLabel
@@ -471,12 +456,27 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
               </div>
             )}
           </div>
+
+          {/* Material Orders */}
+          <div className="rounded-lg border bg-card p-3.5">
+            <SectionLabel
+              action={
+                <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-0.5 px-1 -mr-1" onClick={() => setMaterialOrderDialogOpen(true)}>
+                  <Plus className="h-2.5 w-2.5" /> 연결
+                </Button>
+              }
+            >
+              원판 발주
+            </SectionLabel>
+            <ProjectMaterialOrders projectId={projectId} />
+          </div>
         </div>
       </div>
 
       {/* Dialogs & Sheets */}
       <LinkRecipientDialog open={recipientDialogOpen} onOpenChange={setRecipientDialogOpen} onSelect={(id) => linkRecipient.mutate(id)} />
       <LinkQuoteDialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen} projectId={projectId} />
+      <LinkMaterialOrderDialog open={materialOrderDialogOpen} onOpenChange={setMaterialOrderDialogOpen} projectId={projectId} />
       <QuotePreviewSheet quoteId={previewQuoteId} open={!!previewQuoteId} onOpenChange={(open) => !open && setPreviewQuoteId(null)} />
       <RecipientDetailSheet recipientId={project.recipient_id} open={recipientSheetOpen} onOpenChange={setRecipientSheetOpen} />
       <LinkContactDialog
