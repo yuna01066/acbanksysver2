@@ -245,10 +245,22 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
     }
   };
 
+  const sanitizeFileName = (name: string): string => {
+    // Replace spaces with underscores, remove special chars except dots/hyphens/underscores
+    const ext = name.lastIndexOf('.') > 0 ? name.substring(name.lastIndexOf('.')) : '';
+    const base = name.lastIndexOf('.') > 0 ? name.substring(0, name.lastIndexOf('.')) : name;
+    const sanitized = base
+      .replace(/[^a-zA-Z0-9가-힣ㄱ-ㅎㅏ-ㅣ_\-]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
+    return (sanitized || 'file') + ext;
+  };
+
   const uploadFiles = async (): Promise<Attachment[]> => {
     const uploaded: Attachment[] = [];
     for (const file of files) {
-      const path = `${user!.id}/${projectId}/${Date.now()}_${file.name}`;
+      const safeName = sanitizeFileName(file.name);
+      const path = `${user!.id}/${projectId}/${Date.now()}_${safeName}`;
       const { error } = await supabase.storage.from('project-update-attachments').upload(path, file, {
         contentType: file.type || 'application/octet-stream',
       });
@@ -279,6 +291,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
       if (!user || !profile) throw new Error('로그인 필요');
       if (!content.trim() && files.length === 0) throw new Error('내용 또는 파일을 추가해주세요.');
       const attachments = files.length > 0 ? await uploadFiles() : [];
+      if (!content.trim() && attachments.length === 0) throw new Error('내용 또는 파일을 추가해주세요.');
       const mentionIds = mentionedUsers.map(m => m.id);
       const { error } = await supabase.from('project_updates').insert({
         project_id: projectId,
