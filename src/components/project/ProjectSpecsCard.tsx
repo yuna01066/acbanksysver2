@@ -32,7 +32,50 @@ export interface ProjectSpecs {
   customFields?: CustomField[];
 }
 
-/** Extract specs from linked quote items */
+/** Multi-quote specs stored as { _perQuote: { [quoteId]: ProjectSpecs } } or legacy single ProjectSpecs */
+export interface MultiQuoteSpecs {
+  _perQuote?: Record<string, ProjectSpecs>;
+}
+
+/** Extract specs from a single quote's items */
+export function extractSpecsFromQuote(quote: any): ProjectSpecs {
+  const items = Array.isArray(quote.items) ? quote.items : [];
+
+  const colors: { name: string; hex?: string }[] = [];
+  const seenColors = new Set<string>();
+  items.forEach((i: any) => {
+    if (i.selectedColor && !seenColors.has(i.selectedColor)) {
+      seenColors.add(i.selectedColor);
+      colors.push({ name: i.selectedColor, hex: i.selectedColorHex || undefined });
+    }
+  });
+
+  const productionSizes: string[] = [];
+  items.forEach((i: any) => {
+    if (i.breakdown && Array.isArray(i.breakdown)) {
+      i.breakdown.forEach((b: any) => {
+        if (b.label && b.label.includes('원장')) productionSizes.push(b.label);
+      });
+    }
+  });
+
+  return {
+    materials: [...new Set(items.map((i: any) => i.material).filter(Boolean))] as string[],
+    qualities: [...new Set(items.map((i: any) => i.quality).filter(Boolean))] as string[],
+    colors,
+    thicknesses: [...new Set(items.map((i: any) => i.thickness).filter(Boolean))] as string[],
+    surfaces: [...new Set(items.map((i: any) => i.surface).filter(Boolean))] as string[],
+    sizes: [...new Set(items.map((i: any) => i.size).filter(Boolean))] as string[],
+    quantity: items.reduce((sum: number, i: any) => sum + (i.quantity || 0), 0),
+    productionSizes,
+    deliveryDates: quote.desired_delivery_date ? [quote.desired_delivery_date] : [],
+    deliveryAddresses: quote.recipient_address ? [quote.recipient_address] : [],
+    clientRequests: quote.recipient_memo || '',
+    customFields: [],
+  };
+}
+
+/** Extract specs from all linked quotes combined (legacy) */
 export function extractSpecsFromQuotes(linkedQuotes: any[]): ProjectSpecs {
   const allItems = linkedQuotes.flatMap((q: any) => {
     const items = Array.isArray(q.items) ? q.items : [];
@@ -75,7 +118,7 @@ export function extractSpecsFromQuotes(linkedQuotes: any[]): ProjectSpecs {
 
 interface Props {
   projectId: string;
-  specs: ProjectSpecs | null;
+  specs: any; // ProjectSpecs | MultiQuoteSpecs | null
   linkedQuotes: any[];
 }
 
@@ -217,13 +260,19 @@ const CustomFieldDisplay = ({ field, editing, onUpdate, onRemove }: {
   );
 };
 
-const ProjectSpecsCard: React.FC<Props> = ({ projectId, specs: savedSpecs, linkedQuotes }) => {
+/** Single quote specs view (reusable for each tab) */
+const SingleSpecsView = ({ projectId, quoteId, savedSpecs, quoteSpecs, allSavedSpecs }: {
+  projectId: string;
+  quoteId: string;
+  savedSpecs: ProjectSpecs | null;
+  quoteSpecs: ProjectSpecs;
+  allSavedSpecs: any;
+}) => {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [editSpecs, setEditSpecs] = useState<ProjectSpecs | null>(null);
   const [showAddField, setShowAddField] = useState(false);
 
-  const quoteSpecs = extractSpecsFromQuotes(linkedQuotes);
   const displaySpecs = savedSpecs || quoteSpecs;
 
   const startEdit = useCallback(() => {
@@ -235,7 +284,9 @@ const ProjectSpecsCard: React.FC<Props> = ({ projectId, specs: savedSpecs, linke
 
   const saveSpecs = useMutation({
     mutationFn: async (newSpecs: ProjectSpecs) => {
-      const { error } = await supabase.from('projects').update({ specs: newSpecs as any }).eq('id', projectId);
+      const perQuote = { ...(allSavedSpecs?._perQuote || {}) };
+      perQuote[quoteId] = newSpecs;
+      const { error } = await supabase.from('projects').update({ specs: { _perQuote: perQuote } as any }).eq('id', projectId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -248,7 +299,9 @@ const ProjectSpecsCard: React.FC<Props> = ({ projectId, specs: savedSpecs, linke
 
   const resetToQuoteSpecs = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('projects').update({ specs: null }).eq('id', projectId);
+      const perQuote = { ...(allSavedSpecs?._perQuote || {}) };
+      delete perQuote[quoteId];
+      const { error } = await supabase.from('projects').update({ specs: { _perQuote: perQuote } as any }).eq('id', projectId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -281,9 +334,200 @@ const ProjectSpecsCard: React.FC<Props> = ({ projectId, specs: savedSpecs, linke
     setEditSpecs({ ...editSpecs, customFields: (editSpecs.customFields || []).filter((_, i) => i !== index) });
   };
 
+  const specs = editing && editSpecs ? editSpecs : displaySpecs;
+
+  return (
+    <div>
+      <div className="flex items-center justify-end mb-2">
+        <div className="flex items-center gap-1">
+          {editing ? (
+            <>
+              {savedSpecs && (
+                <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-0.5 px-1.5 text-muted-foreground" onClick={() => resetToQuoteSpecs.mutate()}>
+                  <RefreshCw className="h-2.5 w-2.5" /> 초기화
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-0.5 px-1.5" onClick={cancelEdit}>
+                <X className="h-2.5 w-2.5" /> 취소
+              </Button>
+              <Button size="sm" className="h-5 text-[10px] gap-0.5 px-1.5" onClick={() => editSpecs && saveSpecs.mutate(editSpecs)} disabled={saveSpecs.isPending}>
+                <Check className="h-2.5 w-2.5" /> 저장
+              </Button>
+            </>
+          ) : (
+            <>
+              {savedSpecs && <Badge variant="outline" className="text-[9px] mr-1">수정됨</Badge>}
+              <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-0.5 px-1.5" onClick={startEdit}>
+                <Pencil className="h-2.5 w-2.5" /> 수정
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <SpecRow icon={Layers} label="재질/품질" editMode={editing} compact
+        editContent={
+          <div className="space-y-1.5">
+            <EditableTagList values={editSpecs?.materials || []} onChange={(v) => updateField('materials', v)} placeholder="재질 추가..." />
+            <EditableTagList values={editSpecs?.qualities || []} onChange={(v) => updateField('qualities', v)} placeholder="품질 추가..." />
+          </div>
+        }
+      >
+        <div className="flex flex-wrap gap-1">
+          {specs.materials.map((m, i) => <Badge key={`m-${i}`} variant="secondary" className="text-[10px] h-5">{m}</Badge>)}
+          {specs.qualities.map((q, i) => <Badge key={`q-${i}`} variant="outline" className="text-[10px] h-5">{q}</Badge>)}
+          {specs.materials.length === 0 && specs.qualities.length === 0 && <span className="text-xs text-muted-foreground">-</span>}
+        </div>
+      </SpecRow>
+
+      <SpecRow icon={Palette} label="컬러" editMode={editing} compact
+        editContent={<EditableTagList values={editSpecs?.colors.map(c => c.name) || []} onChange={(v) => updateField('colors', v.map(name => ({ name })))} placeholder="컬러 추가..." />}
+      >
+        <div className="flex flex-wrap gap-1">
+          {specs.colors.length > 0 ? specs.colors.map((c, i) => (
+            <div key={i} className="flex items-center gap-1">
+              {c.hex && <div className="w-3 h-3 rounded-full border" style={{ backgroundColor: c.hex }} />}
+              <Badge variant="secondary" className="text-[10px] h-5">{c.name}</Badge>
+            </div>
+          )) : <span className="text-xs text-muted-foreground">-</span>}
+        </div>
+      </SpecRow>
+
+      <SpecRow icon={Layers} label="두께" editMode={editing} compact
+        editContent={<EditableTagList values={editSpecs?.thicknesses || []} onChange={(v) => updateField('thicknesses', v)} placeholder="두께 추가..." />}
+      >
+        <div className="flex flex-wrap gap-1">
+          {specs.thicknesses.length > 0 ? specs.thicknesses.map((t, i) => <Badge key={i} variant="secondary" className="text-[10px] h-5">{t}</Badge>) : <span className="text-xs text-muted-foreground">-</span>}
+        </div>
+      </SpecRow>
+
+      <SpecRow icon={Square} label="양단면" editMode={editing} compact
+        editContent={<EditableTagList values={editSpecs?.surfaces || []} onChange={(v) => updateField('surfaces', v)} placeholder="면수 추가..." />}
+      >
+        <div className="flex flex-wrap gap-1">
+          {specs.surfaces.length > 0 ? specs.surfaces.map((s, i) => <Badge key={i} variant="outline" className="text-[10px] h-5">{s}</Badge>) : <span className="text-xs text-muted-foreground">-</span>}
+        </div>
+      </SpecRow>
+
+      <SpecRow icon={Maximize} label="원판사이즈" editMode={editing} compact
+        editContent={
+          <div className="space-y-1.5">
+            <EditableTagList values={editSpecs?.sizes || []} onChange={(v) => updateField('sizes', v)} placeholder="사이즈 추가..." />
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground">총 수량:</span>
+              <Input type="number" className="h-6 text-xs w-16" value={editSpecs?.quantity || 0} onChange={(e) => updateField('quantity', parseInt(e.target.value) || 0)} />
+              <span className="text-[10px]">개</span>
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-0.5">
+          <div className="flex flex-wrap gap-1">
+            {specs.sizes.length > 0 ? specs.sizes.map((s, i) => <Badge key={i} variant="secondary" className="text-[10px] h-5">{s}</Badge>) : <span className="text-xs text-muted-foreground">-</span>}
+          </div>
+          {specs.quantity > 0 && <p className="text-[10px] text-muted-foreground">총 수량: {specs.quantity}개</p>}
+        </div>
+      </SpecRow>
+
+      <SpecRow icon={Ruler} label="제작 사이즈" editMode={editing} compact
+        editContent={<EditableTagList values={editSpecs?.productionSizes || []} onChange={(v) => updateField('productionSizes', v)} placeholder="제작 사이즈 추가..." />}
+      >
+        {specs.productionSizes.length > 0 ? (
+          <div className="space-y-0.5">{specs.productionSizes.map((s, i) => <p key={i} className="text-xs">{s}</p>)}</div>
+        ) : <span className="text-xs text-muted-foreground">-</span>}
+      </SpecRow>
+
+      <SpecRow icon={CalendarClock} label="납기 희망일" editMode={editing} compact
+        editContent={
+          <div className="space-y-1">
+            <div className="flex flex-wrap gap-1">
+              {(editSpecs?.deliveryDates || []).map((d, i) => (
+                <Badge key={i} variant="secondary" className="text-[10px] gap-0.5 pr-0.5 h-5">
+                  {(() => { try { return format(new Date(d), 'yyyy.M.d', { locale: ko }); } catch { return String(d); } })()}
+                  <button onClick={() => updateField('deliveryDates', (editSpecs?.deliveryDates || []).filter((_, idx) => idx !== i))} className="ml-0.5 hover:bg-muted rounded-full p-0.5">
+                    <X className="h-2 w-2" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-6 text-[10px] gap-0.5"><Plus className="h-2.5 w-2.5" /> 날짜 추가</Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" onSelect={(date) => {
+                  if (date) {
+                    const dateStr = format(date, 'yyyy-MM-dd');
+                    if (!(editSpecs?.deliveryDates || []).includes(dateStr)) updateField('deliveryDates', [...(editSpecs?.deliveryDates || []), dateStr]);
+                  }
+                }} locale={ko} className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+          </div>
+        }
+      >
+        {specs.deliveryDates.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {specs.deliveryDates.map((d, i) => (
+              <span key={i} className="text-xs font-medium">
+                {(() => { try { return format(new Date(d), 'yyyy.M.d', { locale: ko }); } catch { return String(d); } })()}
+              </span>
+            ))}
+          </div>
+        ) : <span className="text-xs text-muted-foreground">미정</span>}
+      </SpecRow>
+
+      <SpecRow icon={MapPin} label="납품 배송지" editMode={editing} compact
+        editContent={<EditableTagList values={editSpecs?.deliveryAddresses || []} onChange={(v) => updateField('deliveryAddresses', v)} placeholder="배송지 추가..." />}
+      >
+        {specs.deliveryAddresses.length > 0 ? (
+          <div className="space-y-0.5">{specs.deliveryAddresses.map((a, i) => <p key={i} className="text-xs">{a}</p>)}</div>
+        ) : <span className="text-xs text-muted-foreground">미지정</span>}
+      </SpecRow>
+
+      <SpecRow icon={MessageSquareText} label="요청 사항" editMode={editing} compact
+        editContent={
+          <Textarea value={editSpecs?.clientRequests || ''} onChange={(e) => updateField('clientRequests', e.target.value)}
+            placeholder="클라이언트 요청 사항..." className="text-xs min-h-[40px]" />
+        }
+      >
+        {specs.clientRequests ? <p className="text-xs whitespace-pre-wrap">{specs.clientRequests}</p> : <span className="text-xs text-muted-foreground">없음</span>}
+      </SpecRow>
+
+      {/* Custom Fields */}
+      {(specs.customFields || []).map((field, i) => (
+        <CustomFieldDisplay key={`cf-${i}`} field={field} editing={editing}
+          onUpdate={(val) => updateCustomFieldValue(i, val)}
+          onRemove={() => removeCustomField(i)} />
+      ))}
+
+      {/* Add Custom Field Button */}
+      {editing && (
+        <div className="pt-2 border-t mt-1">
+          <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 w-full text-muted-foreground" onClick={() => setShowAddField(true)}>
+            <Plus className="h-3 w-3" /> 필드 추가하기
+          </Button>
+        </div>
+      )}
+
+      <AddCustomFieldDialog open={showAddField} onOpenChange={setShowAddField} onAdd={handleAddCustomField} />
+    </div>
+  );
+};
+
+const ProjectSpecsCard: React.FC<Props> = ({ projectId, specs: rawSpecs, linkedQuotes }) => {
+  const [activeTab, setActiveTab] = useState<string | null>(null);
+
   const hasQuoteItems = linkedQuotes.some((q: any) => Array.isArray(q.items) && q.items.length > 0);
 
-  if (!hasQuoteItems && !savedSpecs) {
+  // Determine if we have per-quote specs or legacy single specs
+  const isMultiQuoteFormat = rawSpecs && rawSpecs._perQuote;
+  const perQuoteSpecs: Record<string, ProjectSpecs> = isMultiQuoteFormat ? rawSpecs._perQuote : {};
+
+  // For legacy single-spec format with one quote, migrate
+  const isLegacySingle = rawSpecs && !rawSpecs._perQuote && rawSpecs.materials;
+
+  if (!hasQuoteItems && !rawSpecs) {
     return (
       <Card className="shadow-none">
         <CardContent className="p-4 flex items-center justify-center h-full">
@@ -296,185 +540,74 @@ const ProjectSpecsCard: React.FC<Props> = ({ projectId, specs: savedSpecs, linke
     );
   }
 
-  const specs = editing && editSpecs ? editSpecs : displaySpecs;
+  // If only one quote, show directly without tabs
+  if (linkedQuotes.length <= 1) {
+    const quote = linkedQuotes[0];
+    const quoteId = quote?.id || 'single';
+    const quoteSpecs = quote ? extractSpecsFromQuote(quote) : extractSpecsFromQuotes(linkedQuotes);
+    const saved = isLegacySingle ? (rawSpecs as ProjectSpecs) : (perQuoteSpecs[quoteId] || null);
+
+    return (
+      <Card className="shadow-none">
+        <CardContent className="p-4">
+          <h3 className="text-sm font-bold mb-2">제작 사양</h3>
+          <SingleSpecsView
+            projectId={projectId}
+            quoteId={quoteId}
+            savedSpecs={saved}
+            quoteSpecs={quoteSpecs}
+            allSavedSpecs={rawSpecs}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Multiple quotes: show tabs
+  const currentQuoteId = activeTab || linkedQuotes[0]?.id;
 
   return (
     <Card className="shadow-none">
       <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-bold">제작 사양</h3>
-          <div className="flex items-center gap-1">
-            {editing ? (
-              <>
-                {savedSpecs && (
-                  <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-0.5 px-1.5 text-muted-foreground" onClick={() => resetToQuoteSpecs.mutate()}>
-                    <RefreshCw className="h-2.5 w-2.5" /> 초기화
-                  </Button>
-                )}
-                <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-0.5 px-1.5" onClick={cancelEdit}>
-                  <X className="h-2.5 w-2.5" /> 취소
-                </Button>
-                <Button size="sm" className="h-5 text-[10px] gap-0.5 px-1.5" onClick={() => editSpecs && saveSpecs.mutate(editSpecs)} disabled={saveSpecs.isPending}>
-                  <Check className="h-2.5 w-2.5" /> 저장
-                </Button>
-              </>
-            ) : (
-              <>
-                {savedSpecs && <Badge variant="outline" className="text-[9px] mr-1">수정됨</Badge>}
-                <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-0.5 px-1.5" onClick={startEdit}>
-                  <Pencil className="h-2.5 w-2.5" /> 수정
-                </Button>
-              </>
-            )}
-          </div>
+        <h3 className="text-sm font-bold mb-2">제작 사양</h3>
+
+        {/* Quote tabs */}
+        <div className="flex gap-1 mb-3 overflow-x-auto pb-1">
+          {linkedQuotes.map((q: any) => (
+            <button
+              key={q.id}
+              onClick={() => setActiveTab(q.id)}
+              className={cn(
+                "px-2.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-all border",
+                currentQuoteId === q.id
+                  ? "bg-primary/10 text-primary border-primary/30"
+                  : "bg-muted/30 text-muted-foreground border-transparent hover:bg-muted/60"
+              )}
+            >
+              {q.quote_number}
+              {perQuoteSpecs[q.id] && (
+                <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-primary/60" />
+              )}
+            </button>
+          ))}
         </div>
 
-        <SpecRow icon={Layers} label="재질/품질" editMode={editing} compact
-          editContent={
-            <div className="space-y-1.5">
-              <EditableTagList values={editSpecs?.materials || []} onChange={(v) => updateField('materials', v)} placeholder="재질 추가..." />
-              <EditableTagList values={editSpecs?.qualities || []} onChange={(v) => updateField('qualities', v)} placeholder="품질 추가..." />
-            </div>
-          }
-        >
-          <div className="flex flex-wrap gap-1">
-            {specs.materials.map((m, i) => <Badge key={`m-${i}`} variant="secondary" className="text-[10px] h-5">{m}</Badge>)}
-            {specs.qualities.map((q, i) => <Badge key={`q-${i}`} variant="outline" className="text-[10px] h-5">{q}</Badge>)}
-            {specs.materials.length === 0 && specs.qualities.length === 0 && <span className="text-xs text-muted-foreground">-</span>}
-          </div>
-        </SpecRow>
-
-        <SpecRow icon={Palette} label="컬러" editMode={editing} compact
-          editContent={<EditableTagList values={editSpecs?.colors.map(c => c.name) || []} onChange={(v) => updateField('colors', v.map(name => ({ name })))} placeholder="컬러 추가..." />}
-        >
-          <div className="flex flex-wrap gap-1">
-            {specs.colors.length > 0 ? specs.colors.map((c, i) => (
-              <div key={i} className="flex items-center gap-1">
-                {c.hex && <div className="w-3 h-3 rounded-full border" style={{ backgroundColor: c.hex }} />}
-                <Badge variant="secondary" className="text-[10px] h-5">{c.name}</Badge>
-              </div>
-            )) : <span className="text-xs text-muted-foreground">-</span>}
-          </div>
-        </SpecRow>
-
-        <SpecRow icon={Layers} label="두께" editMode={editing} compact
-          editContent={<EditableTagList values={editSpecs?.thicknesses || []} onChange={(v) => updateField('thicknesses', v)} placeholder="두께 추가..." />}
-        >
-          <div className="flex flex-wrap gap-1">
-            {specs.thicknesses.length > 0 ? specs.thicknesses.map((t, i) => <Badge key={i} variant="secondary" className="text-[10px] h-5">{t}</Badge>) : <span className="text-xs text-muted-foreground">-</span>}
-          </div>
-        </SpecRow>
-
-        <SpecRow icon={Square} label="양단면" editMode={editing} compact
-          editContent={<EditableTagList values={editSpecs?.surfaces || []} onChange={(v) => updateField('surfaces', v)} placeholder="면수 추가..." />}
-        >
-          <div className="flex flex-wrap gap-1">
-            {specs.surfaces.length > 0 ? specs.surfaces.map((s, i) => <Badge key={i} variant="outline" className="text-[10px] h-5">{s}</Badge>) : <span className="text-xs text-muted-foreground">-</span>}
-          </div>
-        </SpecRow>
-
-        <SpecRow icon={Maximize} label="원판사이즈" editMode={editing} compact
-          editContent={
-            <div className="space-y-1.5">
-              <EditableTagList values={editSpecs?.sizes || []} onChange={(v) => updateField('sizes', v)} placeholder="사이즈 추가..." />
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-muted-foreground">총 수량:</span>
-                <Input type="number" className="h-6 text-xs w-16" value={editSpecs?.quantity || 0} onChange={(e) => updateField('quantity', parseInt(e.target.value) || 0)} />
-                <span className="text-[10px]">개</span>
-              </div>
-            </div>
-          }
-        >
-          <div className="space-y-0.5">
-            <div className="flex flex-wrap gap-1">
-              {specs.sizes.length > 0 ? specs.sizes.map((s, i) => <Badge key={i} variant="secondary" className="text-[10px] h-5">{s}</Badge>) : <span className="text-xs text-muted-foreground">-</span>}
-            </div>
-            {specs.quantity > 0 && <p className="text-[10px] text-muted-foreground">총 수량: {specs.quantity}개</p>}
-          </div>
-        </SpecRow>
-
-        <SpecRow icon={Ruler} label="제작 사이즈" editMode={editing} compact
-          editContent={<EditableTagList values={editSpecs?.productionSizes || []} onChange={(v) => updateField('productionSizes', v)} placeholder="제작 사이즈 추가..." />}
-        >
-          {specs.productionSizes.length > 0 ? (
-            <div className="space-y-0.5">{specs.productionSizes.map((s, i) => <p key={i} className="text-xs">{s}</p>)}</div>
-          ) : <span className="text-xs text-muted-foreground">-</span>}
-        </SpecRow>
-
-        <SpecRow icon={CalendarClock} label="납기 희망일" editMode={editing} compact
-          editContent={
-            <div className="space-y-1">
-              <div className="flex flex-wrap gap-1">
-                {(editSpecs?.deliveryDates || []).map((d, i) => (
-                  <Badge key={i} variant="secondary" className="text-[10px] gap-0.5 pr-0.5 h-5">
-                    {(() => { try { return format(new Date(d), 'yyyy.M.d', { locale: ko }); } catch { return String(d); } })()}
-                    <button onClick={() => updateField('deliveryDates', (editSpecs?.deliveryDates || []).filter((_, idx) => idx !== i))} className="ml-0.5 hover:bg-muted rounded-full p-0.5">
-                      <X className="h-2 w-2" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-6 text-[10px] gap-0.5"><Plus className="h-2.5 w-2.5" /> 날짜 추가</Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" onSelect={(date) => {
-                    if (date) {
-                      const dateStr = format(date, 'yyyy-MM-dd');
-                      if (!(editSpecs?.deliveryDates || []).includes(dateStr)) updateField('deliveryDates', [...(editSpecs?.deliveryDates || []), dateStr]);
-                    }
-                  }} locale={ko} className="p-3 pointer-events-auto" />
-                </PopoverContent>
-              </Popover>
-            </div>
-          }
-        >
-          {specs.deliveryDates.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {specs.deliveryDates.map((d, i) => (
-                <span key={i} className="text-xs font-medium">
-                  {(() => { try { return format(new Date(d), 'yyyy.M.d', { locale: ko }); } catch { return String(d); } })()}
-                </span>
-              ))}
-            </div>
-          ) : <span className="text-xs text-muted-foreground">미정</span>}
-        </SpecRow>
-
-        <SpecRow icon={MapPin} label="납품 배송지" editMode={editing} compact
-          editContent={<EditableTagList values={editSpecs?.deliveryAddresses || []} onChange={(v) => updateField('deliveryAddresses', v)} placeholder="배송지 추가..." />}
-        >
-          {specs.deliveryAddresses.length > 0 ? (
-            <div className="space-y-0.5">{specs.deliveryAddresses.map((a, i) => <p key={i} className="text-xs">{a}</p>)}</div>
-          ) : <span className="text-xs text-muted-foreground">미지정</span>}
-        </SpecRow>
-
-        <SpecRow icon={MessageSquareText} label="요청 사항" editMode={editing} compact
-          editContent={
-            <Textarea value={editSpecs?.clientRequests || ''} onChange={(e) => updateField('clientRequests', e.target.value)}
-              placeholder="클라이언트 요청 사항..." className="text-xs min-h-[40px]" />
-          }
-        >
-          {specs.clientRequests ? <p className="text-xs whitespace-pre-wrap">{specs.clientRequests}</p> : <span className="text-xs text-muted-foreground">없음</span>}
-        </SpecRow>
-
-        {/* Custom Fields */}
-        {(specs.customFields || []).map((field, i) => (
-          <CustomFieldDisplay key={`cf-${i}`} field={field} editing={editing}
-            onUpdate={(val) => updateCustomFieldValue(i, val)}
-            onRemove={() => removeCustomField(i)} />
-        ))}
-
-        {/* Add Custom Field Button */}
-        {editing && (
-          <div className="pt-2 border-t mt-1">
-            <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 w-full text-muted-foreground" onClick={() => setShowAddField(true)}>
-              <Plus className="h-3 w-3" /> 필드 추가하기
-            </Button>
-          </div>
-        )}
-
-        <AddCustomFieldDialog open={showAddField} onOpenChange={setShowAddField} onAdd={handleAddCustomField} />
+        {/* Active quote specs */}
+        {linkedQuotes.map((q: any) => {
+          if (q.id !== currentQuoteId) return null;
+          const quoteSpecs = extractSpecsFromQuote(q);
+          const saved = perQuoteSpecs[q.id] || (isLegacySingle && linkedQuotes[0]?.id === q.id ? (rawSpecs as ProjectSpecs) : null);
+          return (
+            <SingleSpecsView
+              key={q.id}
+              projectId={projectId}
+              quoteId={q.id}
+              savedSpecs={saved}
+              quoteSpecs={quoteSpecs}
+              allSavedSpecs={rawSpecs}
+            />
+          );
+        })}
       </CardContent>
     </Card>
   );

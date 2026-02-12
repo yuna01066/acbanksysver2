@@ -2,7 +2,6 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { Package } from 'lucide-react';
 import MaterialOrderCard, { MaterialOrderData } from '@/components/MaterialOrderCard';
 
 interface Props {
@@ -29,26 +28,20 @@ const ProjectMaterialOrders: React.FC<Props> = ({ projectId }) => {
     },
   });
 
-  if (orders.length === 0) return null;
+  if (orders.length === 0) {
+    return <p className="text-[10px] text-muted-foreground">연결된 발주가 없습니다.</p>;
+  }
 
   return (
-    <div className="rounded-lg border bg-card p-3.5">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-          <Package className="h-3 w-3" />
-          원판 발주 ({orders.length})
-        </span>
-      </div>
-      <div className="space-y-2 max-h-[250px] overflow-y-auto">
-        {orders.map(order => (
-          <MaterialOrderCard
-            key={order.id}
-            order={order}
-            compact
-            showDate
-          />
-        ))}
-      </div>
+    <div className="space-y-2 max-h-[250px] overflow-y-auto">
+      {orders.map(order => (
+        <MaterialOrderCard
+          key={order.id}
+          order={order}
+          compact
+          showDate
+        />
+      ))}
     </div>
   );
 };
