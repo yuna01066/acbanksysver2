@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import DashboardCalendar from '@/components/DashboardCalendar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Megaphone, ArrowLeft, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper, Building2, Users, X, Coffee, Video } from 'lucide-react';
+import { Megaphone, ArrowLeft, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper, Building2, Users, X, Coffee, LayoutGrid } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -38,9 +39,10 @@ interface Announcement {
 }
 
 const TAB_CONFIG: { value: string; label: string; icon: React.ReactNode; types: string[] }[] = [
+  { value: 'all', label: '전체', icon: <LayoutGrid className="h-4 w-4" />, types: ['general', 'event', 'conference', 'meeting'] },
   { value: 'general', label: '공지', icon: <Megaphone className="h-4 w-4" />, types: ['general'] },
   { value: 'event', label: '이벤트', icon: <PartyPopper className="h-4 w-4" />, types: ['event'] },
-  { value: 'conference', label: '회의', icon: <Video className="h-4 w-4" />, types: ['conference'] },
+  { value: 'conference', label: '회의', icon: <Users className="h-4 w-4" />, types: ['conference'] },
   { value: 'meeting', label: '미팅', icon: <Coffee className="h-4 w-4" />, types: ['meeting'] },
 ];
 
@@ -48,7 +50,7 @@ const AnnouncementsPage = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, isModerator } = useAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('general');
+  const [activeTab, setActiveTab] = useState('all');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -273,7 +275,7 @@ const AnnouncementsPage = () => {
   const resetForm = () => {
     setTitle('');
     setContent('');
-    setAnnouncementType(activeTab as AnnouncementType);
+    setAnnouncementType(activeTab === 'all' ? 'general' : activeTab as AnnouncementType);
     setMeetingDate('');
     setMeetingTime('');
     setMeetingLocation('');
@@ -407,7 +409,7 @@ const AnnouncementsPage = () => {
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     resetForm();
-    setAnnouncementType(tab as AnnouncementType);
+    setAnnouncementType(tab === 'all' ? 'general' : tab as AnnouncementType);
   };
 
   const getItemsForTab = (tab: string) => {
@@ -575,17 +577,18 @@ const AnnouncementsPage = () => {
     );
   };
 
-  const tabLabels: Record<string, string> = { general: '공지', event: '이벤트', conference: '회의', meeting: '미팅' };
+  const tabLabels: Record<string, string> = { all: '공지', general: '공지', event: '이벤트', conference: '회의', meeting: '미팅' };
   const tabEmptyIcons: Record<string, React.ReactNode> = {
+    all: <Megaphone className="h-10 w-10 mx-auto" />,
     general: <Megaphone className="h-10 w-10 mx-auto" />,
     event: <PartyPopper className="h-10 w-10 mx-auto" />,
-    conference: <Video className="h-10 w-10 mx-auto" />,
+    conference: <Users className="h-10 w-10 mx-auto" />,
     meeting: <Coffee className="h-10 w-10 mx-auto" />,
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
@@ -594,15 +597,21 @@ const AnnouncementsPage = () => {
             <h1 className="text-2xl font-bold">공지사항</h1>
           </div>
           {canManage && (
-            <Button onClick={() => { resetForm(); setAnnouncementType(activeTab as AnnouncementType); setShowForm(true); }} className="gap-2">
+            <Button onClick={() => { resetForm(); setAnnouncementType(activeTab === 'all' ? 'general' : activeTab as AnnouncementType); setShowForm(true); }} className="gap-2">
               <Plus className="h-4 w-4" />
               새 {tabLabels[activeTab] || '공지'} 작성
             </Button>
           )}
         </div>
 
+        {/* Calendar */}
+        <div className="mb-6">
+          <DashboardCalendar />
+        </div>
+
+        {/* Tabs below calendar */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             {TAB_CONFIG.map(tab => {
               const count = getItemsForTab(tab.value).length;
               return (
