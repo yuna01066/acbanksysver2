@@ -88,6 +88,7 @@ const Home = () => {
     requiresAuth: true,
     action: () => navigate("/material-orders")
   }, {
+    title: "수율 계산기",
     icon: TrendingUp,
     description: "패널 수율 최적화",
     url: "/calculator?type=yield",
