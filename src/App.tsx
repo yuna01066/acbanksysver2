@@ -42,6 +42,7 @@ import PerformanceReviewPage from "./pages/PerformanceReviewPage";
 import MaterialOrdersPage from "./pages/MaterialOrdersPage";
 import YearEndTaxPage from "./pages/YearEndTaxPage";
 import YearEndTaxAdminPage from "./pages/YearEndTaxAdminPage";
+import StorageStatusPage from "./pages/StorageStatusPage";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +94,7 @@ const App = () => (
             <Route path="/material-orders" element={<G><MaterialOrdersPage /></G>} />
             <Route path="/year-end-tax" element={<YearEndTaxPage />} />
             <Route path="/year-end-tax-admin" element={<YearEndTaxAdminPage />} />
+            <Route path="/storage-status" element={<StorageStatusPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
             </Routes>
