@@ -30,20 +30,47 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+// 버킷 내 모든 파일을 재귀적으로 탐색
+async function listAllFiles(bucket: string, prefix: string = ''): Promise<{ count: number; size: number }> {
+  let totalCount = 0;
+  let totalSize = 0;
+
+  try {
+    const { data, error } = await supabase.storage.from(bucket).list(prefix, { limit: 1000 });
+    if (error || !data) return { count: 0, size: 0 };
+
+    for (const item of data) {
+      const fullPath = prefix ? `${prefix}/${item.name}` : item.name;
+      
+      if (item.id === null && !item.metadata) {
+        // 폴더 → 재귀 탐색
+        const sub = await listAllFiles(bucket, fullPath);
+        totalCount += sub.count;
+        totalSize += sub.size;
+      } else {
+        // 실제 파일
+        totalCount++;
+        totalSize += (item.metadata?.size || 0);
+      }
+    }
+  } catch {
+    // skip
+  }
+
+  return { count: totalCount, size: totalSize };
+}
+
 const StorageStatusPage = () => {
   const navigate = useNavigate();
   const { userRole, loading: authLoading } = useAuth();
 
-  // Lovable Cloud (Supabase Storage)
   const [bucketUsages, setBucketUsages] = useState<BucketUsage[]>([]);
   const [lovableLoading, setLovableLoading] = useState(true);
 
-  // Supabase DB
   const [dbSize, setDbSize] = useState<string>('');
   const [dbLoading, setDbLoading] = useState(true);
-  const [tableSizes, setTableSizes] = useState<{ name: string; size: string; rows: number }[]>([]);
+  const [tableSizes, setTableSizes] = useState<{ name: string; rows: number }[]>([]);
 
-  // GCS
   const [gcsFiles, setGcsFiles] = useState<GcsFileInfo[]>([]);
   const [gcsTotalSize, setGcsTotalSize] = useState(0);
   const [gcsLoading, setGcsLoading] = useState(true);
@@ -64,31 +91,11 @@ const StorageStatusPage = () => {
     setLovableLoading(true);
     try {
       const bucketNames = Object.keys(bucketLabels);
-      const results: BucketUsage[] = [];
-
-      for (const bucket of bucketNames) {
-        try {
-          const { data, error } = await supabase.storage.from(bucket).list('', { limit: 10000 });
-          if (error) {
-            results.push({ name: bucket, fileCount: 0, totalSize: 0 });
-            continue;
-          }
-          const files = (data || []).filter(f => f.name && !f.id?.includes('/'));
-          let totalSize = 0;
-          let fileCount = 0;
-          for (const file of files) {
-            if (file.metadata?.size) {
-              totalSize += file.metadata.size;
-              fileCount++;
-            } else if (file.name) {
-              fileCount++;
-            }
-          }
-          results.push({ name: bucket, fileCount, totalSize });
-        } catch {
-          results.push({ name: bucket, fileCount: 0, totalSize: 0 });
-        }
-      }
+      const promises = bucketNames.map(async (bucket) => {
+        const result = await listAllFiles(bucket);
+        return { name: bucket, fileCount: result.count, totalSize: result.size };
+      });
+      const results = await Promise.all(promises);
       setBucketUsages(results);
     } catch (err) {
       console.error('Lovable storage fetch error:', err);
@@ -100,24 +107,38 @@ const StorageStatusPage = () => {
   const fetchDbSize = useCallback(async () => {
     setDbLoading(true);
     try {
-      // Get table row counts from known tables
       const tables = [
         'profiles', 'saved_quotes', 'recipients', 'projects', 'attendance_records',
         'leave_requests', 'announcements', 'direct_messages', 'material_orders',
         'employment_contracts', 'performance_reviews', 'incident_reports',
-        'project_updates', 'notifications', 'activity_logs',
+        'project_updates', 'notifications', 'activity_logs', 'quote_memos',
+        'project_assignments', 'peer_feedback', 'performance_review_scores',
+        'performance_review_cycles', 'performance_review_categories',
+        'performance_review_summaries', 'review_cycle_targets',
+        'processing_options', 'processing_categories', 'panel_masters',
+        'panel_sizes', 'color_options', 'color_mixing_costs', 'adhesive_costs',
+        'company_holidays', 'company_info', 'contract_templates',
+        'custom_leave_types', 'document_categories', 'employee_documents',
+        'leave_policy_settings', 'leave_general_settings', 'labor_law_settings',
+        'page_access_permissions', 'page_role_access', 'password_reset_requests',
+        'slot_types', 'category_logic_slots', 'advanced_processing_settings',
+        'tax_deduction_items', 'tax_dependents', 'year_end_tax_settlements',
+        'user_roles',
       ];
-      const sizes: { name: string; size: string; rows: number }[] = [];
-      for (const table of tables) {
+      
+      const promises = tables.map(async (table) => {
         try {
           const { count } = await supabase.from(table as any).select('*', { count: 'exact', head: true });
-          sizes.push({ name: table, size: '', rows: count || 0 });
+          return { name: table, rows: count || 0 };
         } catch {
-          // skip
+          return { name: table, rows: 0 };
         }
-      }
-      setTableSizes(sizes.filter(s => s.rows > 0).sort((a, b) => b.rows - a.rows));
-
+      });
+      
+      const sizes = await Promise.all(promises);
+      const filtered = sizes.filter(s => s.rows > 0).sort((a, b) => b.rows - a.rows);
+      setTableSizes(filtered);
+      
       const totalRows = sizes.reduce((sum, s) => sum + s.rows, 0);
       setDbSize(`${totalRows.toLocaleString()} rows`);
     } catch (err) {
@@ -169,27 +190,35 @@ const StorageStatusPage = () => {
 
   const lovableTotalUsed = bucketUsages.reduce((sum, b) => sum + b.totalSize, 0);
   const lovablePercent = Math.min((lovableTotalUsed / LOVABLE_FREE_STORAGE) * 100, 100);
+  const totalFiles = bucketUsages.reduce((sum, b) => sum + b.fileCount, 0);
   const isLoading = lovableLoading || dbLoading || gcsLoading;
 
   const tableLabels: Record<string, string> = {
-    profiles: '사용자 프로필',
-    saved_quotes: '저장된 견적서',
-    recipients: '거래처',
-    projects: '프로젝트',
-    attendance_records: '근태 기록',
-    leave_requests: '휴가 신청',
-    announcements: '공지사항',
-    direct_messages: '메시지',
-    material_orders: '원판 발주',
-    employment_contracts: '근로 계약',
-    performance_reviews: '업무 평가',
-    incident_reports: '사건 보고서',
-    project_updates: '프로젝트 업데이트',
-    notifications: '알림',
-    activity_logs: '활동 로그',
+    profiles: '사용자 프로필', saved_quotes: '저장된 견적서', recipients: '거래처',
+    projects: '프로젝트', attendance_records: '근태 기록', leave_requests: '휴가 신청',
+    announcements: '공지사항', direct_messages: '메시지', material_orders: '원판 발주',
+    employment_contracts: '근로 계약', performance_reviews: '업무 평가',
+    incident_reports: '사건 보고서', project_updates: '프로젝트 업데이트',
+    notifications: '알림', activity_logs: '활동 로그', quote_memos: '견적 메모',
+    project_assignments: '프로젝트 배정', peer_feedback: '피드백',
+    performance_review_scores: '평가 점수', performance_review_cycles: '평가 주기',
+    performance_review_categories: '평가 카테고리', performance_review_summaries: '평가 요약',
+    review_cycle_targets: '평가 대상자', processing_options: '가공 옵션',
+    processing_categories: '가공 카테고리', panel_masters: '판넬 마스터',
+    panel_sizes: '판넬 사이즈', color_options: '색상 옵션',
+    color_mixing_costs: '조색 비용', adhesive_costs: '접착 비용',
+    company_holidays: '회사 휴일', company_info: '회사 정보',
+    contract_templates: '계약서 템플릿', custom_leave_types: '휴가 유형',
+    document_categories: '문서 카테고리', employee_documents: '직원 문서',
+    leave_policy_settings: '휴가 정책', leave_general_settings: '휴가 일반 설정',
+    labor_law_settings: '노동법 설정', page_access_permissions: '페이지 접근 권한',
+    page_role_access: '역할별 접근', password_reset_requests: '비밀번호 초기화',
+    slot_types: '슬롯 유형', category_logic_slots: '카테고리 로직',
+    advanced_processing_settings: '고급 가공 설정', tax_deduction_items: '세금 공제',
+    tax_dependents: '부양가족', year_end_tax_settlements: '연말정산',
+    user_roles: '사용자 역할',
   };
 
-  // Group GCS files by prefix
   const gcsGroups: Record<string, { count: number; size: number }> = {};
   gcsFiles.forEach(f => {
     const prefix = f.name.split('/')[0] || 'root';
@@ -219,7 +248,6 @@ const StorageStatusPage = () => {
           </Button>
         </div>
 
-        {/* 요약 카드 3개 */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <Card>
             <CardContent className="pt-5 pb-4">
@@ -234,7 +262,7 @@ const StorageStatusPage = () => {
                   <p className="text-lg font-bold">{formatBytes(lovableTotalUsed)}</p>
                   <Progress value={lovablePercent} className="h-1.5 mt-2" />
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    / 1GB · 잔여 {formatBytes(LOVABLE_FREE_STORAGE - lovableTotalUsed)}
+                    / 1GB · 잔여 {formatBytes(Math.max(0, LOVABLE_FREE_STORAGE - lovableTotalUsed))} · 파일 {totalFiles}개
                   </p>
                 </>
               )}
@@ -280,7 +308,6 @@ const StorageStatusPage = () => {
           </Card>
         </div>
 
-        {/* 탭별 상세 */}
         <Tabs defaultValue="lovable" className="w-full">
           <TabsList className="w-full grid grid-cols-3">
             <TabsTrigger value="lovable">Lovable Cloud</TabsTrigger>
@@ -325,7 +352,7 @@ const StorageStatusPage = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">데이터베이스 테이블</CardTitle>
-                <CardDescription>테이블별 레코드 수</CardDescription>
+                <CardDescription>테이블별 레코드 수 (총 {dbSize})</CardDescription>
               </CardHeader>
               <CardContent>
                 {dbLoading ? (

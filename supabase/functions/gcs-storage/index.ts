@@ -161,7 +161,7 @@ serve(async (req) => {
       // 파일 목록 조회
       case 'list-files': {
         if (!bucket) throw new Error('bucket name is required');
-        const params: Record<string, string> = { 'max-keys': '100' };
+        const params: Record<string, string> = { 'max-keys': '10000' };
         if (prefix) params['prefix'] = prefix;
         const res = await gcsRequest('GET', `/${bucket}`, accessKey, secretKey, null, {}, params);
         const text = await res.text();
