@@ -225,9 +225,6 @@ const AnnouncementCard = () => {
               <Button type="button" variant={announcementType === 'general' ? 'default' : 'outline'} size="sm" className="h-7 text-xs" onClick={() => setAnnouncementType('general')}>
                 <Megaphone className="h-3 w-3 mr-1" />공지
               </Button>
-              <Button type="button" variant={announcementType === 'meeting' ? 'default' : 'outline'} size="sm" className="h-7 text-xs" onClick={() => setAnnouncementType('meeting')}>
-                <Calendar className="h-3 w-3 mr-1" />회의
-              </Button>
               <Button type="button" variant={announcementType === 'event' ? 'default' : 'outline'} size="sm" className="h-7 text-xs" onClick={() => setAnnouncementType('event')}>
                 <PartyPopper className="h-3 w-3 mr-1" />이벤트
               </Button>
@@ -238,83 +235,6 @@ const AnnouncementCard = () => {
               onChange={(e) => setTitle(e.target.value)}
               className="h-8 text-sm"
             />
-            {announcementType === 'meeting' && (
-              <div className="grid grid-cols-3 gap-2">
-                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("h-8 text-xs justify-start font-normal", !meetingDate && "text-muted-foreground")}>
-                      <CalendarIcon className="h-3 w-3 mr-1" />
-                      {meetingDate ? format(new Date(meetingDate), 'M/d (EEE)', { locale: ko }) : '날짜'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={meetingDate ? new Date(meetingDate) : undefined}
-                      onSelect={handleDateSelect}
-                      locale={ko}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-
-                <Popover open={timePickerOpen} onOpenChange={setTimePickerOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("h-8 text-xs justify-start font-normal", !meetingTime && "text-muted-foreground")}>
-                      <Clock className="h-3 w-3 mr-1" />
-                      {meetingTime || '시간'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-48 p-3" align="start">
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">시간 선택</p>
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <p className="text-[10px] text-muted-foreground mb-1">시</p>
-                          <div className="h-32 overflow-y-auto border rounded-md">
-                            {HOURS.map(h => (
-                              <button
-                                key={h}
-                                className={cn(
-                                  "w-full px-2 py-1 text-xs text-center hover:bg-accent transition-colors",
-                                  selectedHour === h && "bg-primary text-primary-foreground hover:bg-primary"
-                                )}
-                                onClick={() => { setSelectedHour(h); setMeetingTime(`${h}:${selectedMinute}`); }}
-                              >
-                                {h}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-[10px] text-muted-foreground mb-1">분</p>
-                          <div className="h-32 overflow-y-auto border rounded-md">
-                            {MINUTES.map(m => (
-                              <button
-                                key={m}
-                                className={cn(
-                                  "w-full px-2 py-1 text-xs text-center hover:bg-accent transition-colors",
-                                  selectedMinute === m && "bg-primary text-primary-foreground hover:bg-primary"
-                                )}
-                                onClick={() => { setSelectedMinute(m); setMeetingTime(`${selectedHour}:${m}`); }}
-                              >
-                                {m}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <Button size="sm" className="w-full h-7 text-xs" onClick={() => handleTimeSelect(selectedHour, selectedMinute)}>
-                        확인
-                      </Button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-
-                <Input placeholder="장소" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} className="h-8 text-sm" />
-              </div>
-            )}
             {announcementType === 'event' && (
               <div className="grid grid-cols-3 gap-2">
                 <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
