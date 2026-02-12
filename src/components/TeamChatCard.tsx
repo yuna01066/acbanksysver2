@@ -62,7 +62,10 @@ const TeamChatCard: React.FC = () => {
   const resultCount = mentionResults.length || projectResults.length;
 
   const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, []);
 
   useEffect(() => {
