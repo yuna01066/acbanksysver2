@@ -3,11 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth, type AppRole, ROLE_HIERARCHY } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 
+// Pages where we should allow access if the user owns related data
+const OWNER_BYPASS_PAGES = ['/saved-quotes', '/quotes-summary', '/customer-quotes-summary'];
+
 /**
  * Hook that checks if the current user has access to a given page.
  * Rules:
  * - If no role restriction is set for a page, it's open to all authenticated users
  * - If a min_role is set, only users with that role or higher can access
+ * - For quote-related pages, the author always has access to their own data
  * - Role hierarchy: admin > moderator > manager > employee
  */
 export const usePageAccess = () => {
@@ -46,8 +50,20 @@ export const usePageAccess = () => {
         const minRole = data[0].min_role as AppRole;
         const minIdx = ROLE_HIERARCHY.indexOf(minRole);
         const userIdx = userRole ? ROLE_HIERARCHY.indexOf(userRole) : ROLE_HIERARCHY.length;
-        // Lower index = higher privilege
-        setAllowed(userIdx <= minIdx);
+
+        if (userIdx <= minIdx) {
+          // Role is sufficient
+          setAllowed(true);
+        } else {
+          // Role insufficient — check if user owns data on bypass pages
+          const basePath = '/' + segments[0];
+          if (OWNER_BYPASS_PAGES.includes(basePath)) {
+            const hasOwnData = await checkOwnership(user.id, basePath, pageKey);
+            setAllowed(hasOwnData);
+          } else {
+            setAllowed(false);
+          }
+        }
       }
       setChecking(false);
     };
@@ -57,3 +73,40 @@ export const usePageAccess = () => {
 
   return { allowed, checking };
 };
+
+/**
+ * Check if the user owns any data relevant to the page they're trying to access.
+ */
+async function checkOwnership(userId: string, basePath: string, fullPath: string): Promise<boolean> {
+  if (basePath === '/saved-quotes') {
+    // For detail page /saved-quotes/:id, check ownership of that specific quote
+    const segments = fullPath.split('/').filter(Boolean);
+    if (segments.length >= 2) {
+      const quoteId = segments[1];
+      const { count } = await supabase
+        .from('saved_quotes')
+        .select('id', { count: 'exact', head: true })
+        .eq('id', quoteId)
+        .eq('user_id', userId);
+      return (count ?? 0) > 0;
+    }
+    // For list page, check if user has any quotes
+    const { count } = await supabase
+      .from('saved_quotes')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .limit(1);
+    return (count ?? 0) > 0;
+  }
+
+  if (basePath === '/quotes-summary' || basePath === '/customer-quotes-summary') {
+    const { count } = await supabase
+      .from('saved_quotes')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .limit(1);
+    return (count ?? 0) > 0;
+  }
+
+  return false;
+}
