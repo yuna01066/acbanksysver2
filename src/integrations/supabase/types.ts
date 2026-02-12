@@ -2576,6 +2576,7 @@ export type Database = {
           email_sent: boolean | null
           fax_sent: boolean | null
           id: string
+          invoice_direction: string
           issue_type: string
           items: Json
           memo: string | null
@@ -2585,8 +2586,12 @@ export type Database = {
           popbill_state_code: string | null
           popbill_state_dt: string | null
           project_id: string | null
+          project_name: string | null
           purpose_type: string
           quote_id: string | null
+          quote_number: string | null
+          recipient_id: string | null
+          recipient_name: string | null
           remark1: string | null
           remark2: string | null
           remark3: string | null
@@ -2625,6 +2630,7 @@ export type Database = {
           email_sent?: boolean | null
           fax_sent?: boolean | null
           id?: string
+          invoice_direction?: string
           issue_type?: string
           items?: Json
           memo?: string | null
@@ -2634,8 +2640,12 @@ export type Database = {
           popbill_state_code?: string | null
           popbill_state_dt?: string | null
           project_id?: string | null
+          project_name?: string | null
           purpose_type?: string
           quote_id?: string | null
+          quote_number?: string | null
+          recipient_id?: string | null
+          recipient_name?: string | null
           remark1?: string | null
           remark2?: string | null
           remark3?: string | null
@@ -2674,6 +2684,7 @@ export type Database = {
           email_sent?: boolean | null
           fax_sent?: boolean | null
           id?: string
+          invoice_direction?: string
           issue_type?: string
           items?: Json
           memo?: string | null
@@ -2683,8 +2694,12 @@ export type Database = {
           popbill_state_code?: string | null
           popbill_state_dt?: string | null
           project_id?: string | null
+          project_name?: string | null
           purpose_type?: string
           quote_id?: string | null
+          quote_number?: string | null
+          recipient_id?: string | null
+          recipient_name?: string | null
           remark1?: string | null
           remark2?: string | null
           remark3?: string | null
@@ -2721,6 +2736,13 @@ export type Database = {
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_invoices_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
             referencedColumns: ["id"]
           },
         ]
