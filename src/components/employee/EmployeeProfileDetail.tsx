@@ -30,7 +30,7 @@ import {
 import type { EmployeeProfile, AppRoleType } from './EmployeeListSidebar';
 import { RoleStar } from './EmployeeListSidebar';
 
-type FieldDef = { key: string; label: string; type?: string; disabled?: boolean; multiline?: boolean };
+type FieldDef = { key: string; label: string; type?: string; disabled?: boolean; multiline?: boolean; adminOnly?: boolean };
 
 interface SectionDef {
   key: string;
@@ -51,7 +51,7 @@ const personnelSections: SectionDef[] = [
   ]},
   { key: 'basic', title: '기본 정보', icon: <User className="h-4 w-4" />, fields: [
     { key: 'full_name', label: '이름' }, { key: 'nickname', label: '닉네임' },
-    { key: 'email', label: '이메일', disabled: true }, { key: 'personal_email', label: '개인 이메일' },
+    { key: 'email', label: '이메일', adminOnly: true }, { key: 'personal_email', label: '개인 이메일' },
     { key: 'employee_number', label: '사번' },
   ]},
   { key: 'join', title: '입사 정보', icon: <Calendar className="h-4 w-4" />, fields: [
@@ -172,7 +172,7 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
       const updates: Record<string, any> = {};
       for (const section of sections) {
         for (const f of section.fields) {
-          if (!f.disabled) {
+          if (!f.disabled && !(f.adminOnly && !isAdmin)) {
             const newVal = editValues[f.key];
             const oldVal = (employee as any)[f.key];
             if (newVal !== oldVal) {
@@ -187,6 +187,18 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
         setSaving(false);
         return;
       }
+
+      // If email changed, update auth email via edge function
+      if (updates.email && isAdmin) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await supabase.functions.invoke('admin-update-user', {
+          body: { userId: employee.id, email: updates.email },
+        });
+        if (res.error) throw new Error(res.error.message || '이메일 변경 실패');
+        const resData = res.data as any;
+        if (resData?.error) throw new Error(resData.error);
+      }
+
       const { error } = await supabase.from('profiles').update(updates).eq('id', employee.id);
       if (error) throw error;
       toast.success('정보가 저장되었습니다.');
@@ -258,16 +270,19 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
             {section.icon} {section.title}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {section.fields.map(f => (
+            {section.fields.map(f => {
+              const isDisabled = f.disabled || (f.adminOnly && !isAdmin);
+              return (
               <div key={f.key} className={f.multiline ? 'md:col-span-2' : ''}>
-                <Label className="text-xs text-muted-foreground">{f.label}</Label>
+                <Label className="text-xs text-muted-foreground">{f.label}{f.adminOnly && <span className="ml-1 text-[10px] text-destructive">(관리자)</span>}</Label>
                 {f.multiline ? (
-                  <Textarea value={editValues[f.key] || ''} onChange={(e) => setEditValues({ ...editValues, [f.key]: e.target.value })} rows={3} className="text-sm mt-1 resize-none" />
+                  <Textarea value={editValues[f.key] || ''} onChange={(e) => setEditValues({ ...editValues, [f.key]: e.target.value })} rows={3} className="text-sm mt-1 resize-none" disabled={isDisabled} />
                 ) : (
-                  <Input type={f.type || 'text'} value={editValues[f.key] || ''} onChange={(e) => setEditValues({ ...editValues, [f.key]: e.target.value })} disabled={f.disabled} className="h-9 text-sm mt-1" />
+                  <Input type={f.type || 'text'} value={editValues[f.key] || ''} onChange={(e) => setEditValues({ ...editValues, [f.key]: e.target.value })} disabled={isDisabled} className="h-9 text-sm mt-1" />
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ))}
