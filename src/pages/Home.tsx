@@ -238,7 +238,8 @@ const Home = () => {
 
           {/* Links Grid */}
           {(() => {
-            const sideCards = [
+            const sideCards: (null | { title: string; icon: any; description: string; requiresAuth: boolean; action: () => void })[] = [
+              null, // row 0: empty
               {
                 title: "세금계산서 관리",
                 icon: Receipt,
