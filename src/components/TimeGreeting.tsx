@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Sun, Moon, Coffee, Utensils, Clock, Calendar, MapPin, Video } from 'lucide-react';
+import { Sun, Moon, Coffee, Utensils, Clock, Calendar, MapPin, Users } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
@@ -296,7 +296,7 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
         <div className={`mt-3 grid gap-2.5 ${upcomingEvents.length === 1 ? 'grid-cols-1' : upcomingEvents.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
           {upcomingEvents.map((ev) => {
             const typeConfig = {
-              conference: { label: '회의', badgeBg: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300', cardBorder: 'border-violet-200 dark:border-violet-800', cardBg: 'bg-violet-50/80 dark:bg-violet-950/30', icon: <Video className="h-3.5 w-3.5" /> },
+              conference: { label: '회의', badgeBg: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300', cardBorder: 'border-violet-200 dark:border-violet-800', cardBg: 'bg-violet-50/80 dark:bg-violet-950/30', icon: <Users className="h-3.5 w-3.5" /> },
               meeting: { label: '미팅', badgeBg: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', cardBorder: 'border-amber-200 dark:border-amber-800', cardBg: 'bg-amber-50/80 dark:bg-amber-950/30', icon: <Coffee className="h-3.5 w-3.5" /> },
               event: { label: '이벤트', badgeBg: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300', cardBorder: 'border-emerald-200 dark:border-emerald-800', cardBg: 'bg-emerald-50/80 dark:bg-emerald-950/30', icon: <Calendar className="h-3.5 w-3.5" /> },
             }[ev.announcement_type] || { label: '일정', badgeBg: 'bg-muted text-muted-foreground', cardBorder: 'border-border', cardBg: 'bg-muted/50', icon: <Calendar className="h-3.5 w-3.5" /> };
