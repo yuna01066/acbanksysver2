@@ -584,7 +584,7 @@ const ProjectSpecsCard: React.FC<Props> = ({ projectId, specs: rawSpecs, linkedQ
                   : "bg-muted/30 text-muted-foreground border-transparent hover:bg-muted/60"
               )}
             >
-              {q.quote_number}
+              {(q.project_name || q.quote_number)?.length > 15 ? (q.project_name || q.quote_number).slice(0, 15) + '...' : (q.project_name || q.quote_number)}
               {perQuoteSpecs[q.id] && (
                 <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-primary/60" />
               )}
