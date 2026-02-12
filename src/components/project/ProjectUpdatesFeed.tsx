@@ -390,8 +390,8 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
-    const valid = selected.filter(f => f.size <= 10 * 1024 * 1024);
-    if (valid.length !== selected.length) toast.error('10MB를 초과하는 파일이 제외되었습니다.');
+    const valid = selected.filter(f => f.size <= 50 * 1024 * 1024);
+    if (valid.length !== selected.length) toast.error('50MB를 초과하는 파일이 제외되었습니다.');
     setFiles(prev => [...prev, ...valid]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -712,8 +712,8 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
                           className="hidden"
                           onChange={(e) => {
                             const selected = Array.from(e.target.files || []);
-                            const valid = selected.filter(f => f.size <= 10 * 1024 * 1024);
-                            if (valid.length !== selected.length) toast.error('10MB를 초과하는 파일이 제외되었습니다.');
+                            const valid = selected.filter(f => f.size <= 50 * 1024 * 1024);
+                            if (valid.length !== selected.length) toast.error('50MB를 초과하는 파일이 제외되었습니다.');
                             setEditNewFiles(prev => [...prev, ...valid]);
                             if (editFileInputRef.current) editFileInputRef.current.value = '';
                           }}
