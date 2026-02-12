@@ -345,7 +345,14 @@ const AnnouncementCard = () => {
                       selected={eventEndDate ? new Date(eventEndDate) : undefined}
                       onSelect={handleEndDateSelect}
                       locale={ko}
-                      disabled={(date) => meetingDate ? date < new Date(meetingDate) : false}
+                      disabled={(date) => {
+                        if (!meetingDate) return false;
+                        const start = new Date(meetingDate);
+                        start.setHours(0, 0, 0, 0);
+                        const d = new Date(date);
+                        d.setHours(0, 0, 0, 0);
+                        return d < start;
+                      }}
                       initialFocus
                       className={cn("p-3 pointer-events-auto")}
                     />
