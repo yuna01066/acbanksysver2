@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Megaphone, ArrowRight, Plus, Loader2, CalendarIcon, Clock, PartyPopper, Video, Coffee } from 'lucide-react';
+import { Megaphone, ArrowRight, Plus, Loader2, CalendarIcon, Clock, PartyPopper, Users, Coffee } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -235,18 +235,18 @@ const AnnouncementCard = () => {
       <CardContent className="pt-0 space-y-3">
         {canPost && showForm && (
           <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
-            <div className="flex gap-1.5 flex-wrap">
-              <Button type="button" variant={announcementType === 'general' ? 'default' : 'outline'} size="sm" className="h-7 text-xs" onClick={() => setAnnouncementType('general')}>
-                <Megaphone className="h-3 w-3 mr-1" />공지
+            <div className="flex gap-1 flex-wrap">
+              <Button type="button" variant={announcementType === 'general' ? 'default' : 'outline'} size="sm" className="h-6 text-[10px] px-2" onClick={() => setAnnouncementType('general')}>
+                <Megaphone className="h-3 w-3 mr-0.5" />공지
               </Button>
-              <Button type="button" variant={announcementType === 'event' ? 'default' : 'outline'} size="sm" className="h-7 text-xs" onClick={() => setAnnouncementType('event')}>
-                <PartyPopper className="h-3 w-3 mr-1" />이벤트
+              <Button type="button" variant={announcementType === 'event' ? 'default' : 'outline'} size="sm" className="h-6 text-[10px] px-2" onClick={() => setAnnouncementType('event')}>
+                <PartyPopper className="h-3 w-3 mr-0.5" />이벤트
               </Button>
-              <Button type="button" variant={announcementType === 'conference' ? 'default' : 'outline'} size="sm" className="h-7 text-xs" onClick={() => setAnnouncementType('conference')}>
-                <Video className="h-3 w-3 mr-1" />회의
+              <Button type="button" variant={announcementType === 'conference' ? 'default' : 'outline'} size="sm" className="h-6 text-[10px] px-2" onClick={() => setAnnouncementType('conference')}>
+                <Users className="h-3 w-3 mr-0.5" />회의
               </Button>
-              <Button type="button" variant={announcementType === 'meeting' ? 'default' : 'outline'} size="sm" className="h-7 text-xs" onClick={() => setAnnouncementType('meeting')}>
-                <Coffee className="h-3 w-3 mr-1" />미팅
+              <Button type="button" variant={announcementType === 'meeting' ? 'default' : 'outline'} size="sm" className="h-6 text-[10px] px-2" onClick={() => setAnnouncementType('meeting')}>
+                <Coffee className="h-3 w-3 mr-0.5" />미팅
               </Button>
             </div>
             <Input
