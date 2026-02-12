@@ -88,6 +88,8 @@ serve(async (req) => {
       throw new Error('GCS_PROJECT_ID is not configured');
     }
 
+    console.log('GCS key starts with:', serviceAccountKey.substring(0, 30));
+    console.log('GCS key length:', serviceAccountKey.length);
     const serviceAccount = JSON.parse(serviceAccountKey);
     const accessToken = await getAccessToken(serviceAccount);
     const GCS_API = 'https://storage.googleapis.com';
