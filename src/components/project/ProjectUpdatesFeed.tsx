@@ -14,6 +14,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { gcsUploadFile, gcsGetDownloadUrl } from '@/hooks/useGcsStorage';
 
 interface NotionProject {
   id: string;
@@ -66,8 +67,16 @@ const ImageThumbnail: React.FC<{ attachment: Attachment; onClick: (url: string) 
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.storage.from('project-update-attachments').createSignedUrl(attachment.path, 600)
-      .then(({ data }) => { if (data?.signedUrl) setUrl(data.signedUrl); });
+    // Check if this is a GCS path (project-updates/ prefix) or legacy Supabase path
+    const isGcsPath = attachment.path.startsWith('project-updates/');
+    if (isGcsPath) {
+      gcsGetDownloadUrl(attachment.path)
+        .then(url => setUrl(url))
+        .catch(() => {});
+    } else {
+      supabase.storage.from('project-update-attachments').createSignedUrl(attachment.path, 600)
+        .then(({ data }) => { if (data?.signedUrl) setUrl(data.signedUrl); });
+    }
   }, [attachment.path]);
 
   if (!url) return <div className="w-20 h-20 bg-muted rounded animate-pulse" />;
@@ -271,17 +280,14 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
 
   const uploadFiles = async (): Promise<Attachment[]> => {
     const uploaded: Attachment[] = [];
+    const pathPrefix = `project-updates/${user!.id}/${projectId}`;
     for (const file of files) {
-      const safeName = sanitizeFileName(file.name);
-      const path = `${user!.id}/${projectId}/${Date.now()}_${safeName}`;
-      const { error } = await supabase.storage.from('project-update-attachments').upload(path, file, {
-        contentType: file.type || 'application/octet-stream',
-      });
-      if (error) {
-        console.error('파일 업로드 실패:', file.name, error);
+      try {
+        const result = await gcsUploadFile(file, pathPrefix);
+        uploaded.push({ name: file.name, path: result.gcsPath, size: file.size, type: file.type || 'application/octet-stream' });
+      } catch (err: any) {
+        console.error('파일 업로드 실패:', file.name, err);
         toast.error(`파일 업로드 실패: ${file.name}`);
-      } else {
-        uploaded.push({ name: file.name, path, size: file.size, type: file.type || 'application/octet-stream' });
       }
     }
     return uploaded;
@@ -350,17 +356,14 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
 
   const uploadEditFiles = async (): Promise<Attachment[]> => {
     const uploaded: Attachment[] = [];
+    const pathPrefix = `project-updates/${user!.id}/${projectId}`;
     for (const file of editNewFiles) {
-      const safeName = sanitizeFileName(file.name);
-      const path = `${user!.id}/${projectId}/${Date.now()}_${safeName}`;
-      const { error } = await supabase.storage.from('project-update-attachments').upload(path, file, {
-        contentType: file.type || 'application/octet-stream',
-      });
-      if (error) {
-        console.error('파일 업로드 실패:', file.name, error);
+      try {
+        const result = await gcsUploadFile(file, pathPrefix);
+        uploaded.push({ name: file.name, path: result.gcsPath, size: file.size, type: file.type || 'application/octet-stream' });
+      } catch (err: any) {
+        console.error('파일 업로드 실패:', file.name, err);
         toast.error(`파일 업로드 실패: ${file.name}`);
-      } else {
-        uploaded.push({ name: file.name, path, size: file.size, type: file.type || 'application/octet-stream' });
       }
     }
     return uploaded;
@@ -401,9 +404,20 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
   };
 
   const downloadAttachment = async (att: Attachment) => {
-    const { data } = await supabase.storage.from('project-update-attachments').createSignedUrl(att.path, 300);
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
-    else toast.error('파일 다운로드에 실패했습니다.');
+    try {
+      const isGcsPath = att.path.startsWith('project-updates/');
+      if (isGcsPath) {
+        const url = await gcsGetDownloadUrl(att.path);
+        window.open(url, '_blank');
+      } else {
+        // Legacy: Supabase storage
+        const { data } = await supabase.storage.from('project-update-attachments').createSignedUrl(att.path, 300);
+        if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+        else toast.error('파일 다운로드에 실패했습니다.');
+      }
+    } catch {
+      toast.error('파일 다운로드에 실패했습니다.');
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -423,8 +437,16 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
   const isImageFile = (type: string) => type.startsWith('image/');
 
   const getAttachmentUrl = async (path: string): Promise<string | null> => {
-    const { data } = await supabase.storage.from('project-update-attachments').createSignedUrl(path, 300);
-    return data?.signedUrl || null;
+    try {
+      const isGcsPath = path.startsWith('project-updates/');
+      if (isGcsPath) {
+        return await gcsGetDownloadUrl(path);
+      }
+      const { data } = await supabase.storage.from('project-update-attachments').createSignedUrl(path, 300);
+      return data?.signedUrl || null;
+    } catch {
+      return null;
+    }
   };
 
   const canDelete = (update: ProjectUpdate) =>
