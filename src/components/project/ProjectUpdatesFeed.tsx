@@ -94,9 +94,12 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
   const [mentionCursorPos, setMentionCursorPos] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
+  const [editAttachments, setEditAttachments] = useState<Attachment[]>([]);
+  const [editNewFiles, setEditNewFiles] = useState<File[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
   const mentionRef = useRef<HTMLDivElement>(null);
 
   // Fetch employees for mention
@@ -327,16 +330,41 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
     },
   });
 
+  const uploadEditFiles = async (): Promise<Attachment[]> => {
+    const uploaded: Attachment[] = [];
+    for (const file of editNewFiles) {
+      const safeName = sanitizeFileName(file.name);
+      const path = `${user!.id}/${projectId}/${Date.now()}_${safeName}`;
+      const { error } = await supabase.storage.from('project-update-attachments').upload(path, file, {
+        contentType: file.type || 'application/octet-stream',
+      });
+      if (error) {
+        console.error('파일 업로드 실패:', file.name, error);
+        toast.error(`파일 업로드 실패: ${file.name}`);
+      } else {
+        uploaded.push({ name: file.name, path, size: file.size, type: file.type || 'application/octet-stream' });
+      }
+    }
+    return uploaded;
+  };
+
   const editUpdate = useMutation({
     mutationFn: async ({ id, content }: { id: string; content: string }) => {
-      if (!content.trim()) throw new Error('내용을 입력해주세요.');
-      const { error } = await supabase.from('project_updates').update({ content: content.trim() }).eq('id', id);
+      const newUploads = editNewFiles.length > 0 ? await uploadEditFiles() : [];
+      const finalAttachments = [...editAttachments, ...newUploads];
+      if (!content.trim() && finalAttachments.length === 0) throw new Error('내용 또는 파일을 추가해주세요.');
+      const { error } = await supabase.from('project_updates').update({
+        content: content.trim(),
+        attachments: finalAttachments as any,
+      }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-updates', projectId] });
       setEditingId(null);
       setEditContent('');
+      setEditAttachments([]);
+      setEditNewFiles([]);
       toast.success('수정되었습니다.');
     },
     onError: (e: any) => toast.error(e.message || '수정에 실패했습니다.'),
@@ -618,7 +646,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
                           variant="ghost"
                           size="icon"
                           className="h-5 w-5 text-muted-foreground hover:text-foreground"
-                          onClick={() => { setEditingId(update.id); setEditContent(update.content); }}
+                          onClick={() => { setEditingId(update.id); setEditContent(update.content); setEditAttachments([...update.attachments]); setEditNewFiles([]); }}
                         >
                           <Pencil className="h-3 w-3" />
                         </Button>
@@ -642,13 +670,71 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
                       className="text-sm min-h-[50px] resize-none"
                       autoFocus
                     />
-                    <div className="flex items-center gap-1 justify-end">
-                      <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => { setEditingId(null); setEditContent(''); }}>
-                        <X className="h-3 w-3" /> 취소
-                      </Button>
-                      <Button size="sm" className="h-6 text-xs gap-1" disabled={!editContent.trim() || editUpdate.isPending} onClick={() => editUpdate.mutate({ id: update.id, content: editContent })}>
-                        <Check className="h-3 w-3" /> {editUpdate.isPending ? '저장 중...' : '저장'}
-                      </Button>
+                    {/* Existing attachments */}
+                    {editAttachments.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {editAttachments.map((att, i) => (
+                          <Badge key={`existing-${i}`} variant="outline" className="text-[10px] gap-1 pr-1 bg-muted/50">
+                            {isImageFile(att.type) ? <Paperclip className="h-2.5 w-2.5" /> : <FileText className="h-2.5 w-2.5" />}
+                            <span className="truncate max-w-[100px]">{att.name}</span>
+                            <span className="text-muted-foreground">({formatFileSize(att.size)})</span>
+                            <button
+                              onClick={() => setEditAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                              className="hover:bg-destructive/20 hover:text-destructive rounded-full p-0.5 ml-0.5 transition-colors"
+                            >×</button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    {/* New files to add */}
+                    {editNewFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {editNewFiles.map((file, i) => (
+                          <Badge key={`new-${i}`} variant="outline" className="text-[10px] gap-1 pr-1 bg-primary/5 border-primary/20">
+                            <Paperclip className="h-2.5 w-2.5 text-primary" />
+                            <span className="truncate max-w-[100px]">{file.name}</span>
+                            <span className="text-muted-foreground">({formatFileSize(file.size)})</span>
+                            <button
+                              onClick={() => setEditNewFiles(prev => prev.filter((_, idx) => idx !== i))}
+                              className="hover:bg-destructive/20 hover:text-destructive rounded-full p-0.5 ml-0.5 transition-colors"
+                            >×</button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1 justify-between">
+                      <div>
+                        <input
+                          ref={editFileInputRef}
+                          type="file"
+                          multiple
+                          accept="*/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const selected = Array.from(e.target.files || []);
+                            const valid = selected.filter(f => f.size <= 10 * 1024 * 1024);
+                            if (valid.length !== selected.length) toast.error('10MB를 초과하는 파일이 제외되었습니다.');
+                            setEditNewFiles(prev => [...prev, ...valid]);
+                            if (editFileInputRef.current) editFileInputRef.current.value = '';
+                          }}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-xs gap-1 text-muted-foreground"
+                          onClick={() => editFileInputRef.current?.click()}
+                        >
+                          <Paperclip className="h-3 w-3" /> 파일 추가
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => { setEditingId(null); setEditContent(''); setEditAttachments([]); setEditNewFiles([]); }}>
+                          <X className="h-3 w-3" /> 취소
+                        </Button>
+                        <Button size="sm" className="h-6 text-xs gap-1" disabled={(!editContent.trim() && editAttachments.length === 0 && editNewFiles.length === 0) || editUpdate.isPending} onClick={() => editUpdate.mutate({ id: update.id, content: editContent })}>
+                          <Check className="h-3 w-3" /> {editUpdate.isPending ? '저장 중...' : '저장'}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ) : (
