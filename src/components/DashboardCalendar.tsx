@@ -417,7 +417,7 @@ const DashboardCalendar = () => {
             <AlertCircle className="h-3 w-3 text-emerald-500" /> 이벤트
           </span>
           <span className="flex items-center gap-1">
-            <AlertCircle className="h-3 w-3 text-red-500" /> 휴일
+            <PartyPopper className="h-3 w-3 text-red-500" /> 휴일
           </span>
           <span className="flex items-center gap-1">
             <Cake className="h-3 w-3 text-pink-500" /> 생일
@@ -510,7 +510,7 @@ const DashboardCalendar = () => {
                       ) : event.type === 'announcement_event' ? (
                         <AlertCircle className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'holiday' ? (
-                        <AlertCircle className="h-2.5 w-2.5 shrink-0" />
+                        <PartyPopper className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'birthday' ? (
                         <Cake className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'project' ? (
