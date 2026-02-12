@@ -237,54 +237,71 @@ const Home = () => {
           )}
 
           {/* Links Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
-            {links.map((link, index) => {
-              const Icon = link.icon;
-              const isLocked = link.requiresAuth && !user;
-              const isAdminOnly = (link as any).requiresAdmin && !isAdmin && !isModerator;
-              return (
-                <div
-                  key={index}
-                  className={cn(
-                    "glass-card p-8 text-center cursor-pointer group relative",
-                    (isLocked || isAdminOnly)
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  )}
-                  onClick={() => handleCardClick(link)}
-                >
-                  {isLocked && (
-                    <div className="absolute top-3 right-3">
-                      <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">
-                        로그인 필요
-                      </Badge>
-                    </div>
-                  )}
-                  {isAdminOnly && (
-                    <div className="absolute top-3 right-3">
-                      <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">
-                        관리자 전용
-                      </Badge>
-                    </div>
-                  )}
-                  <div className="mb-4 flex justify-center">
-                    <div className={cn(
-                      "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300",
-                      (isLocked || isAdminOnly)
-                        ? "glass-surface"
-                        : "glass-surface group-hover:shadow-smooth group-hover:scale-110"
-                    )}>
-                      {Icon && <Icon className={cn(
-                        "w-7 h-7",
-                        (isLocked || isAdminOnly) ? "text-muted-foreground" : "text-primary"
-                      )} />}
-                    </div>
-                  </div>
-                  <h3 className="text-lg font-semibold mb-1.5">{link.title}</h3>
-                  <p className="text-sm text-muted-foreground">{link.description}</p>
-                </div>
-              );
-            })}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-6">
+            {(() => {
+              const rows: React.ReactNode[] = [];
+              const cols = 3;
+              for (let r = 0; r < Math.ceil(links.length / cols); r++) {
+                for (let c = 0; c < cols; c++) {
+                  const index = r * cols + c;
+                  if (index < links.length) {
+                    const link = links[index];
+                    const Icon = link.icon;
+                    const isLocked = link.requiresAuth && !user;
+                    const isAdminOnly = (link as any).requiresAdmin && !isAdmin && !isModerator;
+                    rows.push(
+                      <div
+                        key={`link-${index}`}
+                        className={cn(
+                          "glass-card p-8 text-center cursor-pointer group relative",
+                          (isLocked || isAdminOnly)
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        )}
+                        onClick={() => handleCardClick(link)}
+                      >
+                        {isLocked && (
+                          <div className="absolute top-3 right-3">
+                            <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">
+                              로그인 필요
+                            </Badge>
+                          </div>
+                        )}
+                        {isAdminOnly && (
+                          <div className="absolute top-3 right-3">
+                            <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">
+                              관리자 전용
+                            </Badge>
+                          </div>
+                        )}
+                        <div className="mb-4 flex justify-center">
+                          <div className={cn(
+                            "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300",
+                            (isLocked || isAdminOnly)
+                              ? "glass-surface"
+                              : "glass-surface group-hover:shadow-smooth group-hover:scale-110"
+                          )}>
+                            {Icon && <Icon className={cn(
+                              "w-7 h-7",
+                              (isLocked || isAdminOnly) ? "text-muted-foreground" : "text-primary"
+                            )} />}
+                          </div>
+                        </div>
+                        <h3 className="text-lg font-semibold mb-1.5">{link.title}</h3>
+                        <p className="text-sm text-muted-foreground">{link.description}</p>
+                      </div>
+                    );
+                  } else {
+                    rows.push(<div key={`empty-main-${index}`} />);
+                  }
+                }
+                // 4th column: empty card for each row
+                rows.push(
+                  <div key={`empty-col-${r}`} className="glass-card p-8" />
+                );
+              }
+              return rows;
+            })()}
           </div>
 
           {/* Footer */}
