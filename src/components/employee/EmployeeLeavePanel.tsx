@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, CalendarDays, ChevronLeft, ChevronRight, Check, X, Plus } from 'lucide-react';
+import { Loader2, CalendarDays, ChevronLeft, ChevronRight, Check, X, Plus, Pencil } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -58,8 +58,10 @@ const EmployeeLeavePanel: React.FC<Props> = ({ userId }) => {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [processing, setProcessing] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
 
-  // Add form state
+  // Add/Edit form state
   const [formLeaveType, setFormLeaveType] = useState('annual');
   const [formStartDate, setFormStartDate] = useState('');
   const [formEndDate, setFormEndDate] = useState('');
@@ -103,11 +105,44 @@ const EmployeeLeavePanel: React.FC<Props> = ({ userId }) => {
   };
 
   const openAddDialog = () => {
+    setEditingRequest(null);
     setFormLeaveType('annual');
     setFormStartDate(format(new Date(), 'yyyy-MM-dd'));
     setFormEndDate(format(new Date(), 'yyyy-MM-dd'));
     setFormReason('');
     setAddDialogOpen(true);
+  };
+
+  const openEditDialog = (req: LeaveRequest) => {
+    setEditingRequest(req);
+    setFormLeaveType(req.leave_type);
+    setFormStartDate(req.start_date);
+    setFormEndDate(req.end_date);
+    setFormReason(req.reason || '');
+    setEditDialogOpen(true);
+  };
+
+  const handleEditLeave = async () => {
+    if (!editingRequest || !formStartDate || !formEndDate) { toast.warning('날짜를 입력해주세요.'); return; }
+    setFormSaving(true);
+    try {
+      const days = formLeaveType.startsWith('half_day') ? 0.5 : differenceInDays(new Date(formEndDate), new Date(formStartDate)) + 1;
+      const { error } = await supabase.from('leave_requests').update({
+        leave_type: formLeaveType,
+        start_date: formStartDate,
+        end_date: formEndDate,
+        days,
+        reason: formReason || null,
+      }).eq('id', editingRequest.id);
+      if (error) throw error;
+      toast.success('휴가가 수정되었습니다.');
+      setEditDialogOpen(false);
+      fetchRequests();
+    } catch (e: any) {
+      toast.error('수정 실패: ' + (e.message || ''));
+    } finally {
+      setFormSaving(false);
+    }
   };
 
   const handleAddLeave = async () => {
@@ -221,6 +256,11 @@ const EmployeeLeavePanel: React.FC<Props> = ({ userId }) => {
                       </Button>
                     </div>
                   )}
+                  {canManage && r.status === 'approved' && (
+                    <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 shrink-0" onClick={() => openEditDialog(r)}>
+                      <Pencil className="h-3 w-3" /> 수정
+                    </Button>
+                  )}
                 </div>
               </div>
             );
@@ -271,6 +311,55 @@ const EmployeeLeavePanel: React.FC<Props> = ({ userId }) => {
               <Button onClick={handleAddLeave} disabled={formSaving}>
                 {formSaving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                 추가
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Leave Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>승인된 휴가 수정</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label className="text-sm">휴가 유형</Label>
+              <Select value={formLeaveType} onValueChange={setFormLeaveType}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="annual">연차</SelectItem>
+                  <SelectItem value="half_day_am">오전 반차</SelectItem>
+                  <SelectItem value="half_day_pm">오후 반차</SelectItem>
+                  <SelectItem value="sick">병가</SelectItem>
+                  <SelectItem value="special">특별휴가</SelectItem>
+                  <SelectItem value="personal">경조사</SelectItem>
+                  <SelectItem value="unpaid">무급휴가</SelectItem>
+                  <SelectItem value="other">기타</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm">시작일</Label>
+                <Input type="date" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-sm">종료일</Label>
+                <Input type="date" value={formEndDate} onChange={(e) => setFormEndDate(e.target.value)} className="mt-1" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm">사유</Label>
+              <Textarea value={formReason} onChange={(e) => setFormReason(e.target.value)} placeholder="사유를 입력하세요" className="mt-1" />
+            </div>
+            <p className="text-xs text-muted-foreground">승인된 휴가의 날짜, 유형, 사유를 수정할 수 있습니다.</p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>취소</Button>
+              <Button onClick={handleEditLeave} disabled={formSaving}>
+                {formSaving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                저장
               </Button>
             </div>
           </div>
