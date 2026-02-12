@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Send, Trash2, MessageSquarePlus, Hash, ExternalLink, Paperclip, Download, FileText, AtSign, Pencil, Check, X, ZoomIn } from 'lucide-react';
+import { Send, Trash2, MessageSquarePlus, Hash, ExternalLink, Paperclip, Download, FileText, AtSign, Pencil, Check, X, ZoomIn, HardDrive } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -34,6 +34,11 @@ interface Attachment {
   type: string;
 }
 
+interface DriveLink {
+  url: string;
+  name: string;
+}
+
 interface MentionedUser {
   id: string;
   full_name: string;
@@ -47,6 +52,7 @@ interface ProjectUpdate {
   content: string;
   notion_links: NotionLink[];
   attachments: Attachment[];
+  drive_links?: DriveLink[];
   mentioned_user_ids: string[];
   created_at: string;
 }
@@ -85,6 +91,10 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
   const [content, setContent] = useState('');
   const [notionLinks, setNotionLinks] = useState<NotionLink[]>([]);
   const [files, setFiles] = useState<File[]>([]);
+  const [driveLinks, setDriveLinks] = useState<DriveLink[]>([]);
+  const [driveOpen, setDriveOpen] = useState(false);
+  const [driveUrl, setDriveUrl] = useState('');
+  const [driveName, setDriveName] = useState('');
   const [mentionedUsers, setMentionedUsers] = useState<MentionedUser[]>([]);
   const [notionSearchOpen, setNotionSearchOpen] = useState(false);
   const [notionSearch, setNotionSearch] = useState('');
@@ -292,8 +302,15 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
   const addUpdate = useMutation({
     mutationFn: async () => {
       if (!user || !profile) throw new Error('로그인 필요');
-      if (!content.trim() && files.length === 0) throw new Error('내용 또는 파일을 추가해주세요.');
-      const attachments = files.length > 0 ? await uploadFiles() : [];
+      if (!content.trim() && files.length === 0 && driveLinks.length === 0) throw new Error('내용 또는 파일을 추가해주세요.');
+      const uploadedAttachments = files.length > 0 ? await uploadFiles() : [];
+      const driveAttachments: Attachment[] = driveLinks.map(d => ({
+        name: d.name || 'Google Drive 파일',
+        path: d.url,
+        size: 0,
+        type: 'drive_link',
+      }));
+      const attachments = [...uploadedAttachments, ...driveAttachments];
       if (!content.trim() && attachments.length === 0) throw new Error('내용 또는 파일을 추가해주세요.');
       const mentionIds = mentionedUsers.map(m => m.id);
       const { error } = await supabase.from('project_updates').insert({
@@ -313,6 +330,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
       setContent('');
       setNotionLinks([]);
       setFiles([]);
+      setDriveLinks([]);
       setMentionedUsers([]);
       toast.success('업데이트가 추가되었습니다.');
     },
@@ -541,6 +559,19 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
             </div>
           )}
 
+          {/* Drive link previews */}
+          {driveLinks.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {driveLinks.map((link, i) => (
+                <Badge key={i} variant="outline" className="text-[10px] gap-1 pr-1 bg-blue-50 text-blue-700 border-blue-200">
+                  <HardDrive className="h-2.5 w-2.5" />
+                  {link.name}
+                  <button onClick={() => setDriveLinks(prev => prev.filter((_, idx) => idx !== i))} className="hover:bg-blue-100 rounded-full p-0.5 ml-0.5">×</button>
+                </Badge>
+              ))}
+            </div>
+          )}
+
           {/* File previews */}
           {files.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -606,11 +637,49 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
               >
                 <Paperclip className="h-3 w-3" /> 첨부
               </Button>
+              <Popover open={driveOpen} onOpenChange={setDriveOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground">
+                    <HardDrive className="h-3 w-3" /> Drive
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-3" align="start">
+                  <p className="text-xs font-medium mb-2">Google Drive 링크 추가</p>
+                  <input
+                    className="w-full text-sm border rounded px-2 py-1.5 mb-2 outline-none focus:ring-1 focus:ring-ring"
+                    placeholder="파일명 (예: 설계도면.ai)"
+                    value={driveName}
+                    onChange={(e) => setDriveName(e.target.value)}
+                    autoFocus
+                  />
+                  <input
+                    className="w-full text-sm border rounded px-2 py-1.5 mb-2 outline-none focus:ring-1 focus:ring-ring"
+                    placeholder="Google Drive 링크를 붙여넣으세요"
+                    value={driveUrl}
+                    onChange={(e) => setDriveUrl(e.target.value)}
+                  />
+                  <Button
+                    size="sm"
+                    className="w-full h-7 text-xs"
+                    disabled={!driveUrl.trim()}
+                    onClick={() => {
+                      if (driveUrl.trim()) {
+                        setDriveLinks(prev => [...prev, { url: driveUrl.trim(), name: driveName.trim() || 'Google Drive 파일' }]);
+                        setDriveUrl('');
+                        setDriveName('');
+                        setDriveOpen(false);
+                      }
+                    }}
+                  >
+                    추가
+                  </Button>
+                </PopoverContent>
+              </Popover>
             </div>
             <Button
               size="sm"
               className="h-7 text-xs gap-1"
-              disabled={(!content.trim() && files.length === 0) || addUpdate.isPending}
+              disabled={(!content.trim() && files.length === 0 && driveLinks.length === 0) || addUpdate.isPending}
               onClick={() => addUpdate.mutate()}
             >
               <Send className="h-3 w-3" />
@@ -743,17 +812,17 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
                 {update.attachments && update.attachments.length > 0 && (
                   <div className="mt-1.5 space-y-1.5">
                     {/* Image attachments */}
-                    {update.attachments.filter(att => isImageFile(att.type)).length > 0 && (
+                    {update.attachments.filter(att => isImageFile(att.type) && att.type !== 'drive_link').length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
-                        {update.attachments.filter(att => isImageFile(att.type)).map((att, i) => (
+                        {update.attachments.filter(att => isImageFile(att.type) && att.type !== 'drive_link').map((att, i) => (
                           <ImageThumbnail key={`img-${i}`} attachment={att} onClick={setPreviewImage} />
                         ))}
                       </div>
                     )}
-                    {/* Non-image attachments */}
-                    {update.attachments.filter(att => !isImageFile(att.type)).length > 0 && (
+                    {/* Non-image, non-drive attachments */}
+                    {update.attachments.filter(att => !isImageFile(att.type) && att.type !== 'drive_link').length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
-                        {update.attachments.filter(att => !isImageFile(att.type)).map((att, i) => (
+                        {update.attachments.filter(att => !isImageFile(att.type) && att.type !== 'drive_link').map((att, i) => (
                           <button
                             key={`file-${i}`}
                             onClick={() => downloadAttachment(att)}
@@ -763,6 +832,24 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
                             <span className="truncate max-w-[120px]">{att.name}</span>
                             <Download className="h-2.5 w-2.5 shrink-0" />
                           </button>
+                        ))}
+                      </div>
+                    )}
+                    {/* Google Drive links */}
+                    {update.attachments.filter(att => att.type === 'drive_link').length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {update.attachments.filter(att => att.type === 'drive_link').map((att, i) => (
+                          <a
+                            key={`drive-${i}`}
+                            href={att.path}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[10px] text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded px-1.5 py-1 transition-colors"
+                          >
+                            <HardDrive className="h-2.5 w-2.5 shrink-0" />
+                            <span className="truncate max-w-[120px]">{att.name}</span>
+                            <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                          </a>
                         ))}
                       </div>
                     )}
