@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Settings2, Calendar, Clock, Shield, Sparkles, ChevronRight, Loader2, Save, Trash2, Info } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import ResignationAdjustmentDialog from './ResignationAdjustmentDialog';
 import LeavePromotionDialog from './LeavePromotionDialog';
 import LeaveGrantMethodDialog from './LeaveGrantMethodDialog';
@@ -330,18 +331,18 @@ const LeavePolicySettings: React.FC = () => {
                     <p className="text-sm font-medium">승인 · 참조자 선택</p>
                     <p className="text-xs text-muted-foreground">승인 참조 대상을 선택해 주세요.</p>
                   </div>
-                  <select
-                    value={form.approver_level}
-                    onChange={e => {
-                      const level = e.target.value;
-                      setForm({ ...form, approver_level: level, approver_required: level !== 'none' });
+                  <button
+                    className="text-sm text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
+                    onClick={() => {
+                      const levels = Object.keys(APPROVER_LEVEL_LABELS);
+                      const idx = levels.indexOf(form.approver_level);
+                      const nextLevel = levels[(idx + 1) % levels.length];
+                      setForm({ ...form, approver_level: nextLevel, approver_required: nextLevel !== 'none' });
                     }}
-                    className="border rounded-md px-3 py-1.5 text-sm bg-background min-w-[180px]"
                   >
-                    {Object.entries(APPROVER_LEVEL_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
+                    {APPROVER_LEVEL_LABELS[form.approver_level]}
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
                 </div>
 
                 {/* 연차 사용 단위 */}
@@ -437,20 +438,91 @@ const LeavePolicySettings: React.FC = () => {
                 </div>
 
                 {/* 스마트 연차 촉진 */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm font-medium">스마트 연차 촉진</p>
+                    <p className="text-sm font-medium flex items-center gap-1">
+                      스마트 연차 촉진
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">
+                            <p className="text-xs">근로기준법에 따라 소멸 예정 연차에 대해 자동으로 사용 계획 작성을 요청합니다.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </p>
                     <p className="text-xs text-muted-foreground">구성원의 연차 사용 계획 작성을 자동으로 요청합니다.</p>
                   </div>
-                  <select
-                    value={form.smart_promotion}
-                    onChange={e => setForm({ ...form, smart_promotion: e.target.value })}
-                    className="border rounded-md px-3 py-1.5 text-sm bg-background"
-                  >
-                    {Object.entries(SMART_PROMOTION_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="flex items-center gap-2 border rounded-lg px-3 py-1.5 text-sm hover:bg-muted/50 transition-colors min-w-[120px] justify-end">
+                        {form.smart_promotion === 'enabled' && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                        )}
+                        <span>{form.smart_promotion === 'enabled' ? '사용 중' : '사용 안 함'}</span>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-72 p-4 space-y-4">
+                      {/* 기능 사용하기 토글 */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">기능 사용하기</p>
+                          <p className="text-xs text-muted-foreground">연차 사용 계획 작성을 자동 요청합니다.</p>
+                        </div>
+                        <Switch
+                          checked={form.smart_promotion === 'enabled'}
+                          onCheckedChange={v => setForm({ ...form, smart_promotion: v ? 'enabled' : 'none' })}
+                        />
+                      </div>
+
+                      {form.smart_promotion === 'enabled' && (
+                        <>
+                          <Separator />
+                          {/* 1년 이상 재직 구성원 (연차) */}
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground mb-2">1년 이상 재직 구성원 (연차)</p>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm">요청</span>
+                              <span className="text-sm text-muted-foreground">소멸 6개월 전</span>
+                            </div>
+                          </div>
+
+                          <Separator />
+
+                          {/* 1년 미만 재직 구성원 (월차) */}
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground mb-2">1년 미만 재직 구성원 (월차)</p>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm">1차 요청</span>
+                                <span className="text-sm text-muted-foreground">소멸 3개월 전</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm">2차 요청</span>
+                                <span className="text-sm text-muted-foreground">소멸 1개월 전</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <Separator />
+
+                          {/* 요청 시점 변경 링크 */}
+                          <button
+                            className="text-sm text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors w-full justify-between"
+                            onClick={() => {
+                              setPromotionDialogOpen(true);
+                            }}
+                          >
+                            요청 시점 변경
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
             </div>
