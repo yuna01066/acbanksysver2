@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt } from "lucide-react";
 import DashboardCalendar from '@/components/DashboardCalendar';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
@@ -88,7 +88,13 @@ const Home = () => {
     requiresAuth: true,
     action: () => navigate("/material-orders")
   }, {
-    title: "수율 계산기",
+    title: "세금계산서 관리",
+    icon: Receipt,
+    description: "세금계산서 발행·조회",
+    url: "/tax-invoices",
+    requiresAuth: true,
+    action: () => navigate("/tax-invoices")
+  }, {
     icon: TrendingUp,
     description: "패널 수율 최적화",
     url: "/calculator?type=yield",
