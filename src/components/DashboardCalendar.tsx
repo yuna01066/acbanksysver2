@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper, Users, User, Cake, Calendar, FolderOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper, Users, User, Cake, Calendar, FolderOpen, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -357,8 +357,14 @@ const DashboardCalendar = () => {
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
   const startDayOfWeek = getDay(monthStart);
 
-  const getEventsForDay = (day: Date) =>
-    filteredEvents.filter((e) => isSameDay(e.date, day));
+  const getEventsForDay = (day: Date) => {
+    const dayEvts = filteredEvents.filter((e) => isSameDay(e.date, day));
+    // Sort: announcement_event first, then holiday, then rest
+    return dayEvts.sort((a, b) => {
+      const priority = (t: string) => t === 'announcement_event' ? 0 : t === 'holiday' ? 1 : 2;
+      return priority(a.type) - priority(b.type);
+    });
+  };
 
   const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -408,10 +414,10 @@ const DashboardCalendar = () => {
             <Calendar className="h-3 w-3 text-blue-600" /> 회의
           </span>
           <span className="flex items-center gap-1">
-            <PartyPopper className="h-3 w-3 text-emerald-500" /> 이벤트
+            <AlertCircle className="h-3 w-3 text-emerald-500" /> 이벤트
           </span>
           <span className="flex items-center gap-1">
-            <PartyPopper className="h-3 w-3 text-red-500" /> 휴일
+            <AlertCircle className="h-3 w-3 text-red-500" /> 휴일
           </span>
           <span className="flex items-center gap-1">
             <Cake className="h-3 w-3 text-pink-500" /> 생일
@@ -445,12 +451,14 @@ const DashboardCalendar = () => {
             const dayEvents = getEventsForDay(day);
             const dayOfWeek = getDay(day);
             const hasHoliday = dayEvents.some(e => e.type === 'holiday');
+            const hasAnnouncementEvent = dayEvents.some(e => e.type === 'announcement_event');
             return (
               <div
                 key={day.toISOString()}
                 className={cn(
                   "min-h-[80px] border-t border-border/30 p-1 transition-colors",
                   isToday(day) && "bg-primary/5",
+                  hasAnnouncementEvent && !isToday(day) && !hasHoliday && "bg-emerald-50 dark:bg-emerald-950/20",
                   hasHoliday && !isToday(day) && "bg-red-50 dark:bg-red-950/20",
                   !isSameMonth(day, currentMonth) && "opacity-40"
                 )}
@@ -500,9 +508,9 @@ const DashboardCalendar = () => {
                       ) : event.type === 'announcement_meeting' ? (
                         <Calendar className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'announcement_event' ? (
-                        <PartyPopper className="h-2.5 w-2.5 shrink-0" />
+                        <AlertCircle className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'holiday' ? (
-                        <PartyPopper className="h-2.5 w-2.5 shrink-0" />
+                        <AlertCircle className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'birthday' ? (
                         <Cake className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'project' ? (
