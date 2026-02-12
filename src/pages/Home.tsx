@@ -88,13 +88,6 @@ const Home = () => {
     requiresAuth: true,
     action: () => navigate("/material-orders")
   }, {
-    title: "세금계산서 관리",
-    icon: Receipt,
-    description: "세금계산서 발행·조회",
-    url: "/tax-invoices",
-    requiresAuth: true,
-    action: () => navigate("/tax-invoices")
-  }, {
     icon: TrendingUp,
     description: "패널 수율 최적화",
     url: "/calculator?type=yield",
@@ -243,72 +236,107 @@ const Home = () => {
           )}
 
           {/* Links Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-6">
-            {(() => {
-              const rows: React.ReactNode[] = [];
-              const cols = 3;
-              for (let r = 0; r < Math.ceil(links.length / cols); r++) {
-                for (let c = 0; c < cols; c++) {
-                  const index = r * cols + c;
-                  if (index < links.length) {
-                    const link = links[index];
-                    const Icon = link.icon;
-                    const isLocked = link.requiresAuth && !user;
-                    const isAdminOnly = (link as any).requiresAdmin && !isAdmin && !isModerator;
-                    rows.push(
+          {(() => {
+            const sideCards = [
+              {
+                title: "세금계산서 관리",
+                icon: Receipt,
+                description: "세금계산서 발행·조회",
+                requiresAuth: true,
+                action: () => navigate("/tax-invoices"),
+              },
+            ];
+
+            const cols = 3;
+            const totalRows = Math.ceil(links.length / cols);
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-6">
+                {Array.from({ length: totalRows }).flatMap((_, r) => {
+                  const rowItems: React.ReactNode[] = [];
+                  for (let c = 0; c < cols; c++) {
+                    const index = r * cols + c;
+                    if (index < links.length) {
+                      const link = links[index];
+                      const Icon = link.icon;
+                      const isLocked = link.requiresAuth && !user;
+                      const isAdminOnly = (link as any).requiresAdmin && !isAdmin && !isModerator;
+                      rowItems.push(
+                        <div
+                          key={`link-${index}`}
+                          className={cn(
+                            "glass-card p-8 text-center cursor-pointer group relative",
+                            (isLocked || isAdminOnly) ? "opacity-50 cursor-not-allowed" : ""
+                          )}
+                          onClick={() => handleCardClick(link)}
+                        >
+                          {isLocked && (
+                            <div className="absolute top-3 right-3">
+                              <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">로그인 필요</Badge>
+                            </div>
+                          )}
+                          {isAdminOnly && (
+                            <div className="absolute top-3 right-3">
+                              <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">관리자 전용</Badge>
+                            </div>
+                          )}
+                          <div className="mb-4 flex justify-center">
+                            <div className={cn(
+                              "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300",
+                              (isLocked || isAdminOnly) ? "glass-surface" : "glass-surface group-hover:shadow-smooth group-hover:scale-110"
+                            )}>
+                              {Icon && <Icon className={cn("w-7 h-7", (isLocked || isAdminOnly) ? "text-muted-foreground" : "text-primary")} />}
+                            </div>
+                          </div>
+                          <h3 className="text-lg font-semibold mb-1.5">{link.title}</h3>
+                          <p className="text-sm text-muted-foreground">{link.description}</p>
+                        </div>
+                      );
+                    } else {
+                      rowItems.push(<div key={`empty-main-${r}-${c}`} />);
+                    }
+                  }
+
+                  // 4th column
+                  const sideCard = sideCards[r];
+                  if (sideCard) {
+                    const SIcon = sideCard.icon;
+                    const isLocked = sideCard.requiresAuth && !user;
+                    rowItems.push(
                       <div
-                        key={`link-${index}`}
+                        key={`side-${r}`}
                         className={cn(
                           "glass-card p-8 text-center cursor-pointer group relative",
-                          (isLocked || isAdminOnly)
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
+                          isLocked ? "opacity-50 cursor-not-allowed" : ""
                         )}
-                        onClick={() => handleCardClick(link)}
+                        onClick={() => {
+                          if (isLocked) { toast.error('로그인이 필요한 서비스입니다.'); navigate('/auth'); return; }
+                          sideCard.action();
+                        }}
                       >
                         {isLocked && (
                           <div className="absolute top-3 right-3">
-                            <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">
-                              로그인 필요
-                            </Badge>
-                          </div>
-                        )}
-                        {isAdminOnly && (
-                          <div className="absolute top-3 right-3">
-                            <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">
-                              관리자 전용
-                            </Badge>
+                            <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">로그인 필요</Badge>
                           </div>
                         )}
                         <div className="mb-4 flex justify-center">
-                          <div className={cn(
-                            "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300",
-                            (isLocked || isAdminOnly)
-                              ? "glass-surface"
-                              : "glass-surface group-hover:shadow-smooth group-hover:scale-110"
-                          )}>
-                            {Icon && <Icon className={cn(
-                              "w-7 h-7",
-                              (isLocked || isAdminOnly) ? "text-muted-foreground" : "text-primary"
-                            )} />}
+                          <div className="w-14 h-14 rounded-2xl glass-surface flex items-center justify-center transition-all duration-300 group-hover:shadow-smooth group-hover:scale-110">
+                            <SIcon className="w-7 h-7 text-primary" />
                           </div>
                         </div>
-                        <h3 className="text-lg font-semibold mb-1.5">{link.title}</h3>
-                        <p className="text-sm text-muted-foreground">{link.description}</p>
+                        <h3 className="text-lg font-semibold mb-1.5">{sideCard.title}</h3>
+                        <p className="text-sm text-muted-foreground">{sideCard.description}</p>
                       </div>
                     );
                   } else {
-                    rows.push(<div key={`empty-main-${index}`} />);
+                    rowItems.push(<div key={`empty-col-${r}`} className="glass-card p-8" />);
                   }
-                }
-                // 4th column: empty card for each row
-                rows.push(
-                  <div key={`empty-col-${r}`} className="glass-card p-8" />
-                );
-              }
-              return rows;
-            })()}
-          </div>
+
+                  return rowItems;
+                })}
+              </div>
+            );
+          })()}
 
           {/* Footer */}
           <div className="mt-16 text-center space-y-4">
