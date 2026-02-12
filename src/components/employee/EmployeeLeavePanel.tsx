@@ -3,11 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, CalendarDays, ChevronLeft, ChevronRight, Check, X, Plus, Pencil } from 'lucide-react';
+import { Loader2, CalendarDays, ChevronLeft, ChevronRight, Check, X, Plus, Pencil, Trash2 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -60,6 +61,8 @@ const EmployeeLeavePanel: React.FC<Props> = ({ userId }) => {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Add/Edit form state
   const [formLeaveType, setFormLeaveType] = useState('annual');
@@ -140,6 +143,24 @@ const EmployeeLeavePanel: React.FC<Props> = ({ userId }) => {
       fetchRequests();
     } catch (e: any) {
       toast.error('수정 실패: ' + (e.message || ''));
+    } finally {
+      setFormSaving(false);
+    }
+  };
+
+  const handleDeleteLeave = async () => {
+    if (!deletingId) return;
+    setFormSaving(true);
+    try {
+      const { error } = await supabase.from('leave_requests').delete().eq('id', deletingId);
+      if (error) throw error;
+      toast.success('휴가가 삭제되었습니다.');
+      setDeleteConfirmOpen(false);
+      setEditDialogOpen(false);
+      setDeletingId(null);
+      fetchRequests();
+    } catch (e: any) {
+      toast.error('삭제 실패: ' + (e.message || ''));
     } finally {
       setFormSaving(false);
     }
@@ -355,16 +376,40 @@ const EmployeeLeavePanel: React.FC<Props> = ({ userId }) => {
               <Textarea value={formReason} onChange={(e) => setFormReason(e.target.value)} placeholder="사유를 입력하세요" className="mt-1" />
             </div>
             <p className="text-xs text-muted-foreground">승인된 휴가의 날짜, 유형, 사유를 수정할 수 있습니다.</p>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>취소</Button>
-              <Button onClick={handleEditLeave} disabled={formSaving}>
-                {formSaving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                저장
+            <div className="flex items-center justify-between">
+              <Button variant="destructive" size="sm" className="gap-1" onClick={() => { setDeletingId(editingRequest?.id || null); setDeleteConfirmOpen(true); }}>
+                <Trash2 className="h-3.5 w-3.5" /> 삭제
               </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setEditDialogOpen(false)}>취소</Button>
+                <Button onClick={handleEditLeave} disabled={formSaving}>
+                  {formSaving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                  저장
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>휴가 삭제 확인</AlertDialogTitle>
+            <AlertDialogDescription>
+              이 휴가 기록을 정말 삭제하시겠습니까? 삭제된 데이터는 복구할 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteLeave} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {formSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
