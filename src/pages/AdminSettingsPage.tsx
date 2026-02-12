@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, BarChart3, FolderKanban, Star, Shield, Receipt } from "lucide-react";
+import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, BarChart3, FolderKanban, Star, Shield, Receipt, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const AdminSettingsPage = () => {
@@ -201,6 +201,19 @@ const AdminSettingsPage = () => {
                 <div>
                   <p className="text-sm font-medium">위젯 관리</p>
                   <p className="text-xs text-muted-foreground mt-0.5">외부 사이트 임베드 위젯 코드 관리</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate('/quote-template-management')}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <FileText className="w-4 h-4 text-indigo-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">견적서 템플릿 관리</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">견적서 양식 생성 및 구분/항목 관리</p>
                 </div>
               </button>
 

@@ -2008,6 +2008,124 @@ export type Database = {
           },
         ]
       }
+      quote_template_items: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          name: string
+          quantity: number
+          section_id: string
+          unit: string
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          name?: string
+          quantity?: number
+          section_id: string
+          unit?: string
+          unit_price?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          name?: string
+          quantity?: number
+          section_id?: string
+          unit?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_template_items_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "quote_template_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_template_sections: {
+        Row: {
+          config: Json | null
+          created_at: string
+          display_order: number
+          id: string
+          section_type: string
+          template_id: string
+          title: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          section_type?: string
+          template_id: string
+          title?: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          section_type?: string
+          template_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_template_sections_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "quote_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          discount_rate: number
+          id: string
+          is_default: boolean
+          name: string
+          notes: string | null
+          updated_at: string
+          vat_option: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          discount_rate?: number
+          id?: string
+          is_default?: boolean
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          vat_option?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          discount_rate?: number
+          id?: string
+          is_default?: boolean
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          vat_option?: string
+        }
+        Relationships: []
+      }
       recipients: {
         Row: {
           accounting_contact_person: string | null
