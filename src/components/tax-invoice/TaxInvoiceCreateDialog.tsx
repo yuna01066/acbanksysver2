@@ -25,6 +25,7 @@ export interface InvoiceFormData {
   supplierContactName: string;
   supplierEmail: string;
   supplierTel: string;
+  supplierHP: string;
   buyerCorpNum: string;
   buyerCorpName: string;
   buyerCEOName: string;
@@ -34,6 +35,7 @@ export interface InvoiceFormData {
   buyerContactName: string;
   buyerEmail: string;
   buyerTel: string;
+  buyerHP: string;
   supplyCostTotal: number;
   taxTotal: number;
   totalAmount: number;
@@ -214,6 +216,14 @@ const TaxInvoiceCreateDialog: React.FC<TaxInvoiceCreateDialogProps> = ({
                   <Label className="text-xs">담당자</Label>
                   <Input value={form.supplierContactName} onChange={e => setForm(f => ({ ...f, supplierContactName: e.target.value }))} />
                 </div>
+                <div>
+                  <Label className="text-xs">전화번호</Label>
+                  <Input value={form.supplierTel} onChange={e => setForm(f => ({ ...f, supplierTel: e.target.value }))} placeholder="02-0000-0000" />
+                </div>
+                <div>
+                  <Label className="text-xs">휴대폰</Label>
+                  <Input value={form.supplierHP} onChange={e => setForm(f => ({ ...f, supplierHP: e.target.value }))} placeholder="010-0000-0000" />
+                </div>
                 <div className="col-span-2">
                   <Label className="text-xs">이메일</Label>
                   <Input value={form.supplierEmail} onChange={e => setForm(f => ({ ...f, supplierEmail: e.target.value }))} />
@@ -251,6 +261,14 @@ const TaxInvoiceCreateDialog: React.FC<TaxInvoiceCreateDialogProps> = ({
                 <div>
                   <Label className="text-xs">담당자</Label>
                   <Input value={form.buyerContactName} onChange={e => setForm(f => ({ ...f, buyerContactName: e.target.value }))} />
+                </div>
+                <div>
+                  <Label className="text-xs">전화번호</Label>
+                  <Input value={form.buyerTel} onChange={e => setForm(f => ({ ...f, buyerTel: e.target.value }))} placeholder="02-0000-0000" />
+                </div>
+                <div>
+                  <Label className="text-xs">휴대폰</Label>
+                  <Input value={form.buyerHP} onChange={e => setForm(f => ({ ...f, buyerHP: e.target.value }))} placeholder="010-0000-0000" />
                 </div>
                 <div className="col-span-2">
                   <Label className="text-xs">이메일</Label>
