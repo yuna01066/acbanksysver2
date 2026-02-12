@@ -298,6 +298,25 @@ const AnnouncementCard = () => {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{ann.title}</p>
+                    {(ann.meeting_date || ann.meeting_time || ann.meeting_location) && (
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] text-muted-foreground">
+                        {ann.meeting_date && (
+                          <span className="flex items-center gap-0.5">
+                            <CalendarIcon className="h-3 w-3" />
+                            {format(new Date(ann.meeting_date), 'M월 d일 (EEE)', { locale: ko })}
+                          </span>
+                        )}
+                        {ann.meeting_time && (
+                          <span className="flex items-center gap-0.5">
+                            <Clock className="h-3 w-3" />
+                            {ann.meeting_time}
+                          </span>
+                        )}
+                        {ann.meeting_location && (
+                          <span>📍 {ann.meeting_location}</span>
+                        )}
+                      </div>
+                    )}
                     <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-line line-clamp-2 leading-relaxed">
                       {ann.content}
                     </p>
