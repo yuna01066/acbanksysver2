@@ -441,7 +441,8 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
                           {stageLabels[q.project_stage] || q.project_stage}
                         </Badge>
                       </div>
-                      <p className="text-[10px] mt-0.5 truncate">₩{q.total?.toLocaleString()}</p>
+                      {q.project_name && <p className="text-[10px] mt-0.5 truncate font-medium">{q.project_name}</p>}
+                      <p className="text-[10px] truncate text-muted-foreground">₩{q.total?.toLocaleString()}</p>
                     </div>
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setPreviewQuoteId(q.id)}>
