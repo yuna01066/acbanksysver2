@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Megaphone, ArrowLeft, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper, Building2, Users, X } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Megaphone, ArrowLeft, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper, Building2, Users, X, Coffee } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -38,6 +39,7 @@ const AnnouncementsPage = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, isModerator } = useAuth();
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState('announcements');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -155,7 +157,7 @@ const AnnouncementsPage = () => {
 
         // Post to team chat
         if (announcementType === 'meeting') {
-          const meetingInfo = `📋 회의 공지: ${title}\n📅 ${meetingDate || '미정'}${meetingTime ? ` ⏰ ${meetingTime}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}`;
+          const meetingInfo = `📋 미팅: ${title}\n📅 ${meetingDate || '미정'}${meetingTime ? ` ⏰ ${meetingTime}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}${recipientName ? `\n🏢 ${recipientName}` : ''}`;
           await supabase.from('team_messages').insert({
             user_id: user.id,
             user_name: profile.full_name || user.email || '관리자',
@@ -179,11 +181,11 @@ const AnnouncementsPage = () => {
           .eq('is_approved', true);
 
         if (allProfiles && allProfiles.length > 0) {
-          const notiTitle = announcementType === 'meeting' ? '📋 회의 공지'
+          const notiTitle = announcementType === 'meeting' ? '📋 미팅 등록'
             : announcementType === 'event' ? '❗ 이벤트 공지'
             : '새 공지사항';
           const notiDesc = announcementType === 'meeting'
-            ? `회의가 등록되었습니다: ${title} (${meetingDate || '날짜 미정'}${meetingTime ? ` ${meetingTime}` : ''})`
+            ? `미팅이 등록되었습니다: ${title} (${meetingDate || '날짜 미정'}${meetingTime ? ` ${meetingTime}` : ''})`
             : announcementType === 'event'
             ? `이벤트가 등록되었습니다: ${title} (${meetingDate || '날짜 미정'}${eventEndDate ? ` ~ ${eventEndDate}` : ''})`
             : `공지사항이 등록되었습니다: ${title}`;
@@ -206,7 +208,7 @@ const AnnouncementsPage = () => {
       toast.success(editingId ? '수정되었습니다.' : '등록되었습니다.');
       resetForm();
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
-      queryClient.invalidateQueries({ queryKey: ['latest-announcement'] });
+      queryClient.invalidateQueries({ queryKey: ['latest-announcements'] });
       queryClient.invalidateQueries({ queryKey: ['announcement-meetings'] });
       queryClient.invalidateQueries({ queryKey: ['announcement-events'] });
     },
@@ -223,7 +225,7 @@ const AnnouncementsPage = () => {
     onSuccess: () => {
       toast.success('삭제되었습니다.');
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
-      queryClient.invalidateQueries({ queryKey: ['latest-announcement'] });
+      queryClient.invalidateQueries({ queryKey: ['latest-announcements'] });
     },
   });
 
@@ -249,7 +251,7 @@ const AnnouncementsPage = () => {
   const resetForm = () => {
     setTitle('');
     setContent('');
-    setAnnouncementType('general');
+    setAnnouncementType(activeTab === 'meetings' ? 'meeting' : 'general');
     setMeetingDate('');
     setMeetingTime('');
     setMeetingLocation('');
@@ -274,10 +276,16 @@ const AnnouncementsPage = () => {
     setRecipientNameInput(a.recipient_name || '');
     setSelectedAssigneeIds(a.assignee_ids || []);
     setShowForm(true);
+    // Switch to correct tab
+    if (a.announcement_type === 'meeting') {
+      setActiveTab('meetings');
+    } else {
+      setActiveTab('announcements');
+    }
   };
 
   const getTypeBadge = (type: string) => {
-    if (type === 'meeting') return <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-500 text-amber-600">회의</Badge>;
+    if (type === 'meeting') return <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-500 text-amber-600">미팅</Badge>;
     if (type === 'event') return <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-emerald-500 text-emerald-600">이벤트</Badge>;
     return null;
   };
@@ -378,6 +386,19 @@ const AnnouncementsPage = () => {
     return true;
   };
 
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    resetForm();
+    if (tab === 'meetings') {
+      setAnnouncementType('meeting');
+    } else {
+      setAnnouncementType('general');
+    }
+  };
+
+  const announcementItems = announcements?.filter(a => a.announcement_type !== 'meeting') || [];
+  const meetingItems = announcements?.filter(a => a.announcement_type === 'meeting') || [];
+
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -385,6 +406,153 @@ const AnnouncementsPage = () => {
       </div>
     );
   }
+
+  const renderForm = () => {
+    if (!canManage || !showForm) return null;
+    const isMeetingTab = activeTab === 'meetings';
+
+    return (
+      <Card className="mb-6">
+        <CardContent className="pt-6 space-y-3">
+          {!isMeetingTab && (
+            <div className="flex gap-2">
+              <Button type="button" variant={announcementType === 'general' ? 'default' : 'outline'} size="sm" onClick={() => setAnnouncementType('general')}>
+                <Megaphone className="h-4 w-4 mr-1" />공지
+              </Button>
+              <Button type="button" variant={announcementType === 'event' ? 'default' : 'outline'} size="sm" onClick={() => setAnnouncementType('event')}>
+                <PartyPopper className="h-4 w-4 mr-1" />이벤트
+              </Button>
+            </div>
+          )}
+          <Input
+            placeholder={isMeetingTab ? '미팅 제목' : announcementType === 'event' ? '이벤트 제목' : '공지 제목'}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          {isMeetingTab && (
+            <>
+              <div className="grid grid-cols-3 gap-2">
+                <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} placeholder="날짜" />
+                <Input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} placeholder="시간" />
+                <Input placeholder="장소" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" />고객사 (선택)</label>
+                  <div className="flex gap-1">
+                    <Select value={selectedRecipientId || '__none__'} onValueChange={(v) => { setSelectedRecipientId(v === '__none__' ? null : v); if (v !== '__none__') { const r = recipients?.find(r => r.id === v); if (r) setRecipientNameInput(r.company_name); } }}>
+                      <SelectTrigger className="flex-1 h-9">
+                        <SelectValue placeholder="수신처 선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">직접 입력</SelectItem>
+                        {recipients?.map(r => (
+                          <SelectItem key={r.id} value={r.id}>{r.company_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!selectedRecipientId && (
+                      <Input className="flex-1 h-9" placeholder="고객사명 입력" value={recipientNameInput} onChange={e => setRecipientNameInput(e.target.value)} />
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" />담당자 배정</label>
+                  <Select value="__none__" onValueChange={(v) => { if (v !== '__none__' && !selectedAssigneeIds.includes(v)) setSelectedAssigneeIds(prev => [...prev, v]); }}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="담당자 추가" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">선택하세요</SelectItem>
+                      {employees?.filter(e => !selectedAssigneeIds.includes(e.id)).map(e => (
+                        <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedAssigneeIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {selectedAssigneeIds.map(id => {
+                        const emp = employees?.find(e => e.id === id);
+                        return (
+                          <Badge key={id} variant="secondary" className="text-xs gap-1 pr-1">
+                            {emp?.full_name || '?'}
+                            <button onClick={() => setSelectedAssigneeIds(prev => prev.filter(i => i !== id))} className="hover:text-destructive">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+          {!isMeetingTab && announcementType === 'event' && (
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">시작일</label>
+                <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">종료일</label>
+                <Input type="date" value={eventEndDate} onChange={e => setEventEndDate(e.target.value)} min={meetingDate} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">장소 (선택)</label>
+                <Input placeholder="장소" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <Textarea placeholder="내용을 입력하세요..." value={content} onChange={(e) => setContent(e.target.value)} rows={5} className="resize-none" />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={resetForm}>취소</Button>
+            <Button onClick={() => postMutation.mutate()} disabled={!isFormValid() || postMutation.isPending}>
+              {postMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {editingId ? '수정' : '등록'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderList = (items: Announcement[], emptyIcon: React.ReactNode, emptyText: string) => {
+    if (isLoading) {
+      return (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+
+    if (items.length === 0) {
+      return (
+        <div className="text-center py-16 text-muted-foreground">
+          <div className="mx-auto mb-3 opacity-30">{emptyIcon}</div>
+          <p>{emptyText}</p>
+        </div>
+      );
+    }
+
+    const pinned = items.filter(a => a.is_pinned);
+    const unpinned = items.filter(a => !a.is_pinned);
+
+    return (
+      <div className="space-y-6">
+        {pinned.length > 0 && (
+          <div className={`grid gap-4 ${pinned.length === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+            {pinned.map(renderAnnouncementCard)}
+          </div>
+        )}
+        {unpinned.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {unpinned.map(renderAnnouncementCard)}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
@@ -394,156 +562,52 @@ const AnnouncementsPage = () => {
             <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div className="flex items-center gap-2">
-              <Megaphone className="h-6 w-6 text-primary" />
-              <h1 className="text-2xl font-bold">공지사항</h1>
-            </div>
+            <h1 className="text-2xl font-bold">공지사항 / 미팅</h1>
           </div>
           {canManage && (
-            <Button onClick={() => { resetForm(); setShowForm(true); }} className="gap-2">
+            <Button onClick={() => { resetForm(); setAnnouncementType(activeTab === 'meetings' ? 'meeting' : 'general'); setShowForm(true); }} className="gap-2">
               <Plus className="h-4 w-4" />
-              새 공지 작성
+              {activeTab === 'meetings' ? '새 미팅 등록' : '새 공지 작성'}
             </Button>
           )}
         </div>
 
-        {canManage && showForm && (
-          <Card className="mb-6">
-            <CardContent className="pt-6 space-y-3">
-              <div className="flex gap-2">
-                <Button type="button" variant={announcementType === 'general' ? 'default' : 'outline'} size="sm" onClick={() => setAnnouncementType('general')}>
-                  <Megaphone className="h-4 w-4 mr-1" />공지
-                </Button>
-                <Button type="button" variant={announcementType === 'meeting' ? 'default' : 'outline'} size="sm" onClick={() => setAnnouncementType('meeting')}>
-                  <Calendar className="h-4 w-4 mr-1" />회의
-                </Button>
-                <Button type="button" variant={announcementType === 'event' ? 'default' : 'outline'} size="sm" onClick={() => setAnnouncementType('event')}>
-                  <PartyPopper className="h-4 w-4 mr-1" />이벤트
-                </Button>
-              </div>
-              <Input
-                placeholder={announcementType === 'meeting' ? '회의 제목' : announcementType === 'event' ? '이벤트 제목' : '공지 제목'}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-              {announcementType === 'meeting' && (
-                <>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} placeholder="날짜" />
-                    <Input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} placeholder="시간" />
-                    <Input placeholder="장소" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" />고객사 (선택)</label>
-                      <div className="flex gap-1">
-                        <Select value={selectedRecipientId || '__none__'} onValueChange={(v) => { setSelectedRecipientId(v === '__none__' ? null : v); if (v !== '__none__') { const r = recipients?.find(r => r.id === v); if (r) setRecipientNameInput(r.company_name); } }}>
-                          <SelectTrigger className="flex-1 h-9">
-                            <SelectValue placeholder="수신처 선택" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">직접 입력</SelectItem>
-                            {recipients?.map(r => (
-                              <SelectItem key={r.id} value={r.id}>{r.company_name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {!selectedRecipientId && (
-                          <Input className="flex-1 h-9" placeholder="고객사명 입력" value={recipientNameInput} onChange={e => setRecipientNameInput(e.target.value)} />
-                        )}
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" />담당자 배정</label>
-                      <Select value="__none__" onValueChange={(v) => { if (v !== '__none__' && !selectedAssigneeIds.includes(v)) setSelectedAssigneeIds(prev => [...prev, v]); }}>
-                        <SelectTrigger className="h-9">
-                          <SelectValue placeholder="담당자 추가" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">선택하세요</SelectItem>
-                          {employees?.filter(e => !selectedAssigneeIds.includes(e.id)).map(e => (
-                            <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedAssigneeIds.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {selectedAssigneeIds.map(id => {
-                            const emp = employees?.find(e => e.id === id);
-                            return (
-                              <Badge key={id} variant="secondary" className="text-xs gap-1 pr-1">
-                                {emp?.full_name || '?'}
-                                <button onClick={() => setSelectedAssigneeIds(prev => prev.filter(i => i !== id))} className="hover:text-destructive">
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </Badge>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="announcements" className="gap-2">
+              <Megaphone className="h-4 w-4" />
+              공지사항
+              {announcementItems.length > 0 && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 h-4 ml-1">{announcementItems.length}</Badge>
               )}
-              {announcementType === 'event' && (
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">시작일</label>
-                    <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">종료일</label>
-                    <Input type="date" value={eventEndDate} onChange={e => setEventEndDate(e.target.value)} min={meetingDate} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">장소 (선택)</label>
-                    <Input placeholder="장소" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} />
-                  </div>
-                </div>
+            </TabsTrigger>
+            <TabsTrigger value="meetings" className="gap-2">
+              <Coffee className="h-4 w-4" />
+              미팅
+              {meetingItems.length > 0 && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 h-4 ml-1">{meetingItems.length}</Badge>
               )}
-              <Textarea placeholder="내용을 입력하세요..." value={content} onChange={(e) => setContent(e.target.value)} rows={5} className="resize-none" />
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={resetForm}>취소</Button>
-                <Button onClick={() => postMutation.mutate()} disabled={!isFormValid() || postMutation.isPending}>
-                  {postMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  {editingId ? '수정' : '등록'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            </TabsTrigger>
+          </TabsList>
 
-        {isLoading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : announcements && announcements.length > 0 ? (
-          <div className="space-y-6">
-            {(() => {
-              const pinned = announcements.filter(a => a.is_pinned);
-              if (pinned.length === 0) return null;
-              return (
-                <div className={`grid gap-4 ${pinned.length === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
-                  {pinned.map(renderAnnouncementCard)}
-                </div>
-              );
-            })()}
-            {(() => {
-              const unpinned = announcements.filter(a => !a.is_pinned);
-              if (unpinned.length === 0) return null;
-              return (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {unpinned.map(renderAnnouncementCard)}
-                </div>
-              );
-            })()}
-          </div>
-        ) : (
-          <div className="text-center py-16 text-muted-foreground">
-            <Megaphone className="h-10 w-10 mx-auto mb-3 opacity-30" />
-            <p>등록된 공지사항이 없습니다.</p>
-          </div>
-        )}
+          <TabsContent value="announcements">
+            {renderForm()}
+            {renderList(
+              announcementItems,
+              <Megaphone className="h-10 w-10 mx-auto" />,
+              '등록된 공지사항이 없습니다.'
+            )}
+          </TabsContent>
+
+          <TabsContent value="meetings">
+            {renderForm()}
+            {renderList(
+              meetingItems,
+              <Coffee className="h-10 w-10 mx-auto" />,
+              '등록된 미팅이 없습니다.'
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
