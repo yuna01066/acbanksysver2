@@ -111,7 +111,7 @@ const DashboardCalendar = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('announcements')
-        .select('id, title, meeting_date, meeting_time, meeting_location, announcement_type, event_end_date')
+        .select('id, title, meeting_date, meeting_time, meeting_location, announcement_type, event_end_date, recipient_name')
         .in('announcement_type', ['meeting', 'event'])
         .not('meeting_date', 'is', null);
       if (error) throw error;
@@ -269,7 +269,7 @@ const DashboardCalendar = () => {
           if (!isNaN(date.getTime())) {
             result.push({
               id: am.id,
-              projectName: `📋 ${am.title}${am.meeting_time ? ` ${am.meeting_time}` : ''}`,
+              projectName: `${am.title}${am.recipient_name ? ` (${am.recipient_name})` : ''}${am.meeting_time ? ` ${am.meeting_time}` : ''}`,
               type: 'announcement_meeting',
               date,
               userId: '',
@@ -360,7 +360,20 @@ const DashboardCalendar = () => {
     const dayEvts = filteredEvents.filter((e) => isSameDay(e.date, day));
     // Sort: announcement_event first, then holiday, then rest
     return dayEvts.sort((a, b) => {
-      const priority = (t: string) => t === 'announcement_event' ? 0 : t === 'holiday' ? 1 : 2;
+      const priority = (t: string) => {
+        switch (t) {
+          case 'holiday': return 0;
+          case 'birthday': return 1;
+          case 'announcement_event': return 2;
+          case 'delivery': return 3;
+          case 'announcement_meeting': return 4;
+          case 'meeting': return 5;
+          case 'project': return 6;
+          case 'quote': return 7;
+          case 'notion': return 8;
+          default: return 9;
+        }
+      };
       return priority(a.type) - priority(b.type);
     });
   };
@@ -407,10 +420,7 @@ const DashboardCalendar = () => {
             <BookOpen className="h-3 w-3 text-violet-500" /> Notion 프로젝트
           </span>
           <span className="flex items-center gap-1">
-            <Coffee className="h-3 w-3 text-amber-600" /> 1:1 미팅
-          </span>
-          <span className="flex items-center gap-1">
-            <Calendar className="h-3 w-3 text-blue-600" /> 회의
+            <Coffee className="h-3 w-3 text-amber-600" /> 회의/미팅
           </span>
           <span className="flex items-center gap-1">
             <AlertCircle className="h-3 w-3 text-emerald-500" /> 이벤트
@@ -482,10 +492,10 @@ const DashboardCalendar = () => {
                           ? "bg-primary/10 text-primary"
                           : event.type === 'delivery'
                           ? "bg-orange-500/10 text-orange-600"
-                          : event.type === 'meeting'
+                      : event.type === 'meeting'
                           ? "bg-amber-500/10 text-amber-700"
                           : event.type === 'announcement_meeting'
-                          ? "bg-blue-500/10 text-blue-700 cursor-pointer"
+                          ? "bg-amber-500/10 text-amber-700 cursor-pointer"
                           : event.type === 'announcement_event'
                           ? "bg-emerald-500/10 text-emerald-600 cursor-pointer"
                           : event.type === 'holiday'
@@ -505,7 +515,7 @@ const DashboardCalendar = () => {
                       ) : event.type === 'meeting' ? (
                         <Coffee className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'announcement_meeting' ? (
-                        <Calendar className="h-2.5 w-2.5 shrink-0" />
+                        <Coffee className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'announcement_event' ? (
                         <AlertCircle className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'holiday' ? (

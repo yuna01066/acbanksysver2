@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Megaphone, ArrowLeft, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Megaphone, ArrowLeft, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper, Building2, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -25,6 +26,10 @@ interface Announcement {
   meeting_time: string | null;
   meeting_location: string | null;
   event_end_date: string | null;
+  recipient_id: string | null;
+  recipient_name: string | null;
+  assignee_ids: string[] | null;
+  assignee_names: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -42,6 +47,9 @@ const AnnouncementsPage = () => {
   const [meetingTime, setMeetingTime] = useState('');
   const [meetingLocation, setMeetingLocation] = useState('');
   const [eventEndDate, setEventEndDate] = useState('');
+  const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
+  const [recipientNameInput, setRecipientNameInput] = useState('');
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const canManage = isAdmin || isModerator;
@@ -60,11 +68,42 @@ const AnnouncementsPage = () => {
     enabled: !!user,
   });
 
+  const { data: recipients } = useQuery({
+    queryKey: ['recipients-for-announcement'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('recipients')
+        .select('id, company_name')
+        .order('company_name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user && canManage,
+  });
+
+  const { data: employees } = useQuery({
+    queryKey: ['employees-for-announcement'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('is_approved', true)
+        .order('full_name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user && canManage,
+  });
+
   const postMutation = useMutation({
     mutationFn: async () => {
       if (!user || !profile) throw new Error('로그인 필요');
 
       const isMeetingOrEvent = announcementType === 'meeting' || announcementType === 'event';
+      const assigneeNames = selectedAssigneeIds.map(id => employees?.find(e => e.id === id)?.full_name || '').filter(Boolean);
+      const recipientName = selectedRecipientId 
+        ? recipients?.find(r => r.id === selectedRecipientId)?.company_name || recipientNameInput 
+        : recipientNameInput || null;
 
       if (editingId) {
         const { error } = await supabase
@@ -77,6 +116,10 @@ const AnnouncementsPage = () => {
             meeting_time: announcementType === 'meeting' ? meetingTime || null : null,
             meeting_location: isMeetingOrEvent ? meetingLocation || null : null,
             event_end_date: announcementType === 'event' ? eventEndDate || null : null,
+            recipient_id: announcementType === 'meeting' ? selectedRecipientId : null,
+            recipient_name: announcementType === 'meeting' ? recipientName : null,
+            assignee_ids: announcementType === 'meeting' ? selectedAssigneeIds : [],
+            assignee_names: announcementType === 'meeting' ? assigneeNames : [],
           })
           .eq('id', editingId);
         if (error) throw error;
@@ -94,6 +137,10 @@ const AnnouncementsPage = () => {
         }
         if (announcementType === 'meeting') {
           insertData.meeting_time = meetingTime || null;
+          insertData.recipient_id = selectedRecipientId;
+          insertData.recipient_name = recipientName;
+          insertData.assignee_ids = selectedAssigneeIds;
+          insertData.assignee_names = assigneeNames;
         }
         if (announcementType === 'event') {
           insertData.event_end_date = eventEndDate || null;
@@ -207,6 +254,9 @@ const AnnouncementsPage = () => {
     setMeetingTime('');
     setMeetingLocation('');
     setEventEndDate('');
+    setSelectedRecipientId(null);
+    setRecipientNameInput('');
+    setSelectedAssigneeIds([]);
     setEditingId(null);
     setShowForm(false);
   };
@@ -220,6 +270,9 @@ const AnnouncementsPage = () => {
     setMeetingTime(a.meeting_time || '');
     setMeetingLocation(a.meeting_location || '');
     setEventEndDate(a.event_end_date || '');
+    setSelectedRecipientId(a.recipient_id || null);
+    setRecipientNameInput(a.recipient_name || '');
+    setSelectedAssigneeIds(a.assignee_ids || []);
     setShowForm(true);
   };
 
@@ -259,6 +312,18 @@ const AnnouncementsPage = () => {
                   {a.meeting_location && (
                     <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{a.meeting_location}</span>
                   )}
+                  {isMeeting && a.recipient_name && (
+                    <span className="flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors" onClick={(e) => { e.stopPropagation(); if (a.recipient_id) navigate(`/recipients?id=${a.recipient_id}`); }}>
+                      <Building2 className="h-3.5 w-3.5" />
+                      <span className={a.recipient_id ? 'underline' : ''}>{a.recipient_name}</span>
+                    </span>
+                  )}
+                </div>
+              )}
+              {isMeeting && a.assignee_names && a.assignee_names.length > 0 && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+                  <Users className="h-3.5 w-3.5 shrink-0" />
+                  <span>담당: {a.assignee_names.join(', ')}</span>
                 </div>
               )}
               {(() => {
@@ -362,11 +427,63 @@ const AnnouncementsPage = () => {
                 onChange={(e) => setTitle(e.target.value)}
               />
               {announcementType === 'meeting' && (
-                <div className="grid grid-cols-3 gap-2">
-                  <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} placeholder="날짜" />
-                  <Input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} placeholder="시간" />
-                  <Input placeholder="장소" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} />
-                </div>
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} placeholder="날짜" />
+                    <Input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} placeholder="시간" />
+                    <Input placeholder="장소" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" />고객사 (선택)</label>
+                      <div className="flex gap-1">
+                        <Select value={selectedRecipientId || '__none__'} onValueChange={(v) => { setSelectedRecipientId(v === '__none__' ? null : v); if (v !== '__none__') { const r = recipients?.find(r => r.id === v); if (r) setRecipientNameInput(r.company_name); } }}>
+                          <SelectTrigger className="flex-1 h-9">
+                            <SelectValue placeholder="수신처 선택" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">직접 입력</SelectItem>
+                            {recipients?.map(r => (
+                              <SelectItem key={r.id} value={r.id}>{r.company_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {!selectedRecipientId && (
+                          <Input className="flex-1 h-9" placeholder="고객사명 입력" value={recipientNameInput} onChange={e => setRecipientNameInput(e.target.value)} />
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" />담당자 배정</label>
+                      <Select value="__none__" onValueChange={(v) => { if (v !== '__none__' && !selectedAssigneeIds.includes(v)) setSelectedAssigneeIds(prev => [...prev, v]); }}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="담당자 추가" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">선택하세요</SelectItem>
+                          {employees?.filter(e => !selectedAssigneeIds.includes(e.id)).map(e => (
+                            <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedAssigneeIds.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {selectedAssigneeIds.map(id => {
+                            const emp = employees?.find(e => e.id === id);
+                            return (
+                              <Badge key={id} variant="secondary" className="text-xs gap-1 pr-1">
+                                {emp?.full_name || '?'}
+                                <button onClick={() => setSelectedAssigneeIds(prev => prev.filter(i => i !== id))} className="hover:text-destructive">
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
               )}
               {announcementType === 'event' && (
                 <div className="grid grid-cols-3 gap-2">
