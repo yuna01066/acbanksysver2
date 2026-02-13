@@ -20,7 +20,6 @@ async function createJWT(serviceAccount: any): Promise<string> {
   const encode = (obj: any) => btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
   const unsignedToken = `${encode(header)}.${encode(payload)}`;
 
-  // Import private key
   const pemContent = serviceAccount.private_key
     .replace('-----BEGIN PRIVATE KEY-----', '')
     .replace('-----END PRIVATE KEY-----', '')
@@ -62,14 +61,12 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   return data.access_token;
 }
 
-// Find or create folder in Drive
 async function findOrCreateFolder(
   accessToken: string,
   name: string,
   parentId: string,
   driveId: string
 ): Promise<string> {
-  // Search for existing folder
   const q = `name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
   const searchRes = await fetch(
     `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=drive&driveId=${driveId}&fields=files(id,name)`,
@@ -81,7 +78,6 @@ async function findOrCreateFolder(
     return searchData.files[0].id;
   }
 
-  // Create folder
   const createRes = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
     method: 'POST',
     headers: {
@@ -104,7 +100,6 @@ async function findOrCreateFolder(
   return folder.id;
 }
 
-// Create nested folder path
 async function ensureFolderPath(
   accessToken: string,
   folderNames: string[],
@@ -118,7 +113,7 @@ async function ensureFolderPath(
   return currentParent;
 }
 
-// Upload file to Drive
+// Multipart upload for small files (base64)
 async function uploadFile(
   accessToken: string,
   folderId: string,
@@ -126,8 +121,6 @@ async function uploadFile(
   fileBase64: string,
   contentType: string
 ): Promise<any> {
-  const fileBytes = Uint8Array.from(atob(fileBase64), c => c.charCodeAt(0));
-
   const metadata = JSON.stringify({
     name: fileName,
     parents: [folderId],
@@ -162,39 +155,94 @@ async function uploadFile(
   return await res.json();
 }
 
+// Init resumable upload session - returns upload URI for client-side direct upload
+async function initResumableUpload(
+  accessToken: string,
+  folderId: string,
+  fileName: string,
+  contentType: string,
+  fileSize: number
+): Promise<string> {
+  const metadata = JSON.stringify({
+    name: fileName,
+    parents: [folderId],
+  });
+
+  const res = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+        'X-Upload-Content-Type': contentType,
+        'X-Upload-Content-Length': fileSize.toString(),
+      },
+      body: metadata,
+    }
+  );
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Resumable upload init failed: ${errText}`);
+  }
+
+  const uploadUri = res.headers.get('Location');
+  if (!uploadUri) throw new Error('No upload URI returned');
+  return uploadUri;
+}
+
+function getConfig() {
+  const serviceAccountKey = Deno.env.get('GCS_SERVICE_ACCOUNT_KEY');
+  const sharedDriveId = Deno.env.get('GOOGLE_DRIVE_SHARED_DRIVE_ID');
+  if (!serviceAccountKey || !sharedDriveId) {
+    throw new Error('Missing GCS_SERVICE_ACCOUNT_KEY or GOOGLE_DRIVE_SHARED_DRIVE_ID');
+  }
+  return { serviceAccount: JSON.parse(serviceAccountKey), sharedDriveId };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { action, projectName, documentType, fileName, fileBase64, contentType, year, month } = await req.json();
+    const body = await req.json();
+    const { action } = body;
+    const { serviceAccount, sharedDriveId } = getConfig();
+    const accessToken = await getAccessToken(serviceAccount);
 
-    if (action !== 'upload-document') {
-      return new Response(JSON.stringify({ error: 'Unknown action' }), {
-        status: 400,
+    if (action === 'upload-document') {
+      // Existing: multipart upload for internal project docs (small files)
+      const { projectName, documentType, fileName, fileBase64, contentType, year, month } = body;
+      const typeFolder = documentType === 'quote' ? '매입견적서' : '영수증';
+      const folderPath = [projectName, typeFolder, `${year}년`, `${month}월`];
+      const folderId = await ensureFolderPath(accessToken, folderPath, sharedDriveId, sharedDriveId);
+      const result = await uploadFile(accessToken, folderId, fileName, fileBase64, contentType || 'application/octet-stream');
+
+      return new Response(JSON.stringify({ success: true, fileId: result.id, fileName: result.name }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const serviceAccountKey = Deno.env.get('GCS_SERVICE_ACCOUNT_KEY');
-    const sharedDriveId = Deno.env.get('GOOGLE_DRIVE_SHARED_DRIVE_ID');
+    if (action === 'init-resumable-upload') {
+      // New: create folder + init resumable upload session, return upload URI
+      const { folderPath, fileName, contentType, fileSize } = body;
+      if (!folderPath || !Array.isArray(folderPath) || !fileName) {
+        throw new Error('Missing folderPath, fileName');
+      }
+      const folderId = await ensureFolderPath(accessToken, folderPath, sharedDriveId, sharedDriveId);
+      const uploadUri = await initResumableUpload(
+        accessToken, folderId, fileName, contentType || 'application/octet-stream', fileSize || 0
+      );
 
-    if (!serviceAccountKey || !sharedDriveId) {
-      throw new Error('Missing GCS_SERVICE_ACCOUNT_KEY or GOOGLE_DRIVE_SHARED_DRIVE_ID');
+      return new Response(JSON.stringify({ success: true, uploadUri }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const serviceAccount = JSON.parse(serviceAccountKey);
-    const accessToken = await getAccessToken(serviceAccount);
-
-    // Build folder path: ProjectName / DocumentType / Year / Month
-    const typeFolder = documentType === 'quote' ? '매입견적서' : '영수증';
-    const folderPath = [projectName, typeFolder, `${year}년`, `${month}월`];
-
-    const folderId = await ensureFolderPath(accessToken, folderPath, sharedDriveId, sharedDriveId);
-    const result = await uploadFile(accessToken, folderId, fileName, fileBase64, contentType || 'application/octet-stream');
-
-    return new Response(JSON.stringify({ success: true, fileId: result.id, fileName: result.name }), {
+    return new Response(JSON.stringify({ error: 'Unknown action' }), {
+      status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

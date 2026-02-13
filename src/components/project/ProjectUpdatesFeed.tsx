@@ -60,6 +60,7 @@ interface ProjectUpdate {
 
 interface Props {
   projectId: string;
+  projectName?: string;
 }
 
 // Image thumbnail component for attachments
@@ -94,7 +95,7 @@ const ImageThumbnail: React.FC<{ attachment: Attachment; onClick: (url: string) 
   );
 };
 
-const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
+const ProjectUpdatesFeed: React.FC<Props> = ({ projectId, projectName }) => {
   const { user, profile, isAdmin, isModerator } = useAuth();
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
@@ -278,6 +279,42 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
     return (sanitized || 'file') + ext;
   };
 
+  const uploadToGoogleDrive = async (file: File) => {
+    if (!projectName) return;
+    try {
+      // 1. Init resumable upload session via edge function
+      const { data, error } = await supabase.functions.invoke('google-drive', {
+        body: {
+          action: 'init-resumable-upload',
+          folderPath: [projectName, '프로젝트업데이트'],
+          fileName: file.name,
+          contentType: file.type || 'application/octet-stream',
+          fileSize: file.size,
+        },
+      });
+      if (error || !data?.uploadUri) {
+        console.error('Drive init failed:', error || data?.error);
+        return;
+      }
+      // 2. Upload file directly to Google Drive using resumable URI
+      const uploadRes = await fetch(data.uploadUri, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type || 'application/octet-stream',
+          'Content-Length': file.size.toString(),
+        },
+        body: file,
+      });
+      if (uploadRes.ok) {
+        console.log('Google Drive upload success:', file.name);
+      } else {
+        console.error('Drive upload failed:', await uploadRes.text());
+      }
+    } catch (err) {
+      console.error('Drive upload error:', err);
+    }
+  };
+
   const uploadFiles = async (): Promise<Attachment[]> => {
     const uploaded: Attachment[] = [];
     const pathPrefix = `project-updates/${user!.id}/${projectId}`;
@@ -285,6 +322,8 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
       try {
         const result = await gcsUploadFile(file, pathPrefix);
         uploaded.push({ name: file.name, path: result.gcsPath, size: file.size, type: file.type || 'application/octet-stream' });
+        // Google Drive 자동 업로드
+        uploadToGoogleDrive(file);
       } catch (err: any) {
         console.error('파일 업로드 실패:', file.name, err);
         toast.error(`파일 업로드 실패: ${file.name}`);
@@ -361,6 +400,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId }) => {
       try {
         const result = await gcsUploadFile(file, pathPrefix);
         uploaded.push({ name: file.name, path: result.gcsPath, size: file.size, type: file.type || 'application/octet-stream' });
+        uploadToGoogleDrive(file);
       } catch (err: any) {
         console.error('파일 업로드 실패:', file.name, err);
         toast.error(`파일 업로드 실패: ${file.name}`);
