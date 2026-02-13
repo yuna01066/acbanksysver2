@@ -5,18 +5,19 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Upload, FileText, Receipt, Trash2, Loader2, CheckCircle2, Eye } from 'lucide-react';
+import { Upload, FileText, Receipt, Trash2, Loader2, CheckCircle2, Eye, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
 interface Props {
   projectId: string;
+  projectName?: string;
   documentType: 'quote' | 'receipt';
   title: string;
 }
 
-const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, documentType, title }) => {
+const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, documentType, title }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -111,6 +112,29 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, documentType, 
             .eq('id', doc.id);
 
           toast.success('OCR 분석이 완료되었습니다.');
+
+          // Google Drive 자동 업로드
+          if (projectName) {
+            try {
+              const now = new Date();
+              const { error: driveErr } = await supabase.functions.invoke('google-drive', {
+                body: {
+                  action: 'upload-document',
+                  projectName,
+                  documentType,
+                  fileName: file.name,
+                  fileBase64: base64,
+                  contentType: file.type,
+                  year: now.getFullYear().toString(),
+                  month: String(now.getMonth() + 1).padStart(2, '0'),
+                },
+              });
+              if (driveErr) console.error('Drive upload error:', driveErr);
+              else toast.success('Google Drive에 자동 저장되었습니다.');
+            } catch (driveErr) {
+              console.error('Drive upload failed:', driveErr);
+            }
+          }
         } else {
           toast.warning('OCR 분석에 실패했습니다. 수동으로 입력해주세요.');
         }

@@ -476,8 +476,8 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
           {/* Internal project: Upload cards */}
           {isInternal && (
             <>
-              <InternalDocumentUploadCard projectId={projectId} documentType="quote" title="매입 견적서" />
-              <InternalDocumentUploadCard projectId={projectId} documentType="receipt" title="영수증" />
+              <InternalDocumentUploadCard projectId={projectId} projectName={project.name} documentType="quote" title="매입 견적서" />
+              <InternalDocumentUploadCard projectId={projectId} projectName={project.name} documentType="receipt" title="영수증" />
             </>
           )}
 

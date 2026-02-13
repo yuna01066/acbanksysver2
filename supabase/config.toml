@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.ocr-document]
 verify_jwt = false
+
+[functions.google-drive]
+verify_jwt = false
