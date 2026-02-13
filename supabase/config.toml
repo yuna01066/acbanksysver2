@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.gcs-storage]
 verify_jwt = false
+
+[functions.ocr-document]
+verify_jwt = false

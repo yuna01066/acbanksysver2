@@ -23,6 +23,8 @@ import ProjectUpdatesFeed from './ProjectUpdatesFeed';
 import PaymentStatusSelect from './PaymentStatusSelect';
 import RecipientDetailSheet from './RecipientDetailSheet';
 import LinkContactDialog, { ContactInfo } from './LinkContactDialog';
+import InternalDocumentUploadCard from './InternalDocumentUploadCard';
+import InternalProjectItemsCard from './InternalProjectItemsCard';
 
 interface Props {
   projectId: string;
@@ -205,6 +207,28 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
 
   const totalQuoteAmount = linkedQuotes.reduce((sum: number, q: any) => sum + Number(q.total || 0), 0);
 
+  // Internal project document summaries
+  const isInternal = (project as any)?.project_type === 'internal';
+
+  const { data: internalDocsSummary } = useQuery({
+    queryKey: ['internal-docs-summary', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('internal_project_documents')
+        .select('document_type, total, is_paid')
+        .eq('project_id', projectId);
+      if (error) throw error;
+      const quotes = data.filter((d: any) => d.document_type === 'quote');
+      const receipts = data.filter((d: any) => d.document_type === 'receipt');
+      return {
+        quoteTotal: quotes.reduce((s: number, d: any) => s + Number(d.total || 0), 0),
+        paidQuoteTotal: quotes.filter((d: any) => d.is_paid).reduce((s: number, d: any) => s + Number(d.total || 0), 0),
+        receiptTotal: receipts.reduce((s: number, d: any) => s + Number(d.total || 0), 0),
+      };
+    },
+    enabled: isInternal,
+  });
+
   if (isLoading || !project) {
     return (
       <div className="space-y-3">
@@ -247,14 +271,19 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
 
       {/* Two-column layout */}
       <div className="flex gap-4">
-        {/* Left: Specs / Notion / Updates */}
+          {/* Left: Specs / Internal Items / Notion / Updates */}
         <div className="flex-1 min-w-0 space-y-4">
-          {(project as any).project_type !== 'internal' && (
+          {!isInternal && (
             <ProjectSpecsCard projectId={projectId} specs={project.specs as any} linkedQuotes={linkedQuotes} />
           )}
 
+          {/* 내부 프로젝트: 견적 항목 카드 */}
+          {isInternal && (
+            <InternalProjectItemsCard projectId={projectId} />
+          )}
+
           {/* 노션 임베드 (내부 프로젝트) */}
-          {(project as any).project_type === 'internal' && (project as any).notion_url && (
+          {isInternal && (project as any).notion_url && (
             <div className="rounded-lg border bg-card">
               <div className="flex items-center justify-between px-4 py-2.5 border-b">
                 <span className="text-xs font-medium flex items-center gap-1.5">
@@ -280,7 +309,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
           )}
 
           {/* 연결된 클라이언트 프로젝트 */}
-          {(project as any).project_type === 'internal' && (project as any).linked_project_id && (
+          {isInternal && (project as any).linked_project_id && (
             <LinkedClientProjectCard linkedProjectId={(project as any).linked_project_id} />
           )}
 
@@ -305,18 +334,50 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
               </Select>
             </InfoRow>
 
+            {/* 입금 상태 - 클라이언트 프로젝트만 */}
+            {!isInternal && (
+              <InfoRow label="입금 상태">
+                <PaymentStatusSelect projectId={projectId} currentStatus={(project as any).payment_status || 'unpaid'} />
+              </InfoRow>
+            )}
 
-            <InfoRow label="입금 상태">
-              <PaymentStatusSelect projectId={projectId} currentStatus={(project as any).payment_status || 'unpaid'} />
-            </InfoRow>
+            {/* 예상 견적 */}
+            {!isInternal && (
+              <InfoRow label="예상 견적">
+                {totalQuoteAmount > 0 ? (
+                  <span className="font-bold text-[11px]">₩{Math.round(totalQuoteAmount).toLocaleString()}</span>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">없음</span>
+                )}
+              </InfoRow>
+            )}
 
-            <InfoRow label="예상 견적">
-              {totalQuoteAmount > 0 ? (
-                <span className="font-bold text-[11px]">₩{Math.round(totalQuoteAmount).toLocaleString()}</span>
-              ) : (
-                <span className="text-[11px] text-muted-foreground">없음</span>
-              )}
-            </InfoRow>
+            {/* 내부 프로젝트: 예상 견적 (매입 견적서 합계) */}
+            {isInternal && (
+              <InfoRow label="예상 견적">
+                {(internalDocsSummary?.quoteTotal || 0) > 0 ? (
+                  <span className="font-bold text-[11px]">₩{Math.round(internalDocsSummary?.quoteTotal || 0).toLocaleString()}</span>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">없음</span>
+                )}
+              </InfoRow>
+            )}
+
+            {/* 내부 프로젝트: 비용 처리 */}
+            {isInternal && (
+              <InfoRow label="비용 처리">
+                {(() => {
+                  const receiptTotal = internalDocsSummary?.receiptTotal || 0;
+                  const paidQuoteTotal = internalDocsSummary?.paidQuoteTotal || 0;
+                  const costTotal = receiptTotal + paidQuoteTotal;
+                  return costTotal > 0 ? (
+                    <span className="font-bold text-[11px] text-amber-600">₩{Math.round(costTotal).toLocaleString()}</span>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground">없음</span>
+                  );
+                })()}
+              </InfoRow>
+            )}
 
             <InfoRow label="생성일">
               <span className="text-[11px] tabular-nums">{format(new Date(project.created_at), 'yy.MM.dd', { locale: ko })}</span>
@@ -412,51 +473,61 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
             )}
           </div>
 
-          {/* Quotes */}
-          <div className="rounded-lg border bg-card p-3.5">
-            <SectionLabel
-              action={
-                <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-0.5 px-1 -mr-1" onClick={() => setQuoteDialogOpen(true)}>
-                  <Plus className="h-2.5 w-2.5" /> 연결
-                </Button>
-              }
-            >
-              견적서 ({linkedQuotes.length})
-            </SectionLabel>
-            {linkedQuotes.length === 0 ? (
-              <div className="flex flex-col items-center gap-1.5 py-2">
-                <p className="text-[10px] text-muted-foreground">없음</p>
-                <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={() => navigate('/calculator')}>
-                  <FileText className="h-2.5 w-2.5" /> 새 견적서
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-1 max-h-[180px] overflow-y-auto">
-                {linkedQuotes.map((q: any) => (
-                  <div key={q.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-md text-[11px] group">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-[10px] text-muted-foreground">{q.quote_number}</span>
-                        <Badge variant="secondary" className={`text-[8px] px-1 py-0 h-[14px] border ${stageColors[q.project_stage] || ''}`}>
-                          {stageLabels[q.project_stage] || q.project_stage}
-                        </Badge>
+          {/* Internal project: Upload cards */}
+          {isInternal && (
+            <>
+              <InternalDocumentUploadCard projectId={projectId} documentType="quote" title="매입 견적서" />
+              <InternalDocumentUploadCard projectId={projectId} documentType="receipt" title="영수증" />
+            </>
+          )}
+
+          {/* Quotes - 클라이언트 프로젝트만 */}
+          {!isInternal && (
+            <div className="rounded-lg border bg-card p-3.5">
+              <SectionLabel
+                action={
+                  <Button variant="ghost" size="sm" className="h-5 text-[10px] gap-0.5 px-1 -mr-1" onClick={() => setQuoteDialogOpen(true)}>
+                    <Plus className="h-2.5 w-2.5" /> 연결
+                  </Button>
+                }
+              >
+                견적서 ({linkedQuotes.length})
+              </SectionLabel>
+              {linkedQuotes.length === 0 ? (
+                <div className="flex flex-col items-center gap-1.5 py-2">
+                  <p className="text-[10px] text-muted-foreground">없음</p>
+                  <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={() => navigate('/calculator')}>
+                    <FileText className="h-2.5 w-2.5" /> 새 견적서
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-1 max-h-[180px] overflow-y-auto">
+                  {linkedQuotes.map((q: any) => (
+                    <div key={q.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-md text-[11px] group">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-[10px] text-muted-foreground">{q.quote_number}</span>
+                          <Badge variant="secondary" className={`text-[8px] px-1 py-0 h-[14px] border ${stageColors[q.project_stage] || ''}`}>
+                            {stageLabels[q.project_stage] || q.project_stage}
+                          </Badge>
+                        </div>
+                        {q.project_name && <p className="text-[10px] mt-0.5 truncate font-medium">{q.project_name}</p>}
+                        <p className="text-[10px] truncate text-muted-foreground">₩{q.total?.toLocaleString()}</p>
                       </div>
-                      {q.project_name && <p className="text-[10px] mt-0.5 truncate font-medium">{q.project_name}</p>}
-                      <p className="text-[10px] truncate text-muted-foreground">₩{q.total?.toLocaleString()}</p>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setPreviewQuoteId(q.id)}>
+                          <ExternalLink className="h-2.5 w-2.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => unlinkQuote.mutate(q.id)}>
+                          <Unlink className="h-2.5 w-2.5" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setPreviewQuoteId(q.id)}>
-                        <ExternalLink className="h-2.5 w-2.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => unlinkQuote.mutate(q.id)}>
-                        <Unlink className="h-2.5 w-2.5" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Material Orders */}
           <div className="rounded-lg border bg-card p-3.5">

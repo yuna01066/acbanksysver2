@@ -847,6 +847,86 @@ export type Database = {
           },
         ]
       }
+      internal_project_documents: {
+        Row: {
+          created_at: string
+          document_type: string
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          is_paid: boolean | null
+          items: Json | null
+          mime_type: string | null
+          ocr_result: Json | null
+          paid_at: string | null
+          project_id: string
+          purchase_date: string | null
+          subtotal: number | null
+          tax: number | null
+          total: number | null
+          updated_at: string
+          uploaded_by: string
+          vendor_business_number: string | null
+          vendor_name: string | null
+          vendor_phone: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_type: string
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          is_paid?: boolean | null
+          items?: Json | null
+          mime_type?: string | null
+          ocr_result?: Json | null
+          paid_at?: string | null
+          project_id: string
+          purchase_date?: string | null
+          subtotal?: number | null
+          tax?: number | null
+          total?: number | null
+          updated_at?: string
+          uploaded_by: string
+          vendor_business_number?: string | null
+          vendor_name?: string | null
+          vendor_phone?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          is_paid?: boolean | null
+          items?: Json | null
+          mime_type?: string | null
+          ocr_result?: Json | null
+          paid_at?: string | null
+          project_id?: string
+          purchase_date?: string | null
+          subtotal?: number | null
+          tax?: number | null
+          total?: number | null
+          updated_at?: string
+          uploaded_by?: string
+          vendor_business_number?: string | null
+          vendor_name?: string | null
+          vendor_phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_project_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       labor_law_settings: {
         Row: {
           created_at: string | null
