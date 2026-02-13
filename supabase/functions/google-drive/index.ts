@@ -225,6 +225,67 @@ serve(async (req) => {
       });
     }
 
+    if (action === 'list-drive-usage') {
+      // List all folders and files in shared drive for usage stats
+      const folders: { name: string; fileCount: number; totalSize: number }[] = [];
+      
+      // List top-level folders
+      const topQ = `'${sharedDriveId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+      const topRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(topQ)}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=drive&driveId=${sharedDriveId}&fields=files(id,name)&pageSize=100`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const topData = await topRes.json();
+      
+      let totalFiles = 0;
+      let totalSize = 0;
+      
+      for (const folder of (topData.files || [])) {
+        // Count files in each top-level folder (recursive via q)
+        const filesQ = `'${folder.id}' in parents and trashed=false`;
+        const filesRes = await fetch(
+          `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(filesQ)}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=drive&driveId=${sharedDriveId}&fields=files(id,name,size,mimeType)&pageSize=1000`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        const filesData = await filesRes.json();
+        
+        let folderFileCount = 0;
+        let folderSize = 0;
+        
+        for (const f of (filesData.files || [])) {
+          if (f.mimeType === 'application/vnd.google-apps.folder') {
+            // Sub-folder: count its contents too
+            const subQ = `'${f.id}' in parents and trashed=false`;
+            const subRes = await fetch(
+              `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(subQ)}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=drive&driveId=${sharedDriveId}&fields=files(size)&pageSize=1000`,
+              { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+            const subData = await subRes.json();
+            for (const sf of (subData.files || [])) {
+              folderFileCount++;
+              folderSize += parseInt(sf.size || '0');
+            }
+          } else {
+            folderFileCount++;
+            folderSize += parseInt(f.size || '0');
+          }
+        }
+        
+        folders.push({ name: folder.name, fileCount: folderFileCount, totalSize: folderSize });
+        totalFiles += folderFileCount;
+        totalSize += folderSize;
+      }
+      
+      return new Response(JSON.stringify({ 
+        success: true, 
+        folders: folders.sort((a, b) => b.totalSize - a.totalSize),
+        totalFiles,
+        totalSize 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (action === 'init-resumable-upload') {
       // New: create folder + init resumable upload session, return upload URI
       const { folderPath, fileName, contentType, fileSize } = body;
