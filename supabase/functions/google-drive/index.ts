@@ -198,7 +198,21 @@ function getConfig() {
   if (!serviceAccountKey || !sharedDriveId) {
     throw new Error('Missing GCS_SERVICE_ACCOUNT_KEY or GOOGLE_DRIVE_SHARED_DRIVE_ID');
   }
-  return { serviceAccount: JSON.parse(serviceAccountKey), sharedDriveId };
+  
+  let parsed;
+  try {
+    parsed = JSON.parse(serviceAccountKey);
+  } catch (e1) {
+    // Try decoding as base64
+    try {
+      const decoded = atob(serviceAccountKey);
+      parsed = JSON.parse(decoded);
+    } catch (e2) {
+      throw new Error(`GCS_SERVICE_ACCOUNT_KEY is not valid JSON (first 20 chars: "${serviceAccountKey.substring(0, 20)}..."). Please re-set the secret with the full JSON content of your service account key file.`);
+    }
+  }
+  
+  return { serviceAccount: parsed, sharedDriveId };
 }
 
 serve(async (req) => {
