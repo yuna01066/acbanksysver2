@@ -114,16 +114,37 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, d
 
           toast.success('OCR 분석이 완료되었습니다.');
 
-          // GCS 자동 업로드 (년도/월별 폴더 구조)
+          // Google Drive + GCS 자동 업로드
           if (projectName) {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+
+            // Google Drive 업로드
             try {
-              const now = new Date();
-              const y = now.getFullYear();
-              const m = String(now.getMonth() + 1).padStart(2, '0');
+              const { error: driveErr } = await supabase.functions.invoke('google-drive', {
+                body: {
+                  action: 'upload-document',
+                  projectName,
+                  documentType,
+                  fileName: file.name,
+                  fileBase64: base64,
+                  contentType: file.type,
+                  year: y.toString(),
+                  month: m,
+                },
+              });
+              if (driveErr) console.error('Drive upload error:', driveErr);
+              else toast.success('Google Drive에 자동 저장되었습니다.');
+            } catch (driveErr) {
+              console.error('Drive upload failed:', driveErr);
+            }
+
+            // GCS 백업
+            try {
               const typeFolder = documentType === 'quote' ? '매입견적서' : '영수증';
               const gcsPrefix = `internal-projects/${projectName}/${typeFolder}/${y}년/${m}월`;
               await gcsUploadFile(file, gcsPrefix);
-              toast.success('GCS에 자동 백업되었습니다.');
             } catch (gcsErr) {
               console.error('GCS backup failed:', gcsErr);
             }
