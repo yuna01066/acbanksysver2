@@ -22,6 +22,7 @@ import LeavePolicySettings from '@/components/leave/LeavePolicySettings';
 import LeaveTypeCards from '@/components/leave/LeaveTypeCards';
 import LeaveUsageHistory from '@/components/leave/LeaveUsageHistory';
 import LeaveRequestList from '@/components/leave/LeaveRequestList';
+import LeaveCalendarView from '@/components/leave/LeaveCalendarView';
 
 const LeaveManagementPage = () => {
   const navigate = useNavigate();
@@ -293,6 +294,8 @@ const LeaveManagementPage = () => {
                   </DialogContent>
                 </Dialog>
               </div>
+
+              <LeaveCalendarView allRequests={requests} />
 
               <AdminLeaveOverview
                 employees={employees}
