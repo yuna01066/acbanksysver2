@@ -313,7 +313,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
             <LinkedClientProjectCard linkedProjectId={(project as any).linked_project_id} />
           )}
 
-          <ProjectUpdatesFeed projectId={projectId} />
+          <ProjectUpdatesFeed projectId={projectId} projectName={project?.name} />
         </div>
 
         {/* Right: Info sidebar */}
