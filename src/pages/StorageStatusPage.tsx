@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, HardDrive, RefreshCw, FolderOpen, Cloud, Database, Server } from "lucide-react";
+import { ArrowLeft, HardDrive, RefreshCw, FolderOpen, Cloud, Database, Server, Info, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import { Badge } from "@/components/ui/badge";
 interface BucketUsage {
   name: string;
   fileCount: number;
@@ -18,6 +18,12 @@ interface GcsFileInfo {
   name: string;
   size: string;
   lastModified: string;
+}
+
+interface DriveFolderInfo {
+  name: string;
+  fileCount: number;
+  totalSize: number;
 }
 
 const LOVABLE_FREE_STORAGE = 1 * 1024 * 1024 * 1024; // 1GB
@@ -74,6 +80,11 @@ const StorageStatusPage = () => {
   const [gcsFiles, setGcsFiles] = useState<GcsFileInfo[]>([]);
   const [gcsTotalSize, setGcsTotalSize] = useState(0);
   const [gcsLoading, setGcsLoading] = useState(true);
+
+  const [driveFolders, setDriveFolders] = useState<DriveFolderInfo[]>([]);
+  const [driveTotalFiles, setDriveTotalFiles] = useState(0);
+  const [driveTotalSize, setDriveTotalSize] = useState(0);
+  const [driveLoading, setDriveLoading] = useState(true);
 
   const bucketLabels: Record<string, string> = {
     'quote-attachments': '견적서 첨부',
@@ -172,11 +183,35 @@ const StorageStatusPage = () => {
     }
   }, []);
 
+  const fetchDriveStorage = useCallback(async () => {
+    setDriveLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await supabase.functions.invoke('google-drive', {
+        body: { action: 'list-drive-usage' },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (res.data?.success) {
+        setDriveFolders(res.data.folders || []);
+        setDriveTotalFiles(res.data.totalFiles || 0);
+        setDriveTotalSize(res.data.totalSize || 0);
+      }
+    } catch (err) {
+      console.error('Google Drive fetch error:', err);
+    } finally {
+      setDriveLoading(false);
+    }
+  }, []);
+
   const refreshAll = useCallback(() => {
     fetchLovableStorage();
     fetchDbSize();
     fetchGcsStorage();
-  }, [fetchLovableStorage, fetchDbSize, fetchGcsStorage]);
+    fetchDriveStorage();
+  }, [fetchLovableStorage, fetchDbSize, fetchGcsStorage, fetchDriveStorage]);
 
   useEffect(() => {
     if (!authLoading && userRole !== 'admin' && userRole !== 'moderator') {
@@ -191,7 +226,7 @@ const StorageStatusPage = () => {
   const lovableTotalUsed = bucketUsages.reduce((sum, b) => sum + b.totalSize, 0);
   const lovablePercent = Math.min((lovableTotalUsed / LOVABLE_FREE_STORAGE) * 100, 100);
   const totalFiles = bucketUsages.reduce((sum, b) => sum + b.fileCount, 0);
-  const isLoading = lovableLoading || dbLoading || gcsLoading;
+  const isLoading = lovableLoading || dbLoading || gcsLoading || driveLoading;
 
   const tableLabels: Record<string, string> = {
     profiles: '사용자 프로필', saved_quotes: '저장된 견적서', recipients: '거래처',
@@ -248,7 +283,7 @@ const StorageStatusPage = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardContent className="pt-5 pb-4">
               <div className="flex items-center gap-2 mb-2">
@@ -262,7 +297,7 @@ const StorageStatusPage = () => {
                   <p className="text-lg font-bold">{formatBytes(lovableTotalUsed)}</p>
                   <Progress value={lovablePercent} className="h-1.5 mt-2" />
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    / 1GB · 잔여 {formatBytes(Math.max(0, LOVABLE_FREE_STORAGE - lovableTotalUsed))} · 파일 {totalFiles}개
+                    / 1GB · 파일 {totalFiles}개
                   </p>
                 </>
               )}
@@ -281,7 +316,7 @@ const StorageStatusPage = () => {
                 <>
                   <p className="text-lg font-bold">{dbSize}</p>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    {tableSizes.length}개 테이블 사용 중
+                    {tableSizes.length}개 테이블
                   </p>
                 </>
               )}
@@ -300,7 +335,26 @@ const StorageStatusPage = () => {
                 <>
                   <p className="text-lg font-bold">{formatBytes(gcsTotalSize)}</p>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    파일 {gcsFiles.length}개 · acbank_sys2
+                    파일 {gcsFiles.length}개
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <FolderOpen className="w-4 h-4 text-primary" />
+                <span className="text-xs font-medium text-muted-foreground">Google Drive</span>
+              </div>
+              {driveLoading ? (
+                <div className="text-sm text-muted-foreground">조회 중...</div>
+              ) : (
+                <>
+                  <p className="text-lg font-bold">{formatBytes(driveTotalSize)}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    파일 {driveTotalFiles}개
                   </p>
                 </>
               )}
@@ -308,11 +362,60 @@ const StorageStatusPage = () => {
           </Card>
         </div>
 
+        {/* 데이터 저장 위치 안내 */}
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              데이터 저장 위치 안내
+            </CardTitle>
+            <CardDescription>각 데이터가 어디에 저장되는지 확인하세요</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {[
+                { data: '견적서 첨부 / PDF', locations: ['Lovable Cloud'], badges: ['quote-attachments', 'quote-pdfs'] },
+                { data: '프로젝트 업데이트 첨부파일', locations: ['Lovable Cloud', 'GCS', 'Google Drive'], badges: ['project-update-attachments', '프로젝트업데이트'] },
+                { data: '내부 프로젝트 증빙 (견적서/영수증)', locations: ['Lovable Cloud', 'GCS', 'Google Drive'], badges: ['internal-project-docs', '프로젝트명 > 문서유형 > 년 > 월'] },
+                { data: '직원 문서 / 프로필 사진', locations: ['Lovable Cloud'], badges: ['employee-documents', 'avatars'] },
+                { data: '팀 채팅 첨부파일', locations: ['Lovable Cloud'], badges: ['team-chat-attachments'] },
+                { data: '거래처 사업자등록증', locations: ['Lovable Cloud'], badges: ['recipient-documents'] },
+                { data: '연말정산 문서', locations: ['Lovable Cloud'], badges: ['tax-documents'] },
+                { data: '사건 보고서 첨부', locations: ['Lovable Cloud'], badges: ['incident-attachments'] },
+                { data: '모든 업무 데이터 (레코드)', locations: ['Database'], badges: ['profiles', 'projects', '...'] },
+              ].map((item) => (
+                <div key={item.data} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg border">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{item.data}</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {item.locations.map((loc) => (
+                        <Badge key={loc} variant="secondary" className="text-[10px] h-5">
+                          {loc === 'Lovable Cloud' && <Cloud className="w-3 h-3 mr-1" />}
+                          {loc === 'Database' && <Database className="w-3 h-3 mr-1" />}
+                          {loc === 'GCS' && <Server className="w-3 h-3 mr-1" />}
+                          {loc === 'Google Drive' && <FolderOpen className="w-3 h-3 mr-1" />}
+                          {loc}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {item.badges.map((b) => (
+                      <span key={b} className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">{b}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         <Tabs defaultValue="lovable" className="w-full">
-          <TabsList className="w-full grid grid-cols-3">
-            <TabsTrigger value="lovable">Lovable Cloud</TabsTrigger>
-            <TabsTrigger value="database">Database</TabsTrigger>
-            <TabsTrigger value="gcs">Google Cloud</TabsTrigger>
+          <TabsList className="w-full grid grid-cols-4">
+            <TabsTrigger value="lovable" className="text-xs">Lovable Cloud</TabsTrigger>
+            <TabsTrigger value="database" className="text-xs">Database</TabsTrigger>
+            <TabsTrigger value="gcs" className="text-xs">GCS</TabsTrigger>
+            <TabsTrigger value="drive" className="text-xs">Google Drive</TabsTrigger>
           </TabsList>
 
           <TabsContent value="lovable">
@@ -407,6 +510,37 @@ const StorageStatusPage = () => {
                           </span>
                         </div>
                       ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="drive">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Google Drive 공유 드라이브</CardTitle>
+                <CardDescription>프로젝트별 폴더 사용량</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {driveLoading ? (
+                  <div className="text-sm text-muted-foreground">조회 중...</div>
+                ) : driveFolders.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">폴더가 없습니다.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {driveFolders.map((folder) => (
+                      <div key={folder.name} className="flex items-center gap-3 p-3 rounded-lg border">
+                        <FolderOpen className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{folder.name}</p>
+                          <p className="text-xs text-muted-foreground">파일 {folder.fileCount}개</p>
+                        </div>
+                        <span className="text-sm font-mono text-muted-foreground shrink-0">
+                          {formatBytes(folder.totalSize)}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>
