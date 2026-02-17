@@ -179,15 +179,16 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
   };
 
   return (
-    <div className={`animate-fade-in glass-card p-5 bg-gradient-to-r ${greeting.gradient} transition-colors duration-1000`}>
-      <div className="flex items-center justify-between gap-4">
+    <div className={`animate-fade-in glass-card p-4 sm:p-5 bg-gradient-to-r ${greeting.gradient} transition-colors duration-1000`}>
+      {/* Mobile: stacked layout, Desktop: side-by-side */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-3">
-          <div className="relative">
+          <div className="relative shrink-0">
             <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
               <PopoverTrigger asChild>
-                <Avatar className={`h-[100px] w-[100px] shrink-0 rounded-lg border-2 ${statusCfg.borderColor} shadow-sm cursor-pointer transition-transform hover:scale-105`}>
+                <Avatar className={`h-16 w-16 sm:h-[100px] sm:w-[100px] shrink-0 rounded-lg border-2 ${statusCfg.borderColor} shadow-sm cursor-pointer transition-transform hover:scale-105`}>
                   <AvatarImage src={avatarUrl || undefined} alt={name} className="object-cover" />
-                  <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
+                  <AvatarFallback className="bg-primary/10 text-primary text-xl sm:text-2xl font-semibold">
                     {name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
@@ -208,25 +209,27 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
                 ))}
               </PopoverContent>
             </Popover>
-            <span className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full ${statusCfg.dotColor} border-2 border-background`} />
+            <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 sm:h-3.5 sm:w-3.5 rounded-full ${statusCfg.dotColor} border-2 border-background`} />
           </div>
-          <div className={`animate-scale-in flex h-10 w-10 items-center justify-center rounded-full ${greeting.iconBg} transition-colors duration-1000`}>
-            {greeting.icon}
-          </div>
-          <div>
-            <p className="text-lg font-semibold text-foreground">
-              {name} 님, {greeting.message}
-            </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-0.5">
+              <div className={`animate-scale-in flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full ${greeting.iconBg} transition-colors duration-1000 shrink-0`}>
+                {greeting.icon}
+              </div>
+              <p className="text-base sm:text-lg font-semibold text-foreground leading-tight">
+                {name} 님, {greeting.message}
+              </p>
+            </div>
             {greeting.sub && (
-              <p className="text-sm text-muted-foreground">{greeting.sub}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground ml-10 sm:ml-12">{greeting.sub}</p>
             )}
           </div>
         </div>
-        <div className="text-right shrink-0">
-          <p className={`text-2xl font-bold tabular-nums tracking-tight ${greeting.timeColor} transition-colors duration-1000`}>
+        <div className="text-right shrink-0 flex sm:block items-center justify-end gap-2 sm:gap-0">
+          <p className={`text-xl sm:text-2xl font-bold tabular-nums tracking-tight ${greeting.timeColor} transition-colors duration-1000`}>
             {formatTime(now)}
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[10px] sm:text-xs text-muted-foreground">
             {formatDate(now)}
           </p>
         </div>
@@ -293,7 +296,7 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
 
       {/* Upcoming event reminders - separate cards */}
       {upcomingEvents.length > 0 && (
-        <div className={`mt-3 grid gap-2.5 ${upcomingEvents.length === 1 ? 'grid-cols-1' : upcomingEvents.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+        <div className={`mt-3 grid gap-2.5 ${upcomingEvents.length === 1 ? 'grid-cols-1' : upcomingEvents.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
           {upcomingEvents.map((ev) => {
             const typeConfig = {
               conference: { label: '회의', badgeBg: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300', cardBorder: 'border-violet-200 dark:border-violet-800', cardBg: 'bg-violet-50/80 dark:bg-violet-950/30', icon: <Users className="h-3.5 w-3.5" /> },

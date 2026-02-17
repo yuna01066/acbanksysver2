@@ -149,7 +149,7 @@ const Home = () => {
 
   return (
     <div className="min-h-screen">
-      <div className="container mx-auto px-4 py-16">
+      <div className="container mx-auto px-3 sm:px-4 py-8 sm:py-16">
         <div className="max-w-6xl mx-auto">
           {/* Top Bar */}
           <div className="flex justify-between items-center gap-4 mb-8">
@@ -188,15 +188,15 @@ const Home = () => {
           </div>
 
           {/* Header */}
-          <div className="text-center mb-16 animate-fade-up">
-            <h1 className="text-5xl font-bold mb-4 text-foreground" style={{ fontFamily: 'Horizon, sans-serif' }}>ACBANK</h1>
-            <p className="text-lg text-muted-foreground font-light tracking-wide">아크뱅크 내부 관리 시스템</p>
+          <div className="text-center mb-8 sm:mb-16 animate-fade-up">
+            <h1 className="text-3xl sm:text-5xl font-bold mb-2 sm:mb-4 text-foreground" style={{ fontFamily: 'Horizon, sans-serif' }}>ACBANK</h1>
+            <p className="text-sm sm:text-lg text-muted-foreground font-light tracking-wide">아크뱅크 내부 관리 시스템</p>
           </div>
 
           {user && (
             <div className="mb-6 space-y-5">
               {/* Quick icon links */}
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-center sm:justify-end gap-3 flex-wrap">
                 {quickLinks.map((ql, i) => {
                   const QIcon = ql.icon;
                   return (
@@ -253,7 +253,7 @@ const Home = () => {
             const totalRows = Math.ceil(links.length / cols);
 
             return (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-6">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mt-6">
                 {Array.from({ length: totalRows }).flatMap((_, r) => {
                   const rowItems: React.ReactNode[] = [];
                   for (let c = 0; c < cols; c++) {
@@ -267,7 +267,7 @@ const Home = () => {
                         <div
                           key={`link-${index}`}
                           className={cn(
-                            "glass-card p-8 text-center cursor-pointer group relative",
+                            "glass-card p-4 sm:p-8 text-center cursor-pointer group relative",
                             (isLocked || isAdminOnly) ? "opacity-50 cursor-not-allowed" : ""
                           )}
                           onClick={() => handleCardClick(link)}
@@ -282,16 +282,16 @@ const Home = () => {
                               <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">관리자 전용</Badge>
                             </div>
                           )}
-                          <div className="mb-4 flex justify-center">
+                          <div className="mb-2 sm:mb-4 flex justify-center">
                             <div className={cn(
-                              "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300",
+                              "w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300",
                               (isLocked || isAdminOnly) ? "glass-surface" : "glass-surface group-hover:shadow-smooth group-hover:scale-110"
                             )}>
-                              {Icon && <Icon className={cn("w-7 h-7", (isLocked || isAdminOnly) ? "text-muted-foreground" : "text-primary")} />}
+                              {Icon && <Icon className={cn("w-5 h-5 sm:w-7 sm:h-7", (isLocked || isAdminOnly) ? "text-muted-foreground" : "text-primary")} />}
                             </div>
                           </div>
-                          <h3 className="text-lg font-semibold mb-1.5">{link.title}</h3>
-                          <p className="text-sm text-muted-foreground">{link.description}</p>
+                          <h3 className="text-sm sm:text-lg font-semibold mb-0.5 sm:mb-1.5 truncate">{link.title}</h3>
+                          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{link.description}</p>
                         </div>
                       );
                     } else {
@@ -308,7 +308,7 @@ const Home = () => {
                       <div
                         key={`side-${r}`}
                         className={cn(
-                          "glass-card p-8 text-center cursor-pointer group relative",
+                          "glass-card p-4 sm:p-8 text-center cursor-pointer group relative",
                           isLocked ? "opacity-50 cursor-not-allowed" : ""
                         )}
                         onClick={() => {
@@ -321,17 +321,17 @@ const Home = () => {
                             <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">로그인 필요</Badge>
                           </div>
                         )}
-                        <div className="mb-4 flex justify-center">
-                          <div className="w-14 h-14 rounded-2xl glass-surface flex items-center justify-center transition-all duration-300 group-hover:shadow-smooth group-hover:scale-110">
-                            <SIcon className="w-7 h-7 text-primary" />
+                        <div className="mb-2 sm:mb-4 flex justify-center">
+                          <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl glass-surface flex items-center justify-center transition-all duration-300 group-hover:shadow-smooth group-hover:scale-110">
+                            <SIcon className="w-5 h-5 sm:w-7 sm:h-7 text-primary" />
                           </div>
                         </div>
-                        <h3 className="text-lg font-semibold mb-1.5">{sideCard.title}</h3>
-                        <p className="text-sm text-muted-foreground">{sideCard.description}</p>
+                        <h3 className="text-sm sm:text-lg font-semibold mb-0.5 sm:mb-1.5 truncate">{sideCard.title}</h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{sideCard.description}</p>
                       </div>
                     );
                   } else {
-                    rowItems.push(<div key={`empty-col-${r}`} className="glass-card p-8" />);
+                    rowItems.push(<div key={`empty-col-${r}`} className="glass-card p-4 sm:p-8" />);
                   }
 
                   return rowItems;
