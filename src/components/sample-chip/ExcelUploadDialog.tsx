@@ -129,7 +129,7 @@ export const ExcelUploadDialog: React.FC<ExcelUploadDialogProps> = ({ open, onOp
     setProgress(0);
 
     try {
-      const batchSize = 50;
+      const batchSize = 500;
       let uploaded = 0;
 
       for (let i = 0; i < validRows.length; i += batchSize) {
