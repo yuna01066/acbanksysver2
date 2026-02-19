@@ -4,18 +4,28 @@ import { toast } from 'sonner';
 
 export async function downloadInventoryExcel() {
   try {
-    const { data, error } = await supabase
-      .from('sample_chip_inventory')
-      .select('*, panel_masters(name, quality, material)')
-      .order('created_at', { ascending: false });
+    let allData: any[] = [];
+    let from = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data, error } = await supabase
+        .from('sample_chip_inventory')
+        .select('*, panel_masters(name, quality, material)')
+        .order('created_at', { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      allData = allData.concat(data);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
 
-    if (error) throw error;
-    if (!data || data.length === 0) {
+    if (allData.length === 0) {
       toast.error('다운로드할 재고 데이터가 없습니다.');
       return;
     }
 
-    const rows = data.map((item: any) => ({
+    const rows = allData.map((item: any) => ({
       '제품명': item.panel_masters?.name || '',
       '품질': item.panel_masters?.quality || '',
       '소재': item.panel_masters?.material || '',
