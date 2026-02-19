@@ -16,7 +16,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ArrowLeft, Plus, Package, ArrowDownToLine, ArrowUpFromLine, Search, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Plus, Package, ArrowDownToLine, ArrowUpFromLine, Search, AlertTriangle, Upload, Download, FileSpreadsheet } from 'lucide-react';
+import { ExcelUploadDialog } from '@/components/sample-chip/ExcelUploadDialog';
+import { downloadInventoryExcel, downloadExcelTemplate } from '@/components/sample-chip/excelDownload';
 
 interface InventoryItem {
   id: string;
@@ -58,6 +60,7 @@ const SampleChipInventoryPage: React.FC = () => {
   const [showTransactionDialog, setShowTransactionDialog] = useState(false);
   const [transactionType, setTransactionType] = useState<'in' | 'out'>('in');
   const [selectedInventory, setSelectedInventory] = useState<InventoryItem | null>(null);
+  const [showExcelUpload, setShowExcelUpload] = useState(false);
 
   // Add inventory form
   const [addForm, setAddForm] = useState({
@@ -238,11 +241,21 @@ const SampleChipInventoryPage: React.FC = () => {
             <h1 className="text-2xl font-bold text-foreground">샘플칩 재고 관리</h1>
             <p className="text-sm text-muted-foreground">제품별/색상별 샘플칩 재고 현황 및 입출고 관리</p>
           </div>
-          {canManage && (
-            <Button onClick={() => setShowAddDialog(true)}>
-              <Plus className="h-4 w-4 mr-1" /> 재고 등록
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={downloadInventoryExcel}>
+              <Download className="h-4 w-4 mr-1" /> 엑셀 다운로드
             </Button>
-          )}
+            {canManage && (
+              <>
+                <Button variant="outline" size="sm" onClick={() => setShowExcelUpload(true)}>
+                  <Upload className="h-4 w-4 mr-1" /> 엑셀 업로드
+                </Button>
+                <Button size="sm" onClick={() => setShowAddDialog(true)}>
+                  <Plus className="h-4 w-4 mr-1" /> 재고 등록
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Low stock warning */}
@@ -555,6 +568,8 @@ const SampleChipInventoryPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Excel Upload Dialog */}
+      <ExcelUploadDialog open={showExcelUpload} onOpenChange={setShowExcelUpload} />
     </div>
   );
 };
