@@ -35,7 +35,7 @@ const DashboardCalendar = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('saved_quotes')
-        .select('id, project_name, quote_date, desired_delivery_date, quote_number, user_id')
+        .select('id, project_name, quote_date, desired_delivery_date, quote_number, user_id, project_id, projects(status)')
         .order('quote_date', { ascending: false });
       if (error) throw error;
       return data;
@@ -175,6 +175,10 @@ const DashboardCalendar = () => {
         });
       }
       if (q.desired_delivery_date) {
+        // 취소된 프로젝트의 납기 희망일은 표시하지 않음
+        const projectStatus = (q as any).projects?.status;
+        if (projectStatus === 'cancelled') return;
+        
         const deliveryDate = new Date(q.desired_delivery_date);
         if (!isNaN(deliveryDate.getTime())) {
           result.push({
