@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ArrowLeft, Plus, Package, ArrowDownToLine, ArrowUpFromLine, Search, AlertTriangle, Upload, Download, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, Plus, Package, ArrowDownToLine, ArrowUpFromLine, Search, AlertTriangle, Upload, Download } from 'lucide-react';
 import { ExcelUploadDialog } from '@/components/sample-chip/ExcelUploadDialog';
 import { downloadInventoryExcel, downloadExcelTemplate } from '@/components/sample-chip/excelDownload';
 
@@ -49,6 +49,47 @@ interface Transaction {
   sample_chip_inventory?: { color_name: string; panel_masters?: { name: string } };
 }
 
+const InlineStockCell: React.FC<{
+  item: InventoryItem;
+  onSave: (id: string, value: number) => void;
+}> = ({ item, onSave }) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(item.stock_ea));
+
+  const handleSave = () => {
+    const num = parseInt(value) || 0;
+    if (num !== item.stock_ea) {
+      onSave(item.id, Math.max(0, num));
+    }
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <Input
+        type="number"
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
+        className="w-20 h-7 text-right font-mono text-sm"
+        autoFocus
+        min={0}
+      />
+    );
+  }
+
+  const lowEa = item.min_stock_ea > 0 && item.stock_ea <= item.min_stock_ea;
+  return (
+    <button
+      onClick={() => { setValue(String(item.stock_ea)); setEditing(true); }}
+      className={`font-mono text-sm px-2 py-1 rounded hover:bg-muted transition-colors cursor-text ${lowEa ? 'text-amber-600 font-bold' : ''}`}
+    >
+      {item.stock_ea}
+    </button>
+  );
+};
+
 const SampleChipInventoryPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, isModerator } = useAuth();
@@ -62,27 +103,21 @@ const SampleChipInventoryPage: React.FC = () => {
   const [selectedInventory, setSelectedInventory] = useState<InventoryItem | null>(null);
   const [showExcelUpload, setShowExcelUpload] = useState(false);
 
-  // Add inventory form
   const [addForm, setAddForm] = useState({
     panel_master_id: '',
     color_name: '',
     color_code: '',
     stock_ea: 0,
-    stock_set: 0,
     min_stock_ea: 0,
-    min_stock_set: 0,
     memo: '',
   });
 
-  // Transaction form
   const [txForm, setTxForm] = useState({
     quantity_ea: 0,
-    quantity_set: 0,
     reason: '',
     recipient_name: '',
   });
 
-  // Fetch panel masters
   const { data: panelMasters } = useQuery({
     queryKey: ['panel-masters-for-chips'],
     queryFn: async () => {
@@ -95,7 +130,6 @@ const SampleChipInventoryPage: React.FC = () => {
     },
   });
 
-  // Fetch inventory
   const { data: inventory, isLoading } = useQuery({
     queryKey: ['sample-chip-inventory'],
     queryFn: async () => {
@@ -118,7 +152,6 @@ const SampleChipInventoryPage: React.FC = () => {
     },
   });
 
-  // Fetch transactions
   const { data: transactions } = useQuery({
     queryKey: ['sample-chip-transactions'],
     queryFn: async () => {
@@ -132,7 +165,6 @@ const SampleChipInventoryPage: React.FC = () => {
     },
   });
 
-  // Add inventory mutation
   const addInventory = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -142,9 +174,9 @@ const SampleChipInventoryPage: React.FC = () => {
           color_name: addForm.color_name,
           color_code: addForm.color_code || null,
           stock_ea: addForm.stock_ea,
-          stock_set: addForm.stock_set,
+          stock_set: 0,
           min_stock_ea: addForm.min_stock_ea,
-          min_stock_set: addForm.min_stock_set,
+          min_stock_set: 0,
           memo: addForm.memo || null,
         });
       if (error) throw error;
@@ -152,13 +184,25 @@ const SampleChipInventoryPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sample-chip-inventory'] });
       setShowAddDialog(false);
-      setAddForm({ panel_master_id: '', color_name: '', color_code: '', stock_ea: 0, stock_set: 0, min_stock_ea: 0, min_stock_set: 0, memo: '' });
+      setAddForm({ panel_master_id: '', color_name: '', color_code: '', stock_ea: 0, min_stock_ea: 0, memo: '' });
       toast.success('샘플칩 재고가 등록되었습니다.');
     },
     onError: (err: any) => toast.error(err.message || '등록 실패'),
   });
 
-  // Create transaction mutation
+  const updateStockInline = useCallback(async (id: string, newEa: number) => {
+    const { error } = await supabase
+      .from('sample_chip_inventory')
+      .update({ stock_ea: newEa })
+      .eq('id', id);
+    if (error) {
+      toast.error('재고 수정 실패');
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ['sample-chip-inventory'] });
+    toast.success('재고가 수정되었습니다.');
+  }, [queryClient]);
+
   const createTransaction = useMutation({
     mutationFn: async () => {
       if (!selectedInventory || !user || !profile) return;
@@ -169,7 +213,7 @@ const SampleChipInventoryPage: React.FC = () => {
           inventory_id: selectedInventory.id,
           transaction_type: transactionType,
           quantity_ea: txForm.quantity_ea,
-          quantity_set: txForm.quantity_set,
+          quantity_set: 0,
           reason: txForm.reason || null,
           recipient_name: txForm.recipient_name || null,
           user_id: user.id,
@@ -177,17 +221,13 @@ const SampleChipInventoryPage: React.FC = () => {
         });
       if (txError) throw txError;
 
-      // Update stock
       const newEa = transactionType === 'in'
         ? selectedInventory.stock_ea + txForm.quantity_ea
         : selectedInventory.stock_ea - txForm.quantity_ea;
-      const newSet = transactionType === 'in'
-        ? selectedInventory.stock_set + txForm.quantity_set
-        : selectedInventory.stock_set - txForm.quantity_set;
 
       const { error: updateError } = await supabase
         .from('sample_chip_inventory')
-        .update({ stock_ea: Math.max(0, newEa), stock_set: Math.max(0, newSet) })
+        .update({ stock_ea: Math.max(0, newEa) })
         .eq('id', selectedInventory.id);
       if (updateError) throw updateError;
     },
@@ -195,7 +235,7 @@ const SampleChipInventoryPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['sample-chip-inventory'] });
       queryClient.invalidateQueries({ queryKey: ['sample-chip-transactions'] });
       setShowTransactionDialog(false);
-      setTxForm({ quantity_ea: 0, quantity_set: 0, reason: '', recipient_name: '' });
+      setTxForm({ quantity_ea: 0, reason: '', recipient_name: '' });
       setSelectedInventory(null);
       toast.success(transactionType === 'in' ? '입고 처리되었습니다.' : '출고 처리되었습니다.');
     },
@@ -208,6 +248,7 @@ const SampleChipInventoryPage: React.FC = () => {
     const term = searchTerm.toLowerCase();
     return inventory.filter(item =>
       item.color_name.toLowerCase().includes(term) ||
+      item.color_code?.toLowerCase().includes(term) ||
       item.panel_masters?.name.toLowerCase().includes(term) ||
       item.panel_masters?.quality.toLowerCase().includes(term)
     );
@@ -216,15 +257,14 @@ const SampleChipInventoryPage: React.FC = () => {
   const lowStockItems = useMemo(() => {
     if (!inventory) return [];
     return inventory.filter(item =>
-      (item.min_stock_ea > 0 && item.stock_ea <= item.min_stock_ea) ||
-      (item.min_stock_set > 0 && item.stock_set <= item.min_stock_set)
+      item.min_stock_ea > 0 && item.stock_ea <= item.min_stock_ea
     );
   }, [inventory]);
 
   const openTransaction = (item: InventoryItem, type: 'in' | 'out') => {
     setSelectedInventory(item);
     setTransactionType(type);
-    setTxForm({ quantity_ea: 0, quantity_set: 0, reason: '', recipient_name: '' });
+    setTxForm({ quantity_ea: 0, reason: '', recipient_name: '' });
     setShowTransactionDialog(true);
   };
 
@@ -249,7 +289,9 @@ const SampleChipInventoryPage: React.FC = () => {
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-foreground">샘플칩 재고 관리</h1>
-            <p className="text-sm text-muted-foreground">제품별/색상별 샘플칩 재고 현황 및 입출고 관리</p>
+            <p className="text-sm text-muted-foreground">
+              전체 <span className="font-semibold text-foreground">{inventory?.length || 0}</span>
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={downloadInventoryExcel}>
@@ -279,8 +321,7 @@ const SampleChipInventoryPage: React.FC = () => {
               <div className="flex flex-wrap gap-2">
                 {lowStockItems.map(item => (
                   <Badge key={item.id} variant="outline" className="text-destructive border-destructive/30">
-                    {item.panel_masters?.name} - {item.color_name}
-                    (EA: {item.stock_ea}/{item.min_stock_ea}, SET: {item.stock_set}/{item.min_stock_set})
+                    {item.color_name} (재고: {item.stock_ea} / 최소: {item.min_stock_ea})
                   </Badge>
                 ))}
               </div>
@@ -298,13 +339,12 @@ const SampleChipInventoryPage: React.FC = () => {
             </TabsTrigger>
           </TabsList>
 
-          {/* Inventory Tab */}
           <TabsContent value="inventory" className="space-y-4">
             <div className="flex items-center gap-2">
-              <div className="relative flex-1 max-w-sm">
+              <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="제품명, 색상, 품질로 검색..."
+                  placeholder="상품명, 상품코드를 검색해 보세요."
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   className="pl-9"
@@ -317,83 +357,55 @@ const SampleChipInventoryPage: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>제품명</TableHead>
-                      <TableHead>품질</TableHead>
-                      <TableHead>색상</TableHead>
-                      <TableHead>색상코드</TableHead>
-                      <TableHead className="text-right">재고(EA)</TableHead>
-                      <TableHead className="text-right">재고(SET)</TableHead>
+                      <TableHead className="w-16">번호</TableHead>
+                      <TableHead>상품명</TableHead>
+                      <TableHead>상품코드</TableHead>
+                      <TableHead className="text-right w-24">재고</TableHead>
                       <TableHead>메모</TableHead>
-                      <TableHead className="text-center">입출고</TableHead>
+                      <TableHead className="w-20 text-center">수정일</TableHead>
+                      <TableHead className="text-center w-28">입출고</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {isLoading ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           로딩 중...
                         </TableCell>
                       </TableRow>
                     ) : filtered.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           {searchTerm ? '검색 결과가 없습니다.' : '등록된 재고가 없습니다.'}
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filtered.map(item => {
-                        const lowEa = item.min_stock_ea > 0 && item.stock_ea <= item.min_stock_ea;
-                        const lowSet = item.min_stock_set > 0 && item.stock_set <= item.min_stock_set;
-                        return (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-medium">{item.panel_masters?.name}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{item.panel_masters?.quality}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                {item.color_code && (
-                                  <div
-                                    className="w-4 h-4 rounded-full border border-border"
-                                    style={{ backgroundColor: item.color_code }}
-                                  />
-                                )}
-                                {item.color_name}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground text-xs">{item.color_code || '-'}</TableCell>
-                            <TableCell className={`text-right font-mono ${lowEa ? 'text-amber-600 font-bold' : ''}`}>
-                              {item.stock_ea}
-                            </TableCell>
-                            <TableCell className={`text-right font-mono ${lowSet ? 'text-amber-600 font-bold' : ''}`}>
-                              {item.stock_set}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground text-xs max-w-[120px] truncate">
-                              {item.memo || '-'}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 text-xs"
-                                  onClick={() => openTransaction(item, 'in')}
-                                >
-                                  <ArrowDownToLine className="h-3 w-3 mr-1" />입고
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 text-xs"
-                                  onClick={() => openTransaction(item, 'out')}
-                                >
-                                  <ArrowUpFromLine className="h-3 w-3 mr-1" />출고
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
+                      filtered.map((item, idx) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
+                          <TableCell className="font-medium">{item.color_name}</TableCell>
+                          <TableCell className="text-muted-foreground text-sm">{item.color_code || '-'}</TableCell>
+                          <TableCell className="text-right">
+                            <InlineStockCell item={item} onSave={updateStockInline} />
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs max-w-[150px] truncate">
+                            {item.memo || '-'}
+                          </TableCell>
+                          <TableCell className="text-center text-xs text-muted-foreground whitespace-nowrap">
+                            {format(new Date(item.updated_at), 'yyyy-MM-dd')}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openTransaction(item, 'in')}>
+                                <ArrowDownToLine className="h-3 w-3 mr-1" />입고
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openTransaction(item, 'out')}>
+                                <ArrowUpFromLine className="h-3 w-3 mr-1" />출고
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
                     )}
                   </TableBody>
                 </Table>
@@ -410,9 +422,8 @@ const SampleChipInventoryPage: React.FC = () => {
                     <TableRow>
                       <TableHead>일시</TableHead>
                       <TableHead>유형</TableHead>
-                      <TableHead>제품 / 색상</TableHead>
+                      <TableHead>상품명</TableHead>
                       <TableHead className="text-right">수량(EA)</TableHead>
-                      <TableHead className="text-right">수량(SET)</TableHead>
                       <TableHead>사유</TableHead>
                       <TableHead>수령자</TableHead>
                       <TableHead>처리자</TableHead>
@@ -421,7 +432,7 @@ const SampleChipInventoryPage: React.FC = () => {
                   <TableBody>
                     {!transactions || transactions.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           입출고 이력이 없습니다.
                         </TableCell>
                       </TableRow>
@@ -437,13 +448,10 @@ const SampleChipInventoryPage: React.FC = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="font-medium">
-                            {tx.sample_chip_inventory?.panel_masters?.name} - {tx.sample_chip_inventory?.color_name}
+                            {tx.sample_chip_inventory?.color_name}
                           </TableCell>
                           <TableCell className="text-right font-mono">
                             {tx.transaction_type === 'in' ? '+' : '-'}{tx.quantity_ea}
-                          </TableCell>
-                          <TableCell className="text-right font-mono">
-                            {tx.transaction_type === 'in' ? '+' : '-'}{tx.quantity_set}
                           </TableCell>
                           <TableCell className="text-muted-foreground text-xs max-w-[150px] truncate">
                             {tx.reason || '-'}
@@ -486,7 +494,7 @@ const SampleChipInventoryPage: React.FC = () => {
               </div>
               <div>
                 <Label>색상코드</Label>
-                <Input value={addForm.color_code} onChange={e => setAddForm(f => ({ ...f, color_code: e.target.value }))} placeholder="예: #FFFFFF" />
+                <Input value={addForm.color_code} onChange={e => setAddForm(f => ({ ...f, color_code: e.target.value }))} placeholder="예: AC-C001" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -495,18 +503,8 @@ const SampleChipInventoryPage: React.FC = () => {
                 <Input type="number" value={addForm.stock_ea} onChange={e => setAddForm(f => ({ ...f, stock_ea: parseInt(e.target.value) || 0 }))} />
               </div>
               <div>
-                <Label>초기 재고(SET)</Label>
-                <Input type="number" value={addForm.stock_set} onChange={e => setAddForm(f => ({ ...f, stock_set: parseInt(e.target.value) || 0 }))} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
                 <Label>최소 재고(EA)</Label>
                 <Input type="number" value={addForm.min_stock_ea} onChange={e => setAddForm(f => ({ ...f, min_stock_ea: parseInt(e.target.value) || 0 }))} />
-              </div>
-              <div>
-                <Label>최소 재고(SET)</Label>
-                <Input type="number" value={addForm.min_stock_set} onChange={e => setAddForm(f => ({ ...f, min_stock_set: parseInt(e.target.value) || 0 }))} />
               </div>
             </div>
             <div>
@@ -534,27 +532,20 @@ const SampleChipInventoryPage: React.FC = () => {
               {transactionType === 'in' ? '입고 처리' : '출고 처리'}
               {selectedInventory && (
                 <span className="text-sm font-normal text-muted-foreground ml-2">
-                  {selectedInventory.panel_masters?.name} - {selectedInventory.color_name}
+                  {selectedInventory.color_name}
                 </span>
               )}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {selectedInventory && (
-              <div className="flex gap-4 p-3 rounded-lg bg-muted/50 text-sm">
-                <div>현재 EA: <span className="font-mono font-bold">{selectedInventory.stock_ea}</span></div>
-                <div>현재 SET: <span className="font-mono font-bold">{selectedInventory.stock_set}</span></div>
+              <div className="p-3 rounded-lg bg-muted/50 text-sm">
+                현재 재고: <span className="font-mono font-bold">{selectedInventory.stock_ea} EA</span>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>수량(EA)</Label>
-                <Input type="number" min={0} value={txForm.quantity_ea} onChange={e => setTxForm(f => ({ ...f, quantity_ea: parseInt(e.target.value) || 0 }))} />
-              </div>
-              <div>
-                <Label>수량(SET)</Label>
-                <Input type="number" min={0} value={txForm.quantity_set} onChange={e => setTxForm(f => ({ ...f, quantity_set: parseInt(e.target.value) || 0 }))} />
-              </div>
+            <div>
+              <Label>수량(EA)</Label>
+              <Input type="number" min={0} value={txForm.quantity_ea} onChange={e => setTxForm(f => ({ ...f, quantity_ea: parseInt(e.target.value) || 0 }))} />
             </div>
             <div>
               <Label>사유</Label>
@@ -571,14 +562,14 @@ const SampleChipInventoryPage: React.FC = () => {
             <Button variant="outline" onClick={() => setShowTransactionDialog(false)}>취소</Button>
             <Button
               onClick={() => createTransaction.mutate()}
-              disabled={(txForm.quantity_ea === 0 && txForm.quantity_set === 0) || createTransaction.isPending}
+              disabled={txForm.quantity_ea === 0 || createTransaction.isPending}
             >
               {createTransaction.isPending ? '처리 중...' : transactionType === 'in' ? '입고 확인' : '출고 확인'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Excel Upload Dialog */}
+
       <ExcelUploadDialog open={showExcelUpload} onOpenChange={setShowExcelUpload} />
     </div>
   );
