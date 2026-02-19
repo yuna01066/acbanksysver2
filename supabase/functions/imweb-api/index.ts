@@ -12,6 +12,8 @@ const IMWEB_API_BASE = "https://api.imweb.me/v2";
 async function getImwebToken(): Promise<string> {
   const key = Deno.env.get("IMWEB_API_KEY");
   const secret = Deno.env.get("IMWEB_API_SECRET");
+  console.log(`IMWEB key length: ${key?.length}, prefix: ${key?.substring(0, 4)}***`);
+  console.log(`IMWEB secret length: ${secret?.length}, prefix: ${secret?.substring(0, 4)}***`);
   if (!key || !secret) throw new Error("IMWEB_API_KEY or IMWEB_API_SECRET not configured");
 
   // Try POST with JSON body first (some imweb accounts require this)
