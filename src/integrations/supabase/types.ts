@@ -758,6 +758,189 @@ export type Database = {
           },
         ]
       }
+      exhibition_checklist_items: {
+        Row: {
+          assignee_name: string | null
+          created_at: string
+          display_order: number
+          exhibition_id: string
+          id: string
+          is_completed: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assignee_name?: string | null
+          created_at?: string
+          display_order?: number
+          exhibition_id: string
+          id?: string
+          is_completed?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assignee_name?: string | null
+          created_at?: string
+          display_order?: number
+          exhibition_id?: string
+          id?: string
+          is_completed?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exhibition_checklist_items_exhibition_id_fkey"
+            columns: ["exhibition_id"]
+            isOneToOne: false
+            referencedRelation: "exhibitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exhibition_consultations: {
+        Row: {
+          consultation_content: string | null
+          consulted_by: string
+          consulted_by_name: string
+          created_at: string
+          customer_company: string | null
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          exhibition_id: string
+          follow_up_action: string | null
+          follow_up_status: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          consultation_content?: string | null
+          consulted_by: string
+          consulted_by_name: string
+          created_at?: string
+          customer_company?: string | null
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          exhibition_id: string
+          follow_up_action?: string | null
+          follow_up_status?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          consultation_content?: string | null
+          consulted_by?: string
+          consulted_by_name?: string
+          created_at?: string
+          customer_company?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          exhibition_id?: string
+          follow_up_action?: string | null
+          follow_up_status?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exhibition_consultations_exhibition_id_fkey"
+            columns: ["exhibition_id"]
+            isOneToOne: false
+            referencedRelation: "exhibitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exhibition_links: {
+        Row: {
+          created_at: string
+          display_order: number
+          exhibition_id: string
+          id: string
+          memo: string | null
+          title: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          exhibition_id: string
+          id?: string
+          memo?: string | null
+          title: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          exhibition_id?: string
+          id?: string
+          memo?: string | null
+          title?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exhibition_links_exhibition_id_fkey"
+            columns: ["exhibition_id"]
+            isOneToOne: false
+            referencedRelation: "exhibitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exhibitions: {
+        Row: {
+          booth_number: string | null
+          cost: number | null
+          created_at: string
+          created_by: string
+          description: string | null
+          end_date: string
+          id: string
+          location: string | null
+          name: string
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          booth_number?: string | null
+          cost?: number | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          end_date: string
+          id?: string
+          location?: string | null
+          name: string
+          start_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          booth_number?: string | null
+          cost?: number | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          end_date?: string
+          id?: string
+          location?: string | null
+          name?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imweb_oauth_tokens: {
         Row: {
           access_token: string
