@@ -1,9 +1,54 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Upload, X, Download, FileText, File } from "lucide-react";
+import { Upload, X, Download, FileText, File, CloudUpload } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+// Google Drive에 파일을 동기화하는 헬퍼 함수
+async function syncFileToGoogleDrive(
+  file: globalThis.File,
+  quoteNumber: string
+): Promise<boolean> {
+  try {
+    // 1. Init resumable upload session via edge function
+    const { data: sessionData, error: sessionError } = await supabase.functions.invoke('google-drive', {
+      body: {
+        action: 'init-resumable-upload',
+        folderPath: ['견적서', quoteNumber, '첨부파일'],
+        fileName: file.name,
+        contentType: file.type || 'application/octet-stream',
+        fileSize: file.size,
+      }
+    });
+
+    if (sessionError || !sessionData?.uploadUri) {
+      console.error('Google Drive session init failed:', sessionError || sessionData);
+      return false;
+    }
+
+    // 2. Client-side direct upload to Google Drive
+    const uploadRes = await fetch(sessionData.uploadUri, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+        'Content-Length': file.size.toString(),
+      },
+      body: file,
+    });
+
+    if (!uploadRes.ok) {
+      console.error('Google Drive upload failed:', await uploadRes.text());
+      return false;
+    }
+
+    console.log(`Google Drive sync successful: ${file.name}`);
+    return true;
+  } catch (error) {
+    console.error('Google Drive sync error:', error);
+    return false;
+  }
+}
 
 interface Attachment {
   name: string;
@@ -120,6 +165,16 @@ const QuoteAttachments = ({
           }
 
           console.log('Upload successful:', data);
+
+          // Google Drive 동기화 (quoteNumber가 있으면)
+          if (quoteNumber) {
+            const driveSuccess = await syncFileToGoogleDrive(file, quoteNumber);
+            if (driveSuccess) {
+              console.log(`Google Drive sync OK: ${file.name}`);
+            } else {
+              console.warn(`Google Drive sync failed for: ${file.name} (Supabase 저장은 완료)`);
+            }
+          }
           
           newAttachments.push({
             name: file.name,
@@ -274,6 +329,16 @@ const QuoteAttachments = ({
         url: urlData.publicUrl,
         uploadedAt: new Date().toISOString()
       };
+
+      // Google Drive 동기화
+      if (quoteNumber) {
+        const driveSuccess = await syncFileToGoogleDrive(file, safeQuoteNumber);
+        if (driveSuccess) {
+          console.log('PDF Google Drive sync OK');
+        } else {
+          console.warn('PDF Google Drive sync failed (Supabase 저장은 완료)');
+        }
+      }
 
       onQuotePdfChange?.(pdfData);
       toast.success('견적서 PDF가 업로드되었습니다. 저장 버튼을 눌러 변경사항을 저장하세요.');
