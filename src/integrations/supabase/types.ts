@@ -2316,6 +2316,103 @@ export type Database = {
           },
         ]
       }
+      sample_chip_inventory: {
+        Row: {
+          color_code: string | null
+          color_name: string
+          created_at: string
+          id: string
+          memo: string | null
+          min_stock_ea: number
+          min_stock_set: number
+          panel_master_id: string | null
+          stock_ea: number
+          stock_set: number
+          updated_at: string
+        }
+        Insert: {
+          color_code?: string | null
+          color_name: string
+          created_at?: string
+          id?: string
+          memo?: string | null
+          min_stock_ea?: number
+          min_stock_set?: number
+          panel_master_id?: string | null
+          stock_ea?: number
+          stock_set?: number
+          updated_at?: string
+        }
+        Update: {
+          color_code?: string | null
+          color_name?: string
+          created_at?: string
+          id?: string
+          memo?: string | null
+          min_stock_ea?: number
+          min_stock_set?: number
+          panel_master_id?: string | null
+          stock_ea?: number
+          stock_set?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sample_chip_inventory_panel_master_id_fkey"
+            columns: ["panel_master_id"]
+            isOneToOne: false
+            referencedRelation: "panel_masters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sample_chip_transactions: {
+        Row: {
+          created_at: string
+          id: string
+          inventory_id: string
+          quantity_ea: number
+          quantity_set: number
+          reason: string | null
+          recipient_name: string | null
+          transaction_type: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inventory_id: string
+          quantity_ea?: number
+          quantity_set?: number
+          reason?: string | null
+          recipient_name?: string | null
+          transaction_type: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inventory_id?: string
+          quantity_ea?: number
+          quantity_set?: number
+          reason?: string | null
+          recipient_name?: string | null
+          transaction_type?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sample_chip_transactions_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "sample_chip_inventory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_quotes: {
         Row: {
           attachments: Json | null
