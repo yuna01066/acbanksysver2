@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.google-drive]
 verify_jwt = false
+
+[functions.imweb-api]
+verify_jwt = false

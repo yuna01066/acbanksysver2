@@ -758,6 +758,138 @@ export type Database = {
           },
         ]
       }
+      imweb_orders: {
+        Row: {
+          buyer_email: string | null
+          buyer_name: string | null
+          buyer_phone: string | null
+          created_at: string | null
+          id: string
+          imweb_order_no: string
+          items: Json | null
+          order_date: string | null
+          order_status: string | null
+          raw_data: Json | null
+          synced_at: string | null
+          total_price: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
+          created_at?: string | null
+          id?: string
+          imweb_order_no: string
+          items?: Json | null
+          order_date?: string | null
+          order_status?: string | null
+          raw_data?: Json | null
+          synced_at?: string | null
+          total_price?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
+          created_at?: string | null
+          id?: string
+          imweb_order_no?: string
+          items?: Json | null
+          order_date?: string | null
+          order_status?: string | null
+          raw_data?: Json | null
+          synced_at?: string | null
+          total_price?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      imweb_products: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          id: string
+          image_url: string | null
+          imweb_prod_no: string
+          name: string
+          price: number | null
+          raw_data: Json | null
+          status: string | null
+          stock_qty: number | null
+          synced_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          imweb_prod_no: string
+          name: string
+          price?: number | null
+          raw_data?: Json | null
+          status?: string | null
+          stock_qty?: number | null
+          synced_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          imweb_prod_no?: string
+          name?: string
+          price?: number | null
+          raw_data?: Json | null
+          status?: string | null
+          stock_qty?: number | null
+          synced_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      imweb_sync_logs: {
+        Row: {
+          completed_at: string | null
+          error_message: string | null
+          id: string
+          started_at: string | null
+          status: string
+          sync_type: string
+          synced_count: number | null
+          total_count: number | null
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string
+          sync_type: string
+          synced_count?: number | null
+          total_count?: number | null
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string
+          sync_type?: string
+          synced_count?: number | null
+          total_count?: number | null
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
       incident_reports: {
         Row: {
           attachments: Json | null

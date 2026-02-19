@@ -46,6 +46,7 @@ import StorageStatusPage from "./pages/StorageStatusPage";
 import QuoteTemplateManagementPage from "./pages/QuoteTemplateManagementPage";
 import TaxInvoicesPage from "./pages/TaxInvoicesPage";
 import SampleChipInventoryPage from "./pages/SampleChipInventoryPage";
+import ImwebManagementPage from "./pages/ImwebManagementPage";
 
 const queryClient = new QueryClient();
 
@@ -101,6 +102,7 @@ const App = () => (
             <Route path="/quote-template-management" element={<QuoteTemplateManagementPage />} />
             <Route path="/tax-invoices" element={<G><TaxInvoicesPage /></G>} />
             <Route path="/sample-chip-inventory" element={<SampleChipInventoryPage />} />
+            <Route path="/imweb-management" element={<G><ImwebManagementPage /></G>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
             </Routes>
