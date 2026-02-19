@@ -1,0 +1,1 @@
+ALTER TABLE public.sample_chip_inventory ADD COLUMN group_name text DEFAULT null;
