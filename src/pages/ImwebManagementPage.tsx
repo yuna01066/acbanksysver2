@@ -156,6 +156,10 @@ const ImwebManagementPage: React.FC = () => {
   };
 
   const syncProducts = async () => {
+    if (!isConnected) {
+      toast.error('아임웹 연결이 필요합니다. "아임웹 연결" 버튼을 눌러주세요.');
+      return;
+    }
     setSyncing('products');
     try {
       const result = await callImwebApi('sync-products');
@@ -170,6 +174,10 @@ const ImwebManagementPage: React.FC = () => {
   };
 
   const syncOrders = async () => {
+    if (!isConnected) {
+      toast.error('아임웹 연결이 필요합니다. "아임웹 연결" 버튼을 눌러주세요.');
+      return;
+    }
     setSyncing('orders');
     try {
       const result = await callImwebApi('sync-orders');
@@ -326,7 +334,7 @@ const ImwebManagementPage: React.FC = () => {
         )}
 
         {/* Connected - show tabs */}
-        {(isConnected || connectionLoading) && (
+        {isConnected && (
           <Tabs defaultValue="products">
             <TabsList>
               <TabsTrigger value="products">
