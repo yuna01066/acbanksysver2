@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark } from "lucide-react";
 import DashboardCalendar from '@/components/DashboardCalendar';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
@@ -239,7 +239,13 @@ const Home = () => {
           {/* Links Grid */}
           {(() => {
             const sideCards: (null | { title: string; icon: any; description: string; requiresAuth: boolean; action: () => void })[] = [
-              null, // row 0: empty
+              {
+                title: "박람회 관리",
+                icon: Landmark,
+                description: "박람회 일정·준비·상담 관리",
+                requiresAuth: true,
+                action: () => navigate("/exhibition-management"),
+              },
               {
                 title: "세금계산서 관리",
                 icon: Receipt,
