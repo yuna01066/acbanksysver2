@@ -248,24 +248,36 @@ const SampleChipInventoryPage: React.FC = () => {
     onError: (err: any) => toast.error(err.message || '처리 실패'),
   });
 
+  const extractCategory = useCallback((memo: string | null): string => {
+    if (!memo) return '미분류';
+    const match = memo.match(/카테고리:\s*([^,\s]+(?:,[^,\s]+)*)/);
+    if (!match) return '미분류';
+    // Return first category if multiple
+    return match[1].split(',')[0].trim() || '미분류';
+  }, []);
+
+  const getItemCategory = useCallback((item: InventoryItem): string => {
+    return item.group_name || extractCategory(item.memo);
+  }, [extractCategory]);
+
   const groups = useMemo(() => {
     if (!inventory) return [];
     const groupSet = new Set<string>();
     inventory.forEach(item => {
-      groupSet.add(item.group_name || '미분류');
+      groupSet.add(getItemCategory(item));
     });
     return Array.from(groupSet).sort((a, b) => {
       if (a === '미분류') return 1;
       if (b === '미분류') return -1;
       return a.localeCompare(b, 'ko');
     });
-  }, [inventory]);
+  }, [inventory, getItemCategory]);
 
   const filtered = useMemo(() => {
     if (!inventory) return [];
     let items = inventory;
     if (selectedGroup !== 'all') {
-      items = items.filter(item => (item.group_name || '미분류') === selectedGroup);
+      items = items.filter(item => getItemCategory(item) === selectedGroup);
     }
     if (!searchTerm) return items;
     const term = searchTerm.toLowerCase();
@@ -275,12 +287,12 @@ const SampleChipInventoryPage: React.FC = () => {
       item.panel_masters?.name.toLowerCase().includes(term) ||
       item.panel_masters?.quality.toLowerCase().includes(term)
     );
-  }, [inventory, searchTerm, selectedGroup]);
+  }, [inventory, searchTerm, selectedGroup, getItemCategory]);
 
   const groupedFiltered = useMemo(() => {
     const map = new Map<string, InventoryItem[]>();
     filtered.forEach(item => {
-      const g = item.group_name || '미분류';
+      const g = getItemCategory(item);
       if (!map.has(g)) map.set(g, []);
       map.get(g)!.push(item);
     });
@@ -289,7 +301,7 @@ const SampleChipInventoryPage: React.FC = () => {
       if (b === '미분류') return -1;
       return a.localeCompare(b, 'ko');
     });
-  }, [filtered]);
+  }, [filtered, getItemCategory]);
 
   const toggleGroup = (g: string) => {
     setCollapsedGroups(prev => {
