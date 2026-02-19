@@ -137,12 +137,21 @@ const OnlineEmployeesCard: React.FC = () => {
 
     const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
-    const merged = attendanceData.map(a => ({
-      ...a,
-      avatar_url: profileMap.get(a.user_id)?.avatar_url,
-      department: profileMap.get(a.user_id)?.department,
-      position: profileMap.get(a.user_id)?.position,
-    }));
+    const merged = attendanceData.map(a => {
+      const profile = profileMap.get(a.user_id);
+      // Refresh cache-busting param to avoid stale cached images
+      let avatarUrl = profile?.avatar_url || null;
+      if (avatarUrl) {
+        const base = avatarUrl.split('?')[0];
+        avatarUrl = `${base}?t=${Date.now()}`;
+      }
+      return {
+        ...a,
+        avatar_url: avatarUrl,
+        department: profile?.department,
+        position: profile?.position,
+      };
+    });
 
     setEmployees(merged);
     setLoading(false);
