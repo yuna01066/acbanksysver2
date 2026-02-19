@@ -2483,6 +2483,7 @@ export type Database = {
           color_code: string | null
           color_name: string
           created_at: string
+          group_name: string | null
           id: string
           memo: string | null
           min_stock_ea: number
@@ -2496,6 +2497,7 @@ export type Database = {
           color_code?: string | null
           color_name: string
           created_at?: string
+          group_name?: string | null
           id?: string
           memo?: string | null
           min_stock_ea?: number
@@ -2509,6 +2511,7 @@ export type Database = {
           color_code?: string | null
           color_name?: string
           created_at?: string
+          group_name?: string | null
           id?: string
           memo?: string | null
           min_stock_ea?: number

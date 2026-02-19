@@ -16,15 +16,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ArrowLeft, Plus, Package, ArrowDownToLine, ArrowUpFromLine, Search, AlertTriangle, Upload, Download } from 'lucide-react';
+import { ArrowLeft, Plus, Package, ArrowDownToLine, ArrowUpFromLine, Search, AlertTriangle, Upload, Download, ChevronDown, ChevronRight } from 'lucide-react';
 import { ExcelUploadDialog } from '@/components/sample-chip/ExcelUploadDialog';
 import { downloadInventoryExcel, downloadExcelTemplate } from '@/components/sample-chip/excelDownload';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface InventoryItem {
   id: string;
   panel_master_id: string;
   color_name: string;
   color_code: string | null;
+  group_name: string | null;
   stock_ea: number;
   stock_set: number;
   min_stock_ea: number;
@@ -97,6 +99,8 @@ const SampleChipInventoryPage: React.FC = () => {
   const canManage = isAdmin || isModerator;
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState<string>('all');
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showTransactionDialog, setShowTransactionDialog] = useState(false);
   const [transactionType, setTransactionType] = useState<'in' | 'out'>('in');
@@ -107,6 +111,7 @@ const SampleChipInventoryPage: React.FC = () => {
     panel_master_id: '',
     color_name: '',
     color_code: '',
+    group_name: '',
     stock_ea: 0,
     min_stock_ea: 0,
     memo: '',
@@ -173,6 +178,7 @@ const SampleChipInventoryPage: React.FC = () => {
           panel_master_id: addForm.panel_master_id,
           color_name: addForm.color_name,
           color_code: addForm.color_code || null,
+          group_name: addForm.group_name || null,
           stock_ea: addForm.stock_ea,
           stock_set: 0,
           min_stock_ea: addForm.min_stock_ea,
@@ -184,7 +190,7 @@ const SampleChipInventoryPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sample-chip-inventory'] });
       setShowAddDialog(false);
-      setAddForm({ panel_master_id: '', color_name: '', color_code: '', stock_ea: 0, min_stock_ea: 0, memo: '' });
+      setAddForm({ panel_master_id: '', color_name: '', color_code: '', group_name: '', stock_ea: 0, min_stock_ea: 0, memo: '' });
       toast.success('샘플칩 재고가 등록되었습니다.');
     },
     onError: (err: any) => toast.error(err.message || '등록 실패'),
@@ -242,17 +248,57 @@ const SampleChipInventoryPage: React.FC = () => {
     onError: (err: any) => toast.error(err.message || '처리 실패'),
   });
 
+  const groups = useMemo(() => {
+    if (!inventory) return [];
+    const groupSet = new Set<string>();
+    inventory.forEach(item => {
+      groupSet.add(item.group_name || '미분류');
+    });
+    return Array.from(groupSet).sort((a, b) => {
+      if (a === '미분류') return 1;
+      if (b === '미분류') return -1;
+      return a.localeCompare(b, 'ko');
+    });
+  }, [inventory]);
+
   const filtered = useMemo(() => {
     if (!inventory) return [];
-    if (!searchTerm) return inventory;
+    let items = inventory;
+    if (selectedGroup !== 'all') {
+      items = items.filter(item => (item.group_name || '미분류') === selectedGroup);
+    }
+    if (!searchTerm) return items;
     const term = searchTerm.toLowerCase();
-    return inventory.filter(item =>
+    return items.filter(item =>
       item.color_name.toLowerCase().includes(term) ||
       item.color_code?.toLowerCase().includes(term) ||
       item.panel_masters?.name.toLowerCase().includes(term) ||
       item.panel_masters?.quality.toLowerCase().includes(term)
     );
-  }, [inventory, searchTerm]);
+  }, [inventory, searchTerm, selectedGroup]);
+
+  const groupedFiltered = useMemo(() => {
+    const map = new Map<string, InventoryItem[]>();
+    filtered.forEach(item => {
+      const g = item.group_name || '미분류';
+      if (!map.has(g)) map.set(g, []);
+      map.get(g)!.push(item);
+    });
+    return Array.from(map.entries()).sort(([a], [b]) => {
+      if (a === '미분류') return 1;
+      if (b === '미분류') return -1;
+      return a.localeCompare(b, 'ko');
+    });
+  }, [filtered]);
+
+  const toggleGroup = (g: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(g)) next.delete(g);
+      else next.add(g);
+      return next;
+    });
+  };
 
   const lowStockItems = useMemo(() => {
     if (!inventory) return [];
@@ -340,8 +386,8 @@ const SampleChipInventoryPage: React.FC = () => {
           </TabsList>
 
           <TabsContent value="inventory" className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1 max-w-md">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative flex-1 min-w-[200px] max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="상품명, 상품코드를 검색해 보세요."
@@ -350,67 +396,89 @@ const SampleChipInventoryPage: React.FC = () => {
                   className="pl-9"
                 />
               </div>
+              <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="그룹 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 그룹</SelectItem>
+                  {groups.map(g => (
+                    <SelectItem key={g} value={g}>{g}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <Card>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-16">번호</TableHead>
-                      <TableHead>상품명</TableHead>
-                      <TableHead>상품코드</TableHead>
-                      <TableHead className="text-right w-24">재고</TableHead>
-                      <TableHead>메모</TableHead>
-                      <TableHead className="w-20 text-center">수정일</TableHead>
-                      <TableHead className="text-center w-28">입출고</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {isLoading ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                          로딩 중...
-                        </TableCell>
-                      </TableRow>
-                    ) : filtered.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                          {searchTerm ? '검색 결과가 없습니다.' : '등록된 재고가 없습니다.'}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filtered.map((item, idx) => (
-                        <TableRow key={item.id}>
-                          <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
-                          <TableCell className="font-medium">{item.color_name}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{item.color_code || '-'}</TableCell>
-                          <TableCell className="text-right">
-                            <InlineStockCell item={item} onSave={updateStockInline} />
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-xs max-w-[150px] truncate">
-                            {item.memo || '-'}
-                          </TableCell>
-                          <TableCell className="text-center text-xs text-muted-foreground whitespace-nowrap">
-                            {format(new Date(item.updated_at), 'yyyy-MM-dd')}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openTransaction(item, 'in')}>
-                                <ArrowDownToLine className="h-3 w-3 mr-1" />입고
-                              </Button>
-                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openTransaction(item, 'out')}>
-                                <ArrowUpFromLine className="h-3 w-3 mr-1" />출고
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+            {isLoading ? (
+              <Card className="p-8 text-center text-muted-foreground">로딩 중...</Card>
+            ) : groupedFiltered.length === 0 ? (
+              <Card className="p-8 text-center text-muted-foreground">
+                {searchTerm ? '검색 결과가 없습니다.' : '등록된 재고가 없습니다.'}
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {groupedFiltered.map(([groupName, items]) => {
+                  const isCollapsed = collapsedGroups.has(groupName);
+                  return (
+                    <Card key={groupName}>
+                      <button
+                        onClick={() => toggleGroup(groupName)}
+                        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+                      >
+                        {isCollapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                        <span className="font-semibold text-sm">{groupName}</span>
+                        <Badge variant="secondary" className="ml-1 text-xs">{items.length}</Badge>
+                      </button>
+                      {!isCollapsed && (
+                        <div className="overflow-x-auto border-t">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-16">번호</TableHead>
+                                <TableHead>상품명</TableHead>
+                                <TableHead>상품코드</TableHead>
+                                <TableHead className="text-right w-24">재고</TableHead>
+                                <TableHead>메모</TableHead>
+                                <TableHead className="w-20 text-center">수정일</TableHead>
+                                <TableHead className="text-center w-28">입출고</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {items.map((item, idx) => (
+                                <TableRow key={item.id}>
+                                  <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
+                                  <TableCell className="font-medium">{item.color_name}</TableCell>
+                                  <TableCell className="text-muted-foreground text-sm">{item.color_code || '-'}</TableCell>
+                                  <TableCell className="text-right">
+                                    <InlineStockCell item={item} onSave={updateStockInline} />
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground text-xs max-w-[150px] truncate">
+                                    {item.memo || '-'}
+                                  </TableCell>
+                                  <TableCell className="text-center text-xs text-muted-foreground whitespace-nowrap">
+                                    {format(new Date(item.updated_at), 'yyyy-MM-dd')}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openTransaction(item, 'in')}>
+                                        <ArrowDownToLine className="h-3 w-3 mr-1" />입고
+                                      </Button>
+                                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openTransaction(item, 'out')}>
+                                        <ArrowUpFromLine className="h-3 w-3 mr-1" />출고
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
               </div>
-            </Card>
+            )}
           </TabsContent>
 
           {/* History Tab */}
@@ -496,6 +564,10 @@ const SampleChipInventoryPage: React.FC = () => {
                 <Label>색상코드</Label>
                 <Input value={addForm.color_code} onChange={e => setAddForm(f => ({ ...f, color_code: e.target.value }))} placeholder="예: AC-C001" />
               </div>
+            </div>
+            <div>
+              <Label>그룹</Label>
+              <Input value={addForm.group_name} onChange={e => setAddForm(f => ({ ...f, group_name: e.target.value }))} placeholder="예: 아크릴, 강화유리" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
