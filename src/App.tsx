@@ -45,6 +45,7 @@ import YearEndTaxAdminPage from "./pages/YearEndTaxAdminPage";
 import StorageStatusPage from "./pages/StorageStatusPage";
 import QuoteTemplateManagementPage from "./pages/QuoteTemplateManagementPage";
 import TaxInvoicesPage from "./pages/TaxInvoicesPage";
+import SampleChipInventoryPage from "./pages/SampleChipInventoryPage";
 
 const queryClient = new QueryClient();
 
@@ -99,6 +100,7 @@ const App = () => (
             <Route path="/storage-status" element={<StorageStatusPage />} />
             <Route path="/quote-template-management" element={<QuoteTemplateManagementPage />} />
             <Route path="/tax-invoices" element={<G><TaxInvoicesPage /></G>} />
+            <Route path="/sample-chip-inventory" element={<SampleChipInventoryPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
             </Routes>
