@@ -25,32 +25,41 @@ export async function downloadInventoryExcel() {
       return;
     }
 
-    const rows = allData.map((item: any) => ({
-      '제품명': item.panel_masters?.name || '',
-      '품질': item.panel_masters?.quality || '',
-      '소재': item.panel_masters?.material || '',
-      '색상명': item.color_name,
-      '색상코드': item.color_code || '',
-      '재고(EA)': item.stock_ea,
-      '재고(SET)': item.stock_set,
-      '최소재고(EA)': item.min_stock_ea,
-      '최소재고(SET)': item.min_stock_set,
+    const rows = allData.map((item: any, idx: number) => ({
+      '상품번호': idx + 1,
+      '상품명': item.color_name || '',
+      '자체 상품코드': item.color_code || '',
+      '카테고리ID': '',
+      '판매상태': '',
+      '상품상태': '',
+      '진열상태': '',
+      '판매가': '',
+      '무게': '',
+      '정가': '',
+      '원가': '',
+      '재고사용': item.stock_ea > 0 || item.stock_set > 0 ? 'Y' : 'N',
+      '현재 재고수량': item.stock_ea,
+      '재고번호SKU': '',
       '메모': item.memo || '',
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
 
-    // Set column widths
     ws['!cols'] = [
-      { wch: 20 }, // 제품명
-      { wch: 10 }, // 품질
-      { wch: 10 }, // 소재
-      { wch: 20 }, // 색상명
-      { wch: 12 }, // 색상코드
-      { wch: 10 }, // 재고EA
-      { wch: 10 }, // 재고SET
-      { wch: 12 }, // 최소재고EA
-      { wch: 12 }, // 최소재고SET
+      { wch: 10 }, // 상품번호
+      { wch: 30 }, // 상품명
+      { wch: 15 }, // 자체 상품코드
+      { wch: 12 }, // 카테고리ID
+      { wch: 10 }, // 판매상태
+      { wch: 10 }, // 상품상태
+      { wch: 10 }, // 진열상태
+      { wch: 10 }, // 판매가
+      { wch: 8 },  // 무게
+      { wch: 10 }, // 정가
+      { wch: 10 }, // 원가
+      { wch: 10 }, // 재고사용
+      { wch: 15 }, // 현재 재고수량
+      { wch: 15 }, // 재고번호SKU
       { wch: 30 }, // 메모
     ];
 
