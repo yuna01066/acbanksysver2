@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette } from "lucide-react";
 import DashboardCalendar from '@/components/DashboardCalendar';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
@@ -239,6 +239,13 @@ const Home = () => {
           {/* Links Grid */}
           {(() => {
             const sideCards: (null | { title: string; icon: any; description: string; requiresAuth: boolean; action: () => void })[] = [
+              {
+                title: "샘플칩 관리",
+                icon: Palette,
+                description: "샘플칩 재고 관리",
+                requiresAuth: true,
+                action: () => navigate("/sample-chip-inventory"),
+              },
               {
                 title: "박람회 관리",
                 icon: Landmark,
