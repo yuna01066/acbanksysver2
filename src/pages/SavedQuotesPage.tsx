@@ -76,6 +76,67 @@ const SavedQuotesPage = () => {
   const [stageFilter, setStageFilter] = useState<string>('all');
   const ITEMS_PER_PAGE = 50;
 
+  // valid_until 문자열에서 마지막 날짜를 파싱하는 함수
+  const parseValidUntilDate = (validUntil: string | null): Date | null => {
+    if (!validUntil || validUntil.trim() === '') return null;
+    
+    // "2026. 2. 11. ~ 2026. 2. 25." 형식 → 마지막 날짜 추출
+    if (validUntil.includes('~')) {
+      const parts = validUntil.split('~');
+      const endPart = parts[parts.length - 1].trim();
+      const nums = endPart.match(/\d+/g);
+      if (nums && nums.length >= 3) {
+        return new Date(parseInt(nums[0]), parseInt(nums[1]) - 1, parseInt(nums[2]));
+      }
+    }
+    
+    // "2026년 02월 16일" 형식
+    const korMatch = validUntil.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
+    if (korMatch) {
+      return new Date(parseInt(korMatch[1]), parseInt(korMatch[2]) - 1, parseInt(korMatch[3]));
+    }
+    
+    // "2026. 2. 25." 형식 (단일)
+    const dotMatch = validUntil.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
+    if (dotMatch) {
+      return new Date(parseInt(dotMatch[1]), parseInt(dotMatch[2]) - 1, parseInt(dotMatch[3]));
+    }
+    
+    return null;
+  };
+
+  // 만료된 견적서 자동 상태 변경
+  const autoExpireQuotes = async (quotesData: SavedQuote[]): Promise<number> => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const expiredIds = quotesData
+      .filter(q => {
+        if (q.project_stage !== 'quote_issued') return false;
+        const expDate = parseValidUntilDate(q.valid_until);
+        if (!expDate) return false;
+        return expDate < today;
+      })
+      .map(q => q.id);
+    
+    if (expiredIds.length === 0) return 0;
+
+    try {
+      const { error } = await supabase
+        .from('saved_quotes')
+        .update({ project_stage: 'cancelled' })
+        .in('id', expiredIds);
+      
+      if (error) throw error;
+      
+      toast.info(`유효기간이 만료된 견적서 ${expiredIds.length}건이 취소 처리되었습니다.`);
+      return expiredIds.length;
+    } catch (error) {
+      console.error('Error auto-expiring quotes:', error);
+      return 0;
+    }
+  };
+
   useEffect(() => {
     if (isAdmin) {
       fetchUsers();
@@ -158,10 +219,23 @@ const SavedQuotesPage = () => {
           }
         }
         
-        setQuotes(formattedData.map(q => ({
+        const finalQuotes = formattedData.map(q => ({
           ...q,
           linked_project: q.project_id ? projectMap[q.project_id] || null : null
-        })));
+        }));
+        
+        // 만료된 견적서 자동 상태 변경 후 다시 로드
+        const expiredCount = await autoExpireQuotes(finalQuotes);
+        if (expiredCount) {
+          // 상태 변경이 있었으면 다시 fetch하지 않고 로컬에서 업데이트
+          setQuotes(finalQuotes.map(q => 
+            q.project_stage === 'quote_issued' && parseValidUntilDate(q.valid_until) && parseValidUntilDate(q.valid_until)! < new Date(new Date().setHours(0,0,0,0))
+              ? { ...q, project_stage: 'cancelled' }
+              : q
+          ));
+        } else {
+          setQuotes(finalQuotes);
+        }
       } else {
         const { count, error: countError } = await supabase
           .from('saved_quotes')
@@ -197,10 +271,21 @@ const SavedQuotesPage = () => {
           }
         }
         
-        setQuotes(formattedData.map(q => ({
+        const finalQuotes2 = formattedData.map(q => ({
           ...q,
           linked_project: q.project_id ? projectMap2[q.project_id] || null : null
-        })));
+        }));
+        
+        const expiredCount2 = await autoExpireQuotes(finalQuotes2);
+        if (expiredCount2) {
+          setQuotes(finalQuotes2.map(q => 
+            q.project_stage === 'quote_issued' && parseValidUntilDate(q.valid_until) && parseValidUntilDate(q.valid_until)! < new Date(new Date().setHours(0,0,0,0))
+              ? { ...q, project_stage: 'cancelled' }
+              : q
+          ));
+        } else {
+          setQuotes(finalQuotes2);
+        }
       }
     } catch (error) {
       console.error('Error fetching quotes:', error);
