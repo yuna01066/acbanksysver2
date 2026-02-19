@@ -14,8 +14,20 @@ async function getImwebToken(): Promise<string> {
   const secret = Deno.env.get("IMWEB_API_SECRET");
   if (!key || !secret) throw new Error("IMWEB_API_KEY or IMWEB_API_SECRET not configured");
 
-  const res = await fetch(`${IMWEB_API_BASE}/auth?key=${encodeURIComponent(key)}&secret=${encodeURIComponent(secret)}`);
-  const data = await res.json();
+  // Try POST with JSON body first (some imweb accounts require this)
+  let res = await fetch(`${IMWEB_API_BASE}/auth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, secret }),
+  });
+  let data = await res.json();
+
+  // Fallback to GET with query params
+  if (data.code !== 200 && !data.access_token) {
+    res = await fetch(`${IMWEB_API_BASE}/auth?key=${encodeURIComponent(key)}&secret=${encodeURIComponent(secret)}`);
+    data = await res.json();
+  }
+
   if (data.code !== 200 && !data.access_token) {
     throw new Error(`Imweb auth failed: ${JSON.stringify(data)}`);
   }
