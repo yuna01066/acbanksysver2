@@ -285,15 +285,7 @@ const SavedQuoteDetailPage = () => {
   };
 
   const handlePrintPDF = () => {
-    // 고객용 모드일 때 body 클래스 확실히 설정 후 인쇄
-    if (viewMode === 'customer') {
-      document.body.classList.add('customer-print-mode');
-    } else {
-      document.body.classList.remove('customer-print-mode');
-    }
-    setTimeout(() => {
-      window.print();
-    }, 100);
+    window.print();
   };
 
 
@@ -335,8 +327,8 @@ const SavedQuoteDetailPage = () => {
   return (
     <>
       <PrintStyles quoteNumber={quote.quote_number} projectName={quote.project_name} companyName={quote.recipient_company} isInternal={viewMode === 'internal'} />
-      <div className="min-h-screen bg-gray-50 p-4">
-        <div className="w-full max-w-6xl mx-auto flex gap-6">
+      <div className="min-h-screen bg-gray-50 p-4 print-layout-wrapper">
+        <div className="w-full max-w-6xl mx-auto flex gap-6 print-flex-container">
         <div className="flex-1 min-w-0 max-w-4xl print-container" id="saved-quote-print-container" ref={printContainerRef}>
           <div className="mb-6 print:hidden flex justify-between items-center">
             <Button 
@@ -365,10 +357,11 @@ const SavedQuoteDetailPage = () => {
             showSavedQuoteActions={true}
           />
 
-          <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
+          <Card className="shadow-lg border-0 rounded-xl bg-white print:overflow-visible">
             <CardContent className="p-8">
               {/* 견적 요약 정보 - 내부용에서만 출력 */}
-              <div className={`mb-8 border border-gray-200 rounded-lg bg-white shadow-sm print-summary ${viewMode === 'customer' ? 'customer-internal-only' : ''}`}>
+              {viewMode !== 'customer' && (
+              <div className="mb-8 border border-gray-200 rounded-lg bg-white shadow-sm print-summary">
                 <div className="p-6">
                   <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
                     <h2 className="text-lg font-semibold text-gray-900">견적 요약</h2>
@@ -414,6 +407,7 @@ const SavedQuoteDetailPage = () => {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Edit Form */}
               {isEditing && (
@@ -587,7 +581,8 @@ const SavedQuoteDetailPage = () => {
               </div>
 
               {/* 특이사항 및 상담내용 - 내부용에서만 출력 */}
-              <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 ${viewMode === 'customer' ? 'customer-internal-only' : ''}`}>
+              {viewMode !== 'customer' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <div>
                   <h3 className="text-lg font-bold mb-3">특 이 사 항 :</h3>
                   <ul className="text-sm space-y-1">
@@ -605,6 +600,7 @@ const SavedQuoteDetailPage = () => {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* 연락처 정보 */}
               <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-slate-50 border border-blue-200 rounded-xl shadow-sm">
@@ -633,7 +629,8 @@ const SavedQuoteDetailPage = () => {
               </div>
 
               {/* 클라이언트 요청사항 및 첨부 서류 - 내부용에서만 출력 */}
-              <div className={`mt-8 mb-8 space-y-8 ${viewMode === 'customer' ? 'customer-internal-only' : ''}`}>
+              {viewMode !== 'customer' && (
+              <div className="mt-8 mb-8 space-y-8">
                 {/* 클라이언트 요청사항 - 사업자등록증 위에 표시 */}
                 {(quote.recipient_memo || (quote.attachments && Array.isArray(quote.attachments) && quote.attachments.length > 0)) && (
                   <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-50 border-2 border-blue-300 rounded-xl p-8 shadow-lg">
@@ -708,6 +705,7 @@ const SavedQuoteDetailPage = () => {
                   </div>
                 </div>
               </div>
+              )}
             </CardContent>
           </Card>
         </div>

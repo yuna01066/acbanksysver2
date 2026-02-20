@@ -8,33 +8,17 @@ interface PrintStylesProps {
 }
 
 const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, companyName, isInternal = true }) => {
-  // PDF 파일명 설정 + body 클래스로 고객용/내부용 구분
+  // PDF 파일명 설정
   useEffect(() => {
     const parts = [quoteNumber, projectName, companyName].filter(Boolean);
     const fileName = parts.length > 0 ? parts.join('-') : '견적서';
     const finalFileName = isInternal ? `${fileName}_내부용` : fileName;
     document.title = finalFileName;
-
-    // body에 클래스 추가하여 CSS로 제어
-    if (!isInternal) {
-      document.body.classList.add('customer-print-mode');
-    } else {
-      document.body.classList.remove('customer-print-mode');
-    }
-
-    return () => {
-      document.body.classList.remove('customer-print-mode');
-    };
   }, [quoteNumber, projectName, companyName, isInternal]);
 
   return (
     <>
       <style>{`
-        /* 고객용 모드: 화면 + 인쇄 모두에서 내부 전용 섹션 숨김 */
-        body.customer-print-mode .customer-internal-only {
-          display: none !important;
-        }
-
         @media print {
           @page {
             size: A4;
@@ -50,17 +34,27 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
           
           html, body {
             margin: 0;
-            padding: 0;
-            width: 210mm;
-            height: 297mm;
+            padding: 0 !important;
             font-size: 8pt;
             background-color: white !important;
           }
+
+          /* 인쇄 레이아웃: flex → block으로 전환 */
+          .print-layout-wrapper {
+            display: block !important;
+            padding: 0 !important;
+          }
+
+          .print-flex-container {
+            display: block !important;
+          }
           
           .print-container {
-            max-width: none;
-            margin: 0;
-            padding: 0;
+            max-width: none !important;
+            width: 100% !important;
+            flex: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
             page-break-after: auto;
             background-color: white !important;
           }
@@ -68,11 +62,7 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
           /* 페이지 외부 배경만 흰색으로 */
           .min-h-screen {
             background-color: white !important;
-          }
-          
-          /* 고객용 모드: 인쇄 시 내부 전용 섹션 숨김 (이중 보장) */
-          body.customer-print-mode .customer-internal-only {
-            display: none !important;
+            padding: 0 !important;
           }
           
           /* 견적 요약 섹션 크기 조정 */
