@@ -7,7 +7,7 @@ interface PrintStylesProps {
   isInternal?: boolean;
 }
 
-const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, companyName, isInternal = false }) => {
+const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, companyName, isInternal = true }) => {
   // PDF 파일명 설정
   useEffect(() => {
     const parts = [quoteNumber, projectName, companyName].filter(Boolean);
@@ -52,6 +52,9 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
           .min-h-screen {
             background-color: white !important;
           }
+          
+          /* 고객용 모드: 내부 전용 섹션 숨김 */
+          ${!isInternal ? `.customer-internal-only { display: none !important; }` : ''}
           
           /* 견적 요약 섹션 크기 조정 */
           .print-summary {
