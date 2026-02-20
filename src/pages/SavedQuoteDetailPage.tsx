@@ -360,7 +360,7 @@ const SavedQuoteDetailPage = () => {
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
             <CardContent className="p-8">
               {/* 견적 요약 정보 - 내부용에서만 출력 */}
-              <div className={`mb-8 border border-gray-200 rounded-lg bg-white shadow-sm print-summary ${viewMode === 'customer' ? 'print:hidden' : ''}`}>
+              <div className={`mb-8 border border-gray-200 rounded-lg bg-white shadow-sm print-summary ${viewMode === 'customer' ? 'customer-internal-only' : ''}`}>
                 <div className="p-6">
                   <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
                     <h2 className="text-lg font-semibold text-gray-900">견적 요약</h2>
@@ -579,7 +579,7 @@ const SavedQuoteDetailPage = () => {
               </div>
 
               {/* 특이사항 및 상담내용 - 내부용에서만 출력 */}
-              <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 ${viewMode === 'customer' ? 'print:hidden' : ''}`}>
+              <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 ${viewMode === 'customer' ? 'customer-internal-only' : ''}`}>
                 <div>
                   <h3 className="text-lg font-bold mb-3">특 이 사 항 :</h3>
                   <ul className="text-sm space-y-1">
@@ -625,7 +625,7 @@ const SavedQuoteDetailPage = () => {
               </div>
 
               {/* 클라이언트 요청사항 및 첨부 서류 - 내부용에서만 출력 */}
-              <div className={`mt-8 mb-8 space-y-8 ${viewMode === 'customer' ? 'print:hidden' : ''}`}>
+              <div className={`mt-8 mb-8 space-y-8 ${viewMode === 'customer' ? 'customer-internal-only' : ''}`}>
                 {/* 클라이언트 요청사항 - 사업자등록증 위에 표시 */}
                 {(quote.recipient_memo || (quote.attachments && Array.isArray(quote.attachments) && quote.attachments.length > 0)) && (
                   <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-50 border-2 border-blue-300 rounded-xl p-8 shadow-lg">
