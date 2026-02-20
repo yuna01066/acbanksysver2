@@ -710,7 +710,7 @@ const SavedQuoteDetailPage = () => {
           </Card>
         </div>
         {/* 우측 메모 패널 */}
-        <div className="w-[300px] shrink-0 print:hidden sticky top-4 self-start hidden lg:block space-y-4">
+        <div className="w-[300px] shrink-0 print:hidden sticky top-4 self-start hidden lg:block space-y-4 print-side-panel">
           {/* 연결된 프로젝트 */}
           <Card>
             <CardHeader className="pb-2">

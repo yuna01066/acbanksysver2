@@ -8,7 +8,6 @@ interface PrintStylesProps {
 }
 
 const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, companyName, isInternal = true }) => {
-  // PDF 파일명 설정
   useEffect(() => {
     const parts = [quoteNumber, projectName, companyName].filter(Boolean);
     const fileName = parts.length > 0 ? parts.join('-') : '견적서';
@@ -22,177 +21,129 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
         @media print {
           @page {
             size: A4;
-            margin: 10mm 15mm 20mm 15mm;
+            margin: 10mm 15mm 15mm 15mm;
           }
-          
+
           * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
             color-adjust: exact !important;
             box-sizing: border-box !important;
           }
-          
+
           html, body {
             margin: 0 !important;
             padding: 0 !important;
             font-size: 8pt !important;
-            background-color: white !important;
+            background: white !important;
             height: auto !important;
             overflow: visible !important;
           }
 
-          /* 모든 레이아웃 래퍼 block으로 강제 전환 */
-          .print-layout-wrapper,
-          .print-flex-container,
-          .print-layout-wrapper > *,
-          .print-flex-container > * {
-            display: block !important;
-            float: none !important;
-            position: static !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-          
-          .print-container {
-            max-width: none !important;
-            width: 100% !important;
-            flex: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background-color: white !important;
-            overflow: visible !important;
-          }
-          
-          /* Card 컴포넌트 overflow 해제 */
-          .print-container .rounded-xl,
-          .print-container [class*="rounded"] {
-            overflow: visible !important;
-          }
-          
-          /* 우측 패널 숨기기 */
-          .print-layout-wrapper .w-\\[300px\\],
-          .print-flex-container .w-\\[300px\\] {
+          /* 화면 레이아웃 요소 숨기기 */
+          .print\\:hidden,
+          [class*="print:hidden"] {
             display: none !important;
           }
-          
-          /* 페이지 외부 배경만 흰색으로 */
-          .min-h-screen {
-            background-color: white !important;
+
+          /* 최상위 래퍼: block 레이아웃으로 변환 */
+          .print-layout-wrapper {
+            display: block !important;
             padding: 0 !important;
+            margin: 0 !important;
+            background: white !important;
             min-height: auto !important;
           }
-          
-          /* 견적 요약 섹션 크기 조정 */
-          .print-summary {
-            padding: 8px !important;
-            margin-bottom: 12px !important;
+
+          /* flex 컨테이너를 block으로 */
+          .print-flex-container {
+            display: block !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            gap: 0 !important;
           }
-          
-          .print-summary > div {
-            padding: 10px !important;
+
+          /* 우측 사이드 패널 숨기기 */
+          .print-flex-container > div:last-child {
+            display: none !important;
           }
-          
-          .print-summary h2 {
-            font-size: 10pt !important;
-            margin-bottom: 6px !important;
-            padding-bottom: 4px !important;
+
+          /* 메인 콘텐츠 컨테이너 */
+          .print-container {
+            display: block !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            flex: none !important;
           }
-          
-          .print-summary .grid {
-            gap: 6px !important;
-            grid-template-columns: repeat(3, 1fr) !important;
+
+          /* Card shadow/border 제거 및 overflow 허용 */
+          .print-container .shadow-lg,
+          .print-container .shadow-sm,
+          .print-container .shadow-md {
+            box-shadow: none !important;
           }
-          
-          .print-summary .bg-gray-50 {
-            padding: 6px !important;
+
+          .print-container .rounded-xl,
+          .print-container .rounded-lg,
+          .print-container .rounded {
+            overflow: visible !important;
           }
-          
-          .print-summary .text-xs {
-            font-size: 6pt !important;
+
+          /* CardContent padding 축소 */
+          .print-container .p-8 {
+            padding: 16px !important;
           }
-          
-          .print-summary .text-sm {
-            font-size: 7pt !important;
-          }
-          
-          .print-summary .text-2xl {
-            font-size: 12pt !important;
-          }
-          
-          .print-summary .text-base {
-            font-size: 8pt !important;
-          }
-          
-          /* 총 견적 금액 섹션 크기 조정 */
-          .print-total {
-            padding: 8px !important;
-            margin-bottom: 12px !important;
-          }
-          
-          .print-total > div {
-            padding: 10px !important;
-          }
-          
-          .print-total h2 {
-            font-size: 10pt !important;
-            margin-bottom: 6px !important;
-            padding-bottom: 4px !important;
-          }
-          
-          .print-total .bg-gray-50 {
-            padding: 8px !important;
-          }
-          
-          .print-total .text-sm {
-            font-size: 7pt !important;
-          }
-          
-          .print-total .text-lg {
-            font-size: 9pt !important;
-          }
-          
-          .print-total .text-base {
-            font-size: 8pt !important;
-          }
-          
-          .print-total .text-2xl, .print-total .text-xl {
-            font-size: 11pt !important;
-          }
-          
-          .print-total .text-xs {
-            font-size: 6pt !important;
-          }
-          
-          /* 2열 레이아웃 유지 */
+
+          /* 2열 grid 유지 */
           .grid.grid-cols-1.md\\:grid-cols-2 {
             display: grid !important;
             grid-template-columns: repeat(2, 1fr) !important;
-            gap: 1.5rem !important;
+            gap: 12px !important;
           }
-          
-          /* 푸터 스타일 */
+
+          .grid.grid-cols-1.md\\:grid-cols-3 {
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 8px !important;
+          }
+
+          /* 견적 요약 */
+          .print-summary {
+            padding: 6px !important;
+            margin-bottom: 10px !important;
+          }
+
+          /* 우측 사이드 패널 숨기기 (명시적 클래스) */
+          .print-side-panel {
+            display: none !important;
+          }
+
+          /* 총액 섹션 */
+          .print-total {
+            padding: 6px !important;
+            margin-bottom: 10px !important;
+          }
+
+          /* 푸터 */
           .print-footer {
             position: fixed;
-            bottom: 10mm;
+            bottom: 8mm;
             left: 15mm;
             right: 15mm;
-            display: flex;
+            display: flex !important;
             justify-content: space-between;
             align-items: center;
-            padding: 8px 0;
+            padding: 4px 0;
             border-top: 1px solid #ccc;
-            font-size: 8pt;
+            font-size: 7pt;
             color: #666;
-            background-color: white !important;
-          }
-          
-          .print-footer::after {
-            counter-increment: page;
-            content: "Page " counter(page);
+            background: white !important;
           }
         }
       `}</style>
-      
+
       {/* Print Footer */}
       <div className="print-footer hidden print:flex">
         <span>견적번호: {quoteNumber}</span>
