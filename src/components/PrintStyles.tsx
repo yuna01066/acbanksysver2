@@ -23,30 +23,34 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
           @page {
             size: A4;
             margin: 10mm 15mm 20mm 15mm;
-            background-color: white;
           }
           
           * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
             color-adjust: exact !important;
+            box-sizing: border-box !important;
           }
           
           html, body {
-            margin: 0;
+            margin: 0 !important;
             padding: 0 !important;
-            font-size: 8pt;
+            font-size: 8pt !important;
             background-color: white !important;
+            height: auto !important;
+            overflow: visible !important;
           }
 
-          /* 인쇄 레이아웃: flex → block으로 전환 */
-          .print-layout-wrapper {
+          /* 모든 레이아웃 래퍼 block으로 강제 전환 */
+          .print-layout-wrapper,
+          .print-flex-container,
+          .print-layout-wrapper > *,
+          .print-flex-container > * {
             display: block !important;
+            float: none !important;
+            position: static !important;
             padding: 0 !important;
-          }
-
-          .print-flex-container {
-            display: block !important;
+            margin: 0 !important;
           }
           
           .print-container {
@@ -55,14 +59,27 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
             flex: none !important;
             margin: 0 !important;
             padding: 0 !important;
-            page-break-after: auto;
             background-color: white !important;
+            overflow: visible !important;
+          }
+          
+          /* Card 컴포넌트 overflow 해제 */
+          .print-container .rounded-xl,
+          .print-container [class*="rounded"] {
+            overflow: visible !important;
+          }
+          
+          /* 우측 패널 숨기기 */
+          .print-layout-wrapper .w-\\[300px\\],
+          .print-flex-container .w-\\[300px\\] {
+            display: none !important;
           }
           
           /* 페이지 외부 배경만 흰색으로 */
           .min-h-screen {
             background-color: white !important;
             padding: 0 !important;
+            min-height: auto !important;
           }
           
           /* 견적 요약 섹션 크기 조정 */
