@@ -285,7 +285,15 @@ const SavedQuoteDetailPage = () => {
   };
 
   const handlePrintPDF = () => {
-    window.print();
+    // 고객용 모드일 때 body 클래스 확실히 설정 후 인쇄
+    if (viewMode === 'customer') {
+      document.body.classList.add('customer-print-mode');
+    } else {
+      document.body.classList.remove('customer-print-mode');
+    }
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
 

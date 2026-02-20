@@ -8,16 +8,33 @@ interface PrintStylesProps {
 }
 
 const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, companyName, isInternal = true }) => {
-  // PDF 파일명 설정
+  // PDF 파일명 설정 + body 클래스로 고객용/내부용 구분
   useEffect(() => {
     const parts = [quoteNumber, projectName, companyName].filter(Boolean);
     const fileName = parts.length > 0 ? parts.join('-') : '견적서';
     const finalFileName = isInternal ? `${fileName}_내부용` : fileName;
     document.title = finalFileName;
+
+    // body에 클래스 추가하여 CSS로 제어
+    if (!isInternal) {
+      document.body.classList.add('customer-print-mode');
+    } else {
+      document.body.classList.remove('customer-print-mode');
+    }
+
+    return () => {
+      document.body.classList.remove('customer-print-mode');
+    };
   }, [quoteNumber, projectName, companyName, isInternal]);
+
   return (
     <>
       <style>{`
+        /* 고객용 모드: 화면 + 인쇄 모두에서 내부 전용 섹션 숨김 */
+        body.customer-print-mode .customer-internal-only {
+          display: none !important;
+        }
+
         @media print {
           @page {
             size: A4;
@@ -53,8 +70,10 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
             background-color: white !important;
           }
           
-          /* 고객용 모드: 내부 전용 섹션 숨김 */
-          ${!isInternal ? `.customer-internal-only { display: none !important; }` : ''}
+          /* 고객용 모드: 인쇄 시 내부 전용 섹션 숨김 (이중 보장) */
+          body.customer-print-mode .customer-internal-only {
+            display: none !important;
+          }
           
           /* 견적 요약 섹션 크기 조정 */
           .print-summary {
