@@ -285,8 +285,54 @@ const SavedQuoteDetailPage = () => {
   };
 
   const handlePrintPDF = () => {
-    window.print();
+    const isCustomer = viewMode === 'customer';
+    const currentItems = isEditing ? editedItems : items;
+
+    const itemsHtml = currentItems.map((item: any, idx: number) => {
+      const unitPrice = item.totalPrice || 0;
+      const totalItemPrice = unitPrice * (item.quantity || 1);
+      const breakdownHtml = !isCustomer
+        ? (item.breakdown || []).map((b: any) => `<tr><td style="padding:3px 8px;font-size:8pt;color:#666;">${b.label}</td><td style="padding:3px 8px;font-size:8pt;color:#666;text-align:right;">${(b.price||0).toLocaleString()}원</td></tr>`).join('')
+        : '';
+      return `<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:14px;overflow:hidden;page-break-inside:avoid;"><div style="background:#f3f4f6;padding:9px 13px;border-bottom:1px solid #e5e7eb;"><div style="font-size:7pt;color:#6b7280;">아크뱅크 견적서</div><div style="font-size:11pt;font-weight:bold;">견적 #${idx+1}</div></div><div style="padding:10px 13px;"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:3px 6px;font-size:8.5pt;font-weight:600;width:70px;">공장</td><td style="padding:3px 6px;font-size:8.5pt;">${item.factory||'-'}</td><td style="padding:3px 6px;font-size:8.5pt;font-weight:600;width:70px;">소재</td><td style="padding:3px 6px;font-size:8.5pt;">${item.material||'-'}</td></tr><tr><td style="padding:3px 6px;font-size:8.5pt;font-weight:600;">품질</td><td style="padding:3px 6px;font-size:8.5pt;">${item.quality||'-'}</td><td style="padding:3px 6px;font-size:8.5pt;font-weight:600;">두께</td><td style="padding:3px 6px;font-size:8.5pt;">${item.thickness||'-'}</td></tr><tr><td style="padding:3px 6px;font-size:8.5pt;font-weight:600;">사이즈</td><td style="padding:3px 6px;font-size:8.5pt;">${item.size||'-'}</td><td style="padding:3px 6px;font-size:8.5pt;font-weight:600;">표면</td><td style="padding:3px 6px;font-size:8.5pt;">${item.surface||'-'}</td></tr>${item.selectedColor?`<tr><td style="padding:3px 6px;font-size:8.5pt;font-weight:600;">색상</td><td colspan="3" style="padding:3px 6px;font-size:8.5pt;">${item.selectedColor}</td></tr>`:''}${item.processingName?`<tr><td style="padding:3px 6px;font-size:8.5pt;font-weight:600;">가공</td><td colspan="3" style="padding:3px 6px;font-size:8.5pt;">${item.processingName}</td></tr>`:''}</table>${!isCustomer&&breakdownHtml?`<div style="margin-top:7px;background:#f9fafb;border-radius:4px;padding:3px 0;"><div style="font-size:7.5pt;font-weight:600;padding:3px 8px;color:#374151;">원가 내역</div><table style="width:100%;border-collapse:collapse;">${breakdownHtml}</table></div>`:''}<div style="margin-top:8px;display:flex;justify-content:flex-end;align-items:center;gap:14px;padding:7px 11px;background:#1e293b;border-radius:6px;"><span style="font-size:8.5pt;color:#94a3b8;">수량: ${item.quantity||1}개</span><span style="font-size:8.5pt;color:#94a3b8;">단가: ${unitPrice.toLocaleString()}원</span><span style="font-size:11pt;font-weight:bold;color:white;">소계: ${totalItemPrice.toLocaleString()}원</span></div></div></div>`;
+    }).join('');
+
+    const subtotalVal = isEditing
+      ? Math.round(editedItems.reduce((s: number, i: any) => s + ((i.totalPrice||0)*(i.quantity||1)), 0)/100)*100
+      : Math.round(quote!.subtotal);
+    const taxVal = isEditing ? Math.round(subtotalVal*0.1) : Math.round(quote!.tax);
+    const totalVal = isEditing ? subtotalVal+taxVal : Math.round(quote!.total);
+
+    const internalSections = isCustomer ? '' : `
+      <div style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div style="padding:13px;background:#f9fafb;border-radius:8px;"><h3 style="font-size:10.5pt;font-weight:bold;margin-bottom:7px;">특 이 사 항</h3><ul style="font-size:8.5pt;padding-left:15px;line-height:1.9;"><li>견적서의 유효기간은 발행일로부터 14일 입니다.</li><li>운송비 및 부가세는 별도 입니다.</li></ul></div>
+        <div style="padding:13px;background:#f9fafb;border-radius:8px;"><h3 style="font-size:10.5pt;font-weight:bold;margin-bottom:7px;">상 담 내 용</h3><p style="font-size:8.5pt;line-height:1.9;">안녕하세요<br>견적 문의해 주셔서 감사합니다.<br>상세한 제작 요구사항이 있으시면 담당자에게 연락 부탁드립니다.</p></div>
+      </div>
+      ${quote!.recipient_memo?`<div style="margin-top:14px;padding:14px;background:#eff6ff;border:2px solid #93c5fd;border-radius:8px;"><h3 style="font-size:10.5pt;font-weight:bold;margin-bottom:7px;color:#1e3a8a;">클라이언트 요청사항</h3><p style="font-size:8.5pt;white-space:pre-wrap;background:white;padding:10px;border-radius:4px;">${quote!.recipient_memo}</p></div>`:''}`;
+
+    const quoteDate = new Date(quote!.quote_date).toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'});
+    const displayDate = quote!.quote_date_display ? new Date(quote!.quote_date_display).toLocaleDateString('ko-KR') : quoteDate;
+    const fileName = [quote!.quote_number,quote!.project_name,quote!.recipient_company].filter(Boolean).join('-')+(isCustomer?'':'_내부용');
+
+    const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>${fileName}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:white;color:#111827;font-size:10pt;}@page{size:A4;margin:12mm 15mm 15mm 15mm;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style></head><body>
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;padding-bottom:13px;border-bottom:2px solid #e5e7eb;"><div><div style="font-size:19pt;font-weight:bold;margin-bottom:3px;">아크뱅크 견적서</div><div style="font-size:9.5pt;color:#6b7280;">ACBANK Quotation</div></div><div style="text-align:right;"><div style="font-size:8.5pt;color:#6b7280;margin-bottom:4px;">${quoteDate}</div><div style="background:#f3f4f6;border:1px solid #e5e7eb;padding:5px 13px;border-radius:6px;font-size:10pt;font-weight:600;">견적번호: ${quote!.quote_number}</div></div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
+  <div><h3 style="font-size:10.5pt;font-weight:bold;border-bottom:2px solid #374151;padding-bottom:5px;margin-bottom:9px;">견적서 수신</h3><div style="background:#f8fafc;border-radius:6px;padding:10px;font-size:8.5pt;line-height:1.9;"><div><strong>프로젝트명:</strong> ${quote!.project_name||'-'}</div><div><strong>견적번호:</strong> ${quote!.quote_number}</div><div><strong>견적일자:</strong> ${displayDate}</div><div><strong>유효기간:</strong> ${quote!.valid_until||'-'}</div><div><strong>납기:</strong> ${quote!.delivery_period||'-'}</div><div><strong>지불조건:</strong> ${quote!.payment_condition||'-'}</div><div style="margin-top:4px;padding-top:4px;border-top:1px solid #e5e7eb;"><strong>회사명:</strong> ${quote!.recipient_company||'-'}</div><div><strong>담당자:</strong> ${quote!.recipient_name||'-'}</div><div><strong>연락처:</strong> ${quote!.recipient_phone||'-'}</div><div><strong>이메일:</strong> ${quote!.recipient_email||'-'}</div></div></div>
+  <div><h3 style="font-size:10.5pt;font-weight:bold;border-bottom:2px solid #374151;padding-bottom:5px;margin-bottom:9px;">견적서 발신</h3><div style="background:#f8fafc;border-radius:6px;padding:10px;font-size:8.5pt;line-height:1.9;"><div><strong>상호:</strong> (주)아크뱅크</div><div><strong>사업자번호:</strong> 299-87-02991</div><div><strong>주소:</strong> 경기도 포천시 소흘읍 호국로 287번길 15</div><div><strong>연락처:</strong> 070-7666-9828</div><div><strong>이메일:</strong> acbank@acbank.co.kr</div>${recipientData.issuerName?`<div style="margin-top:4px;padding-top:4px;border-top:1px solid #e5e7eb;"><strong>담당자:</strong> ${recipientData.issuerName}</div>${recipientData.issuerPhone?`<div><strong>연락처:</strong> ${recipientData.issuerPhone}</div>`:''}${recipientData.issuerEmail?`<div><strong>이메일:</strong> ${recipientData.issuerEmail}</div>`:''}`:''}  <div style="margin-top:5px;background:#dbeafe;padding:7px;border-radius:4px;"><strong>입금계좌:</strong> 신한은행 140-014-544315 (주)아크뱅크</div></div></div>
+</div>
+<h3 style="font-size:11.5pt;font-weight:bold;margin-bottom:10px;">견적 목록 (${currentItems.length}개)</h3>
+${itemsHtml}
+<div style="margin-top:13px;border:1px solid #e5e7eb;border-radius:8px;padding:13px;page-break-inside:avoid;"><div style="display:flex;justify-content:space-between;align-items:center;"><h2 style="font-size:11.5pt;font-weight:bold;background:#f1f5f9;padding:6px 16px;border-radius:6px;">총 견적 금액</h2><div style="display:flex;align-items:center;gap:18px;"><span style="font-size:8.5pt;color:#6b7280;">소계: <strong>${subtotalVal.toLocaleString()}원</strong></span><span style="font-size:8.5pt;color:#6b7280;">부가세(10%): <strong>${taxVal.toLocaleString()}원</strong></span><div style="background:#1e293b;color:white;padding:6px 16px;border-radius:6px;"><span style="font-size:9pt;font-weight:bold;">총 합계 </span><span style="font-size:13pt;font-weight:bold;">${totalVal.toLocaleString()}원</span></div></div></div><p style="font-size:7.5pt;color:#9ca3af;margin-top:5px;">* 배송비는 별도 입니다.</p></div>
+<div style="margin-top:13px;padding:13px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;"><h4 style="font-size:10.5pt;font-weight:bold;margin-bottom:6px;">문의 및 주문</h4><p style="font-size:8.5pt;margin-bottom:7px;">견적 관련 문의사항이나 주문을 원하시면 아래 연락처로 문의해주세요.</p>${recipientData.issuerName?`<div style="background:white;padding:9px;border-radius:6px;border:1px solid #bfdbfe;margin-bottom:7px;font-size:8.5pt;"><strong>담당자</strong><br>👤 ${recipientData.issuerName}${recipientData.issuerPhone?`<br>📞 ${recipientData.issuerPhone}`:''}${recipientData.issuerEmail?`<br>📧 ${recipientData.issuerEmail}`:''}</div>`:''}<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;font-size:8.5pt;"><div style="background:white;padding:7px;border-radius:4px;">📞 대표전화: 070-7537-3680</div><div style="background:white;padding:7px;border-radius:4px;">📧 대표이메일: acbank@acbank.co.kr</div></div></div>
+${internalSections}
+<div style="margin-top:18px;padding-top:7px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:7.5pt;color:#9ca3af;"><span>견적번호: ${quote!.quote_number}</span><span>${quote!.project_name||''}</span></div>
+<script>window.onload=function(){setTimeout(function(){window.print();},300);};</script>
+</body></html>`;
+
+    const printWin = window.open('', '_blank', 'width=900,height=700');
+    if (printWin) { printWin.document.write(html); printWin.document.close(); }
   };
+
 
 
   const toggleViewMode = () => {
