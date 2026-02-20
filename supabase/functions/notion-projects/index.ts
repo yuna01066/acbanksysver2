@@ -1,5 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -8,7 +6,7 @@ const corsHeaders = {
 const NOTION_API_URL = 'https://api.notion.com/v1';
 const DATABASE_ID = '302e58d26996819f868acd67b99c47a8';
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -60,30 +58,23 @@ serve(async (req) => {
       for (const [key, value] of Object.entries(properties)) {
         const prop = value as any;
         
-        // Get title
         if (prop.type === 'title' && prop.title?.length > 0) {
           title = prop.title.map((t: any) => t.plain_text).join('');
         }
         
-        // Get date property with start and end
         if (prop.type === 'date' && prop.date?.start) {
           startDate = prop.date.start;
           endDate = prop.date.end || '';
         }
-        
-        // created_time is always set from page.created_time above
 
-        // Get person/people
         if (prop.type === 'people' && prop.people?.length > 0) {
           assignee = prop.people.map((p: any) => p.name || p.person?.email || '').filter(Boolean).join(', ');
         }
         
-        // Get status
         if (prop.type === 'status' && prop.status?.name) {
           status = prop.status.name;
         }
         
-        // Get select for status-like fields
         if (prop.type === 'select' && prop.select?.name) {
           if (key.includes('상태') || key.includes('status') || key.includes('Status')) {
             status = prop.select.name;
