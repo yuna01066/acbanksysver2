@@ -149,9 +149,9 @@ const AdminSettingsPage = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <FolderKanban className="w-5 h-5 text-primary" />
-                프로젝트 관리
+                프로젝트 · 시스템 관리
               </CardTitle>
-              <CardDescription>견적, 원판, 가공 가격 및 외부 연동 관리</CardDescription>
+              <CardDescription>견적, 원판, 가공 가격, 외부 연동 및 시스템 설정</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
               <button
@@ -231,39 +231,25 @@ const AdminSettingsPage = () => {
                   <p className="text-xs text-muted-foreground mt-0.5">데이터 스토리지 잔여량 및 사용 현황</p>
                 </div>
               </button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <button className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left">
+                    <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <Sparkles className="w-4 h-4 text-purple-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">시크릿 이벤트 관리</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">특정 시간/날짜에 대시보드에 표시되는 시크릿 메시지 관리</p>
+                    </div>
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
+                  <SecretEventManager />
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
         </div>
-
-
-        {/* 시스템 관리 Card */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Monitor className="w-5 h-5 text-primary" />
-              시스템 관리
-            </CardTitle>
-            <CardDescription>시스템 설정 및 특수 기능 관리</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            <Dialog>
-              <DialogTrigger asChild>
-                <button className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left">
-                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <Sparkles className="w-4 h-4 text-purple-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">시크릿 이벤트 관리</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">특정 시간/날짜에 대시보드에 표시되는 시크릿 메시지 관리</p>
-                  </div>
-                </button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
-                <SecretEventManager />
-              </DialogContent>
-            </Dialog>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
