@@ -444,27 +444,27 @@ const SavedQuoteDetailPage = () => {
                   
                   {/* 프로젝트 기본 정보 */}
                   <div className="p-5 bg-[hsl(220,12%,97%)] rounded-xl border border-[hsl(220,12%,90%)]">
-                    <h4 className="font-bold text-[hsl(0,0%,0%)] mb-3 text-[15px]">프로젝트 정보</h4>
+                    <h4 className="font-bold text-gray-900 mb-3 text-[15px]">프로젝트 정보</h4>
                     <div className="space-y-2.5 text-[13px]">
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">프로젝트명</span><span className="font-bold text-black">{quote.project_name || '-'}</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">견적번호</span><span className="font-bold text-black">{quote.quote_number}</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">견적일자</span><span className="font-bold text-black">{quote.quote_date_display ? new Date(quote.quote_date_display).toLocaleDateString('ko-KR') : currentDate}</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">유효기간</span><span className="font-bold text-black">{quote.valid_until || '-'}</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">납기</span><span className="font-bold text-black">{quote.delivery_period || '-'}</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">지불 조건</span><span className="font-bold text-black">{quote.payment_condition || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">프로젝트명</span><span className="font-semibold text-gray-900">{quote.project_name || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">견적번호</span><span className="font-semibold text-gray-900">{quote.quote_number}</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">견적일자</span><span className="font-semibold text-gray-900">{quote.quote_date_display ? new Date(quote.quote_date_display).toLocaleDateString('ko-KR') : currentDate}</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">유효기간</span><span className="font-semibold text-gray-900">{quote.valid_until || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">납기</span><span className="font-semibold text-gray-900">{quote.delivery_period || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">지불 조건</span><span className="font-semibold text-gray-900">{quote.payment_condition || '-'}</span></div>
                     </div>
                   </div>
 
                   {/* 담당자 및 납기 정보 */}
                   <div className="p-5 bg-[hsl(220,12%,97%)] rounded-xl border border-[hsl(220,12%,90%)]">
-                    <h4 className="font-bold text-[hsl(0,0%,0%)] mb-3 text-[15px]">담당자 및 납기 정보</h4>
+                    <h4 className="font-bold text-gray-900 mb-3 text-[15px]">담당자 및 납기 정보</h4>
                     <div className="space-y-2.5 text-[13px]">
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">회사명</span><span className="font-bold text-black">{quote.recipient_company || '-'}</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">담당자</span><span className="font-bold text-black">{quote.recipient_name || '-'}</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">연락처</span><span className="font-bold text-black">{quote.recipient_phone || '-'}</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">이메일</span><span className="font-bold text-black">{quote.recipient_email || '-'}</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">납기 희망일</span><span className="font-bold text-black">{quote.desired_delivery_date ? new Date(quote.desired_delivery_date).toLocaleDateString('ko-KR') : '미정'}</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">현장 주소</span><span className="font-bold text-black">{quote.recipient_address || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">회사명</span><span className="font-semibold text-gray-900">{quote.recipient_company || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">담당자</span><span className="font-semibold text-gray-900">{quote.recipient_name || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">연락처</span><span className="font-semibold text-gray-900">{quote.recipient_phone || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">이메일</span><span className="font-semibold text-gray-900">{quote.recipient_email || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">납기 희망일</span><span className="font-semibold text-gray-900">{quote.desired_delivery_date ? new Date(quote.desired_delivery_date).toLocaleDateString('ko-KR') : '미정'}</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">현장 주소</span><span className="font-semibold text-gray-900">{quote.recipient_address || '-'}</span></div>
                     </div>
                   </div>
                 </div>
@@ -475,26 +475,26 @@ const SavedQuoteDetailPage = () => {
                   
                   {/* 회사 기본 정보 */}
                   <div className="p-5 bg-[hsl(220,12%,97%)] rounded-xl border border-[hsl(220,12%,90%)]">
-                    <h4 className="font-bold text-[hsl(0,0%,0%)] mb-3 text-[15px]">회사 정보</h4>
+                    <h4 className="font-bold text-gray-900 mb-3 text-[15px]">회사 정보</h4>
                     <div className="space-y-2.5 text-[13px]">
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">상호</span><span className="font-bold text-black">(주)아크뱅크</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">사업자번호</span><span className="font-bold text-black">299-87-02991</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">웹사이트</span><span className="font-bold text-black">acbank.co.kr</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">주소</span><span className="font-bold text-black leading-relaxed">경기도 포천시 소흘읍 호국로 287번길 15, 나동 1층 101호 (동행빌딩)</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">업태</span><span className="font-bold text-black">제조업 / 도매 및 소매업</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">종목</span><span className="font-bold text-black">아크릴 가공 외</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">연락처</span><span className="font-bold text-black">070-7666-9828</span></div>
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">이메일</span><span className="font-bold text-black">acbank@acbank.co.kr</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">상호</span><span className="font-semibold text-gray-900">(주)아크뱅크</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">사업자번호</span><span className="font-semibold text-gray-900">299-87-02991</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">웹사이트</span><span className="font-semibold text-gray-900">acbank.co.kr</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">주소</span><span className="font-semibold text-gray-900 leading-relaxed">경기도 포천시 소흘읍 호국로 287번길 15, 나동 1층 101호 (동행빌딩)</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">업태</span><span className="font-semibold text-gray-900">제조업 / 도매 및 소매업</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">종목</span><span className="font-semibold text-gray-900">아크릴 가공 외</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">연락처</span><span className="font-semibold text-gray-900">070-7666-9828</span></div>
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">이메일</span><span className="font-semibold text-gray-900">acbank@acbank.co.kr</span></div>
                     </div>
                   </div>
 
                   {/* 담당자 정보 */}
                   <div className="p-5 bg-[hsl(220,12%,97%)] rounded-xl border border-[hsl(220,12%,90%)]">
-                    <h4 className="font-bold text-[hsl(0,0%,0%)] mb-3 text-[15px]">담당자 정보</h4>
+                    <h4 className="font-bold text-gray-900 mb-3 text-[15px]">담당자 정보</h4>
                     <div className="space-y-2.5 text-[13px]">
-                      <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">담당자</span><span className="font-bold text-black">{recipientData.issuerName || '작성'}</span></div>
-                      {recipientData.issuerEmail && <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">이메일</span><span className="font-bold text-black">{recipientData.issuerEmail}</span></div>}
-                      {recipientData.issuerPhone && <div className="flex"><span className="text-black w-24 shrink-0 font-semibold">연락처</span><span className="font-bold text-black">{recipientData.issuerPhone}</span></div>}
+                      <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">담당자</span><span className="font-semibold text-gray-900">{recipientData.issuerName || '작성'}</span></div>
+                      {recipientData.issuerEmail && <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">이메일</span><span className="font-semibold text-gray-900">{recipientData.issuerEmail}</span></div>}
+                      {recipientData.issuerPhone && <div className="flex"><span className="text-gray-900 w-24 shrink-0 font-medium">연락처</span><span className="font-semibold text-gray-900">{recipientData.issuerPhone}</span></div>}
                     </div>
                   </div>
                   
