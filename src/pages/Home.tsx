@@ -209,9 +209,20 @@ const Home = () => {
             </div>
           </div>
 
-          {/* Header */}
-          <div className="text-center mb-8 sm:mb-14 animate-fade-up">
-            <h1 className="text-3xl sm:text-[42px] skeuo-engraved mb-2 sm:mb-3 tracking-[0.16em] leading-none">ACBANK</h1>
+          {/* Header – metal embossed button style */}
+          <div className="text-center mb-8 sm:mb-14 animate-fade-up space-y-3">
+            <div className="inline-block">
+              <div
+                className="px-10 sm:px-14 py-3 sm:py-4 rounded-[20px]"
+                style={{
+                  background: 'linear-gradient(165deg, hsl(220 6% 92%) 0%, hsl(220 8% 82%) 35%, hsl(220 6% 90%) 50%, hsl(220 8% 84%) 65%, hsl(220 6% 80%) 100%)',
+                  boxShadow: '0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.1), 0 6px 16px hsl(220 20% 0% / 0.1)',
+                  border: '1px solid hsl(220 8% 84%)',
+                }}
+              >
+                <h1 className="text-3xl sm:text-[42px] skeuo-engraved tracking-[0.16em] leading-none">ACBANK</h1>
+              </div>
+            </div>
             <p className="text-[12px] sm:text-[13px] font-medium tracking-[0.2em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>아크뱅크 내부 관리 시스템</p>
           </div>
 
