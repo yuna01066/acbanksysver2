@@ -243,7 +243,7 @@ const Home = () => {
                   border: '1px solid hsl(220 8% 84%)',
                 }}
               >
-                <h1 className="text-3xl sm:text-[42px] font-black leading-none" style={{ color: 'hsl(220 10% 28%)', fontFamily: "'Pretendard Variable', Pretendard, sans-serif" }}>ACBANK</h1>
+                <h1 className="text-3xl sm:text-[42px] font-black leading-none tracking-[1px]" style={{ color: 'hsl(220 10% 28%)', fontFamily: "'Pretendard Variable', Pretendard, sans-serif", textShadow: 'inset 0 0 0 transparent, 0 1px 2px hsl(0 0% 0% / 0.25), 0 0 6px hsl(0 0% 0% / 0.15)' }}>ACBANK</h1>
               </div>
             </div>
             <p className="text-[12px] sm:text-[13px] font-medium tracking-[0.2em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>아크뱅크 내부 관리 시스템</p>
