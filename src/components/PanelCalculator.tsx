@@ -870,7 +870,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
           <CardTitle className="flex items-center justify-center gap-3 mb-3">
             <Calculator className="w-7 h-7 text-primary" />
             <div className="text-2xl">
-              <span className="font-bold">ACBANK</span>{" "}
+              <span className="skeuo-engraved">ACBANK</span>{" "}
               <span className="font-medium text-muted-foreground">Quotation System</span>
             </div>
           </CardTitle>

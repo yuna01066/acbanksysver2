@@ -184,7 +184,7 @@ const Home = () => {
 
           {/* Header */}
           <div className="text-center mb-8 sm:mb-16 animate-fade-up">
-            <h1 className="text-3xl sm:text-5xl font-bold mb-2 sm:mb-4 text-foreground" style={{ fontFamily: 'Horizon, sans-serif' }}>ACBANK</h1>
+            <h1 className="text-3xl sm:text-5xl skeuo-engraved mb-2 sm:mb-4">ACBANK</h1>
             <p className="text-sm sm:text-lg text-muted-foreground font-light tracking-wide">아크뱅크 내부 관리 시스템</p>
           </div>
 
