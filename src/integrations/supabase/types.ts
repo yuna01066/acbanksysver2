@@ -3395,6 +3395,78 @@ export type Database = {
         }
         Relationships: []
       }
+      yield_calculation_history: {
+        Row: {
+          best_efficiency: number | null
+          combinations: Json | null
+          created_at: string
+          cut_items: Json
+          id: string
+          quality: string
+          results: Json | null
+          thickness: string
+          title: string | null
+          total_panels_needed: number | null
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          best_efficiency?: number | null
+          combinations?: Json | null
+          created_at?: string
+          cut_items: Json
+          id?: string
+          quality: string
+          results?: Json | null
+          thickness: string
+          title?: string | null
+          total_panels_needed?: number | null
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          best_efficiency?: number | null
+          combinations?: Json | null
+          created_at?: string
+          cut_items?: Json
+          id?: string
+          quality?: string
+          results?: Json | null
+          thickness?: string
+          title?: string | null
+          total_panels_needed?: number | null
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
+      yield_cut_presets: {
+        Row: {
+          created_at: string
+          cut_items: Json
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cut_items: Json
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cut_items?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
