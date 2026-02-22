@@ -715,7 +715,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     // 일반 모드: 새 견적 추가
     addQuote(quoteData);
 
-    // Reset form for new quote
+    // Reset form for new quote - 모든 상태 초기화
     setCurrentStep(0);
     setCalculatorType(null);
     setSelectedMaterial(null);
@@ -726,13 +726,29 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     setSelectedSize('');
     setSelectedSizes([]);
     setSelectedColorType('');
+    setCustomColorName('');
+    setCustomOpacity('');
     setSelectedSurface('');
     setColorMixingCost(20000);
-      setSelectedProcessing('');
-      setSelectedProcessingName('');
-      setSelectedAdhesion('');
+    setSelectedProcessing('');
+    setSelectedProcessingName('');
+    setSelectedAdhesion('');
     setSelectedFilm('');
     setSelectedBaseType('');
+    // 고급 옵션 초기화
+    setQty(1);
+    setIsComplex(false);
+    setBevelLengthM(0);
+    setLaserHoles(0);
+    setCorners90(0);
+    setUseDetailedBond(false);
+    setJoinLengthM(0);
+    setTrayHeightMm(undefined);
+    setEdgeFinishing(false);
+    setBulgwang(false);
+    setTapung(false);
+    setMugwangPainting(false);
+    setSelectedAdditionalOptions({});
     alert('견적이 추가되었습니다!');
   };
 
