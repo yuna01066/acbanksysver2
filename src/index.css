@@ -433,24 +433,54 @@
     border-color: hsl(220 12% 18%);
   }
 
-  /* Metal engraved logo text */
+  /* Metal engraved logo text – dark hairline stainless steel */
   .skeuo-engraved {
     font-family: 'Pretendard Variable', Pretendard, sans-serif;
     font-weight: 800;
     letter-spacing: 0.12em;
     color: transparent;
-    background: linear-gradient(180deg, hsl(220 8% 72%) 0%, hsl(220 10% 58%) 40%, hsl(220 8% 68%) 60%, hsl(220 10% 54%) 100%);
+    background:
+      repeating-linear-gradient(
+        90deg,
+        hsl(220 6% 38% / 0.08) 0px,
+        transparent 1px,
+        transparent 2px
+      ),
+      linear-gradient(
+        175deg,
+        hsl(220 6% 52%) 0%,
+        hsl(220 8% 36%) 25%,
+        hsl(220 6% 46%) 45%,
+        hsl(220 8% 32%) 65%,
+        hsl(220 6% 42%) 85%,
+        hsl(220 8% 34%) 100%
+      );
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 1px 0 hsl(0 0% 100% / 0.5)) drop-shadow(0 -1px 0 hsl(0 0% 0% / 0.15));
+    filter: drop-shadow(0 1px 0 hsl(0 0% 100% / 0.35)) drop-shadow(0 -1px 0 hsl(0 0% 0% / 0.25));
   }
 
   .dark .skeuo-engraved {
-    background: linear-gradient(180deg, hsl(220 8% 55%) 0%, hsl(220 10% 40%) 40%, hsl(220 8% 50%) 60%, hsl(220 10% 36%) 100%);
+    background:
+      repeating-linear-gradient(
+        90deg,
+        hsl(220 6% 50% / 0.06) 0px,
+        transparent 1px,
+        transparent 2px
+      ),
+      linear-gradient(
+        175deg,
+        hsl(220 6% 42%) 0%,
+        hsl(220 8% 28%) 25%,
+        hsl(220 6% 36%) 45%,
+        hsl(220 8% 24%) 65%,
+        hsl(220 6% 32%) 85%,
+        hsl(220 8% 26%) 100%
+      );
     -webkit-background-clip: text;
     background-clip: text;
-    filter: drop-shadow(0 1px 0 hsl(0 0% 100% / 0.08)) drop-shadow(0 -1px 0 hsl(0 0% 0% / 0.5));
+    filter: drop-shadow(0 1px 0 hsl(0 0% 100% / 0.06)) drop-shadow(0 -1px 0 hsl(0 0% 0% / 0.6));
   }
 }
 
