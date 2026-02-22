@@ -78,6 +78,15 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
             flex: none !important;
           }
 
+          /* glass-card 인쇄 시 불투명 배경으로 변환 */
+          .glass-card {
+            background: white !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            border-color: #e5e7eb !important;
+            overflow: visible !important;
+          }
+
           /* Card shadow/border 제거 및 overflow 허용 */
           .print-container .shadow-lg,
           .print-container .shadow-sm,
