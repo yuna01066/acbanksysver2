@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
   Upload, Trash2, Image as ImageIcon, Loader2, Plus,
-  ChevronLeft, ChevronRight, Search, RefreshCw, Eye, X, Hash, Clock, TrendingUp
+  ChevronLeft, ChevronRight, Search, RefreshCw, Eye, X, Hash, Clock, TrendingUp, Pencil
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -61,6 +61,13 @@ const PortfolioGallery = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeKeywordFilter, setActiveKeywordFilter] = useState<string | null>(null);
   const [showKeywordSuggestions, setShowKeywordSuggestions] = useState(false);
+
+  // Edit state
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editKeywords, setEditKeywords] = useState<string[]>([]);
+  const [editKeywordInput, setEditKeywordInput] = useState('');
+  const [editing, setEditing] = useState(false);
 
   // Create form state
   const [newTitle, setNewTitle] = useState('');
@@ -222,6 +229,56 @@ const PortfolioGallery = () => {
     },
     onError: () => toast.error('삭제 실패'),
   });
+
+  // Edit handlers
+  const openEditDialog = (post: PortfolioPost) => {
+    setEditTitle(post.title);
+    setEditKeywords([...post.keywords]);
+    setEditKeywordInput('');
+    setShowEditDialog(true);
+  };
+
+  const addEditKeyword = (keyword: string) => {
+    const cleaned = keyword.trim().replace(/^#/, '');
+    if (!cleaned) return;
+    if (!editKeywords.includes(cleaned)) {
+      setEditKeywords(prev => [...prev, cleaned]);
+    }
+    setEditKeywordInput('');
+  };
+
+  const handleEditKeywordKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addEditKeyword(editKeywordInput);
+    }
+  };
+
+  const handleEdit = useCallback(async () => {
+    if (!selectedPost || !editTitle.trim()) { toast.error('제목을 입력해주세요.'); return; }
+    setEditing(true);
+    try {
+      const { error } = await supabase
+        .from('portfolio_posts')
+        .update({ title: editTitle.trim(), keywords: editKeywords, updated_at: new Date().toISOString() })
+        .eq('id', selectedPost.id);
+      if (error) throw error;
+      toast.success('수정되었습니다.');
+      setShowEditDialog(false);
+      setSelectedPost({ ...selectedPost, title: editTitle.trim(), keywords: editKeywords });
+      qc.invalidateQueries({ queryKey: ['portfolio-posts'] });
+    } catch (err: any) {
+      toast.error('수정 실패: ' + err.message);
+    } finally {
+      setEditing(false);
+    }
+  }, [selectedPost, editTitle, editKeywords, qc]);
+
+  const editKeywordSuggestions = useMemo(() => {
+    if (!editKeywordInput.trim()) return [];
+    const q = editKeywordInput.toLowerCase().replace(/^#/, '');
+    return popularKeywords.filter(k => k.toLowerCase().includes(q) && !editKeywords.includes(k)).slice(0, 5);
+  }, [editKeywordInput, popularKeywords, editKeywords]);
 
   // Filter posts by keyword or search
   const filteredPosts = useMemo(() => {
@@ -532,15 +589,7 @@ const PortfolioGallery = () => {
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">{currentImageIndex + 1} / {selectedPost.images.length}</Badge>
-                  <Button
-                    variant="ghost" size="sm" className="text-destructive hover:text-destructive"
-                    onClick={() => { if (confirm('이 포트폴리오를 삭제하시겠습니까?')) deleteMutation.mutate(selectedPost.id); }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Badge variant="secondary">{currentImageIndex + 1} / {selectedPost.images.length}</Badge>
               </div>
               <div className="relative flex items-center justify-center bg-muted/20" style={{ minHeight: '70vh' }}>
                 {selectedPost.images.length > 0 && (
@@ -567,9 +616,10 @@ const PortfolioGallery = () => {
                   </>
                 )}
               </div>
-              {selectedPost.images.length > 1 && (
-                <div className="flex gap-2 p-3 overflow-x-auto border-t">
-                  {selectedPost.images.map((img, i) => (
+              {/* Bottom bar: thumbnails left, buttons right */}
+              <div className="flex items-center justify-between p-3 border-t">
+                <div className="flex gap-2 overflow-x-auto flex-1">
+                  {selectedPost.images.length > 1 && selectedPost.images.map((img, i) => (
                     <button
                       key={img.id}
                       className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
@@ -581,9 +631,79 @@ const PortfolioGallery = () => {
                     </button>
                   ))}
                 </div>
-              )}
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  <Button variant="outline" size="sm" onClick={() => openEditDialog(selectedPost)}>
+                    <Pencil className="h-4 w-4 mr-1" />
+                    수정
+                  </Button>
+                  <Button
+                    variant="outline" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => { if (confirm('이 포트폴리오를 삭제하시겠습니까?')) deleteMutation.mutate(selectedPost.id); }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    삭제
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>포트폴리오 수정</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>제목 *</Label>
+              <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="포트폴리오 제목" />
+            </div>
+            <div>
+              <Label>키워드</Label>
+              <p className="text-xs text-muted-foreground mb-2">Enter 또는 콤마(,)로 키워드를 추가하세요</p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {editKeywords.map(k => (
+                  <Badge key={k} variant="secondary" className="gap-1 cursor-pointer" onClick={() => setEditKeywords(prev => prev.filter(x => x !== k))}>
+                    #{k}
+                    <X className="h-3 w-3" />
+                  </Badge>
+                ))}
+              </div>
+              <div className="relative">
+                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={editKeywordInput}
+                  onChange={e => setEditKeywordInput(e.target.value)}
+                  onKeyDown={handleEditKeywordKeyDown}
+                  placeholder="키워드 입력"
+                  className="pl-9"
+                />
+                {editKeywordSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-lg shadow-lg z-50 p-1">
+                    {editKeywordSuggestions.map(k => (
+                      <button
+                        key={k}
+                        className="w-full text-left text-sm px-3 py-1.5 rounded hover:bg-accent transition-colors"
+                        onClick={() => addEditKeyword(k)}
+                      >
+                        #{k}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>취소</Button>
+            <Button onClick={handleEdit} disabled={editing}>
+              {editing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Pencil className="h-4 w-4 mr-1" />}
+              {editing ? '수정 중...' : '수정'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
