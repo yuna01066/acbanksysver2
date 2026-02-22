@@ -498,7 +498,7 @@ const SavedQuoteDetailPage = () => {
                     </div>
                   </div>
                   
-                  <div className="p-5 bg-[hsl(210,80%,95%)/0.95] rounded-xl border border-[hsl(210,70%,80%)]">
+                  <div className="p-5 bg-[hsl(210,80%,95%)] rounded-xl border border-[hsl(210,70%,80%)]">
                     <h4 className="font-bold text-[hsl(220,60%,20%)] mb-2 text-[13px]">입금 계좌</h4>
                     <div className="text-[14px] font-bold text-[hsl(220,50%,15%)]">
                       <div>신한은행 140-014-544315 (주)아크뱅크</div>
