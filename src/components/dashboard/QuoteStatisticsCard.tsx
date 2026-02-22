@@ -105,7 +105,7 @@ const QuoteStatisticsCard: React.FC = () => {
 
   // Top clients
   const clientAmounts: Record<string, number> = {};
-  stats.forEach((q) => {
+  stats.filter((q) => q.project_stage === 'completed').forEach((q) => {
     const name = q.recipient_company || '미지정';
     clientAmounts[name] = (clientAmounts[name] || 0) + Number(q.total || 0);
   });
