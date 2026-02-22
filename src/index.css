@@ -717,7 +717,7 @@
 }
 
 .dark .logo-metal {
-  border: 1.5px solid hsl(265 100% 72% / 0.9) !important;
+  border: 2.5px solid hsl(265 100% 75% / 1) !important;
   box-shadow:
     inset 0 1px 2px hsl(0 0% 100% / 0.5), inset 0 -1px 2px hsl(0 0% 0% / 0.08),
     0 0 4px hsl(265 100% 75% / 1),
@@ -730,7 +730,7 @@
 
 .dark .logo-metal:hover {
   animation: logo-shine-rotate 5s ease-in-out infinite;
-  border: 1.5px solid hsl(265 100% 78% / 1) !important;
+  border: 2.5px solid hsl(265 100% 80% / 1) !important;
   box-shadow:
     inset 0 1px 2px hsl(0 0% 100% / 0.5), inset 0 -1px 2px hsl(0 0% 0% / 0.08),
     0 0 6px hsl(265 100% 80% / 1),
