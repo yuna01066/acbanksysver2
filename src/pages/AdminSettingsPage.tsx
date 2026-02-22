@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, BarChart3, FolderKanban, Star, Shield, Receipt, FileText, Sparkles, Monitor } from "lucide-react";
-import QuoteStatisticsCard from '@/components/dashboard/QuoteStatisticsCard';
 import { useAuth } from "@/contexts/AuthContext";
 import SecretEventManager from '@/components/admin/SecretEventManager';
 
@@ -236,10 +235,6 @@ const AdminSettingsPage = () => {
           </Card>
         </div>
 
-        {/* 견적 통계 */}
-        <div className="mt-6">
-          <QuoteStatisticsCard />
-        </div>
 
         {/* 시스템 관리 Card */}
         <Card className="mt-6">
