@@ -2,7 +2,8 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, BarChart3, FolderKanban, Star, Shield, Receipt, FileText } from "lucide-react";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, BarChart3, FolderKanban, Star, Shield, Receipt, FileText, Sparkles, Monitor } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import SecretEventManager from '@/components/admin/SecretEventManager';
 
@@ -234,10 +235,34 @@ const AdminSettingsPage = () => {
           </Card>
         </div>
 
-        {/* 시크릿 이벤트 관리 */}
-        <div className="mt-6">
-          <SecretEventManager />
-        </div>
+        {/* 시스템 관리 Card */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Monitor className="w-5 h-5 text-primary" />
+              시스템 관리
+            </CardTitle>
+            <CardDescription>시스템 설정 및 특수 기능 관리</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <Dialog>
+              <DialogTrigger asChild>
+                <button className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Sparkles className="w-4 h-4 text-purple-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">시크릿 이벤트 관리</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">특정 시간/날짜에 대시보드에 표시되는 시크릿 메시지 관리</p>
+                  </div>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
+                <SecretEventManager />
+              </DialogContent>
+            </Dialog>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
