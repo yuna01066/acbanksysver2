@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, BarChart3, FolderKanban, Star, Shield, Receipt, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import SecretEventManager from '@/components/admin/SecretEventManager';
 
 const AdminSettingsPage = () => {
   const navigate = useNavigate();
@@ -231,6 +232,11 @@ const AdminSettingsPage = () => {
               </button>
             </CardContent>
           </Card>
+        </div>
+
+        {/* 시크릿 이벤트 관리 */}
+        <div className="mt-6">
+          <SecretEventManager />
         </div>
       </div>
     </div>
