@@ -155,35 +155,38 @@ const PortfolioGallery = () => {
 
       for (let i = 0; i < pendingFiles.length; i++) {
         const file = pendingFiles[i];
-        const { data: initData, error: initError } = await supabase.functions.invoke('google-drive', {
+        // Convert file to base64
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1]); // Remove data:...;base64, prefix
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const { data: uploadData, error: uploadError } = await supabase.functions.invoke('google-drive', {
           body: {
-            action: 'init-resumable-upload',
+            action: 'upload-portfolio-image',
             folderPath: PORTFOLIO_FOLDER,
             fileName: file.name,
+            fileBase64: base64,
             contentType: file.type,
-            fileSize: file.size,
           },
         });
-        if (initError || !initData?.success) continue;
+        if (uploadError || !uploadData?.success) continue;
 
-        const uploadRes = await fetch(initData.uploadUri, {
-          method: 'PUT',
-          headers: { 'Content-Type': file.type, 'Content-Length': file.size.toString() },
-          body: file,
+        const driveFileId = uploadData.fileId;
+        await supabase.from('portfolio_images').insert({
+          post_id: post.id,
+          drive_file_id: driveFileId,
+          file_name: file.name,
+          thumbnail_url: `https://drive.google.com/thumbnail?id=${driveFileId}&sz=w400`,
+          image_url: `https://drive.google.com/thumbnail?id=${driveFileId}&sz=w1600`,
+          display_order: i,
+          is_main: i === 0,
         });
-
-        if (uploadRes.ok) {
-          const driveFile = await uploadRes.json();
-          await supabase.from('portfolio_images').insert({
-            post_id: post.id,
-            drive_file_id: driveFile.id,
-            file_name: file.name,
-            thumbnail_url: `https://drive.google.com/thumbnail?id=${driveFile.id}&sz=w400`,
-            image_url: `https://drive.google.com/thumbnail?id=${driveFile.id}&sz=w1600`,
-            display_order: i,
-            is_main: i === 0,
-          });
-        }
       }
 
       toast.success('포트폴리오가 등록되었습니다.');
