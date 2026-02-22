@@ -101,7 +101,7 @@ const LoginScreen = () => {
 
           <div className="text-center space-y-1">
             <h1 className="text-2xl skeuo-engraved">ACBANK</h1>
-            <p className="text-[10px] tracking-[0.2em] uppercase" style={{ color: 'hsl(220 8% 58%)' }}>
+            <p className="text-[10px] tracking-[0.2em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>
               Management System
             </p>
           </div>
@@ -126,9 +126,9 @@ const LoginScreen = () => {
           <form onSubmit={handleLogin} className="space-y-4">
             {/* Email */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold tracking-[0.12em] uppercase pl-1" style={{ color: 'hsl(220 8% 52%)' }}>Email</label>
+              <label className="text-[10px] font-bold tracking-[0.12em] uppercase pl-1" style={{ color: 'hsl(220 10% 35%)' }}>Email</label>
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={insetField}>
-                <Mail className="w-4 h-4 shrink-0" style={{ color: 'hsl(220 8% 62%)' }} />
+                <Mail className="w-4 h-4 shrink-0" style={{ color: 'hsl(220 8% 48%)' }} />
                 <input
                   id="email" type="email" placeholder="your@email.com"
                   value={email} onChange={(e) => setEmail(e.target.value)} required
@@ -140,9 +140,9 @@ const LoginScreen = () => {
 
             {/* Password */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold tracking-[0.12em] uppercase pl-1" style={{ color: 'hsl(220 8% 52%)' }}>Password</label>
+              <label className="text-[10px] font-bold tracking-[0.12em] uppercase pl-1" style={{ color: 'hsl(220 10% 35%)' }}>Password</label>
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={insetField}>
-                <KeyRound className="w-4 h-4 shrink-0" style={{ color: 'hsl(220 8% 62%)' }} />
+                <KeyRound className="w-4 h-4 shrink-0" style={{ color: 'hsl(220 8% 48%)' }} />
                 <input
                   id="password" type="password"
                   value={password} onChange={(e) => setPassword(e.target.value)} required
@@ -158,7 +158,7 @@ const LoginScreen = () => {
               className="w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-40"
               style={{
                 ...convexBtn,
-                color: 'hsl(220 10% 30%)',
+                color: 'hsl(220 12% 22%)',
               }}
             >
               <LogIn className="w-4 h-4" />
