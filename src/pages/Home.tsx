@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette, Sun, Moon } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette } from "lucide-react";
 import LoginScreen from '@/components/LoginScreen';
 import DashboardCalendar from '@/components/DashboardCalendar';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
@@ -247,10 +247,6 @@ const Home = () => {
               <button onClick={() => navigate('/team-chat')} title="팀챗"
                 className="w-10 h-10 rounded-full glass-pill flex items-center justify-center transition-transform active:scale-95 hover:scale-105">
                 <MessageCircle className="h-[18px] w-[18px] text-muted-foreground" />
-              </button>
-              <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title="테마 전환"
-                className="w-10 h-10 rounded-full glass-pill flex items-center justify-center transition-transform active:scale-95 hover:scale-105">
-                {theme === 'dark' ? <Sun className="h-[18px] w-[18px] text-muted-foreground" /> : <Moon className="h-[18px] w-[18px] text-muted-foreground" />}
               </button>
               <button onClick={() => navigate('/my-page')} title="마이페이지"
                 className="w-10 h-10 rounded-full glass-pill flex items-center justify-center transition-transform active:scale-95 hover:scale-105">
