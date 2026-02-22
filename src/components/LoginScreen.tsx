@@ -75,12 +75,12 @@ const LoginScreen = () => {
       className="min-h-screen flex flex-col items-center justify-center px-4"
       style={{ background: `linear-gradient(170deg, hsl(220 12% 93%) 0%, ${bg} 50%, hsl(220 10% 89%) 100%)` }}
     >
-      <div className="w-full max-w-[360px] space-y-10">
+      <div className="w-full max-w-[380px] space-y-8">
 
         {/* ── Logo: large convex dial ── */}
-        <div className="flex flex-col items-center gap-5">
+        <div className="flex flex-col items-center gap-4">
           <div
-            className="w-28 h-28 rounded-full flex items-center justify-center"
+            className="w-[120px] h-[120px] rounded-full flex items-center justify-center"
             style={{
               background: 'linear-gradient(155deg, hsl(220 8% 96%) 0%, hsl(220 10% 86%) 40%, hsl(220 8% 92%) 60%, hsl(220 10% 84%) 100%)',
               boxShadow: '0 3px 2px hsl(0 0% 100% / 0.8), 0 -3px 2px hsl(0 0% 0% / 0.06), 0 8px 24px hsl(220 20% 0% / 0.12)',
@@ -88,7 +88,7 @@ const LoginScreen = () => {
             }}
           >
             <div
-              className="w-[88px] h-[88px] rounded-full flex items-center justify-center"
+              className="w-[92px] h-[92px] rounded-full flex items-center justify-center"
               style={{
                 background: 'linear-gradient(180deg, hsl(220 10% 94%) 0%, hsl(220 12% 88%) 100%)',
                 boxShadow: 'inset 0 2px 4px hsl(0 0% 0% / 0.06), 0 1px 0 hsl(0 0% 100% / 0.6)',
@@ -99,9 +99,9 @@ const LoginScreen = () => {
             </div>
           </div>
 
-          <div className="text-center space-y-1">
-            <h1 className="text-2xl skeuo-engraved">ACBANK</h1>
-            <p className="text-[10px] tracking-[0.2em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>
+          <div className="text-center space-y-1.5">
+            <h1 className="text-[28px] font-extrabold tracking-tight skeuo-engraved leading-none">ACBANK</h1>
+            <p className="text-[11px] font-medium tracking-[0.22em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>
               Management System
             </p>
           </div>
@@ -109,7 +109,7 @@ const LoginScreen = () => {
 
         {/* ── Form card: soft raised surface ── */}
         <div
-          className="rounded-3xl p-6 space-y-5"
+          className="rounded-[24px] px-7 py-8 space-y-6"
           style={{
             background: 'linear-gradient(180deg, hsl(220 12% 95%) 0%, hsl(220 12% 90%) 100%)',
             boxShadow: '0 2px 1px hsl(0 0% 100% / 0.8), 0 -1px 1px hsl(0 0% 0% / 0.04), 0 8px 20px hsl(220 20% 0% / 0.08)',
@@ -123,77 +123,79 @@ const LoginScreen = () => {
             </Alert>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-5">
             {/* Email */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold tracking-[0.12em] uppercase pl-1" style={{ color: 'hsl(220 10% 35%)' }}>Email</label>
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={insetField}>
-                <Mail className="w-4 h-4 shrink-0" style={{ color: 'hsl(220 8% 48%)' }} />
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold tracking-[0.08em] uppercase pl-1" style={{ color: 'hsl(220 10% 30%)' }}>Email</label>
+              <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl" style={insetField}>
+                <Mail className="w-[18px] h-[18px] shrink-0" style={{ color: 'hsl(220 8% 48%)' }} />
                 <input
                   id="email" type="email" placeholder="your@email.com"
                   value={email} onChange={(e) => setEmail(e.target.value)} required
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/40"
+                  className="w-full bg-transparent text-[14px] tracking-[-0.01em] outline-none placeholder:text-muted-foreground/40"
                   style={{ color: 'hsl(220 10% 25%)' }}
                 />
               </div>
             </div>
 
             {/* Password */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold tracking-[0.12em] uppercase pl-1" style={{ color: 'hsl(220 10% 35%)' }}>Password</label>
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={insetField}>
-                <KeyRound className="w-4 h-4 shrink-0" style={{ color: 'hsl(220 8% 48%)' }} />
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold tracking-[0.08em] uppercase pl-1" style={{ color: 'hsl(220 10% 30%)' }}>Password</label>
+              <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl" style={insetField}>
+                <KeyRound className="w-[18px] h-[18px] shrink-0" style={{ color: 'hsl(220 8% 48%)' }} />
                 <input
                   id="password" type="password"
                   value={password} onChange={(e) => setPassword(e.target.value)} required
-                  className="w-full bg-transparent text-sm outline-none"
+                  className="w-full bg-transparent text-[14px] tracking-[-0.01em] outline-none"
                   style={{ color: 'hsl(220 10% 25%)' }}
                 />
               </div>
             </div>
 
             {/* Login – convex plastic pill */}
-            <button
-              type="submit" disabled={loading}
-              className="w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-40"
-              style={{
-                ...convexBtn,
-                color: 'hsl(220 12% 22%)',
-              }}
-            >
-              <LogIn className="w-4 h-4" />
-              {loading ? '로그인 중...' : '로그인'}
-            </button>
+            <div className="pt-1">
+              <button
+                type="submit" disabled={loading}
+                className="w-full py-3.5 rounded-2xl flex items-center justify-center gap-2 text-[14px] font-semibold tracking-[-0.01em] transition-all duration-200 active:scale-[0.98] disabled:opacity-40"
+                style={{
+                  ...convexBtn,
+                  color: 'hsl(220 12% 22%)',
+                }}
+              >
+                <LogIn className="w-[18px] h-[18px]" />
+                {loading ? '로그인 중...' : '로그인'}
+              </button>
+            </div>
           </form>
 
           {/* Divider groove */}
           <div className="mx-2 h-px" style={{ background: 'linear-gradient(90deg, transparent, hsl(220 12% 82%), transparent)', boxShadow: '0 1px 0 hsl(0 0% 100% / 0.5)' }} />
 
           {/* Bottom circular actions */}
-          <div className="flex items-center justify-center gap-8 pt-1">
-            <button type="button" onClick={() => navigate('/forgot-password')} className="flex flex-col items-center gap-1.5 group">
+          <div className="flex items-center justify-center gap-10 pt-1">
+            <button type="button" onClick={() => navigate('/forgot-password')} className="flex flex-col items-center gap-2 group">
               <div
-                className="w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-200 group-hover:scale-105 group-active:scale-95"
+                className="w-[52px] h-[52px] rounded-full flex items-center justify-center transition-transform duration-200 group-hover:scale-105 group-active:scale-95"
                 style={circleBtn}
               >
-                <KeyRound className="w-4 h-4" style={{ color: 'hsl(220 8% 50%)' }} />
+                <KeyRound className="w-[18px] h-[18px]" style={{ color: 'hsl(220 8% 50%)' }} />
               </div>
-              <span className="text-[9px] font-medium" style={{ color: 'hsl(220 8% 55%)' }}>비밀번호 찾기</span>
+              <span className="text-[10px] font-medium tracking-[-0.01em]" style={{ color: 'hsl(220 8% 50%)' }}>비밀번호 찾기</span>
             </button>
 
-            <button type="button" onClick={() => navigate('/auth')} className="flex flex-col items-center gap-1.5 group">
+            <button type="button" onClick={() => navigate('/auth')} className="flex flex-col items-center gap-2 group">
               <div
-                className="w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-200 group-hover:scale-105 group-active:scale-95"
+                className="w-[52px] h-[52px] rounded-full flex items-center justify-center transition-transform duration-200 group-hover:scale-105 group-active:scale-95"
                 style={circleBtn}
               >
-                <UserPlus className="w-4 h-4" style={{ color: 'hsl(220 8% 50%)' }} />
+                <UserPlus className="w-[18px] h-[18px]" style={{ color: 'hsl(220 8% 50%)' }} />
               </div>
-              <span className="text-[9px] font-medium" style={{ color: 'hsl(220 8% 55%)' }}>회원가입</span>
+              <span className="text-[10px] font-medium tracking-[-0.01em]" style={{ color: 'hsl(220 8% 50%)' }}>회원가입</span>
             </button>
           </div>
         </div>
 
-        <p className="text-[9px] text-center tracking-[0.2em]" style={{ color: 'hsl(220 8% 68%)' }}>
+        <p className="text-[10px] text-center font-medium tracking-[0.18em]" style={{ color: 'hsl(220 8% 62%)' }}>
           © 2025 ACBANK. ALL RIGHTS RESERVED.
         </p>
       </div>
