@@ -717,12 +717,12 @@
 }
 
 .dark .logo-metal {
-  background: conic-gradient(from var(--logo-angle), hsl(250 10% 22%) 0%, hsl(250 12% 30%) 15%, hsl(250 10% 20%) 30%, hsl(250 12% 28%) 45%, hsl(250 10% 18%) 55%, hsl(250 12% 32%) 70%, hsl(250 10% 24%) 85%, hsl(250 10% 22%) 100%);
-  border-color: hsl(250 20% 30%) !important;
-  box-shadow: 0 0 20px hsl(260 60% 50% / 0.15), 0 0 40px hsl(260 60% 50% / 0.08), inset 0 1px 1px hsl(0 0% 100% / 0.06);
+  box-shadow: 0 2px 1px hsl(0 0% 100% / 0.8), 0 -2px 1px hsl(0 0% 0% / 0.1), 0 6px 16px hsl(220 20% 0% / 0.12), inset 0 1px 2px hsl(0 0% 100% / 0.5), inset 0 -1px 2px hsl(0 0% 0% / 0.08), 0 0 15px hsl(265 80% 60% / 0.3), 0 0 40px hsl(265 70% 55% / 0.15), 0 0 80px hsl(265 60% 50% / 0.08);
+  border-color: hsl(265 60% 55% / 0.5) !important;
 }
 
 .dark .logo-metal:hover {
   animation: logo-shine-rotate 5s ease-in-out infinite;
-  box-shadow: 0 0 24px hsl(260 70% 55% / 0.35), 0 0 60px hsl(260 60% 50% / 0.2), 0 0 100px hsl(270 50% 50% / 0.1), inset 0 1px 1px hsl(0 0% 100% / 0.08);
+  box-shadow: 0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.1), 0 8px 24px hsl(220 20% 0% / 0.15), inset 0 1px 2px hsl(0 0% 100% / 0.5), inset 0 -1px 2px hsl(0 0% 0% / 0.08), 0 0 20px hsl(265 80% 60% / 0.45), 0 0 50px hsl(265 70% 55% / 0.25), 0 0 100px hsl(265 60% 50% / 0.12);
+  border-color: hsl(265 70% 60% / 0.6) !important;
 }
