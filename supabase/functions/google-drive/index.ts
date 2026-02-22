@@ -331,6 +331,16 @@ serve(async (req) => {
       const folderId = await ensureFolderPath(accessToken, folderPath, sharedDriveId, sharedDriveId);
       const result = await uploadFile(accessToken, folderId, fileName, fileBase64, contentType || 'image/png');
 
+      // Make file publicly readable so thumbnail URLs work
+      await fetch(`https://www.googleapis.com/drive/v3/files/${result.id}/permissions?supportsAllDrives=true`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+      });
+
       return new Response(JSON.stringify({
         success: true,
         fileId: result.id,
