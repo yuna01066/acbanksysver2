@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Sun, Moon, Coffee, Utensils, Clock, Calendar, MapPin, Users } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Sun, Moon, Coffee, Utensils, Clock, Calendar, MapPin, Users, Sparkles } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +45,118 @@ const getGreetingData = (): { message: string; icon: React.ReactNode; sub?: stri
   return { message: '좋은 저녁입니다.', icon: <Moon className="h-5 w-5 text-indigo-400" />, sub: '오늘 하루도 수고하셨어요 🌙', gradient: 'from-indigo-50 via-violet-50/60 to-slate-100 dark:from-indigo-950/50 dark:via-violet-950/30 dark:to-slate-900/40', iconBg: 'bg-indigo-100 dark:bg-indigo-900/40', timeColor: 'text-indigo-700 dark:text-indigo-300' };
 };
 
+// 🎯 시크릿 이벤트 시스템
+type SecretEvent = {
+  emoji: string;
+  message: string;
+  sub: string;
+  gradient: string;
+  particles?: string[];
+  sound?: { freq: number; type: OscillatorType };
+};
+
+const getSecretEvent = (name: string): SecretEvent | null => {
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const day = now.getDay(); // 0=일 ~ 6=토
+  const date = now.getDate();
+  const month = now.getMonth() + 1;
+
+  // 자정 (00:00 ~ 00:05) – 새로운 하루
+  if (h === 0 && m < 5) {
+    return {
+      emoji: '🌠',
+      message: '새로운 하루가 시작됩니다!',
+      sub: `${name}님, 별이 빛나는 밤에 새 하루를 맞이하세요 ✨`,
+      gradient: 'from-indigo-500/20 via-purple-500/15 to-pink-500/10 dark:from-indigo-800/40 dark:via-purple-800/30 dark:to-pink-800/20',
+      particles: ['⭐', '✨', '🌟', '💫', '🌙'],
+    };
+  }
+
+  // 새벽 2~4시 – 밤올빼미
+  if (h >= 2 && h < 4) {
+    return {
+      emoji: '🦉',
+      message: '밤올빼미 모드 활성화!',
+      sub: `이 시간에 일하는 ${name}님은 진정한 야행성... 건강 조심하세요 🌙`,
+      gradient: 'from-slate-700/20 via-indigo-800/15 to-violet-900/10 dark:from-slate-900/50 dark:via-indigo-950/40 dark:to-violet-950/30',
+      particles: ['🦉', '🌙', '⭐', '🌟'],
+    };
+  }
+
+  // 금요일 17:30 이후 – 불금
+  if (day === 5 && (h > 17 || (h === 17 && m >= 30))) {
+    return {
+      emoji: '🎉',
+      message: '불금이다! 🔥',
+      sub: `${name}님, 한 주 고생하셨습니다! 즐거운 주말 보내세요 🥳`,
+      gradient: 'from-orange-500/20 via-red-500/15 to-pink-500/10 dark:from-orange-800/40 dark:via-red-800/30 dark:to-pink-800/20',
+      particles: ['🎊', '🎉', '🥳', '🔥', '💃'],
+      sound: { freq: 523, type: 'triangle' as OscillatorType },
+    };
+  }
+
+  // 월요일 아침 (9:00 ~ 9:30) – 월요병
+  if (day === 1 && h === 9 && m < 30) {
+    return {
+      emoji: '💪',
+      message: '월요일도 힘내봅시다!',
+      sub: `새로운 한 주가 시작됐어요. ${name}님 파이팅! ☕`,
+      gradient: 'from-blue-500/15 via-cyan-500/10 to-teal-500/10 dark:from-blue-800/30 dark:via-cyan-800/20 dark:to-teal-800/15',
+      particles: ['💪', '☕', '🚀'],
+    };
+  }
+
+  // 매월 1일 – 새로운 달
+  if (date === 1 && h >= 9 && h < 12) {
+    const monthNames = ['', '1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+    return {
+      emoji: '📅',
+      message: `${monthNames[month]}의 시작!`,
+      sub: `새로운 달, 새로운 시작! ${name}님의 ${monthNames[month]}도 응원합니다 🎯`,
+      gradient: 'from-emerald-500/15 via-green-500/10 to-lime-500/10 dark:from-emerald-800/30 dark:via-green-800/20 dark:to-lime-800/15',
+      particles: ['🎯', '📅', '🌱', '✨'],
+    };
+  }
+
+  // 크리스마스 (12/25)
+  if (month === 12 && date === 25) {
+    return {
+      emoji: '🎄',
+      message: '메리 크리스마스! 🎅',
+      sub: `${name}님, 행복한 크리스마스 보내세요!`,
+      gradient: 'from-red-500/20 via-green-500/15 to-red-500/10 dark:from-red-800/40 dark:via-green-800/30 dark:to-red-800/20',
+      particles: ['🎄', '🎅', '🎁', '⛄', '❄️', '🌟'],
+    };
+  }
+
+  // 새해 (1/1)
+  if (month === 1 && date === 1) {
+    return {
+      emoji: '🎆',
+      message: '새해 복 많이 받으세요!',
+      sub: `${name}님, ${now.getFullYear()}년도 좋은 일만 가득하길! 🎊`,
+      gradient: 'from-yellow-500/20 via-amber-500/15 to-orange-500/10 dark:from-yellow-800/40 dark:via-amber-800/30 dark:to-orange-800/20',
+      particles: ['🎆', '🎇', '🎊', '🎉', '✨', '🥂'],
+      sound: { freq: 659, type: 'triangle' as OscillatorType },
+    };
+  }
+
+  // 정시 정각 (매 시 00분, 0~1분) – 차임
+  if (m === 0 && h >= 9 && h <= 18) {
+    return {
+      emoji: '🔔',
+      message: `${h}시 정각!`,
+      sub: '땡~ 시간은 금이에요 ⏰',
+      gradient: 'from-amber-400/15 via-yellow-400/10 to-orange-400/10 dark:from-amber-800/25 dark:via-yellow-800/15 dark:to-orange-800/10',
+      sound: { freq: 440, type: 'sine' as OscillatorType },
+    };
+  }
+
+  return null;
+};
+
 const formatTime = (date: Date) => {
   return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 };
@@ -59,6 +171,10 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
   const [now, setNow] = useState(new Date());
   const [myStatus, setMyStatus] = useState<WorkStatus>('available');
   const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
+  const [secretEvent, setSecretEvent] = useState<SecretEvent | null>(null);
+  const [showSecretBanner, setShowSecretBanner] = useState(false);
+  const [secretParticles, setSecretParticles] = useState<{ id: number; emoji: string; x: number; delay: number }[]>([]);
+  const secretSoundPlayed = useRef<string | null>(null);
 
   // Fetch today's upcoming events (conference, meeting, event)
   const { data: todayEvents } = useQuery({
@@ -114,6 +230,56 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // 🎯 시크릿 이벤트 감지
+  useEffect(() => {
+    const event = getSecretEvent(name);
+    const eventKey = event ? event.message : null;
+
+    if (event && eventKey !== secretSoundPlayed.current) {
+      setSecretEvent(event);
+      setShowSecretBanner(true);
+      secretSoundPlayed.current = eventKey;
+
+      // 파티클 생성
+      if (event.particles) {
+        const newParticles = Array.from({ length: 12 }, (_, i) => ({
+          id: i,
+          emoji: event.particles![Math.floor(Math.random() * event.particles!.length)],
+          x: Math.random() * 100,
+          delay: Math.random() * 2,
+        }));
+        setSecretParticles(newParticles);
+      }
+
+      // 효과음
+      if (event.sound) {
+        try {
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.type = event.sound.type;
+          osc.frequency.setValueAtTime(event.sound.freq, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(event.sound.freq * 1.5, audioCtx.currentTime + 0.15);
+          osc.frequency.exponentialRampToValueAtTime(event.sound.freq * 0.8, audioCtx.currentTime + 0.3);
+          gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+          osc.start(audioCtx.currentTime);
+          osc.stop(audioCtx.currentTime + 0.5);
+        } catch (e) { /* audio not supported */ }
+      }
+
+      // 10초 후 자동으로 배너 닫기
+      const timer = setTimeout(() => setShowSecretBanner(false), 10000);
+      return () => clearTimeout(timer);
+    } else if (!event) {
+      setSecretEvent(null);
+      setShowSecretBanner(false);
+      setSecretParticles([]);
+    }
+  }, [now, name]);
 
   // Sync with presence channel
   useEffect(() => {
@@ -179,7 +345,40 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
   };
 
   return (
-    <div className={`animate-fade-in glass-card p-4 sm:p-5 bg-gradient-to-r ${greeting.gradient} transition-colors duration-1000`}>
+    <div className={`animate-fade-in glass-card p-4 sm:p-5 bg-gradient-to-r ${greeting.gradient} transition-colors duration-1000 relative overflow-hidden`}>
+      {/* 🎯 시크릿 이벤트 배너 */}
+      {showSecretBanner && secretEvent && (
+        <>
+          {/* 파티클 애니메이션 */}
+          {secretParticles.map((p) => (
+            <span
+              key={p.id}
+              className="absolute text-lg pointer-events-none animate-secret-particle"
+              style={{
+                left: `${p.x}%`,
+                top: '-20px',
+                animationDelay: `${p.delay}s`,
+              }}
+            >
+              {p.emoji}
+            </span>
+          ))}
+          {/* 배너 */}
+          <div
+            className={`mb-3 rounded-xl p-3 bg-gradient-to-r ${secretEvent.gradient} border border-border/30 backdrop-blur-sm animate-secret-banner cursor-pointer relative`}
+            onClick={() => setShowSecretBanner(false)}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-2xl animate-bounce" style={{ animationDuration: '1.5s' }}>{secretEvent.emoji}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-foreground">{secretEvent.message}</p>
+                <p className="text-xs text-muted-foreground">{secretEvent.sub}</p>
+              </div>
+              <Sparkles className="h-4 w-4 text-primary animate-pulse shrink-0" />
+            </div>
+          </div>
+        </>
+      )}
       {/* Mobile: stacked layout, Desktop: side-by-side */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-3">
