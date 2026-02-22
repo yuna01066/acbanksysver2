@@ -268,6 +268,172 @@
   }
 }
 
+/* ===== Skeuomorphic / Plastic & Metal Styles ===== */
+@layer components {
+  /* Plastic button – convex surface with top highlight and bottom shadow */
+  .skeuo-plastic {
+    @apply rounded-2xl font-medium transition-all duration-200;
+    background: linear-gradient(180deg, hsl(220 15% 98%) 0%, hsl(220 14% 90%) 100%);
+    box-shadow:
+      0 2px 1px hsl(0 0% 100% / 1),
+      0 -2px 1px hsl(0 0% 0% / 0.1),
+      0 4px 8px hsl(220 20% 0% / 0.08);
+    border: 1px solid hsl(220 14% 88%);
+  }
+
+  .skeuo-plastic:hover {
+    background: linear-gradient(180deg, hsl(220 15% 100%) 0%, hsl(220 14% 93%) 100%);
+    box-shadow:
+      0 2px 1px hsl(0 0% 100% / 1),
+      0 -2px 1px hsl(0 0% 0% / 0.08),
+      0 6px 12px hsl(220 20% 0% / 0.1);
+  }
+
+  .skeuo-plastic:active {
+    background: linear-gradient(180deg, hsl(220 14% 90%) 0%, hsl(220 14% 86%) 100%);
+    box-shadow:
+      inset 0 2px 3px hsl(0 0% 0% / 0.08),
+      0 1px 0 hsl(0 0% 100% / 0.6);
+  }
+
+  .dark .skeuo-plastic {
+    background: linear-gradient(180deg, hsl(220 12% 22%) 0%, hsl(220 12% 14%) 100%);
+    box-shadow:
+      0 2px 1px hsl(0 0% 100% / 0.06),
+      0 -2px 1px hsl(0 0% 0% / 0.3),
+      0 4px 8px hsl(220 20% 0% / 0.3);
+    border-color: hsl(220 12% 20%);
+  }
+
+  /* Metal button – angular gradient with chrome-like reflection */
+  .skeuo-metal {
+    @apply rounded-2xl font-medium transition-all duration-200;
+    background: linear-gradient(165deg, hsl(220 8% 92%) 0%, hsl(220 10% 82%) 40%, hsl(220 8% 88%) 60%, hsl(220 10% 80%) 100%);
+    box-shadow:
+      0 2px 1px hsl(0 0% 100% / 0.8),
+      0 -2px 1px hsl(0 0% 0% / 0.1),
+      0 4px 10px hsl(220 20% 0% / 0.12);
+    border: 1px solid hsl(220 10% 78%);
+  }
+
+  .skeuo-metal:hover {
+    background: linear-gradient(165deg, hsl(220 8% 95%) 0%, hsl(220 10% 85%) 40%, hsl(220 8% 91%) 60%, hsl(220 10% 83%) 100%);
+  }
+
+  .dark .skeuo-metal {
+    background: linear-gradient(165deg, hsl(220 10% 24%) 0%, hsl(220 10% 16%) 40%, hsl(220 10% 20%) 60%, hsl(220 10% 14%) 100%);
+    box-shadow:
+      0 2px 1px hsl(0 0% 100% / 0.05),
+      0 -2px 1px hsl(0 0% 0% / 0.4),
+      0 4px 10px hsl(220 20% 0% / 0.4);
+    border-color: hsl(220 10% 18%);
+  }
+
+  /* Inset / pressed input field */
+  .skeuo-inset {
+    @apply rounded-xl transition-all duration-200;
+    background: linear-gradient(180deg, hsl(220 14% 88%) 0%, hsl(220 14% 93%) 100%);
+    box-shadow:
+      inset 0 2px 4px hsl(0 0% 0% / 0.08),
+      inset 0 1px 2px hsl(0 0% 0% / 0.05),
+      0 1px 0 hsl(0 0% 100% / 0.7);
+    border: 1px solid hsl(220 14% 85%);
+  }
+
+  .skeuo-inset:focus-within {
+    box-shadow:
+      inset 0 2px 4px hsl(215 80% 55% / 0.12),
+      inset 0 1px 2px hsl(215 80% 55% / 0.08),
+      0 0 0 2px hsl(215 80% 55% / 0.2),
+      0 1px 0 hsl(0 0% 100% / 0.7);
+    border-color: hsl(215 80% 65%);
+  }
+
+  .dark .skeuo-inset {
+    background: linear-gradient(180deg, hsl(220 12% 8%) 0%, hsl(220 12% 12%) 100%);
+    box-shadow:
+      inset 0 2px 4px hsl(0 0% 0% / 0.3),
+      inset 0 1px 2px hsl(0 0% 0% / 0.2),
+      0 1px 0 hsl(0 0% 100% / 0.04);
+    border-color: hsl(220 12% 14%);
+  }
+
+  /* Raised card with plastic feel */
+  .skeuo-card {
+    @apply rounded-2xl;
+    background: linear-gradient(180deg, hsl(220 15% 98%) 0%, hsl(220 14% 94%) 100%);
+    box-shadow:
+      0 2px 1px hsl(0 0% 100% / 0.9),
+      0 -1px 1px hsl(0 0% 0% / 0.06),
+      0 6px 16px hsl(220 20% 0% / 0.08),
+      0 2px 4px hsl(220 20% 0% / 0.04);
+    border: 1px solid hsl(220 14% 90%);
+  }
+
+  .dark .skeuo-card {
+    background: linear-gradient(180deg, hsl(220 12% 14%) 0%, hsl(220 12% 10%) 100%);
+    box-shadow:
+      0 2px 1px hsl(0 0% 100% / 0.04),
+      0 -1px 1px hsl(0 0% 0% / 0.3),
+      0 6px 16px hsl(220 20% 0% / 0.4);
+    border-color: hsl(220 12% 16%);
+  }
+
+  /* Primary action – blue plastic */
+  .skeuo-primary {
+    @apply rounded-2xl font-semibold text-primary-foreground transition-all duration-200;
+    background: linear-gradient(180deg, hsl(215 80% 62%) 0%, hsl(215 80% 48%) 100%);
+    box-shadow:
+      0 2px 1px hsl(215 80% 75% / 0.6),
+      0 -2px 1px hsl(215 80% 30% / 0.2),
+      0 4px 10px hsl(215 80% 30% / 0.25);
+    border: 1px solid hsl(215 80% 45%);
+  }
+
+  .skeuo-primary:hover {
+    background: linear-gradient(180deg, hsl(215 80% 66%) 0%, hsl(215 80% 52%) 100%);
+    box-shadow:
+      0 2px 1px hsl(215 80% 78% / 0.6),
+      0 -2px 1px hsl(215 80% 30% / 0.15),
+      0 6px 14px hsl(215 80% 30% / 0.3);
+  }
+
+  .skeuo-primary:active {
+    background: linear-gradient(180deg, hsl(215 80% 48%) 0%, hsl(215 80% 42%) 100%);
+    box-shadow:
+      inset 0 2px 3px hsl(215 80% 25% / 0.3),
+      0 1px 0 hsl(215 80% 70% / 0.3);
+  }
+
+  .dark .skeuo-primary {
+    background: linear-gradient(180deg, hsl(215 85% 55%) 0%, hsl(215 85% 40%) 100%);
+    box-shadow:
+      0 2px 1px hsl(215 85% 65% / 0.2),
+      0 -2px 1px hsl(215 85% 20% / 0.4),
+      0 4px 10px hsl(220 20% 0% / 0.4);
+    border-color: hsl(215 85% 35%);
+  }
+
+  /* Badge / pill with embossed feel */
+  .skeuo-badge {
+    @apply rounded-full px-3 py-1 text-xs font-medium;
+    background: linear-gradient(180deg, hsl(220 15% 97%) 0%, hsl(220 14% 91%) 100%);
+    box-shadow:
+      0 1px 0 hsl(0 0% 100% / 0.8),
+      0 -1px 0 hsl(0 0% 0% / 0.06),
+      0 2px 4px hsl(220 20% 0% / 0.06);
+    border: 1px solid hsl(220 14% 88%);
+  }
+
+  .dark .skeuo-badge {
+    background: linear-gradient(180deg, hsl(220 12% 20%) 0%, hsl(220 12% 14%) 100%);
+    box-shadow:
+      0 1px 0 hsl(0 0% 100% / 0.04),
+      0 -1px 0 hsl(0 0% 0% / 0.3);
+    border-color: hsl(220 12% 18%);
+  }
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;
