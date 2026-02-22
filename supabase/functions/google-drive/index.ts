@@ -323,6 +323,23 @@ serve(async (req) => {
       });
     }
 
+    if (action === 'upload-portfolio-image') {
+      const { folderPath, fileName, fileBase64, contentType } = body;
+      if (!folderPath || !Array.isArray(folderPath) || !fileName || !fileBase64) {
+        throw new Error('Missing folderPath, fileName, or fileBase64');
+      }
+      const folderId = await ensureFolderPath(accessToken, folderPath, sharedDriveId, sharedDriveId);
+      const result = await uploadFile(accessToken, folderId, fileName, fileBase64, contentType || 'image/png');
+
+      return new Response(JSON.stringify({
+        success: true,
+        fileId: result.id,
+        fileName: result.name,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (action === 'list-folder-files') {
       // List image files from a folder path in shared drive
       const { folderPath } = body;
