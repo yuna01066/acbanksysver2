@@ -220,7 +220,7 @@ const Home = () => {
                   border: '1px solid hsl(220 8% 84%)',
                 }}
               >
-                <h1 className="text-3xl sm:text-[42px] skeuo-engraved tracking-[0.16em] leading-none">ACBANK</h1>
+                <h1 className="text-3xl sm:text-[42px] font-extrabold leading-none" style={{ color: 'hsl(220 12% 12%)' }}>ACBANK</h1>
               </div>
             </div>
             <p className="text-[12px] sm:text-[13px] font-medium tracking-[0.2em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>아크뱅크 내부 관리 시스템</p>
