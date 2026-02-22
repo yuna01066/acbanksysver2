@@ -2522,6 +2522,47 @@ export type Database = {
           },
         ]
       }
+      quote_stage_history: {
+        Row: {
+          changed_by: string
+          changed_by_name: string
+          created_at: string
+          id: string
+          memo: string | null
+          new_stage: string
+          old_stage: string | null
+          quote_id: string
+        }
+        Insert: {
+          changed_by: string
+          changed_by_name: string
+          created_at?: string
+          id?: string
+          memo?: string | null
+          new_stage: string
+          old_stage?: string | null
+          quote_id: string
+        }
+        Update: {
+          changed_by?: string
+          changed_by_name?: string
+          created_at?: string
+          id?: string
+          memo?: string | null
+          new_stage?: string
+          old_stage?: string | null
+          quote_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_stage_history_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_template_items: {
         Row: {
           created_at: string
@@ -2639,6 +2680,47 @@ export type Database = {
           vat_option?: string
         }
         Relationships: []
+      }
+      quote_versions: {
+        Row: {
+          change_summary: string | null
+          changed_by: string
+          changed_by_name: string
+          created_at: string
+          id: string
+          quote_id: string
+          snapshot: Json
+          version_number: number
+        }
+        Insert: {
+          change_summary?: string | null
+          changed_by: string
+          changed_by_name: string
+          created_at?: string
+          id?: string
+          quote_id: string
+          snapshot: Json
+          version_number?: number
+        }
+        Update: {
+          change_summary?: string | null
+          changed_by?: string
+          changed_by_name?: string
+          created_at?: string
+          id?: string
+          quote_id?: string
+          snapshot?: Json
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_versions_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       recipients: {
         Row: {
