@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Clock, LogIn, UserPlus, KeyRound, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import arcbankLogo from '@/assets/arcbank-logo.png';
+import { useTheme } from 'next-themes';
+import { cn } from '@/lib/utils';
 
 const loginSchema = z.object({
   email: z.string().email('올바른 이메일 주소를 입력해주세요.'),
@@ -15,10 +16,19 @@ const loginSchema = z.object({
 const LoginScreen = () => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [pendingApproval, setPendingApproval] = useState(false);
+  const [logoSpinning, setLogoSpinning] = useState(false);
+
+  const handleLogoClick = useCallback(() => {
+    if (logoSpinning) return;
+    setLogoSpinning(true);
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+    setTimeout(() => setLogoSpinning(false), 700);
+  }, [logoSpinning, theme, setTheme]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,17 +89,18 @@ const LoginScreen = () => {
 
         {/* ── Logo: metal embossed style matching dashboard ── */}
         <div className="flex flex-col items-center gap-4">
-          <div className="inline-block rounded-[24px] p-[5px]" style={{ background: 'linear-gradient(180deg, hsl(220 10% 94%) 0%, hsl(220 10% 86%) 100%)', boxShadow: '0 0 12px hsl(220 20% 50% / 0.15), 0 0 4px hsl(220 20% 60% / 0.1)' }}>
+          <div className="inline-block logo-neon-wrap rounded-[24px] p-[5px]" onClick={handleLogoClick}>
             <div
-              className="px-10 py-3 rounded-[20px]"
+              className={cn(
+                "px-10 py-3 rounded-[20px] logo-metal cursor-pointer select-none",
+                logoSpinning && "logo-spin-3d"
+              )}
               style={{
-                background: 'linear-gradient(180deg, hsl(220 10% 96%) 0%, hsl(220 12% 90%) 40%, hsl(220 10% 88%) 100%)',
-                boxShadow: 'inset 0 1px 0 hsl(0 0% 100% / 0.7), inset 0 -1px 0 hsl(0 0% 0% / 0.04), 0 2px 8px hsl(220 20% 0% / 0.08)',
-                border: '1px solid hsl(220 10% 86%)',
+                boxShadow: '0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.1), 0 6px 16px hsl(220 20% 0% / 0.12), inset 0 1px 2px hsl(0 0% 100% / 0.5), inset 0 -1px 2px hsl(0 0% 0% / 0.08)',
               }}
             >
               <h1
-                className="text-[38px] font-black leading-none tracking-[3px]"
+                className="text-[38px] font-black leading-none tracking-[3px] relative"
                 style={{
                   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
                   color: 'transparent',
