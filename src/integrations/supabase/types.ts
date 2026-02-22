@@ -2007,6 +2007,77 @@ export type Database = {
           },
         ]
       }
+      portfolio_images: {
+        Row: {
+          created_at: string
+          display_order: number
+          drive_file_id: string
+          file_name: string
+          id: string
+          image_url: string | null
+          is_main: boolean
+          post_id: string
+          thumbnail_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          drive_file_id: string
+          file_name: string
+          id?: string
+          image_url?: string | null
+          is_main?: boolean
+          post_id: string
+          thumbnail_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          drive_file_id?: string
+          file_name?: string
+          id?: string
+          image_url?: string | null
+          is_main?: boolean
+          post_id?: string
+          thumbnail_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_images_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolio_posts: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       processing_categories: {
         Row: {
           category_key: string
