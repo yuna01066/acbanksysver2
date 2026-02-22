@@ -113,7 +113,7 @@ const ExhibitionManagementPage = () => {
     { key: 'consult-form' as DashboardView, title: '상담폼', description: '고객 상담 기록 및 관리', icon: FileText, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
     { key: 'documents' as DashboardView, title: '자료', description: '박람회 관련 자료 관리', icon: FolderOpen, color: 'text-amber-500', bg: 'bg-amber-500/10' },
     { key: 'portfolio' as DashboardView, title: '포트폴리오', description: '포트폴리오 관리', icon: Presentation, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-    { key: null, title: '준비중', description: '추후 업데이트 예정', icon: LayoutGrid, color: 'text-muted-foreground', bg: 'bg-muted/50', disabled: true },
+    { key: 'exhibitions' as DashboardView, title: '등록된 박람회', description: '박람회 등록 및 상세 관리', icon: Building2, color: 'text-rose-500', bg: 'bg-rose-500/10' },
     { key: null, title: '준비중', description: '추후 업데이트 예정', icon: LayoutGrid, color: 'text-muted-foreground', bg: 'bg-muted/50', disabled: true },
   ];
 
@@ -174,54 +174,54 @@ const ExhibitionManagementPage = () => {
               ))}
             </div>
 
-            {/* Exhibition list below dashboard */}
-            <div className="mt-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">등록된 박람회</h2>
-                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gap-2"><Plus className="h-4 w-4" />박람회 등록</Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader><DialogTitle>새 박람회 등록</DialogTitle></DialogHeader>
-                    <div className="space-y-3">
-                      <div><Label>박람회명 *</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div><Label>시작일 *</Label><Input type="date" value={form.start_date} onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))} /></div>
-                        <div><Label>종료일 *</Label><Input type="date" value={form.end_date} onChange={e => setForm(p => ({ ...p, end_date: e.target.value }))} /></div>
-                      </div>
-                      <div><Label>장소</Label><Input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} /></div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div><Label>부스번호</Label><Input value={form.booth_number} onChange={e => setForm(p => ({ ...p, booth_number: e.target.value }))} /></div>
-                        <div><Label>참가비용</Label><Input type="number" value={form.cost} onChange={e => setForm(p => ({ ...p, cost: e.target.value }))} /></div>
-                      </div>
-                      <div><Label>설명</Label><Textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={2} /></div>
-                      <Button className="w-full" disabled={!form.name || !form.start_date || !form.end_date} onClick={() => createMutation.mutate()}>등록</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {exhibitions.length === 0 && <p className="col-span-full text-center text-muted-foreground py-12">등록된 박람회가 없습니다.</p>}
-                {exhibitions.map((ex: any) => (
-                  <Card key={ex.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedExhibitionId(ex.id)}>
-                    <CardContent className="p-5">
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-semibold text-lg">{ex.name}</h3>
-                        <Badge className={statusColors[ex.status]}>{statusLabels[ex.status]}</Badge>
-                      </div>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{ex.start_date} ~ {ex.end_date}</div>
-                        {ex.location && <div className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{ex.location}</div>}
-                        {ex.booth_number && <div className="flex items-center gap-1"><Building2 className="h-3.5 w-3.5" />부스 {ex.booth_number}</div>}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
+          </>
+        )}
 
-            {/* Exhibition Detail Dialog */}
+        {currentView === 'exhibitions' && (
+          <div>
+            {renderSubPageHeader('등록된 박람회')}
+            <div className="flex items-center justify-end mb-4">
+              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-2"><Plus className="h-4 w-4" />박람회 등록</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader><DialogTitle>새 박람회 등록</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <div><Label>박람회명 *</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><Label>시작일 *</Label><Input type="date" value={form.start_date} onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))} /></div>
+                      <div><Label>종료일 *</Label><Input type="date" value={form.end_date} onChange={e => setForm(p => ({ ...p, end_date: e.target.value }))} /></div>
+                    </div>
+                    <div><Label>장소</Label><Input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} /></div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><Label>부스번호</Label><Input value={form.booth_number} onChange={e => setForm(p => ({ ...p, booth_number: e.target.value }))} /></div>
+                      <div><Label>참가비용</Label><Input type="number" value={form.cost} onChange={e => setForm(p => ({ ...p, cost: e.target.value }))} /></div>
+                    </div>
+                    <div><Label>설명</Label><Textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={2} /></div>
+                    <Button className="w-full" disabled={!form.name || !form.start_date || !form.end_date} onClick={() => createMutation.mutate()}>등록</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {exhibitions.length === 0 && <p className="col-span-full text-center text-muted-foreground py-12">등록된 박람회가 없습니다.</p>}
+              {exhibitions.map((ex: any) => (
+                <Card key={ex.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setSelectedExhibitionId(ex.id); }}>
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-semibold text-lg">{ex.name}</h3>
+                      <Badge className={statusColors[ex.status]}>{statusLabels[ex.status]}</Badge>
+                    </div>
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{ex.start_date} ~ {ex.end_date}</div>
+                      {ex.location && <div className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{ex.location}</div>}
+                      {ex.booth_number && <div className="flex items-center gap-1"><Building2 className="h-3.5 w-3.5" />부스 {ex.booth_number}</div>}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
             {selectedExhibitionId && selectedExhibition && (
               <Dialog open={!!selectedExhibitionId} onOpenChange={(open) => { if (!open) setSelectedExhibitionId(null); }}>
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -236,7 +236,7 @@ const ExhibitionManagementPage = () => {
                 </DialogContent>
               </Dialog>
             )}
-          </>
+          </div>
         )}
 
         {currentView === 'meetings' && renderPlaceholder('현장 미팅 예약')}
