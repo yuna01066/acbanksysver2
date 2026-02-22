@@ -209,7 +209,7 @@ const Home = () => {
   } as const;
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#f8f8fa] dark:bg-[hsl(230,18%,7%)]">
+    <div className="min-h-screen relative overflow-hidden bg-[hsl(220,10%,93%)] dark:bg-[hsl(230,18%,7%)]">
       {/* Light mode fluid gradient background */}
       <div className="absolute inset-0 pointer-events-none dark:hidden" aria-hidden="true">
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full opacity-[0.18]"
@@ -275,7 +275,7 @@ const Home = () => {
                 <h1 className="text-3xl sm:text-[42px] font-black leading-none tracking-[3px] relative" style={{ fontFamily: "'Pretendard Variable', Pretendard, sans-serif", color: 'transparent', background: 'linear-gradient(180deg, hsl(220 8% 38%) 0%, hsl(220 10% 22%) 50%, hsl(220 8% 32%) 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextStroke: '0.5px hsl(0 0% 0% / 0.35)', filter: 'drop-shadow(0 1px 0 hsl(0 0% 100% / 0.4))' }}>ACBANK</h1>
               </div>
             </div>
-            <p className="text-[12px] sm:text-[13px] font-medium tracking-[0.2em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>아크뱅크 내부 관리 시스템</p>
+            <p className="text-[11px] sm:text-[12px] font-medium tracking-[0.22em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>Management System</p>
           </div>
 
           <div className="mb-6 space-y-5">
