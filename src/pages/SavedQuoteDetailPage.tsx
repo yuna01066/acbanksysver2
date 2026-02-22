@@ -440,7 +440,7 @@ const SavedQuoteDetailPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 {/* 견적서 수신 */}
                 <div className="space-y-4">
-                  <h3 className="text-[20px] font-black border-b-2 border-black pb-2 text-black">견적서 수신</h3>
+                  <h3 className="text-[20px] font-bold border-b-2 border-black pb-2 text-gray-900">견적서 수신</h3>
                   
                   {/* 프로젝트 기본 정보 */}
                   <div className="p-5 bg-[hsl(220,12%,97%)] rounded-xl border border-[hsl(220,12%,90%)]">
@@ -471,7 +471,7 @@ const SavedQuoteDetailPage = () => {
 
                 {/* 견적서 발신 */}
                 <div className="space-y-4">
-                  <h3 className="text-[20px] font-black border-b-2 border-black pb-2 text-black">견적서 발신</h3>
+                  <h3 className="text-[20px] font-bold border-b-2 border-black pb-2 text-gray-900">견적서 발신</h3>
                   
                   {/* 회사 기본 정보 */}
                   <div className="p-5 bg-[hsl(220,12%,97%)] rounded-xl border border-[hsl(220,12%,90%)]">
