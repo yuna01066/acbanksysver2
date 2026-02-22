@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Clock, LogIn, UserPlus, KeyRound } from 'lucide-react';
+import { Clock, LogIn, UserPlus, KeyRound, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import arcbankLogo from '@/assets/arcbank-logo.png';
@@ -50,44 +50,101 @@ const LoginScreen = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4"
+    <div
+      className="min-h-screen flex flex-col items-center justify-center px-4"
       style={{
-        background: 'linear-gradient(165deg, hsl(220 14% 93%) 0%, hsl(220 12% 88%) 40%, hsl(220 14% 91%) 70%, hsl(220 12% 86%) 100%)',
+        background: 'linear-gradient(170deg, hsl(220 10% 22%) 0%, hsl(220 12% 16%) 50%, hsl(220 10% 13%) 100%)',
       }}
     >
-      <div className="w-full max-w-sm space-y-8">
-        {/* Logo area – raised metal plate */}
-        <div className="flex flex-col items-center gap-4">
-          <div className="skeuo-metal p-5 rounded-full"
+      <div className="w-full max-w-[360px] space-y-8">
+
+        {/* ── Logo Section ── */}
+        <div className="flex flex-col items-center gap-5">
+          {/* Metallic dial-like logo container */}
+          <div
+            className="relative w-24 h-24 rounded-full flex items-center justify-center"
             style={{
-              boxShadow: '0 4px 2px hsl(0 0% 100% / 0.7), 0 -3px 2px hsl(0 0% 0% / 0.08), 0 8px 20px hsl(220 20% 0% / 0.12)',
+              background: 'linear-gradient(165deg, hsl(220 8% 32%) 0%, hsl(220 10% 22%) 40%, hsl(220 8% 28%) 60%, hsl(220 10% 20%) 100%)',
+              boxShadow: `
+                0 2px 1px hsl(0 0% 100% / 0.08),
+                0 -2px 1px hsl(0 0% 0% / 0.4),
+                0 6px 20px hsl(0 0% 0% / 0.5),
+                inset 0 1px 0 hsl(0 0% 100% / 0.06)
+              `,
+              border: '1px solid hsl(220 10% 26%)',
             }}
           >
-            <img src={arcbankLogo} alt="ACBANK" className="h-14 w-14 object-contain" />
+            {/* Inner ring */}
+            <div
+              className="w-[76px] h-[76px] rounded-full flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(180deg, hsl(220 8% 26%) 0%, hsl(220 10% 18%) 100%)',
+                boxShadow: 'inset 0 2px 4px hsl(0 0% 0% / 0.3), 0 1px 0 hsl(0 0% 100% / 0.05)',
+                border: '1px solid hsl(220 10% 22%)',
+              }}
+            >
+              <img src={arcbankLogo} alt="ACBANK" className="h-10 w-10 object-contain brightness-150" />
+            </div>
           </div>
-          <h1 className="text-3xl skeuo-engraved">ACBANK</h1>
-          <p className="text-xs text-muted-foreground tracking-widest uppercase">Internal Management System</p>
+
+          <div className="text-center space-y-1">
+            <h1
+              className="text-2xl font-extrabold tracking-[0.15em]"
+              style={{
+                color: 'transparent',
+                background: 'linear-gradient(180deg, hsl(220 6% 72%) 0%, hsl(220 8% 56%) 50%, hsl(220 6% 64%) 100%)',
+                WebkitBackgroundClip: 'text',
+                backgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                filter: 'drop-shadow(0 -1px 0 hsl(0 0% 100% / 0.1)) drop-shadow(0 2px 2px hsl(0 0% 0% / 0.4))',
+              }}
+            >
+              ACBANK
+            </h1>
+            <p className="text-[10px] tracking-[0.25em] uppercase" style={{ color: 'hsl(220 8% 48%)' }}>
+              Management System
+            </p>
+          </div>
         </div>
 
-        {/* Login card – plastic raised surface */}
-        <div className="skeuo-card p-6 space-y-5">
+        {/* ── Login Form Area ── */}
+        <div
+          className="rounded-2xl p-5 space-y-5"
+          style={{
+            background: 'linear-gradient(180deg, hsl(220 10% 20%) 0%, hsl(220 12% 16%) 100%)',
+            boxShadow: `
+              0 1px 0 hsl(0 0% 100% / 0.04),
+              0 -1px 0 hsl(0 0% 0% / 0.3),
+              0 8px 24px hsl(0 0% 0% / 0.4),
+              inset 0 1px 0 hsl(0 0% 100% / 0.04)
+            `,
+            border: '1px solid hsl(220 10% 22%)',
+          }}
+        >
           {pendingApproval && (
-            <Alert className="skeuo-inset border-warning/40 bg-warning/5">
+            <Alert className="bg-warning/10 border-warning/30 rounded-xl">
               <Clock className="h-4 w-4 text-warning" />
-              <AlertDescription className="text-warning text-sm">
+              <AlertDescription className="text-warning text-xs">
                 관리자의 승인을 기다리고 있습니다.
               </AlertDescription>
             </Alert>
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
-            {/* Email input – inset field */}
+            {/* Email */}
             <div className="space-y-1.5">
-              <label htmlFor="email" className="text-xs font-semibold text-muted-foreground tracking-wide uppercase pl-1">이메일</label>
-              <div className="skeuo-inset px-4 py-3 flex items-center gap-3">
-                <svg className="w-4 h-4 text-muted-foreground/60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
+              <label className="text-[10px] font-semibold tracking-[0.15em] uppercase pl-1" style={{ color: 'hsl(220 8% 50%)' }}>
+                Email
+              </label>
+              <div
+                className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                style={{
+                  background: 'linear-gradient(180deg, hsl(220 12% 12%) 0%, hsl(220 12% 15%) 100%)',
+                  boxShadow: 'inset 0 2px 4px hsl(0 0% 0% / 0.3), inset 0 1px 2px hsl(0 0% 0% / 0.2), 0 1px 0 hsl(0 0% 100% / 0.04)',
+                  border: '1px solid hsl(220 12% 18%)',
+                }}
+              >
+                <Mail className="w-4 h-4 shrink-0" style={{ color: 'hsl(220 8% 40%)' }} />
                 <input
                   id="email"
                   type="email"
@@ -95,66 +152,111 @@ const LoginScreen = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 outline-none"
+                  className="w-full bg-transparent text-sm outline-none"
+                  style={{ color: 'hsl(220 6% 80%)', caretColor: 'hsl(215 80% 60%)' }}
                 />
               </div>
             </div>
 
-            {/* Password input – inset field */}
+            {/* Password */}
             <div className="space-y-1.5">
-              <label htmlFor="password" className="text-xs font-semibold text-muted-foreground tracking-wide uppercase pl-1">비밀번호</label>
-              <div className="skeuo-inset px-4 py-3 flex items-center gap-3">
-                <KeyRound className="w-4 h-4 text-muted-foreground/60 shrink-0" />
+              <label className="text-[10px] font-semibold tracking-[0.15em] uppercase pl-1" style={{ color: 'hsl(220 8% 50%)' }}>
+                Password
+              </label>
+              <div
+                className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                style={{
+                  background: 'linear-gradient(180deg, hsl(220 12% 12%) 0%, hsl(220 12% 15%) 100%)',
+                  boxShadow: 'inset 0 2px 4px hsl(0 0% 0% / 0.3), inset 0 1px 2px hsl(0 0% 0% / 0.2), 0 1px 0 hsl(0 0% 100% / 0.04)',
+                  border: '1px solid hsl(220 12% 18%)',
+                }}
+              >
+                <KeyRound className="w-4 h-4 shrink-0" style={{ color: 'hsl(220 8% 40%)' }} />
                 <input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 outline-none"
+                  className="w-full bg-transparent text-sm outline-none"
+                  style={{ color: 'hsl(220 6% 80%)', caretColor: 'hsl(215 80% 60%)' }}
                 />
               </div>
             </div>
 
-            {/* Login button – primary plastic */}
+            {/* Login button – convex metal pill */}
             <button
               type="submit"
               disabled={loading}
-              className="skeuo-primary w-full py-3 px-6 flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:pointer-events-none"
+              className="w-full py-3.5 rounded-2xl flex items-center justify-center gap-2 text-sm font-semibold transition-all duration-200 disabled:opacity-40"
+              style={{
+                background: 'linear-gradient(180deg, hsl(220 8% 38%) 0%, hsl(220 10% 26%) 100%)',
+                color: 'hsl(220 6% 82%)',
+                boxShadow: `
+                  0 2px 1px hsl(0 0% 100% / 0.08),
+                  0 -2px 1px hsl(0 0% 0% / 0.3),
+                  0 4px 12px hsl(0 0% 0% / 0.35)
+                `,
+                border: '1px solid hsl(220 10% 30%)',
+              }}
             >
               <LogIn className="w-4 h-4" />
               {loading ? '로그인 중...' : '로그인'}
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, hsl(220 14% 80%), transparent)' }} />
-          </div>
+          {/* Separator – subtle groove */}
+          <div
+            className="h-px mx-4"
+            style={{
+              background: 'linear-gradient(90deg, transparent, hsl(0 0% 0% / 0.4), transparent)',
+              boxShadow: '0 1px 0 hsl(0 0% 100% / 0.04)',
+            }}
+          />
 
-          {/* Bottom actions – plastic pill buttons */}
-          <div className="flex gap-3">
+          {/* Bottom actions – small circular controls */}
+          <div className="flex items-center justify-center gap-6">
             <button
               type="button"
               onClick={() => navigate('/forgot-password')}
-              className="skeuo-plastic flex-1 py-2.5 px-4 text-xs font-medium text-muted-foreground hover:text-foreground flex items-center justify-center gap-1.5"
+              className="flex flex-col items-center gap-1.5 group"
             >
-              <KeyRound className="w-3.5 h-3.5" />
-              비밀번호 찾기
+              <div
+                className="w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 group-hover:scale-105"
+                style={{
+                  background: 'linear-gradient(165deg, hsl(220 8% 32%) 0%, hsl(220 10% 22%) 50%, hsl(220 8% 26%) 100%)',
+                  boxShadow: '0 2px 1px hsl(0 0% 100% / 0.06), 0 -1px 1px hsl(0 0% 0% / 0.3), 0 4px 8px hsl(0 0% 0% / 0.3)',
+                  border: '1px solid hsl(220 10% 26%)',
+                }}
+              >
+                <KeyRound className="w-4 h-4" style={{ color: 'hsl(220 8% 58%)' }} />
+              </div>
+              <span className="text-[9px] font-medium" style={{ color: 'hsl(220 8% 48%)' }}>비밀번호 찾기</span>
             </button>
+
             <button
               type="button"
               onClick={() => navigate('/auth')}
-              className="skeuo-plastic flex-1 py-2.5 px-4 text-xs font-medium text-muted-foreground hover:text-foreground flex items-center justify-center gap-1.5"
+              className="flex flex-col items-center gap-1.5 group"
             >
-              <UserPlus className="w-3.5 h-3.5" />
-              회원가입
+              <div
+                className="w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 group-hover:scale-105"
+                style={{
+                  background: 'linear-gradient(165deg, hsl(220 8% 32%) 0%, hsl(220 10% 22%) 50%, hsl(220 8% 26%) 100%)',
+                  boxShadow: '0 2px 1px hsl(0 0% 100% / 0.06), 0 -1px 1px hsl(0 0% 0% / 0.3), 0 4px 8px hsl(0 0% 0% / 0.3)',
+                  border: '1px solid hsl(220 10% 26%)',
+                }}
+              >
+                <UserPlus className="w-4 h-4" style={{ color: 'hsl(220 8% 58%)' }} />
+              </div>
+              <span className="text-[9px] font-medium" style={{ color: 'hsl(220 8% 48%)' }}>회원가입</span>
             </button>
           </div>
         </div>
 
-        <p className="text-[10px] text-center text-muted-foreground/60 tracking-wider">
-          © 2025 ACBANK. All rights reserved.
+        {/* Footer */}
+        <p className="text-[9px] text-center tracking-[0.2em]" style={{ color: 'hsl(220 8% 35%)' }}>
+          © 2025 ACBANK. ALL RIGHTS RESERVED.
         </p>
       </div>
     </div>
