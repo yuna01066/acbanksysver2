@@ -3,12 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Building2, CalendarDays, FileSignature, Calendar, Shield } from 'lucide-react';
+import { ArrowLeft, Building2, CalendarDays, FileSignature, Calendar, Shield, FileText } from 'lucide-react';
 import CompanyInfoForm from '@/components/company/CompanyInfoForm';
 import CompanyHolidayManager from '@/components/company/CompanyHolidayManager';
 import ContractTemplateSettings from '@/components/contract/ContractTemplateSettings';
 import LeavePolicySettings from '@/components/leave/LeavePolicySettings';
 import FeatureAccessManager from '@/components/company/FeatureAccessManager';
+import QuoteDefaultTextSettings from '@/components/company/QuoteDefaultTextSettings';
 
 const CompanySettingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -49,6 +50,9 @@ const CompanySettingsPage: React.FC = () => {
             <TabsTrigger value="leave" className="gap-1.5">
               <Calendar className="h-4 w-4" /> 연차 설정
             </TabsTrigger>
+            <TabsTrigger value="quote-text" className="gap-1.5">
+              <FileText className="h-4 w-4" /> 견적서 설정
+            </TabsTrigger>
             {isAdmin && (
               <TabsTrigger value="access" className="gap-1.5">
                 <Shield className="h-4 w-4" /> 접근 권한
@@ -66,6 +70,9 @@ const CompanySettingsPage: React.FC = () => {
           </TabsContent>
           <TabsContent value="leave">
             <LeavePolicySettings />
+          </TabsContent>
+          <TabsContent value="quote-text">
+            <QuoteDefaultTextSettings />
           </TabsContent>
           {isAdmin && (
             <TabsContent value="access">
