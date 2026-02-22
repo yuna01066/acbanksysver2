@@ -515,7 +515,7 @@ const PortfolioGallery = () => {
 
       {/* Detail Lightbox */}
       <Dialog open={!!selectedPost} onOpenChange={open => { if (!open) setSelectedPost(null); }}>
-        <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh] p-0 overflow-hidden bg-background flex flex-col">
+        <DialogContent className="max-w-7xl w-[90vw] max-h-[90vh] p-0 overflow-hidden bg-background flex flex-col">
           {selectedPost && (
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between p-4 border-b">
