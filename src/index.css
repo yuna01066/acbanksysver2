@@ -718,6 +718,7 @@
 
 .dark .logo-metal {
   border: none !important;
+  background: conic-gradient(from var(--logo-angle), hsl(220 6% 22%) 0%, hsl(220 8% 30%) 15%, hsl(220 6% 18%) 30%, hsl(220 8% 28%) 45%, hsl(220 6% 16%) 55%, hsl(220 8% 32%) 70%, hsl(220 6% 20%) 85%, hsl(220 6% 22%) 100%);
 }
 
 .logo-neon-wrap {
