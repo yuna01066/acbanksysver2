@@ -110,7 +110,7 @@ const ExhibitionManagementPage = () => {
   }
 
   const dashboardCards = [
-    { key: 'meetings' as DashboardView, title: '현장 미팅 예약', description: '박람회 현장 미팅 일정 관리', icon: CalendarCheck, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+    { key: 'meetings' as DashboardView, title: '현장 미팅 예약', description: '박람회 현장 미팅 일정 관리', icon: CalendarCheck, color: 'text-blue-500', bg: 'bg-blue-500/10', externalLink: 'https://preview--meeting-minute-maker-29.lovable.app/' },
     { key: 'consult-form' as DashboardView, title: '상담폼', description: '고객 상담 기록 및 관리', icon: FileText, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
     { key: 'documents' as DashboardView, title: '자료', description: '박람회 관련 자료 관리', icon: FolderOpen, color: 'text-amber-500', bg: 'bg-amber-500/10' },
     { key: 'portfolio' as DashboardView, title: '포트폴리오', description: '포트폴리오 관리', icon: Presentation, color: 'text-purple-500', bg: 'bg-purple-500/10' },
@@ -162,7 +162,14 @@ const ExhibitionManagementPage = () => {
                 <Card
                   key={i}
                   className={`cursor-pointer group transition-all hover:shadow-md ${card.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  onClick={() => { if (!card.disabled && card.key) setCurrentView(card.key); }}
+                  onClick={() => {
+                    if (card.disabled) return;
+                    if ('externalLink' in card && card.externalLink) {
+                      window.open(card.externalLink, '_blank');
+                    } else if (card.key) {
+                      setCurrentView(card.key);
+                    }
+                  }}
                 >
                   <CardContent className="p-6 text-center">
                     <div className={`w-12 h-12 rounded-xl ${card.bg} flex items-center justify-center mx-auto mb-3 transition-transform group-hover:scale-110`}>
