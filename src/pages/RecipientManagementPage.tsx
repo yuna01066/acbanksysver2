@@ -6,10 +6,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRecipients, Recipient } from '@/hooks/useRecipients';
 import { RecipientEditDialog } from '@/components/RecipientEditDialog';
 import { RecipientDocumentUpload } from '@/components/RecipientDocumentUpload';
+import CrmDashboardSummary from '@/components/recipient/CrmDashboardSummary';
+import RecipientTimeline from '@/components/recipient/RecipientTimeline';
+import RecipientNotesPanel from '@/components/recipient/RecipientNotesPanel';
+import RecipientSalesStats from '@/components/recipient/RecipientSalesStats';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -232,7 +237,10 @@ const RecipientManagementPage = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* CRM Dashboard Summary */}
+        <CrmDashboardSummary />
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
           {/* Left: Recipient List */}
           <div className="lg:col-span-1 space-y-4">
             <Card>
@@ -430,71 +438,23 @@ const RecipientManagementPage = () => {
                   }}
                 />
 
-                {/* Quote History */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <FileText className="w-5 h-5" />
-                      견적 히스토리
-                      <Badge variant="secondary" className="ml-2">{quoteHistory.length}건</Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {historyLoading ? (
-                      <div className="p-8 text-center text-muted-foreground">로딩 중...</div>
-                    ) : quoteHistory.length === 0 ? (
-                      <div className="p-8 text-center text-muted-foreground">
-                        이 고객사의 견적 내역이 없습니다.
-                      </div>
-                    ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>견적번호</TableHead>
-                            <TableHead>프로젝트명</TableHead>
-                            <TableHead>견적일</TableHead>
-                            <TableHead>단계</TableHead>
-                            <TableHead className="text-right">금액</TableHead>
-                            <TableHead className="w-10"></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {quoteHistory.map((q) => {
-                            const stageInfo = getStageInfo(q.project_stage);
-                            return (
-                              <TableRow
-                                key={q.id}
-                                className="cursor-pointer hover:bg-muted/50"
-                                onClick={() => navigate(`/saved-quotes/${q.id}`)}
-                              >
-                                <TableCell className="font-medium">{q.quote_number}</TableCell>
-                                <TableCell className="truncate max-w-[200px]">
-                                  {q.project_name || '-'}
-                                </TableCell>
-                                <TableCell>
-                                  {new Date(q.quote_date).toLocaleDateString('ko-KR', {
-                                    year: 'numeric', month: 'short', day: 'numeric',
-                                  })}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant="outline" className={`text-xs ${stageInfo.color}`}>
-                                    {stageInfo.label}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right font-semibold">
-                                  {formatPrice(q.total)}
-                                </TableCell>
-                                <TableCell>
-                                  <Eye className="w-4 h-4 text-muted-foreground" />
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    )}
-                  </CardContent>
-                </Card>
+                {/* Tabbed CRM View */}
+                <Tabs defaultValue="timeline" className="w-full">
+                  <TabsList className="w-full grid grid-cols-3">
+                    <TabsTrigger value="timeline">거래 이력</TabsTrigger>
+                    <TabsTrigger value="notes">상담일지</TabsTrigger>
+                    <TabsTrigger value="stats">매출 통계</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="timeline" className="mt-4">
+                    <RecipientTimeline recipientId={selectedRecipient.id} companyName={selectedRecipient.company_name} />
+                  </TabsContent>
+                  <TabsContent value="notes" className="mt-4">
+                    <RecipientNotesPanel recipientId={selectedRecipient.id} />
+                  </TabsContent>
+                  <TabsContent value="stats" className="mt-4">
+                    <RecipientSalesStats companyName={selectedRecipient.company_name} />
+                  </TabsContent>
+                </Tabs>
               </>
             ) : unregisteredCompany ? (
               <>
