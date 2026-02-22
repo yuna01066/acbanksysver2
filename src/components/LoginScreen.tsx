@@ -100,7 +100,7 @@ const LoginScreen = () => {
           </div>
 
           <div className="text-center space-y-1.5">
-            <h1 className="text-[28px] font-extrabold tracking-tight skeuo-engraved leading-none">ACBANK</h1>
+            <h1 className="text-[34px] font-extrabold tracking-[0.18em] skeuo-engraved leading-none">ACBANK</h1>
             <p className="text-[11px] font-medium tracking-[0.22em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>
               Management System
             </p>
