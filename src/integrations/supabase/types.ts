@@ -2055,24 +2055,24 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
-          description: string | null
           id: string
+          keywords: string[] | null
           title: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           created_by: string
-          description?: string | null
           id?: string
+          keywords?: string[] | null
           title: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           created_by?: string
-          description?: string | null
           id?: string
+          keywords?: string[] | null
           title?: string
           updated_at?: string
         }

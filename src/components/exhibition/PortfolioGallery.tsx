@@ -1,24 +1,23 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
   Upload, Trash2, Image as ImageIcon, Loader2, Plus,
-  ChevronLeft, ChevronRight, Search, RefreshCw, Eye
+  ChevronLeft, ChevronRight, Search, RefreshCw, Eye, X, Hash, Clock, TrendingUp
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface PortfolioPost {
   id: string;
   title: string;
-  description: string | null;
+  keywords: string[];
   created_by: string;
   created_at: string;
   images: PortfolioImage[];
@@ -36,6 +35,20 @@ interface PortfolioImage {
 }
 
 const PORTFOLIO_FOLDER = ['포트폴리오'];
+const RECENT_KEYWORDS_KEY = 'portfolio-recent-keywords';
+const MAX_RECENT = 10;
+
+function getRecentKeywords(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_KEYWORDS_KEY) || '[]');
+  } catch { return []; }
+}
+
+function saveRecentKeyword(keyword: string) {
+  const recent = getRecentKeywords().filter(k => k !== keyword);
+  recent.unshift(keyword);
+  localStorage.setItem(RECENT_KEYWORDS_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)));
+}
 
 const PortfolioGallery = () => {
   const qc = useQueryClient();
@@ -46,10 +59,13 @@ const PortfolioGallery = () => {
   const [selectedPost, setSelectedPost] = useState<PortfolioPost | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeKeywordFilter, setActiveKeywordFilter] = useState<string | null>(null);
+  const [showKeywordSuggestions, setShowKeywordSuggestions] = useState(false);
 
   // Create form state
   const [newTitle, setNewTitle] = useState('');
-  const [newDescription, setNewDescription] = useState('');
+  const [newKeywords, setNewKeywords] = useState<string[]>([]);
+  const [keywordInput, setKeywordInput] = useState('');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [creating, setCreating] = useState(false);
 
@@ -71,19 +87,47 @@ const PortfolioGallery = () => {
 
       return (postsData || []).map((post: any) => ({
         ...post,
+        keywords: post.keywords || [],
         images: (imagesData || []).filter((img: any) => img.post_id === post.id),
       })) as PortfolioPost[];
     },
   });
 
+  // Compute popular keywords (sorted by frequency)
+  const popularKeywords = useMemo(() => {
+    const freq: Record<string, number> = {};
+    posts.forEach(p => p.keywords.forEach(k => { freq[k] = (freq[k] || 0) + 1; }));
+    return Object.entries(freq).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  }, [posts]);
+
+  const recentKeywords = useMemo(() => getRecentKeywords(), [activeKeywordFilter, searchQuery]);
+
+  // Keyword input handling
+  const addKeyword = (keyword: string) => {
+    const cleaned = keyword.trim().replace(/^#/, '');
+    if (!cleaned) return;
+    if (!newKeywords.includes(cleaned)) {
+      setNewKeywords(prev => [...prev, cleaned]);
+    }
+    setKeywordInput('');
+  };
+
+  const handleKeywordKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addKeyword(keywordInput);
+    }
+  };
+
+  const removeKeyword = (keyword: string) => {
+    setNewKeywords(prev => prev.filter(k => k !== keyword));
+  };
+
   const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
     const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
-    if (imageFiles.length === 0) {
-      toast.error('이미지 파일만 업로드 가능합니다.');
-      return;
-    }
+    if (imageFiles.length === 0) { toast.error('이미지 파일만 업로드 가능합니다.'); return; }
     setPendingFiles(prev => [...prev, ...imageFiles]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -93,30 +137,22 @@ const PortfolioGallery = () => {
   };
 
   const handleCreate = useCallback(async () => {
-    if (!newTitle.trim()) {
-      toast.error('제목을 입력해주세요.');
-      return;
-    }
-    if (pendingFiles.length === 0) {
-      toast.error('이미지를 최소 1개 추가해주세요.');
-      return;
-    }
+    if (!newTitle.trim()) { toast.error('제목을 입력해주세요.'); return; }
+    if (pendingFiles.length === 0) { toast.error('이미지를 최소 1개 추가해주세요.'); return; }
 
     setCreating(true);
     try {
-      // 1. Create post
       const { data: post, error: postError } = await supabase
         .from('portfolio_posts')
         .insert({
           title: newTitle.trim(),
-          description: newDescription.trim() || null,
+          keywords: newKeywords,
           created_by: user?.email || 'unknown',
         })
         .select()
         .single();
       if (postError) throw postError;
 
-      // 2. Upload each file to Google Drive and save image records
       for (let i = 0; i < pendingFiles.length; i++) {
         const file = pendingFiles[i];
         const { data: initData, error: initError } = await supabase.functions.invoke('google-drive', {
@@ -153,7 +189,7 @@ const PortfolioGallery = () => {
       toast.success('포트폴리오가 등록되었습니다.');
       setShowCreateDialog(false);
       setNewTitle('');
-      setNewDescription('');
+      setNewKeywords([]);
       setPendingFiles([]);
       qc.invalidateQueries({ queryKey: ['portfolio-posts'] });
     } catch (err: any) {
@@ -161,7 +197,7 @@ const PortfolioGallery = () => {
     } finally {
       setCreating(false);
     }
-  }, [newTitle, newDescription, pendingFiles, user, qc]);
+  }, [newTitle, newKeywords, pendingFiles, user, qc]);
 
   const deleteMutation = useMutation({
     mutationFn: async (postId: string) => {
@@ -184,13 +220,39 @@ const PortfolioGallery = () => {
     onError: () => toast.error('삭제 실패'),
   });
 
-  const filteredPosts = searchQuery
-    ? posts.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()))
-    : posts;
+  // Filter posts by keyword or search
+  const filteredPosts = useMemo(() => {
+    let result = posts;
+    if (activeKeywordFilter) {
+      result = result.filter(p => p.keywords.includes(activeKeywordFilter));
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(p =>
+        p.title.toLowerCase().includes(q) ||
+        p.keywords.some(k => k.toLowerCase().includes(q))
+      );
+    }
+    return result;
+  }, [posts, activeKeywordFilter, searchQuery]);
 
-  const getMainImage = (post: PortfolioPost) => {
-    return post.images.find(i => i.is_main) || post.images[0];
+  const handleKeywordFilterClick = (keyword: string) => {
+    saveRecentKeyword(keyword);
+    if (activeKeywordFilter === keyword) {
+      setActiveKeywordFilter(null);
+    } else {
+      setActiveKeywordFilter(keyword);
+    }
   };
+
+  const getMainImage = (post: PortfolioPost) => post.images.find(i => i.is_main) || post.images[0];
+
+  // Suggestions for keyword input in create form
+  const keywordSuggestions = useMemo(() => {
+    if (!keywordInput.trim()) return [];
+    const q = keywordInput.toLowerCase().replace(/^#/, '');
+    return popularKeywords.filter(k => k.toLowerCase().includes(q) && !newKeywords.includes(k)).slice(0, 5);
+  }, [keywordInput, popularKeywords, newKeywords]);
 
   return (
     <div className="space-y-4">
@@ -199,9 +261,57 @@ const PortfolioGallery = () => {
         <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
           <div className="relative flex-1 sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="포트폴리오 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" />
+            <Input
+              placeholder="제목 또는 키워드 검색..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onFocus={() => setShowKeywordSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowKeywordSuggestions(false), 200)}
+              className="pl-9"
+            />
+            {/* Search suggestions dropdown */}
+            {showKeywordSuggestions && !searchQuery && (recentKeywords.length > 0 || popularKeywords.length > 0) && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-lg shadow-lg z-50 p-2 space-y-2">
+                {recentKeywords.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 px-1 mb-1">
+                      <Clock className="h-3 w-3" /> 최근 검색
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {recentKeywords.slice(0, 6).map(k => (
+                        <button
+                          key={k}
+                          className="text-xs px-2 py-1 rounded-full bg-muted hover:bg-accent transition-colors"
+                          onMouseDown={() => { handleKeywordFilterClick(k); setShowKeywordSuggestions(false); }}
+                        >
+                          #{k}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {popularKeywords.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 px-1 mb-1">
+                      <TrendingUp className="h-3 w-3" /> 자주 사용
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {popularKeywords.slice(0, 8).map(k => (
+                        <button
+                          key={k}
+                          className="text-xs px-2 py-1 rounded-full bg-muted hover:bg-accent transition-colors"
+                          onMouseDown={() => { handleKeywordFilterClick(k); setShowKeywordSuggestions(false); }}
+                        >
+                          #{k}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <Badge variant="secondary" className="shrink-0">{posts.length}개</Badge>
+          <Badge variant="secondary" className="shrink-0">{filteredPosts.length}개</Badge>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
@@ -215,6 +325,32 @@ const PortfolioGallery = () => {
         </div>
       </div>
 
+      {/* Active keyword filter + popular keywords */}
+      {(activeKeywordFilter || popularKeywords.length > 0) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Hash className="h-4 w-4 text-muted-foreground shrink-0" />
+          {activeKeywordFilter && (
+            <Badge
+              className="cursor-pointer gap-1"
+              onClick={() => setActiveKeywordFilter(null)}
+            >
+              #{activeKeywordFilter}
+              <X className="h-3 w-3" />
+            </Badge>
+          )}
+          {popularKeywords.filter(k => k !== activeKeywordFilter).slice(0, 10).map(k => (
+            <Badge
+              key={k}
+              variant="outline"
+              className="cursor-pointer hover:bg-accent transition-colors"
+              onClick={() => handleKeywordFilterClick(k)}
+            >
+              #{k}
+            </Badge>
+          ))}
+        </div>
+      )}
+
       {/* Post Grid */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
@@ -225,9 +361,9 @@ const PortfolioGallery = () => {
           <CardContent className="py-16 text-center">
             <ImageIcon className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
             <p className="text-muted-foreground font-medium">
-              {searchQuery ? '검색 결과가 없습니다.' : '등록된 포트폴리오가 없습니다.'}
+              {searchQuery || activeKeywordFilter ? '검색 결과가 없습니다.' : '등록된 포트폴리오가 없습니다.'}
             </p>
-            {!searchQuery && (
+            {!searchQuery && !activeKeywordFilter && (
               <Button variant="outline" className="mt-4" onClick={() => setShowCreateDialog(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 첫 포트폴리오 등록
@@ -247,28 +383,26 @@ const PortfolioGallery = () => {
               >
                 <div className="aspect-square bg-muted/30">
                   {mainImg ? (
-                    <img
-                      src={mainImg.thumbnail_url || mainImg.image_url || ''}
-                      alt={post.title}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
+                    <img src={mainImg.thumbnail_url || mainImg.image_url || ''} alt={post.title} className="w-full h-full object-cover" loading="lazy" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <ImageIcon className="h-8 w-8 text-muted-foreground/40" />
-                    </div>
+                    <div className="w-full h-full flex items-center justify-center"><ImageIcon className="h-8 w-8 text-muted-foreground/40" /></div>
                   )}
                 </div>
-                {/* Overlay */}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                   <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
-                {/* Info */}
                 <div className="p-3">
                   <p className="font-medium text-sm truncate">{post.title}</p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <ImageIcon className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">{post.images.length}장</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                      <ImageIcon className="h-3 w-3" />{post.images.length}
+                    </span>
+                    {post.keywords.length > 0 && (
+                      <span className="text-xs text-muted-foreground truncate">
+                        {post.keywords.slice(0, 2).map(k => `#${k}`).join(' ')}
+                        {post.keywords.length > 2 && ` +${post.keywords.length - 2}`}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -289,8 +423,56 @@ const PortfolioGallery = () => {
               <Input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="포트폴리오 제목" />
             </div>
             <div>
-              <Label>설명</Label>
-              <Textarea value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="간단한 설명 (선택)" rows={2} />
+              <Label>키워드</Label>
+              <p className="text-xs text-muted-foreground mb-2">Enter 또는 콤마(,)로 키워드를 추가하세요</p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {newKeywords.map(k => (
+                  <Badge key={k} variant="secondary" className="gap-1 cursor-pointer" onClick={() => removeKeyword(k)}>
+                    #{k}
+                    <X className="h-3 w-3" />
+                  </Badge>
+                ))}
+              </div>
+              <div className="relative">
+                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={keywordInput}
+                  onChange={e => setKeywordInput(e.target.value)}
+                  onKeyDown={handleKeywordKeyDown}
+                  placeholder="키워드 입력"
+                  className="pl-9"
+                />
+                {keywordSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-lg shadow-lg z-50 p-1">
+                    {keywordSuggestions.map(k => (
+                      <button
+                        key={k}
+                        className="w-full text-left text-sm px-3 py-1.5 rounded hover:bg-accent transition-colors"
+                        onClick={() => addKeyword(k)}
+                      >
+                        #{k}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Popular keyword chips for quick add */}
+              {popularKeywords.length > 0 && newKeywords.length === 0 && !keywordInput && (
+                <div className="mt-2">
+                  <p className="text-xs text-muted-foreground mb-1">자주 사용하는 키워드:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {popularKeywords.slice(0, 6).map(k => (
+                      <button
+                        key={k}
+                        className="text-xs px-2 py-1 rounded-full bg-muted hover:bg-accent transition-colors"
+                        onClick={() => addKeyword(k)}
+                      >
+                        #{k}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <Label>이미지 ({pendingFiles.length}개) *</Label>
@@ -299,11 +481,9 @@ const PortfolioGallery = () => {
                 {pendingFiles.map((file, i) => (
                   <div key={i} className="relative aspect-square rounded-lg overflow-hidden border bg-muted/30">
                     <img src={URL.createObjectURL(file)} alt="" className="w-full h-full object-cover" />
-                    {i === 0 && (
-                      <Badge className="absolute top-1 left-1 text-[10px] px-1 py-0">대표</Badge>
-                    )}
+                    {i === 0 && <Badge className="absolute top-1 left-1 text-[10px] px-1 py-0">대표</Badge>}
                     <button
-                      className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 text-white hover:bg-red-500 transition-colors"
+                      className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 text-white hover:bg-destructive transition-colors"
                       onClick={() => removePendingFile(i)}
                     >
                       <Trash2 className="h-3 w-3" />
@@ -335,32 +515,30 @@ const PortfolioGallery = () => {
         <DialogContent className="max-w-4xl p-0 overflow-hidden bg-background">
           {selectedPost && (
             <div>
-              {/* Header */}
               <div className="flex items-center justify-between p-4 border-b">
                 <div>
                   <h3 className="font-semibold text-lg">{selectedPost.title}</h3>
-                  {selectedPost.description && (
-                    <p className="text-sm text-muted-foreground mt-0.5">{selectedPost.description}</p>
+                  {selectedPost.keywords.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {selectedPost.keywords.map(k => (
+                        <Badge key={k} variant="outline" className="text-xs cursor-pointer" onClick={() => {
+                          handleKeywordFilterClick(k);
+                          setSelectedPost(null);
+                        }}>#{k}</Badge>
+                      ))}
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary">{currentImageIndex + 1} / {selectedPost.images.length}</Badge>
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => {
-                      if (confirm('이 포트폴리오를 삭제하시겠습니까?')) {
-                        deleteMutation.mutate(selectedPost.id);
-                      }
-                    }}
+                    variant="ghost" size="sm" className="text-destructive hover:text-destructive"
+                    onClick={() => { if (confirm('이 포트폴리오를 삭제하시겠습니까?')) deleteMutation.mutate(selectedPost.id); }}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-
-              {/* Image viewer */}
               <div className="relative flex items-center justify-center bg-muted/20" style={{ minHeight: '60vh' }}>
                 {selectedPost.images.length > 0 && (
                   <img
@@ -386,8 +564,6 @@ const PortfolioGallery = () => {
                   </>
                 )}
               </div>
-
-              {/* Thumbnail strip */}
               {selectedPost.images.length > 1 && (
                 <div className="flex gap-2 p-3 overflow-x-auto border-t">
                   {selectedPost.images.map((img, i) => (
