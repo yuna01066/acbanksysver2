@@ -18,7 +18,7 @@ export default {
 			}
 		},
 		fontFamily: {
-			sans: ['Apple SD Gothic Neo', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'Pretendard Variable', 'Pretendard', 'Helvetica Neue', 'Noto Sans KR', 'Malgun Gothic', 'sans-serif'],
+			sans: ['Pretendard Variable', 'Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'Helvetica Neue', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'sans-serif'],
 		},
 		extend: {
 			colors: {
