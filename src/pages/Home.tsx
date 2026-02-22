@@ -175,9 +175,9 @@ const Home = () => {
   } as const;
 
   return (
-    <div className="min-h-screen relative overflow-hidden" style={{ background: '#f8f8fa' }}>
-      {/* Fluid gradient background */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+    <div className="min-h-screen relative overflow-hidden bg-[#f8f8fa] dark:bg-[hsl(230,18%,7%)]">
+      {/* Light mode fluid gradient background */}
+      <div className="absolute inset-0 pointer-events-none dark:hidden" aria-hidden="true">
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full opacity-[0.18]"
           style={{ background: 'radial-gradient(circle, hsl(300 40% 85%) 0%, transparent 70%)', filter: 'blur(80px)' }} />
         <div className="absolute top-[10%] right-[-15%] w-[55%] h-[55%] rounded-full opacity-[0.15]"
@@ -186,6 +186,15 @@ const Home = () => {
           style={{ background: 'radial-gradient(circle, hsl(220 55% 82%) 0%, transparent 70%)', filter: 'blur(80px)' }} />
         <div className="absolute top-[50%] left-[50%] w-[40%] h-[40%] rounded-full opacity-[0.10] -translate-x-1/2 -translate-y-1/2"
           style={{ background: 'radial-gradient(circle, hsl(280 45% 80%) 0%, transparent 70%)', filter: 'blur(70px)' }} />
+      </div>
+      {/* Dark mode ambient glow background – subtle, premium */}
+      <div className="absolute inset-0 pointer-events-none hidden dark:block" aria-hidden="true">
+        <div className="absolute top-[-15%] left-[-5%] w-[50%] h-[50%] rounded-full opacity-[0.12]"
+          style={{ background: 'radial-gradient(circle, hsl(280 60% 35%) 0%, transparent 70%)', filter: 'blur(100px)' }} />
+        <div className="absolute top-[5%] right-[-10%] w-[45%] h-[50%] rounded-full opacity-[0.10]"
+          style={{ background: 'radial-gradient(circle, hsl(250 55% 40%) 0%, transparent 70%)', filter: 'blur(100px)' }} />
+        <div className="absolute bottom-[-5%] left-[25%] w-[40%] h-[40%] rounded-full opacity-[0.08]"
+          style={{ background: 'radial-gradient(circle, hsl(215 60% 35%) 0%, transparent 70%)', filter: 'blur(90px)' }} />
       </div>
       <div className="container mx-auto px-3 sm:px-4 py-8 sm:py-16">
         <div className="max-w-6xl mx-auto">
