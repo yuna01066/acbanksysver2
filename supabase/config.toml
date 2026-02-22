@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.auto-expire-quotes]
 verify_jwt = false
+
+[functions.overtime-detection]
+verify_jwt = false

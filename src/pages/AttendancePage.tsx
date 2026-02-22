@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ArrowLeft, Clock, LogIn, LogOut, MapPin, CalendarDays, Plus, Loader2, Check, X, BarChart3, Pencil, CalendarRange, Search, LayoutDashboard } from 'lucide-react';
+import { ArrowLeft, Clock, LogIn, LogOut, MapPin, CalendarDays, Plus, Loader2, Check, X, BarChart3, Pencil, CalendarRange, Search, LayoutDashboard, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -24,6 +24,9 @@ import AttendanceEditDialog from '@/components/attendance/AttendanceEditDialog';
 import AttendanceCalendarView from '@/components/attendance/AttendanceCalendarView';
 import ScrollTimePicker from '@/components/ui/scroll-time-picker';
 import AttendanceDashboard from '@/components/attendance/AttendanceDashboard';
+import OvertimeDetectionPanel from '@/components/attendance/OvertimeDetectionPanel';
+import MonthlyAttendanceReport from '@/components/attendance/MonthlyAttendanceReport';
+import DepartmentWorkPatternAnalysis from '@/components/attendance/DepartmentWorkPatternAnalysis';
 
 const LEAVE_TYPES = [
   { value: 'annual', label: '연차' },
@@ -429,17 +432,42 @@ const AttendancePage = () => {
         )}
 
         <Tabs defaultValue={((isAdmin || isModerator) && adminTab === 'all') ? 'dashboard' : 'attendance'}>
-          <TabsList className="mb-4">
+          <TabsList className="mb-4 flex-wrap">
             {(isAdmin || isModerator) && adminTab === 'all' && (
               <TabsTrigger value="dashboard"><LayoutDashboard className="w-4 h-4 mr-1" />근태 대시보드</TabsTrigger>
             )}
             <TabsTrigger value="attendance"><Clock className="w-4 h-4 mr-1" />출퇴근 기록</TabsTrigger>
             <TabsTrigger value="leave"><CalendarDays className="w-4 h-4 mr-1" />휴가 관리</TabsTrigger>
+            {(isAdmin || isModerator) && adminTab === 'all' && (
+              <>
+                <TabsTrigger value="overtime"><AlertTriangle className="w-4 h-4 mr-1" />초과근무 감지</TabsTrigger>
+                <TabsTrigger value="monthly-report"><BarChart3 className="w-4 h-4 mr-1" />월별 리포트</TabsTrigger>
+                <TabsTrigger value="dept-analysis"><BarChart3 className="w-4 h-4 mr-1" />부서 분석</TabsTrigger>
+              </>
+            )}
           </TabsList>
 
           {(isAdmin || isModerator) && adminTab === 'all' && (
             <TabsContent value="dashboard">
               <AttendanceDashboard />
+            </TabsContent>
+          )}
+
+          {(isAdmin || isModerator) && adminTab === 'all' && (
+            <TabsContent value="overtime">
+              <OvertimeDetectionPanel />
+            </TabsContent>
+          )}
+
+          {(isAdmin || isModerator) && adminTab === 'all' && (
+            <TabsContent value="monthly-report">
+              <MonthlyAttendanceReport />
+            </TabsContent>
+          )}
+
+          {(isAdmin || isModerator) && adminTab === 'all' && (
+            <TabsContent value="dept-analysis">
+              <DepartmentWorkPatternAnalysis />
             </TabsContent>
           )}
 
