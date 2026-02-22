@@ -392,6 +392,12 @@ export type Database = {
           industry: string | null
           logo_url: string | null
           phone: string | null
+          quote_bank_info: string | null
+          quote_consultation: string | null
+          quote_contact_email: string | null
+          quote_contact_message: string | null
+          quote_contact_phone: string | null
+          quote_notes: string | null
           updated_at: string
           website: string | null
           workplace_lat: number | null
@@ -413,6 +419,12 @@ export type Database = {
           industry?: string | null
           logo_url?: string | null
           phone?: string | null
+          quote_bank_info?: string | null
+          quote_consultation?: string | null
+          quote_contact_email?: string | null
+          quote_contact_message?: string | null
+          quote_contact_phone?: string | null
+          quote_notes?: string | null
           updated_at?: string
           website?: string | null
           workplace_lat?: number | null
@@ -434,6 +446,12 @@ export type Database = {
           industry?: string | null
           logo_url?: string | null
           phone?: string | null
+          quote_bank_info?: string | null
+          quote_consultation?: string | null
+          quote_contact_email?: string | null
+          quote_contact_message?: string | null
+          quote_contact_phone?: string | null
+          quote_notes?: string | null
           updated_at?: string
           website?: string | null
           workplace_lat?: number | null

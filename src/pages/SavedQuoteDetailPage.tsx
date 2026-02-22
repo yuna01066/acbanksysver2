@@ -75,6 +75,14 @@ const SavedQuoteDetailPage = () => {
   const [editedItems, setEditedItems] = useState<any[]>([]);
   const [quotePdf, setQuotePdf] = useState<QuotePdfAttachment | null>(null);
   const [linkedProject, setLinkedProject] = useState<{ id: string; name: string; payment_status: string | null } | null>(null);
+  const [quoteDefaults, setQuoteDefaults] = useState({
+    quote_bank_info: '신한은행 140-014-544315 (주)아크뱅크',
+    quote_notes: '- 견적서의 유효기간은 발행일로부터 14일 입니다.\n- 운송비 및 부가세는 별도 입니다.',
+    quote_consultation: '안녕하세요\n견적 문의해 주셔서 감사합니다.\n상세한 제작 요구사항이 있으시면 담당자에게 연락 부탁드립니다.',
+    quote_contact_phone: '070-7537-3680',
+    quote_contact_email: 'acbank@acbank.co.kr',
+    quote_contact_message: '견적 관련 문의사항이나 주문을 원하시면 아래 연락처로 문의해주세요.',
+  });
   const printContainerRef = useRef<HTMLDivElement>(null);
   const { user, isAdmin, isModerator } = useAuth();
 
@@ -83,7 +91,27 @@ const SavedQuoteDetailPage = () => {
       fetchQuote();
       fetchLinkedProject();
     }
+    fetchQuoteDefaults();
   }, [id]);
+
+  const fetchQuoteDefaults = async () => {
+    const { data } = await supabase
+      .from('company_info')
+      .select('quote_bank_info, quote_notes, quote_consultation, quote_contact_phone, quote_contact_email, quote_contact_message')
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      const d = data as any;
+      setQuoteDefaults(prev => ({
+        quote_bank_info: d.quote_bank_info || prev.quote_bank_info,
+        quote_notes: d.quote_notes || prev.quote_notes,
+        quote_consultation: d.quote_consultation || prev.quote_consultation,
+        quote_contact_phone: d.quote_contact_phone || prev.quote_contact_phone,
+        quote_contact_email: d.quote_contact_email || prev.quote_contact_email,
+        quote_contact_message: d.quote_contact_message || prev.quote_contact_message,
+      }));
+    }
+  };
 
   const fetchLinkedProject = async () => {
     if (!id) return;
@@ -492,7 +520,7 @@ const SavedQuoteDetailPage = () => {
                   <div className="mt-3 p-3 bg-[hsl(210,60%,90%)] rounded-lg border border-[hsl(210,50%,78%)]">
                     <h4 className="font-bold text-[hsl(215,60%,22%)] mb-1 text-[13px]">입금 계좌</h4>
                     <div className="text-[14px] font-bold text-[hsl(215,60%,18%)]">
-                      신한은행 140-014-544315 (주)아크뱅크
+                      {quoteDefaults.quote_bank_info}
                     </div>
                   </div>
                 </div>
@@ -576,17 +604,18 @@ const SavedQuoteDetailPage = () => {
                 <div className="bg-[hsl(45,55%,92%)] rounded-lg border border-[hsl(45,40%,78%)] p-4">
                   <h3 className="text-[14px] font-bold mb-2 text-black">특 이 사 항 :</h3>
                   <ul className="text-[13px] space-y-1 text-black">
-                    <li>- 견적서의 유효기간은 발행일로부터 14일 입니다.</li>
-                    <li>- 운송비 및 부가세는 별도 입니다.</li>
+                    {quoteDefaults.quote_notes.split('\n').map((line, i) => (
+                      <li key={i}>{line}</li>
+                    ))}
                   </ul>
                 </div>
                 
                 <div className="bg-[hsl(45,55%,92%)] rounded-lg border border-[hsl(45,40%,78%)] p-4">
                   <h3 className="text-[14px] font-bold mb-2 text-black">상 담 내 용 :</h3>
                   <div className="text-[13px] space-y-1 text-black">
-                    <p>안녕하세요</p>
-                    <p>견적 문의해 주셔서 감사합니다.</p>
-                    <p>상세한 제작 요구사항이 있으시면 담당자에게 연락 부탁드립니다.</p>
+                    {quoteDefaults.quote_consultation.split('\n').map((line, i) => (
+                      <p key={i}>{line}</p>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -596,7 +625,7 @@ const SavedQuoteDetailPage = () => {
               <div className="mb-6 p-5 bg-[hsl(200,45%,92%)] border border-[hsl(200,40%,78%)] rounded-lg quote-section">
                 <h4 className="font-bold text-black mb-3 text-[14px]">문의 및 주문</h4>
                 <div className="text-[13px] space-y-2">
-                  <p className="text-black">견적 관련 문의사항이나 주문을 원하시면 아래 연락처로 문의해주세요.</p>
+                  <p className="text-black">{quoteDefaults.quote_contact_message}</p>
                   
                   {recipientData.issuerName && (
                     <div className="bg-white p-3 rounded-lg border border-[hsl(200,25%,88%)]">
@@ -610,8 +639,8 @@ const SavedQuoteDetailPage = () => {
                   )}
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <p className="font-semibold bg-white px-3 py-2 rounded-lg border border-[hsl(200,25%,88%)] text-black text-[13px]">📞 대표전화: 070-7537-3680</p>
-                    <p className="font-semibold bg-white px-3 py-2 rounded-lg border border-[hsl(200,25%,88%)] text-black text-[13px]">📧 대표이메일: acbank@acbank.co.kr</p>
+                    <p className="font-semibold bg-white px-3 py-2 rounded-lg border border-[hsl(200,25%,88%)] text-black text-[13px]">📞 대표전화: {quoteDefaults.quote_contact_phone}</p>
+                    <p className="font-semibold bg-white px-3 py-2 rounded-lg border border-[hsl(200,25%,88%)] text-black text-[13px]">📧 대표이메일: {quoteDefaults.quote_contact_email}</p>
                   </div>
                 </div>
               </div>
