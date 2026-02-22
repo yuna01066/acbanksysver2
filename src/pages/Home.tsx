@@ -222,6 +222,7 @@ const Home = () => {
               </button>
               <button onClick={() => navigate('/my-page')} title="마이페이지"
                 className="w-10 h-10 rounded-full glass-pill flex items-center justify-center transition-transform active:scale-95 hover:scale-105">
+                <User className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
               <button onClick={signOut}
                 className="h-10 px-4 rounded-full glass-pill flex items-center gap-2 text-[13px] font-medium text-muted-foreground transition-transform active:scale-95 hover:scale-105">
