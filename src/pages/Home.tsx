@@ -234,12 +234,11 @@ const Home = () => {
 
           {/* Header – metal embossed button style (kept skeuomorphic) */}
           <div className="text-center mb-8 sm:mb-14 animate-fade-up space-y-3">
-            <div className="inline-block">
+            <div className="inline-block logo-neon-wrap rounded-[24px] p-[5px]">
               <div
                 className="px-10 sm:px-14 py-3 sm:py-4 rounded-[20px] logo-metal cursor-pointer"
                  style={{
                    boxShadow: '0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.1), 0 6px 16px hsl(220 20% 0% / 0.12), inset 0 1px 2px hsl(0 0% 100% / 0.5), inset 0 -1px 2px hsl(0 0% 0% / 0.08)',
-                   border: '1px solid hsl(220 8% 84%)',
                  }}
               >
                 <h1 className="text-3xl sm:text-[42px] font-black leading-none tracking-[3px] relative" style={{ fontFamily: "'Pretendard Variable', Pretendard, sans-serif", color: 'transparent', background: 'linear-gradient(180deg, hsl(220 8% 38%) 0%, hsl(220 10% 22%) 50%, hsl(220 8% 32%) 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextStroke: '0.5px hsl(0 0% 0% / 0.35)', filter: 'drop-shadow(0 1px 0 hsl(0 0% 100% / 0.4))' }}>ACBANK</h1>
