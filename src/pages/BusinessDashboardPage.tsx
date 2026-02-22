@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import BusinessDashboard from '@/components/dashboard/BusinessDashboard';
+import QuoteStatisticsCard from '@/components/dashboard/QuoteStatisticsCard';
 import { useAuth } from '@/contexts/AuthContext';
 
 const BusinessDashboardPage = () => {
@@ -27,6 +28,9 @@ const BusinessDashboardPage = () => {
           <h1 className="text-xl font-bold tracking-tight">경영 대시보드</h1>
         </div>
         <BusinessDashboard />
+        <div className="mt-6">
+          <QuoteStatisticsCard />
+        </div>
       </div>
     </div>
   );
