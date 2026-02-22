@@ -209,7 +209,7 @@ const Home = () => {
   } as const;
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[hsl(220,10%,93%)] dark:bg-[hsl(230,18%,7%)]">
+    <div className="min-h-screen relative overflow-hidden bg-[hsl(220,10%,95%)] dark:bg-[hsl(230,18%,7%)]">
       {/* Light mode fluid gradient background */}
       <div className="absolute inset-0 pointer-events-none dark:hidden" aria-hidden="true">
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full opacity-[0.18]"
