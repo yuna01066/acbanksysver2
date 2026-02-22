@@ -22,6 +22,7 @@ const LoginScreen = () => {
   const [loading, setLoading] = useState(false);
   const [pendingApproval, setPendingApproval] = useState(false);
   const [logoSpinning, setLogoSpinning] = useState(false);
+  const [neonActive, setNeonActive] = useState(false);
 
   const handleLogoClick = useCallback(() => {
     if (logoSpinning) return;
@@ -45,6 +46,8 @@ const LoginScreen = () => {
     }
 
     setLoading(true);
+    setNeonActive(true);
+    setTimeout(() => setNeonActive(false), 5000);
     const { error } = await signIn(email, password);
 
     if (error) {
@@ -184,7 +187,7 @@ const LoginScreen = () => {
             <div className="pt-1">
               <button
                 type="submit" disabled={loading}
-                className="w-full py-3.5 rounded-2xl flex items-center justify-center gap-2 text-[14px] font-semibold tracking-[-0.01em] transition-all duration-200 active:scale-[0.98] disabled:opacity-40"
+                className={cn("w-full py-3.5 rounded-2xl flex items-center justify-center gap-2 text-[14px] font-semibold tracking-[-0.01em] transition-all duration-200 active:scale-[0.98] disabled:opacity-40", neonActive && "login-neon-active")}
                 style={{
                   background: isDark
                     ? 'linear-gradient(180deg, hsl(220 12% 22%) 0%, hsl(220 12% 14%) 100%)'
