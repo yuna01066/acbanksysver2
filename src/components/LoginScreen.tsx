@@ -77,34 +77,37 @@ const LoginScreen = () => {
     >
       <div className="w-full max-w-[380px] space-y-8">
 
-        {/* ── Logo: large convex dial ── */}
+        {/* ── Logo: metal embossed style matching dashboard ── */}
         <div className="flex flex-col items-center gap-4">
-          <div
-            className="w-[120px] h-[120px] rounded-full flex items-center justify-center"
-            style={{
-              background: 'linear-gradient(155deg, hsl(220 8% 96%) 0%, hsl(220 10% 86%) 40%, hsl(220 8% 92%) 60%, hsl(220 10% 84%) 100%)',
-              boxShadow: '0 3px 2px hsl(0 0% 100% / 0.8), 0 -3px 2px hsl(0 0% 0% / 0.06), 0 8px 24px hsl(220 20% 0% / 0.12)',
-              border: '1px solid hsl(220 10% 88%)',
-            }}
-          >
+          <div className="inline-block rounded-[24px] p-[5px]" style={{ background: 'linear-gradient(180deg, hsl(220 10% 94%) 0%, hsl(220 10% 86%) 100%)', boxShadow: '0 0 12px hsl(220 20% 50% / 0.15), 0 0 4px hsl(220 20% 60% / 0.1)' }}>
             <div
-              className="w-[92px] h-[92px] rounded-full flex items-center justify-center"
+              className="px-10 py-3 rounded-[20px]"
               style={{
-                background: 'linear-gradient(180deg, hsl(220 10% 94%) 0%, hsl(220 12% 88%) 100%)',
-                boxShadow: 'inset 0 2px 4px hsl(0 0% 0% / 0.06), 0 1px 0 hsl(0 0% 100% / 0.6)',
+                background: 'linear-gradient(180deg, hsl(220 10% 96%) 0%, hsl(220 12% 90%) 40%, hsl(220 10% 88%) 100%)',
+                boxShadow: 'inset 0 1px 0 hsl(0 0% 100% / 0.7), inset 0 -1px 0 hsl(0 0% 0% / 0.04), 0 2px 8px hsl(220 20% 0% / 0.08)',
                 border: '1px solid hsl(220 10% 86%)',
               }}
             >
-              <img src={arcbankLogo} alt="ACBANK" className="h-11 w-11 object-contain" />
+              <h1
+                className="text-[38px] font-black leading-none tracking-[3px]"
+                style={{
+                  fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
+                  color: 'transparent',
+                  background: 'linear-gradient(180deg, hsl(220 8% 38%) 0%, hsl(220 10% 22%) 50%, hsl(220 8% 32%) 100%)',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  WebkitTextStroke: '0.5px hsl(0 0% 0% / 0.35)',
+                  filter: 'drop-shadow(0 1px 0 hsl(0 0% 100% / 0.4))',
+                }}
+              >
+                ACBANK
+              </h1>
             </div>
           </div>
 
-          <div className="text-center space-y-1.5">
-            <h1 className="text-[34px] font-extrabold tracking-[0.18em] skeuo-engraved leading-none">ACBANK</h1>
-            <p className="text-[11px] font-medium tracking-[0.22em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>
-              Management System
-            </p>
-          </div>
+          <p className="text-[11px] font-medium tracking-[0.22em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>
+            Management System
+          </p>
         </div>
 
         {/* ── Form card: soft raised surface ── */}
