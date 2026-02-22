@@ -388,8 +388,7 @@ const SavedQuoteDetailPage = () => {
 
           <Card className="shadow-lg border border-gray-300 rounded-xl bg-white quote-main-card [backdrop-filter:none] [-webkit-backdrop-filter:none] [background:white]" style={{ overflow: 'visible', fontFamily: "'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif" }}>
             <CardContent className="p-6 print:p-4" style={{ overflow: 'visible' }}>
-              {/* 견적 요약 정보 - 내부용에서만 출력 */}
-              {viewMode !== 'customer' && (
+              {/* 견적 요약 정보 */}
               <div className="mb-6 rounded-lg bg-[hsl(210,50%,94%)] border border-[hsl(210,40%,82%)] print-summary quote-section">
                 <div className="p-5">
                   <h2 className="text-[17px] font-bold text-black mb-4 pb-2 border-b border-[hsl(210,40%,75%)]">견적 요약</h2>
@@ -431,7 +430,6 @@ const SavedQuoteDetailPage = () => {
                   </div>
                 </div>
               </div>
-              )}
 
               {/* Edit Form */}
               {isEditing && (
@@ -645,8 +643,7 @@ const SavedQuoteDetailPage = () => {
                 </div>
               </div>
 
-              {/* 클라이언트 요청사항 - 내부용에서만 */}
-              {viewMode !== 'customer' && (
+              {/* 클라이언트 요청사항 */}
               <div className="mb-6 space-y-5">
                 {(quote.recipient_memo || (quote.attachments && Array.isArray(quote.attachments) && quote.attachments.length > 0)) && (
                   <div className="bg-[hsl(30,50%,92%)] border border-[hsl(30,40%,78%)] rounded-lg p-5 quote-section">
@@ -664,7 +661,7 @@ const SavedQuoteDetailPage = () => {
                       </div>
                     )}
                     
-                    {quote.attachments && Array.isArray(quote.attachments) && quote.attachments.length > 0 && (
+                    {viewMode !== 'customer' && quote.attachments && Array.isArray(quote.attachments) && quote.attachments.length > 0 && (
                       <QuoteAttachments
                         attachments={attachments}
                         onAttachmentsChange={() => {}}
@@ -675,7 +672,6 @@ const SavedQuoteDetailPage = () => {
                   </div>
                 )}
               </div>
-              )}
 
               {/* 첨부 서류 */}
               <div className="mb-6 quote-section">
