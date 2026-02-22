@@ -2368,6 +2368,59 @@ export type Database = {
           },
         ]
       }
+      project_milestones: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          display_order: number
+          fixed_stage: string | null
+          id: string
+          is_completed: boolean
+          milestone_type: string
+          project_id: string
+          target_date: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          fixed_stage?: string | null
+          id?: string
+          is_completed?: boolean
+          milestone_type?: string
+          project_id: string
+          target_date?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          fixed_stage?: string | null
+          id?: string
+          is_completed?: boolean
+          milestone_type?: string
+          project_id?: string
+          target_date?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_milestones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_updates: {
         Row: {
           attachments: Json | null
