@@ -193,18 +193,6 @@ const AdminSettingsPage = () => {
                 </div>
               </button>
 
-              <button
-                onClick={() => navigate('/user-statistics')}
-                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
-              >
-                <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <BarChart3 className="w-4 h-4 text-violet-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">담당자별 통계</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">각 담당자별 견적 현황 및 통계 확인</p>
-                </div>
-              </button>
 
               <button
                 onClick={() => navigate('/embed-code')}
