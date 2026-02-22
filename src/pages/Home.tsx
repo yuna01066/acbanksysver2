@@ -191,25 +191,22 @@ const Home = () => {
             </div>
             <div className="flex items-center gap-2">
               <button onClick={() => navigate('/team-chat')} title="팀챗"
-                className="w-10 h-10 rounded-full flex items-center justify-center transition-transform active:scale-95 hover:scale-105"
-                style={circleBtn}>
-                <MessageCircle className="h-[18px] w-[18px]" style={{ color: 'hsl(220 8% 48%)' }} />
+                className="w-10 h-10 rounded-full glass-pill flex items-center justify-center transition-transform active:scale-95 hover:scale-105">
+                <MessageCircle className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
               <button onClick={() => navigate('/my-page')} title="마이페이지"
-                className="w-10 h-10 rounded-full flex items-center justify-center transition-transform active:scale-95 hover:scale-105"
-                style={circleBtn}>
-                <User className="h-[18px] w-[18px]" style={{ color: 'hsl(220 8% 48%)' }} />
+                className="w-10 h-10 rounded-full glass-pill flex items-center justify-center transition-transform active:scale-95 hover:scale-105">
+                <User className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
               <button onClick={signOut}
-                className="h-10 px-4 rounded-full flex items-center gap-2 text-[13px] font-medium transition-transform active:scale-95 hover:scale-105"
-                style={{ ...circleBtn, color: 'hsl(220 10% 35%)' }}>
+                className="h-10 px-4 rounded-full glass-pill flex items-center gap-2 text-[13px] font-medium text-muted-foreground transition-transform active:scale-95 hover:scale-105">
                 <LogOut className="h-4 w-4" />
                 로그아웃
               </button>
             </div>
           </div>
 
-          {/* Header – metal embossed button style */}
+          {/* Header – metal embossed button style (kept skeuomorphic) */}
           <div className="text-center mb-8 sm:mb-14 animate-fade-up space-y-3">
             <div className="inline-block">
               <div
@@ -233,11 +230,10 @@ const Home = () => {
                 const QIcon = ql.icon;
                 return (
                   <button key={i} onClick={ql.action} className="flex flex-col items-center gap-1.5 group" title={ql.title}>
-                    <div className="w-11 h-11 rounded-full flex items-center justify-center transition-transform group-hover:scale-110 group-active:scale-95"
-                      style={circleBtn}>
-                      <QIcon className="h-[18px] w-[18px]" style={{ color: 'hsl(220 8% 48%)' }} />
+                    <div className="w-11 h-11 rounded-full glass-surface flex items-center justify-center transition-all group-hover:scale-110 group-hover:shadow-smooth">
+                      <QIcon className="h-[18px] w-[18px] text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
-                    <span className="text-[10px] font-medium" style={{ color: 'hsl(220 8% 50%)' }}>{ql.title}</span>
+                    <span className="text-[10px] text-muted-foreground group-hover:text-foreground transition-colors">{ql.title}</span>
                   </button>
                 );
               })}
@@ -283,10 +279,9 @@ const Home = () => {
                 <div
                   key={key}
                   className={cn(
-                    "rounded-[20px] p-5 sm:p-7 text-center cursor-pointer group relative transition-all duration-200 hover:-translate-y-0.5",
+                    "glass-card p-5 sm:p-7 text-center cursor-pointer group relative",
                     (isLocked || isAdminOnly) ? "opacity-50 cursor-not-allowed" : ""
                   )}
-                  style={cardSurface}
                   onClick={() => {
                     if (isLocked) { toast.error('로그인이 필요한 서비스입니다.'); navigate('/auth'); return; }
                     if (isAdminOnly) { toast.error('관리자 또는 중간관리자만 접근할 수 있습니다.'); return; }
@@ -295,24 +290,24 @@ const Home = () => {
                 >
                   {isLocked && (
                     <div className="absolute top-3 right-3">
-                      <span className="text-[9px] font-medium px-2 py-0.5 rounded-full" style={{ ...circleBtn, color: 'hsl(220 8% 50%)' }}>로그인 필요</span>
+                      <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">로그인 필요</Badge>
                     </div>
                   )}
                   {isAdminOnly && (
                     <div className="absolute top-3 right-3">
-                      <span className="text-[9px] font-medium px-2 py-0.5 rounded-full" style={{ ...circleBtn, color: 'hsl(220 8% 50%)' }}>관리자 전용</span>
+                      <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">관리자 전용</Badge>
                     </div>
                   )}
                   <div className="mb-3 sm:mb-4 flex justify-center">
-                    <div
-                      className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center transition-transform duration-200 group-hover:scale-110"
-                      style={iconBox}
-                    >
-                      {Icon && <Icon className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: 'hsl(215 80% 50%)' }} />}
+                    <div className={cn(
+                      "w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300",
+                      (isLocked || isAdminOnly) ? "glass-surface" : "glass-surface group-hover:shadow-smooth group-hover:scale-110"
+                    )}>
+                      {Icon && <Icon className={cn("w-5 h-5 sm:w-6 sm:h-6", (isLocked || isAdminOnly) ? "text-muted-foreground" : "text-primary")} />}
                     </div>
                   </div>
-                  <h3 className="text-[13px] sm:text-[15px] font-semibold tracking-[-0.01em] mb-0.5 sm:mb-1 truncate" style={{ color: 'hsl(220 12% 22%)' }}>{item.title}</h3>
-                  <p className="text-[11px] sm:text-[12px] font-medium line-clamp-2" style={{ color: 'hsl(220 8% 52%)' }}>{item.description}</p>
+                  <h3 className="text-[13px] sm:text-[15px] font-semibold tracking-[-0.01em] mb-0.5 sm:mb-1 truncate">{item.title}</h3>
+                  <p className="text-[11px] sm:text-[12px] text-muted-foreground line-clamp-2">{item.description}</p>
                 </div>
               );
             };
@@ -333,7 +328,7 @@ const Home = () => {
                   if (sideCard) {
                     rowItems.push(renderCard(sideCard, `side-${r}`));
                   } else {
-                    rowItems.push(<div key={`empty-col-${r}`} className="rounded-[20px] p-5 sm:p-7" style={cardSurface} />);
+                    rowItems.push(<div key={`empty-col-${r}`} className="glass-card p-5 sm:p-7" />);
                   }
                   return rowItems;
                 })}
@@ -343,13 +338,13 @@ const Home = () => {
 
           {/* Footer */}
           <div className="mt-16 text-center space-y-4">
-            <div className="rounded-[20px] p-5" style={cardSurface}>
-              <p className="text-[12px] font-medium leading-relaxed" style={{ color: 'hsl(220 8% 48%)' }}>
+            <div className="glass-surface rounded-2xl p-5">
+              <p className="text-[12px] text-muted-foreground leading-relaxed">
                 본 프로그램은 아크뱅크 내부용 시스템 프로그램으로, 무단 복제 및 배포, 유출을 금지하고 있습니다.<br />
                 위반 시 법적인 책임을 질 수 있습니다.
               </p>
             </div>
-            <p className="text-[10px] font-medium tracking-[0.18em]" style={{ color: 'hsl(220 8% 62%)' }}>
+            <p className="text-[10px] font-medium tracking-[0.18em] text-muted-foreground">
               © 2025 ACBANK. ALL RIGHTS RESERVED.
             </p>
           </div>
