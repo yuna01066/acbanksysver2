@@ -358,7 +358,7 @@ const SavedQuoteDetailPage = () => {
             showSavedQuoteActions={true}
           />
 
-          <Card className="shadow-lg border-0 rounded-xl bg-white" style={{ overflow: 'visible' }}>
+          <Card className="shadow-lg border-0 rounded-xl bg-white [backdrop-filter:none] [-webkit-backdrop-filter:none] [background:white]" style={{ overflow: 'visible' }}>
             <CardContent className="p-8 print:p-4" style={{ overflow: 'visible' }}>
               {/* 견적 요약 정보 - 내부용에서만 출력 */}
               {viewMode !== 'customer' && (
