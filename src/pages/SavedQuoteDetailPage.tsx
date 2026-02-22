@@ -677,36 +677,37 @@ const SavedQuoteDetailPage = () => {
                   </div>
                 )}
 
-                {/* 첨부 서류 - A5 사이즈 */}
-                <div>
-                  <h3 className="text-lg font-bold mb-6 text-[hsl(0,0%,0%)]">첨부 서류</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-white border border-[hsl(220,12%,88%)] rounded-xl p-5">
-                      <h4 className="font-bold text-[hsl(0,0%,0%)] mb-3 text-center text-[13px]">사업자등록증</h4>
-                      <div className="flex justify-center">
-                        <img 
-                          src={businessRegistration} 
-                          alt="아크뱅크 사업자등록증" 
-                          className="w-full max-w-[420px] h-auto border border-[hsl(220,12%,88%)] rounded-lg"
-                          style={{ aspectRatio: '148/210' }}
-                        />
-                      </div>
+              </div>
+              )}
+
+              {/* 첨부 서류 - A5 사이즈 (고객용에서도 표시) */}
+              <div className="mt-8 mb-8">
+                <h3 className="text-lg font-bold mb-6 text-gray-900">첨부 서류</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white border border-[hsl(220,12%,88%)] rounded-xl p-5">
+                    <h4 className="font-bold text-gray-900 mb-3 text-center text-[13px]">사업자등록증</h4>
+                    <div className="flex justify-center">
+                      <img 
+                        src={businessRegistration} 
+                        alt="아크뱅크 사업자등록증" 
+                        className="w-full max-w-[420px] h-auto border border-[hsl(220,12%,88%)] rounded-lg"
+                        style={{ aspectRatio: '148/210' }}
+                      />
                     </div>
-                    <div className="bg-white border border-[hsl(220,12%,88%)] rounded-xl p-5">
-                      <h4 className="font-bold text-[hsl(0,0%,0%)] mb-3 text-center text-[13px]">통장사본</h4>
-                      <div className="flex justify-center">
-                        <img 
-                          src={bankAccount} 
-                          alt="아크뱅크 통장사본" 
-                          className="w-full max-w-[420px] h-auto border border-[hsl(220,12%,88%)] rounded-lg"
-                          style={{ aspectRatio: '148/210' }}
-                        />
-                      </div>
+                  </div>
+                  <div className="bg-white border border-[hsl(220,12%,88%)] rounded-xl p-5">
+                    <h4 className="font-bold text-gray-900 mb-3 text-center text-[13px]">통장사본</h4>
+                    <div className="flex justify-center">
+                      <img 
+                        src={bankAccount} 
+                        alt="아크뱅크 통장사본" 
+                        className="w-full max-w-[420px] h-auto border border-[hsl(220,12%,88%)] rounded-lg"
+                        style={{ aspectRatio: '148/210' }}
+                      />
                     </div>
                   </div>
                 </div>
               </div>
-              )}
             </CardContent>
           </Card>
         </div>
