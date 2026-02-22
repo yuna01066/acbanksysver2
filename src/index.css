@@ -694,3 +694,24 @@
   background-color: rgba(22, 101, 52, 0.3);
   color: #86efac;
 }
+
+@keyframes logo-shine-rotate {
+  from { --logo-angle: 135deg; }
+  to { --logo-angle: 495deg; }
+}
+
+@property --logo-angle {
+  syntax: '<angle>';
+  initial-value: 135deg;
+  inherits: false;
+}
+
+.logo-metal {
+  background: conic-gradient(from var(--logo-angle), hsl(220 6% 78%) 0%, hsl(220 8% 90%) 15%, hsl(220 6% 72%) 30%, hsl(220 8% 88%) 45%, hsl(220 6% 70%) 55%, hsl(220 8% 92%) 70%, hsl(220 6% 75%) 85%, hsl(220 6% 78%) 100%);
+  transition: box-shadow 0.3s ease;
+}
+
+.logo-metal:hover {
+  animation: logo-shine-rotate 1.2s ease-in-out infinite;
+  box-shadow: 0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.1), 0 8px 24px hsl(220 20% 0% / 0.15), inset 0 1px 2px hsl(0 0% 100% / 0.5), inset 0 -1px 2px hsl(0 0% 0% / 0.08);
+}
