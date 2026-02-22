@@ -252,10 +252,10 @@ const SecretEventManager: React.FC = () => {
                   </div>
                   <div>
                     <Label className="text-xs">요일</Label>
-                    <Select value={form.trigger_day_of_week} onValueChange={v => setForm(f => ({ ...f, trigger_day_of_week: v }))}>
+                    <Select value={form.trigger_day_of_week || 'none'} onValueChange={v => setForm(f => ({ ...f, trigger_day_of_week: v === 'none' ? '' : v }))}>
                       <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">없음</SelectItem>
+                        <SelectItem value="none">없음</SelectItem>
                         {DAY_NAMES.map((d, i) => (
                           <SelectItem key={i} value={String(i)}>{d}요일</SelectItem>
                         ))}
