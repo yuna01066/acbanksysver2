@@ -408,7 +408,7 @@ serve(async (req) => {
         { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
       );
 
-      if (!res.ok && res.status !== 204) {
+      if (!res.ok && res.status !== 204 && res.status !== 404) {
         const errText = await res.text();
         throw new Error(`Delete failed: ${errText}`);
       }
