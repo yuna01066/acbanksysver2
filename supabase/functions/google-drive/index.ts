@@ -316,6 +316,74 @@ serve(async (req) => {
       });
     }
 
+    if (action === 'list-folder-files') {
+      // List image files from a folder path in shared drive
+      const { folderPath } = body;
+      if (!folderPath || !Array.isArray(folderPath)) {
+        throw new Error('Missing folderPath array');
+      }
+
+      // Navigate to folder, creating if needed
+      let folderId: string;
+      try {
+        folderId = await ensureFolderPath(accessToken, folderPath, sharedDriveId, sharedDriveId);
+      } catch {
+        return new Response(JSON.stringify({ success: true, files: [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const filesQ = `'${folderId}' in parents and trashed=false and (mimeType contains 'image/')`;
+      const filesRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(filesQ)}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=drive&driveId=${sharedDriveId}&fields=files(id,name,mimeType,size,createdTime,thumbnailLink,webContentLink)&pageSize=200&orderBy=createdTime desc`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const filesData = await filesRes.json();
+
+      const files = (filesData.files || []).map((f: any) => ({
+        id: f.id,
+        name: f.name,
+        mimeType: f.mimeType,
+        size: parseInt(f.size || '0'),
+        createdTime: f.createdTime,
+        thumbnailLink: f.thumbnailLink,
+        // Build a direct view link
+        viewLink: `https://drive.google.com/file/d/${f.id}/view`,
+        // Proxy thumbnail through Drive API for auth
+        imageUrl: `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media&supportsAllDrives=true`,
+      }));
+
+      // Also generate short-lived download URLs with access token for thumbnails
+      const filesWithAuth = files.map((f: any) => ({
+        ...f,
+        authImageUrl: `${f.imageUrl}&access_token=${accessToken}`,
+        authThumbnail: f.thumbnailLink ? `${f.thumbnailLink}` : null,
+      }));
+
+      return new Response(JSON.stringify({ success: true, files: filesWithAuth }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (action === 'delete-file') {
+      const { fileId } = body;
+      if (!fileId) throw new Error('Missing fileId');
+
+      const res = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+
+      if (!res.ok && res.status !== 204) {
+        const errText = await res.text();
+        throw new Error(`Delete failed: ${errText}`);
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     return new Response(JSON.stringify({ error: 'Unknown action' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
