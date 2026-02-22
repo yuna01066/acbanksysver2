@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,38 @@ const Home = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, isAdmin, isModerator } = useAuth();
   const { theme, setTheme } = useTheme();
+  const [logoSpinning, setLogoSpinning] = useState(false);
   const { notifications, unviewedCount, markAsViewed, removeNotification, refresh: refreshNotifications } = useNotifications();
+
+  const handleLogoClick = useCallback(() => {
+    if (logoSpinning) return;
+    setLogoSpinning(true);
+    
+    // Play a subtle click sound
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+      osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.25);
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + 0.4);
+    } catch (e) { /* audio not supported */ }
+
+    // Toggle theme after half rotation
+    setTimeout(() => {
+      setTheme(theme === 'dark' ? 'light' : 'dark');
+      toast(theme === 'dark' ? '☀️ 라이트 모드로 전환!' : '🌙 다크 모드로 전환!', { duration: 1500 });
+    }, 300);
+
+    setTimeout(() => setLogoSpinning(false), 700);
+  }, [logoSpinning, theme, setTheme]);
   const { data: activeCycle } = useQuery({
     queryKey: ['active-review-cycle'],
     queryFn: async () => {
@@ -234,9 +266,12 @@ const Home = () => {
 
           {/* Header – metal embossed button style (kept skeuomorphic) */}
           <div className="text-center mb-8 sm:mb-14 animate-fade-up space-y-3">
-            <div className="inline-block logo-neon-wrap rounded-[24px] p-[5px]">
+            <div className="inline-block logo-neon-wrap rounded-[24px] p-[5px]" onClick={handleLogoClick}>
               <div
-                className="px-10 sm:px-14 py-3 sm:py-4 rounded-[20px] logo-metal cursor-pointer"
+                className={cn(
+                  "px-10 sm:px-14 py-3 sm:py-4 rounded-[20px] logo-metal cursor-pointer select-none",
+                  logoSpinning && "logo-spin-3d"
+                )}
                  style={{
                    boxShadow: '0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.1), 0 6px 16px hsl(220 20% 0% / 0.12), inset 0 1px 2px hsl(0 0% 100% / 0.5), inset 0 -1px 2px hsl(0 0% 0% / 0.08)',
                  }}

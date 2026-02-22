@@ -752,3 +752,20 @@
 .dark .logo-metal:hover {
   animation: logo-shine-rotate 5s ease-in-out infinite;
 }
+
+/* Logo 3D spin easter egg */
+@keyframes logo-spin-3d {
+  0% {
+    transform: perspective(800px) rotateY(0deg) scale(1);
+  }
+  40% {
+    transform: perspective(800px) rotateY(180deg) scale(1.05);
+  }
+  100% {
+    transform: perspective(800px) rotateY(360deg) scale(1);
+  }
+}
+
+.logo-spin-3d {
+  animation: logo-spin-3d 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
