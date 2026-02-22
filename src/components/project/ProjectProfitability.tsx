@@ -51,11 +51,11 @@ const ProjectProfitability: React.FC<Props> = ({ projectId }) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('projects')
-        .select('custom_data')
+        .select('*')
         .eq('id', projectId)
         .single();
       if (error) throw error;
-      return data;
+      return data as any;
     },
   });
 
