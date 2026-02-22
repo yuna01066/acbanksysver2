@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,6 +26,9 @@ import RecipientDetailSheet from './RecipientDetailSheet';
 import LinkContactDialog, { ContactInfo } from './LinkContactDialog';
 import InternalDocumentUploadCard from './InternalDocumentUploadCard';
 import InternalProjectItemsCard from './InternalProjectItemsCard';
+import ProjectGanttChart from './ProjectGanttChart';
+import ProjectProfitability from './ProjectProfitability';
+import ProjectMilestones from './ProjectMilestones';
 
 interface Props {
   projectId: string;
@@ -271,49 +275,73 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
 
       {/* Two-column layout */}
       <div className="flex gap-4">
-          {/* Left: Specs / Internal Items / Notion / Updates */}
         <div className="flex-1 min-w-0 space-y-4">
-          {!isInternal && (
-            <ProjectSpecsCard projectId={projectId} specs={project.specs as any} linkedQuotes={linkedQuotes} />
-          )}
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="h-8 w-full justify-start bg-muted/50">
+              <TabsTrigger value="overview" className="text-[11px] h-6 px-3">개요</TabsTrigger>
+              <TabsTrigger value="timeline" className="text-[11px] h-6 px-3">타임라인</TabsTrigger>
+              <TabsTrigger value="profitability" className="text-[11px] h-6 px-3">수익성</TabsTrigger>
+              <TabsTrigger value="milestones" className="text-[11px] h-6 px-3">마일스톤</TabsTrigger>
+            </TabsList>
 
-          {/* 내부 프로젝트: 견적 항목 카드 */}
-          {isInternal && (
-            <InternalProjectItemsCard projectId={projectId} />
-          )}
+            <TabsContent value="overview" className="mt-3 space-y-4">
+              {!isInternal && (
+                <ProjectSpecsCard projectId={projectId} specs={project.specs as any} linkedQuotes={linkedQuotes} />
+              )}
+              {isInternal && (
+                <InternalProjectItemsCard projectId={projectId} />
+              )}
+              {isInternal && (project as any).notion_url && (
+                <div className="rounded-lg border bg-card">
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b">
+                    <span className="text-xs font-medium flex items-center gap-1.5">
+                      <LinkIcon className="h-3 w-3" /> 노션
+                    </span>
+                    <a
+                      href={(project as any).notion_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                    >
+                      새 탭에서 열기 <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
+                  </div>
+                  <div className="bg-white rounded-b-lg overflow-hidden">
+                    <iframe
+                      src={(project as any).notion_url.replace('notion.so', 'notion.site')}
+                      className="w-full h-[500px] border-0"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
+              )}
+              {isInternal && (project as any).linked_project_id && (
+                <LinkedClientProjectCard linkedProjectId={(project as any).linked_project_id} />
+              )}
+              <ProjectUpdatesFeed projectId={projectId} projectName={project?.name} />
+            </TabsContent>
 
-          {/* 노션 임베드 (내부 프로젝트) */}
-          {isInternal && (project as any).notion_url && (
-            <div className="rounded-lg border bg-card">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b">
-                <span className="text-xs font-medium flex items-center gap-1.5">
-                  <LinkIcon className="h-3 w-3" /> 노션
-                </span>
-                <a
-                  href={(project as any).notion_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
-                >
-                  새 탭에서 열기 <ExternalLink className="h-2.5 w-2.5" />
-                </a>
+            <TabsContent value="timeline" className="mt-3">
+              <div className="rounded-lg border bg-card p-4">
+                <h3 className="text-xs font-semibold mb-3">간트 차트 타임라인</h3>
+                <ProjectGanttChart projectId={projectId} />
               </div>
-              <div className="bg-white rounded-b-lg overflow-hidden">
-                <iframe
-                  src={(project as any).notion_url.replace('notion.so', 'notion.site')}
-                  className="w-full h-[500px] border-0"
-                  allowFullScreen
-                />
+            </TabsContent>
+
+            <TabsContent value="profitability" className="mt-3">
+              <div className="rounded-lg border bg-card p-4">
+                <h3 className="text-xs font-semibold mb-3">수익성 분석</h3>
+                <ProjectProfitability projectId={projectId} />
               </div>
-            </div>
-          )}
+            </TabsContent>
 
-          {/* 연결된 클라이언트 프로젝트 */}
-          {isInternal && (project as any).linked_project_id && (
-            <LinkedClientProjectCard linkedProjectId={(project as any).linked_project_id} />
-          )}
-
-          <ProjectUpdatesFeed projectId={projectId} projectName={project?.name} />
+            <TabsContent value="milestones" className="mt-3">
+              <div className="rounded-lg border bg-card p-4">
+                <h3 className="text-xs font-semibold mb-3">마일스톤 관리</h3>
+                <ProjectMilestones projectId={projectId} />
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
 
         {/* Right: Info sidebar */}

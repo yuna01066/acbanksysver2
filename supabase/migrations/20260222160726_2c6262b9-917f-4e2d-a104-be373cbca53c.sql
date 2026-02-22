@@ -1,0 +1,1 @@
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS custom_data JSONB DEFAULT '{}'::jsonb;
