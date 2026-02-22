@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Package, Download, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Package, Image as ImageIcon } from "lucide-react";
 import NestingThumbnail from "@/components/NestingThumbnail";
 import UnifiedRecommendations from "@/components/UnifiedRecommendations";
 import YieldInputForm from "@/components/yield/YieldInputForm";
@@ -282,9 +282,9 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" onClick={onBack} className="p-2">
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
+        <button onClick={onBack} className="skeuo-plastic p-2.5">
+          <ArrowLeft className="w-4 h-4 text-foreground" />
+        </button>
         <div>
           <h2 className="text-headline flex items-center gap-3">
             <Package className="w-6 h-6 text-primary" />
@@ -325,11 +325,11 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
       {/* Results */}
       {showResults && (yieldResults.length > 0 || panelCombinations.length > 0) && (
         <div ref={resultsRef}>
-          <div className="flex justify-end mb-2">
-            <Button variant="outline" size="sm" onClick={handleExportImage} className="gap-2">
+        <div className="flex justify-end mb-2">
+            <button onClick={handleExportImage} className="skeuo-plastic px-4 py-2 text-sm flex items-center gap-2 text-foreground">
               <ImageIcon className="w-4 h-4" />
               이미지로 저장
-            </Button>
+            </button>
           </div>
           <UnifiedRecommendations
             yieldResults={yieldResults}
@@ -344,14 +344,12 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
       )}
 
       {showResults && cutItems.some(item => item.width && item.height && item.quantity) && yieldResults.length === 0 && panelCombinations.length === 0 && (
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <p className="text-muted-foreground">
-              입력하신 크기로는 선택된 두께에서 생산 가능한 원판이 없습니다.
-              <br />더 작은 크기로 입력하거나 다른 두께를 선택해주세요.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="skeuo-card p-8 text-center">
+          <p className="text-muted-foreground">
+            입력하신 크기로는 선택된 두께에서 생산 가능한 원판이 없습니다.
+            <br />더 작은 크기로 입력하거나 다른 두께를 선택해주세요.
+          </p>
+        </div>
       )}
 
       {/* Preset Dialogs */}
