@@ -236,9 +236,8 @@ const Home = () => {
           <div className="text-center mb-8 sm:mb-14 animate-fade-up space-y-3">
             <div className="inline-block">
               <div
-                className="px-10 sm:px-14 py-3 sm:py-4 rounded-[20px]"
+                className="px-10 sm:px-14 py-3 sm:py-4 rounded-[20px] logo-metal cursor-pointer"
                  style={{
-                   background: 'conic-gradient(from 135deg, hsl(220 6% 78%) 0%, hsl(220 8% 90%) 15%, hsl(220 6% 72%) 30%, hsl(220 8% 88%) 45%, hsl(220 6% 70%) 55%, hsl(220 8% 92%) 70%, hsl(220 6% 75%) 85%, hsl(220 6% 78%) 100%)',
                    boxShadow: '0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.1), 0 6px 16px hsl(220 20% 0% / 0.12), inset 0 1px 2px hsl(0 0% 100% / 0.5), inset 0 -1px 2px hsl(0 0% 0% / 0.08)',
                    border: '1px solid hsl(220 8% 84%)',
                  }}
