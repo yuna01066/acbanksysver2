@@ -2874,6 +2874,72 @@ export type Database = {
           },
         ]
       }
+      secret_events: {
+        Row: {
+          created_at: string
+          display_duration: number | null
+          emoji: string
+          event_type: string
+          gradient: string | null
+          id: string
+          is_active: boolean | null
+          message: string
+          name: string
+          particles: string[] | null
+          sound_enabled: boolean | null
+          sound_freq: number | null
+          sub_message: string | null
+          trigger_date: number | null
+          trigger_day_of_week: number | null
+          trigger_hour: number | null
+          trigger_minute: number | null
+          trigger_month: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_duration?: number | null
+          emoji?: string
+          event_type?: string
+          gradient?: string | null
+          id?: string
+          is_active?: boolean | null
+          message: string
+          name: string
+          particles?: string[] | null
+          sound_enabled?: boolean | null
+          sound_freq?: number | null
+          sub_message?: string | null
+          trigger_date?: number | null
+          trigger_day_of_week?: number | null
+          trigger_hour?: number | null
+          trigger_minute?: number | null
+          trigger_month?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_duration?: number | null
+          emoji?: string
+          event_type?: string
+          gradient?: string | null
+          id?: string
+          is_active?: boolean | null
+          message?: string
+          name?: string
+          particles?: string[] | null
+          sound_enabled?: boolean | null
+          sound_freq?: number | null
+          sub_message?: string | null
+          trigger_date?: number | null
+          trigger_day_of_week?: number | null
+          trigger_hour?: number | null
+          trigger_minute?: number | null
+          trigger_month?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       slot_types: {
         Row: {
           allow_multiple_selection: boolean | null

@@ -176,6 +176,20 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
   const [secretParticles, setSecretParticles] = useState<{ id: number; emoji: string; x: number; delay: number }[]>([]);
   const secretSoundPlayed = useRef<string | null>(null);
 
+  // Fetch custom secret events from DB
+  const { data: customSecretEvents } = useQuery({
+    queryKey: ['secret-events-active'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('secret_events')
+        .select('*')
+        .eq('is_active', true);
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 60000,
+  });
+
   // Fetch today's upcoming events (conference, meeting, event)
   const { data: todayEvents } = useQuery({
     queryKey: ['today-upcoming-events'],
@@ -231,9 +245,41 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // 🎯 시크릿 이벤트 감지
+  // 🎯 시크릿 이벤트 감지 (하드코딩 + DB 커스텀)
   useEffect(() => {
-    const event = getSecretEvent(name);
+    // 1. 하드코딩된 이벤트 확인
+    let event = getSecretEvent(name);
+
+    // 2. DB 커스텀 이벤트 확인 (하드코딩이 없을 때)
+    if (!event && customSecretEvents && customSecretEvents.length > 0) {
+      const n = new Date();
+      const h = n.getHours();
+      const m = n.getMinutes();
+      const day = n.getDay();
+      const date = n.getDate();
+      const month = n.getMonth() + 1;
+
+      for (const ce of customSecretEvents) {
+        let match = true;
+        if (ce.trigger_hour != null && ce.trigger_hour !== h) match = false;
+        if (ce.trigger_minute != null && ce.trigger_minute !== m) match = false;
+        if (ce.trigger_day_of_week != null && ce.trigger_day_of_week !== day) match = false;
+        if (ce.trigger_date != null && ce.trigger_date !== date) match = false;
+        if (ce.trigger_month != null && ce.trigger_month !== month) match = false;
+        if (match) {
+          event = {
+            emoji: ce.emoji,
+            message: ce.message,
+            sub: (ce.sub_message || '').replace('{name}', name),
+            gradient: ce.gradient || 'from-primary/15 via-primary/10 to-accent/10',
+            particles: ce.particles || undefined,
+            sound: ce.sound_enabled ? { freq: ce.sound_freq || 440, type: 'triangle' as OscillatorType } : undefined,
+          };
+          break;
+        }
+      }
+    }
+
     const eventKey = event ? event.message : null;
 
     if (event && eventKey !== secretSoundPlayed.current) {
@@ -241,18 +287,16 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
       setShowSecretBanner(true);
       secretSoundPlayed.current = eventKey;
 
-      // 파티클 생성
       if (event.particles) {
         const newParticles = Array.from({ length: 12 }, (_, i) => ({
           id: i,
-          emoji: event.particles![Math.floor(Math.random() * event.particles!.length)],
+          emoji: event!.particles![Math.floor(Math.random() * event!.particles!.length)],
           x: Math.random() * 100,
           delay: Math.random() * 2,
         }));
         setSecretParticles(newParticles);
       }
 
-      // 효과음
       if (event.sound) {
         try {
           const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -271,7 +315,6 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
         } catch (e) { /* audio not supported */ }
       }
 
-      // 10초 후 자동으로 배너 닫기
       const timer = setTimeout(() => setShowSecretBanner(false), 10000);
       return () => clearTimeout(timer);
     } else if (!event) {
@@ -279,7 +322,7 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
       setShowSecretBanner(false);
       setSecretParticles([]);
     }
-  }, [now, name]);
+  }, [now, name, customSecretEvents]);
 
   // Sync with presence channel
   useEffect(() => {
