@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Plus, FolderOpen, Building2, FileText, Search, Users, CircleDollarSign, Briefcase, Home, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Plus, FolderOpen, Building2, FileText, Search, Users, CircleDollarSign, Briefcase, Home } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import ProjectDetailPanel from '@/components/project/ProjectDetailPanel';
@@ -110,10 +110,6 @@ const ProjectManagementPage = () => {
             </Button>
             <h1 className="text-xl font-bold tracking-tight">프로젝트 관리</h1>
           </div>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate('/business-dashboard')}>
-            <TrendingUp className="h-3.5 w-3.5" />
-            경영 대시보드
-          </Button>
         </div>
 
         <div className="flex gap-5">
