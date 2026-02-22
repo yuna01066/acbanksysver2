@@ -121,22 +121,22 @@ const QuoteSummaryHeader = ({
       </div>
 
       {/* 헤더 */}
-      <Card className="shadow-sm border border-gray-200 rounded-xl overflow-hidden bg-white mb-6">
-        <CardHeader className="bg-white border-b border-gray-100 p-8">
+      <Card className="shadow-sm border border-gray-300 rounded-xl overflow-hidden bg-white mb-6 quote-header-card [backdrop-filter:none] [-webkit-backdrop-filter:none]">
+        <CardHeader className="bg-white border-b border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-3xl font-bold flex items-center gap-3 mb-2 text-gray-900">
-                <img src={arcbankLogo} alt="아크뱅크 로고" className="w-8 h-8 object-contain" />
+              <CardTitle className="text-2xl font-bold flex items-center gap-3 mb-1 text-black" style={{ fontFamily: "'Apple SD Gothic Neo', sans-serif" }}>
+                <img src={arcbankLogo} alt="아크뱅크 로고" className="w-7 h-7 object-contain" />
                 아크뱅크 견적서
               </CardTitle>
-              <p className="text-gray-500 text-lg font-light">ACBANK Quotation</p>
+              <p className="text-gray-500 text-sm font-normal tracking-wider" style={{ fontFamily: "'Apple SD Gothic Neo', sans-serif" }}>ACBANK Quotation</p>
             </div>
             <div className="text-right">
-              <div className="flex items-center gap-2 text-gray-500 mb-2">
+              <div className="flex items-center gap-2 text-gray-500 mb-2 text-sm">
                 <Calendar className="w-4 h-4" />
                 <span>{currentDate}</span>
               </div>
-              <Badge className="bg-gray-100 text-gray-800 border border-gray-200 px-4 py-2 text-lg font-semibold">
+              <Badge className="bg-gray-100 text-black border border-gray-300 px-3 py-1.5 text-sm font-semibold">
                 견적번호: {quoteNumber}
               </Badge>
             </div>

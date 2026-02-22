@@ -21,7 +21,7 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
         @media print {
           @page {
             size: A4;
-            margin: 10mm 15mm 15mm 15mm;
+            margin: 12mm 14mm 14mm 14mm;
           }
 
           * {
@@ -34,10 +34,10 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
           html, body {
             margin: 0 !important;
             padding: 0 !important;
-            font-size: 8pt !important;
             background: white !important;
             height: auto !important;
             overflow: visible !important;
+            font-family: 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif !important;
           }
 
           /* 화면 레이아웃 요소 숨기기 */
@@ -46,7 +46,7 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
             display: none !important;
           }
 
-          /* 최상위 래퍼: block 레이아웃으로 변환 */
+          /* 최상위 래퍼 */
           .print-layout-wrapper {
             display: block !important;
             padding: 0 !important;
@@ -64,6 +64,10 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
           }
 
           /* 우측 사이드 패널 숨기기 */
+          .print-side-panel {
+            display: none !important;
+          }
+
           .print-flex-container > div:last-child {
             display: none !important;
           }
@@ -78,16 +82,31 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
             flex: none !important;
           }
 
+          /* 견적서 메인 카드 - 인쇄 시 카드 스타일 제거 */
+          .quote-main-card {
+            background: white !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            overflow: visible !important;
+          }
+
+          .quote-main-card > div {
+            padding: 0 !important;
+          }
+
           /* glass-card 인쇄 시 불투명 배경으로 변환 */
           .glass-card {
             background: white !important;
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
-            border-color: #e5e7eb !important;
+            border-color: #d1d5db !important;
             overflow: visible !important;
           }
 
-          /* Card shadow/border 제거 및 overflow 허용 */
+          /* Card shadow 제거 */
           .print-container .shadow-lg,
           .print-container .shadow-sm,
           .print-container .shadow-md {
@@ -98,11 +117,6 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
           .print-container .rounded-lg,
           .print-container .rounded {
             overflow: visible !important;
-          }
-
-          /* CardContent padding 축소 */
-          .print-container .p-8 {
-            padding: 16px !important;
           }
 
           /* 2열 grid 유지 */
@@ -120,33 +134,40 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
 
           /* 견적 요약 */
           .print-summary {
-            padding: 6px !important;
-            margin-bottom: 10px !important;
-          }
-
-          /* 우측 사이드 패널 숨기기 (명시적 클래스) */
-          .print-side-panel {
-            display: none !important;
+            margin-bottom: 12px !important;
+            break-inside: avoid !important;
           }
 
           /* 총액 섹션 */
           .print-total {
-            padding: 6px !important;
-            margin-bottom: 10px !important;
+            margin-bottom: 12px !important;
+            break-inside: avoid !important;
+          }
+
+          /* 섹션 페이지 나눔 방지 */
+          .quote-section {
+            break-inside: avoid !important;
+          }
+
+          /* 헤더 카드 인쇄 시 */
+          .quote-header-card {
+            border: 1px solid #d1d5db !important;
+            box-shadow: none !important;
+            margin-bottom: 12px !important;
           }
 
           /* 푸터 */
           .print-footer {
             position: fixed;
-            bottom: 8mm;
-            left: 15mm;
-            right: 15mm;
+            bottom: 6mm;
+            left: 14mm;
+            right: 14mm;
             display: flex !important;
             justify-content: space-between;
             align-items: center;
             padding: 4px 0;
             border-top: 1px solid #ccc;
-            font-size: 7pt;
+            font-size: 9px;
             color: #666;
             background: white !important;
           }
