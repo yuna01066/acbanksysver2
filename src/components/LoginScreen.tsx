@@ -94,22 +94,7 @@ const LoginScreen = () => {
                   : '0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.1), 0 6px 16px hsl(220 20% 0% / 0.12), inset 0 1px 2px hsl(0 0% 100% / 0.5), inset 0 -1px 2px hsl(0 0% 0% / 0.08)',
               }}
             >
-              <h1
-                className="text-[38px] font-black leading-none tracking-[3px] relative"
-                style={{
-                  fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-                  color: 'transparent',
-                  background: isDark
-                    ? 'linear-gradient(180deg, hsl(220 6% 55%) 0%, hsl(220 8% 38%) 50%, hsl(220 6% 46%) 100%)'
-                    : 'linear-gradient(180deg, hsl(220 8% 38%) 0%, hsl(220 10% 22%) 50%, hsl(220 8% 32%) 100%)',
-                  WebkitBackgroundClip: 'text',
-                  backgroundClip: 'text',
-                  WebkitTextStroke: isDark ? '0.5px hsl(0 0% 100% / 0.1)' : '0.5px hsl(0 0% 0% / 0.35)',
-                  filter: isDark
-                    ? 'drop-shadow(0 -1px 0 hsl(0 0% 100% / 0.12)) drop-shadow(0 2px 1px hsl(0 0% 0% / 0.5))'
-                    : 'drop-shadow(0 1px 0 hsl(0 0% 100% / 0.4))',
-                }}
-              >
+              <h1 className="text-[38px] font-black leading-none tracking-[3px] skeuo-engraved">
                 ACBANK
               </h1>
             </div>
