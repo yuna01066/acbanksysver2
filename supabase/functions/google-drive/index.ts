@@ -212,7 +212,14 @@ function getConfig() {
     }
   }
   
-  return { serviceAccount: parsed, sharedDriveId };
+  // Extract folder ID if a full URL was provided
+  let driveId = sharedDriveId;
+  const urlMatch = sharedDriveId.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (urlMatch) {
+    driveId = urlMatch[1];
+  }
+  
+  return { serviceAccount: parsed, sharedDriveId: driveId };
 }
 
 serve(async (req) => {
