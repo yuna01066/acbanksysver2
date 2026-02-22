@@ -237,11 +237,11 @@ const Home = () => {
             <div className="inline-block">
               <div
                 className="px-10 sm:px-14 py-3 sm:py-4 rounded-[20px]"
-                style={{
-                  background: 'linear-gradient(165deg, hsl(220 6% 92%) 0%, hsl(220 8% 82%) 35%, hsl(220 6% 90%) 50%, hsl(220 8% 84%) 65%, hsl(220 6% 80%) 100%)',
-                  boxShadow: '0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.1), 0 6px 16px hsl(220 20% 0% / 0.1)',
-                  border: '1px solid hsl(220 8% 84%)',
-                }}
+                 style={{
+                   background: 'conic-gradient(from 0deg, hsl(220 6% 78%) 0%, hsl(220 8% 90%) 15%, hsl(220 6% 72%) 30%, hsl(220 8% 88%) 45%, hsl(220 6% 70%) 55%, hsl(220 8% 92%) 70%, hsl(220 6% 75%) 85%, hsl(220 6% 78%) 100%)',
+                   boxShadow: '0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.1), 0 6px 16px hsl(220 20% 0% / 0.12), inset 0 1px 2px hsl(0 0% 100% / 0.5), inset 0 -1px 2px hsl(0 0% 0% / 0.08)',
+                   border: '1px solid hsl(220 8% 84%)',
+                 }}
               >
                 <h1 className="text-3xl sm:text-[42px] font-black leading-none tracking-[1px] relative" style={{ fontFamily: "'Pretendard Variable', Pretendard, sans-serif", color: 'transparent', background: 'linear-gradient(180deg, hsl(220 8% 38%) 0%, hsl(220 10% 22%) 50%, hsl(220 8% 32%) 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', filter: 'drop-shadow(0 1px 0 hsl(0 0% 100% / 0.4)) drop-shadow(0 -1px 1px hsl(0 0% 0% / 0.3))' }}>ACBANK</h1>
               </div>
