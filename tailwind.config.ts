@@ -17,10 +17,10 @@ export default {
 				'2xl': '1400px'
 			}
 		},
+		fontFamily: {
+			sans: ['Apple SD Gothic Neo', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'Pretendard Variable', 'Pretendard', 'Helvetica Neue', 'Noto Sans KR', 'Malgun Gothic', 'sans-serif'],
+		},
 		extend: {
-			fontFamily: {
-				sans: ['Apple SD Gothic Neo', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'Pretendard Variable', 'Pretendard', 'Helvetica Neue', 'Noto Sans KR', 'Malgun Gothic', 'sans-serif'],
-			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
