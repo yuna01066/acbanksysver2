@@ -433,7 +433,7 @@
     border-color: hsl(220 12% 18%);
   }
 
-  /* Metal engraved logo text – dark hairline stainless steel */
+  /* Metal embossed logo text – raised/convex stainless steel */
   .skeuo-engraved {
     font-family: 'Pretendard Variable', Pretendard, sans-serif;
     font-weight: 800;
@@ -442,45 +442,41 @@
     background:
       repeating-linear-gradient(
         90deg,
-        hsl(220 6% 38% / 0.08) 0px,
+        hsl(220 6% 60% / 0.06) 0px,
         transparent 1px,
         transparent 2px
       ),
       linear-gradient(
-        175deg,
-        hsl(220 6% 52%) 0%,
-        hsl(220 8% 36%) 25%,
-        hsl(220 6% 46%) 45%,
-        hsl(220 8% 32%) 65%,
-        hsl(220 6% 42%) 85%,
-        hsl(220 8% 34%) 100%
+        180deg,
+        hsl(220 6% 68%) 0%,
+        hsl(220 8% 52%) 40%,
+        hsl(220 6% 58%) 55%,
+        hsl(220 8% 48%) 100%
       );
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 1px 0 hsl(0 0% 100% / 0.35)) drop-shadow(0 -1px 0 hsl(0 0% 0% / 0.25));
+    filter: drop-shadow(0 -1px 0 hsl(0 0% 100% / 0.6)) drop-shadow(0 2px 1px hsl(0 0% 0% / 0.3)) drop-shadow(0 3px 4px hsl(0 0% 0% / 0.12));
   }
 
   .dark .skeuo-engraved {
     background:
       repeating-linear-gradient(
         90deg,
-        hsl(220 6% 50% / 0.06) 0px,
+        hsl(220 6% 50% / 0.05) 0px,
         transparent 1px,
         transparent 2px
       ),
       linear-gradient(
-        175deg,
-        hsl(220 6% 42%) 0%,
-        hsl(220 8% 28%) 25%,
-        hsl(220 6% 36%) 45%,
-        hsl(220 8% 24%) 65%,
-        hsl(220 6% 32%) 85%,
-        hsl(220 8% 26%) 100%
+        180deg,
+        hsl(220 6% 55%) 0%,
+        hsl(220 8% 38%) 40%,
+        hsl(220 6% 46%) 55%,
+        hsl(220 8% 34%) 100%
       );
     -webkit-background-clip: text;
     background-clip: text;
-    filter: drop-shadow(0 1px 0 hsl(0 0% 100% / 0.06)) drop-shadow(0 -1px 0 hsl(0 0% 0% / 0.6));
+    filter: drop-shadow(0 -1px 0 hsl(0 0% 100% / 0.12)) drop-shadow(0 2px 1px hsl(0 0% 0% / 0.5)) drop-shadow(0 3px 5px hsl(0 0% 0% / 0.3));
   }
 }
 
