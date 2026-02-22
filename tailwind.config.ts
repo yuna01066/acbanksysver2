@@ -19,7 +19,7 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'SF Pro Text', 'system-ui', 'Pretendard Variable', 'Pretendard', 'Helvetica Neue', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'sans-serif'],
+				sans: ['Apple SD Gothic Neo', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'Pretendard Variable', 'Pretendard', 'Helvetica Neue', 'Noto Sans KR', 'Malgun Gothic', 'sans-serif'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',
