@@ -27,6 +27,7 @@ const LoginScreen = () => {
     if (logoSpinning) return;
     setLogoSpinning(true);
     setTheme(theme === 'dark' ? 'light' : 'dark');
+    toast(theme === 'dark' ? '☀️ 라이트 모드로 전환!' : '🌙 다크 모드로 전환!', { duration: 1500 });
     setTimeout(() => setLogoSpinning(false), 700);
   }, [logoSpinning, theme, setTheme]);
 
@@ -59,33 +60,25 @@ const LoginScreen = () => {
     setLoading(false);
   };
 
-  /* ── shared inline style helpers ── */
-  const bg = 'hsl(220 10% 91%)';
-
-  const insetField = {
-    background: 'linear-gradient(180deg, hsl(220 12% 86%) 0%, hsl(220 12% 90%) 100%)',
-    boxShadow: 'inset 0 2px 3px hsl(0 0% 0% / 0.08), inset 0 1px 1px hsl(0 0% 0% / 0.05), 0 1px 0 hsl(0 0% 100% / 0.7)',
-    border: '1px solid hsl(220 12% 84%)',
-  } as const;
-
-  const convexBtn = {
-    background: 'linear-gradient(180deg, hsl(220 10% 97%) 0%, hsl(220 12% 88%) 100%)',
-    boxShadow: '0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.06), 0 4px 10px hsl(220 20% 0% / 0.1)',
-    border: '1px solid hsl(220 12% 86%)',
-  } as const;
-
-  const circleBtn = {
-    background: 'linear-gradient(180deg, hsl(220 10% 97%) 0%, hsl(220 12% 88%) 100%)',
-    boxShadow: '0 2px 1px hsl(0 0% 100% / 0.9), 0 -1px 1px hsl(0 0% 0% / 0.06), 0 4px 8px hsl(220 20% 0% / 0.08)',
-    border: '1px solid hsl(220 12% 86%)',
-  } as const;
+  const isDark = theme === 'dark';
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center px-4"
-      style={{ background: `linear-gradient(170deg, hsl(220 12% 93%) 0%, ${bg} 50%, hsl(220 10% 89%) 100%)` }}
-    >
-      <div className="w-full max-w-[380px] space-y-8">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden bg-[hsl(220,10%,91%)] dark:bg-[hsl(230,18%,7%)]">
+      {/* Light mode gradient bg */}
+      <div className="absolute inset-0 pointer-events-none dark:hidden" aria-hidden="true"
+        style={{ background: 'linear-gradient(170deg, hsl(220 12% 93%) 0%, hsl(220 10% 91%) 50%, hsl(220 10% 89%) 100%)' }} />
+      {/* Dark mode ambient glow */}
+      <div className="absolute inset-0 pointer-events-none hidden dark:block" aria-hidden="true">
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(170deg, hsl(230 18% 7%) 0%, hsl(240 16% 10%) 50%, hsl(230 18% 8%) 100%)' }} />
+        <div className="absolute top-[-15%] left-[-5%] w-[50%] h-[50%] rounded-full opacity-[0.12]"
+          style={{ background: 'radial-gradient(circle, hsl(280 60% 35%) 0%, transparent 70%)', filter: 'blur(100px)' }} />
+        <div className="absolute top-[5%] right-[-10%] w-[45%] h-[50%] rounded-full opacity-[0.10]"
+          style={{ background: 'radial-gradient(circle, hsl(250 55% 40%) 0%, transparent 70%)', filter: 'blur(100px)' }} />
+        <div className="absolute bottom-[-5%] left-[25%] w-[40%] h-[40%] rounded-full opacity-[0.08]"
+          style={{ background: 'radial-gradient(circle, hsl(215 60% 35%) 0%, transparent 70%)', filter: 'blur(90px)' }} />
+      </div>
+
+      <div className="w-full max-w-[380px] space-y-8 relative z-10">
 
         {/* ── Logo: metal embossed style matching dashboard ── */}
         <div className="flex flex-col items-center gap-4">
@@ -96,7 +89,9 @@ const LoginScreen = () => {
                 logoSpinning && "logo-spin-3d"
               )}
               style={{
-                boxShadow: '0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.1), 0 6px 16px hsl(220 20% 0% / 0.12), inset 0 1px 2px hsl(0 0% 100% / 0.5), inset 0 -1px 2px hsl(0 0% 0% / 0.08)',
+                boxShadow: isDark
+                  ? '0 2px 1px hsl(0 0% 100% / 0.05), 0 -2px 1px hsl(0 0% 0% / 0.4), 0 6px 16px hsl(220 20% 0% / 0.4)'
+                  : '0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.1), 0 6px 16px hsl(220 20% 0% / 0.12), inset 0 1px 2px hsl(0 0% 100% / 0.5), inset 0 -1px 2px hsl(0 0% 0% / 0.08)',
               }}
             >
               <h1
@@ -104,11 +99,15 @@ const LoginScreen = () => {
                 style={{
                   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
                   color: 'transparent',
-                  background: 'linear-gradient(180deg, hsl(220 8% 38%) 0%, hsl(220 10% 22%) 50%, hsl(220 8% 32%) 100%)',
+                  background: isDark
+                    ? 'linear-gradient(180deg, hsl(220 6% 55%) 0%, hsl(220 8% 38%) 50%, hsl(220 6% 46%) 100%)'
+                    : 'linear-gradient(180deg, hsl(220 8% 38%) 0%, hsl(220 10% 22%) 50%, hsl(220 8% 32%) 100%)',
                   WebkitBackgroundClip: 'text',
                   backgroundClip: 'text',
-                  WebkitTextStroke: '0.5px hsl(0 0% 0% / 0.35)',
-                  filter: 'drop-shadow(0 1px 0 hsl(0 0% 100% / 0.4))',
+                  WebkitTextStroke: isDark ? '0.5px hsl(0 0% 100% / 0.1)' : '0.5px hsl(0 0% 0% / 0.35)',
+                  filter: isDark
+                    ? 'drop-shadow(0 -1px 0 hsl(0 0% 100% / 0.12)) drop-shadow(0 2px 1px hsl(0 0% 0% / 0.5))'
+                    : 'drop-shadow(0 1px 0 hsl(0 0% 100% / 0.4))',
                 }}
               >
                 ACBANK
@@ -116,18 +115,24 @@ const LoginScreen = () => {
             </div>
           </div>
 
-          <p className="text-[11px] font-medium tracking-[0.22em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>
+          <p className="text-[11px] font-medium tracking-[0.22em] uppercase text-[hsl(220,8%,42%)] dark:text-[hsl(220,10%,58%)]">
             Management System
           </p>
         </div>
 
-        {/* ── Form card: soft raised surface ── */}
+        {/* ── Form card ── */}
         <div
           className="rounded-[24px] px-7 py-8 space-y-6"
           style={{
-            background: 'linear-gradient(180deg, hsl(220 12% 95%) 0%, hsl(220 12% 90%) 100%)',
-            boxShadow: '0 2px 1px hsl(0 0% 100% / 0.8), 0 -1px 1px hsl(0 0% 0% / 0.04), 0 8px 20px hsl(220 20% 0% / 0.08)',
-            border: '1px solid hsl(220 12% 88%)',
+            background: isDark
+              ? 'linear-gradient(180deg, hsl(230 14% 14%) 0%, hsl(230 14% 10%) 100%)'
+              : 'linear-gradient(180deg, hsl(220 12% 95%) 0%, hsl(220 12% 90%) 100%)',
+            boxShadow: isDark
+              ? '0 2px 1px hsl(0 0% 100% / 0.04), 0 -1px 1px hsl(0 0% 0% / 0.3), 0 8px 20px hsl(220 20% 0% / 0.4)'
+              : '0 2px 1px hsl(0 0% 100% / 0.8), 0 -1px 1px hsl(0 0% 0% / 0.04), 0 8px 20px hsl(220 20% 0% / 0.08)',
+            border: isDark
+              ? '1px solid hsl(230 14% 20%)'
+              : '1px solid hsl(220 12% 88%)',
           }}
         >
           {pendingApproval && (
@@ -140,40 +145,72 @@ const LoginScreen = () => {
           <form onSubmit={handleLogin} className="space-y-5">
             {/* Email */}
             <div className="space-y-2">
-              <label className="text-[11px] font-bold tracking-[0.08em] uppercase pl-1" style={{ color: 'hsl(220 10% 30%)' }}>Email</label>
-              <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl" style={insetField}>
-                <Mail className="w-[18px] h-[18px] shrink-0" style={{ color: 'hsl(220 8% 48%)' }} />
+              <label className="text-[11px] font-bold tracking-[0.08em] uppercase pl-1 text-[hsl(220,10%,30%)] dark:text-[hsl(220,10%,68%)]">Email</label>
+              <div
+                className="flex items-center gap-3 px-4 py-3.5 rounded-xl"
+                style={{
+                  background: isDark
+                    ? 'linear-gradient(180deg, hsl(220 12% 8%) 0%, hsl(220 12% 12%) 100%)'
+                    : 'linear-gradient(180deg, hsl(220 12% 86%) 0%, hsl(220 12% 90%) 100%)',
+                  boxShadow: isDark
+                    ? 'inset 0 2px 3px hsl(0 0% 0% / 0.3), inset 0 1px 1px hsl(0 0% 0% / 0.2), 0 1px 0 hsl(0 0% 100% / 0.04)'
+                    : 'inset 0 2px 3px hsl(0 0% 0% / 0.08), inset 0 1px 1px hsl(0 0% 0% / 0.05), 0 1px 0 hsl(0 0% 100% / 0.7)',
+                  border: isDark
+                    ? '1px solid hsl(220 12% 14%)'
+                    : '1px solid hsl(220 12% 84%)',
+                }}
+              >
+                <Mail className="w-[18px] h-[18px] shrink-0 text-[hsl(220,8%,48%)] dark:text-[hsl(220,10%,50%)]" />
                 <input
                   id="email" type="email" placeholder="your@email.com"
                   value={email} onChange={(e) => setEmail(e.target.value)} required
-                  className="w-full bg-transparent text-[14px] tracking-[-0.01em] outline-none placeholder:text-muted-foreground/40"
-                  style={{ color: 'hsl(220 10% 25%)' }}
+                  className="w-full bg-transparent text-[14px] tracking-[-0.01em] outline-none placeholder:text-muted-foreground/40 text-[hsl(220,10%,25%)] dark:text-[hsl(0,0%,90%)]"
                 />
               </div>
             </div>
 
             {/* Password */}
             <div className="space-y-2">
-              <label className="text-[11px] font-bold tracking-[0.08em] uppercase pl-1" style={{ color: 'hsl(220 10% 30%)' }}>Password</label>
-              <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl" style={insetField}>
-                <KeyRound className="w-[18px] h-[18px] shrink-0" style={{ color: 'hsl(220 8% 48%)' }} />
+              <label className="text-[11px] font-bold tracking-[0.08em] uppercase pl-1 text-[hsl(220,10%,30%)] dark:text-[hsl(220,10%,68%)]">Password</label>
+              <div
+                className="flex items-center gap-3 px-4 py-3.5 rounded-xl"
+                style={{
+                  background: isDark
+                    ? 'linear-gradient(180deg, hsl(220 12% 8%) 0%, hsl(220 12% 12%) 100%)'
+                    : 'linear-gradient(180deg, hsl(220 12% 86%) 0%, hsl(220 12% 90%) 100%)',
+                  boxShadow: isDark
+                    ? 'inset 0 2px 3px hsl(0 0% 0% / 0.3), inset 0 1px 1px hsl(0 0% 0% / 0.2), 0 1px 0 hsl(0 0% 100% / 0.04)'
+                    : 'inset 0 2px 3px hsl(0 0% 0% / 0.08), inset 0 1px 1px hsl(0 0% 0% / 0.05), 0 1px 0 hsl(0 0% 100% / 0.7)',
+                  border: isDark
+                    ? '1px solid hsl(220 12% 14%)'
+                    : '1px solid hsl(220 12% 84%)',
+                }}
+              >
+                <KeyRound className="w-[18px] h-[18px] shrink-0 text-[hsl(220,8%,48%)] dark:text-[hsl(220,10%,50%)]" />
                 <input
                   id="password" type="password"
                   value={password} onChange={(e) => setPassword(e.target.value)} required
-                  className="w-full bg-transparent text-[14px] tracking-[-0.01em] outline-none"
-                  style={{ color: 'hsl(220 10% 25%)' }}
+                  className="w-full bg-transparent text-[14px] tracking-[-0.01em] outline-none text-[hsl(220,10%,25%)] dark:text-[hsl(0,0%,90%)]"
                 />
               </div>
             </div>
 
-            {/* Login – convex plastic pill */}
+            {/* Login button */}
             <div className="pt-1">
               <button
                 type="submit" disabled={loading}
                 className="w-full py-3.5 rounded-2xl flex items-center justify-center gap-2 text-[14px] font-semibold tracking-[-0.01em] transition-all duration-200 active:scale-[0.98] disabled:opacity-40"
                 style={{
-                  ...convexBtn,
-                  color: 'hsl(220 12% 22%)',
+                  background: isDark
+                    ? 'linear-gradient(180deg, hsl(220 12% 22%) 0%, hsl(220 12% 14%) 100%)'
+                    : 'linear-gradient(180deg, hsl(220 10% 97%) 0%, hsl(220 12% 88%) 100%)',
+                  boxShadow: isDark
+                    ? '0 2px 1px hsl(0 0% 100% / 0.06), 0 -2px 1px hsl(0 0% 0% / 0.3), 0 4px 10px hsl(220 20% 0% / 0.4)'
+                    : '0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.06), 0 4px 10px hsl(220 20% 0% / 0.1)',
+                  border: isDark
+                    ? '1px solid hsl(220 12% 20%)'
+                    : '1px solid hsl(220 12% 86%)',
+                  color: isDark ? 'hsl(0 0% 88%)' : 'hsl(220 12% 22%)',
                 }}
               >
                 <LogIn className="w-[18px] h-[18px]" />
@@ -183,33 +220,60 @@ const LoginScreen = () => {
           </form>
 
           {/* Divider groove */}
-          <div className="mx-2 h-px" style={{ background: 'linear-gradient(90deg, transparent, hsl(220 12% 82%), transparent)', boxShadow: '0 1px 0 hsl(0 0% 100% / 0.5)' }} />
+          <div className="mx-2 h-px" style={{
+            background: isDark
+              ? 'linear-gradient(90deg, transparent, hsl(220 14% 24%), transparent)'
+              : 'linear-gradient(90deg, transparent, hsl(220 12% 82%), transparent)',
+            boxShadow: isDark
+              ? '0 1px 0 hsl(0 0% 100% / 0.04)'
+              : '0 1px 0 hsl(0 0% 100% / 0.5)',
+          }} />
 
           {/* Bottom circular actions */}
           <div className="flex items-center justify-center gap-10 pt-1">
             <button type="button" onClick={() => navigate('/forgot-password')} className="flex flex-col items-center gap-2 group">
               <div
                 className="w-[52px] h-[52px] rounded-full flex items-center justify-center transition-transform duration-200 group-hover:scale-105 group-active:scale-95"
-                style={circleBtn}
+                style={{
+                  background: isDark
+                    ? 'linear-gradient(180deg, hsl(220 12% 22%) 0%, hsl(220 12% 14%) 100%)'
+                    : 'linear-gradient(180deg, hsl(220 10% 97%) 0%, hsl(220 12% 88%) 100%)',
+                  boxShadow: isDark
+                    ? '0 2px 1px hsl(0 0% 100% / 0.04), 0 -1px 1px hsl(0 0% 0% / 0.3), 0 4px 8px hsl(220 20% 0% / 0.4)'
+                    : '0 2px 1px hsl(0 0% 100% / 0.9), 0 -1px 1px hsl(0 0% 0% / 0.06), 0 4px 8px hsl(220 20% 0% / 0.08)',
+                  border: isDark
+                    ? '1px solid hsl(220 12% 20%)'
+                    : '1px solid hsl(220 12% 86%)',
+                }}
               >
-                <KeyRound className="w-[18px] h-[18px]" style={{ color: 'hsl(220 8% 50%)' }} />
+                <KeyRound className="w-[18px] h-[18px] text-[hsl(220,8%,50%)] dark:text-[hsl(220,10%,55%)]" />
               </div>
-              <span className="text-[10px] font-medium tracking-[-0.01em]" style={{ color: 'hsl(220 8% 50%)' }}>비밀번호 찾기</span>
+              <span className="text-[10px] font-medium tracking-[-0.01em] text-[hsl(220,8%,50%)] dark:text-[hsl(220,10%,55%)]">비밀번호 찾기</span>
             </button>
 
             <button type="button" onClick={() => navigate('/auth')} className="flex flex-col items-center gap-2 group">
               <div
                 className="w-[52px] h-[52px] rounded-full flex items-center justify-center transition-transform duration-200 group-hover:scale-105 group-active:scale-95"
-                style={circleBtn}
+                style={{
+                  background: isDark
+                    ? 'linear-gradient(180deg, hsl(220 12% 22%) 0%, hsl(220 12% 14%) 100%)'
+                    : 'linear-gradient(180deg, hsl(220 10% 97%) 0%, hsl(220 12% 88%) 100%)',
+                  boxShadow: isDark
+                    ? '0 2px 1px hsl(0 0% 100% / 0.04), 0 -1px 1px hsl(0 0% 0% / 0.3), 0 4px 8px hsl(220 20% 0% / 0.4)'
+                    : '0 2px 1px hsl(0 0% 100% / 0.9), 0 -1px 1px hsl(0 0% 0% / 0.06), 0 4px 8px hsl(220 20% 0% / 0.08)',
+                  border: isDark
+                    ? '1px solid hsl(220 12% 20%)'
+                    : '1px solid hsl(220 12% 86%)',
+                }}
               >
-                <UserPlus className="w-[18px] h-[18px]" style={{ color: 'hsl(220 8% 50%)' }} />
+                <UserPlus className="w-[18px] h-[18px] text-[hsl(220,8%,50%)] dark:text-[hsl(220,10%,55%)]" />
               </div>
-              <span className="text-[10px] font-medium tracking-[-0.01em]" style={{ color: 'hsl(220 8% 50%)' }}>회원가입</span>
+              <span className="text-[10px] font-medium tracking-[-0.01em] text-[hsl(220,8%,50%)] dark:text-[hsl(220,10%,55%)]">회원가입</span>
             </button>
           </div>
         </div>
 
-        <p className="text-[10px] text-center font-medium tracking-[0.18em]" style={{ color: 'hsl(220 8% 62%)' }}>
+        <p className="text-[10px] text-center font-medium tracking-[0.18em] text-[hsl(220,8%,62%)] dark:text-[hsl(220,10%,45%)]">
           © 2025 ACBANK. ALL RIGHTS RESERVED.
         </p>
       </div>
