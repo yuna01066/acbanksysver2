@@ -358,51 +358,46 @@ const SavedQuoteDetailPage = () => {
             showSavedQuoteActions={true}
           />
 
-          <Card className="shadow-lg border-0 rounded-xl bg-white [backdrop-filter:none] [-webkit-backdrop-filter:none] [background:white]" style={{ overflow: 'visible' }}>
-            <CardContent className="p-8 print:p-4" style={{ overflow: 'visible' }}>
+          <Card className="shadow-lg border border-gray-300 rounded-xl bg-white quote-main-card [backdrop-filter:none] [-webkit-backdrop-filter:none] [background:white]" style={{ overflow: 'visible', fontFamily: "'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif" }}>
+            <CardContent className="p-6 print:p-4" style={{ overflow: 'visible' }}>
               {/* 견적 요약 정보 - 내부용에서만 출력 */}
               {viewMode !== 'customer' && (
-              <div className="mb-8 rounded-xl bg-white shadow-sm border border-[hsl(220,12%,88%)] print-summary">
-                <div className="p-6">
-                  <div className="flex items-center gap-2 mb-5 pb-3 border-b border-[hsl(220,12%,88%)]">
-                    <h2 className="text-lg font-bold text-[hsl(0,0%,0%)]">견적 요약</h2>
-                  </div>
+              <div className="mb-6 rounded-lg bg-[hsl(210,40%,97%)] border border-[hsl(210,30%,88%)] print-summary quote-section">
+                <div className="p-5">
+                  <h2 className="text-[15px] font-bold text-black mb-4 pb-2 border-b border-[hsl(210,30%,85%)]">견적 요약</h2>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* 견적 기본 정보 */}
-                    <div className="space-y-3">
-                      <div className="bg-[hsl(220,12%,96%)] rounded-xl p-4 border border-[hsl(220,12%,90%)]">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-black mb-1.5">견적번호</p>
-                        <p className="text-[15px] font-bold text-black">{quote.quote_number}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <div className="bg-white rounded-lg p-3 border border-[hsl(210,30%,90%)]">
+                        <p className="text-[11px] font-semibold text-gray-500 mb-1">견적번호</p>
+                        <p className="text-[13px] font-bold text-black">{quote.quote_number}</p>
                       </div>
-                      <div className="bg-[hsl(220,12%,96%)] rounded-xl p-4 border border-[hsl(220,12%,90%)]">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-black mb-1.5">작성일</p>
-                        <p className="text-[15px] font-bold text-[hsl(0,0%,0%)]">{currentDate}</p>
+                      <div className="bg-white rounded-lg p-3 border border-[hsl(210,30%,90%)]">
+                        <p className="text-[11px] font-semibold text-gray-500 mb-1">작성일</p>
+                        <p className="text-[13px] font-bold text-black">{currentDate}</p>
                       </div>
                     </div>
                     
-                    {/* 견적 항목 */}
-                    <div className="bg-[hsl(220,12%,96%)] rounded-xl p-4 border border-[hsl(220,12%,90%)] flex flex-col justify-center">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-black mb-1.5">견적 항목 수</p>
+                    <div className="bg-white rounded-lg p-3 border border-[hsl(210,30%,90%)] flex flex-col justify-center">
+                      <p className="text-[11px] font-semibold text-gray-500 mb-1">견적 항목 수</p>
                       <div className="flex items-baseline gap-1">
-                        <p className="text-3xl font-black text-[hsl(0,0%,0%)]">{items.length}</p>
-                        <p className="text-sm font-medium text-black">개</p>
+                        <p className="text-2xl font-black text-black">{items.length}</p>
+                        <p className="text-[13px] font-medium text-black">개</p>
                       </div>
                     </div>
                     
-                    {/* 금액 정보 */}
-                    <div className="space-y-2.5 bg-[hsl(220,12%,96%)] rounded-xl p-4 border border-[hsl(220,12%,90%)]">
-                      <div className="flex justify-between items-center pb-2.5 border-b border-[hsl(220,12%,88%)]">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-black">공급가</p>
-                        <p className="text-[14px] font-bold text-[hsl(0,0%,0%)]">{subtotal.toLocaleString()}원</p>
+                    <div className="space-y-2 bg-white rounded-lg p-3 border border-[hsl(210,30%,90%)]">
+                      <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+                        <p className="text-[11px] font-semibold text-gray-500">공급가</p>
+                        <p className="text-[13px] font-bold text-black">{subtotal.toLocaleString()}원</p>
                       </div>
-                      <div className="flex justify-between items-center pb-2.5 border-b border-[hsl(220,12%,88%)]">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-black">부가세</p>
-                        <p className="text-[14px] font-bold text-[hsl(0,0%,0%)]">{tax.toLocaleString()}원</p>
+                      <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+                        <p className="text-[11px] font-semibold text-gray-500">부가세</p>
+                        <p className="text-[13px] font-bold text-black">{tax.toLocaleString()}원</p>
                       </div>
                       <div className="flex justify-between items-center pt-1">
-                        <p className="text-[13px] font-bold text-[hsl(0,0%,0%)]">최종 금액</p>
-                        <p className="text-[17px] font-black text-[hsl(0,0%,0%)]">{totalWithTax.toLocaleString()}원</p>
+                        <p className="text-[12px] font-bold text-black">최종 금액</p>
+                        <p className="text-[15px] font-black text-black">{totalWithTax.toLocaleString()}원</p>
                       </div>
                     </div>
                   </div>
@@ -437,71 +432,67 @@ const SavedQuoteDetailPage = () => {
               )}
 
               {/* 회사 정보 섹션 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6 quote-section">
                 {/* 견적서 수신 */}
-                <div className="space-y-4">
-                  <h3 className="text-[20px] font-bold border-b-2 border-black pb-2 text-black">견적서 수신</h3>
+                <div className="bg-[hsl(145,30%,96%)] rounded-lg border border-[hsl(145,25%,88%)] p-5 space-y-3">
+                  <h3 className="text-[15px] font-bold text-black border-b-2 border-[hsl(145,30%,70%)] pb-2">견적서 수신</h3>
                   
-                  {/* 프로젝트 기본 정보 */}
-                  <div className="p-5 bg-[hsl(220,12%,97%)] rounded-xl border border-[hsl(220,12%,90%)]">
-                     <h4 className="font-bold text-black mb-3 text-[15px]">프로젝트 정보</h4>
-                     <div className="space-y-2.5 text-[13px]">
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">프로젝트명</span><span className="font-semibold text-black">{quote.project_name || '-'}</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">견적번호</span><span className="font-semibold text-black">{quote.quote_number}</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">견적일자</span><span className="font-semibold text-black">{quote.quote_date_display ? new Date(quote.quote_date_display).toLocaleDateString('ko-KR') : currentDate}</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">유효기간</span><span className="font-semibold text-black">{quote.valid_until || '-'}</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">납기</span><span className="font-semibold text-black">{quote.delivery_period || '-'}</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">지불 조건</span><span className="font-semibold text-black">{quote.payment_condition || '-'}</span></div>
+                  <div>
+                    <h4 className="font-bold text-black mb-2 text-[13px]">프로젝트 정보</h4>
+                    <div className="space-y-1.5 text-[12px]">
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">프로젝트명</span><span className="font-semibold text-black">{quote.project_name || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">견적번호</span><span className="font-semibold text-black">{quote.quote_number}</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">견적일자</span><span className="font-semibold text-black">{quote.quote_date_display ? new Date(quote.quote_date_display).toLocaleDateString('ko-KR') : currentDate}</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">유효기간</span><span className="font-semibold text-black">{quote.valid_until || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">납기</span><span className="font-semibold text-black">{quote.delivery_period || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">지불 조건</span><span className="font-semibold text-black">{quote.payment_condition || '-'}</span></div>
                     </div>
                   </div>
 
-                  {/* 담당자 및 납기 정보 */}
-                  <div className="p-5 bg-[hsl(220,12%,97%)] rounded-xl border border-[hsl(220,12%,90%)]">
-                     <h4 className="font-bold text-black mb-3 text-[15px]">담당자 및 납기 정보</h4>
-                     <div className="space-y-2.5 text-[13px]">
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">회사명</span><span className="font-semibold text-black">{quote.recipient_company || '-'}</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">담당자</span><span className="font-semibold text-black">{quote.recipient_name || '-'}</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">연락처</span><span className="font-semibold text-black">{quote.recipient_phone || '-'}</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">이메일</span><span className="font-semibold text-black">{quote.recipient_email || '-'}</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">납기 희망일</span><span className="font-semibold text-black">{quote.desired_delivery_date ? new Date(quote.desired_delivery_date).toLocaleDateString('ko-KR') : '미정'}</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">현장 주소</span><span className="font-semibold text-black">{quote.recipient_address || '-'}</span></div>
+                  <div className="pt-2 border-t border-[hsl(145,20%,85%)]">
+                    <h4 className="font-bold text-black mb-2 text-[13px]">담당자 및 납기 정보</h4>
+                    <div className="space-y-1.5 text-[12px]">
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">회사명</span><span className="font-semibold text-black">{quote.recipient_company || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">담당자</span><span className="font-semibold text-black">{quote.recipient_name || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">연락처</span><span className="font-semibold text-black">{quote.recipient_phone || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">이메일</span><span className="font-semibold text-black">{quote.recipient_email || '-'}</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">납기 희망일</span><span className="font-semibold text-black">{quote.desired_delivery_date ? new Date(quote.desired_delivery_date).toLocaleDateString('ko-KR') : '미정'}</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">현장 주소</span><span className="font-semibold text-black">{quote.recipient_address || '-'}</span></div>
                     </div>
                   </div>
                 </div>
 
                 {/* 견적서 발신 */}
-                <div className="space-y-4">
-                  <h3 className="text-[20px] font-bold border-b-2 border-black pb-2 text-black">견적서 발신</h3>
+                <div className="bg-[hsl(215,35%,96%)] rounded-lg border border-[hsl(215,30%,88%)] p-5 space-y-3">
+                  <h3 className="text-[15px] font-bold text-black border-b-2 border-[hsl(215,35%,70%)] pb-2">견적서 발신</h3>
                   
-                  {/* 회사 기본 정보 */}
-                  <div className="p-5 bg-[hsl(220,12%,97%)] rounded-xl border border-[hsl(220,12%,90%)]">
-                     <h4 className="font-bold text-black mb-3 text-[15px]">회사 정보</h4>
-                     <div className="space-y-2.5 text-[13px]">
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">상호</span><span className="font-semibold text-black">(주)아크뱅크</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">사업자번호</span><span className="font-semibold text-black">299-87-02991</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">웹사이트</span><span className="font-semibold text-black">acbank.co.kr</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">주소</span><span className="font-semibold text-black leading-relaxed">경기도 포천시 소흘읍 호국로 287번길 15, 나동 1층 101호 (동행빌딩)</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">업태</span><span className="font-semibold text-black">제조업 / 도매 및 소매업</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">종목</span><span className="font-semibold text-black">아크릴 가공 외</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">연락처</span><span className="font-semibold text-black">070-7666-9828</span></div>
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">이메일</span><span className="font-semibold text-black">acbank@acbank.co.kr</span></div>
+                  <div>
+                    <h4 className="font-bold text-black mb-2 text-[13px]">회사 정보</h4>
+                    <div className="space-y-1.5 text-[12px]">
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">상호</span><span className="font-semibold text-black">(주)아크뱅크</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">사업자번호</span><span className="font-semibold text-black">299-87-02991</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">웹사이트</span><span className="font-semibold text-black">acbank.co.kr</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">주소</span><span className="font-semibold text-black leading-relaxed">경기도 포천시 소흘읍 호국로 287번길 15, 나동 1층 101호</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">업태</span><span className="font-semibold text-black">제조업 / 도매 및 소매업</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">종목</span><span className="font-semibold text-black">아크릴 가공 외</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">연락처</span><span className="font-semibold text-black">070-7666-9828</span></div>
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">이메일</span><span className="font-semibold text-black">acbank@acbank.co.kr</span></div>
                     </div>
                   </div>
 
-                  {/* 담당자 정보 */}
-                  <div className="p-5 bg-[hsl(220,12%,97%)] rounded-xl border border-[hsl(220,12%,90%)]">
-                     <h4 className="font-bold text-black mb-3 text-[15px]">담당자 정보</h4>
-                     <div className="space-y-2.5 text-[13px]">
-                       <div className="flex"><span className="text-black w-24 shrink-0 font-medium">담당자</span><span className="font-semibold text-black">{recipientData.issuerName || '작성'}</span></div>
-                       {recipientData.issuerEmail && <div className="flex"><span className="text-black w-24 shrink-0 font-medium">이메일</span><span className="font-semibold text-black">{recipientData.issuerEmail}</span></div>}
-                       {recipientData.issuerPhone && <div className="flex"><span className="text-black w-24 shrink-0 font-medium">연락처</span><span className="font-semibold text-black">{recipientData.issuerPhone}</span></div>}
+                  <div className="pt-2 border-t border-[hsl(215,25%,85%)]">
+                    <h4 className="font-bold text-black mb-2 text-[13px]">담당자 정보</h4>
+                    <div className="space-y-1.5 text-[12px]">
+                      <div className="flex"><span className="text-gray-600 w-20 shrink-0">담당자</span><span className="font-semibold text-black">{recipientData.issuerName || '작성'}</span></div>
+                      {recipientData.issuerEmail && <div className="flex"><span className="text-gray-600 w-20 shrink-0">이메일</span><span className="font-semibold text-black">{recipientData.issuerEmail}</span></div>}
+                      {recipientData.issuerPhone && <div className="flex"><span className="text-gray-600 w-20 shrink-0">연락처</span><span className="font-semibold text-black">{recipientData.issuerPhone}</span></div>}
                     </div>
                   </div>
                   
-                  <div className="p-5 bg-[hsl(210,80%,95%)] rounded-xl border border-[hsl(210,70%,80%)]">
-                    <h4 className="font-bold text-[hsl(220,60%,20%)] mb-2 text-[13px]">입금 계좌</h4>
-                    <div className="text-[14px] font-bold text-[hsl(220,50%,15%)]">
-                      <div>신한은행 140-014-544315 (주)아크뱅크</div>
+                  <div className="mt-3 p-3 bg-[hsl(210,50%,93%)] rounded-lg border border-[hsl(210,40%,82%)]">
+                    <h4 className="font-bold text-[hsl(215,50%,25%)] mb-1 text-[12px]">입금 계좌</h4>
+                    <div className="text-[13px] font-bold text-[hsl(215,50%,20%)]">
+                      신한은행 140-014-544315 (주)아크뱅크
                     </div>
                   </div>
                 </div>
@@ -509,14 +500,13 @@ const SavedQuoteDetailPage = () => {
 
 
               {/* 견적 목록 */}
-              <div className="mb-8">
-                <h3 className="text-lg font-bold text-[hsl(0,0%,0%)] mb-6 flex items-center gap-2">
-                  <Calculator className="w-5 h-5" />
+              <div className="mb-6 quote-section">
+                <h3 className="text-[15px] font-bold text-black mb-4 flex items-center gap-2">
+                  <Calculator className="w-4 h-4" />
                   견적 목록 ({isEditing ? editedItems.length : items.length}개) {isEditing ? '- 편집 모드' : viewMode === 'customer' ? '' : '- 내부 관리용'}
                 </h3>
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {isEditing ? (
-                    // 편집 모드: EditableQuoteItem 사용
                     editedItems.map((item: any, index: number) => (
                       <EditableQuoteItem
                         key={index}
@@ -528,7 +518,6 @@ const SavedQuoteDetailPage = () => {
                       />
                     ))
                   ) : (
-                    // 읽기 모드: 기존 QuoteCard/CustomerQuoteCard 사용
                     items.map((item: any, index: number) => (
                       viewMode === 'customer' ? (
                         <CustomerQuoteCard
@@ -556,45 +545,45 @@ const SavedQuoteDetailPage = () => {
               </div>
 
               {/* 견적 총 합계 */}
-              <div className="mb-8 rounded-xl bg-white shadow-sm border border-[hsl(220,12%,88%)] print-total">
-                <div className="p-5">
+              <div className="mb-6 rounded-lg bg-[hsl(220,20%,97%)] border border-[hsl(220,15%,88%)] print-total quote-section">
+                <div className="p-4">
                   <div className="flex items-center justify-between gap-4">
-                    <h2 className="text-[15px] font-bold text-[hsl(0,0%,0%)] bg-[hsl(220,12%,96%)] px-6 py-2.5 rounded-xl border border-[hsl(220,12%,90%)]">총 견적 금액</h2>
-                    <div className="flex flex-col items-end gap-2 flex-1">
-                      <div className="flex items-center gap-6">
+                    <h2 className="text-[13px] font-bold text-black bg-white px-4 py-2 rounded-lg border border-gray-200">총 견적 금액</h2>
+                    <div className="flex flex-col items-end gap-1.5 flex-1">
+                      <div className="flex items-center gap-5">
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-semibold text-black">소계 (부가세 별도)</span>
-                          <span className="text-[14px] font-bold text-[hsl(0,0%,0%)]">{subtotal.toLocaleString()}원</span>
+                          <span className="text-[11px] font-semibold text-gray-500">소계 (부가세 별도)</span>
+                          <span className="text-[13px] font-bold text-black">{subtotal.toLocaleString()}원</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-semibold text-black">부가세 (10%)</span>
-                          <span className="text-[14px] font-bold text-[hsl(0,0%,0%)]">{tax.toLocaleString()}원</span>
+                          <span className="text-[11px] font-semibold text-gray-500">부가세 (10%)</span>
+                          <span className="text-[13px] font-bold text-black">{tax.toLocaleString()}원</span>
                         </div>
-                        <div className="flex items-center gap-3 px-5 py-2.5 bg-[hsl(220,14%,16%)] rounded-xl">
-                          <span className="text-[13px] font-bold text-white">총 합계</span>
-                          <span className="text-xl font-black text-white">{totalWithTax.toLocaleString()}원</span>
+                        <div className="flex items-center gap-3 px-4 py-2 bg-gray-900 rounded-lg">
+                          <span className="text-[12px] font-bold text-white">총 합계</span>
+                          <span className="text-[16px] font-black text-white">{totalWithTax.toLocaleString()}원</span>
                         </div>
                       </div>
-                      <p className="text-[11px] font-medium text-black">* 배송비는 별도 입니다.</p>
+                      <p className="text-[11px] text-gray-500">* 배송비는 별도 입니다.</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* 특이사항 및 상담내용 - 내부용에서만 출력 */}
+              {/* 특이사항 및 상담내용 */}
               {viewMode !== 'customer' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                <div>
-                  <h3 className="text-[15px] font-bold mb-3 text-[hsl(0,0%,0%)]">특 이 사 항 :</h3>
-                  <ul className="text-[13px] space-y-1.5 text-black">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 quote-section">
+                <div className="bg-[hsl(45,40%,96%)] rounded-lg border border-[hsl(45,30%,85%)] p-4">
+                  <h3 className="text-[13px] font-bold mb-2 text-black">특 이 사 항 :</h3>
+                  <ul className="text-[12px] space-y-1 text-black">
                     <li>- 견적서의 유효기간은 발행일로부터 14일 입니다.</li>
                     <li>- 운송비 및 부가세는 별도 입니다.</li>
                   </ul>
                 </div>
                 
-                <div>
-                  <h3 className="text-[15px] font-bold mb-3 text-[hsl(0,0%,0%)]">상 담 내 용 :</h3>
-                  <div className="text-[13px] space-y-1.5 text-black">
+                <div className="bg-[hsl(45,40%,96%)] rounded-lg border border-[hsl(45,30%,85%)] p-4">
+                  <h3 className="text-[13px] font-bold mb-2 text-black">상 담 내 용 :</h3>
+                  <div className="text-[12px] space-y-1 text-black">
                     <p>안녕하세요</p>
                     <p>견적 문의해 주셔서 감사합니다.</p>
                     <p>상세한 제작 요구사항이 있으시면 담당자에게 연락 부탁드립니다.</p>
@@ -604,16 +593,15 @@ const SavedQuoteDetailPage = () => {
               )}
 
               {/* 연락처 정보 */}
-              <div className="mt-8 p-6 bg-[hsl(215,50%,96%)] border border-[hsl(215,40%,85%)] rounded-xl">
-                <h4 className="font-bold text-[hsl(0,0%,0%)] mb-4 text-[15px]">문의 및 주문</h4>
-                <div className="text-[13px] space-y-3">
-                  <p className="mb-3 text-black">견적 관련 문의사항이나 주문을 원하시면 아래 연락처로 문의해주세요.</p>
+              <div className="mb-6 p-5 bg-[hsl(200,35%,96%)] border border-[hsl(200,30%,85%)] rounded-lg quote-section">
+                <h4 className="font-bold text-black mb-3 text-[13px]">문의 및 주문</h4>
+                <div className="text-[12px] space-y-2">
+                  <p className="text-black">견적 관련 문의사항이나 주문을 원하시면 아래 연락처로 문의해주세요.</p>
                   
-                  {/* 담당자 정보 */}
                   {recipientData.issuerName && (
-                    <div className="bg-white p-4 rounded-xl border border-[hsl(215,40%,88%)]">
-                      <p className="font-bold text-black mb-2 text-[12px] uppercase tracking-wider">담당자</p>
-                      <div className="space-y-1.5 text-[13px] font-bold text-black">
+                    <div className="bg-white p-3 rounded-lg border border-[hsl(200,25%,88%)]">
+                      <p className="font-bold text-gray-500 mb-1.5 text-[11px] uppercase tracking-wider">담당자</p>
+                      <div className="space-y-1 text-[12px] font-semibold text-black">
                         <p>👤 {recipientData.issuerName}</p>
                         {recipientData.issuerPhone && <p>📞 {recipientData.issuerPhone}</p>}
                         {recipientData.issuerEmail && <p>📧 {recipientData.issuerEmail}</p>}
@@ -621,51 +609,32 @@ const SavedQuoteDetailPage = () => {
                     </div>
                   )}
                   
-                  {/* 회사 대표 연락처 */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <p className="font-bold bg-white px-4 py-3 rounded-xl border border-[hsl(215,40%,88%)] text-black">📞 대표전화: 070-7537-3680</p>
-                    <p className="font-bold bg-white px-4 py-3 rounded-xl border border-[hsl(215,40%,88%)] text-black">📧 대표이메일: acbank@acbank.co.kr</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <p className="font-semibold bg-white px-3 py-2 rounded-lg border border-[hsl(200,25%,88%)] text-black text-[12px]">📞 대표전화: 070-7537-3680</p>
+                    <p className="font-semibold bg-white px-3 py-2 rounded-lg border border-[hsl(200,25%,88%)] text-black text-[12px]">📧 대표이메일: acbank@acbank.co.kr</p>
                   </div>
                 </div>
               </div>
 
-              {/* 클라이언트 요청사항 및 첨부 서류 - 내부용에서만 출력 */}
+              {/* 클라이언트 요청사항 - 내부용에서만 */}
               {viewMode !== 'customer' && (
-              <div className="mt-8 mb-8 space-y-8">
-                {/* 클라이언트 요청사항 - 사업자등록증 위에 표시 */}
+              <div className="mb-6 space-y-5">
                 {(quote.recipient_memo || (quote.attachments && Array.isArray(quote.attachments) && quote.attachments.length > 0)) && (
-                  <div className="bg-[hsl(220,12%,97%)] border border-[hsl(220,12%,88%)] rounded-xl p-8">
-                    <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[hsl(220,12%,88%)]">
-                      <div className="bg-[hsl(220,14%,16%)] p-3 rounded-xl">
-                        <FileText className="w-6 h-6 text-white" />
-                      </div>
-                      <h3 className="text-xl font-bold text-[hsl(0,0%,0%)]">
-                        클라이언트 요청사항
-                      </h3>
+                  <div className="bg-[hsl(30,40%,96%)] border border-[hsl(30,30%,85%)] rounded-lg p-5 quote-section">
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[hsl(30,25%,82%)]">
+                      <FileText className="w-4 h-4 text-black" />
+                      <h3 className="text-[15px] font-bold text-black">클라이언트 요청사항</h3>
                     </div>
                     
-                    {/* 요청사항 내용 */}
                     {quote.recipient_memo && (
-                      <div className="mb-6">
-                        <div className="bg-white p-6 rounded-xl border border-[hsl(220,12%,90%)]">
-                          <div className="flex items-start gap-3 mb-3">
-                            <div className="bg-[hsl(220,12%,93%)] p-2 rounded-lg">
-                              <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="font-bold text-[hsl(0,0%,0%)] mb-2 text-[15px]">요청 내용</h4>
-                              <p className="text-[13px] text-black whitespace-pre-wrap leading-relaxed bg-[hsl(220,12%,96%)] p-4 rounded-xl border border-[hsl(220,12%,90%)]">
-                                {quote.recipient_memo}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                      <div className="mb-4">
+                        <h4 className="font-bold text-black mb-2 text-[13px]">요청 내용</h4>
+                        <p className="text-[12px] text-black whitespace-pre-wrap leading-relaxed bg-white p-3 rounded-lg border border-[hsl(30,25%,88%)]">
+                          {quote.recipient_memo}
+                        </p>
                       </div>
                     )}
                     
-                    {/* 첨부 파일 - 다운로드 기능 포함 */}
                     {quote.attachments && Array.isArray(quote.attachments) && quote.attachments.length > 0 && (
                       <QuoteAttachments
                         attachments={attachments}
@@ -676,32 +645,31 @@ const SavedQuoteDetailPage = () => {
                     )}
                   </div>
                 )}
-
               </div>
               )}
 
-              {/* 첨부 서류 - A5 사이즈 (고객용에서도 표시) */}
-              <div className="mt-8 mb-8">
-                <h3 className="text-lg font-bold mb-6 text-black">첨부 서류</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white border border-[hsl(220,12%,88%)] rounded-xl p-5">
-                    <h4 className="font-bold text-black mb-3 text-center text-[13px]">사업자등록증</h4>
+              {/* 첨부 서류 */}
+              <div className="mb-6 quote-section">
+                <h3 className="text-[15px] font-bold mb-4 text-black">첨부 서류</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-bold text-black mb-3 text-center text-[12px]">사업자등록증</h4>
                     <div className="flex justify-center">
                       <img 
                         src={businessRegistration} 
                         alt="아크뱅크 사업자등록증" 
-                        className="w-full max-w-[420px] h-auto border border-[hsl(220,12%,88%)] rounded-lg"
+                        className="w-full max-w-[380px] h-auto border border-gray-200 rounded"
                         style={{ aspectRatio: '148/210' }}
                       />
                     </div>
                   </div>
-                  <div className="bg-white border border-[hsl(220,12%,88%)] rounded-xl p-5">
-                    <h4 className="font-bold text-black mb-3 text-center text-[13px]">통장사본</h4>
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-bold text-black mb-3 text-center text-[12px]">통장사본</h4>
                     <div className="flex justify-center">
                       <img 
                         src={bankAccount} 
                         alt="아크뱅크 통장사본" 
-                        className="w-full max-w-[420px] h-auto border border-[hsl(220,12%,88%)] rounded-lg"
+                        className="w-full max-w-[380px] h-auto border border-gray-200 rounded"
                         style={{ aspectRatio: '148/210' }}
                       />
                     </div>
