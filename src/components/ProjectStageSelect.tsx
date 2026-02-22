@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useActivityLog } from '@/hooks/useActivityLog';
+import { logStageChange } from '@/hooks/useQuoteStageHistory';
 
 export const PROJECT_STAGES = [
   { value: 'quote_issued', label: '견적 발행', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
@@ -37,7 +38,7 @@ const ProjectStageSelect = ({
   quoteUserId,
   onStageChanged,
 }: ProjectStageSelectProps) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [updating, setUpdating] = useState(false);
   const { logActivity } = useActivityLog();
 
@@ -72,6 +73,13 @@ const ProjectStageSelect = ({
       const stageInfo = getStageInfo(newStage);
       toast.success(`${stageInfo.label}(으)로 변경되었습니다.`);
       logActivity('stage_changed', quoteId, quoteNumber || quoteId, { oldStage: currentStage, newStage, newStageLabel: stageInfo.label });
+
+      // Log stage change history
+      const userName = profile?.full_name || user?.email || '알 수 없음';
+      if (user) {
+        logStageChange(quoteId, currentStage, newStage, user.id, userName);
+      }
+
       onStageChanged?.(newStage);
     } catch (err: any) {
       console.error('[Stage] Update error:', err);

@@ -24,6 +24,9 @@ import QuoteNotesSection from "@/components/quote-detail/QuoteNotesSection";
 import QuoteContactSection from "@/components/quote-detail/QuoteContactSection";
 import QuoteClientRequestSection from "@/components/quote-detail/QuoteClientRequestSection";
 import QuoteDocumentsSection from "@/components/quote-detail/QuoteDocumentsSection";
+import QuoteVersionHistory from "@/components/quote-detail/QuoteVersionHistory";
+import QuoteStageTimeline from "@/components/quote-detail/QuoteStageTimeline";
+import { useQuoteVersions } from "@/hooks/useQuoteVersions";
 
 interface SavedQuote {
   id: string;
@@ -100,6 +103,7 @@ const SavedQuoteDetailPage = () => {
   });
   const printContainerRef = useRef<HTMLDivElement>(null);
   const { user, isAdmin, isModerator } = useAuth();
+  const { saveVersion } = useQuoteVersions(id);
 
   useEffect(() => {
     if (id) {
@@ -309,6 +313,30 @@ const SavedQuoteDetailPage = () => {
         .eq('id', id);
 
       if (error) throw error;
+
+      // Save version snapshot before edit
+      if (quote) {
+        const changes: string[] = [];
+        if (recipientData.projectName !== (quote.project_name || '')) changes.push('프로젝트명');
+        if (recipientData.companyName !== (quote.recipient_company || '')) changes.push('거래처');
+        if (editedItems.length !== items.length) changes.push('품목 수');
+        if (roundedSubtotal !== Math.round(quote.subtotal)) changes.push('금액');
+        const summary = changes.length > 0 ? `${changes.join(', ')} 변경` : '수정됨';
+        
+        saveVersion.mutate({
+          snapshot: {
+            project_name: quote.project_name,
+            recipient_company: quote.recipient_company,
+            recipient_name: quote.recipient_name,
+            items: quote.items,
+            subtotal: quote.subtotal,
+            tax: quote.tax,
+            total: quote.total,
+            valid_until: quote.valid_until,
+          },
+          changeSummary: summary,
+        });
+      }
 
       toast.success('견적서가 수정되었습니다.');
       setIsEditing(false);
@@ -569,6 +597,8 @@ const SavedQuoteDetailPage = () => {
           {/* 원판 발주 */}
           {id && <QuoteMaterialOrders quoteId={id} />}
           {id && <QuoteMemoPanel quoteId={id} />}
+          {id && <QuoteVersionHistory quoteId={id} />}
+          {id && <QuoteStageTimeline quoteId={id} />}
         </div>
         </div>
       </div>

@@ -105,10 +105,12 @@ const SavedQuotesPage = () => {
     return null;
   };
 
-  // 만료된 견적서 자동 상태 변경
+  // 만료된 견적서 자동 상태 변경 + 만료 예정 알림
   const autoExpireQuotes = async (quotesData: SavedQuote[]): Promise<number> => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const threeDaysLater = new Date(today);
+    threeDaysLater.setDate(threeDaysLater.getDate() + 3);
     
     const expiredIds = quotesData
       .filter(q => {
@@ -118,6 +120,36 @@ const SavedQuotesPage = () => {
         return expDate < today;
       })
       .map(q => q.id);
+
+    // 만료 예정 견적서 알림 (3일 이내)
+    const soonExpiring = quotesData.filter(q => {
+      if (q.project_stage !== 'quote_issued') return false;
+      const expDate = parseValidUntilDate(q.valid_until);
+      if (!expDate) return false;
+      return expDate >= today && expDate <= threeDaysLater;
+    });
+
+    if (soonExpiring.length > 0 && user) {
+      // Check if we already sent notification today
+      const todayStr = today.toISOString().substring(0, 10);
+      const { data: existing } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('type', 'quote_expiring')
+        .gte('created_at', todayStr)
+        .limit(1);
+
+      if (!existing || existing.length === 0) {
+        await supabase.from('notifications').insert({
+          user_id: user.id,
+          type: 'quote_expiring',
+          title: '견적서 만료 예정',
+          description: `${soonExpiring.length}건의 견적서가 3일 이내 만료 예정입니다.`,
+          data: { quote_ids: soonExpiring.map(q => q.id), count: soonExpiring.length },
+        });
+      }
+    }
     
     if (expiredIds.length === 0) return 0;
 
