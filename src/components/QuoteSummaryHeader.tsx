@@ -125,11 +125,11 @@ const QuoteSummaryHeader = ({
         <CardHeader className="bg-white border-b border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-2xl font-bold flex items-center gap-3 mb-1 text-black" style={{ fontFamily: "'Apple SD Gothic Neo', sans-serif" }}>
+              <CardTitle className="text-2xl font-bold flex items-center gap-3 mb-1 text-black">
                 <img src={arcbankLogo} alt="아크뱅크 로고" className="w-7 h-7 object-contain" />
                 아크뱅크 견적서
               </CardTitle>
-              <p className="text-gray-500 text-sm font-normal tracking-wider" style={{ fontFamily: "'Apple SD Gothic Neo', sans-serif" }}>ACBANK Quotation</p>
+              <p className="text-gray-500 text-sm font-normal tracking-wider">ACBANK Quotation</p>
             </div>
             <div className="text-right">
               <div className="flex items-center gap-2 text-gray-500 mb-2 text-sm">

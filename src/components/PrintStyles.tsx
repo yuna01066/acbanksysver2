@@ -37,7 +37,7 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
             background: white !important;
             height: auto !important;
             overflow: visible !important;
-            font-family: 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif !important;
+            font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif !important;
           }
 
           /* 화면 레이아웃 요소 숨기기 */

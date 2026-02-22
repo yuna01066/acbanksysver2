@@ -48,7 +48,7 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
   const totalPrice = unitPrice * quote.quantity;
 
   return (
-    <Card className="border border-gray-200 shadow-none rounded-lg" style={{ fontFamily: "'Apple SD Gothic Neo', sans-serif" }}>
+    <Card className="border border-gray-200 shadow-none rounded-lg">
       <CardHeader className="pb-3 bg-gray-100 text-black print:bg-gray-100 px-4 py-3">
         <div className="flex justify-between items-center">
           <div>
