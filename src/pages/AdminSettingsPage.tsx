@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, BarChart3, FolderKanban, Star, Shield, Receipt, FileText, Sparkles, Monitor, TrendingUp } from "lucide-react";
 import QuoteStatisticsCard from '@/components/dashboard/QuoteStatisticsCard';
+import BusinessDashboard from '@/components/dashboard/BusinessDashboard';
 import { useAuth } from "@/contexts/AuthContext";
 import SecretEventManager from '@/components/admin/SecretEventManager';
 
@@ -234,6 +235,11 @@ const AdminSettingsPage = () => {
               </button>
             </CardContent>
           </Card>
+        </div>
+
+        {/* 경영 대시보드 */}
+        <div className="mt-6">
+          <BusinessDashboard />
         </div>
 
         {/* 견적 통계 */}
