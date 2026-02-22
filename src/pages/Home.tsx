@@ -2,7 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, LogIn, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette } from "lucide-react";
+import LoginScreen from '@/components/LoginScreen';
 import DashboardCalendar from '@/components/DashboardCalendar';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
@@ -147,6 +148,11 @@ const Home = () => {
     link.action();
   };
 
+  // If not logged in, show login page
+  if (!user) {
+    return <LoginScreen />;
+  }
+
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-3 sm:px-4 py-8 sm:py-16">
@@ -154,36 +160,25 @@ const Home = () => {
           {/* Top Bar */}
           <div className="flex justify-between items-center gap-4 mb-8">
             <div>
-              {user && (
-                <NotificationPanel
-                  notifications={notifications}
-                  unviewedCount={unviewedCount}
-                  onMarkViewed={markAsViewed}
-                  onRemove={removeNotification}
-                  onRefresh={refreshNotifications}
-                />
-              )}
+              <NotificationPanel
+                notifications={notifications}
+                unviewedCount={unviewedCount}
+                onMarkViewed={markAsViewed}
+                onRemove={removeNotification}
+                onRefresh={refreshNotifications}
+              />
             </div>
             <div className="flex items-center gap-2">
-              {user ? (
-                <>
-                  <Button variant="ghost" size="icon" onClick={() => navigate('/team-chat')} title="팀챗" className="rounded-full">
-                    <MessageCircle className="h-5 w-5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => navigate('/my-page')} title="마이페이지" className="rounded-full">
-                    <User className="h-5 w-5" />
-                  </Button>
-                  <Button variant="ghost" onClick={signOut} className="gap-2 rounded-full">
-                    <LogOut className="h-4 w-4" />
-                    로그아웃
-                  </Button>
-                </>
-              ) : (
-                <Button onClick={() => navigate('/auth')} className="gap-2 rounded-full">
-                  <LogIn className="h-4 w-4" />
-                  로그인
-                </Button>
-              )}
+              <Button variant="ghost" size="icon" onClick={() => navigate('/team-chat')} title="팀챗" className="rounded-full">
+                <MessageCircle className="h-5 w-5" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => navigate('/my-page')} title="마이페이지" className="rounded-full">
+                <User className="h-5 w-5" />
+              </Button>
+              <Button variant="ghost" onClick={signOut} className="gap-2 rounded-full">
+                <LogOut className="h-4 w-4" />
+                로그아웃
+              </Button>
             </div>
           </div>
 
@@ -193,8 +188,7 @@ const Home = () => {
             <p className="text-sm sm:text-lg text-muted-foreground font-light tracking-wide">아크뱅크 내부 관리 시스템</p>
           </div>
 
-          {user && (
-            <div className="mb-6 space-y-5">
+          <div className="mb-6 space-y-5">
               {/* Quick icon links */}
               <div className="flex justify-center sm:justify-end gap-3 flex-wrap">
                 {quickLinks.map((ql, i) => {
@@ -226,15 +220,12 @@ const Home = () => {
                 <ProjectProgressCard />
               </div>
             </div>
-          )}
 
           {/* Online Employees & Team Chat */}
-          {user && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-              <OnlineEmployeesCard />
-              <TeamChatCard />
-            </div>
-          )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            <OnlineEmployeesCard />
+            <TeamChatCard />
+          </div>
 
           {/* Links Grid */}
           {(() => {
@@ -365,7 +356,7 @@ const Home = () => {
           </div>
         </div>
       </div>
-      {user && <MeetingRequestPopup />}
+      <MeetingRequestPopup />
     </div>
   );
 };
