@@ -12,7 +12,7 @@ import AnnouncementCard from '@/components/AnnouncementCard';
 import QuickAttendanceButton from '@/components/QuickAttendanceButton';
 import DailyQuoteCard from '@/components/DailyQuoteCard';
 import ActivityFeedCard from '@/components/ActivityFeedCard';
-import QuoteStatisticsCard from '@/components/dashboard/QuoteStatisticsCard';
+
 import { useAuth } from '@/contexts/AuthContext';
 import TimeGreeting from '@/components/TimeGreeting';
 import OnlineEmployeesCard from '@/components/OnlineEmployeesCard';
@@ -306,9 +306,6 @@ const Home = () => {
               <AnnouncementCard />
               <ActivityFeedCard />
               <ProjectProgressCard />
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <QuoteStatisticsCard />
             </div>
           </div>
 
