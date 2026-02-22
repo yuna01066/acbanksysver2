@@ -123,7 +123,7 @@ const AuthPage = () => {
 
         <Card>
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold">ACBANK</CardTitle>
+            <CardTitle className="text-2xl skeuo-engraved">ACBANK</CardTitle>
             <CardDescription>
               계정에 로그인하거나 새로 만들어보세요
             </CardDescription>

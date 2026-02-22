@@ -58,7 +58,7 @@ const LoginScreen = () => {
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
           <img src={arcbankLogo} alt="ACBANK" className="h-16 w-auto" />
-          <h1 className="text-3xl font-bold tracking-wider text-foreground" style={{ fontFamily: 'Horizon, sans-serif' }}>
+          <h1 className="text-3xl skeuo-engraved">
             ACBANK
           </h1>
         </div>

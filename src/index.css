@@ -432,6 +432,26 @@
       0 -1px 0 hsl(0 0% 0% / 0.3);
     border-color: hsl(220 12% 18%);
   }
+
+  /* Metal engraved logo text */
+  .skeuo-engraved {
+    font-family: 'Pretendard Variable', Pretendard, sans-serif;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: transparent;
+    background: linear-gradient(180deg, hsl(220 8% 72%) 0%, hsl(220 10% 58%) 40%, hsl(220 8% 68%) 60%, hsl(220 10% 54%) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 1px 0 hsl(0 0% 100% / 0.5)) drop-shadow(0 -1px 0 hsl(0 0% 0% / 0.15));
+  }
+
+  .dark .skeuo-engraved {
+    background: linear-gradient(180deg, hsl(220 8% 55%) 0%, hsl(220 10% 40%) 40%, hsl(220 8% 50%) 60%, hsl(220 10% 36%) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    filter: drop-shadow(0 1px 0 hsl(0 0% 100% / 0.08)) drop-shadow(0 -1px 0 hsl(0 0% 0% / 0.5));
+  }
 }
 
 @keyframes fade-up {
