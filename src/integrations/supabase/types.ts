@@ -2722,6 +2722,50 @@ export type Database = {
           },
         ]
       }
+      recipient_notes: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          note_type: string
+          recipient_id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          note_type?: string
+          recipient_id: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          note_type?: string
+          recipient_id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipient_notes_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recipients: {
         Row: {
           accounting_contact_person: string | null
