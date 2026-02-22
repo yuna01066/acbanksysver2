@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, Plus, Trash2, ExternalLink, CheckSquare, Users, Link as LinkIcon, Calendar, MapPin, Building2, Edit2, StickyNote, CalendarCheck, FileText, FolderOpen, Presentation, LayoutGrid } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import PortfolioGallery from '@/components/exhibition/PortfolioGallery';
 
 type DashboardView = 'dashboard' | 'meetings' | 'consult-form' | 'documents' | 'portfolio' | 'exhibitions';
 
@@ -242,7 +243,12 @@ const ExhibitionManagementPage = () => {
         {currentView === 'meetings' && renderPlaceholder('현장 미팅 예약')}
         {currentView === 'consult-form' && renderPlaceholder('상담폼')}
         {currentView === 'documents' && renderPlaceholder('자료')}
-        {currentView === 'portfolio' && renderPlaceholder('포트폴리오')}
+        {currentView === 'portfolio' && (
+          <div>
+            {renderSubPageHeader('포트폴리오')}
+            <PortfolioGallery />
+          </div>
+        )}
 
       </div>
     </div>
