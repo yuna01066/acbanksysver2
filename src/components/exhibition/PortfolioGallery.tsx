@@ -515,9 +515,9 @@ const PortfolioGallery = () => {
 
       {/* Detail Lightbox */}
       <Dialog open={!!selectedPost} onOpenChange={open => { if (!open) setSelectedPost(null); }}>
-        <DialogContent className="max-w-7xl w-[90vw] max-h-[90vh] p-0 overflow-hidden bg-background flex flex-col">
+        <DialogContent className="max-w-6xl w-[95vw] p-0 overflow-hidden bg-background">
           {selectedPost && (
-            <div className="flex flex-col h-full">
+            <div>
               <div className="flex items-center justify-between p-4 border-b">
                 <div>
                   <h3 className="font-semibold text-lg">{selectedPost.title}</h3>
@@ -542,12 +542,12 @@ const PortfolioGallery = () => {
                   </Button>
                 </div>
               </div>
-              <div className="relative flex items-center justify-center bg-muted/20 flex-1 min-h-0 overflow-hidden">
+              <div className="relative flex items-center justify-center bg-muted/20" style={{ minHeight: '70vh' }}>
                 {selectedPost.images.length > 0 && (
                   <img
                     src={selectedPost.images[currentImageIndex]?.image_url?.replace('sz=w1600', 'sz=w2400') || selectedPost.images[currentImageIndex]?.thumbnail_url || ''}
                     alt={selectedPost.images[currentImageIndex]?.file_name}
-                    className="max-w-full max-h-full object-contain p-2"
+                    className="max-w-full max-h-[80vh] object-contain"
                   />
                 )}
                 {selectedPost.images.length > 1 && (
