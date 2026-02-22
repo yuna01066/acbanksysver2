@@ -183,7 +183,7 @@ const PortfolioGallery = () => {
           drive_file_id: driveFileId,
           file_name: file.name,
           thumbnail_url: `https://drive.google.com/thumbnail?id=${driveFileId}&sz=w400`,
-          image_url: `https://drive.google.com/thumbnail?id=${driveFileId}&sz=w1600`,
+          image_url: `https://drive.google.com/thumbnail?id=${driveFileId}&sz=w2400`,
           display_order: i,
           is_main: i === 0,
         });
@@ -515,7 +515,7 @@ const PortfolioGallery = () => {
 
       {/* Detail Lightbox */}
       <Dialog open={!!selectedPost} onOpenChange={open => { if (!open) setSelectedPost(null); }}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-background">
+        <DialogContent className="max-w-6xl w-[95vw] p-0 overflow-hidden bg-background">
           {selectedPost && (
             <div>
               <div className="flex items-center justify-between p-4 border-b">
@@ -542,12 +542,12 @@ const PortfolioGallery = () => {
                   </Button>
                 </div>
               </div>
-              <div className="relative flex items-center justify-center bg-muted/20" style={{ minHeight: '60vh' }}>
+              <div className="relative flex items-center justify-center bg-muted/20" style={{ minHeight: '70vh' }}>
                 {selectedPost.images.length > 0 && (
                   <img
-                    src={selectedPost.images[currentImageIndex]?.image_url || selectedPost.images[currentImageIndex]?.thumbnail_url || ''}
+                    src={selectedPost.images[currentImageIndex]?.image_url?.replace('sz=w1600', 'sz=w2400') || selectedPost.images[currentImageIndex]?.thumbnail_url || ''}
                     alt={selectedPost.images[currentImageIndex]?.file_name}
-                    className="max-w-full max-h-[65vh] object-contain"
+                    className="max-w-full max-h-[80vh] object-contain"
                   />
                 )}
                 {selectedPost.images.length > 1 && (
