@@ -175,7 +175,18 @@ const Home = () => {
   } as const;
 
   return (
-    <div className="min-h-screen" style={pageBg}>
+    <div className="min-h-screen relative overflow-hidden" style={{ background: '#f8f8fa' }}>
+      {/* Fluid gradient background */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full opacity-[0.18]"
+          style={{ background: 'radial-gradient(circle, hsl(300 40% 85%) 0%, transparent 70%)', filter: 'blur(80px)' }} />
+        <div className="absolute top-[10%] right-[-15%] w-[55%] h-[55%] rounded-full opacity-[0.15]"
+          style={{ background: 'radial-gradient(circle, hsl(260 50% 82%) 0%, transparent 70%)', filter: 'blur(90px)' }} />
+        <div className="absolute bottom-[-10%] left-[20%] w-[50%] h-[50%] rounded-full opacity-[0.14]"
+          style={{ background: 'radial-gradient(circle, hsl(220 55% 82%) 0%, transparent 70%)', filter: 'blur(80px)' }} />
+        <div className="absolute top-[50%] left-[50%] w-[40%] h-[40%] rounded-full opacity-[0.10] -translate-x-1/2 -translate-y-1/2"
+          style={{ background: 'radial-gradient(circle, hsl(280 45% 80%) 0%, transparent 70%)', filter: 'blur(70px)' }} />
+      </div>
       <div className="container mx-auto px-3 sm:px-4 py-8 sm:py-16">
         <div className="max-w-6xl mx-auto">
           {/* Top Bar */}
