@@ -258,7 +258,16 @@ const SavedQuoteDetailPage = () => {
   };
 
   const handleRecipientChange = (field: keyof QuoteRecipient, value: any) => {
-    setRecipientData(prev => ({ ...prev, [field]: value }));
+    setRecipientData(prev => {
+      const updated = { ...prev, [field]: value };
+      // 견적일자 변경 시 유효기간 자동 재계산
+      if (field === 'quoteDate' && value instanceof Date) {
+        const validDate = new Date(value);
+        validDate.setDate(validDate.getDate() + 14);
+        updated.validUntil = `${value.toLocaleDateString('ko-KR')} ~ ${validDate.toLocaleDateString('ko-KR')}`;
+      }
+      return updated;
+    });
   };
 
   const handleBulkRecipientChange = (updates: Partial<QuoteRecipient>) => {
