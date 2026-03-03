@@ -46,6 +46,7 @@ export interface QuoteRecipient {
   deliveryAddress: string;
   clientMemo: string;
   // 발신 담당자 정보
+  issuerId?: string;
   issuerName?: string;
   issuerEmail?: string;
   issuerPhone?: string;

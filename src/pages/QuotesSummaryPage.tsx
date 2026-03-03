@@ -23,7 +23,7 @@ import QuoteAttachments from "@/components/QuoteAttachments";
 
 const QuotesSummaryPage = () => {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { quotes, recipient, removeQuote, updateQuoteQuantity, clearQuotes, getTotalPrice, getTotalPriceWithTax, updateRecipient, generateQuoteNumber, updateAttachments } = useQuotes();
   
   const [recipientData, setRecipientData] = React.useState<QuoteRecipient>({
@@ -46,6 +46,7 @@ const QuotesSummaryPage = () => {
     deliveryAddress: recipient?.deliveryAddress || '',
     clientMemo: recipient?.clientMemo || '',
     // 로그인한 사용자 정보 자동 입력
+    issuerId: recipient?.issuerId || user?.id || '',
     issuerName: recipient?.issuerName || profile?.full_name || '',
     issuerEmail: recipient?.issuerEmail || profile?.email || '',
     issuerPhone: recipient?.issuerPhone || profile?.phone || '',
