@@ -11,7 +11,15 @@ import { format } from "date-fns";
 import { QuoteRecipient } from "@/contexts/QuoteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRecipients, Recipient } from "@/hooks/useRecipients";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +58,19 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [employees, setEmployees] = useState<{ id: string; full_name: string; email: string; phone: string | null; department: string | null; position: string | null }[]>([]);
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, phone, department, position')
+        .eq('is_approved', true)
+        .order('full_name');
+      if (data) setEmployees(data);
+    };
+    fetchEmployees();
+  }, []);
 
   useEffect(() => {
     if (isDialogOpen && user) {
@@ -275,12 +296,40 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label htmlFor="issuerName">담당자</Label>
-            <Input
-              id="issuerName"
+            <Select
               value={recipientData.issuerName || ''}
-              onChange={(e) => onChange('issuerName', e.target.value)}
-              placeholder="담당자명"
-            />
+              onValueChange={(value) => {
+                const selected = employees.find(e => e.full_name === value);
+                if (selected) {
+                  if (onBulkChange) {
+                    onBulkChange({
+                      issuerName: selected.full_name,
+                      issuerEmail: selected.email || '',
+                      issuerPhone: selected.phone || '',
+                      issuerDepartment: selected.department || '',
+                      issuerPosition: selected.position || '',
+                    });
+                  } else {
+                    onChange('issuerName', selected.full_name);
+                    onChange('issuerEmail', selected.email || '');
+                    onChange('issuerPhone', selected.phone || '');
+                    onChange('issuerDepartment', selected.department || '');
+                    onChange('issuerPosition', selected.position || '');
+                  }
+                }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="담당자 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {employees.map((emp) => (
+                  <SelectItem key={emp.id} value={emp.full_name}>
+                    {emp.full_name}{emp.department ? ` (${emp.department})` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label htmlFor="issuerEmail">이메일</Label>
