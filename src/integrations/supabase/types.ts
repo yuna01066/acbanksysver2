@@ -3043,6 +3043,7 @@ export type Database = {
           id: string
           issuer_department: string | null
           issuer_email: string | null
+          issuer_id: string | null
           issuer_name: string | null
           issuer_phone: string | null
           issuer_position: string | null
@@ -3077,6 +3078,7 @@ export type Database = {
           id?: string
           issuer_department?: string | null
           issuer_email?: string | null
+          issuer_id?: string | null
           issuer_name?: string | null
           issuer_phone?: string | null
           issuer_position?: string | null
@@ -3111,6 +3113,7 @@ export type Database = {
           id?: string
           issuer_department?: string | null
           issuer_email?: string | null
+          issuer_id?: string | null
           issuer_name?: string | null
           issuer_phone?: string | null
           issuer_position?: string | null

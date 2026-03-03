@@ -269,10 +269,11 @@ const SavedQuotesPage = () => {
           setQuotes(finalQuotes);
         }
       } else {
+        // Non-admin: show quotes where user is owner OR issuer
         const { count, error: countError } = await supabase
           .from('saved_quotes')
           .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id);
+          .or(`user_id.eq.${user.id},issuer_id.eq.${user.id}`);
 
         if (countError) throw countError;
         setTotalCount(count || 0);
@@ -280,7 +281,7 @@ const SavedQuotesPage = () => {
         const { data, error } = await supabase
           .from('saved_quotes')
           .select('*')
-          .eq('user_id', user.id)
+          .or(`user_id.eq.${user.id},issuer_id.eq.${user.id}`)
           .order('quote_date', { ascending: false })
           .range(from, to);
 
@@ -455,6 +456,7 @@ const SavedQuotesPage = () => {
         valid_until: originalQuote.valid_until,
         delivery_period: originalQuote.delivery_period,
         payment_condition: originalQuote.payment_condition,
+        issuer_id: originalQuote.issuer_id,
         issuer_name: originalQuote.issuer_name,
         issuer_email: originalQuote.issuer_email,
         issuer_phone: originalQuote.issuer_phone,

@@ -91,6 +91,7 @@ const InternalQuotePage = () => {
         valid_until: recipient?.validUntil || '',
         delivery_period: recipient?.deliveryPeriod || '',
         payment_condition: recipient?.paymentCondition || '',
+        issuer_id: recipient?.issuerId || user?.id || null,
         issuer_name: recipient?.issuerName || '',
         issuer_email: recipient?.issuerEmail || '',
         issuer_phone: recipient?.issuerPhone || '',

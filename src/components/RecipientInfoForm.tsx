@@ -303,6 +303,7 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
                 if (selected) {
                   if (onBulkChange) {
                     onBulkChange({
+                      issuerId: selected.id,
                       issuerName: selected.full_name,
                       issuerEmail: selected.email || '',
                       issuerPhone: selected.phone || '',
@@ -310,6 +311,7 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
                       issuerPosition: selected.position || '',
                     });
                   } else {
+                    onChange('issuerId', selected.id);
                     onChange('issuerName', selected.full_name);
                     onChange('issuerEmail', selected.email || '');
                     onChange('issuerPhone', selected.phone || '');

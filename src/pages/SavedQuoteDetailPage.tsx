@@ -244,6 +244,7 @@ const SavedQuoteDetailPage = () => {
         desiredDeliveryDate: formattedData.desired_delivery_date ? new Date(formattedData.desired_delivery_date) : null,
         deliveryAddress: formattedData.recipient_address || '',
         clientMemo: formattedData.recipient_memo || '',
+        issuerId: formattedData.issuer_id || undefined,
         issuerName: formattedData.issuer_name || profileData?.full_name || '',
         issuerEmail: formattedData.issuer_email || profileData?.email || '',
         issuerPhone: formattedData.issuer_phone || profileData?.phone || ''
@@ -310,6 +311,7 @@ const SavedQuoteDetailPage = () => {
           recipient_address: recipientData.deliveryAddress,
           recipient_memo: recipientData.clientMemo,
           desired_delivery_date: recipientData.desiredDeliveryDate?.toISOString(),
+          issuer_id: recipientData.issuerId || null,
           issuer_name: recipientData.issuerName,
           issuer_email: recipientData.issuerEmail,
           issuer_phone: recipientData.issuerPhone,
