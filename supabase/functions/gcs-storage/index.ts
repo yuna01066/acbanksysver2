@@ -2,10 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-gcs-action, x-gcs-bucket, x-gcs-path, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// HMAC-SHA256 signing helper
 async function hmacSha256(key: Uint8Array, message: string): Promise<Uint8Array> {
   const cryptoKey = await crypto.subtle.importKey(
     'raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
@@ -23,7 +22,6 @@ async function sha256(data: Uint8Array): Promise<string> {
   return toHex(new Uint8Array(hash));
 }
 
-// AWS Signature V4 for GCS S3-compatible API
 async function signRequest(
   method: string,
   url: string,
@@ -46,12 +44,10 @@ async function signRequest(
   const payloadHash = body ? await sha256(body) : await sha256(new Uint8Array(0));
   headers['x-amz-content-sha256'] = payloadHash;
 
-  // Canonical headers
   const signedHeaderKeys = Object.keys(headers).map(k => k.toLowerCase()).sort();
   const canonicalHeaders = signedHeaderKeys.map(k => `${k}:${headers[k] || headers[Object.keys(headers).find(h => h.toLowerCase() === k)!]}`).join('\n') + '\n';
   const signedHeaders = signedHeaderKeys.join(';');
 
-  // Canonical request
   const canonicalQuery = parsedUrl.searchParams.toString();
   const canonicalRequest = [
     method,
@@ -64,7 +60,6 @@ async function signRequest(
 
   const canonicalRequestHash = await sha256(new TextEncoder().encode(canonicalRequest));
 
-  // String to sign
   const stringToSign = [
     'AWS4-HMAC-SHA256',
     dateStamp,
@@ -72,7 +67,6 @@ async function signRequest(
     canonicalRequestHash,
   ].join('\n');
 
-  // Signing key
   const kDate = await hmacSha256(new TextEncoder().encode('AWS4' + secretKey), shortDate);
   const kRegion = await hmacSha256(kDate, region);
   const kService = await hmacSha256(kRegion, service);
@@ -104,32 +98,55 @@ async function gcsRequest(
   return fetch(url.toString(), { method, headers, body });
 }
 
+function getCredentials() {
+  const accessKey = Deno.env.get('GCS_HMAC_ACCESS_KEY');
+  const secretKey = Deno.env.get('GCS_HMAC_SECRET_KEY');
+  const projectId = Deno.env.get('GCS_PROJECT_ID');
+  if (!accessKey || !secretKey) throw new Error('GCS_HMAC_ACCESS_KEY or GCS_HMAC_SECRET_KEY is not configured');
+  if (!projectId) throw new Error('GCS_PROJECT_ID is not configured');
+  return { accessKey, secretKey, projectId };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const accessKey = Deno.env.get('GCS_HMAC_ACCESS_KEY');
-    const secretKey = Deno.env.get('GCS_HMAC_SECRET_KEY');
-    const projectId = Deno.env.get('GCS_PROJECT_ID');
+    const { accessKey, secretKey, projectId } = getCredentials();
 
-    if (!accessKey || !secretKey) {
-      throw new Error('GCS_HMAC_ACCESS_KEY or GCS_HMAC_SECRET_KEY is not configured');
-    }
-    if (!projectId) {
-      throw new Error('GCS_PROJECT_ID is not configured');
+    // Check if this is a binary upload via custom headers
+    const headerAction = req.headers.get('x-gcs-action');
+    if (headerAction === 'upload') {
+      const bucket = req.headers.get('x-gcs-bucket');
+      const path = decodeURIComponent(req.headers.get('x-gcs-path') || '');
+      const contentType = req.headers.get('content-type') || 'application/octet-stream';
+
+      if (!bucket || !path) throw new Error('bucket and path headers are required');
+
+      // Read body as binary directly - no base64 overhead
+      const binaryData = new Uint8Array(await req.arrayBuffer());
+
+      const res = await gcsRequest('PUT', `/${bucket}/${path}`, accessKey, secretKey, binaryData, {
+        'Content-Type': contentType,
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Upload failed: ${text}`);
+      }
+      return new Response(JSON.stringify({ success: true, name: path }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
+    // JSON-based actions (non-upload)
     const { action, bucket, path, contentType, data: fileData, prefix } = await req.json();
 
     switch (action) {
-      // 버킷 목록 조회
       case 'list-buckets': {
         const res = await gcsRequest('GET', '/', accessKey, secretKey);
         const text = await res.text();
         if (!res.ok) throw new Error(`List buckets failed: ${text}`);
-        // Parse XML response to JSON-like format
         const bucketNames: string[] = [];
         const matches = text.matchAll(/<Name>([^<]+)<\/Name>/g);
         for (const match of matches) {
@@ -140,7 +157,6 @@ serve(async (req) => {
         });
       }
 
-      // 버킷 생성
       case 'create-bucket': {
         if (!bucket) throw new Error('bucket name is required');
         const xmlBody = `<CreateBucketConfiguration><LocationConstraint>ASIA-NORTHEAST3</LocationConstraint></CreateBucketConfiguration>`;
@@ -158,7 +174,6 @@ serve(async (req) => {
         });
       }
 
-      // 파일 목록 조회
       case 'list-files': {
         if (!bucket) throw new Error('bucket name is required');
         const params: Record<string, string> = { 'max-keys': '10000' };
@@ -166,7 +181,6 @@ serve(async (req) => {
         const res = await gcsRequest('GET', `/${bucket}`, accessKey, secretKey, null, {}, params);
         const text = await res.text();
         if (!res.ok) throw new Error(`List files failed: ${text}`);
-        // Parse XML
         const items: { name: string; size: string; lastModified: string }[] = [];
         const keyMatches = text.matchAll(/<Key>([^<]+)<\/Key>/g);
         const sizeMatches = text.matchAll(/<Size>([^<]+)<\/Size>/g);
@@ -182,7 +196,7 @@ serve(async (req) => {
         });
       }
 
-      // 파일 업로드
+      // Legacy base64 upload (kept for backward compatibility with small files)
       case 'upload': {
         if (!bucket || !path || !fileData) throw new Error('bucket, path, and data are required');
         const binaryData = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
@@ -198,10 +212,8 @@ serve(async (req) => {
         });
       }
 
-      // 다운로드 URL 생성
       case 'get-download-url': {
         if (!bucket || !path) throw new Error('bucket and path are required');
-        // Generate a pre-signed URL (valid for 1 hour)
         const now = new Date();
         const dateStamp = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
         const shortDate = dateStamp.substring(0, 8);
@@ -240,7 +252,6 @@ serve(async (req) => {
         });
       }
 
-      // 파일 삭제
       case 'delete': {
         if (!bucket || !path) throw new Error('bucket and path are required');
         const res = await gcsRequest('DELETE', `/${bucket}/${path}`, accessKey, secretKey);
