@@ -472,6 +472,50 @@ const AttendancePage = () => {
           )}
 
           <TabsContent value="attendance">
+            {/* Missing employees section for filtered date */}
+            {(isAdmin || isModerator) && adminTab === 'all' && filterDate && (() => {
+              const recordedUserIds = new Set(monthlyRecords.filter((r: any) => r.date === filterDate).map((r: any) => r.user_id));
+              const missingEmployees = employees.filter((e: any) => !recordedUserIds.has(e.id));
+              if (missingEmployees.length === 0) return null;
+              return (
+                <Card className="mb-4 border-destructive/30">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2 text-destructive">
+                      <AlertTriangle className="w-4 h-4" />
+                      미출근 직원 ({missingEmployees.length}명) - {format(new Date(filterDate), 'M월 d일 (EEE)', { locale: ko })}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="flex flex-wrap gap-2">
+                      {missingEmployees.map((emp: any) => (
+                        <Button
+                          key={emp.id}
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs gap-1.5"
+                          onClick={() => {
+                            setManualForm({
+                              userId: emp.id,
+                              userName: emp.full_name || '',
+                              date: filterDate,
+                              checkIn: '09:00',
+                              checkOut: '18:00',
+                              status: 'checked_out',
+                              memo: '',
+                            });
+                            setManualDialogOpen(true);
+                          }}
+                        >
+                          <Plus className="w-3 h-3" />
+                          {emp.full_name}{emp.department ? ` (${emp.department})` : ''}
+                        </Button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
             <Card>
                <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="text-base">
