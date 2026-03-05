@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ArrowLeft, Clock, LogIn, LogOut, MapPin, CalendarDays, Plus, Loader2, Check, X, BarChart3, Pencil, CalendarRange, Search, LayoutDashboard, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Clock, LogIn, LogOut, MapPin, CalendarDays, Plus, Loader2, Check, X, BarChart3, Pencil, CalendarRange, Search, LayoutDashboard, AlertTriangle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -287,6 +287,31 @@ const AttendancePage = () => {
     queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
     if (errorCount > 0) toast.error(`${errorCount}건 처리 실패`);
     else toast.success(`${selectedIds.size}명의 시간이 일괄 수정되었습니다.`);
+  };
+  const handleDeleteRecord = async (recordId: string) => {
+    if (!confirm('해당 근태 기록을 삭제하시겠습니까?')) return;
+    const { error } = await supabase.from('attendance_records').delete().eq('id', recordId);
+    if (error) { toast.error('삭제 실패: ' + error.message); return; }
+    toast.success('근태 기록이 삭제되었습니다.');
+    queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+    queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) { toast.warning('직원을 선택해주세요.'); return; }
+    if (!confirm(`선택한 ${selectedIds.size}건의 근태 기록을 삭제하시겠습니까?`)) return;
+    setBulkProcessing(true);
+    let errorCount = 0;
+    for (const id of selectedIds) {
+      const { error } = await supabase.from('attendance_records').delete().eq('id', id);
+      if (error) errorCount++;
+    }
+    setBulkProcessing(false);
+    setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+    queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
+    if (errorCount > 0) toast.error(`${errorCount}건 삭제 실패`);
+    else toast.success(`${selectedIds.size}건이 삭제되었습니다.`);
   };
 
 
@@ -564,6 +589,10 @@ const AttendancePage = () => {
                       {bulkProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
                       일괄 적용
                     </Button>
+                    <Button size="sm" variant="destructive" className="h-8 text-xs gap-1" onClick={handleBulkDelete} disabled={bulkProcessing}>
+                      {bulkProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                      일괄 삭제
+                    </Button>
                     <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setSelectedIds(new Set())}>
                       선택 해제
                     </Button>
@@ -664,14 +693,24 @@ const AttendancePage = () => {
                             </TableCell>
                             {(isAdmin || isModerator) && adminTab === 'all' && (
                               <TableCell>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0"
-                                  onClick={() => { setEditRecord(r); setEditDialogOpen(true); }}
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </Button>
+                                <div className="flex gap-0.5">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 w-7 p-0"
+                                    onClick={() => { setEditRecord(r); setEditDialogOpen(true); }}
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                    onClick={() => handleDeleteRecord(r.id)}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
                               </TableCell>
                             )}
                           </TableRow>
