@@ -2,6 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotionProjects } from '@/hooks/useNotionProjects';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -18,14 +19,6 @@ interface ActivityLog {
   target_name: string;
   metadata: Record<string, any>;
   created_at: string;
-}
-
-interface NotionProject {
-  id: string;
-  title: string;
-  lastEditedTime: string;
-  assignee: string;
-  url: string;
 }
 
 const ACTION_CONFIG: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
@@ -58,22 +51,20 @@ const ActivityFeedCard = () => {
     refetchInterval: 30000,
   });
 
-  // Fetch recently edited Notion projects
-  const { data: notionEdits = [] } = useQuery({
-    queryKey: ['notion-recent-edits'],
-    queryFn: async () => {
-      const { data } = await supabase.functions.invoke('notion-projects');
-      if (!data?.projects) return [];
-      const now = new Date();
-      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      return (data.projects as NotionProject[])
-        .filter((p) => new Date(p.lastEditedTime) > oneDayAgo)
-        .sort((a, b) => new Date(b.lastEditedTime).getTime() - new Date(a.lastEditedTime).getTime())
-        .slice(0, 10);
-    },
+  const { data: notionProjects = [] } = useNotionProjects({
     enabled: !!user,
-    refetchInterval: 60000,
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
   });
+
+  const notionEdits = React.useMemo(() => {
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    return notionProjects
+      .filter((p) => new Date(p.lastEditedTime) > oneDayAgo)
+      .sort((a, b) => new Date(b.lastEditedTime).getTime() - new Date(a.lastEditedTime).getTime())
+      .slice(0, 10);
+  }, [notionProjects]);
 
   // Merge and sort all activities
   const allActivities = React.useMemo(() => {

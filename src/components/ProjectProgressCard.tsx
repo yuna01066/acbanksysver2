@@ -3,23 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotionProjects, type NotionProject } from '@/hooks/useNotionProjects';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { differenceInDays, parseISO, isValid } from 'date-fns';
-
-interface NotionProject {
-  id: string;
-  title: string;
-  startDate: string;
-  endDate: string;
-  assignee: string;
-  assigneeList: string[];
-  status: string;
-  url: string;
-}
 
 interface QuoteProject {
   id: string;
@@ -86,14 +76,9 @@ function getStatusLabel(status: string): string {
 
 const ProjectProgressCard = () => {
   const navigate = useNavigate();
-  const { profile, isAdmin, isModerator } = useAuth();
-  const { data: notionProjects, isLoading: notionLoading } = useQuery({
-    queryKey: ['notion-projects-progress'],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('notion-projects');
-      if (error) return [];
-      return (data?.projects || []) as NotionProject[];
-    },
+  const { user, profile, isAdmin, isModerator } = useAuth();
+  const { data: notionProjects = [], isLoading: notionLoading } = useNotionProjects({
+    enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
 
