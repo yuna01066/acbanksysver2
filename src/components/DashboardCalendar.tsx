@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotionProjects } from '@/hooks/useNotionProjects';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,16 +43,8 @@ const DashboardCalendar = () => {
     },
   });
 
-  const { data: notionProjects } = useQuery({
-    queryKey: ['notion-projects'],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('notion-projects');
-      if (error) {
-        console.error('Notion fetch error:', error);
-        return [];
-      }
-      return data?.projects || [];
-    },
+  const { data: notionProjects = [] } = useNotionProjects({
+    enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
 

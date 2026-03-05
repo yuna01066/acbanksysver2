@@ -5,6 +5,13 @@ const corsHeaders = {
 
 const NOTION_API_URL = 'https://api.notion.com/v1';
 const DATABASE_ID = '302e58d26996819f868acd67b99c47a8';
+const CACHE_TTL_MS = 60_000;
+const REQUEST_TIMEOUT_MS = 10_000;
+
+let cachedProjects: Array<Record<string, unknown>> | null = null;
+let cacheExpiresAt = 0;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -14,25 +21,51 @@ Deno.serve(async (req) => {
   try {
     const NOTION_API_KEY = Deno.env.get('NOTION_API_KEY');
     if (!NOTION_API_KEY) {
-      throw new Error('NOTION_API_KEY is not configured');
+      console.error('Missing required secret for notion-projects', { hasNotionApiKey: false });
+      return new Response(JSON.stringify({ error: 'Server configuration error' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (cachedProjects && Date.now() < cacheExpiresAt) {
+      return new Response(JSON.stringify({ projects: cachedProjects, cached: true }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log('Fetching Notion database:', DATABASE_ID);
 
     let response: Response | null = null;
     for (let attempt = 0; attempt < 3; attempt++) {
-      response = await fetch(`${NOTION_API_URL}/databases/${DATABASE_ID}/query`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${NOTION_API_KEY}`,
-          'Notion-Version': '2022-06-28',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ page_size: 100 }),
-      });
-      if (response.ok || (response.status < 500)) break;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort('notion-timeout'), REQUEST_TIMEOUT_MS);
+
+      try {
+        response = await fetch(`${NOTION_API_URL}/databases/${DATABASE_ID}/query`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${NOTION_API_KEY}`,
+            'Notion-Version': '2022-06-28',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ page_size: 100 }),
+          signal: controller.signal,
+        });
+      } catch (fetchError: unknown) {
+        const reason = fetchError instanceof Error ? fetchError.message : 'Unknown fetch error';
+        console.warn(`Notion API attempt ${attempt + 1} failed: ${reason}`);
+        if (attempt === 2) throw fetchError;
+        await wait(500 * (attempt + 1));
+        continue;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      if (response.ok || response.status < 500) break;
       console.warn(`Notion API attempt ${attempt + 1} failed with ${response.status}, retrying...`);
-      if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+      if (attempt < 2) await wait(1000 * (attempt + 1));
     }
 
     if (!response || !response.ok) {
@@ -43,11 +76,12 @@ Deno.serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log(`Fetched ${data.results?.length || 0} projects from Notion`);
+    const results = Array.isArray(data?.results) ? data.results : [];
+    console.log(`Fetched ${results.length} projects from Notion`);
 
-    const projects = data.results.map((page: any) => {
-      const properties = page.properties;
-      
+    const projects = results.map((page: any) => {
+      const properties = page.properties || {};
+
       let title = '';
       let createdDate = page.created_time;
       let startDate = '';
@@ -57,11 +91,11 @@ Deno.serve(async (req) => {
 
       for (const [key, value] of Object.entries(properties)) {
         const prop = value as any;
-        
+
         if (prop.type === 'title' && prop.title?.length > 0) {
           title = prop.title.map((t: any) => t.plain_text).join('');
         }
-        
+
         if (prop.type === 'date' && prop.date?.start) {
           startDate = prop.date.start;
           endDate = prop.date.end || '';
@@ -70,11 +104,11 @@ Deno.serve(async (req) => {
         if (prop.type === 'people' && prop.people?.length > 0) {
           assignee = prop.people.map((p: any) => p.name || p.person?.email || '').filter(Boolean).join(', ');
         }
-        
+
         if (prop.type === 'status' && prop.status?.name) {
           status = prop.status.name;
         }
-        
+
         if (prop.type === 'select' && prop.select?.name) {
           if (key.includes('상태') || key.includes('status') || key.includes('Status')) {
             status = prop.select.name;
@@ -100,9 +134,12 @@ Deno.serve(async (req) => {
       };
     });
 
+    cachedProjects = projects;
+    cacheExpiresAt = Date.now() + CACHE_TTL_MS;
+
     console.log('Processed projects:', projects.length);
 
-    return new Response(JSON.stringify({ projects }), {
+    return new Response(JSON.stringify({ projects, cached: false }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

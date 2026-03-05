@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotionProjects } from '@/hooks/useNotionProjects';
 
 export interface TaggableProject {
   id: string;
@@ -12,81 +14,79 @@ export interface TaggableProject {
 
 export const useProjectSuggestions = () => {
   const { user } = useAuth();
-  const [projects, setProjects] = useState<TaggableProject[]>([]);
 
-  useEffect(() => {
-    if (!user) return;
-
-    const fetchProjects = async () => {
-      // Fetch saved quotes
-      const quotesPromise = supabase
+  const { data: quotes = [] } = useQuery({
+    queryKey: ['project-suggestion-quotes'],
+    queryFn: async () => {
+      const { data } = await supabase
         .from('saved_quotes')
         .select('id, project_name, quote_number, project_stage')
         .order('created_at', { ascending: false })
         .limit(50);
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
 
-      // Fetch internal projects
-      const projectsPromise = supabase
+  const { data: internalProjects = [] } = useQuery({
+    queryKey: ['project-suggestion-projects'],
+    queryFn: async () => {
+      const { data } = await supabase
         .from('projects')
         .select('id, name, status')
         .order('created_at', { ascending: false })
         .limit(50);
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
 
-      const [{ data: quotes }, { data: internalProjects }] = await Promise.all([
-        quotesPromise,
-        projectsPromise,
-      ]);
+  const { data: notionProjectsRaw = [] } = useNotionProjects({
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
 
-      // Fetch Notion projects
-      let notionProjects: TaggableProject[] = [];
-      try {
-        const { data } = await supabase.functions.invoke('notion-projects');
-        if (data?.projects) {
-          notionProjects = data.projects.map((p: any) => ({
-            id: p.id,
-            title: p.title,
-            source: 'notion' as const,
-            url: p.url,
-            status: p.status,
-          }));
-        }
-      } catch {
-        // Notion fetch failed, continue without
-      }
+  const projects = useMemo<TaggableProject[]>(() => {
+    const notionProjects: TaggableProject[] = notionProjectsRaw.map((p) => ({
+      id: p.id,
+      title: p.title,
+      source: 'notion',
+      url: p.url,
+      status: p.status,
+    }));
 
-      const quoteItems: TaggableProject[] = (quotes || [])
-        .filter(q => q.project_name || q.quote_number)
-        .map(q => ({
-          id: q.id,
-          title: q.project_name || q.quote_number,
-          source: 'quote' as const,
-          status: q.project_stage,
-        }));
+    const quoteItems: TaggableProject[] = quotes
+      .filter((q) => q.project_name || q.quote_number)
+      .map((q) => ({
+        id: q.id,
+        title: q.project_name || q.quote_number,
+        source: 'quote',
+        status: q.project_stage,
+      }));
 
-      const projectItems: TaggableProject[] = (internalProjects || [])
-        .filter(p => p.name)
-        .map(p => ({
-          id: p.id,
-          title: p.name,
-          source: 'project' as const,
-          status: p.status,
-        }));
+    const projectItems: TaggableProject[] = internalProjects
+      .filter((p) => p.name)
+      .map((p) => ({
+        id: p.id,
+        title: p.name,
+        source: 'project',
+        status: p.status,
+      }));
 
-      setProjects([...projectItems, ...quoteItems, ...notionProjects]);
-    };
-
-    fetchProjects();
-  }, [user]);
+    return [...projectItems, ...quoteItems, ...notionProjects];
+  }, [internalProjects, notionProjectsRaw, quotes]);
 
   const filterProjects = (query: string): TaggableProject[] => {
     if (!query) return projects.slice(0, 8);
     const q = query.toLowerCase();
-    return projects.filter(p => p.title.toLowerCase().includes(q)).slice(0, 8);
+    return projects.filter((p) => p.title.toLowerCase().includes(q)).slice(0, 8);
   };
 
   const findProject = (tagName: string): TaggableProject | undefined => {
     const normalized = tagName.replace(/_/g, ' ').toLowerCase();
-    return projects.find(p => p.title.toLowerCase() === normalized);
+    return projects.find((p) => p.title.toLowerCase() === normalized);
   };
 
   return { projects, filterProjects, findProject };
