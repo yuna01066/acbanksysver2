@@ -252,9 +252,23 @@ const SavedQuotesPage = () => {
           }
         }
         
+        // Fetch creator names from profiles
+        const creatorIds = [...new Set(formattedData.map(q => q.user_id))];
+        let creatorMap: Record<string, string> = {};
+        if (creatorIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', creatorIds);
+          if (profiles) {
+            creatorMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name]));
+          }
+        }
+        
         const finalQuotes = formattedData.map(q => ({
           ...q,
-          linked_project: q.project_id ? projectMap[q.project_id] || null : null
+          linked_project: q.project_id ? projectMap[q.project_id] || null : null,
+          creator_name: creatorMap[q.user_id] || null,
         }));
         
         // 만료된 견적서 자동 상태 변경 후 다시 로드
