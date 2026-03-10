@@ -319,9 +319,23 @@ const SavedQuotesPage = () => {
           }
         }
         
+        // Fetch creator names
+        const creatorIds2 = [...new Set(formattedData.map(q => q.user_id))];
+        let creatorMap2: Record<string, string> = {};
+        if (creatorIds2.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', creatorIds2);
+          if (profiles) {
+            creatorMap2 = Object.fromEntries(profiles.map(p => [p.id, p.full_name]));
+          }
+        }
+        
         const finalQuotes2 = formattedData.map(q => ({
           ...q,
-          linked_project: q.project_id ? projectMap2[q.project_id] || null : null
+          linked_project: q.project_id ? projectMap2[q.project_id] || null : null,
+          creator_name: creatorMap2[q.user_id] || null,
         }));
         
         const expiredCount2 = await autoExpireQuotes(finalQuotes2);
