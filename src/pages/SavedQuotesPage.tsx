@@ -735,6 +735,16 @@ const SavedQuotesPage = () => {
                       )}
                     </div>
 
+                      {/* Issuer & Creator */}
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
+                        {quote.issuer_name && (
+                          <span className="bg-muted px-2 py-0.5 rounded">담당: {quote.issuer_name}</span>
+                        )}
+                        {quote.creator_name && (
+                          <span className="bg-muted px-2 py-0.5 rounded">작성: {quote.creator_name}</span>
+                        )}
+                      </div>
+
                     {/* Price */}
                     <div className="bg-muted/50 rounded-lg p-3 mb-4">
                       <div className="flex items-center justify-between">
