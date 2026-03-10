@@ -696,7 +696,7 @@ const SavedQuotesPage = () => {
                         className="mb-3 p-3 rounded-lg border border-primary/20 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/projects?id=${quote.linked_project!.id}`);
+                          navigate(`/project-management?id=${quote.linked_project!.id}`);
                         }}
                       >
                         <div className="flex items-center gap-2 mb-1">
