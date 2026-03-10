@@ -50,6 +50,7 @@ interface SavedQuote {
   project_stage?: string;
   project_id?: string | null;
   linked_project?: LinkedProject | null;
+  creator_name?: string | null;
 }
 
 interface UserProfile {
@@ -251,9 +252,23 @@ const SavedQuotesPage = () => {
           }
         }
         
+        // Fetch creator names from profiles
+        const creatorIds = [...new Set(formattedData.map(q => q.user_id))];
+        let creatorMap: Record<string, string> = {};
+        if (creatorIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', creatorIds);
+          if (profiles) {
+            creatorMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name]));
+          }
+        }
+        
         const finalQuotes = formattedData.map(q => ({
           ...q,
-          linked_project: q.project_id ? projectMap[q.project_id] || null : null
+          linked_project: q.project_id ? projectMap[q.project_id] || null : null,
+          creator_name: creatorMap[q.user_id] || null,
         }));
         
         // 만료된 견적서 자동 상태 변경 후 다시 로드
@@ -304,9 +319,23 @@ const SavedQuotesPage = () => {
           }
         }
         
+        // Fetch creator names
+        const creatorIds2 = [...new Set(formattedData.map(q => q.user_id))];
+        let creatorMap2: Record<string, string> = {};
+        if (creatorIds2.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', creatorIds2);
+          if (profiles) {
+            creatorMap2 = Object.fromEntries(profiles.map(p => [p.id, p.full_name]));
+          }
+        }
+        
         const finalQuotes2 = formattedData.map(q => ({
           ...q,
-          linked_project: q.project_id ? projectMap2[q.project_id] || null : null
+          linked_project: q.project_id ? projectMap2[q.project_id] || null : null,
+          creator_name: creatorMap2[q.user_id] || null,
         }));
         
         const expiredCount2 = await autoExpireQuotes(finalQuotes2);
@@ -336,7 +365,9 @@ const SavedQuotesPage = () => {
         quote.quote_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
         quote.recipient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         quote.recipient_company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        quote.project_name?.toLowerCase().includes(searchTerm.toLowerCase())
+        quote.project_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        quote.issuer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        quote.creator_name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -705,6 +736,16 @@ const SavedQuotesPage = () => {
                         </div>
                       )}
                     </div>
+
+                      {/* Issuer & Creator */}
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
+                        {quote.issuer_name && (
+                          <span className="bg-muted px-2 py-0.5 rounded">담당: {quote.issuer_name}</span>
+                        )}
+                        {quote.creator_name && (
+                          <span className="bg-muted px-2 py-0.5 rounded">작성: {quote.creator_name}</span>
+                        )}
+                      </div>
 
                     {/* Price */}
                     <div className="bg-muted/50 rounded-lg p-3 mb-4">
