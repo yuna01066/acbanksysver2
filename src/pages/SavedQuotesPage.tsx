@@ -50,6 +50,7 @@ interface SavedQuote {
   project_stage?: string;
   project_id?: string | null;
   linked_project?: LinkedProject | null;
+  creator_name?: string | null;
 }
 
 interface UserProfile {
