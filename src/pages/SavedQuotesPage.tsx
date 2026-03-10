@@ -365,7 +365,9 @@ const SavedQuotesPage = () => {
         quote.quote_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
         quote.recipient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         quote.recipient_company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        quote.project_name?.toLowerCase().includes(searchTerm.toLowerCase())
+        quote.project_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        quote.issuer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        quote.creator_name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
