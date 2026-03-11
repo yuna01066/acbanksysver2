@@ -230,20 +230,20 @@ const QuoteAttachments = ({
 
   const handleDownloadAttachment = async (attachment: Attachment) => {
     try {
+      // createSignedUrl을 사용하여 스토리지 정책 문제 우회
       const { data, error } = await supabase.storage
         .from('quote-attachments')
-        .download(attachment.path);
+        .createSignedUrl(attachment.path, 300); // 5분 유효
 
       if (error) throw error;
 
-      const url = URL.createObjectURL(data);
       const a = document.createElement('a');
-      a.href = url;
+      a.href = data.signedUrl;
       a.download = attachment.name;
+      a.target = '_blank';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading file:', error);
       toast.error('파일 다운로드에 실패했습니다.');
