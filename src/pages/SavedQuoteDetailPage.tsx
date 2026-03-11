@@ -520,7 +520,7 @@ const SavedQuoteDetailPage = () => {
                       <Button
                         variant="outline"
                         className="w-full border-dashed border-2 h-14 text-muted-foreground hover:text-primary hover:border-primary"
-                        onClick={() => navigate(`/?addToQuote=${id}`)}
+                        onClick={() => navigate(`/calculator?addToQuote=${id}`)}
                       >
                         <Calculator className="w-4 h-4 mr-2" />
                         새 견적 항목 추가하기
