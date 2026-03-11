@@ -1127,11 +1127,11 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
             <>
               <Separator className="my-8" />
               <div className="flex justify-center gap-4">
-                <Button onClick={handleAddQuote} size="lg" className={`px-8 animate-fade-up ${editMode === 'saved' ? 'bg-green-600 hover:bg-green-700' : ''}`}>
+                <Button onClick={handleAddQuote} size="lg" className={`px-8 animate-fade-up ${(editMode === 'saved' || editMode === 'addToSaved') ? 'bg-green-600 hover:bg-green-700' : ''}`}>
                   <Plus className="w-5 h-5" />
-                  {editMode === 'saved' ? '견적 수정' : '견적 추가'}
+                  {editMode === 'saved' ? '견적 수정' : editMode === 'addToSaved' ? '견적서에 항목 추가' : '견적 추가'}
                 </Button>
-                {editMode === 'saved' && savedQuoteId && (
+                {(editMode === 'saved' || editMode === 'addToSaved') && savedQuoteId && (
                   <Button 
                     variant="outline" 
                     size="lg" 
