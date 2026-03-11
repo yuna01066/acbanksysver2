@@ -118,6 +118,15 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   
   // URL 파라미터에서 편집 데이터 복원
   useEffect(() => {
+    // addToQuote 모드: 기존 발행 견적서에 새 항목 추가
+    const addToQuoteId = searchParams.get('addToQuote');
+    if (addToQuoteId) {
+      setEditMode('addToSaved');
+      setSavedQuoteId(addToQuoteId);
+      setItemIndex(null);
+      return;
+    }
+
     const editModeParam = searchParams.get('editMode');
     if (editModeParam === 'saved') {
       console.log('Edit mode detected, restoring quote data from URL params');
