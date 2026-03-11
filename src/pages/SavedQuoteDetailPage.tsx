@@ -506,16 +506,26 @@ const SavedQuoteDetailPage = () => {
                 </h3>
                 <div className="space-y-4">
                   {isEditing ? (
-                    editedItems.map((item: any, index: number) => (
-                      <EditableQuoteItem
-                        key={index}
-                        item={item}
-                        index={index}
-                        onUpdate={handleItemUpdate}
-                        onRemove={handleItemRemove}
-                        quoteId={id}
-                      />
-                    ))
+                    <>
+                      {editedItems.map((item: any, index: number) => (
+                        <EditableQuoteItem
+                          key={index}
+                          item={item}
+                          index={index}
+                          onUpdate={handleItemUpdate}
+                          onRemove={handleItemRemove}
+                          quoteId={id}
+                        />
+                      ))}
+                      <Button
+                        variant="outline"
+                        className="w-full border-dashed border-2 h-14 text-muted-foreground hover:text-primary hover:border-primary"
+                        onClick={() => navigate(`/?addToQuote=${id}`)}
+                      >
+                        <Calculator className="w-4 h-4 mr-2" />
+                        새 견적 항목 추가하기
+                      </Button>
+                    </>
                   ) : (
                     items.map((item: any, index: number) => (
                       viewMode === 'customer' ? (
