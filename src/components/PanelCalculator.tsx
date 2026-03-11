@@ -721,6 +721,53 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       }
     }
 
+    // 기존 발행 견적서에 새 항목 추가 모드
+    if (editMode === 'addToSaved' && savedQuoteId) {
+      try {
+        const { data: existingQuote, error: fetchError } = await supabase
+          .from('saved_quotes')
+          .select('items, subtotal, tax, total')
+          .eq('id', savedQuoteId)
+          .single();
+
+        if (fetchError) throw fetchError;
+
+        const items: any[] = Array.isArray(existingQuote.items) ? [...existingQuote.items] : [];
+        items.push({
+          ...quoteData,
+          id: Date.now().toString(),
+          createdAt: new Date().toISOString()
+        });
+
+        const newSubtotal = items.reduce((sum: number, item: any) => sum + (item.totalPrice * (item.quantity || 1)), 0);
+        const roundedSubtotal = Math.round(newSubtotal / 100) * 100;
+        const newTax = Math.round(roundedSubtotal * 0.1);
+        const newTotal = roundedSubtotal + newTax;
+
+        const { error: updateError } = await supabase
+          .from('saved_quotes')
+          .update({
+            items,
+            subtotal: roundedSubtotal,
+            tax: newTax,
+            total: newTotal
+          })
+          .eq('id', savedQuoteId);
+
+        if (updateError) throw updateError;
+
+        alert('새 견적 항목이 추가되었습니다!');
+        setEditMode(null);
+        setSavedQuoteId(null);
+        navigate(`/saved-quotes/${savedQuoteId}`);
+        return;
+      } catch (error) {
+        console.error('Error adding item to saved quote:', error);
+        alert('견적 항목 추가에 실패했습니다.');
+        return;
+      }
+    }
+
     // 일반 모드: 새 견적 추가
     addQuote(quoteData);
 
