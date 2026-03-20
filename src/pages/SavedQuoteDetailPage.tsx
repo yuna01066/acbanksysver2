@@ -280,11 +280,21 @@ const SavedQuoteDetailPage = () => {
     if (!id) return;
 
     try {
-      // 수정된 항목들의 총 금액 재계산
-      const newSubtotal = editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
-      const roundedSubtotal = Math.round(newSubtotal / 100) * 100;
-      const newTax = Math.round(roundedSubtotal * 0.1);
-      const newTotal = roundedSubtotal + newTax;
+      // 수동 오버라이드가 있으면 그 값 사용, 없으면 자동 계산
+      let roundedSubtotal: number;
+      let newTax: number;
+      let newTotal: number;
+      
+      if (manualTotalOverride) {
+        roundedSubtotal = manualTotalOverride.subtotal;
+        newTax = manualTotalOverride.tax;
+        newTotal = manualTotalOverride.total;
+      } else {
+        const newSubtotal = editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
+        roundedSubtotal = Math.round(newSubtotal / 100) * 100;
+        newTax = Math.round(roundedSubtotal * 0.1);
+        newTotal = roundedSubtotal + newTax;
+      }
 
       // 첨부 파일 목록 구성 (PDF 정보 + 기존 첨부 파일)
       const allAttachments = [
