@@ -3,10 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Users, Search, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Users, Search, Plus, Minus, Trash2, Gift } from 'lucide-react';
 import { calculateMonthlyLeaveDays, calculateAnnualOnlyDays, calculatePolicyBasedLeaveDays, LeaveRequest } from '@/hooks/useLeaveRequests';
-import { differenceInMonths } from 'date-fns';
+import { useLeaveAdjustments } from '@/hooks/useLeaveAdjustments';
+import LeaveAdjustmentDialog from './LeaveAdjustmentDialog';
+import { differenceInMonths, format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface EmployeeProfile {
   id: string;
@@ -30,6 +34,9 @@ const AdminLeaveOverview: React.FC<AdminLeaveOverviewProps> = ({
   const [search, setSearch] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [adjustDialogOpen, setAdjustDialogOpen] = useState(false);
+
+  const { adjustments, refresh: refreshAdjustments, getNetAdjustment, deleteAdjustment } = useLeaveAdjustments();
 
   const departments = useMemo(() => {
     const depts = new Set<string>();
@@ -45,7 +52,11 @@ const AdminLeaveOverview: React.FC<AdminLeaveOverviewProps> = ({
 
       const monthlyDays = calculateMonthlyLeaveDays(joinDate);
       const annualDays = calculateAnnualOnlyDays(joinDate);
-      const totalDays = calculatePolicyBasedLeaveDays(joinDate, grantMethod, grantBasis);
+      const baseTotalDays = calculatePolicyBasedLeaveDays(joinDate, grantMethod, grantBasis);
+
+      // Add manual adjustments
+      const netAdjustment = getNetAdjustment(emp.id);
+      const totalDays = baseTotalDays + netAdjustment;
 
       const empRequests = allRequests.filter(r => r.user_id === emp.id && r.status === 'approved');
 
@@ -66,6 +77,8 @@ const AdminLeaveOverview: React.FC<AdminLeaveOverviewProps> = ({
         isUnderOneYear,
         monthlyDays,
         annualDays,
+        baseTotalDays,
+        netAdjustment,
         totalDays,
         usedMonthly,
         usedAnnual,
@@ -76,7 +89,7 @@ const AdminLeaveOverview: React.FC<AdminLeaveOverviewProps> = ({
         pendingCount,
       };
     });
-  }, [employees, allRequests, grantMethod, grantBasis]);
+  }, [employees, allRequests, grantMethod, grantBasis, adjustments]);
 
   const filtered = useMemo(() => {
     let list = employeeStats;
@@ -92,6 +105,18 @@ const AdminLeaveOverview: React.FC<AdminLeaveOverviewProps> = ({
   }, [employeeStats, search, departmentFilter]);
 
   const selectedEmp = selectedId ? filtered.find(e => e.id === selectedId) : null;
+
+  // Adjustments for the selected employee
+  const selectedAdjustments = useMemo(() => {
+    if (!selectedId) return [];
+    return adjustments.filter(a => a.user_id === selectedId);
+  }, [adjustments, selectedId]);
+
+  const handleDeleteAdjustment = async (id: string) => {
+    const err = await deleteAdjustment(id);
+    if (err) toast.error('삭제 실패');
+    else toast.success('삭제되었습니다.');
+  };
 
   return (
     <div className="flex gap-4 h-full">
@@ -175,6 +200,11 @@ const AdminLeaveOverview: React.FC<AdminLeaveOverviewProps> = ({
                           대기 {emp.pendingCount}
                         </Badge>
                       )}
+                      {emp.netAdjustment !== 0 && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                          {emp.netAdjustment > 0 ? '+' : ''}{emp.netAdjustment}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 mt-0.5">
                       {emp.department && (
@@ -212,22 +242,32 @@ const AdminLeaveOverview: React.FC<AdminLeaveOverviewProps> = ({
       {/* Right: Detail panel */}
       <div className="flex-1 hidden lg:block">
         {selectedEmp ? (
-          <Card className="h-full">
+          <Card className="h-full overflow-auto">
             <CardHeader className="pb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-lg font-bold text-primary overflow-hidden">
-                  {selectedEmp.avatar_url ? (
-                    <img src={selectedEmp.avatar_url} alt={selectedEmp.full_name} className="w-full h-full object-cover" />
-                  ) : (
-                    selectedEmp.full_name?.charAt(0) || '?'
-                  )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-lg font-bold text-primary overflow-hidden">
+                    {selectedEmp.avatar_url ? (
+                      <img src={selectedEmp.avatar_url} alt={selectedEmp.full_name} className="w-full h-full object-cover" />
+                    ) : (
+                      selectedEmp.full_name?.charAt(0) || '?'
+                    )}
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">{selectedEmp.full_name}</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedEmp.department || '-'}{selectedEmp.position ? ` · ${selectedEmp.position}` : ''}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-lg">{selectedEmp.full_name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedEmp.department || '-'}{selectedEmp.position ? ` · ${selectedEmp.position}` : ''}
-                  </p>
-                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setAdjustDialogOpen(true)}
+                  className="gap-1"
+                >
+                  <Gift className="h-4 w-4" />
+                  연차 부여/차감
+                </Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -236,6 +276,11 @@ const AdminLeaveOverview: React.FC<AdminLeaveOverviewProps> = ({
                 <div className="rounded-lg border p-3 text-center">
                   <p className="text-xs text-muted-foreground mb-1">총 부여</p>
                   <p className="text-xl font-bold">{selectedEmp.totalDays}일</p>
+                  {selectedEmp.netAdjustment !== 0 && (
+                    <p className="text-[10px] text-muted-foreground">
+                      법정 {selectedEmp.baseTotalDays} {selectedEmp.netAdjustment > 0 ? '+' : ''}{selectedEmp.netAdjustment} 추가
+                    </p>
+                  )}
                 </div>
                 <div className="rounded-lg border p-3 text-center">
                   <p className="text-xs text-muted-foreground mb-1">사용</p>
@@ -295,6 +340,57 @@ const AdminLeaveOverview: React.FC<AdminLeaveOverviewProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Manual Adjustments History */}
+              {selectedAdjustments.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <Gift className="h-4 w-4 text-primary" />
+                    추가 부여/차감 내역
+                  </h3>
+                  <div className="space-y-2">
+                    {selectedAdjustments.map(adj => (
+                      <div key={adj.id} className="flex items-center justify-between rounded-lg border p-3 text-sm">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {adj.adjustment_type === 'grant' ? (
+                            <Plus className="h-4 w-4 text-emerald-600 shrink-0" />
+                          ) : (
+                            <Minus className="h-4 w-4 text-destructive shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant="outline" className="text-[10px] shrink-0">
+                                {adj.leave_category === 'annual' ? '연차' :
+                                 adj.leave_category === 'monthly' ? '월차' :
+                                 adj.leave_category === 'special' ? '특별휴가' :
+                                 adj.leave_category === 'reward' ? '포상' : '기타'}
+                              </Badge>
+                              <span className="font-medium">
+                                {adj.adjustment_type === 'grant' ? '+' : '-'}{Number(adj.days)}일
+                              </span>
+                            </div>
+                            {adj.reason && (
+                              <p className="text-xs text-muted-foreground truncate mt-0.5">{adj.reason}</p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              {format(new Date(adj.created_at), 'yyyy.MM.dd')} · {adj.granted_by_name}
+                              {adj.expires_at && ` · 만료 ${format(new Date(adj.expires_at), 'yyyy.MM.dd')}`}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteAdjustment(adj.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -306,6 +402,14 @@ const AdminLeaveOverview: React.FC<AdminLeaveOverviewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Adjustment Dialog */}
+      <LeaveAdjustmentDialog
+        open={adjustDialogOpen}
+        onOpenChange={setAdjustDialogOpen}
+        employee={selectedEmp ? { id: selectedEmp.id, full_name: selectedEmp.full_name } : null}
+        onSuccess={refreshAdjustments}
+      />
     </div>
   );
 };
