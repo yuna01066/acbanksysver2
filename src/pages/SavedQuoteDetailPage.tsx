@@ -565,7 +565,19 @@ const SavedQuoteDetailPage = () => {
               </div>
 
               {/* 견적 총 합계 */}
-              <QuoteTotalSection subtotal={subtotal} tax={tax} totalWithTax={totalWithTax} />
+              <QuoteTotalSection
+                subtotal={subtotal}
+                tax={tax}
+                totalWithTax={totalWithTax}
+                isEditing={isEditing}
+                onTotalOverride={(s, t, total) => {
+                  if (total === 0) {
+                    setManualTotalOverride(null);
+                  } else {
+                    setManualTotalOverride({ subtotal: s, tax: t, total });
+                  }
+                }}
+              />
 
               {/* 특이사항 및 상담내용 */}
               <QuoteNotesSection
