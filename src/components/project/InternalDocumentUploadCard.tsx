@@ -51,22 +51,24 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, d
 
     setUploading(true);
     try {
-      // Upload to storage
-      const ext = file.name.split('.').pop();
-      const path = `${projectId}/${documentType}/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('internal-project-docs')
-        .upload(path, file);
-      if (uploadError) throw uploadError;
+      // Upload to GCS as primary storage
+      const typeFolder = documentType === 'quote' ? '매입견적서' : '영수증';
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const gcsPrefix = projectName
+        ? `internal-projects/${projectName}/${typeFolder}/${y}년/${m}월`
+        : `internal-project-docs/${projectId}/${documentType}`;
+      const { gcsPath } = await gcsUploadFile(file, gcsPrefix);
 
-      // Create DB record
+      // Create DB record with GCS path
       const { data: doc, error: insertError } = await supabase
         .from('internal_project_documents')
         .insert({
           project_id: projectId,
           document_type: documentType,
           file_name: file.name,
-          file_url: path,
+          file_url: gcsPath,
           file_size: file.size,
           mime_type: file.type,
           uploaded_by: user.id,
