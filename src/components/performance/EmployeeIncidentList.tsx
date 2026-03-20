@@ -61,8 +61,15 @@ const EmployeeIncidentList: React.FC<Props> = ({ userId }) => {
   }, [userId]);
 
   const downloadAttachment = async (attachment: any) => {
-    const { data } = await supabase.storage.from('incident-attachments').createSignedUrl(attachment.path, 300);
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+    try {
+      const { resolveFileUrl } = await import('@/hooks/useGcsStorage');
+      const url = await resolveFileUrl(attachment.path);
+      if (url) window.open(url, '_blank');
+    } catch {
+      // fallback: try supabase signed URL for legacy files
+      const { data } = await supabase.storage.from('incident-attachments').createSignedUrl(attachment.path, 300);
+      if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+    }
   };
 
   if (loading) {

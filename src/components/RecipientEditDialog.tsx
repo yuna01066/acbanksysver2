@@ -99,25 +99,19 @@ export function RecipientEditDialog({
 
     setExtracting(true);
     try {
-      // Upload file to storage (same path pattern as RecipientDocumentUpload)
+      // Upload file to GCS
+      const { gcsUploadFile } = await import('@/hooks/useGcsStorage');
       const fileExt = file.name.split('.').pop();
-      const filePath = `${user?.id}/${recipient?.id}/business-doc.${fileExt}`;
+      const prefix = `recipient-documents/${user?.id}/${recipient?.id}`;
+      const renamedFile = new File([file], `business-doc.${fileExt}`, { type: file.type });
+      const { gcsPath } = await gcsUploadFile(renamedFile, prefix);
 
-      const { error: uploadError } = await supabase.storage
-        .from('recipient-documents')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        toast.error('파일 업로드에 실패했습니다.');
-      } else {
-        // Save path to recipients table directly
-        await supabase
-          .from('recipients')
-          .update({ business_document_url: filePath } as any)
-          .eq('id', recipient?.id);
-        setBusinessDocumentUrl(filePath);
-      }
+      // Save path to recipients table directly
+      await supabase
+        .from('recipients')
+        .update({ business_document_url: gcsPath } as any)
+        .eq('id', recipient?.id);
+      setBusinessDocumentUrl(gcsPath);
 
       // Convert file to base64 for OCR
       const base64 = await new Promise<string>((resolve, reject) => {

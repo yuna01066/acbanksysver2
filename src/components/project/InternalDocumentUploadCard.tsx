@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { gcsUploadFile } from '@/hooks/useGcsStorage';
+import { gcsUploadFile, gcsDeleteFile } from '@/hooks/useGcsStorage';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,22 +51,24 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, d
 
     setUploading(true);
     try {
-      // Upload to storage
-      const ext = file.name.split('.').pop();
-      const path = `${projectId}/${documentType}/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('internal-project-docs')
-        .upload(path, file);
-      if (uploadError) throw uploadError;
+      // Upload to GCS as primary storage
+      const typeFolder = documentType === 'quote' ? '매입견적서' : '영수증';
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const gcsPrefix = projectName
+        ? `internal-projects/${projectName}/${typeFolder}/${y}년/${m}월`
+        : `internal-project-docs/${projectId}/${documentType}`;
+      const { gcsPath } = await gcsUploadFile(file, gcsPrefix);
 
-      // Create DB record
+      // Create DB record with GCS path
       const { data: doc, error: insertError } = await supabase
         .from('internal_project_documents')
         .insert({
           project_id: projectId,
           document_type: documentType,
           file_name: file.name,
-          file_url: path,
+          file_url: gcsPath,
           file_size: file.size,
           mime_type: file.type,
           uploaded_by: user.id,
@@ -114,13 +116,8 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, d
 
           toast.success('OCR 분석이 완료되었습니다.');
 
-          // Google Drive + GCS 자동 업로드
+          // Google Drive 자동 업로드 (백업)
           if (projectName) {
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-
-            // Google Drive 업로드
             try {
               const { error: driveErr } = await supabase.functions.invoke('google-drive', {
                 body: {
@@ -138,15 +135,6 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, d
               else toast.success('Google Drive에 자동 저장되었습니다.');
             } catch (driveErr) {
               console.error('Drive upload failed:', driveErr);
-            }
-
-            // GCS 백업
-            try {
-              const typeFolder = documentType === 'quote' ? '매입견적서' : '영수증';
-              const gcsPrefix = `internal-projects/${projectName}/${typeFolder}/${y}년/${m}월`;
-              await gcsUploadFile(file, gcsPrefix);
-            } catch (gcsErr) {
-              console.error('GCS backup failed:', gcsErr);
             }
           }
         } else {
@@ -173,8 +161,8 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, d
   const deleteDoc = useMutation({
     mutationFn: async (docId: string) => {
       const doc = documents.find((d: any) => d.id === docId);
-      if (doc) {
-        await supabase.storage.from('internal-project-docs').remove([doc.file_url]);
+      if (doc?.file_url) {
+        try { await gcsDeleteFile(doc.file_url); } catch {}
       }
       const { error } = await supabase.from('internal_project_documents').delete().eq('id', docId);
       if (error) throw error;

@@ -163,12 +163,15 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
   };
 
   const uploadFiles = async (reportId: string): Promise<any[]> => {
+    const { gcsUploadFile } = await import('@/hooks/useGcsStorage');
     const uploaded: any[] = [];
     for (const file of files) {
-      const path = `${user!.id}/${reportId}/${Date.now()}_${file.name}`;
-      const { error } = await supabase.storage.from('incident-attachments').upload(path, file);
-      if (!error) {
-        uploaded.push({ name: file.name, path, size: file.size, type: file.type });
+      try {
+        const prefix = `incident-attachments/${user!.id}/${reportId}`;
+        const { gcsPath } = await gcsUploadFile(file, prefix);
+        uploaded.push({ name: file.name, path: gcsPath, size: file.size, type: file.type });
+      } catch (err) {
+        console.error('File upload error:', err);
       }
     }
     return uploaded;
@@ -264,9 +267,14 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
   };
 
   const downloadAttachment = async (attachment: any) => {
-    const { data } = await supabase.storage.from('incident-attachments').createSignedUrl(attachment.path, 300);
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
-    else toast.error('파일 다운로드에 실패했습니다.');
+    try {
+      const { resolveFileUrl } = await import('@/hooks/useGcsStorage');
+      const url = await resolveFileUrl(attachment.path);
+      if (url) window.open(url, '_blank');
+      else toast.error('파일 다운로드에 실패했습니다.');
+    } catch {
+      toast.error('파일 다운로드에 실패했습니다.');
+    }
   };
 
   const handleRequest = async () => {

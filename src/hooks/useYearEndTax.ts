@@ -316,31 +316,31 @@ export function useYearEndTax(taxYear: number = TAX_YEAR) {
     memo?: string,
   ) => {
     if (!user || !settlement) return;
-    const filePath = `${user.id}/${settlement.id}/${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage
-      .from('tax-documents')
-      .upload(filePath, file);
-    if (uploadError) {
+    try {
+      const { gcsUploadFile } = await import('@/hooks/useGcsStorage');
+      const prefix = `tax-documents/${user.id}/${settlement.id}`;
+      const { gcsPath } = await gcsUploadFile(file, prefix);
+
+      const { error } = await supabase.from('tax_documents').insert({
+        settlement_id: settlement.id,
+        user_id: user.id,
+        document_type: documentType,
+        file_name: file.name,
+        file_url: gcsPath,
+        file_size: file.size,
+        mime_type: file.type,
+        memo,
+      });
+      if (error) {
+        toast.error('서류 등록 실패');
+        return;
+      }
+      toast.success('서류가 업로드되었습니다.');
+      await fetchDocuments(settlement.id);
+    } catch (err) {
+      console.error('Upload error:', err);
       toast.error('파일 업로드 실패');
-      return;
     }
-    const { data: urlData } = supabase.storage.from('tax-documents').getPublicUrl(filePath);
-    const { error } = await supabase.from('tax_documents').insert({
-      settlement_id: settlement.id,
-      user_id: user.id,
-      document_type: documentType,
-      file_name: file.name,
-      file_url: urlData.publicUrl,
-      file_size: file.size,
-      mime_type: file.type,
-      memo,
-    });
-    if (error) {
-      toast.error('서류 등록 실패');
-      return;
-    }
-    toast.success('서류가 업로드되었습니다.');
-    await fetchDocuments(settlement.id);
   };
 
   const deleteDocument = async (id: string) => {
