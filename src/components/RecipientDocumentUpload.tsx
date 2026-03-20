@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { gcsUploadFile, gcsGetDownloadUrl, gcsDeleteFile } from '@/hooks/useGcsStorage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -56,27 +57,25 @@ export function RecipientDocumentUpload({
     try {
       // Delete old file if exists
       if (documentUrl) {
-        await supabase.storage.from('recipient-documents').remove([documentUrl]);
+        try { await gcsDeleteFile(documentUrl); } catch {}
       }
 
       const ext = file.name.split('.').pop();
-      const filePath = `${user.id}/${recipientId}/business-doc.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('recipient-documents')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
+      const prefix = `recipient-documents/${user.id}/${recipientId}`;
+      const { gcsPath } = await gcsUploadFile(
+        new File([file], `business-doc.${ext}`, { type: file.type }),
+        prefix,
+      );
 
       // Save path to recipients table
       const { error: updateError } = await supabase
         .from('recipients')
-        .update({ business_document_url: filePath } as any)
+        .update({ business_document_url: gcsPath } as any)
         .eq('id', recipientId);
 
       if (updateError) throw updateError;
 
-      onDocumentChange(filePath);
+      onDocumentChange(gcsPath);
       toast.success('사업자 사본이 업로드되었습니다.');
 
       // OCR extraction for image files
@@ -122,7 +121,7 @@ export function RecipientDocumentUpload({
 
     setDeleting(true);
     try {
-      await supabase.storage.from('recipient-documents').remove([documentUrl]);
+      try { await gcsDeleteFile(documentUrl); } catch {}
 
       const { error } = await supabase
         .from('recipients')
@@ -147,12 +146,8 @@ export function RecipientDocumentUpload({
     setPreviewLoading(true);
     setPreviewOpen(true);
     try {
-      const { data, error } = await supabase.storage
-        .from('recipient-documents')
-        .createSignedUrl(documentUrl, 300); // 5 min
-
-      if (error) throw error;
-      setPreviewUrl(data.signedUrl);
+      const url = await gcsGetDownloadUrl(documentUrl);
+      setPreviewUrl(url);
     } catch (err) {
       console.error('미리보기 에러:', err);
       toast.error('파일을 불러오지 못했습니다.');
