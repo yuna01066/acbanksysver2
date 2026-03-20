@@ -1326,6 +1326,54 @@ export type Database = {
         }
         Relationships: []
       }
+      leave_adjustments: {
+        Row: {
+          adjustment_type: string
+          created_at: string
+          days: number
+          effective_date: string
+          expires_at: string | null
+          granted_by: string
+          granted_by_name: string
+          id: string
+          leave_category: string
+          reason: string | null
+          updated_at: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          adjustment_type?: string
+          created_at?: string
+          days: number
+          effective_date?: string
+          expires_at?: string | null
+          granted_by: string
+          granted_by_name: string
+          id?: string
+          leave_category?: string
+          reason?: string | null
+          updated_at?: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          adjustment_type?: string
+          created_at?: string
+          days?: number
+          effective_date?: string
+          expires_at?: string | null
+          granted_by?: string
+          granted_by_name?: string
+          id?: string
+          leave_category?: string
+          reason?: string | null
+          updated_at?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
       leave_general_settings: {
         Row: {
           created_at: string | null
