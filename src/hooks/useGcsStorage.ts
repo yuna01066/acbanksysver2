@@ -80,3 +80,22 @@ export async function gcsDeleteFile(path: string): Promise<void> {
     path,
   });
 }
+
+/**
+ * Check if a URL/path is a GCS path (not a full URL).
+ * GCS paths don't start with http.
+ */
+export function isGcsPath(urlOrPath: string): boolean {
+  return !!urlOrPath && !urlOrPath.startsWith('http');
+}
+
+/**
+ * Resolve a URL or GCS path to a downloadable URL.
+ * If it's already a full URL, return it as-is.
+ * If it's a GCS path, generate a signed URL.
+ */
+export async function resolveFileUrl(urlOrPath: string): Promise<string> {
+  if (!urlOrPath) return '';
+  if (urlOrPath.startsWith('http')) return urlOrPath;
+  return gcsGetDownloadUrl(urlOrPath);
+}
