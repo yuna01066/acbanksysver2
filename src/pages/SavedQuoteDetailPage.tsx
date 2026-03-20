@@ -61,6 +61,7 @@ const SavedQuoteDetailPage = () => {
   const { id } = useParams();
   const [quote, setQuote] = useState<SavedQuote | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [manualTotalOverride, setManualTotalOverride] = useState<{ subtotal: number; tax: number; total: number } | null>(null);
   const [recipientData, setRecipientData] = useState<QuoteRecipient>({
     projectName: '',
     quoteNumber: '',
