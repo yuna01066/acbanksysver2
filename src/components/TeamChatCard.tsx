@@ -189,23 +189,20 @@ const TeamChatCard: React.FC = () => {
         toast.error(`${file.name}: 10MB 이하만 업로드 가능합니다.`);
         continue;
       }
-      const path = `${user.id}/${Date.now()}_${file.name}`;
-      const { error } = await supabase.storage
-        .from('team-chat-attachments')
-        .upload(path, file);
-      if (error) {
+      try {
+        const { gcsUploadFile } = await import('@/hooks/useGcsStorage');
+        const prefix = `team-chat/${user.id}`;
+        const { gcsPath } = await gcsUploadFile(file, prefix);
+        newAttachments.push({
+          name: file.name,
+          url: gcsPath, // Store GCS path; resolved on display
+          type: file.type,
+          size: file.size,
+        });
+      } catch (err) {
+        console.error('Upload error:', err);
         toast.error(`${file.name} 업로드 실패`);
-        continue;
       }
-      const { data: urlData } = supabase.storage
-        .from('team-chat-attachments')
-        .getPublicUrl(path);
-      newAttachments.push({
-        name: file.name,
-        url: urlData.publicUrl,
-        type: file.type,
-        size: file.size,
-      });
     }
     setPendingFiles(prev => [...prev, ...newAttachments]);
     setUploading(false);

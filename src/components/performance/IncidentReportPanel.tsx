@@ -267,9 +267,14 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
   };
 
   const downloadAttachment = async (attachment: any) => {
-    const { data } = await supabase.storage.from('incident-attachments').createSignedUrl(attachment.path, 300);
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
-    else toast.error('파일 다운로드에 실패했습니다.');
+    try {
+      const { resolveFileUrl } = await import('@/hooks/useGcsStorage');
+      const url = await resolveFileUrl(attachment.path);
+      if (url) window.open(url, '_blank');
+      else toast.error('파일 다운로드에 실패했습니다.');
+    } catch {
+      toast.error('파일 다운로드에 실패했습니다.');
+    }
   };
 
   const handleRequest = async () => {
