@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, CalendarDays, Clock, Loader2, Plus, Settings2 } from 'lucide-react';
 import { useLeaveRequests, calculatePolicyBasedLeaveDays, LEAVE_TYPES, calculateBusinessDays } from '@/hooks/useLeaveRequests';
+import { useLeaveAdjustments } from '@/hooks/useLeaveAdjustments';
 import AdminLeaveOverview from '@/components/leave/AdminLeaveOverview';
 import { useLeavePolicy } from '@/hooks/useLeavePolicy';
 import { useQuery } from '@tanstack/react-query';
