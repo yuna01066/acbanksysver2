@@ -456,7 +456,7 @@ const SavedQuoteDetailPage = () => {
             isEditMode={isEditing}
             onEdit={() => setIsEditing(true)}
             onSaveEdit={handleSaveEdit}
-            onCancelEdit={() => setIsEditing(false)}
+            onCancelEdit={() => { setIsEditing(false); setManualTotalOverride(null); }}
             onToggleViewMode={toggleViewMode}
             viewMode={viewMode}
             showSavedQuoteActions={true}
