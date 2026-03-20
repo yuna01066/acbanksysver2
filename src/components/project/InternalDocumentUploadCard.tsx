@@ -161,8 +161,8 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, d
   const deleteDoc = useMutation({
     mutationFn: async (docId: string) => {
       const doc = documents.find((d: any) => d.id === docId);
-      if (doc) {
-        await supabase.storage.from('internal-project-docs').remove([doc.file_url]);
+      if (doc?.file_url) {
+        try { await gcsDeleteFile(doc.file_url); } catch {}
       }
       const { error } = await supabase.from('internal_project_documents').delete().eq('id', docId);
       if (error) throw error;
