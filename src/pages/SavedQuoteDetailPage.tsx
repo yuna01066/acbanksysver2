@@ -405,19 +405,19 @@ const SavedQuoteDetailPage = () => {
   const items = Array.isArray(quote.items) ? quote.items : [];
   
   // 편집 모드일 때는 editedItems 기반으로 계산, 아닐 때는 저장된 값 사용
-  const calculatedSubtotal = isEditing 
+  const autoSubtotal = isEditing 
     ? Math.round(editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0) / 100) * 100
     : Math.round(quote.subtotal);
-  const calculatedTax = isEditing 
-    ? Math.round(calculatedSubtotal * 0.1)
+  const autoTax = isEditing 
+    ? Math.round(autoSubtotal * 0.1)
     : Math.round(quote.tax);
-  const calculatedTotal = isEditing 
-    ? calculatedSubtotal + calculatedTax
+  const autoTotal = isEditing 
+    ? autoSubtotal + autoTax
     : Math.round(quote.total);
   
-  const subtotal = calculatedSubtotal;
-  const tax = calculatedTax;
-  const totalWithTax = calculatedTotal;
+  const subtotal = (isEditing && manualTotalOverride) ? manualTotalOverride.subtotal : autoSubtotal;
+  const tax = (isEditing && manualTotalOverride) ? manualTotalOverride.tax : autoTax;
+  const totalWithTax = (isEditing && manualTotalOverride) ? manualTotalOverride.total : autoTotal;
 
   return (
     <>
