@@ -376,12 +376,12 @@ const StorageStatusPage = () => {
               {[
                 { data: '견적서 첨부 / PDF', locations: ['Lovable Cloud'], badges: ['quote-attachments', 'quote-pdfs'] },
                 { data: '프로젝트 업데이트 첨부파일', locations: ['Lovable Cloud', 'GCS', 'Google Drive'], badges: ['project-update-attachments', '프로젝트업데이트'] },
-                { data: '내부 프로젝트 증빙 (견적서/영수증)', locations: ['Lovable Cloud', 'GCS', 'Google Drive'], badges: ['internal-project-docs', '프로젝트명 > 문서유형 > 년 > 월'] },
+                { data: '내부 프로젝트 증빙 (견적서/영수증)', locations: ['GCS', 'Google Drive'], badges: ['프로젝트명 > 문서유형 > 년 > 월'] },
                 { data: '직원 문서 / 프로필 사진', locations: ['Lovable Cloud'], badges: ['employee-documents', 'avatars'] },
-                { data: '팀 채팅 첨부파일', locations: ['Lovable Cloud'], badges: ['team-chat-attachments'] },
-                { data: '거래처 사업자등록증', locations: ['Lovable Cloud'], badges: ['recipient-documents'] },
-                { data: '연말정산 문서', locations: ['Lovable Cloud'], badges: ['tax-documents'] },
-                { data: '사건 보고서 첨부', locations: ['Lovable Cloud'], badges: ['incident-attachments'] },
+                { data: '팀 채팅 첨부파일', locations: ['GCS'], badges: ['team-chat/'] },
+                { data: '거래처 사업자등록증', locations: ['GCS'], badges: ['recipient-documents/'] },
+                { data: '연말정산 문서', locations: ['GCS'], badges: ['tax-documents/'] },
+                { data: '사건 보고서 첨부', locations: ['GCS'], badges: ['incident-attachments/'] },
                 { data: '모든 업무 데이터 (레코드)', locations: ['Database'], badges: ['profiles', 'projects', '...'] },
               ].map((item) => (
                 <div key={item.data} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg border">
