@@ -362,6 +362,7 @@ const SavedQuoteDetailPage = () => {
 
       toast.success('견적서가 수정되었습니다.');
       setIsEditing(false);
+      setManualTotalOverride(null);
       fetchQuote();
     } catch (error) {
       console.error('Error updating quote:', error);
