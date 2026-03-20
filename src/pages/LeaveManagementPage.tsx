@@ -30,6 +30,7 @@ const LeaveManagementPage = () => {
   const { user, profile, isAdmin, isModerator, loading: authLoading } = useAuth();
   const { requests, loading, createRequest, approveRequest, rejectRequest, cancelRequest, refresh } = useLeaveRequests();
   const { policy, loading: policyLoading, unitLabel, canRequest } = useLeavePolicy();
+  const { getNetAdjustment } = useLeaveAdjustments(user?.id);
   const [joinDate, setJoinDate] = useState<string>('');
 
   const [manualOpen, setManualOpen] = useState(false);
