@@ -61,6 +61,7 @@ const SavedQuoteDetailPage = () => {
   const { id } = useParams();
   const [quote, setQuote] = useState<SavedQuote | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [manualTotalOverride, setManualTotalOverride] = useState<{ subtotal: number; tax: number; total: number } | null>(null);
   const [recipientData, setRecipientData] = useState<QuoteRecipient>({
     projectName: '',
     quoteNumber: '',
@@ -279,11 +280,21 @@ const SavedQuoteDetailPage = () => {
     if (!id) return;
 
     try {
-      // 수정된 항목들의 총 금액 재계산
-      const newSubtotal = editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
-      const roundedSubtotal = Math.round(newSubtotal / 100) * 100;
-      const newTax = Math.round(roundedSubtotal * 0.1);
-      const newTotal = roundedSubtotal + newTax;
+      // 수동 오버라이드가 있으면 그 값 사용, 없으면 자동 계산
+      let roundedSubtotal: number;
+      let newTax: number;
+      let newTotal: number;
+      
+      if (manualTotalOverride) {
+        roundedSubtotal = manualTotalOverride.subtotal;
+        newTax = manualTotalOverride.tax;
+        newTotal = manualTotalOverride.total;
+      } else {
+        const newSubtotal = editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
+        roundedSubtotal = Math.round(newSubtotal / 100) * 100;
+        newTax = Math.round(roundedSubtotal * 0.1);
+        newTotal = roundedSubtotal + newTax;
+      }
 
       // 첨부 파일 목록 구성 (PDF 정보 + 기존 첨부 파일)
       const allAttachments = [
@@ -351,6 +362,7 @@ const SavedQuoteDetailPage = () => {
 
       toast.success('견적서가 수정되었습니다.');
       setIsEditing(false);
+      setManualTotalOverride(null);
       fetchQuote();
     } catch (error) {
       console.error('Error updating quote:', error);
@@ -404,19 +416,19 @@ const SavedQuoteDetailPage = () => {
   const items = Array.isArray(quote.items) ? quote.items : [];
   
   // 편집 모드일 때는 editedItems 기반으로 계산, 아닐 때는 저장된 값 사용
-  const calculatedSubtotal = isEditing 
+  const autoSubtotal = isEditing 
     ? Math.round(editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0) / 100) * 100
     : Math.round(quote.subtotal);
-  const calculatedTax = isEditing 
-    ? Math.round(calculatedSubtotal * 0.1)
+  const autoTax = isEditing 
+    ? Math.round(autoSubtotal * 0.1)
     : Math.round(quote.tax);
-  const calculatedTotal = isEditing 
-    ? calculatedSubtotal + calculatedTax
+  const autoTotal = isEditing 
+    ? autoSubtotal + autoTax
     : Math.round(quote.total);
   
-  const subtotal = calculatedSubtotal;
-  const tax = calculatedTax;
-  const totalWithTax = calculatedTotal;
+  const subtotal = (isEditing && manualTotalOverride) ? manualTotalOverride.subtotal : autoSubtotal;
+  const tax = (isEditing && manualTotalOverride) ? manualTotalOverride.tax : autoTax;
+  const totalWithTax = (isEditing && manualTotalOverride) ? manualTotalOverride.total : autoTotal;
 
   return (
     <>
@@ -445,7 +457,7 @@ const SavedQuoteDetailPage = () => {
             isEditMode={isEditing}
             onEdit={() => setIsEditing(true)}
             onSaveEdit={handleSaveEdit}
-            onCancelEdit={() => setIsEditing(false)}
+            onCancelEdit={() => { setIsEditing(false); setManualTotalOverride(null); }}
             onToggleViewMode={toggleViewMode}
             viewMode={viewMode}
             showSavedQuoteActions={true}
@@ -554,7 +566,19 @@ const SavedQuoteDetailPage = () => {
               </div>
 
               {/* 견적 총 합계 */}
-              <QuoteTotalSection subtotal={subtotal} tax={tax} totalWithTax={totalWithTax} />
+              <QuoteTotalSection
+                subtotal={subtotal}
+                tax={tax}
+                totalWithTax={totalWithTax}
+                isEditing={isEditing}
+                onTotalOverride={(s, t, total) => {
+                  if (total === 0) {
+                    setManualTotalOverride(null);
+                  } else {
+                    setManualTotalOverride({ subtotal: s, tax: t, total });
+                  }
+                }}
+              />
 
               {/* 특이사항 및 상담내용 */}
               <QuoteNotesSection
