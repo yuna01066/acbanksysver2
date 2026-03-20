@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.overtime-detection]
 verify_jwt = false
+
+[functions.migrate-storage-to-gcs]
+verify_jwt = false
