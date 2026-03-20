@@ -60,10 +60,11 @@ const LeaveManagementPage = () => {
       });
   }, [user]);
 
-  const totalAnnualDays = useMemo(
-    () => calculatePolicyBasedLeaveDays(joinDate, policy.grant_method, policy.grant_basis),
-    [joinDate, policy.grant_method, policy.grant_basis]
-  );
+  const totalAnnualDays = useMemo(() => {
+    const base = calculatePolicyBasedLeaveDays(joinDate, policy.grant_method, policy.grant_basis);
+    const adjustment = user ? getNetAdjustment(user.id) : 0;
+    return base + adjustment;
+  }, [joinDate, policy.grant_method, policy.grant_basis, user, getNetAdjustment]);
 
   const myRequests = useMemo(() => requests.filter(r => r.user_id === user?.id), [requests, user]);
   const pendingRequests = useMemo(() => requests.filter(r => r.status === 'pending'), [requests]);
