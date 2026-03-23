@@ -358,9 +358,10 @@ const DashboardCalendar = () => {
       projectAssignments?.filter(a => a.user_id === user.id).map(a => a.project_id) || []
     );
     return events.filter(e => {
-      // Always show holidays and birthdays
+      // Always show holidays, birthdays, leaves
       if (e.type === 'holiday') return true;
       if (e.type === 'birthday') return true;
+      if (e.type === 'leave') return e.userId === user.id;
       if (e.type === 'announcement_meeting') return true;
       if (e.type === 'announcement_conference') return true;
       if (e.type === 'announcement_event') return true;
