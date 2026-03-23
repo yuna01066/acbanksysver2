@@ -136,6 +136,18 @@ const DashboardCalendar = () => {
     enabled: !!user,
   });
 
+  const { data: leaveRequests } = useQuery({
+    queryKey: ['calendar-leave-requests'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leave_requests')
+        .select('id, user_id, user_name, leave_type, start_date, end_date, days, status')
+        .eq('status', 'approved');
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const events = useMemo(() => {
     if (!quotes && !notionProjects && !meetings && !holidays && !birthdays && !announcementMeetings && !managedProjects) return [];
     const result: CalendarEvent[] = [];
