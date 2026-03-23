@@ -328,8 +328,26 @@ const DashboardCalendar = () => {
       }
     });
 
+    // 휴가 이벤트
+    leaveRequests?.forEach((lr: any) => {
+      const start = new Date(lr.start_date);
+      const end = new Date(lr.end_date);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        const leaveDays = eachDayOfInterval({ start, end });
+        leaveDays.forEach(d => {
+          result.push({
+            id: `leave-${lr.id}`,
+            projectName: `🌴 ${lr.user_name}`,
+            type: 'leave',
+            date: d,
+            userId: lr.user_id,
+          });
+        });
+      }
+    });
+
     return result;
-  }, [quotes, notionProjects, meetings, holidays, birthdays, announcementMeetings, managedProjects, user, currentMonth]);
+  }, [quotes, notionProjects, meetings, holidays, birthdays, announcementMeetings, managedProjects, leaveRequests, user, currentMonth]);
 
   // Filter events based on view mode
   const filteredEvents = useMemo(() => {
