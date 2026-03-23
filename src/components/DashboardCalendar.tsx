@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 interface CalendarEvent {
   id: string;
   projectName: string;
-  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'holiday' | 'birthday' | 'announcement_meeting' | 'announcement_conference' | 'project' | 'announcement_event';
+  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'holiday' | 'birthday' | 'announcement_meeting' | 'announcement_conference' | 'project' | 'announcement_event' | 'leave';
   date: Date;
   userId: string;
   url?: string;
