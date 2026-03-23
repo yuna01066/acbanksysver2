@@ -589,6 +589,8 @@ const DashboardCalendar = () => {
                         <PartyPopper className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'birthday' ? (
                         <Cake className="h-2.5 w-2.5 shrink-0" />
+                      ) : event.type === 'leave' ? (
+                        <Palmtree className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'project' ? (
                         <FolderOpen className="h-2.5 w-2.5 shrink-0" />
                       ) : (
