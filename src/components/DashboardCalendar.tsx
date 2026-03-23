@@ -149,7 +149,7 @@ const DashboardCalendar = () => {
   });
 
   const events = useMemo(() => {
-    if (!quotes && !notionProjects && !meetings && !holidays && !birthdays && !announcementMeetings && !managedProjects) return [];
+    if (!quotes && !notionProjects && !meetings && !holidays && !birthdays && !announcementMeetings && !managedProjects && !leaveRequests) return [];
     const result: CalendarEvent[] = [];
 
     // 휴일 이벤트
