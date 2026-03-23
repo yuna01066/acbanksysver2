@@ -417,15 +417,16 @@ const DashboardCalendar = () => {
         switch (t) {
           case 'holiday': return 0;
           case 'birthday': return 1;
-          case 'announcement_event': return 2;
-          case 'delivery': return 3;
-          case 'announcement_conference': return 4;
-          case 'announcement_meeting': return 5;
-          case 'meeting': return 6;
-          case 'project': return 7;
-          case 'quote': return 8;
-          case 'notion': return 9;
-          default: return 10;
+          case 'leave': return 2;
+          case 'announcement_event': return 3;
+          case 'delivery': return 4;
+          case 'announcement_conference': return 5;
+          case 'announcement_meeting': return 6;
+          case 'meeting': return 7;
+          case 'project': return 8;
+          case 'quote': return 9;
+          case 'notion': return 10;
+          default: return 11;
         }
       };
       return priority(a.type) - priority(b.type);
