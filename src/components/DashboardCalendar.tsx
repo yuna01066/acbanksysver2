@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper, Users, User, Cake, Calendar, FolderOpen, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper, Users, User, Cake, Calendar, FolderOpen, AlertCircle, Palmtree } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 interface CalendarEvent {
   id: string;
   projectName: string;
-  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'holiday' | 'birthday' | 'announcement_meeting' | 'announcement_conference' | 'project' | 'announcement_event';
+  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'holiday' | 'birthday' | 'announcement_meeting' | 'announcement_conference' | 'project' | 'announcement_event' | 'leave';
   date: Date;
   userId: string;
   url?: string;
@@ -136,8 +136,20 @@ const DashboardCalendar = () => {
     enabled: !!user,
   });
 
+  const { data: leaveRequests } = useQuery({
+    queryKey: ['calendar-leave-requests'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leave_requests')
+        .select('id, user_id, user_name, leave_type, start_date, end_date, days, status')
+        .eq('status', 'approved');
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const events = useMemo(() => {
-    if (!quotes && !notionProjects && !meetings && !holidays && !birthdays && !announcementMeetings && !managedProjects) return [];
+    if (!quotes && !notionProjects && !meetings && !holidays && !birthdays && !announcementMeetings && !managedProjects && !leaveRequests) return [];
     const result: CalendarEvent[] = [];
 
     // 휴일 이벤트
@@ -316,8 +328,26 @@ const DashboardCalendar = () => {
       }
     });
 
+    // 휴가 이벤트
+    leaveRequests?.forEach((lr: any) => {
+      const start = new Date(lr.start_date);
+      const end = new Date(lr.end_date);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        const leaveDays = eachDayOfInterval({ start, end });
+        leaveDays.forEach(d => {
+          result.push({
+            id: `leave-${lr.id}`,
+            projectName: `🌴 ${lr.user_name}`,
+            type: 'leave',
+            date: d,
+            userId: lr.user_id,
+          });
+        });
+      }
+    });
+
     return result;
-  }, [quotes, notionProjects, meetings, holidays, birthdays, announcementMeetings, managedProjects, user, currentMonth]);
+  }, [quotes, notionProjects, meetings, holidays, birthdays, announcementMeetings, managedProjects, leaveRequests, user, currentMonth]);
 
   // Filter events based on view mode
   const filteredEvents = useMemo(() => {
@@ -328,9 +358,10 @@ const DashboardCalendar = () => {
       projectAssignments?.filter(a => a.user_id === user.id).map(a => a.project_id) || []
     );
     return events.filter(e => {
-      // Always show holidays and birthdays
+      // Always show holidays, birthdays, leaves
       if (e.type === 'holiday') return true;
       if (e.type === 'birthday') return true;
+      if (e.type === 'leave') return e.userId === user.id;
       if (e.type === 'announcement_meeting') return true;
       if (e.type === 'announcement_conference') return true;
       if (e.type === 'announcement_event') return true;
@@ -386,15 +417,16 @@ const DashboardCalendar = () => {
         switch (t) {
           case 'holiday': return 0;
           case 'birthday': return 1;
-          case 'announcement_event': return 2;
-          case 'delivery': return 3;
-          case 'announcement_conference': return 4;
-          case 'announcement_meeting': return 5;
-          case 'meeting': return 6;
-          case 'project': return 7;
-          case 'quote': return 8;
-          case 'notion': return 9;
-          default: return 10;
+          case 'leave': return 2;
+          case 'announcement_event': return 3;
+          case 'delivery': return 4;
+          case 'announcement_conference': return 5;
+          case 'announcement_meeting': return 6;
+          case 'meeting': return 7;
+          case 'project': return 8;
+          case 'quote': return 9;
+          case 'notion': return 10;
+          default: return 11;
         }
       };
       return priority(a.type) - priority(b.type);
@@ -460,6 +492,9 @@ const DashboardCalendar = () => {
           <span className="flex items-center gap-1">
             <FolderOpen className="h-3 w-3 text-emerald-600" /> 프로젝트
           </span>
+          <span className="flex items-center gap-1">
+            <Palmtree className="h-3 w-3 text-teal-500" /> 휴가
+          </span>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -511,7 +546,7 @@ const DashboardCalendar = () => {
                   {(expandedDay === day.toISOString() ? dayEvents : dayEvents.slice(0, 3)).map((event, idx) => (
                     <button
                       key={`${event.id}-${event.type}-${idx}`}
-                      onClick={() => event.type !== 'holiday' && event.type !== 'birthday' && handleEventClick(event)}
+                      onClick={() => event.type !== 'holiday' && event.type !== 'birthday' && event.type !== 'leave' && handleEventClick(event)}
                       className={cn(
                         "w-full text-left text-[10px] leading-tight px-1 py-0.5 rounded truncate flex items-center gap-0.5 hover:opacity-80 transition-opacity",
                         event.type === 'quote'
@@ -530,6 +565,8 @@ const DashboardCalendar = () => {
                           ? "bg-red-500/10 text-red-600 cursor-default"
                           : event.type === 'birthday'
                           ? "bg-pink-500/10 text-pink-600 cursor-default"
+                          : event.type === 'leave'
+                          ? "bg-teal-500/10 text-teal-600 cursor-default"
                           : event.type === 'project'
                           ? "bg-emerald-500/10 text-emerald-700 cursor-pointer"
                           : "bg-violet-500/10 text-violet-600"
@@ -552,6 +589,8 @@ const DashboardCalendar = () => {
                         <PartyPopper className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'birthday' ? (
                         <Cake className="h-2.5 w-2.5 shrink-0" />
+                      ) : event.type === 'leave' ? (
+                        <Palmtree className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'project' ? (
                         <FolderOpen className="h-2.5 w-2.5 shrink-0" />
                       ) : (
