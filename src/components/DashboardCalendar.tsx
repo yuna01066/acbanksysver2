@@ -492,6 +492,9 @@ const DashboardCalendar = () => {
           <span className="flex items-center gap-1">
             <FolderOpen className="h-3 w-3 text-emerald-600" /> 프로젝트
           </span>
+          <span className="flex items-center gap-1">
+            <Palmtree className="h-3 w-3 text-teal-500" /> 휴가
+          </span>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
