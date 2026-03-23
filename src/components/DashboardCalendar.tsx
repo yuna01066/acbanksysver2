@@ -546,7 +546,7 @@ const DashboardCalendar = () => {
                   {(expandedDay === day.toISOString() ? dayEvents : dayEvents.slice(0, 3)).map((event, idx) => (
                     <button
                       key={`${event.id}-${event.type}-${idx}`}
-                      onClick={() => event.type !== 'holiday' && event.type !== 'birthday' && handleEventClick(event)}
+                      onClick={() => event.type !== 'holiday' && event.type !== 'birthday' && event.type !== 'leave' && handleEventClick(event)}
                       className={cn(
                         "w-full text-left text-[10px] leading-tight px-1 py-0.5 rounded truncate flex items-center gap-0.5 hover:opacity-80 transition-opacity",
                         event.type === 'quote'
