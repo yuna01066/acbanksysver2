@@ -565,6 +565,8 @@ const DashboardCalendar = () => {
                           ? "bg-red-500/10 text-red-600 cursor-default"
                           : event.type === 'birthday'
                           ? "bg-pink-500/10 text-pink-600 cursor-default"
+                          : event.type === 'leave'
+                          ? "bg-teal-500/10 text-teal-600 cursor-default"
                           : event.type === 'project'
                           ? "bg-emerald-500/10 text-emerald-700 cursor-pointer"
                           : "bg-violet-500/10 text-violet-600"
