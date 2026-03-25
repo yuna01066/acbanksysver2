@@ -449,7 +449,9 @@ const AttendancePage = () => {
             <AttendanceCalendarView
               onDateSelect={(date: string) => {
                 setFilterDate(date);
-                setSelectedMonth(new Date(date));
+                if (date) {
+                  setSelectedMonth(new Date(date));
+                }
               }}
               selectedDate={filterDate}
             />
