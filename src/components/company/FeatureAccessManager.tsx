@@ -46,6 +46,7 @@ const MANAGED_FEATURES: FeatureDef[] = [
   { key: 'finance.manage_contracts', label: '계약서 관리', description: '근로계약서 작성, 수정, 발송', icon: <Pencil className="h-3.5 w-3.5" />, group: 'finance' },
 
   // 업무평가
+  { key: '/performance-review', label: '업무평가 페이지', description: '업무평가 작성 및 조회 페이지 접근', icon: <ClipboardList className="h-3.5 w-3.5" />, group: 'review' },
   { key: 'review.view_all', label: '전체 평가 열람', description: '모든 직원의 업무평가 결과 조회', icon: <Eye className="h-3.5 w-3.5" />, group: 'review' },
   { key: 'review.manage_cycles', label: '평가 주기 관리', description: '평가 주기 생성 및 관리', icon: <Settings className="h-3.5 w-3.5" />, group: 'review' },
   { key: 'review.send_results', label: '평가 결과 전달', description: '평가 결과를 직원에게 전달', icon: <FileText className="h-3.5 w-3.5" />, group: 'review' },
