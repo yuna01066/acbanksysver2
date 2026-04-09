@@ -293,8 +293,10 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
 
       toast.success(asDraft ? '임시 저장되었습니다.' : '평가가 제출되었습니다.');
       setShowForm(false);
+      setEditingReviewId(null);
       setHasExistingReview(true);
       fetchReviews();
+      checkExistingReview();
     } catch (e: any) {
       toast.error('저장 실패: ' + (e.message || ''));
     } finally {
