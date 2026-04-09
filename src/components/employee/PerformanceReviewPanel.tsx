@@ -243,15 +243,16 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
 
   const handleSubmit = async (asDraft: boolean) => {
     if (!selectedCycleId || !user || !profile) return;
-    if (!asDraft && !formGrade) {
-      toast.error('종합 등급을 선택해주세요.');
+    const autoGrade = calcAutoGrade(formScores, categories);
+    if (!asDraft && !autoGrade) {
+      toast.error('항목별 점수를 입력해주세요.');
       return;
     }
     setSaving(true);
     try {
       const reviewPayload = {
         reviewer_type: formReviewerType,
-        overall_grade: formGrade || null,
+        overall_grade: autoGrade || null,
         goal_achievement_rate: formGoalRate,
         strengths: formStrengths || null,
         improvements: formImprovements || null,
@@ -262,7 +263,6 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
       let reviewId: string;
 
       if (editingReviewId) {
-        // UPDATE existing draft
         const { error: reviewError } = await supabase
           .from('performance_reviews')
           .update(reviewPayload)
