@@ -551,12 +551,12 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
       )}
 
       {/* Review Form Dialog */}
-      <Dialog open={showForm} onOpenChange={setShowForm}>
+      <Dialog open={showForm} onOpenChange={(open) => { setShowForm(open); if (!open) setEditingReviewId(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] p-0">
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="h-5 w-5" />
-              {userName} 업무 평가
+              {userName} 업무 평가 {editingReviewId ? '(수정)' : ''}
             </DialogTitle>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh] px-6 pb-6">
