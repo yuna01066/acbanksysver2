@@ -194,12 +194,30 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
     setFormScores(defaultScores);
   };
 
-  const openForm = () => {
-    if (hasExistingReview) {
+  const openForm = (draftReview?: Review) => {
+    if (hasExistingReview && !draftReview) {
       toast.error('이 분기에 이미 해당 직원에 대한 평가를 작성하셨습니다.');
       return;
     }
-    resetForm();
+    if (draftReview) {
+      // Pre-fill form with draft data
+      setEditingReviewId(draftReview.id);
+      setFormReviewerType(draftReview.reviewer_type || 'superior');
+      setFormGrade(draftReview.overall_grade || '');
+      setFormGoalRate(draftReview.goal_achievement_rate ?? 70);
+      setFormStrengths(draftReview.strengths || '');
+      setFormImprovements(draftReview.improvements || '');
+      setFormComment(draftReview.general_comment || '');
+      const scores: Record<string, { score: number; comment: string }> = {};
+      categories.forEach(c => { scores[c.id] = { score: 7, comment: '' }; });
+      (draftReview.scores || []).forEach(s => {
+        scores[s.category_id] = { score: s.score, comment: s.comment || '' };
+      });
+      setFormScores(scores);
+    } else {
+      setEditingReviewId(null);
+      resetForm();
+    }
     setShowForm(true);
   };
 
