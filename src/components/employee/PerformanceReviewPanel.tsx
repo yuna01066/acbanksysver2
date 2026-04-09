@@ -325,7 +325,20 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
     }
   };
 
-  const getWeightedAvg = (scores: ReviewScore[]) => {
+  const handleDeleteReview = async (reviewId: string) => {
+    try {
+      // Delete scores first, then the review
+      await supabase.from('performance_review_scores').delete().eq('review_id', reviewId);
+      const { error } = await supabase.from('performance_reviews').delete().eq('id', reviewId);
+      if (error) throw error;
+      toast.success('평가가 삭제되었습니다.');
+      fetchReviews();
+      checkExistingReview();
+    } catch (e: any) {
+      toast.error('삭제 실패: ' + (e.message || ''));
+    }
+  };
+
     if (!scores || scores.length === 0) return null;
     let totalWeight = 0;
     let weightedSum = 0;
