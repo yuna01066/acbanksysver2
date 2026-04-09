@@ -536,6 +536,33 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
                       <Pencil className="h-3 w-3" /> 수정
                     </Button>
                   )}
+                  {(review.reviewer_id === user?.id || canViewDetails) && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs gap-1 px-2 text-destructive hover:text-destructive"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>평가 삭제</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            이 평가를 삭제하시겠습니까? 삭제된 평가는 복구할 수 없습니다.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>취소</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteReview(review.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            삭제
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   {canViewDetails && (
                     <>
                       <span className="text-xs text-muted-foreground">
