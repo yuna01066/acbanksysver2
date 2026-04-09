@@ -94,6 +94,8 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
   const [expandedReview, setExpandedReview] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [hasExistingReview, setHasExistingReview] = useState(false);
+  const [existingDraftReview, setExistingDraftReview] = useState<Review | null>(null);
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
 
   // Form state
   const [formReviewerType, setFormReviewerType] = useState('superior');
@@ -136,12 +138,23 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
     if (!user || !selectedCycleId) return;
     const { data } = await supabase
       .from('performance_reviews')
-      .select('id')
+      .select('*')
       .eq('cycle_id', selectedCycleId)
       .eq('reviewer_id', user.id)
       .eq('reviewee_id', userId)
       .limit(1);
-    setHasExistingReview(!!(data && data.length > 0));
+    const existing = data && data.length > 0 ? data[0] : null;
+    setHasExistingReview(!!existing);
+    if (existing && existing.status === 'draft') {
+      // Fetch scores for draft
+      const { data: scoresData } = await supabase
+        .from('performance_review_scores')
+        .select('*')
+        .eq('review_id', existing.id);
+      setExistingDraftReview({ ...existing, scores: (scoresData || []) as ReviewScore[] } as Review);
+    } else {
+      setExistingDraftReview(null);
+    }
   };
 
   const fetchReviews = async () => {
@@ -181,12 +194,30 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
     setFormScores(defaultScores);
   };
 
-  const openForm = () => {
-    if (hasExistingReview) {
+  const openForm = (draftReview?: Review) => {
+    if (hasExistingReview && !draftReview) {
       toast.error('이 분기에 이미 해당 직원에 대한 평가를 작성하셨습니다.');
       return;
     }
-    resetForm();
+    if (draftReview) {
+      // Pre-fill form with draft data
+      setEditingReviewId(draftReview.id);
+      setFormReviewerType(draftReview.reviewer_type || 'superior');
+      setFormGrade(draftReview.overall_grade || '');
+      setFormGoalRate(draftReview.goal_achievement_rate ?? 70);
+      setFormStrengths(draftReview.strengths || '');
+      setFormImprovements(draftReview.improvements || '');
+      setFormComment(draftReview.general_comment || '');
+      const scores: Record<string, { score: number; comment: string }> = {};
+      categories.forEach(c => { scores[c.id] = { score: 7, comment: '' }; });
+      (draftReview.scores || []).forEach(s => {
+        scores[s.category_id] = { score: s.score, comment: s.comment || '' };
+      });
+      setFormScores(scores);
+    } else {
+      setEditingReviewId(null);
+      resetForm();
+    }
     setShowForm(true);
   };
 
@@ -198,37 +229,58 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
     }
     setSaving(true);
     try {
-      const { data: review, error: reviewError } = await supabase
-        .from('performance_reviews')
-        .insert({
-          cycle_id: selectedCycleId,
-          reviewer_id: user.id,
-          reviewee_id: userId,
-          reviewer_name: profile.full_name || profile.email,
-          reviewee_name: userName,
-          reviewer_type: formReviewerType,
-          overall_grade: formGrade || null,
-          goal_achievement_rate: formGoalRate,
-          strengths: formStrengths || null,
-          improvements: formImprovements || null,
-          general_comment: formComment || null,
-          status: asDraft ? 'draft' : 'submitted',
-        })
-        .select()
-        .single();
+      const reviewPayload = {
+        reviewer_type: formReviewerType,
+        overall_grade: formGrade || null,
+        goal_achievement_rate: formGoalRate,
+        strengths: formStrengths || null,
+        improvements: formImprovements || null,
+        general_comment: formComment || null,
+        status: asDraft ? 'draft' : 'submitted',
+      };
 
-      if (reviewError) {
-        if (reviewError.message?.includes('unique_review_per_cycle_reviewer_reviewee')) {
-          toast.error('이 분기에 이미 해당 직원에 대한 평가를 작성하셨습니다.');
-          setHasExistingReview(true);
-          setShowForm(false);
-          return;
+      let reviewId: string;
+
+      if (editingReviewId) {
+        // UPDATE existing draft
+        const { error: reviewError } = await supabase
+          .from('performance_reviews')
+          .update(reviewPayload)
+          .eq('id', editingReviewId);
+        if (reviewError) throw reviewError;
+        reviewId = editingReviewId;
+
+        // Delete old scores and re-insert
+        await supabase.from('performance_review_scores').delete().eq('review_id', reviewId);
+      } else {
+        // INSERT new review
+        const { data: review, error: reviewError } = await supabase
+          .from('performance_reviews')
+          .insert({
+            cycle_id: selectedCycleId,
+            reviewer_id: user.id,
+            reviewee_id: userId,
+            reviewer_name: profile.full_name || profile.email,
+            reviewee_name: userName,
+            ...reviewPayload,
+          })
+          .select()
+          .single();
+
+        if (reviewError) {
+          if (reviewError.message?.includes('unique_review_per_cycle_reviewer_reviewee')) {
+            toast.error('이 분기에 이미 해당 직원에 대한 평가를 작성하셨습니다.');
+            setHasExistingReview(true);
+            setShowForm(false);
+            return;
+          }
+          throw reviewError;
         }
-        throw reviewError;
+        reviewId = review.id;
       }
 
       const scoreInserts = Object.entries(formScores).map(([catId, val]) => ({
-        review_id: review.id,
+        review_id: reviewId,
         category_id: catId,
         score: val.score,
         comment: val.comment || null,
@@ -241,8 +293,10 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
 
       toast.success(asDraft ? '임시 저장되었습니다.' : '평가가 제출되었습니다.');
       setShowForm(false);
+      setEditingReviewId(null);
       setHasExistingReview(true);
       fetchReviews();
+      checkExistingReview();
     } catch (e: any) {
       toast.error('저장 실패: ' + (e.message || ''));
     } finally {
@@ -298,13 +352,23 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
           )}
         </div>
         <div className="flex items-center gap-2">
-          {hasExistingReview && (
+          {hasExistingReview && !existingDraftReview && (
             <span className="text-xs text-muted-foreground">평가 완료</span>
+          )}
+          {existingDraftReview && isCycleActive && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs gap-1.5"
+              onClick={() => openForm(existingDraftReview)}
+            >
+              <Pencil className="h-3.5 w-3.5" /> 임시저장 수정
+            </Button>
           )}
           <Button
             size="sm"
             className="h-8 text-xs gap-1.5"
-            onClick={openForm}
+            onClick={() => openForm()}
             disabled={!selectedCycleId || !isCycleActive || hasExistingReview}
             title={getWriteButtonTooltip()}
           >
@@ -427,6 +491,16 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
                       <Star className="h-3 w-3" />{getWeightedAvg(review.scores || [])}
                     </span>
                   )}
+                  {review.status === 'draft' && review.reviewer_id === user?.id && isCycleActive && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1 px-2"
+                      onClick={(e) => { e.stopPropagation(); openForm(review); }}
+                    >
+                      <Pencil className="h-3 w-3" /> 수정
+                    </Button>
+                  )}
                   {canViewDetails && (
                     <>
                       <span className="text-xs text-muted-foreground">
@@ -489,12 +563,12 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
       )}
 
       {/* Review Form Dialog */}
-      <Dialog open={showForm} onOpenChange={setShowForm}>
+      <Dialog open={showForm} onOpenChange={(open) => { setShowForm(open); if (!open) setEditingReviewId(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] p-0">
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="h-5 w-5" />
-              {userName} 업무 평가
+              {userName} 업무 평가 {editingReviewId ? '(수정)' : ''}
             </DialogTitle>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh] px-6 pb-6">
