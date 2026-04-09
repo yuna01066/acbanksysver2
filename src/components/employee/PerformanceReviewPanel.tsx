@@ -229,37 +229,58 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
     }
     setSaving(true);
     try {
-      const { data: review, error: reviewError } = await supabase
-        .from('performance_reviews')
-        .insert({
-          cycle_id: selectedCycleId,
-          reviewer_id: user.id,
-          reviewee_id: userId,
-          reviewer_name: profile.full_name || profile.email,
-          reviewee_name: userName,
-          reviewer_type: formReviewerType,
-          overall_grade: formGrade || null,
-          goal_achievement_rate: formGoalRate,
-          strengths: formStrengths || null,
-          improvements: formImprovements || null,
-          general_comment: formComment || null,
-          status: asDraft ? 'draft' : 'submitted',
-        })
-        .select()
-        .single();
+      const reviewPayload = {
+        reviewer_type: formReviewerType,
+        overall_grade: formGrade || null,
+        goal_achievement_rate: formGoalRate,
+        strengths: formStrengths || null,
+        improvements: formImprovements || null,
+        general_comment: formComment || null,
+        status: asDraft ? 'draft' : 'submitted',
+      };
 
-      if (reviewError) {
-        if (reviewError.message?.includes('unique_review_per_cycle_reviewer_reviewee')) {
-          toast.error('이 분기에 이미 해당 직원에 대한 평가를 작성하셨습니다.');
-          setHasExistingReview(true);
-          setShowForm(false);
-          return;
+      let reviewId: string;
+
+      if (editingReviewId) {
+        // UPDATE existing draft
+        const { error: reviewError } = await supabase
+          .from('performance_reviews')
+          .update(reviewPayload)
+          .eq('id', editingReviewId);
+        if (reviewError) throw reviewError;
+        reviewId = editingReviewId;
+
+        // Delete old scores and re-insert
+        await supabase.from('performance_review_scores').delete().eq('review_id', reviewId);
+      } else {
+        // INSERT new review
+        const { data: review, error: reviewError } = await supabase
+          .from('performance_reviews')
+          .insert({
+            cycle_id: selectedCycleId,
+            reviewer_id: user.id,
+            reviewee_id: userId,
+            reviewer_name: profile.full_name || profile.email,
+            reviewee_name: userName,
+            ...reviewPayload,
+          })
+          .select()
+          .single();
+
+        if (reviewError) {
+          if (reviewError.message?.includes('unique_review_per_cycle_reviewer_reviewee')) {
+            toast.error('이 분기에 이미 해당 직원에 대한 평가를 작성하셨습니다.');
+            setHasExistingReview(true);
+            setShowForm(false);
+            return;
+          }
+          throw reviewError;
         }
-        throw reviewError;
+        reviewId = review.id;
       }
 
       const scoreInserts = Object.entries(formScores).map(([catId, val]) => ({
-        review_id: review.id,
+        review_id: reviewId,
         category_id: catId,
         score: val.score,
         comment: val.comment || null,
