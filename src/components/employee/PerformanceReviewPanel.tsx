@@ -148,7 +148,8 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
     if (cyclesRes.data) {
       setCycles(cyclesRes.data as ReviewCycle[]);
       if (cyclesRes.data.length > 0 && !selectedCycleId) {
-        setSelectedCycleId(cyclesRes.data[0].id);
+        const active = cyclesRes.data.find(c => c.status === 'active');
+        setSelectedCycleId(active ? active.id : cyclesRes.data[0].id);
       }
     }
     if (catsRes.data) setCategories(catsRes.data as ReviewCategory[]);
