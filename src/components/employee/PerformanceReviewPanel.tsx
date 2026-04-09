@@ -94,6 +94,8 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
   const [expandedReview, setExpandedReview] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [hasExistingReview, setHasExistingReview] = useState(false);
+  const [existingDraftReview, setExistingDraftReview] = useState<Review | null>(null);
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
 
   // Form state
   const [formReviewerType, setFormReviewerType] = useState('superior');
