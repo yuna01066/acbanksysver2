@@ -350,8 +350,18 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
           )}
         </div>
         <div className="flex items-center gap-2">
-          {hasExistingReview && (
+          {hasExistingReview && !existingDraftReview && (
             <span className="text-xs text-muted-foreground">평가 완료</span>
+          )}
+          {existingDraftReview && isCycleActive && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs gap-1.5"
+              onClick={() => openForm(existingDraftReview)}
+            >
+              <Pencil className="h-3.5 w-3.5" /> 임시저장 수정
+            </Button>
           )}
           <Button
             size="sm"
