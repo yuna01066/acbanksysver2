@@ -87,14 +87,14 @@ async function checkOwnership(userId: string, basePath: string, fullPath: string
         .from('saved_quotes')
         .select('id', { count: 'exact', head: true })
         .eq('id', quoteId)
-        .eq('user_id', userId);
+        .or(`user_id.eq.${userId},issuer_id.eq.${userId}`);
       return (count ?? 0) > 0;
     }
-    // For list page, check if user has any quotes
+    // For list page, check if user has any quotes (as creator or issuer)
     const { count } = await supabase
       .from('saved_quotes')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
+      .or(`user_id.eq.${userId},issuer_id.eq.${userId}`)
       .limit(1);
     return (count ?? 0) > 0;
   }
