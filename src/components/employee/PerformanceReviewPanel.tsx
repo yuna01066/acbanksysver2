@@ -58,6 +58,26 @@ interface ReviewScore {
 }
 
 const GRADES = ['S', 'A', 'B', 'C', 'D'];
+
+const calcAutoGrade = (scores: Record<string, { score: number; comment: string }>, categories: ReviewCategory[]): string => {
+  if (categories.length === 0 || Object.keys(scores).length === 0) return '';
+  let totalWeight = 0;
+  let weightedSum = 0;
+  categories.forEach(c => {
+    const s = scores[c.id];
+    if (s) {
+      totalWeight += c.weight;
+      weightedSum += s.score * c.weight;
+    }
+  });
+  if (totalWeight === 0) return '';
+  const avg = weightedSum / totalWeight;
+  if (avg >= 9) return 'S';
+  if (avg >= 7) return 'A';
+  if (avg >= 5) return 'B';
+  if (avg >= 3) return 'C';
+  return 'D';
+};
 const REVIEWER_TYPES = [
   { value: 'self', label: '자기 평가' },
   { value: 'superior', label: '상급자 평가' },
@@ -223,15 +243,16 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
 
   const handleSubmit = async (asDraft: boolean) => {
     if (!selectedCycleId || !user || !profile) return;
-    if (!asDraft && !formGrade) {
-      toast.error('종합 등급을 선택해주세요.');
+    const autoGrade = calcAutoGrade(formScores, categories);
+    if (!asDraft && !autoGrade) {
+      toast.error('항목별 점수를 입력해주세요.');
       return;
     }
     setSaving(true);
     try {
       const reviewPayload = {
         reviewer_type: formReviewerType,
-        overall_grade: formGrade || null,
+        overall_grade: autoGrade || null,
         goal_achievement_rate: formGoalRate,
         strengths: formStrengths || null,
         improvements: formImprovements || null,
@@ -242,7 +263,6 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
       let reviewId: string;
 
       if (editingReviewId) {
-        // UPDATE existing draft
         const { error: reviewError } = await supabase
           .from('performance_reviews')
           .update(reviewPayload)
@@ -586,17 +606,29 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">종합 등급</Label>
-                  <div className="flex gap-1.5 mt-1.5">
-                    {GRADES.map(g => (
-                      <button
-                        key={g}
-                        onClick={() => setFormGrade(g)}
-                        className={`w-10 h-9 rounded-lg text-sm font-bold border-2 transition-all ${formGrade === g ? gradeColor(g) + ' ring-2 ring-offset-1 ring-primary/30' : 'border-muted bg-muted/30 text-muted-foreground hover:bg-muted'}`}
-                      >
-                        {g}
-                      </button>
-                    ))}
+                  <Label className="text-xs text-muted-foreground">종합 등급 (자동 산출)</Label>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    {(() => {
+                      const auto = calcAutoGrade(formScores, categories);
+                      const avg = (() => {
+                        let tw = 0, ws = 0;
+                        categories.forEach(c => { const s = formScores[c.id]; if (s) { tw += c.weight; ws += s.score * c.weight; } });
+                        return tw > 0 ? (ws / tw).toFixed(1) : '-';
+                      })();
+                      return (
+                        <>
+                          {GRADES.map(g => (
+                            <span
+                              key={g}
+                              className={`w-10 h-9 rounded-lg text-sm font-bold border-2 flex items-center justify-center transition-all ${auto === g ? gradeColor(g) + ' ring-2 ring-offset-1 ring-primary/30' : 'border-muted bg-muted/10 text-muted-foreground/40'}`}
+                            >
+                              {g}
+                            </span>
+                          ))}
+                          <span className="text-xs text-muted-foreground ml-2">평균 {avg}점</span>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
