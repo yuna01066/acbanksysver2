@@ -138,12 +138,23 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
     if (!user || !selectedCycleId) return;
     const { data } = await supabase
       .from('performance_reviews')
-      .select('id')
+      .select('*')
       .eq('cycle_id', selectedCycleId)
       .eq('reviewer_id', user.id)
       .eq('reviewee_id', userId)
       .limit(1);
-    setHasExistingReview(!!(data && data.length > 0));
+    const existing = data && data.length > 0 ? data[0] : null;
+    setHasExistingReview(!!existing);
+    if (existing && existing.status === 'draft') {
+      // Fetch scores for draft
+      const { data: scoresData } = await supabase
+        .from('performance_review_scores')
+        .select('*')
+        .eq('review_id', existing.id);
+      setExistingDraftReview({ ...existing, scores: (scoresData || []) as ReviewScore[] } as Review);
+    } else {
+      setExistingDraftReview(null);
+    }
   };
 
   const fetchReviews = async () => {
