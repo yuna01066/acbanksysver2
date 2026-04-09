@@ -339,6 +339,7 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
     }
   };
 
+  const getWeightedAvg = (scores: ReviewScore[]) => {
     if (!scores || scores.length === 0) return null;
     let totalWeight = 0;
     let weightedSum = 0;
