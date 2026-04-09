@@ -335,7 +335,7 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
           <Button
             size="sm"
             className="h-8 text-xs gap-1.5"
-            onClick={openForm}
+            onClick={() => openForm()}
             disabled={!selectedCycleId || !isCycleActive || hasExistingReview}
             title={getWriteButtonTooltip()}
           >
