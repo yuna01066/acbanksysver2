@@ -12,7 +12,8 @@ import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Plus, Star, Target, MessageSquare, TrendingUp, Loader2, ChevronDown, ChevronUp, Send, Pencil, Lock } from 'lucide-react';
+import { Plus, Star, Target, MessageSquare, TrendingUp, Loader2, ChevronDown, ChevronUp, Send, Pencil, Lock, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -324,6 +325,20 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
     }
   };
 
+  const handleDeleteReview = async (reviewId: string) => {
+    try {
+      // Delete scores first, then the review
+      await supabase.from('performance_review_scores').delete().eq('review_id', reviewId);
+      const { error } = await supabase.from('performance_reviews').delete().eq('id', reviewId);
+      if (error) throw error;
+      toast.success('평가가 삭제되었습니다.');
+      fetchReviews();
+      checkExistingReview();
+    } catch (e: any) {
+      toast.error('삭제 실패: ' + (e.message || ''));
+    }
+  };
+
   const getWeightedAvg = (scores: ReviewScore[]) => {
     if (!scores || scores.length === 0) return null;
     let totalWeight = 0;
@@ -520,6 +535,34 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
                     >
                       <Pencil className="h-3 w-3" /> 수정
                     </Button>
+                  )}
+                  {(review.reviewer_id === user?.id || canViewDetails) && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs gap-1 px-2 text-destructive hover:text-destructive"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>평가 삭제</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            이 평가를 삭제하시겠습니까? 삭제된 평가는 복구할 수 없습니다.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>취소</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteReview(review.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            삭제
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   )}
                   {canViewDetails && (
                     <>
