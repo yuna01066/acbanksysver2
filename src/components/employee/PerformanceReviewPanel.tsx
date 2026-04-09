@@ -489,6 +489,16 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
                       <Star className="h-3 w-3" />{getWeightedAvg(review.scores || [])}
                     </span>
                   )}
+                  {review.status === 'draft' && review.reviewer_id === user?.id && isCycleActive && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1 px-2"
+                      onClick={(e) => { e.stopPropagation(); openForm(review); }}
+                    >
+                      <Pencil className="h-3 w-3" /> 수정
+                    </Button>
+                  )}
                   {canViewDetails && (
                     <>
                       <span className="text-xs text-muted-foreground">
