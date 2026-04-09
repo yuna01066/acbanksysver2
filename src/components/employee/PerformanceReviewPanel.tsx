@@ -58,6 +58,26 @@ interface ReviewScore {
 }
 
 const GRADES = ['S', 'A', 'B', 'C', 'D'];
+
+const calcAutoGrade = (scores: Record<string, { score: number; comment: string }>, categories: ReviewCategory[]): string => {
+  if (categories.length === 0 || Object.keys(scores).length === 0) return '';
+  let totalWeight = 0;
+  let weightedSum = 0;
+  categories.forEach(c => {
+    const s = scores[c.id];
+    if (s) {
+      totalWeight += c.weight;
+      weightedSum += s.score * c.weight;
+    }
+  });
+  if (totalWeight === 0) return '';
+  const avg = weightedSum / totalWeight;
+  if (avg >= 9) return 'S';
+  if (avg >= 7) return 'A';
+  if (avg >= 5) return 'B';
+  if (avg >= 3) return 'C';
+  return 'D';
+};
 const REVIEWER_TYPES = [
   { value: 'self', label: '자기 평가' },
   { value: 'superior', label: '상급자 평가' },
