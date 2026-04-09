@@ -563,6 +563,7 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
+                  )}
                   {canViewDetails && (
                     <>
                       <span className="text-xs text-muted-foreground">
