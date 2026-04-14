@@ -809,7 +809,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   };
 
   // 제품 제작 수동 입력 견적 추가
-  const handleAddManualProductQuote = () => {
+  const handleAddManualProductQuote = async () => {
     if (manualProductItems.length === 0) {
       alert('최소 1개 이상의 항목을 입력해주세요.');
       return;
@@ -824,23 +824,20 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       return;
     }
 
-    // 각 항목을 개별 견적으로 추가
-    validItems.forEach(item => {
-      // 사이즈 문자열 생성
+    // 각 항목의 quoteData 생성
+    const quoteDataList = validItems.map(item => {
       const sizeParts = [item.sizeWidth, item.sizeHeight, item.sizeDepth].filter(p => p.trim());
       const sizeStr = sizeParts.length > 0 ? sizeParts.join(' × ') : '-';
       
-      // breakdown 상세 내역 생성
       const breakdownItems: { label: string; price: number }[] = [
         { label: `${item.name} (${item.quantity}개 × ₩${item.unitPrice.toLocaleString()})`, price: item.unitPrice * item.quantity }
       ];
       
-      // 기타사항만 breakdown에 추가 (사이즈/두께/컬러는 카드 상단에 표시)
       if (item.notes.trim()) {
         breakdownItems.push({ label: `기타: ${item.notes}`, price: 0 });
       }
 
-      const quoteData = {
+      return {
         factory: 'jangwon',
         material: '제품 제작',
         quality: item.material || '-',
@@ -859,8 +856,63 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         quantity: 1,
         breakdown: breakdownItems
       };
-      addQuote(quoteData);
     });
+
+    // 기존 발행 견적서에 새 항목 추가 모드
+    if (editMode === 'addToSaved' && savedQuoteId) {
+      try {
+        const { data: existingQuote, error: fetchError } = await supabase
+          .from('saved_quotes')
+          .select('items, subtotal, tax, total')
+          .eq('id', savedQuoteId)
+          .single();
+
+        if (fetchError) throw fetchError;
+
+        const items: any[] = Array.isArray(existingQuote.items) ? [...existingQuote.items] : [];
+        quoteDataList.forEach(qd => {
+          items.push({
+            ...qd,
+            id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+            createdAt: new Date().toISOString()
+          });
+        });
+
+        const newSubtotal = items.reduce((sum: number, item: any) => sum + (item.totalPrice * (item.quantity || 1)), 0);
+        const roundedSubtotal = Math.round(newSubtotal / 100) * 100;
+        const newTax = Math.round(roundedSubtotal * 0.1);
+        const newTotal = roundedSubtotal + newTax;
+
+        const { error: updateError } = await supabase
+          .from('saved_quotes')
+          .update({
+            items,
+            subtotal: roundedSubtotal,
+            tax: newTax,
+            total: newTotal
+          })
+          .eq('id', savedQuoteId);
+
+        if (updateError) throw updateError;
+
+        alert(`${validItems.length}개의 제품 제작 항목이 견적서에 추가되었습니다!`);
+        setEditMode(null);
+        setSavedQuoteId(null);
+        setManualProductItems([]);
+        setSelectedMaterial(null);
+        setCurrentStep(0);
+        setCalculatorType(null);
+        navigate(`/saved-quotes/${savedQuoteId}`);
+        return;
+      } catch (error) {
+        console.error('Error adding manual items to saved quote:', error);
+        alert('견적 항목 추가에 실패했습니다.');
+        return;
+      }
+    }
+
+    // 일반 모드: 새 견적 추가
+    quoteDataList.forEach(qd => addQuote(qd));
 
     // 리셋
     setManualProductItems([]);
