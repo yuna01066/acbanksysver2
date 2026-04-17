@@ -216,24 +216,24 @@ const RecipientManagementPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <Button variant="outline" onClick={() => navigate(-1)}>
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               뒤로
             </Button>
-            <Button variant="outline" onClick={() => navigate('/')}>
+            <Button variant="outline" size="sm" onClick={() => navigate('/')}>
               <Home className="w-4 h-4 mr-2" />
               홈으로
             </Button>
           </div>
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-4xl font-bold mb-2 bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">
               고객사 관리
             </h1>
-            <p className="text-muted-foreground">고객사 정보 및 견적 히스토리를 관리합니다</p>
+            <p className="text-xs sm:text-base text-muted-foreground">고객사 정보 및 견적 히스토리를 관리합니다</p>
           </div>
         </div>
 

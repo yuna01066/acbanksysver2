@@ -234,7 +234,7 @@ const Home = () => {
       <div className="container mx-auto px-3 sm:px-4 py-8 sm:py-16">
         <div className="max-w-6xl mx-auto">
           {/* Top Bar */}
-          <div className="flex justify-between items-center gap-4 mb-8">
+          <div className="flex flex-wrap justify-between items-center gap-3 mb-8">
             <div>
               <NotificationPanel
                 notifications={notifications}
@@ -244,19 +244,19 @@ const Home = () => {
                 onRefresh={refreshNotifications}
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button onClick={() => navigate('/team-chat')} title="팀챗"
-                className="w-10 h-10 rounded-full glass-pill flex items-center justify-center transition-transform active:scale-95 hover:scale-105">
+                className="w-10 h-10 rounded-full glass-pill flex items-center justify-center transition-transform active:scale-95 hover:scale-105 shrink-0">
                 <MessageCircle className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
               <button onClick={() => navigate('/my-page')} title="마이페이지"
-                className="w-10 h-10 rounded-full glass-pill flex items-center justify-center transition-transform active:scale-95 hover:scale-105">
+                className="w-10 h-10 rounded-full glass-pill flex items-center justify-center transition-transform active:scale-95 hover:scale-105 shrink-0">
                 <User className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
               <button onClick={signOut}
-                className="h-10 px-4 rounded-full glass-pill flex items-center gap-2 text-[13px] font-medium text-muted-foreground transition-transform active:scale-95 hover:scale-105">
+                className="h-10 px-3 sm:px-4 rounded-full glass-pill flex items-center gap-2 text-[13px] font-medium text-muted-foreground transition-transform active:scale-95 hover:scale-105 shrink-0">
                 <LogOut className="h-4 w-4" />
-                로그아웃
+                <span className="hidden xs:inline sm:inline">로그아웃</span>
               </button>
             </div>
           </div>
