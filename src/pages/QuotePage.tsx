@@ -122,19 +122,21 @@ const QuotePage = () => {
         <span></span>
       </div>
       
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gray-50 p-2 sm:p-4">
       <div className="w-full max-w-4xl mx-auto print-container">
         {/* 상단 액션 버튼들 */}
-        <div className="flex justify-between items-center mb-6 print:hidden">
+        <div className="flex flex-wrap justify-between items-center gap-2 mb-6 print:hidden">
           <Button 
             variant="outline" 
+            size="sm"
             onClick={() => navigate('/')}
             className="flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            홈으로 돌아가기
+            홈으로
           </Button>
           <Button 
+            size="sm"
             onClick={handlePrintPDF}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
           >
@@ -146,28 +148,28 @@ const QuotePage = () => {
         {/* 견적서 메인 카드 */}
         <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
           {/* 헤더 */}
-          <CardHeader className="bg-slate-900 text-white p-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-3xl font-bold flex items-center gap-3 mb-2">
-                  <FileText className="w-8 h-8" />
-                  판재 견적서
+          <CardHeader className="bg-slate-900 text-white p-4 sm:p-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="min-w-0">
+                <CardTitle className="text-xl sm:text-3xl font-bold flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                  <FileText className="w-6 h-6 sm:w-8 sm:h-8 shrink-0" />
+                  <span className="truncate">판재 견적서</span>
                 </CardTitle>
-                <p className="text-slate-200 text-lg">Panel Material Quotation</p>
+                <p className="text-slate-200 text-sm sm:text-lg">Panel Material Quotation</p>
               </div>
-              <div className="text-right">
-                <div className="flex items-center gap-2 text-slate-200 mb-2">
-                  <Calendar className="w-4 h-4" />
+              <div className="sm:text-right">
+                <div className="flex items-center gap-2 text-slate-200 mb-2 text-xs sm:text-sm sm:justify-end">
+                  <Calendar className="w-4 h-4 shrink-0" />
                   <span>{currentDate}</span>
                 </div>
-                <Badge className="bg-white/20 text-white border-0 px-4 py-2 text-lg font-bold">
+                <Badge className="bg-white/20 text-white border-0 px-2 sm:px-4 py-1 sm:py-2 text-xs sm:text-lg font-bold whitespace-normal break-all sm:break-normal">
                   견적번호: {quoteNumber}
                 </Badge>
               </div>
             </div>
           </CardHeader>
 
-          <CardContent className="p-8">
+          <CardContent className="p-4 sm:p-8">
             {/* 제품 정보 섹션 */}
             <div className="mb-8">
               <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
@@ -237,14 +239,14 @@ const QuotePage = () => {
             <Separator className="my-8" />
 
             {/* 최종 견적 금액 */}
-            <div className="bg-slate-900 rounded-xl p-6 text-white">
-              <div className="flex justify-between items-center">
+            <div className="bg-slate-900 rounded-xl p-4 sm:p-6 text-white">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <div>
-                  <h3 className="text-2xl font-bold mb-2">최종 견적 금액</h3>
-                  <p className="text-slate-300">부가세 포함 금액</p>
+                  <h3 className="text-lg sm:text-2xl font-bold mb-1 sm:mb-2">최종 견적 금액</h3>
+                  <p className="text-slate-300 text-sm sm:text-base">부가세 포함 금액</p>
                 </div>
-                <div className="text-right">
-                  <div className="text-4xl font-bold">{formatPrice(quoteData.totalPrice)}</div>
+                <div className="sm:text-right">
+                  <div className="text-2xl sm:text-4xl font-bold break-all">{formatPrice(quoteData.totalPrice)}</div>
                 </div>
               </div>
             </div>

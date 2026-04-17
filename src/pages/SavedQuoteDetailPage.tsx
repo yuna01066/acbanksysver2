@@ -433,10 +433,10 @@ const SavedQuoteDetailPage = () => {
   return (
     <>
       <PrintStyles quoteNumber={quote.quote_number} projectName={quote.project_name} companyName={quote.recipient_company} isInternal={viewMode === 'internal'} />
-      <div className="min-h-screen bg-[hsl(220,10%,95%)] p-4 print-layout-wrapper">
-        <div className="w-full max-w-6xl mx-auto flex gap-6 print-flex-container">
-        <div className="flex-1 min-w-0 max-w-4xl print-container" id="saved-quote-print-container" ref={printContainerRef}>
-          <div className="mb-6 print:hidden flex justify-between items-center">
+      <div className="min-h-screen bg-[hsl(220,10%,95%)] p-2 sm:p-4 print-layout-wrapper">
+        <div className="w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-4 lg:gap-6 print-flex-container">
+        <div className="flex-1 min-w-0 max-w-full lg:max-w-4xl print-container" id="saved-quote-print-container" ref={printContainerRef}>
+          <div className="mb-4 sm:mb-6 print:hidden flex justify-between items-center">
             <Button 
               variant="outline" 
               onClick={() => navigate('/')}
@@ -444,7 +444,8 @@ const SavedQuoteDetailPage = () => {
               size="sm"
             >
               <Home className="w-4 h-4" />
-              홈으로 돌아가기
+              <span className="hidden sm:inline">홈으로 돌아가기</span>
+              <span className="sm:hidden">홈</span>
             </Button>
             
           </div>
