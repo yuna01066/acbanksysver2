@@ -82,7 +82,7 @@ const SpaceProjectFormPage = () => {
 
   // Items
   const [items, setItems] = useState<LineItem[]>([
-    { id: crypto.randomUUID(), name: '', spec: '', quantity: 1, unit: '식', unitPrice: 0 },
+    { id: crypto.randomUUID(), name: '', spec: '', quantity: 1, unit: '식', unitPrice: 0, note: '' },
   ]);
 
   // Cost categories
