@@ -52,6 +52,9 @@ const SampleChipInventoryPage = lazy(() => import("./pages/SampleChipInventoryPa
 const ImwebManagementPage = lazy(() => import("./pages/ImwebManagementPage"));
 const ExhibitionManagementPage = lazy(() => import("./pages/ExhibitionManagementPage"));
 const BusinessDashboardPage = lazy(() => import("./pages/BusinessDashboardPage"));
+const SpaceProjectFormPage = lazy(() => import("./pages/SpaceProjectFormPage"));
+const SpaceProjectsListPage = lazy(() => import("./pages/SpaceProjectsListPage"));
+const SpaceProjectDetailPage = lazy(() => import("./pages/SpaceProjectDetailPage"));
 const queryClient = new QueryClient();
 
 const G: React.FC<{ children: React.ReactNode }> = ({ children }) => (
