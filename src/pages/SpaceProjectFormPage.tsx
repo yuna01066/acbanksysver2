@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, ArrowLeft, Save, Upload, X, FileText } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Save, Upload, X, FileText, List } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 
@@ -313,9 +313,14 @@ const SpaceProjectFormPage = () => {
     <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto p-3 sm:p-6 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-4 h-4 mr-1" /> 뒤로
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+              <ArrowLeft className="w-4 h-4 mr-1" /> 뒤로
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate('/space-quotes')}>
+              <List className="w-4 h-4 mr-1" /> 발행된 공간 견적서 목록
+            </Button>
+          </div>
           <h1 className="text-xl sm:text-2xl font-bold">공간 프로젝트 견적 {editId ? '수정' : '작성'}</h1>
           <Button onClick={handleSave} disabled={saving}>
             <Save className="w-4 h-4 mr-1" /> {saving ? '저장 중...' : '저장'}
