@@ -3308,7 +3308,17 @@ export type Database = {
         Row: {
           area_unit: string | null
           attachments: Json | null
+          client_business_address: string | null
+          client_business_item: string | null
+          client_business_name: string | null
+          client_business_number: string | null
+          client_business_type: string | null
+          client_contact_email: string | null
+          client_contact_name: string | null
+          client_contact_phone: string | null
+          client_contact_position: string | null
           client_name: string | null
+          client_representative: string | null
           cost_breakdown: Json | null
           created_at: string
           floor_count: number | null
@@ -3338,7 +3348,17 @@ export type Database = {
         Insert: {
           area_unit?: string | null
           attachments?: Json | null
+          client_business_address?: string | null
+          client_business_item?: string | null
+          client_business_name?: string | null
+          client_business_number?: string | null
+          client_business_type?: string | null
+          client_contact_email?: string | null
+          client_contact_name?: string | null
+          client_contact_phone?: string | null
+          client_contact_position?: string | null
           client_name?: string | null
+          client_representative?: string | null
           cost_breakdown?: Json | null
           created_at?: string
           floor_count?: number | null
@@ -3368,7 +3388,17 @@ export type Database = {
         Update: {
           area_unit?: string | null
           attachments?: Json | null
+          client_business_address?: string | null
+          client_business_item?: string | null
+          client_business_name?: string | null
+          client_business_number?: string | null
+          client_business_type?: string | null
+          client_contact_email?: string | null
+          client_contact_name?: string | null
+          client_contact_phone?: string | null
+          client_contact_position?: string | null
           client_name?: string | null
+          client_representative?: string | null
           cost_breakdown?: Json | null
           created_at?: string
           floor_count?: number | null
