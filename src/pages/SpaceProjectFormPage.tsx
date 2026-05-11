@@ -467,6 +467,54 @@ const SpaceProjectFormPage = () => {
         </Card>
 
         <Card>
+          <CardHeader><CardTitle className="text-base">공급자 담당자 (발신)</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <Label>담당자</Label>
+              <Select
+                value={issuerName || ''}
+                onValueChange={(v) => {
+                  const sel = employees.find((e) => e.full_name === v);
+                  if (sel) {
+                    setIssuerId(sel.id);
+                    setIssuerName(sel.full_name);
+                    setIssuerEmail(sel.email || '');
+                    setIssuerPhone(sel.phone || '');
+                    setIssuerDepartment(sel.department || '');
+                    setIssuerPosition(sel.position || '');
+                  }
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="담당자 선택" /></SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.full_name}>
+                      {emp.full_name}{emp.department ? ` (${emp.department})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>이메일</Label>
+              <Input type="email" value={issuerEmail} onChange={(e) => setIssuerEmail(e.target.value)} maxLength={255} />
+            </div>
+            <div>
+              <Label>연락처</Label>
+              <Input value={issuerPhone} onChange={(e) => setIssuerPhone(e.target.value)} maxLength={50} />
+            </div>
+            <div>
+              <Label>부서</Label>
+              <Input value={issuerDepartment} onChange={(e) => setIssuerDepartment(e.target.value)} maxLength={100} />
+            </div>
+            <div>
+              <Label>직책</Label>
+              <Input value={issuerPosition} onChange={(e) => setIssuerPosition(e.target.value)} maxLength={100} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader><CardTitle className="text-base">공간 규모</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div>
