@@ -20,6 +20,7 @@ interface LineItem {
   quantity: number;
   unit: string;
   unitPrice: number;
+  note?: string;
 }
 
 interface SpaceAttachment {
