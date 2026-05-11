@@ -192,6 +192,41 @@ const SpaceProjectDetailPage = () => {
           </CardContent>
         </Card>
 
+        {(data.client_name || data.client_business_number || data.client_business_name || data.client_contact_name) && (
+          <Card>
+            <CardHeader><CardTitle className="text-base">클라이언트 정보</CardTitle></CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              {data.client_name && (
+                <div><span className="text-muted-foreground">클라이언트:</span> <span className="font-medium ml-1">{data.client_name}</span></div>
+              )}
+              {(data.client_business_number || data.client_business_name) && (
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1 font-medium">사업자 정보</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><div className="text-muted-foreground">사업자등록번호</div><div className="font-medium">{data.client_business_number || '-'}</div></div>
+                    <div><div className="text-muted-foreground">상호/법인명</div><div className="font-medium">{data.client_business_name || '-'}</div></div>
+                    <div><div className="text-muted-foreground">대표자</div><div className="font-medium">{data.client_representative || '-'}</div></div>
+                    <div><div className="text-muted-foreground">업태</div><div className="font-medium">{data.client_business_type || '-'}</div></div>
+                    <div><div className="text-muted-foreground">종목</div><div className="font-medium">{data.client_business_item || '-'}</div></div>
+                    <div className="col-span-2"><div className="text-muted-foreground">사업장 주소</div><div className="font-medium">{data.client_business_address || '-'}</div></div>
+                  </div>
+                </div>
+              )}
+              {data.client_contact_name && (
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1 font-medium">담당자</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><div className="text-muted-foreground">담당자명</div><div className="font-medium">{data.client_contact_name || '-'}</div></div>
+                    <div><div className="text-muted-foreground">직책</div><div className="font-medium">{data.client_contact_position || '-'}</div></div>
+                    <div><div className="text-muted-foreground">연락처</div><div className="font-medium">{data.client_contact_phone || '-'}</div></div>
+                    <div><div className="text-muted-foreground">이메일</div><div className="font-medium">{data.client_contact_email || '-'}</div></div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {(data.recipient_company || data.recipient_contact) && (
           <Card>
             <CardHeader><CardTitle className="text-base">수신처</CardTitle></CardHeader>
