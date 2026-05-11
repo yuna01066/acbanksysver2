@@ -178,7 +178,7 @@ const SpaceProjectFormPage = () => {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   };
   const addItem = () =>
-    setItems((prev) => [...prev, { id: crypto.randomUUID(), name: '', spec: '', quantity: 1, unit: '식', unitPrice: 0 }]);
+    setItems((prev) => [...prev, { id: crypto.randomUUID(), name: '', spec: '', quantity: 1, unit: '식', unitPrice: 0, note: '' }]);
   const removeItem = (id: string) => setItems((prev) => (prev.length > 1 ? prev.filter((i) => i.id !== id) : prev));
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
