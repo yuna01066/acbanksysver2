@@ -179,6 +179,12 @@ const SpaceProjectFormPage = () => {
       setRecipientPhone(data.recipient_phone ?? '');
       setRecipientEmail(data.recipient_email ?? '');
       setRecipientAddress(data.recipient_address ?? '');
+      setIssuerId((data as any).issuer_id ?? '');
+      setIssuerName((data as any).issuer_name ?? '');
+      setIssuerEmail((data as any).issuer_email ?? '');
+      setIssuerPhone((data as any).issuer_phone ?? '');
+      setIssuerDepartment((data as any).issuer_department ?? '');
+      setIssuerPosition((data as any).issuer_position ?? '');
       setMemo(data.memo ?? '');
       setAttachments((data.attachments as unknown as SpaceAttachment[]) ?? []);
       setLoading(false);
