@@ -257,8 +257,8 @@ const SpaceProjectDetailPage = () => {
                   <th className="py-2.5 px-2 text-center">단위</th>
                   <th className="py-2.5 px-2 text-right">수량</th>
                   <th className="py-2.5 px-2 text-right">단가</th>
-                  <th className="py-2.5 px-2 text-right">금액</th>
-                  <th className="py-2.5 px-2 text-left">비고</th>
+                  <th className="py-2.5 px-2 text-right border-r border-border">금액</th>
+                  <th className="py-2.5 pl-4 pr-2 text-left">비고</th>
                 </tr>
               </thead>
               <tbody>
@@ -269,8 +269,8 @@ const SpaceProjectDetailPage = () => {
                     <td className="py-2.5 px-2 text-center">{it.unit}</td>
                     <td className="py-2.5 px-2 text-right tabular-nums">{it.quantity}</td>
                     <td className="py-2.5 px-2 text-right tabular-nums">{formatPrice(it.unitPrice)}</td>
-                    <td className="py-2.5 px-2 text-right tabular-nums font-semibold">{formatPrice((it.quantity || 0) * (it.unitPrice || 0))}</td>
-                    <td className="py-2.5 px-2 whitespace-pre-wrap break-words text-muted-foreground">{it.note || ''}</td>
+                    <td className="py-2.5 px-2 text-right tabular-nums font-semibold border-r border-border/60">{formatPrice((it.quantity || 0) * (it.unitPrice || 0))}</td>
+                    <td className="py-2.5 pl-4 pr-2 whitespace-pre-wrap break-words text-muted-foreground">{it.note || ''}</td>
                   </tr>
                 ))}
               </tbody>
