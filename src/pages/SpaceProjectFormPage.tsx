@@ -97,9 +97,29 @@ const SpaceProjectFormPage = () => {
   const [recipientEmail, setRecipientEmail] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
 
+  // Issuer (공급자 측 담당자)
+  const [issuerId, setIssuerId] = useState<string>('');
+  const [issuerName, setIssuerName] = useState('');
+  const [issuerEmail, setIssuerEmail] = useState('');
+  const [issuerPhone, setIssuerPhone] = useState('');
+  const [issuerDepartment, setIssuerDepartment] = useState('');
+  const [issuerPosition, setIssuerPosition] = useState('');
+  const [employees, setEmployees] = useState<{ id: string; full_name: string; email: string; phone: string | null; department: string | null; position: string | null }[]>([]);
+
   const [memo, setMemo] = useState('');
   const [attachments, setAttachments] = useState<SpaceAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, phone, department, position')
+        .eq('is_approved', true)
+        .order('full_name');
+      if (data) setEmployees(data as any);
+    })();
+  }, []);
 
   useEffect(() => {
     if (!quoteNumber && !editId) {
