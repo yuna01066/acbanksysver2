@@ -462,17 +462,19 @@ const SpaceProjectFormPage = () => {
           <CardContent className="space-y-3">
             {items.map((it, idx) => (
               <div key={it.id} className="grid grid-cols-12 gap-2 items-end border-b pb-3 last:border-0">
-                <div className="col-span-12 sm:col-span-3">
+                <div className="col-span-12 sm:col-span-2">
                   <Label className="text-xs">항목명 #{idx + 1}</Label>
                   <Input value={it.name} onChange={(e) => updateItem(it.id, { name: e.target.value })} maxLength={200} />
                 </div>
                 <div className="col-span-12 sm:col-span-3">
-                  <Label className="text-xs">규격</Label>
-                  <Input value={it.spec} onChange={(e) => updateItem(it.id, { spec: e.target.value })} maxLength={200} />
-                </div>
-                <div className="col-span-4 sm:col-span-1">
-                  <Label className="text-xs">수량</Label>
-                  <Input type="number" value={it.quantity} onChange={(e) => updateItem(it.id, { quantity: Number(e.target.value) })} />
+                  <Label className="text-xs">규격 / 상세 내용</Label>
+                  <Textarea
+                    value={it.spec}
+                    onChange={(e) => updateItem(it.id, { spec: e.target.value })}
+                    maxLength={1000}
+                    rows={2}
+                    className="min-h-[40px]"
+                  />
                 </div>
                 <div className="col-span-4 sm:col-span-1">
                   <Label className="text-xs">단위</Label>
@@ -481,12 +483,23 @@ const SpaceProjectFormPage = () => {
                     <SelectContent>{ITEM_UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div className="col-span-4 sm:col-span-2">
+                <div className="col-span-4 sm:col-span-1">
+                  <Label className="text-xs">수량</Label>
+                  <Input type="number" value={it.quantity} onChange={(e) => updateItem(it.id, { quantity: Number(e.target.value) })} />
+                </div>
+                <div className="col-span-4 sm:col-span-1">
                   <Label className="text-xs">단가</Label>
                   <Input type="number" value={it.unitPrice} onChange={(e) => updateItem(it.id, { unitPrice: Number(e.target.value) })} />
                 </div>
-                <div className="col-span-10 sm:col-span-1 text-right text-sm font-medium">
-                  {formatPrice((it.quantity || 0) * (it.unitPrice || 0))}
+                <div className="col-span-12 sm:col-span-1">
+                  <Label className="text-xs">금액</Label>
+                  <div className="text-right text-sm font-medium py-2">
+                    {formatPrice((it.quantity || 0) * (it.unitPrice || 0))}
+                  </div>
+                </div>
+                <div className="col-span-10 sm:col-span-2">
+                  <Label className="text-xs">비고</Label>
+                  <Input value={it.note ?? ''} onChange={(e) => updateItem(it.id, { note: e.target.value })} maxLength={200} />
                 </div>
                 <div className="col-span-2 sm:col-span-1 flex justify-end">
                   <Button variant="ghost" size="icon" onClick={() => removeItem(it.id)} disabled={items.length === 1}>
