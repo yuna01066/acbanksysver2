@@ -464,55 +464,99 @@ const SpaceProjectFormPage = () => {
             <CardTitle className="text-base">시공 항목</CardTitle>
             <Button size="sm" variant="outline" onClick={addItem}><Plus className="w-4 h-4 mr-1" />항목 추가</Button>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {items.map((it, idx) => (
-              <div key={it.id} className="grid grid-cols-12 gap-2 items-end border-b pb-3 last:border-0">
-                <div className="col-span-12 sm:col-span-2">
-                  <Label className="text-xs">항목명 #{idx + 1}</Label>
-                  <Input value={it.name} onChange={(e) => updateItem(it.id, { name: e.target.value })} maxLength={200} />
-                </div>
-                <div className="col-span-12 sm:col-span-3">
-                  <Label className="text-xs">규격 / 상세 내용</Label>
-                  <Textarea
-                    value={it.spec}
-                    onChange={(e) => updateItem(it.id, { spec: e.target.value })}
-                    maxLength={1000}
-                    rows={2}
-                    className="min-h-[40px]"
-                  />
-                </div>
-                <div className="col-span-4 sm:col-span-1">
-                  <Label className="text-xs">단위</Label>
-                  <Select value={it.unit} onValueChange={(v) => updateItem(it.id, { unit: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{ITEM_UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-4 sm:col-span-1">
-                  <Label className="text-xs">수량</Label>
-                  <Input type="number" value={it.quantity} onChange={(e) => updateItem(it.id, { quantity: Number(e.target.value) })} />
-                </div>
-                <div className="col-span-4 sm:col-span-1">
-                  <Label className="text-xs">단가</Label>
-                  <Input type="number" value={it.unitPrice} onChange={(e) => updateItem(it.id, { unitPrice: Number(e.target.value) })} />
-                </div>
-                <div className="col-span-12 sm:col-span-1">
-                  <Label className="text-xs">금액</Label>
-                  <div className="text-right text-sm font-medium py-2">
-                    {formatPrice((it.quantity || 0) * (it.unitPrice || 0))}
+          <CardContent className="space-y-4">
+            {items.map((it, idx) => {
+              const amount = (it.quantity || 0) * (it.unitPrice || 0);
+              return (
+                <div
+                  key={it.id}
+                  className="rounded-lg border bg-muted/20 p-3 sm:p-4 space-y-3 hover:bg-muted/30 transition-colors"
+                >
+                  {/* Header row: index + name + delete */}
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-semibold shrink-0">
+                      {idx + 1}
+                    </span>
+                    <Input
+                      value={it.name}
+                      onChange={(e) => updateItem(it.id, { name: e.target.value })}
+                      maxLength={200}
+                      placeholder="항목명 (예: 벽체 도장)"
+                      className="flex-1 font-medium"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeItem(it.id)}
+                      disabled={items.length === 1}
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {/* Spec full width */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground">규격 / 상세 내용</Label>
+                    <Textarea
+                      value={it.spec}
+                      onChange={(e) => updateItem(it.id, { spec: e.target.value })}
+                      maxLength={1000}
+                      rows={2}
+                      placeholder="자재, 마감, 사이즈 등 상세 내용을 입력하세요"
+                      className="min-h-[60px] mt-1"
+                    />
+                  </div>
+
+                  {/* Numbers row */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">단위</Label>
+                      <Select value={it.unit} onValueChange={(v) => updateItem(it.id, { unit: v })}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>{ITEM_UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">수량</Label>
+                      <Input
+                        type="number"
+                        value={it.quantity}
+                        onChange={(e) => updateItem(it.id, { quantity: Number(e.target.value) })}
+                        className="mt-1 text-right"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">단가 (원)</Label>
+                      <Input
+                        type="number"
+                        value={it.unitPrice}
+                        onChange={(e) => updateItem(it.id, { unitPrice: Number(e.target.value) })}
+                        className="mt-1 text-right"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">금액</Label>
+                      <div className="mt-1 h-10 flex items-center justify-end px-3 rounded-md bg-background border font-semibold text-primary">
+                        {formatPrice(amount)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Note */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground">비고</Label>
+                    <Input
+                      value={it.note ?? ''}
+                      onChange={(e) => updateItem(it.id, { note: e.target.value })}
+                      maxLength={200}
+                      placeholder="추가 메모 (선택)"
+                      className="mt-1"
+                    />
                   </div>
                 </div>
-                <div className="col-span-10 sm:col-span-2">
-                  <Label className="text-xs">비고</Label>
-                  <Input value={it.note ?? ''} onChange={(e) => updateItem(it.id, { note: e.target.value })} maxLength={200} />
-                </div>
-                <div className="col-span-2 sm:col-span-1 flex justify-end">
-                  <Button variant="ghost" size="icon" onClick={() => removeItem(it.id)} disabled={items.length === 1}>
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
 
