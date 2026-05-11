@@ -149,7 +149,7 @@ const SpaceProjectFormPage = () => {
       setFloorCount(data.floor_count?.toString() ?? '');
       setZonesText(Array.isArray(data.zones) ? (data.zones as string[]).join(', ') : '');
       const loadedItems = (data.items as unknown as LineItem[]) ?? [];
-      setItems(loadedItems.length ? loadedItems : [{ id: crypto.randomUUID(), name: '', spec: '', quantity: 1, unit: '식', unitPrice: 0 }]);
+      setItems(loadedItems.length ? loadedItems : [{ id: crypto.randomUUID(), name: '', spec: '', quantity: 1, unit: '식', unitPrice: 0, note: '' }]);
       const cb = (data.cost_breakdown as Record<string, number>) ?? {};
       setDesignCost(cb.design?.toString() ?? '');
       setConstructionCost(cb.construction?.toString() ?? '');
