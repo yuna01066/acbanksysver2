@@ -165,51 +165,6 @@ const SpaceProjectDetailPage = () => {
           <div className="text-xs text-gray-600 mt-1">QUOTATION · 공간 프로젝트</div>
         </div>
 
-        {/* 발신/수신 카드 (공급자 / 공급받는자) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 quote-section">
-          <div className="bg-[hsl(215,50%,94%)] rounded-lg border border-[hsl(215,40%,80%)] p-4 space-y-2">
-            <h3 className="text-[15px] font-bold text-black border-b border-[hsl(215,45%,60%)] pb-1.5">공급자 (발신)</h3>
-            <div className="space-y-1 text-[12.5px]">
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">상호</span><span className="font-semibold">{companyInfo.company_name}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">사업자번호</span><span className="font-semibold">{companyInfo.business_number}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">업태/종목</span><span className="font-semibold">{companyInfo.business_type} / {companyInfo.industry}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">주소</span><span className="font-semibold leading-snug">{companyInfo.address}{companyInfo.detail_address ? `, ${companyInfo.detail_address}` : ''}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">연락처</span><span className="font-semibold">{companyInfo.phone}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">이메일</span><span className="font-semibold">{companyInfo.email}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">웹사이트</span><span className="font-semibold">{companyInfo.website}</span></div>
-            </div>
-            {(data.issuer_name || data.issuer_email || data.issuer_phone) && (
-              <div className="mt-2 pt-2 border-t border-[hsl(215,45%,70%)] space-y-1 text-[12.5px]">
-                <div className="text-[11px] font-bold text-[hsl(215,60%,22%)] mb-1">담당자</div>
-                <div className="flex"><span className="text-gray-600 w-20 shrink-0">담당자</span><span className="font-semibold">{data.issuer_name || '-'}{data.issuer_position ? ` (${data.issuer_position})` : ''}{data.issuer_department ? ` · ${data.issuer_department}` : ''}</span></div>
-                {data.issuer_phone && <div className="flex"><span className="text-gray-600 w-20 shrink-0">연락처</span><span className="font-semibold">{data.issuer_phone}</span></div>}
-                {data.issuer_email && <div className="flex"><span className="text-gray-600 w-20 shrink-0">이메일</span><span className="font-semibold">{data.issuer_email}</span></div>}
-              </div>
-            )}
-            <div className="mt-2 p-2 bg-[hsl(210,60%,90%)] rounded border border-[hsl(210,50%,78%)]">
-              <div className="text-[11px] font-bold text-[hsl(215,60%,22%)]">입금 계좌</div>
-              <div className="text-[12.5px] font-bold text-[hsl(215,60%,18%)]">{bankInfo}</div>
-            </div>
-          </div>
-
-          <div className="bg-[hsl(145,45%,93%)] rounded-lg border border-[hsl(145,35%,80%)] p-4 space-y-2">
-            <h3 className="text-[15px] font-bold text-black border-b border-[hsl(145,40%,60%)] pb-1.5">공급받는자 (수신)</h3>
-            <div className="space-y-1 text-[12.5px]">
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">프로젝트</span><span className="font-semibold">{data.project_name}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">견적번호</span><span className="font-semibold">{data.quote_number}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">견적일</span><span className="font-semibold">{data.quote_date}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">유효기간</span><span className="font-semibold">{data.valid_until || '-'}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">상호</span><span className="font-semibold">{data.client_business_name || data.client_name || data.recipient_company || '-'}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">사업자번호</span><span className="font-semibold">{data.client_business_number || '-'}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">대표자</span><span className="font-semibold">{data.client_representative || '-'}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">담당자</span><span className="font-semibold">{data.client_contact_name || data.recipient_contact || '-'}{data.client_contact_position ? ` (${data.client_contact_position})` : ''}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">연락처</span><span className="font-semibold">{data.client_contact_phone || data.recipient_phone || '-'}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">이메일</span><span className="font-semibold">{data.client_contact_email || data.recipient_email || '-'}</span></div>
-              <div className="flex"><span className="text-gray-600 w-20 shrink-0">현장</span><span className="font-semibold">{data.location || '-'}</span></div>
-            </div>
-          </div>
-        </div>
-
         <Card>
           <CardHeader><CardTitle>{data.project_name}</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
@@ -236,6 +191,41 @@ const SpaceProjectDetailPage = () => {
             )}
           </CardContent>
         </Card>
+
+        {(data.client_name || data.client_business_number || data.client_business_name || data.client_contact_name) && (
+          <Card>
+            <CardHeader><CardTitle className="text-base">클라이언트 정보</CardTitle></CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              {data.client_name && (
+                <div><span className="text-muted-foreground">클라이언트:</span> <span className="font-medium ml-1">{data.client_name}</span></div>
+              )}
+              {(data.client_business_number || data.client_business_name) && (
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1 font-medium">사업자 정보</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><div className="text-muted-foreground">사업자등록번호</div><div className="font-medium">{data.client_business_number || '-'}</div></div>
+                    <div><div className="text-muted-foreground">상호/법인명</div><div className="font-medium">{data.client_business_name || '-'}</div></div>
+                    <div><div className="text-muted-foreground">대표자</div><div className="font-medium">{data.client_representative || '-'}</div></div>
+                    <div><div className="text-muted-foreground">업태</div><div className="font-medium">{data.client_business_type || '-'}</div></div>
+                    <div><div className="text-muted-foreground">종목</div><div className="font-medium">{data.client_business_item || '-'}</div></div>
+                    <div className="col-span-2"><div className="text-muted-foreground">사업장 주소</div><div className="font-medium">{data.client_business_address || '-'}</div></div>
+                  </div>
+                </div>
+              )}
+              {data.client_contact_name && (
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1 font-medium">담당자</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><div className="text-muted-foreground">담당자명</div><div className="font-medium">{data.client_contact_name || '-'}</div></div>
+                    <div><div className="text-muted-foreground">직책</div><div className="font-medium">{data.client_contact_position || '-'}</div></div>
+                    <div><div className="text-muted-foreground">연락처</div><div className="font-medium">{data.client_contact_phone || '-'}</div></div>
+                    <div><div className="text-muted-foreground">이메일</div><div className="font-medium">{data.client_contact_email || '-'}</div></div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader><CardTitle className="text-base">시공 항목</CardTitle></CardHeader>
