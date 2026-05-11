@@ -257,8 +257,8 @@ const SpaceProjectDetailPage = () => {
                   <th className="py-2.5 px-2 text-center">단위</th>
                   <th className="py-2.5 px-2 text-right">수량</th>
                   <th className="py-2.5 px-2 text-right">단가</th>
-                  <th className="py-2.5 px-2 text-right">금액</th>
-                  <th className="py-2.5 px-2 text-left">비고</th>
+                  <th className="py-2.5 px-2 text-right border-r border-border">금액</th>
+                  <th className="py-2.5 pl-4 pr-2 text-left">비고</th>
                 </tr>
               </thead>
               <tbody>
