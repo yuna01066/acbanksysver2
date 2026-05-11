@@ -3323,6 +3323,12 @@ export type Database = {
           created_at: string
           floor_count: number | null
           id: string
+          issuer_department: string | null
+          issuer_email: string | null
+          issuer_id: string | null
+          issuer_name: string | null
+          issuer_phone: string | null
+          issuer_position: string | null
           items: Json
           location: string | null
           memo: string | null
@@ -3363,6 +3369,12 @@ export type Database = {
           created_at?: string
           floor_count?: number | null
           id?: string
+          issuer_department?: string | null
+          issuer_email?: string | null
+          issuer_id?: string | null
+          issuer_name?: string | null
+          issuer_phone?: string | null
+          issuer_position?: string | null
           items?: Json
           location?: string | null
           memo?: string | null
@@ -3403,6 +3415,12 @@ export type Database = {
           created_at?: string
           floor_count?: number | null
           id?: string
+          issuer_department?: string | null
+          issuer_email?: string | null
+          issuer_id?: string | null
+          issuer_name?: string | null
+          issuer_phone?: string | null
+          issuer_position?: string | null
           items?: Json
           location?: string | null
           memo?: string | null

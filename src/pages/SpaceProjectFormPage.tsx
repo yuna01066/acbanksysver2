@@ -97,9 +97,29 @@ const SpaceProjectFormPage = () => {
   const [recipientEmail, setRecipientEmail] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
 
+  // Issuer (공급자 측 담당자)
+  const [issuerId, setIssuerId] = useState<string>('');
+  const [issuerName, setIssuerName] = useState('');
+  const [issuerEmail, setIssuerEmail] = useState('');
+  const [issuerPhone, setIssuerPhone] = useState('');
+  const [issuerDepartment, setIssuerDepartment] = useState('');
+  const [issuerPosition, setIssuerPosition] = useState('');
+  const [employees, setEmployees] = useState<{ id: string; full_name: string; email: string; phone: string | null; department: string | null; position: string | null }[]>([]);
+
   const [memo, setMemo] = useState('');
   const [attachments, setAttachments] = useState<SpaceAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, phone, department, position')
+        .eq('is_approved', true)
+        .order('full_name');
+      if (data) setEmployees(data as any);
+    })();
+  }, []);
 
   useEffect(() => {
     if (!quoteNumber && !editId) {
@@ -159,6 +179,12 @@ const SpaceProjectFormPage = () => {
       setRecipientPhone(data.recipient_phone ?? '');
       setRecipientEmail(data.recipient_email ?? '');
       setRecipientAddress(data.recipient_address ?? '');
+      setIssuerId((data as any).issuer_id ?? '');
+      setIssuerName((data as any).issuer_name ?? '');
+      setIssuerEmail((data as any).issuer_email ?? '');
+      setIssuerPhone((data as any).issuer_phone ?? '');
+      setIssuerDepartment((data as any).issuer_department ?? '');
+      setIssuerPosition((data as any).issuer_position ?? '');
       setMemo(data.memo ?? '');
       setAttachments((data.attachments as unknown as SpaceAttachment[]) ?? []);
       setLoading(false);
@@ -274,6 +300,12 @@ const SpaceProjectFormPage = () => {
         recipient_phone: recipientPhone.trim() || null,
         recipient_email: recipientEmail.trim() || null,
         recipient_address: recipientAddress.trim() || null,
+        issuer_id: issuerId || null,
+        issuer_name: issuerName.trim() || null,
+        issuer_email: issuerEmail.trim() || null,
+        issuer_phone: issuerPhone.trim() || null,
+        issuer_department: issuerDepartment.trim() || null,
+        issuer_position: issuerPosition.trim() || null,
         memo: memo.trim() || null,
         attachments: attachments as any,
       };
@@ -430,6 +462,54 @@ const SpaceProjectFormPage = () => {
                   <Input type="email" value={clientContactEmail} onChange={(e) => setClientContactEmail(e.target.value)} maxLength={255} />
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-base">공급자 담당자 (발신)</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <Label>담당자</Label>
+              <Select
+                value={issuerName || ''}
+                onValueChange={(v) => {
+                  const sel = employees.find((e) => e.full_name === v);
+                  if (sel) {
+                    setIssuerId(sel.id);
+                    setIssuerName(sel.full_name);
+                    setIssuerEmail(sel.email || '');
+                    setIssuerPhone(sel.phone || '');
+                    setIssuerDepartment(sel.department || '');
+                    setIssuerPosition(sel.position || '');
+                  }
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="담당자 선택" /></SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.full_name}>
+                      {emp.full_name}{emp.department ? ` (${emp.department})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>이메일</Label>
+              <Input type="email" value={issuerEmail} onChange={(e) => setIssuerEmail(e.target.value)} maxLength={255} />
+            </div>
+            <div>
+              <Label>연락처</Label>
+              <Input value={issuerPhone} onChange={(e) => setIssuerPhone(e.target.value)} maxLength={50} />
+            </div>
+            <div>
+              <Label>부서</Label>
+              <Input value={issuerDepartment} onChange={(e) => setIssuerDepartment(e.target.value)} maxLength={100} />
+            </div>
+            <div>
+              <Label>직책</Label>
+              <Input value={issuerPosition} onChange={(e) => setIssuerPosition(e.target.value)} maxLength={100} />
             </div>
           </CardContent>
         </Card>
