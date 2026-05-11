@@ -254,10 +254,10 @@ const SpaceProjectDetailPage = () => {
                 <tr className="bg-muted/50 border-y border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   <th className="py-2.5 px-2 text-left">항목명</th>
                   <th className="py-2.5 px-2 text-left">규격 / 상세 내용</th>
-                  <th className="py-2.5 px-2 text-center">단위</th>
-                  <th className="py-2.5 px-2 text-right">수량</th>
-                  <th className="py-2.5 px-2 text-right">단가</th>
-                  <th className="py-2.5 px-2 text-right border-r border-border">금액</th>
+                  <th className="py-2.5 px-2 text-left">단위</th>
+                  <th className="py-2.5 px-2 text-left">수량</th>
+                  <th className="py-2.5 px-2 text-left">단가</th>
+                  <th className="py-2.5 px-2 text-left border-r border-border">금액</th>
                   <th className="py-2.5 pl-4 pr-2 text-left">비고</th>
                 </tr>
               </thead>
