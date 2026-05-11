@@ -240,28 +240,37 @@ const SpaceProjectDetailPage = () => {
         <Card>
           <CardHeader><CardTitle className="text-base">시공 항목</CardTitle></CardHeader>
           <CardContent className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b">
-                <tr className="text-left">
-                  <th className="py-2">항목명</th>
-                  <th className="py-2">규격 / 상세 내용</th>
-                  <th className="py-2">단위</th>
-                  <th className="py-2 text-right">수량</th>
-                  <th className="py-2 text-right">단가</th>
-                  <th className="py-2 text-right">금액</th>
-                  <th className="py-2">비고</th>
+            <table className="w-full text-sm border-collapse table-fixed">
+              <colgroup>
+                <col className="w-[14%]" />
+                <col className="w-[26%]" />
+                <col className="w-[7%]" />
+                <col className="w-[8%]" />
+                <col className="w-[13%]" />
+                <col className="w-[14%]" />
+                <col className="w-[18%]" />
+              </colgroup>
+              <thead>
+                <tr className="bg-muted/50 border-y border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  <th className="py-2.5 px-2 text-left">항목명</th>
+                  <th className="py-2.5 px-2 text-left">규격 / 상세 내용</th>
+                  <th className="py-2.5 px-2 text-center">단위</th>
+                  <th className="py-2.5 px-2 text-right">수량</th>
+                  <th className="py-2.5 px-2 text-right">단가</th>
+                  <th className="py-2.5 px-2 text-right">금액</th>
+                  <th className="py-2.5 px-2 text-left">비고</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((it: any, i: number) => (
-                  <tr key={i} className="border-b align-top">
-                    <td className="py-2">{it.name}</td>
-                    <td className="py-2 whitespace-pre-wrap">{it.spec}</td>
-                    <td className="py-2">{it.unit}</td>
-                    <td className="py-2 text-right">{it.quantity}</td>
-                    <td className="py-2 text-right">{formatPrice(it.unitPrice)}</td>
-                    <td className="py-2 text-right font-medium">{formatPrice((it.quantity || 0) * (it.unitPrice || 0))}</td>
-                    <td className="py-2 whitespace-pre-wrap">{it.note || ''}</td>
+                  <tr key={i} className="border-b border-border/60 align-top hover:bg-muted/20">
+                    <td className="py-2.5 px-2 font-medium break-words">{it.name}</td>
+                    <td className="py-2.5 px-2 whitespace-pre-wrap break-words text-muted-foreground">{it.spec}</td>
+                    <td className="py-2.5 px-2 text-center">{it.unit}</td>
+                    <td className="py-2.5 px-2 text-right tabular-nums">{it.quantity}</td>
+                    <td className="py-2.5 px-2 text-right tabular-nums">{formatPrice(it.unitPrice)}</td>
+                    <td className="py-2.5 px-2 text-right tabular-nums font-semibold">{formatPrice((it.quantity || 0) * (it.unitPrice || 0))}</td>
+                    <td className="py-2.5 px-2 whitespace-pre-wrap break-words text-muted-foreground">{it.note || ''}</td>
                   </tr>
                 ))}
               </tbody>
