@@ -347,10 +347,6 @@ const SpaceProjectFormPage = () => {
               <Input value={projectName} onChange={(e) => setProjectName(e.target.value)} maxLength={200} />
             </div>
             <div>
-              <Label>클라이언트</Label>
-              <Input value={clientName} onChange={(e) => setClientName(e.target.value)} maxLength={200} />
-            </div>
-            <div>
               <Label>프로젝트 유형</Label>
               <Select value={projectType} onValueChange={setProjectType}>
                 <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
@@ -366,6 +362,68 @@ const SpaceProjectFormPage = () => {
             <div>
               <Label>시공 예정일</Label>
               <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-base">클라이언트 정보</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label className="text-xs text-muted-foreground">클라이언트(통칭)</Label>
+              <Input value={clientName} onChange={(e) => setClientName(e.target.value)} maxLength={200} placeholder="예: ABC 브랜드" />
+            </div>
+
+            <div>
+              <div className="text-sm font-medium mb-2 text-muted-foreground">사업자 정보</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label>사업자등록번호</Label>
+                  <Input value={clientBusinessNumber} onChange={(e) => setClientBusinessNumber(e.target.value)} maxLength={20} placeholder="000-00-00000" />
+                </div>
+                <div>
+                  <Label>상호 / 법인명</Label>
+                  <Input value={clientBusinessName} onChange={(e) => setClientBusinessName(e.target.value)} maxLength={200} />
+                </div>
+                <div>
+                  <Label>대표자</Label>
+                  <Input value={clientRepresentative} onChange={(e) => setClientRepresentative(e.target.value)} maxLength={100} />
+                </div>
+                <div>
+                  <Label>업태</Label>
+                  <Input value={clientBusinessType} onChange={(e) => setClientBusinessType(e.target.value)} maxLength={100} />
+                </div>
+                <div>
+                  <Label>종목</Label>
+                  <Input value={clientBusinessItem} onChange={(e) => setClientBusinessItem(e.target.value)} maxLength={100} />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>사업장 주소</Label>
+                  <Input value={clientBusinessAddress} onChange={(e) => setClientBusinessAddress(e.target.value)} maxLength={300} />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-sm font-medium mb-2 text-muted-foreground">담당자 정보</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label>담당자명</Label>
+                  <Input value={clientContactName} onChange={(e) => setClientContactName(e.target.value)} maxLength={100} />
+                </div>
+                <div>
+                  <Label>직책</Label>
+                  <Input value={clientContactPosition} onChange={(e) => setClientContactPosition(e.target.value)} maxLength={100} />
+                </div>
+                <div>
+                  <Label>연락처</Label>
+                  <Input value={clientContactPhone} onChange={(e) => setClientContactPhone(e.target.value)} maxLength={50} />
+                </div>
+                <div>
+                  <Label>이메일</Label>
+                  <Input type="email" value={clientContactEmail} onChange={(e) => setClientContactEmail(e.target.value)} maxLength={255} />
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
