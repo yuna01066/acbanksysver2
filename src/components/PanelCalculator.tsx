@@ -462,6 +462,13 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   };
   const handleMaterialSelect = (material: Material) => {
     console.log('Material selected:', material);
+
+    // 공간 프로젝트는 별도 폼으로 이동 (기존 견적 흐름과 분리)
+    if (material.id === 'space-project') {
+      navigate('/space-quote');
+      return;
+    }
+
     setSelectedMaterial(material);
     
     // 제품 제작 모드일 경우 수동 입력 단계로 이동

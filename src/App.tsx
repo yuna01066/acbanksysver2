@@ -52,6 +52,9 @@ const SampleChipInventoryPage = lazy(() => import("./pages/SampleChipInventoryPa
 const ImwebManagementPage = lazy(() => import("./pages/ImwebManagementPage"));
 const ExhibitionManagementPage = lazy(() => import("./pages/ExhibitionManagementPage"));
 const BusinessDashboardPage = lazy(() => import("./pages/BusinessDashboardPage"));
+const SpaceProjectFormPage = lazy(() => import("./pages/SpaceProjectFormPage"));
+const SpaceProjectsListPage = lazy(() => import("./pages/SpaceProjectsListPage"));
+const SpaceProjectDetailPage = lazy(() => import("./pages/SpaceProjectDetailPage"));
 const queryClient = new QueryClient();
 
 const G: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -110,6 +113,9 @@ const App = () => (
               <Route path="/imweb-management" element={<G><ImwebManagementPage /></G>} />
               <Route path="/exhibition-management" element={<G><ExhibitionManagementPage /></G>} />
               <Route path="/business-dashboard" element={<G><BusinessDashboardPage /></G>} />
+              <Route path="/space-quote" element={<G><SpaceProjectFormPage /></G>} />
+              <Route path="/space-quotes" element={<G><SpaceProjectsListPage /></G>} />
+              <Route path="/space-quotes/:id" element={<G><SpaceProjectDetailPage /></G>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
               </Routes>
