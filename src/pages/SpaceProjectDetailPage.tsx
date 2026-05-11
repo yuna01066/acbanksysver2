@@ -52,6 +52,18 @@ const SpaceProjectDetailPage = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<SpaceQuote | null>(null);
   const [loading, setLoading] = useState(true);
+  const [companyInfo, setCompanyInfo] = useState({
+    company_name: '(주)아크뱅크',
+    business_number: '299-87-02991',
+    website: 'acbank.co.kr',
+    address: '경기도 포천시 소흘읍 호국로 287번길 15, 나동 1층 101호',
+    detail_address: '',
+    business_type: '제조업 / 도매 및 소매업',
+    industry: '아크릴 가공 외',
+    phone: '070-7666-9828',
+    email: 'acbank@acbank.co.kr',
+  });
+  const [bankInfo, setBankInfo] = useState('국민은행 882801-01-326611 (주)아크뱅크');
 
   useEffect(() => {
     if (!id) return;
@@ -68,6 +80,25 @@ const SpaceProjectDetailPage = () => {
       }
       setData(data as any);
       setLoading(false);
+    })();
+
+    (async () => {
+      const { data: ci } = await supabase.from('company_info').select('*').limit(1).maybeSingle();
+      if (ci) {
+        const d = ci as any;
+        setCompanyInfo(prev => ({
+          company_name: d.company_name || prev.company_name,
+          business_number: d.business_number || prev.business_number,
+          website: d.website || prev.website,
+          address: d.address || prev.address,
+          detail_address: d.detail_address || '',
+          business_type: d.business_type || prev.business_type,
+          industry: d.industry || prev.industry,
+          phone: d.phone || prev.phone,
+          email: d.email || prev.email,
+        }));
+        if (d.quote_bank_info) setBankInfo(d.quote_bank_info);
+      }
     })();
   }, [id, navigate]);
 
