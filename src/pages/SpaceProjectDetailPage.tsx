@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Pencil, Printer, FileText, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
+import PrintStyles from '@/components/PrintStyles';
+import QuoteDocumentsSection from '@/components/quote-detail/QuoteDocumentsSection';
 
 interface SpaceQuote {
   id: string;
