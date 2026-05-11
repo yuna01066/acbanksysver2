@@ -300,6 +300,12 @@ const SpaceProjectFormPage = () => {
         recipient_phone: recipientPhone.trim() || null,
         recipient_email: recipientEmail.trim() || null,
         recipient_address: recipientAddress.trim() || null,
+        issuer_id: issuerId || null,
+        issuer_name: issuerName.trim() || null,
+        issuer_email: issuerEmail.trim() || null,
+        issuer_phone: issuerPhone.trim() || null,
+        issuer_department: issuerDepartment.trim() || null,
+        issuer_position: issuerPosition.trim() || null,
         memo: memo.trim() || null,
         attachments: attachments as any,
       };
