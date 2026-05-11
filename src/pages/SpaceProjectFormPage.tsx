@@ -56,10 +56,22 @@ const SpaceProjectFormPage = () => {
 
   // Project info
   const [projectName, setProjectName] = useState('');
-  const [clientName, setClientName] = useState('');
   const [projectType, setProjectType] = useState('');
   const [location, setLocation] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
+
+  // Client info (separate card)
+  const [clientName, setClientName] = useState('');
+  const [clientBusinessNumber, setClientBusinessNumber] = useState('');
+  const [clientBusinessName, setClientBusinessName] = useState('');
+  const [clientRepresentative, setClientRepresentative] = useState('');
+  const [clientBusinessType, setClientBusinessType] = useState('');
+  const [clientBusinessItem, setClientBusinessItem] = useState('');
+  const [clientBusinessAddress, setClientBusinessAddress] = useState('');
+  const [clientContactName, setClientContactName] = useState('');
+  const [clientContactPosition, setClientContactPosition] = useState('');
+  const [clientContactPhone, setClientContactPhone] = useState('');
+  const [clientContactEmail, setClientContactEmail] = useState('');
 
   // Scale
   const [totalArea, setTotalArea] = useState<string>('');
@@ -77,7 +89,7 @@ const SpaceProjectFormPage = () => {
   const [constructionCost, setConstructionCost] = useState<string>('');
   const [materialCost, setMaterialCost] = useState<string>('');
 
-  // Recipient
+  // Recipient (발주처 - separate from client)
   const [recipientCompany, setRecipientCompany] = useState('');
   const [recipientContact, setRecipientContact] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
