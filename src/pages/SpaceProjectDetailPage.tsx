@@ -31,6 +31,16 @@ interface SpaceQuote {
   recipient_phone: string | null;
   recipient_email: string | null;
   recipient_address: string | null;
+  client_business_number: string | null;
+  client_business_name: string | null;
+  client_representative: string | null;
+  client_business_type: string | null;
+  client_business_item: string | null;
+  client_business_address: string | null;
+  client_contact_name: string | null;
+  client_contact_position: string | null;
+  client_contact_phone: string | null;
+  client_contact_email: string | null;
   memo: string | null;
   attachments: any;
 }
