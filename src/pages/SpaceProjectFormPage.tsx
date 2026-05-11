@@ -56,10 +56,22 @@ const SpaceProjectFormPage = () => {
 
   // Project info
   const [projectName, setProjectName] = useState('');
-  const [clientName, setClientName] = useState('');
   const [projectType, setProjectType] = useState('');
   const [location, setLocation] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
+
+  // Client info (separate card)
+  const [clientName, setClientName] = useState('');
+  const [clientBusinessNumber, setClientBusinessNumber] = useState('');
+  const [clientBusinessName, setClientBusinessName] = useState('');
+  const [clientRepresentative, setClientRepresentative] = useState('');
+  const [clientBusinessType, setClientBusinessType] = useState('');
+  const [clientBusinessItem, setClientBusinessItem] = useState('');
+  const [clientBusinessAddress, setClientBusinessAddress] = useState('');
+  const [clientContactName, setClientContactName] = useState('');
+  const [clientContactPosition, setClientContactPosition] = useState('');
+  const [clientContactPhone, setClientContactPhone] = useState('');
+  const [clientContactEmail, setClientContactEmail] = useState('');
 
   // Scale
   const [totalArea, setTotalArea] = useState<string>('');
@@ -77,7 +89,7 @@ const SpaceProjectFormPage = () => {
   const [constructionCost, setConstructionCost] = useState<string>('');
   const [materialCost, setMaterialCost] = useState<string>('');
 
-  // Recipient
+  // Recipient (발주처 - separate from client)
   const [recipientCompany, setRecipientCompany] = useState('');
   const [recipientContact, setRecipientContact] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
@@ -118,6 +130,16 @@ const SpaceProjectFormPage = () => {
       setValidUntil(data.valid_until ?? '');
       setProjectName(data.project_name);
       setClientName(data.client_name ?? '');
+      setClientBusinessNumber((data as any).client_business_number ?? '');
+      setClientBusinessName((data as any).client_business_name ?? '');
+      setClientRepresentative((data as any).client_representative ?? '');
+      setClientBusinessType((data as any).client_business_type ?? '');
+      setClientBusinessItem((data as any).client_business_item ?? '');
+      setClientBusinessAddress((data as any).client_business_address ?? '');
+      setClientContactName((data as any).client_contact_name ?? '');
+      setClientContactPosition((data as any).client_contact_position ?? '');
+      setClientContactPhone((data as any).client_contact_phone ?? '');
+      setClientContactEmail((data as any).client_contact_email ?? '');
       setProjectType(data.project_type ?? '');
       setLocation(data.location ?? '');
       setScheduledDate(data.scheduled_date ?? '');
@@ -220,6 +242,16 @@ const SpaceProjectFormPage = () => {
         valid_until: validUntil || null,
         project_name: projectName.trim(),
         client_name: clientName.trim() || null,
+        client_business_number: clientBusinessNumber.trim() || null,
+        client_business_name: clientBusinessName.trim() || null,
+        client_representative: clientRepresentative.trim() || null,
+        client_business_type: clientBusinessType.trim() || null,
+        client_business_item: clientBusinessItem.trim() || null,
+        client_business_address: clientBusinessAddress.trim() || null,
+        client_contact_name: clientContactName.trim() || null,
+        client_contact_position: clientContactPosition.trim() || null,
+        client_contact_phone: clientContactPhone.trim() || null,
+        client_contact_email: clientContactEmail.trim() || null,
         project_type: projectType || null,
         location: location.trim() || null,
         scheduled_date: scheduledDate || null,
@@ -315,10 +347,6 @@ const SpaceProjectFormPage = () => {
               <Input value={projectName} onChange={(e) => setProjectName(e.target.value)} maxLength={200} />
             </div>
             <div>
-              <Label>클라이언트</Label>
-              <Input value={clientName} onChange={(e) => setClientName(e.target.value)} maxLength={200} />
-            </div>
-            <div>
               <Label>프로젝트 유형</Label>
               <Select value={projectType} onValueChange={setProjectType}>
                 <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
@@ -334,6 +362,68 @@ const SpaceProjectFormPage = () => {
             <div>
               <Label>시공 예정일</Label>
               <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-base">클라이언트 정보</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label className="text-xs text-muted-foreground">클라이언트(통칭)</Label>
+              <Input value={clientName} onChange={(e) => setClientName(e.target.value)} maxLength={200} placeholder="예: ABC 브랜드" />
+            </div>
+
+            <div>
+              <div className="text-sm font-medium mb-2 text-muted-foreground">사업자 정보</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label>사업자등록번호</Label>
+                  <Input value={clientBusinessNumber} onChange={(e) => setClientBusinessNumber(e.target.value)} maxLength={20} placeholder="000-00-00000" />
+                </div>
+                <div>
+                  <Label>상호 / 법인명</Label>
+                  <Input value={clientBusinessName} onChange={(e) => setClientBusinessName(e.target.value)} maxLength={200} />
+                </div>
+                <div>
+                  <Label>대표자</Label>
+                  <Input value={clientRepresentative} onChange={(e) => setClientRepresentative(e.target.value)} maxLength={100} />
+                </div>
+                <div>
+                  <Label>업태</Label>
+                  <Input value={clientBusinessType} onChange={(e) => setClientBusinessType(e.target.value)} maxLength={100} />
+                </div>
+                <div>
+                  <Label>종목</Label>
+                  <Input value={clientBusinessItem} onChange={(e) => setClientBusinessItem(e.target.value)} maxLength={100} />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>사업장 주소</Label>
+                  <Input value={clientBusinessAddress} onChange={(e) => setClientBusinessAddress(e.target.value)} maxLength={300} />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-sm font-medium mb-2 text-muted-foreground">담당자 정보</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label>담당자명</Label>
+                  <Input value={clientContactName} onChange={(e) => setClientContactName(e.target.value)} maxLength={100} />
+                </div>
+                <div>
+                  <Label>직책</Label>
+                  <Input value={clientContactPosition} onChange={(e) => setClientContactPosition(e.target.value)} maxLength={100} />
+                </div>
+                <div>
+                  <Label>연락처</Label>
+                  <Input value={clientContactPhone} onChange={(e) => setClientContactPhone(e.target.value)} maxLength={50} />
+                </div>
+                <div>
+                  <Label>이메일</Label>
+                  <Input type="email" value={clientContactEmail} onChange={(e) => setClientContactEmail(e.target.value)} maxLength={255} />
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
