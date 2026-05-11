@@ -130,6 +130,16 @@ const SpaceProjectFormPage = () => {
       setValidUntil(data.valid_until ?? '');
       setProjectName(data.project_name);
       setClientName(data.client_name ?? '');
+      setClientBusinessNumber((data as any).client_business_number ?? '');
+      setClientBusinessName((data as any).client_business_name ?? '');
+      setClientRepresentative((data as any).client_representative ?? '');
+      setClientBusinessType((data as any).client_business_type ?? '');
+      setClientBusinessItem((data as any).client_business_item ?? '');
+      setClientBusinessAddress((data as any).client_business_address ?? '');
+      setClientContactName((data as any).client_contact_name ?? '');
+      setClientContactPosition((data as any).client_contact_position ?? '');
+      setClientContactPhone((data as any).client_contact_phone ?? '');
+      setClientContactEmail((data as any).client_contact_email ?? '');
       setProjectType(data.project_type ?? '');
       setLocation(data.location ?? '');
       setScheduledDate(data.scheduled_date ?? '');
