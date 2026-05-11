@@ -178,6 +178,14 @@ const SpaceProjectDetailPage = () => {
               <div className="flex"><span className="text-gray-600 w-20 shrink-0">이메일</span><span className="font-semibold">{companyInfo.email}</span></div>
               <div className="flex"><span className="text-gray-600 w-20 shrink-0">웹사이트</span><span className="font-semibold">{companyInfo.website}</span></div>
             </div>
+            {(data.issuer_name || data.issuer_email || data.issuer_phone) && (
+              <div className="mt-2 pt-2 border-t border-[hsl(215,45%,70%)] space-y-1 text-[12.5px]">
+                <div className="text-[11px] font-bold text-[hsl(215,60%,22%)] mb-1">담당자</div>
+                <div className="flex"><span className="text-gray-600 w-20 shrink-0">담당자</span><span className="font-semibold">{data.issuer_name || '-'}{data.issuer_position ? ` (${data.issuer_position})` : ''}{data.issuer_department ? ` · ${data.issuer_department}` : ''}</span></div>
+                {data.issuer_phone && <div className="flex"><span className="text-gray-600 w-20 shrink-0">연락처</span><span className="font-semibold">{data.issuer_phone}</span></div>}
+                {data.issuer_email && <div className="flex"><span className="text-gray-600 w-20 shrink-0">이메일</span><span className="font-semibold">{data.issuer_email}</span></div>}
+              </div>
+            )}
             <div className="mt-2 p-2 bg-[hsl(210,60%,90%)] rounded border border-[hsl(210,50%,78%)]">
               <div className="text-[11px] font-bold text-[hsl(215,60%,22%)]">입금 계좌</div>
               <div className="text-[12.5px] font-bold text-[hsl(215,60%,18%)]">{bankInfo}</div>
