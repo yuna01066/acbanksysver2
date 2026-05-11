@@ -123,6 +123,7 @@ const SpaceProjectDetailPage = () => {
             <div><div className="text-muted-foreground">유효기간</div><div className="font-medium">{data.valid_until || '-'}</div></div>
             <div><div className="text-muted-foreground">유형</div><div className="font-medium">{data.project_type || '-'}</div></div>
             <div><div className="text-muted-foreground">클라이언트</div><div className="font-medium">{data.client_name || '-'}</div></div>
+
             <div><div className="text-muted-foreground">장소</div><div className="font-medium">{data.location || '-'}</div></div>
             <div><div className="text-muted-foreground">시공 예정일</div><div className="font-medium">{data.scheduled_date || '-'}</div></div>
             <div>
