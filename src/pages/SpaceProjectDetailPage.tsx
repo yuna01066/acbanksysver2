@@ -350,6 +350,9 @@ const SpaceProjectDetailPage = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* 첨부 서류 - 사업자등록증 + 통장사본 */}
+        <QuoteDocumentsSection />
       </div>
     </div>
   );
