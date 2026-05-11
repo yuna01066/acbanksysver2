@@ -148,23 +148,25 @@ const SpaceProjectDetailPage = () => {
             <table className="w-full text-sm">
               <thead className="border-b">
                 <tr className="text-left">
-                  <th className="py-2">항목</th>
-                  <th className="py-2">규격</th>
-                  <th className="py-2 text-right">수량</th>
+                  <th className="py-2">항목명</th>
+                  <th className="py-2">규격 / 상세 내용</th>
                   <th className="py-2">단위</th>
+                  <th className="py-2 text-right">수량</th>
                   <th className="py-2 text-right">단가</th>
                   <th className="py-2 text-right">금액</th>
+                  <th className="py-2">비고</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((it: any, i: number) => (
-                  <tr key={i} className="border-b">
+                  <tr key={i} className="border-b align-top">
                     <td className="py-2">{it.name}</td>
-                    <td className="py-2">{it.spec}</td>
-                    <td className="py-2 text-right">{it.quantity}</td>
+                    <td className="py-2 whitespace-pre-wrap">{it.spec}</td>
                     <td className="py-2">{it.unit}</td>
+                    <td className="py-2 text-right">{it.quantity}</td>
                     <td className="py-2 text-right">{formatPrice(it.unitPrice)}</td>
                     <td className="py-2 text-right font-medium">{formatPrice((it.quantity || 0) * (it.unitPrice || 0))}</td>
+                    <td className="py-2 whitespace-pre-wrap">{it.note || ''}</td>
                   </tr>
                 ))}
               </tbody>
