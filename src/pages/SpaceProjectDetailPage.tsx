@@ -43,6 +43,11 @@ interface SpaceQuote {
   client_contact_position: string | null;
   client_contact_phone: string | null;
   client_contact_email: string | null;
+  issuer_name: string | null;
+  issuer_email: string | null;
+  issuer_phone: string | null;
+  issuer_department: string | null;
+  issuer_position: string | null;
   memo: string | null;
   attachments: any;
 }
