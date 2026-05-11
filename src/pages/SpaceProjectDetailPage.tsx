@@ -131,8 +131,14 @@ const SpaceProjectDetailPage = () => {
   const attachments = (data.attachments as any[]) ?? [];
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto p-3 sm:p-6 space-y-4">
+    <div className="min-h-screen bg-background print-layout-wrapper">
+      <PrintStyles
+        quoteNumber={data.quote_number}
+        projectName={data.project_name}
+        companyName={data.client_name || data.recipient_company}
+        isInternal={false}
+      />
+      <div className="max-w-4xl mx-auto p-3 sm:p-6 space-y-4 print-container">
         <div className="flex items-center justify-between flex-wrap gap-2 print:hidden">
           <Button variant="ghost" size="sm" onClick={() => navigate('/space-quotes')}>
             <ArrowLeft className="w-4 h-4 mr-1" />목록
@@ -145,6 +151,49 @@ const SpaceProjectDetailPage = () => {
             <Button size="sm" onClick={() => window.print()}>
               <Printer className="w-4 h-4 mr-1" />인쇄/PDF
             </Button>
+          </div>
+        </div>
+
+        {/* 인쇄용 헤더 */}
+        <div className="hidden print:block text-center mb-4">
+          <h1 className="text-2xl font-bold tracking-wider">견 적 서</h1>
+          <div className="text-xs text-gray-600 mt-1">QUOTATION · 공간 프로젝트</div>
+        </div>
+
+        {/* 발신/수신 카드 (공급자 / 공급받는자) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 quote-section">
+          <div className="bg-[hsl(215,50%,94%)] rounded-lg border border-[hsl(215,40%,80%)] p-4 space-y-2">
+            <h3 className="text-[15px] font-bold text-black border-b border-[hsl(215,45%,60%)] pb-1.5">공급자 (발신)</h3>
+            <div className="space-y-1 text-[12.5px]">
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">상호</span><span className="font-semibold">{companyInfo.company_name}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">사업자번호</span><span className="font-semibold">{companyInfo.business_number}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">업태/종목</span><span className="font-semibold">{companyInfo.business_type} / {companyInfo.industry}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">주소</span><span className="font-semibold leading-snug">{companyInfo.address}{companyInfo.detail_address ? `, ${companyInfo.detail_address}` : ''}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">연락처</span><span className="font-semibold">{companyInfo.phone}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">이메일</span><span className="font-semibold">{companyInfo.email}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">웹사이트</span><span className="font-semibold">{companyInfo.website}</span></div>
+            </div>
+            <div className="mt-2 p-2 bg-[hsl(210,60%,90%)] rounded border border-[hsl(210,50%,78%)]">
+              <div className="text-[11px] font-bold text-[hsl(215,60%,22%)]">입금 계좌</div>
+              <div className="text-[12.5px] font-bold text-[hsl(215,60%,18%)]">{bankInfo}</div>
+            </div>
+          </div>
+
+          <div className="bg-[hsl(145,45%,93%)] rounded-lg border border-[hsl(145,35%,80%)] p-4 space-y-2">
+            <h3 className="text-[15px] font-bold text-black border-b border-[hsl(145,40%,60%)] pb-1.5">공급받는자 (수신)</h3>
+            <div className="space-y-1 text-[12.5px]">
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">프로젝트</span><span className="font-semibold">{data.project_name}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">견적번호</span><span className="font-semibold">{data.quote_number}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">견적일</span><span className="font-semibold">{data.quote_date}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">유효기간</span><span className="font-semibold">{data.valid_until || '-'}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">상호</span><span className="font-semibold">{data.client_business_name || data.client_name || data.recipient_company || '-'}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">사업자번호</span><span className="font-semibold">{data.client_business_number || '-'}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">대표자</span><span className="font-semibold">{data.client_representative || '-'}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">담당자</span><span className="font-semibold">{data.client_contact_name || data.recipient_contact || '-'}{data.client_contact_position ? ` (${data.client_contact_position})` : ''}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">연락처</span><span className="font-semibold">{data.client_contact_phone || data.recipient_phone || '-'}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">이메일</span><span className="font-semibold">{data.client_contact_email || data.recipient_email || '-'}</span></div>
+              <div className="flex"><span className="text-gray-600 w-20 shrink-0">현장</span><span className="font-semibold">{data.location || '-'}</span></div>
+            </div>
           </div>
         </div>
 
