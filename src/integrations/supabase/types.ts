@@ -3304,6 +3304,99 @@ export type Database = {
         }
         Relationships: []
       }
+      space_project_quotes: {
+        Row: {
+          area_unit: string | null
+          attachments: Json | null
+          client_name: string | null
+          cost_breakdown: Json | null
+          created_at: string
+          floor_count: number | null
+          id: string
+          items: Json
+          location: string | null
+          memo: string | null
+          project_name: string
+          project_type: string | null
+          quote_date: string
+          quote_number: string
+          recipient_address: string | null
+          recipient_company: string | null
+          recipient_contact: string | null
+          recipient_email: string | null
+          recipient_phone: string | null
+          scheduled_date: string | null
+          subtotal: number
+          tax: number
+          total: number
+          total_area: number | null
+          updated_at: string
+          user_id: string
+          valid_until: string | null
+          zones: Json | null
+        }
+        Insert: {
+          area_unit?: string | null
+          attachments?: Json | null
+          client_name?: string | null
+          cost_breakdown?: Json | null
+          created_at?: string
+          floor_count?: number | null
+          id?: string
+          items?: Json
+          location?: string | null
+          memo?: string | null
+          project_name: string
+          project_type?: string | null
+          quote_date?: string
+          quote_number: string
+          recipient_address?: string | null
+          recipient_company?: string | null
+          recipient_contact?: string | null
+          recipient_email?: string | null
+          recipient_phone?: string | null
+          scheduled_date?: string | null
+          subtotal?: number
+          tax?: number
+          total?: number
+          total_area?: number | null
+          updated_at?: string
+          user_id: string
+          valid_until?: string | null
+          zones?: Json | null
+        }
+        Update: {
+          area_unit?: string | null
+          attachments?: Json | null
+          client_name?: string | null
+          cost_breakdown?: Json | null
+          created_at?: string
+          floor_count?: number | null
+          id?: string
+          items?: Json
+          location?: string | null
+          memo?: string | null
+          project_name?: string
+          project_type?: string | null
+          quote_date?: string
+          quote_number?: string
+          recipient_address?: string | null
+          recipient_company?: string | null
+          recipient_contact?: string | null
+          recipient_email?: string | null
+          recipient_phone?: string | null
+          scheduled_date?: string | null
+          subtotal?: number
+          tax?: number
+          total?: number
+          total_area?: number | null
+          updated_at?: string
+          user_id?: string
+          valid_until?: string | null
+          zones?: Json | null
+        }
+        Relationships: []
+      }
       tax_deduction_items: {
         Row: {
           amount: number
