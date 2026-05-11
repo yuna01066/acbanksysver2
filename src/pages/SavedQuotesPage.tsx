@@ -528,7 +528,11 @@ const SavedQuotesPage = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex justify-end gap-2 mb-4">
+          <div className="flex justify-between gap-2 mb-4">
+            <Button onClick={() => navigate('/space-quotes')} variant="outline">
+              <FileText className="w-4 h-4 mr-2" />
+              공간디자인 견적서
+            </Button>
             <Button onClick={() => navigate('/')} variant="outline">
               <Home className="w-4 h-4 mr-2" />
               홈으로
