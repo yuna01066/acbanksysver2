@@ -286,11 +286,11 @@ const SpaceProjectDetailPage = () => {
           </Card>
         ) : null}
 
-        <Card className="bg-slate-900 text-white">
+        <Card className="bg-slate-900 text-white print:bg-white print:text-black print:border print:border-gray-400 break-inside-avoid">
           <CardContent className="p-4 space-y-2">
             <div className="flex justify-between"><span>소계</span><span>{formatPrice(data.subtotal)}</span></div>
             <div className="flex justify-between"><span>부가세 (10%)</span><span>{formatPrice(data.tax)}</span></div>
-            <div className="flex justify-between text-lg pt-2 border-t border-white/20 font-bold">
+            <div className="flex justify-between text-lg pt-2 border-t border-white/20 print:border-gray-400 font-bold">
               <span>총 합계</span><span>{formatPrice(data.total)}</span>
             </div>
           </CardContent>
