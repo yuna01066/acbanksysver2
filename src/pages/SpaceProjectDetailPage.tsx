@@ -143,6 +143,13 @@ const SpaceProjectDetailPage = () => {
         companyName={data.client_name || data.recipient_company}
         isInternal={false}
       />
+      <style>{`
+        @media print {
+          .print-container {
+            zoom: 0.6;
+          }
+        }
+      `}</style>
       <div className="max-w-4xl mx-auto p-3 sm:p-6 space-y-4 print-container">
         <div className="flex items-center justify-between flex-wrap gap-2 print:hidden">
           <Button variant="ghost" size="sm" onClick={() => navigate('/space-quotes')}>
