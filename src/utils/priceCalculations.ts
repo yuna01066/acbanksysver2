@@ -622,11 +622,6 @@ export interface ColorMixingCostData {
   cost: number;
 }
 
-export interface AdhesiveCostData {
-  thickness: string;
-  cost: number;
-}
-
 export interface PanelOptionSurchargeData {
   quality_id: string;
   surcharge_type: 'double_surface' | 'satin_astel' | 'bright_pigment';
@@ -653,7 +648,6 @@ export const calculatePrice = (
   colorMixingCost: number = 0,
   options?: CalculatePriceV2Options & {
     colorMixingCostsData?: ColorMixingCostData[];
-    adhesiveCostsData?: AdhesiveCostData[];
     panelSizesData?: PanelSizeData[];
     basePanelSizesData?: PanelSizeData[];
     optionSurchargesData?: PanelOptionSurchargeData[];
@@ -769,25 +763,15 @@ export const calculatePrice = (
       doubleSidePrice = dbDoubleSurfaceSurcharge.cost;
       breakdown.push({ label: '양단면 추가금 (DB)', price: doubleSidePrice });
     } else {
-      // DB에서 가져온 양단면 비용이 있으면 우선 사용
-      const adhesiveCostsData = options?.adhesiveCostsData || [];
-      const dbAdhesiveCost = adhesiveCostsData.find(c => c.thickness === thickness);
-      
-      if (dbAdhesiveCost && dbAdhesiveCost.cost > 0) {
-        doubleSidePrice = dbAdhesiveCost.cost;
-        breakdown.push({ label: '양단면 추가금 (DB)', price: doubleSidePrice });
+      if (qualityId === 'astel-color') {
+        doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
+        breakdown.push({ label: '양단면 추가금', price: doubleSidePrice });
+      } else if (qualityId === 'satin-color') {
+        doubleSidePrice = satinDoubleSideSurcharge[sizeKey as keyof typeof satinDoubleSideSurcharge] || 0;
+        breakdown.push({ label: '사틴 양단면 추가금', price: doubleSidePrice });
       } else {
-        // DB에 없으면 기존 하드코딩된 값 사용
-        if (qualityId === 'astel-color') {
-          doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
-          breakdown.push({ label: '양단면 추가금', price: doubleSidePrice });
-        } else if (qualityId === 'satin-color') {
-          doubleSidePrice = satinDoubleSideSurcharge[sizeKey as keyof typeof satinDoubleSideSurcharge] || 0;
-          breakdown.push({ label: '사틴 양단면 추가금', price: doubleSidePrice });
-        } else {
-          doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
-          breakdown.push({ label: '양단면 추가금', price: doubleSidePrice });
-        }
+        doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
+        breakdown.push({ label: '양단면 추가금', price: doubleSidePrice });
       }
     }
     
