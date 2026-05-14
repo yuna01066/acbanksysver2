@@ -46,7 +46,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
   const [editingWidth, setEditingWidth] = useState<string>('');
   const [editingHeight, setEditingHeight] = useState<string>('');
   const [editingPrice, setEditingPrice] = useState<string>('');
-  const [editingCost, setEditingCost] = useState<{ type: 'color' | 'adhesive', thickness: string } | null>(null);
+  const [editingCost, setEditingCost] = useState<{ type: 'color', thickness: string } | null>(null);
   const [editCostValue, setEditCostValue] = useState<string>('');
   const [editingOptionCost, setEditingOptionCost] = useState<{ type: OptionSurchargeType; sizeName: string } | null>(null);
   const [editOptionCostValue, setEditOptionCostValue] = useState<string>('');
@@ -93,22 +93,6 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
 
       const { data, error } = await supabase
         .from('color_mixing_costs')
-        .select('*')
-        .eq('panel_master_id', panelMaster.id);
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!panelMaster?.id
-  });
-
-  const { data: adhesiveData } = useQuery({
-    queryKey: ['adhesive-costs', panelMaster?.id],
-    queryFn: async () => {
-      if (!panelMaster?.id) return [];
-
-      const { data, error } = await supabase
-        .from('adhesive_costs')
         .select('*')
         .eq('panel_master_id', panelMaster.id);
       
@@ -336,18 +320,14 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
 
   const saveCostMutation = useMutation({
     mutationFn: async ({ 
-      type, 
       thickness, 
       cost 
     }: { 
-      type: 'color' | 'adhesive'; 
       thickness: string; 
       cost: number;
     }) => {
-      const tableName = type === 'color' ? 'color_mixing_costs' : 'adhesive_costs';
-      
       const { error } = await supabase
-        .from(tableName)
+        .from('color_mixing_costs')
         .upsert({
           panel_master_id: panelMaster!.id,
           thickness,
@@ -358,8 +338,8 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
       
       if (error) throw error;
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: [variables.type === 'color' ? 'color-mixing-costs' : 'adhesive-costs'] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['color-mixing-costs'] });
       setEditingCost(null);
       setEditCostValue('');
       toast.success('저장되었습니다');
@@ -369,7 +349,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
     }
   });
 
-  const handleSaveCost = (type: 'color' | 'adhesive', thickness: string) => {
+  const handleSaveCost = (thickness: string) => {
     const cost = parseFloat(editCostValue);
     
     if (isNaN(cost) || cost < 0) {
@@ -377,11 +357,11 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
       return;
     }
 
-    saveCostMutation.mutate({ type, thickness, cost });
+    saveCostMutation.mutate({ thickness, cost });
   };
 
-  const handleEditCostStart = (type: 'color' | 'adhesive', thickness: string, currentCost: number = 0) => {
-    setEditingCost({ type, thickness });
+  const handleEditCostStart = (thickness: string, currentCost: number = 0) => {
+    setEditingCost({ type: 'color', thickness });
     setEditCostValue(currentCost.toString());
   };
 
@@ -449,11 +429,6 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
 
   const getColorMixingCost = (thickness: string): number => {
     const cost = colorMixingData?.find(c => c.thickness === thickness);
-    return cost?.cost || 0;
-  };
-
-  const getAdhesiveCost = (thickness: string): number => {
-    const cost = adhesiveData?.find(c => c.thickness === thickness);
     return cost?.cost || 0;
   };
 
@@ -671,7 +646,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
                         />
                         <Button
                           size="sm"
-                          onClick={() => handleSaveCost('color', thickness)}
+                          onClick={() => handleSaveCost(thickness)}
                           className="h-8 w-8 p-0"
                         >
                           <Check className="h-4 w-4" />
@@ -693,7 +668,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleEditCostStart('color', thickness, currentCost)}
+                          onClick={() => handleEditCostStart(thickness, currentCost)}
                           className="h-8 w-8 p-0"
                         >
                           <Pencil className="h-4 w-4" />
@@ -706,62 +681,6 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
             </div>
           </div>
 
-          <div className="border rounded-lg p-4">
-            <h4 className="font-semibold text-sm mb-3">양단면 추가금 (기존 두께별)</h4>
-            <div className="space-y-2">
-              {thicknesses.map(thickness => {
-                const currentCost = getAdhesiveCost(thickness);
-                const isEditing = editingCost?.type === 'adhesive' && editingCost?.thickness === thickness;
-                
-                return (
-                  <div key={`adhesive-${thickness}`} className="flex items-center justify-between p-2 border rounded bg-background">
-                    <span className="font-medium text-sm">{thickness}</span>
-                    {isEditing ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          value={editCostValue}
-                          onChange={(e) => setEditCostValue(e.target.value)}
-                          className="w-24 h-8 text-sm"
-                          placeholder="금액"
-                          autoFocus
-                        />
-                        <Button
-                          size="sm"
-                          onClick={() => handleSaveCost('adhesive', thickness)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={handleEditCostCancel}
-                          className="h-8 w-8 p-0"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono">
-                          ₩{currentCost.toLocaleString()}
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEditCostStart('adhesive', thickness, currentCost)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
         <div className="mt-6 space-y-4">
@@ -845,7 +764,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
             <li>셀을 클릭하여 사이즈와 가격을 입력할 수 있습니다</li>
             <li>스위치를 통해 각 사이즈의 활성화/비활성화를 관리할 수 있습니다</li>
             <li>비활성화된 사이즈는 계산기에 표시되지 않습니다</li>
-            <li>기존 두께별 양단면 금액보다 사이즈별 양단면 추가금이 우선 적용됩니다</li>
+            <li>양단면 금액은 사이즈별 옵션 추가금의 최신 데이터를 기준으로 계산됩니다</li>
             <li>사틴/아스텔은 CLEAR 유광 기본가에 사이즈별 추가금을 더하는 방식으로 계산됩니다</li>
           </ul>
         </div>

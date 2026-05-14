@@ -226,23 +226,6 @@ export const usePriceCalculation = ({
     enabled: !!panelMaster?.id
   });
 
-  // Fetch adhesive costs
-  const { data: adhesiveCosts } = useQuery({
-    queryKey: ['adhesive-costs-calc', panelMaster?.id],
-    queryFn: async () => {
-      if (!panelMaster?.id) return [];
-      
-      const { data, error } = await supabase
-        .from('adhesive_costs')
-        .select('*')
-        .eq('panel_master_id', panelMaster.id);
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!panelMaster?.id
-  });
-
   // 특정 두께와 사이즈 조합에 가격 데이터가 있는지 확인하는 함수
   const hasPriceData = (qualityId: string, thickness: string, size: string): boolean => {
     if (selectedFactory !== 'jangwon') return false;
@@ -398,7 +381,6 @@ export const usePriceCalculation = ({
               adhesion: 'none',
               qty: 1, // 각 원판은 1개씩 계산
               colorMixingCostsData: colorMixingCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
-              adhesiveCostsData: adhesiveCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
               panelSizesData: activePanelSizes?.map(ps => ({
                 size_name: ps.size_name,
                 thickness: ps.thickness,
@@ -557,7 +539,6 @@ export const usePriceCalculation = ({
         {
           processingOptionsData: processingOptions || [],
           colorMixingCostsData: colorMixingCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
-          adhesiveCostsData: adhesiveCosts?.map(c => ({ thickness: c.thickness, cost: c.cost })),
           panelSizesData: activePanelSizes?.map(ps => ({
             size_name: ps.size_name,
             thickness: ps.thickness,
@@ -609,7 +590,6 @@ export const usePriceCalculation = ({
     mugwangPainting,
     processingOptions,
     colorMixingCosts,
-    adhesiveCosts,
     activePanelSizes,
     clearPanelSizes,
     optionSurcharges,
