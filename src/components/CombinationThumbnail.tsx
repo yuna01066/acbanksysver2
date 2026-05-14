@@ -13,6 +13,7 @@ interface PanelUsage {
   quantity: number;
   placedItems: Array<{ itemId: string; count: number }>;
   efficiency: number;
+  positions?: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }>;
 }
 
 interface CombinationThumbnailProps {
@@ -29,8 +30,6 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
   selectedThickness
 }) => {
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
-  
-  const MARGIN = 0; // 가용사이즈가 이미 재단 가능 영역이므로 마진 불필요
   
   // 두께에 따른 간격 설정
   const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
@@ -57,44 +56,23 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
   const offsetX = (THUMBNAIL_WIDTH - scaledPanelWidth) / 2;
   const offsetY = (THUMBNAIL_HEIGHT - scaledPanelHeight) / 2;
 
-  // 배치된 도형들 계산
   const calculateLayout = () => {
-    const usableWidth = currentPanelInfo.width; // MARGIN이 0이므로 전체 크기 사용
-    const usableHeight = currentPanelInfo.height; // MARGIN이 0이므로 전체 크기 사용
-    
-    const positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; color: string; itemIndex: number }> = [];
-    const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
-    
     const colors = [
       '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', 
       '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'
     ];
 
-    const GAP = SPACING; // 정확히 10mm 간격
+    if (currentPanelUsage.positions && currentPanelUsage.positions.length > 0) {
+      return currentPanelUsage.positions.map(pos => {
+        const itemIndex = parseInt(pos.itemId.replace('item-', ''));
+        return {
+          ...pos,
+          color: colors[itemIndex % colors.length],
+          itemIndex,
+        };
+      });
+    }
 
-    // 겹침 확인 함수 (간격 포함)
-    const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
-      return occupiedAreas.some(area => 
-        !(x >= area.x + area.width + GAP || 
-          x + w + GAP <= area.x || 
-          y >= area.y + area.height + GAP || 
-          y + h + GAP <= area.y)
-      );
-    };
-
-    // 특정 위치에 배치 가능한지 확인 (엄격한 경계 검사)
-    const canPlaceAt = (x: number, y: number, w: number, h: number): boolean => {
-      // 원판 경계 내부에 완전히 있는지 엄격하게 확인
-      if (x < 0 || y < 0 || 
-          x + w > usableWidth || 
-          y + h > usableHeight) {
-        return false;
-      }
-      // 다른 도형과 10mm 간격을 유지하는지 확인
-      return !isOverlapping(x, y, w, h);
-    };
-
-    // 배치할 아이템들 생성
     const itemsToPlace: Array<{ width: number; height: number; itemIndex: number; count: number }> = [];
     
     currentPanelUsage.placedItems.forEach(placedItem => {
@@ -114,74 +92,38 @@ const CombinationThumbnail: React.FC<CombinationThumbnailProps> = ({
       }
     });
 
-    console.log('CombinationThumbnail - 배치할 아이템들:', itemsToPlace);
-    console.log('CombinationThumbnail - 총 배치해야 할 개수:', itemsToPlace.reduce((sum, item) => sum + item.count, 0));
-
-    // 면적 기준으로 내림차순 정렬 (큰 것부터 배치)
     itemsToPlace.sort((a, b) => (b.width * b.height) - (a.width * a.height));
 
-    // 각 아이템 타입별로 배치
+    const positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; color: string; itemIndex: number }> = [];
+    const rowHeights: number[] = [];
+    let x = 0;
+    let y = 0;
+    let row = 0;
+
     for (const item of itemsToPlace) {
       for (let i = 0; i < item.count; i++) {
-        let placed = false;
-        
-        // 1mm 간격으로 세밀한 배치 시도
-        for (let y = 0; y <= usableHeight - item.height && !placed; y += 1) {
-          for (let x = 0; x <= usableWidth - item.width && !placed; x += 1) {
-            if (canPlaceAt(x, y, item.width, item.height)) {
-              positions.push({
-                x,
-                y,
-                width: item.width,
-                height: item.height,
-                rotated: false,
-                color: colors[item.itemIndex % colors.length],
-                itemIndex: item.itemIndex
-              });
-              
-              occupiedAreas.push({
-                x,
-                y,
-                width: item.width,
-                height: item.height
-              });
-              
-              placed = true;
-            }
-          }
+        if (x + item.width > currentPanelInfo.width) {
+          x = 0;
+          y += (rowHeights[row] || 0) + SPACING;
+          row += 1;
         }
-        
-        // 회전 배치 시도 (정사각형이 아닌 경우만)
-        if (!placed && item.width !== item.height) {
-          for (let y = 0; y <= usableHeight - item.width && !placed; y += 1) {
-            for (let x = 0; x <= usableWidth - item.height && !placed; x += 1) {
-              if (canPlaceAt(x, y, item.height, item.width)) {
-                positions.push({
-                  x,
-                  y,
-                  width: item.height,
-                  height: item.width,
-                  rotated: true,
-                  color: colors[item.itemIndex % colors.length],
-                  itemIndex: item.itemIndex
-                });
-                
-                occupiedAreas.push({
-                  x,
-                  y,
-                  width: item.height,
-                  height: item.width
-                });
-                
-                placed = true;
-              }
-            }
-          }
+        if (y + item.height > currentPanelInfo.height) {
+          return positions;
         }
+        positions.push({
+          x,
+          y,
+          width: item.width,
+          height: item.height,
+          rotated: false,
+          color: colors[item.itemIndex % colors.length],
+          itemIndex: item.itemIndex
+        });
+        rowHeights[row] = Math.max(rowHeights[row] || 0, item.height);
+        x += item.width + SPACING;
       }
     }
 
-    console.log('CombinationThumbnail - 실제 배치된 개수:', positions.length);
     return positions;
   };
 

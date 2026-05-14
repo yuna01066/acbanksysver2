@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { calculateYieldPlan } from '@/utils/yieldOptimization';
 
 interface CutItem {
   width: string;
@@ -24,8 +25,6 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
 }) => {
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   
-  const MARGIN = 0; // 가용사이즈가 이미 재단 가능 영역이므로 마진 불필요
-  
   // 두께에 따른 간격 설정
   const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
   const SPACING = thickness < 10 ? 6 : 8; // 10T 미만: 6mm, 10T 이상: 8mm
@@ -41,151 +40,34 @@ const NestingThumbnail: React.FC<NestingThumbnailProps> = ({
   const offsetX = (THUMBNAIL_WIDTH - scaledPanelWidth) / 2;
   const offsetY = (THUMBNAIL_HEIGHT - scaledPanelHeight) / 2;
 
-  // 여러 원판에 걸쳐 배치 계산
-  const calculateMultiPanelLayout = () => {
-    const usableWidth = panelWidth; // MARGIN이 0이므로 전체 크기 사용
-    const usableHeight = panelHeight; // MARGIN이 0이므로 전체 크기 사용
-    
-    // 모든 도형을 배열로 생성
-    const allPieces: Array<{ width: number; height: number; itemIndex: number; pieceId: string }> = [];
-    cutItems.forEach((item, index) => {
-      const cutW = parseFloat(item.width);
-      const cutH = parseFloat(item.height);
-      const qty = parseInt(item.quantity);
-      
-      if (cutW && cutH && qty) {
-        for (let i = 0; i < qty; i++) {
-          allPieces.push({
-            width: cutW,
-            height: cutH,
-            itemIndex: index,
-            pieceId: `item-${index}-piece-${i}`
-          });
-        }
-      }
-    });
-    
-    // 면적 기준으로 내림차순 정렬
-    allPieces.sort((a, b) => (b.width * b.height) - (a.width * a.height));
-    
+  const panelLayouts = useMemo(() => {
     const colors = [
       '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', 
       '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'
     ];
-    
-    // 각 원판별 배치 결과
-    const panelLayouts: Array<Array<{ x: number; y: number; width: number; height: number; rotated: boolean; color: string; itemIndex: number }>> = [];
-    let remainingPieces = [...allPieces];
-    
-    // 배치 점수 계산 함수
-    function calculatePositionScore(x: number, y: number, orientation: { width: number; height: number; rotated: boolean }, maxWidth: number, maxHeight: number): number {
-      // 기본 점수: 왼쪽 위부터 우선 (거리 기반)
-      const distanceScore = Math.sqrt(x ** 2 + y ** 2);
-      let score = 10000 - distanceScore;
-      
-      // 회전하지 않은 방향을 약간 선호 (같은 위치라면)
-      if (!orientation.rotated) {
-        score += 5;
-      }
-      
-      // 가장자리에 가까운 배치 선호 (공간 효율성)
-      const edgeBonus = Math.min(x, y, maxWidth - x - orientation.width, maxHeight - y - orientation.height);
-      if (edgeBonus < SPACING) {
-        score += 10;
-      }
-      
-      return score;
-    }
 
-    // 위치가 겹치는지 확인하는 함수 (정확히 10mm 간격 포함)
-    const isOverlapping = (x: number, y: number, w: number, h: number, occupiedAreas: Array<{ x: number; y: number; width: number; height: number }>): boolean => {
-      const minGap = SPACING; // 정확히 10mm 간격
-      return occupiedAreas.some(area => 
-        !(x >= area.x + area.width + minGap || x + w + minGap <= area.x || 
-          y >= area.y + area.height + minGap || y + h + minGap <= area.y)
-      );
-    };
+    const numericItems = cutItems
+      .map((item, index) => ({
+        width: parseFloat(item.width),
+        height: parseFloat(item.height),
+        quantity: parseInt(item.quantity),
+        id: `item-${index}`,
+      }))
+      .filter(item => item.width > 0 && item.height > 0 && item.quantity > 0);
 
-    // 원판별로 배치 시뮬레이션
-    for (let panelIndex = 0; panelIndex < panelsNeeded; panelIndex++) {
-      const currentPanelPositions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; color: string; itemIndex: number }> = [];
-      const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
-      const placedInThisPanel: string[] = [];
-      
-      // 현재 원판에 배치할 도형들
-      const piecesToPlace = [...remainingPieces];
-      
-      for (const piece of piecesToPlace) {
-        // 이미 배치된 도형은 건너뛰기
-        if (placedInThisPanel.includes(piece.pieceId)) continue;
-        
-        let bestPosition = null;
-        let bestScore = -1;
-        
-        // 가능한 배치 위치와 회전 시도 (최적화된 평가)
-        const orientations = [
-          { width: piece.width, height: piece.height, rotated: false },
-          { width: piece.height, height: piece.width, rotated: true }
-        ];
-        
-        // 각 방향에 대해 가능한 모든 위치 평가 (엄격한 경계 검사)
-        for (const orientation of orientations) {
-          // 사용 가능한 영역에 완전히 들어가는지 엄격하게 확인
-          if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
-          
-          // 1mm 간격으로 세밀한 배치 시도 (최적 효율을 위해)
-          for (let y = 0; y <= usableHeight - orientation.height; y += 1) {
-            for (let x = 0; x <= usableWidth - orientation.width; x += 1) {
-              // 엄격한 경계 검사: 도형이 원판 경계 내부에만 배치되는지 확인
-              if (x + orientation.width <= usableWidth && 
-                  y + orientation.height <= usableHeight &&
-                  !isOverlapping(x, y, orientation.width, orientation.height, occupiedAreas)) {
-                // 이 위치의 점수 계산
-                const positionScore = calculatePositionScore(x, y, orientation, usableWidth, usableHeight);
-                
-                if (positionScore > bestScore) {
-                  bestScore = positionScore;
-                  bestPosition = {
-                    x, y,
-                    width: orientation.width,
-                    height: orientation.height,
-                    rotated: orientation.rotated,
-                    color: colors[piece.itemIndex % colors.length],
-                    itemIndex: piece.itemIndex
-                  };
-                }
-              }
-            }
-          }
-        }
-        
-        // 최적 위치에 배치
-        if (bestPosition) {
-          currentPanelPositions.push(bestPosition);
-          
-          occupiedAreas.push({
-            x: bestPosition.x,
-            y: bestPosition.y,
-            width: bestPosition.width,
-            height: bestPosition.height
-          });
-          
-          placedInThisPanel.push(piece.pieceId);
-        }
-      }
-      
-      // 배치된 도형들을 남은 도형 목록에서 제거
-      remainingPieces = remainingPieces.filter(piece => !placedInThisPanel.includes(piece.pieceId));
-      panelLayouts.push(currentPanelPositions);
-      
-      // 더 이상 배치할 도형이 없으면 중단
-      if (remainingPieces.length === 0) break;
-    }
-    
-    return panelLayouts;
-  };
+    const plan = calculateYieldPlan(numericItems, panelWidth, panelHeight, selectedThickness);
+    return plan.layoutPanels.slice(0, panelsNeeded).map(panel =>
+      panel.positions.map(pos => {
+        const itemIndex = parseInt(pos.itemId.replace('item-', ''));
+        return {
+          ...pos,
+          color: colors[itemIndex % colors.length],
+          itemIndex,
+        };
+      })
+    );
+  }, [cutItems, panelWidth, panelHeight, panelsNeeded, selectedThickness]);
 
-  const panelLayouts = calculateMultiPanelLayout();
   const currentLayout = panelLayouts[currentPanelIndex] || [];
 
   // 효율 계산

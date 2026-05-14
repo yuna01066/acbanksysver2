@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +16,12 @@ interface YieldResult {
   efficiency: number;
   wasteArea: number;
   surplus: number;
+  offcut?: {
+    largestReusableRect: { width: number; height: number; area: number };
+    scrapArea: number;
+    reusableArea: number;
+  };
+  score?: number;
 }
 
 interface PanelUsage {
@@ -24,6 +29,12 @@ interface PanelUsage {
   quantity: number;
   placedItems: Array<{ itemId: string; count: number }>;
   efficiency: number;
+  positions?: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }>;
+  offcut?: {
+    largestReusableRect: { width: number; height: number; area: number };
+    scrapArea: number;
+    reusableArea: number;
+  };
 }
 
 interface CombinationResult {
@@ -54,6 +65,7 @@ interface UnifiedRecommendationsProps {
     thickness: string;
     size: string;
     quantity: number;
+    panels?: Array<{ size: string; quantity: number }>;
   }) => void;
   selectedQuality: string;
   selectedThickness: string;
@@ -69,7 +81,6 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
   selectedThickness,
   availablePanelSizes
 }) => {
-  const navigate = useNavigate();
   const totalQuantity = cutItems.reduce((sum, item) => 
     sum + (item.quantity ? parseInt(item.quantity) : 0), 0
   );
@@ -106,7 +117,11 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
 
   // 중복 제거: 같은 효율성(±0.5%)과 비슷한 패널 수를 가진 추천안들 중에서 더 나은 것만 선택
   const unifiedRecommendations = allRecommendations
-    .sort((a, b) => b.efficiency - a.efficiency) // 효율성 내림차순 정렬
+    .sort((a, b) => {
+      if (a.panelsNeeded !== b.panelsNeeded) return a.panelsNeeded - b.panelsNeeded;
+      if (Math.abs(a.wasteArea - b.wasteArea) > 1000) return a.wasteArea - b.wasteArea;
+      return b.efficiency - a.efficiency;
+    })
     .filter((recommendation, index, array) => {
       // 첫 번째는 항상 포함
       if (index === 0) return true;
@@ -136,8 +151,33 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
     return null;
   }
 
-  // 최적 추천안 선택 (가장 높은 효율의 단일 원판)
-  const bestSingleRecommendation = unifiedRecommendations.find(rec => rec.type === 'single');
+  const applyRecommendationToQuote = (recommendation: UnifiedRecommendation) => {
+    if (!onPanelSelect) return;
+
+    if (recommendation.type === 'single') {
+      const data = recommendation.data as YieldResult;
+      onPanelSelect({
+        quality: selectedQuality,
+        thickness: selectedThickness,
+        size: data.panelSize,
+        quantity: data.panelsNeeded,
+      });
+      return;
+    }
+
+    const data = recommendation.data as CombinationResult;
+    const panels = data.panels.map(panel => ({
+      size: panel.panelName,
+      quantity: panel.quantity,
+    }));
+    onPanelSelect({
+      quality: selectedQuality,
+      thickness: selectedThickness,
+      size: panels[0]?.size || '',
+      quantity: panels[0]?.quantity || 1,
+      panels,
+    });
+  };
 
   return (
     <Card>
@@ -145,16 +185,16 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Star className="w-5 h-5" />
-            효율성 순 추천
+            잔재 최소화 추천
           </div>
-          {bestSingleRecommendation && (
+          {onPanelSelect && unifiedRecommendations[0] && (
             <Button
               variant="default"
               size="sm"
-              onClick={() => navigate('/quote')}
+              onClick={() => applyRecommendationToQuote(unifiedRecommendations[0])}
               className="animate-fade-in"
             >
-              견적계산기로
+              추천안 견적 적용
             </Button>
           )}
         </CardTitle>
@@ -168,7 +208,7 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                   {index === 0 && (
                     <Badge variant="default" className="text-xs">
                       <Star className="w-3 h-3 mr-1" />
-                      최고 효율
+                      추천
                     </Badge>
                   )}
                   <Badge variant={recommendation.type === 'single' ? 'secondary' : 'outline'}>
@@ -218,12 +258,18 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                         <div className="font-medium">{recommendation.panelsNeeded}장</div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">폐기면적</div>
+                        <div className="text-muted-foreground">잔재면적</div>
                         <div className="font-medium">
                           {(recommendation.wasteArea / 1000000).toFixed(2)}㎡
                         </div>
                       </div>
                     </div>
+                    {(recommendation.data as YieldResult).offcut?.largestReusableRect.area ? (
+                      <div className="mt-3 rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground">
+                        재활용 가능 잔재 최대 {(recommendation.data as YieldResult).offcut!.largestReusableRect.width.toFixed(0)}
+                        ×{(recommendation.data as YieldResult).offcut!.largestReusableRect.height.toFixed(0)}mm
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <div>
@@ -256,7 +302,7 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                         <div className="text-muted-foreground">총 생산량</div>
                         <div className="font-medium">
                           {(recommendation.data as CombinationResult).panels.reduce((sum, panel) => {
-                            return sum + panel.placedItems.reduce((itemSum, item) => itemSum + item.count, 0) * panel.quantity;
+                            return sum + panel.placedItems.reduce((itemSum, item) => itemSum + item.count, 0);
                           }, 0)}개
                         </div>
                       </div>
@@ -265,12 +311,23 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                         <div className="font-medium">{recommendation.panelsNeeded}장</div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">폐기면적</div>
+                        <div className="text-muted-foreground">잔재면적</div>
                         <div className="font-medium">
                           {(recommendation.wasteArea / 1000000).toFixed(2)}㎡
                         </div>
                       </div>
                     </div>
+                    {(() => {
+                      const largest = (recommendation.data as CombinationResult).panels
+                        .map(panel => panel.offcut?.largestReusableRect)
+                        .filter(Boolean)
+                        .sort((a, b) => (b?.area || 0) - (a?.area || 0))[0];
+                      return largest?.area ? (
+                        <div className="mt-3 rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground">
+                          재활용 가능 잔재 최대 {largest.width.toFixed(0)}×{largest.height.toFixed(0)}mm
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 )}
 
@@ -296,12 +353,8 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                     // 복합 조합의 총 생산량 계산
                     const combinationData = recommendation.data as CombinationResult;
                     const totalProduced = combinationData.panels.reduce((sum, panel) => {
-                      const panelSize = availablePanelSizes.find(p => p.name === panel.panelName);
-                      if (!panelSize) return sum;
-                      
-                      // 이 패널에 배치된 총 아이템 수 계산
                       const placedCount = panel.placedItems.reduce((itemSum, item) => itemSum + item.count, 0);
-                      return sum + (placedCount * panel.quantity);
+                      return sum + placedCount;
                     }, 0);
                     
                     const surplus = totalProduced - totalQuantity;
@@ -344,6 +397,16 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                     availablePanelSizes={availablePanelSizes}
                     selectedThickness={selectedThickness}
                   />
+                )}
+                {onPanelSelect && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => applyRecommendationToQuote(recommendation)}
+                    className="whitespace-nowrap"
+                  >
+                    견적에 적용
+                  </Button>
                 )}
               </div>
             </div>

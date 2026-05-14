@@ -1,302 +1,136 @@
-interface PanelSize {
-  name: string;
-  width: number;
-  height: number;
-}
+import { calculateYieldPlan, type NumericCutItem, type PanelSize } from './yieldOptimization';
 
-interface CutItem {
-  width: number;
-  height: number;
-  quantity: number;
-  id: string;
-}
-
-interface PanelUsage {
+export interface PanelUsage {
   panelName: string;
   quantity: number;
   placedItems: Array<{ itemId: string; count: number }>;
   efficiency: number;
+  positions?: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }>;
+  offcut?: {
+    largestReusableRect: { width: number; height: number; area: number };
+    scrapArea: number;
+    reusableArea: number;
+  };
 }
 
-interface CombinationResult {
+export interface CombinationResult {
   panels: PanelUsage[];
   totalEfficiency: number;
   totalWasteArea: number;
   totalCost: number;
   allItemsPlaced: boolean;
   remainingItems: Array<{ itemId: string; remaining: number }>;
+  score?: number;
 }
 
-// 복합 네스팅 알고리즘 - 새로운 최적화된 버전 사용
-const calculateMultiItemLayout = (
-  items: CutItem[],
-  panelW: number,
-  panelH: number,
-  selectedThickness?: string
-): {
-  positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }>;
-  totalPieces: number;
-  canFitAll: boolean;
-  placedCounts: { [key: string]: number };
-} => {
-  const MARGIN = 0; // 가용사이즈가 이미 재단 가능 영역이므로 마진 불필요
-  
-  // 두께에 따른 간격 설정 - 다른 컴포넌트와 통일
-  const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
-  const SPACING = thickness < 10 ? 6 : 8;
-  
-  const usableWidth = panelW - (MARGIN * 2);
-  const usableHeight = panelH - (MARGIN * 2);
-  
-  // 모든 도형을 크기 순으로 정렬
-  const allPieces: Array<{ width: number; height: number; itemId: string }> = [];
-  items.forEach(item => {
-    for (let i = 0; i < item.quantity; i++) {
-      allPieces.push({
-        width: item.width,
-        height: item.height,
-        itemId: item.id
-      });
-    }
-  });
-  
-  allPieces.sort((a, b) => (b.width * b.height) - (a.width * a.height));
-  
-  const positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }> = [];
-  const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
-  const placedCounts: { [key: string]: number } = {};
-  
-  // 위치가 겹치는지 확인 (정확히 10mm 간격 포함)
-  const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
-    return occupiedAreas.some(area => 
-      !(x >= area.x + area.width + SPACING || x + w + SPACING <= area.x || 
-        y >= area.y + area.height + SPACING || y + h + SPACING <= area.y)
-    );
-  };
-  
-  // 각 도형 배치 시도
-  for (const piece of allPieces) {
-    let placed = false;
-    
-    const orientations = [
-      { width: piece.width, height: piece.height, rotated: false },
-      { width: piece.height, height: piece.width, rotated: true }
-    ];
-    
-    for (const orientation of orientations) {
-      if (placed) break;
-      
-      // 엄격한 경계 검사: 도형이 원판 범위를 절대 넘어가지 않도록
-      if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
-      
-      for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height && !placed; y += 1) {
-        for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width && !placed; x += 1) {
-          // 엄격한 경계 검사: 도형이 원판 경계 내부에만 배치되는지 확인
-          if (x + orientation.width <= MARGIN + usableWidth && 
-              y + orientation.height <= MARGIN + usableHeight &&
-              !isOverlapping(x, y, orientation.width, orientation.height)) {
-            positions.push({
-              x, y,
-              width: orientation.width,
-              height: orientation.height,
-              rotated: orientation.rotated,
-              itemId: piece.itemId
-            });
-            
-            occupiedAreas.push({ x, y, width: orientation.width, height: orientation.height });
-            placedCounts[piece.itemId] = (placedCounts[piece.itemId] || 0) + 1;
-            placed = true;
-          }
-        }
-      }
-    }
-    
-    if (!placed) break;
-  }
-  
-  return {
-    positions,
-    totalPieces: positions.length,
-    canFitAll: positions.length === allPieces.length,
-    placedCounts
-  };
-};
+const remainingAfterPlaced = (
+  items: NumericCutItem[],
+  placedCounts: Record<string, number>
+) => items.map(item => ({
+  ...item,
+  quantity: Math.max(0, item.quantity - (placedCounts[item.id] || 0)),
+}));
 
-// 단일 원판에서 최대한 많은 아이템 배치
-const optimizeForSinglePanel = (
-  items: CutItem[],
-  panel: PanelSize,
-  selectedThickness?: string
-): { placedCounts: { [key: string]: number }; efficiency: number; wasteArea: number } => {
-  const result = calculateMultiItemLayout(items, panel.width, panel.height, selectedThickness);
-  
-  const totalRequiredArea = Object.keys(result.placedCounts).reduce((sum, itemId) => {
-    const item = items.find(i => i.id === itemId);
-    if (!item) return sum;
-    return sum + (item.width * item.height * result.placedCounts[itemId]);
-  }, 0);
-  
-  const totalArea = panel.width * panel.height;
-  const efficiency = totalArea > 0 ? (totalRequiredArea / totalArea) * 100 : 0;
-  const wasteArea = totalArea - totalRequiredArea;
-  
-  return {
-    placedCounts: result.placedCounts,
-    efficiency,
-    wasteArea
-  };
-};
+const toPanelUsage = (
+  panelName: string,
+  plan: ReturnType<typeof calculateYieldPlan>
+): PanelUsage => ({
+  panelName,
+  quantity: plan.panelsNeeded,
+  placedItems: Object.entries(plan.placedCounts).map(([itemId, count]) => ({ itemId, count })),
+  efficiency: plan.efficiency,
+  positions: plan.layoutPanels[0]?.positions || [],
+  offcut: plan.offcut,
+});
 
-// 복합 조합 계산 - 원판 개수 최소화 우선
+// 복합 조합 계산: 원판 수와 총 잔재를 줄이고, 남는 잔재는 큰 직사각형으로 남기는 조합을 우선합니다.
 export const calculatePanelCombinations = (
-  cutItems: CutItem[],
+  cutItems: NumericCutItem[],
   availablePanels: PanelSize[],
   maxCombinations: number = 10,
   selectedThickness?: string
 ): CombinationResult[] => {
   const results: CombinationResult[] = [];
-  
-  // 단일 원판 결과들 먼저 계산
-  for (const panel of availablePanels) {
-    let remainingItems = [...cutItems];
-    const panelUsages: PanelUsage[] = [];
-    let allPlaced = false;
-    let iterations = 0;
-    
-    while (!allPlaced && iterations < 10) {
-      const itemsToPlace = remainingItems.filter(item => item.quantity > 0);
-      if (itemsToPlace.length === 0) {
-        allPlaced = true;
-        break;
-      }
-      
-      const result = optimizeForSinglePanel(itemsToPlace, panel, selectedThickness);
-      
-      if (Object.keys(result.placedCounts).length === 0) break;
-      
-      panelUsages.push({
-        panelName: panel.name,
-        quantity: 1,
-        placedItems: Object.entries(result.placedCounts).map(([itemId, count]) => ({ itemId, count })),
-        efficiency: result.efficiency
+  const totalRequiredArea = cutItems.reduce((sum, item) => sum + item.width * item.height * item.quantity, 0);
+  const singlePlans = availablePanels
+    .map(panel => ({
+      panel,
+      plan: calculateYieldPlan(cutItems, panel.width, panel.height, selectedThickness),
+    }))
+    .filter(({ plan }) => plan.panelsNeeded > 0)
+    .sort((a, b) => a.plan.score - b.plan.score);
+  const candidatePlans = singlePlans.slice(0, Math.min(5, singlePlans.length));
+
+  for (const { panel, plan } of singlePlans) {
+    if (!plan.canFitAll || plan.panelsNeeded === 0) continue;
+
+    results.push({
+      panels: [toPanelUsage(panel.name, plan)],
+      totalEfficiency: plan.efficiency,
+      totalWasteArea: plan.wasteArea,
+      totalCost: plan.panelsNeeded,
+      allItemsPlaced: true,
+      remainingItems: [],
+      score: plan.score,
+    });
+  }
+
+  for (let i = 0; i < candidatePlans.length; i++) {
+    for (let j = i; j < candidatePlans.length; j++) {
+      const panel1 = candidatePlans[i].panel;
+      const panel2 = candidatePlans[j].panel;
+      const plan1 = candidatePlans[i].plan;
+      if (plan1.panelsNeeded === 0) continue;
+
+      const remaining = remainingAfterPlaced(cutItems, plan1.placedCounts);
+      if (remaining.every(item => item.quantity === 0)) continue;
+
+      const plan2 = calculateYieldPlan(remaining, panel2.width, panel2.height, selectedThickness);
+      if (plan2.panelsNeeded === 0) continue;
+
+      const combinedCounts = { ...plan1.placedCounts };
+      Object.entries(plan2.placedCounts).forEach(([itemId, count]) => {
+        combinedCounts[itemId] = (combinedCounts[itemId] || 0) + count;
       });
-      
-      // 배치된 수량만큼 차감
-      remainingItems = remainingItems.map(item => ({
-        ...item,
-        quantity: Math.max(0, item.quantity - (result.placedCounts[item.id] || 0))
-      }));
-      
-      iterations++;
-    }
-    
-    const totalRequired = cutItems.reduce((sum, item) => sum + item.quantity, 0);
-    const totalPlaced = panelUsages.reduce((sum, usage) => 
-      sum + usage.placedItems.reduce((itemSum, placed) => itemSum + placed.count, 0) * usage.quantity, 0
-    );
-    
-    // 모든 아이템이 배치되었는지 정확히 확인
-    const allItemsPlaced = remainingItems.every(item => item.quantity === 0);
-    
-    if (totalPlaced > 0 && allItemsPlaced) {
-      const avgEfficiency = panelUsages.reduce((sum, usage) => sum + usage.efficiency, 0) / panelUsages.length;
-      const totalWaste = panelUsages.length * panel.width * panel.height - 
-        cutItems.reduce((sum, item) => sum + (item.width * item.height * item.quantity), 0);
-      
+
+      const finalRemaining = remainingAfterPlaced(cutItems, combinedCounts);
+      const allItemsPlaced = finalRemaining.every(item => item.quantity === 0);
+      if (!allItemsPlaced) continue;
+
+      const totalPanels = plan1.panelsNeeded + plan2.panelsNeeded;
+      const totalPanelArea = panel1.width * panel1.height * plan1.panelsNeeded +
+        panel2.width * panel2.height * plan2.panelsNeeded;
+      const totalWasteArea = Math.max(0, totalPanelArea - totalRequiredArea);
+      const totalEfficiency = totalPanelArea > 0 ? (totalRequiredArea / totalPanelArea) * 100 : 0;
+      const largestReusable = Math.max(
+        plan1.offcut.largestReusableRect.area,
+        plan2.offcut.largestReusableRect.area
+      );
+      const scrapArea = plan1.offcut.scrapArea + plan2.offcut.scrapArea;
+      const score = (
+        totalPanels * 1_000_000_000 +
+        totalWasteArea +
+        scrapArea * 1.5 -
+        largestReusable * 0.6
+      );
+
       results.push({
-        panels: panelUsages,
-        totalEfficiency: avgEfficiency,
-        totalWasteArea: totalWaste,
-        totalCost: panelUsages.length, // 임시로 판 개수를 비용으로 사용
+        panels: [toPanelUsage(panel1.name, plan1), toPanelUsage(panel2.name, plan2)],
+        totalEfficiency,
+        totalWasteArea,
+        totalCost: totalPanels,
         allItemsPlaced: true,
-        remainingItems: []
+        remainingItems: [],
+        score,
       });
     }
   }
-  
-  // 2개 원판 조합 계산 (간단한 버전)
-  for (let i = 0; i < availablePanels.length; i++) {
-    for (let j = i; j < availablePanels.length; j++) {
-      const panel1 = availablePanels[i];
-      const panel2 = availablePanels[j];
-      
-      let remainingItems = [...cutItems];
-      const panelUsages: PanelUsage[] = [];
-      
-      // 첫 번째 원판에 배치
-      const result1 = optimizeForSinglePanel(remainingItems, panel1, selectedThickness);
-      if (Object.keys(result1.placedCounts).length > 0) {
-        panelUsages.push({
-          panelName: panel1.name,
-          quantity: 1,
-          placedItems: Object.entries(result1.placedCounts).map(([itemId, count]) => ({ itemId, count })),
-          efficiency: result1.efficiency
-        });
-        
-        remainingItems = remainingItems.map(item => ({
-          ...item,
-          quantity: Math.max(0, item.quantity - (result1.placedCounts[item.id] || 0))
-        }));
-      }
-      
-      // 두 번째 원판에 배치
-      const itemsToPlace2 = remainingItems.filter(item => item.quantity > 0);
-      if (itemsToPlace2.length > 0) {
-        const result2 = optimizeForSinglePanel(itemsToPlace2, panel2, selectedThickness);
-        if (Object.keys(result2.placedCounts).length > 0) {
-          panelUsages.push({
-            panelName: panel2.name,
-            quantity: 1,
-            placedItems: Object.entries(result2.placedCounts).map(([itemId, count]) => ({ itemId, count })),
-            efficiency: result2.efficiency
-          });
-          
-          remainingItems = remainingItems.map(item => ({
-            ...item,
-            quantity: Math.max(0, item.quantity - (result2.placedCounts[item.id] || 0))
-          }));
-        }
-      }
-      
-      if (panelUsages.length > 1) {
-        const totalRequired = cutItems.reduce((sum, item) => sum + item.quantity, 0);
-        const totalPlaced = panelUsages.reduce((sum, usage) => 
-          sum + usage.placedItems.reduce((itemSum, placed) => itemSum + placed.count, 0) * usage.quantity, 0
-        );
-        
-        // 모든 아이템이 배치되었는지 정확히 확인
-        const allItemsPlaced = remainingItems.every(item => item.quantity === 0);
-        
-        if (allItemsPlaced) {
-          const avgEfficiency = panelUsages.reduce((sum, usage) => sum + usage.efficiency, 0) / panelUsages.length;
-          const totalWaste = (panel1.width * panel1.height + panel2.width * panel2.height) - 
-            cutItems.reduce((sum, item) => sum + (item.width * item.height * item.quantity), 0);
-          
-          results.push({
-            panels: panelUsages,
-            totalEfficiency: avgEfficiency,
-            totalWasteArea: totalWaste,
-            totalCost: panelUsages.length,
-            allItemsPlaced: true,
-            remainingItems: []
-          });
-        }
-      }
-    }
-  }
-  
-  // 결과 정렬 (모든 아이템 배치 가능 > 적은 판 수 > 효율성)
+
   results.sort((a, b) => {
-    if (a.allItemsPlaced !== b.allItemsPlaced) {
-      return a.allItemsPlaced ? -1 : 1;
-    }
-    // 원판 개수 최소화를 우선시
-    if (a.totalCost !== b.totalCost) {
-      return a.totalCost - b.totalCost;
-    }
-    // 효율성이 비슷하면 원판 개수 적은 것 우선
-    return b.totalEfficiency - a.totalEfficiency;
+    if (a.totalCost !== b.totalCost) return a.totalCost - b.totalCost;
+    if (Math.abs(a.totalWasteArea - b.totalWasteArea) > 1000) return a.totalWasteArea - b.totalWasteArea;
+    return (a.score || 0) - (b.score || 0);
   });
-  
+
   return results.slice(0, maxCombinations);
 };

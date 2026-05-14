@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.58.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -155,6 +156,21 @@ async function uploadFile(
   return await res.json();
 }
 
+async function uploadBytes(
+  accessToken: string,
+  folderId: string,
+  fileName: string,
+  bytes: Uint8Array,
+  contentType: string
+): Promise<any> {
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return uploadFile(accessToken, folderId, fileName, btoa(binary), contentType);
+}
+
 // Init resumable upload session - returns upload URI for client-side direct upload
 async function initResumableUpload(
   accessToken: string,
@@ -222,6 +238,22 @@ function getConfig() {
   return { serviceAccount: parsed, sharedDriveId: driveId };
 }
 
+function getSupabaseAdminClient() {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+  }
+  return createClient(supabaseUrl, serviceRoleKey);
+}
+
+function drivePathSegments(path: string): string[] {
+  return path
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -235,13 +267,107 @@ serve(async (req) => {
 
     if (action === 'upload-document') {
       // Existing: multipart upload for internal project docs (small files)
-      const { projectName, documentType, fileName, fileBase64, contentType, year, month } = body;
+      const { projectName, documentType, fileName, fileBase64, contentType, year, month, folderPath } = body;
       const typeFolder = documentType === 'quote' ? '매입견적서' : '영수증';
-      const folderPath = [projectName, typeFolder, `${year}년`, `${month}월`];
-      const folderId = await ensureFolderPath(accessToken, folderPath, sharedDriveId, sharedDriveId);
+      const targetFolderPath = Array.isArray(folderPath)
+        ? folderPath
+        : [projectName, typeFolder, `${year}년`, `${month}월`];
+      const folderId = await ensureFolderPath(accessToken, targetFolderPath, sharedDriveId, sharedDriveId);
       const result = await uploadFile(accessToken, folderId, fileName, fileBase64, contentType || 'application/octet-stream');
 
       return new Response(JSON.stringify({ success: true, fileId: result.id, fileName: result.name }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (action === 'copy-document-file-to-drive') {
+      const { documentFileId } = body;
+      if (!documentFileId) throw new Error('Missing documentFileId');
+
+      const supabase = getSupabaseAdminClient();
+      const { data: documentFile, error: documentError } = await supabase
+        .from('document_files')
+        .select('*')
+        .eq('id', documentFileId)
+        .single();
+
+      if (documentError || !documentFile) {
+        throw new Error(`Document file not found: ${documentError?.message || documentFileId}`);
+      }
+
+      if (documentFile.drive_file_id) {
+        return new Response(JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: 'already_copied',
+          fileId: documentFile.drive_file_id,
+          folderId: documentFile.drive_folder_id,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (documentFile.storage_provider !== 'supabase_storage') {
+        throw new Error(`Only supabase_storage copy is supported for now. provider=${documentFile.storage_provider}`);
+      }
+      if (!documentFile.storage_bucket || !documentFile.storage_path) {
+        throw new Error('Missing storage_bucket or storage_path');
+      }
+      if (!documentFile.drive_path) {
+        throw new Error('Missing drive_path');
+      }
+
+      const { data: storageFile, error: downloadError } = await supabase.storage
+        .from(documentFile.storage_bucket)
+        .download(documentFile.storage_path);
+
+      if (downloadError || !storageFile) {
+        throw new Error(`Storage download failed: ${downloadError?.message || documentFile.storage_path}`);
+      }
+
+      const bytes = new Uint8Array(await storageFile.arrayBuffer());
+      const folderId = await ensureFolderPath(
+        accessToken,
+        drivePathSegments(documentFile.drive_path),
+        sharedDriveId,
+        sharedDriveId
+      );
+      const result = await uploadBytes(
+        accessToken,
+        folderId,
+        documentFile.file_name,
+        bytes,
+        documentFile.mime_type || storageFile.type || 'application/octet-stream'
+      );
+
+      const currentMetadata = documentFile.metadata && typeof documentFile.metadata === 'object'
+        ? documentFile.metadata
+        : {};
+      const { error: updateError } = await supabase
+        .from('document_files')
+        .update({
+          drive_file_id: result.id,
+          drive_folder_id: folderId,
+          metadata: {
+            ...currentMetadata,
+            copied_to_drive_at: new Date().toISOString(),
+            copied_from_bucket: documentFile.storage_bucket,
+            copied_from_path: documentFile.storage_path,
+          },
+        })
+        .eq('id', documentFileId);
+
+      if (updateError) {
+        throw new Error(`Document file update failed after Drive upload: ${updateError.message}`);
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        fileId: result.id,
+        fileName: result.name,
+        folderId,
+        viewLink: `https://drive.google.com/file/d/${result.id}/view`,
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

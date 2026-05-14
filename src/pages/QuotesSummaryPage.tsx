@@ -202,6 +202,9 @@ const QuotesSummaryPage = () => {
                 <QuoteAttachments
                   attachments={recipient?.attachments || []}
                   onAttachmentsChange={updateAttachments}
+                  quoteNumber={recipientData.quoteNumber}
+                  recipientCompany={recipientData.companyName}
+                  projectName={recipientData.projectName}
                 />
               </div>
 

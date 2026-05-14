@@ -494,6 +494,8 @@ const SavedQuoteDetailPage = () => {
                       readOnly={false}
                       quoteId={id}
                       quoteNumber={quote.quote_number}
+                      recipientCompany={quote.recipient_company || recipientData.companyName}
+                      projectName={quote.project_name || recipientData.projectName}
                       quotePdf={quotePdf}
                       onQuotePdfChange={setQuotePdf}
                       showQuotePdfSection={true}
@@ -653,4 +655,3 @@ const SavedQuoteDetailPage = () => {
 };
 
 export default SavedQuoteDetailPage;
-

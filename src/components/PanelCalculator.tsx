@@ -112,6 +112,10 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [tapung, setTapung] = useState<boolean>(false);
   const [mugwangPainting, setMugwangPainting] = useState<boolean>(false);
   const [selectedAdditionalOptions, setSelectedAdditionalOptions] = useState<Record<string, number>>({});
+  const [yieldAppliedSelection, setYieldAppliedSelection] = useState<{
+    thickness: string;
+    sizes: SizeQuantitySelection[];
+  } | null>(null);
   
   // 제품 제작 수동 입력 상태
   const [manualProductItems, setManualProductItems] = useState<ManualProductItem[]>([]);
@@ -499,6 +503,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const handleQualitySelect = (quality: Quality) => {
     console.log('Quality selected:', quality);
     setSelectedQuality(quality);
+    setYieldAppliedSelection(null);
     resetFromStep(3);
     setCurrentStep(3);
   };
@@ -514,6 +519,13 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       setSelectedColorHex(colorInfo.hexCode);
       setCustomColorName(colorInfo.customColorName || '');
       setCustomOpacity(colorInfo.customOpacity || '');
+    } else {
+      setSelectedColor(colorId);
+    }
+
+    if (yieldAppliedSelection) {
+      setCurrentStep(3);
+      return;
     }
     
     // 편집 모드에서는 기존 두께/사이즈/면수/조색비/가공 데이터를 유지하고 두께 선택 단계로 이동
@@ -788,6 +800,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     setSelectedThickness('');
     setSelectedSize('');
     setSelectedSizes([]);
+    setYieldAppliedSelection(null);
     setSelectedColorType('');
     setCustomColorName('');
     setCustomOpacity('');
@@ -942,6 +955,8 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     quality: string;
     thickness: string;
     size: string;
+    quantity: number;
+    panels?: Array<{ size: string; quantity: number }>;
   }) => {
     // 재질 매핑 (캐스팅만 지원)
     const castingMaterial = MATERIALS.find(m => m.id === 'casting');
@@ -955,13 +970,36 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       setSelectedQuality(quality);
     }
 
-    // 두께와 사이즈 설정
+    const yieldSizes = (panelData.panels && panelData.panels.length > 0
+      ? panelData.panels
+      : [{ size: panelData.size, quantity: panelData.quantity }]
+    ).map(panel => ({
+      size: panel.size,
+      quantity: panel.quantity,
+      surface: '',
+      colorMixingCost: 20000,
+    }));
+
+    // 두께와 사이즈 설정. 컬러는 견적계산기 순서에 맞춰 사용자가 다음 단계에서 선택합니다.
     setSelectedThickness(panelData.thickness);
     setSelectedSize(panelData.size);
+    setSelectedSizes(yieldSizes);
+    setSelectedColor('');
+    setSelectedColorHex('');
+    setSelectedColorType('');
+    setSelectedSurface('');
+    setColorMixingCost(20000);
+    setSelectedProcessing('');
+    setSelectedProcessingName('');
+    setSelectedAdhesion('');
+    setYieldAppliedSelection({
+      thickness: panelData.thickness,
+      sizes: yieldSizes,
+    });
 
-    // 견적계산기 모드로 전환하고 면수 선택 단계로 이동
+    // 견적계산기 모드로 전환하고 컬러 선택 단계로 이동
     setCalculatorType('quote');
-    setCurrentStep(6); // 면수 선택 단계로 바로 이동
+    setCurrentStep(3);
   };
   const handleBackToCalculatorSelection = () => {
     setCurrentStep(0);
@@ -1085,6 +1123,22 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
                     className="w-full text-base font-semibold"
                   >
                     다음 단계로 (기존 색상 유지)
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </div>
+              )}
+              {yieldAppliedSelection && selectedColor && (
+                <div className="pt-4 space-y-3">
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
+                    수율계산 추천 원판을 적용했습니다: {yieldAppliedSelection.thickness} · {' '}
+                    {yieldAppliedSelection.sizes.map(s => `${s.size} ${s.quantity}장`).join(', ')}
+                  </div>
+                  <Button
+                    onClick={() => setCurrentStep(6)}
+                    size="lg"
+                    className="w-full text-base font-semibold"
+                  >
+                    추천 원판 유지하고 면수 선택으로
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </div>
