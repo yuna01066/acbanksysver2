@@ -454,6 +454,7 @@ const SavedQuoteDetailPage = () => {
     || items.find((item: any) => item?.calculationSnapshot?.pricingVersion?.versionName)?.calculationSnapshot?.pricingVersion?.versionName;
   const snapshotCapturedAt = calculationSnapshot?.capturedAt
     || items.find((item: any) => item?.calculationSnapshot?.capturedAt)?.calculationSnapshot?.capturedAt;
+  const snapshotItemsCount = items.filter((item: any) => item?.calculationSnapshot).length;
 
   return (
     <>
@@ -501,19 +502,48 @@ const SavedQuoteDetailPage = () => {
                 totalWithTax={totalWithTax}
               />
 
-              {viewMode === 'internal' && !isEditing && (snapshotVersionName || snapshotCapturedAt) && (
-                <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 print:hidden">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+              {viewMode === 'internal' && !isEditing && (snapshotVersionName || snapshotCapturedAt || snapshotItemsCount > 0) && (
+                <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4 print:hidden">
+                  <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <div className="text-sm font-semibold text-blue-950">단가 영향도</div>
-                      <div className="mt-1 text-xs text-blue-800">
-                        이 견적은 저장 당시 계산 스냅샷 기준으로 고정되어 이후 단가 변경에 자동 영향받지 않습니다.
+                      <div className="text-sm font-semibold text-slate-950">단가 및 계산 근거</div>
+                      <div className="mt-1 text-xs text-slate-600">
+                        저장 당시 기준으로 금액이 고정되어 새 단가표가 들어와도 기존 견적 금액은 자동 변경되지 않습니다.
                       </div>
                     </div>
                     <Badge variant="outline" className="bg-white">
-                      {snapshotVersionName || '미지정 단가표'}
-                      {snapshotCapturedAt && ` · ${new Date(snapshotCapturedAt).toLocaleDateString('ko-KR')}`}
+                      기존 견적 보호
                     </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div className="rounded-md border bg-white p-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <FileText className="h-3.5 w-3.5" />
+                        단가표
+                      </div>
+                      <div className="mt-1 truncate text-sm font-semibold text-slate-900">
+                        {snapshotVersionName || '미지정 단가표'}
+                      </div>
+                    </div>
+                    <div className="rounded-md border bg-white p-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <CalendarIcon className="h-3.5 w-3.5" />
+                        저장 기준일
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {snapshotCapturedAt ? new Date(snapshotCapturedAt).toLocaleDateString('ko-KR') : '기록 없음'}
+                      </div>
+                    </div>
+                    <div className="rounded-md border bg-white p-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Calculator className="h-3.5 w-3.5" />
+                        근거 품목
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {snapshotItemsCount.toLocaleString()} / {items.length.toLocaleString()}개
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
