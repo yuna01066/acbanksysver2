@@ -100,6 +100,24 @@ export const usePriceCalculation = ({
     },
   });
 
+  const { data: clearPanelMaster } = useQuery({
+    queryKey: ['panel-master-for-calc', 'glossy-color'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('panel_masters')
+        .select('*')
+        .eq('quality', 'glossy-color' as any)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching clear panel master:', error);
+        return null;
+      }
+
+      return data;
+    },
+  });
+
   // Fetch active processing options (모든 필드 가져오기)
   const { data: processingOptions } = useQuery({
     queryKey: ['processing-options', 'active'],
@@ -154,6 +172,41 @@ export const usePriceCalculation = ({
       return data;
     },
     enabled: !!panelMaster?.id && !!selectedThickness
+  });
+
+  const { data: clearPanelSizes } = useQuery({
+    queryKey: ['active-panel-sizes-clear-base', clearPanelMaster?.id, selectedThickness],
+    queryFn: async () => {
+      if (!clearPanelMaster?.id || !selectedThickness) return [];
+      
+      const { data, error } = await supabase
+        .from('panel_sizes')
+        .select('*')
+        .eq('panel_master_id', clearPanelMaster.id)
+        .eq('thickness', selectedThickness)
+        .eq('is_active', true);
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!clearPanelMaster?.id && !!selectedThickness
+  });
+
+  const { data: optionSurcharges } = useQuery({
+    queryKey: ['panel-option-surcharges-calc', selectedQuality?.id],
+    queryFn: async () => {
+      if (!selectedQuality?.id) return [];
+
+      const { data, error } = await (supabase as any)
+        .from('panel_option_surcharges')
+        .select('*')
+        .in('quality_id', ['global', selectedQuality.id])
+        .eq('is_active', true);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedQuality?.id
   });
 
   // Fetch color mixing costs
@@ -352,12 +405,19 @@ export const usePriceCalculation = ({
                 price: ps.price || undefined,
                 is_active: ps.is_active
               })),
+              basePanelSizesData: clearPanelSizes?.map(ps => ({
+                size_name: ps.size_name,
+                thickness: ps.thickness,
+                price: ps.price || undefined,
+                is_active: ps.is_active
+              })),
+              optionSurchargesData: optionSurcharges,
               processingOptionsData: [],
               rawOnlyMultiplier: 1.0, // 원장 계산시에는 할증 제외
             }
           );
 
-          // 원장 비용만 추출 (원판 + 테이프 + 조색비)
+          // 원장 비용만 추출 (원판 + 양단면 + 조색비)
           const wonJangPrice = result.breakdown
             .filter(item => 
               !item.label.includes('할증') && 
@@ -466,7 +526,7 @@ export const usePriceCalculation = ({
       // 가공 옵션 breakdown만 추출
       const optionsBreakdown = optionsResult.breakdown.filter(item => 
         !item.label.includes('기본가') && 
-        !item.label.includes('테이프') &&
+        !item.label.includes('양단면') &&
         !item.label.includes('조색비') &&
         !item.label.includes('추가금액')
       );
@@ -504,6 +564,13 @@ export const usePriceCalculation = ({
             price: ps.price || undefined,
             is_active: ps.is_active
           })),
+          basePanelSizesData: clearPanelSizes?.map(ps => ({
+            size_name: ps.size_name,
+            thickness: ps.thickness,
+            price: ps.price || undefined,
+            is_active: ps.is_active
+          })),
+          optionSurchargesData: optionSurcharges,
           rawOnlyMultiplier,
           selectedAdditionalOptions,
         }
@@ -544,6 +611,8 @@ export const usePriceCalculation = ({
     colorMixingCosts,
     adhesiveCosts,
     activePanelSizes,
+    clearPanelSizes,
+    optionSurcharges,
     advancedSettings, // 관리자 설정 변경 시 재계산
   ]);
 
