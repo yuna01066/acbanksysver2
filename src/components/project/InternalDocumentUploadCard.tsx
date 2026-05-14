@@ -10,6 +10,7 @@ import { Upload, FileText, Receipt, Trash2, Loader2, CheckCircle2, Eye, FolderOp
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { buildProjectDrivePath } from '@/utils/documentOrganization';
 
 interface Props {
   projectId: string;
@@ -57,7 +58,10 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, d
       const y = now.getFullYear();
       const m = String(now.getMonth() + 1).padStart(2, '0');
       const gcsPrefix = projectName
-        ? `internal-projects/${projectName}/${typeFolder}/${y}년/${m}월`
+        ? buildProjectDrivePath({
+            projectName,
+            section: `02_발주_매입/${typeFolder}/${y}년/${m}월`,
+          }).join('/')
         : `internal-project-docs/${projectId}/${documentType}`;
       const { gcsPath } = await gcsUploadFile(file, gcsPrefix);
 
@@ -123,6 +127,10 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, d
                 body: {
                   action: 'upload-document',
                   projectName,
+                  folderPath: buildProjectDrivePath({
+                    projectName,
+                    section: `02_발주_매입/${typeFolder}/${y}년/${m}월`,
+                  }),
                   documentType,
                   fileName: file.name,
                   fileBase64: base64,

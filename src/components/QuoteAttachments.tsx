@@ -4,18 +4,31 @@ import { Card } from "@/components/ui/card";
 import { Upload, X, Download, FileText, File, CloudUpload } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { buildIssuedQuoteDrivePath, toDrivePathText } from '@/utils/documentOrganization';
 
 // Google Drive에 파일을 동기화하는 헬퍼 함수
 async function syncFileToGoogleDrive(
   file: globalThis.File,
-  quoteNumber: string
+  quoteNumber: string,
+  options?: {
+    recipientCompany?: string;
+    projectName?: string;
+    section?: string;
+  }
 ): Promise<boolean> {
   try {
+    const folderPath = buildIssuedQuoteDrivePath({
+      quoteNumber,
+      recipientCompany: options?.recipientCompany,
+      projectName: options?.projectName,
+      section: options?.section || '01_고객첨부',
+    });
+
     // 1. Init resumable upload session via edge function
     const { data: sessionData, error: sessionError } = await supabase.functions.invoke('google-drive', {
       body: {
         action: 'init-resumable-upload',
-        folderPath: ['견적서', quoteNumber, '첨부파일'],
+        folderPath,
         fileName: file.name,
         contentType: file.type || 'application/octet-stream',
         fileSize: file.size,
@@ -42,7 +55,7 @@ async function syncFileToGoogleDrive(
       return false;
     }
 
-    console.log(`Google Drive sync successful: ${file.name}`);
+    console.log(`Google Drive sync successful: ${toDrivePathText(folderPath)}/${file.name}`);
     return true;
   } catch (error) {
     console.error('Google Drive sync error:', error);
@@ -71,6 +84,8 @@ interface QuoteAttachmentsProps {
   readOnly?: boolean;
   quoteId?: string;
   quoteNumber?: string;
+  recipientCompany?: string;
+  projectName?: string;
   // 견적서 PDF 관련 props
   quotePdf?: QuotePdfAttachment | null;
   onQuotePdfChange?: (pdf: QuotePdfAttachment | null) => void;
@@ -83,6 +98,8 @@ const QuoteAttachments = ({
   readOnly = false, 
   quoteId,
   quoteNumber,
+  recipientCompany,
+  projectName,
   quotePdf,
   onQuotePdfChange,
   showQuotePdfSection = false
@@ -168,7 +185,11 @@ const QuoteAttachments = ({
 
           // Google Drive 동기화 (quoteNumber가 있으면)
           if (quoteNumber) {
-            const driveSuccess = await syncFileToGoogleDrive(file, quoteNumber);
+            const driveSuccess = await syncFileToGoogleDrive(file, quoteNumber, {
+              recipientCompany,
+              projectName,
+              section: '01_고객첨부',
+            });
             if (driveSuccess) {
               console.log(`Google Drive sync OK: ${file.name}`);
             } else {
@@ -332,7 +353,11 @@ const QuoteAttachments = ({
 
       // Google Drive 동기화
       if (quoteNumber) {
-        const driveSuccess = await syncFileToGoogleDrive(file, safeQuoteNumber);
+        const driveSuccess = await syncFileToGoogleDrive(file, safeQuoteNumber, {
+          recipientCompany,
+          projectName,
+          section: '00_견적서PDF',
+        });
         if (driveSuccess) {
           console.log('PDF Google Drive sync OK');
         } else {

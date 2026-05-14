@@ -3,11 +3,11 @@ import { Trash2, RotateCcw, History } from 'lucide-react';
 import { CASTING_QUALITIES } from '@/types/calculator';
 import type { CutItem } from '@/hooks/useYieldCalculator';
 
-interface HistoryItem {
+export interface HistoryItem {
   id: string;
   quality: string;
   thickness: string;
-  cut_items: any;
+  cut_items: unknown;
   best_efficiency: number | null;
   total_panels_needed: number | null;
   created_at: string;

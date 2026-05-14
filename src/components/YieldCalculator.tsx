@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Package, Image as ImageIcon } from "lucide-react";
@@ -7,9 +7,11 @@ import UnifiedRecommendations from "@/components/UnifiedRecommendations";
 import YieldInputForm from "@/components/yield/YieldInputForm";
 import YieldHistoryPanel from "@/components/yield/YieldHistoryPanel";
 import { SavePresetDialog, LoadPresetDialog } from "@/components/yield/YieldPresetDialog";
-import { calculatePanelCombinations } from "@/utils/panelCombinationCalculator";
+import { calculatePanelCombinations, type CombinationResult } from "@/utils/panelCombinationCalculator";
+import { calculateYieldPlan } from "@/utils/yieldOptimization";
 import { useAvailablePanelSizes, useYieldPresets, useYieldHistory } from "@/hooks/useYieldCalculator";
 import type { CutItem, YieldResult } from "@/hooks/useYieldCalculator";
+import type { HistoryItem } from "@/components/yield/YieldHistoryPanel";
 import { toast } from 'sonner';
 
 interface YieldCalculatorProps {
@@ -19,6 +21,7 @@ interface YieldCalculatorProps {
     thickness: string;
     size: string;
     quantity: number;
+    panels?: Array<{ size: string; quantity: number }>;
   }) => void;
 }
 
@@ -28,7 +31,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
   const [selectedQuality, setSelectedQuality] = useState<string>('glossy-color');
   const [showResults, setShowResults] = useState<boolean>(false);
   const [yieldResults, setYieldResults] = useState<YieldResult[]>([]);
-  const [panelCombinations, setPanelCombinations] = useState<any[]>([]);
+  const [panelCombinations, setPanelCombinations] = useState<CombinationResult[]>([]);
   const [isCalculating, setIsCalculating] = useState<boolean>(false);
   const [calculationProgress, setCalculationProgress] = useState<number>(0);
 
@@ -49,130 +52,6 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
     setCutItems(action);
     setShowResults(false);
   };
-
-  // ---- Nesting algorithm (kept inline for perf; same logic as before) ----
-  const calculateMultiItemLayout = useCallback((
-    items: Array<{ width: number; height: number; quantity: number; id: string }>,
-    panelW: number,
-    panelH: number
-  ) => {
-    const MARGIN = 0;
-    const thickness = parseFloat(selectedThickness?.replace('T', '') || '0');
-    const SPACING = thickness < 10 ? 6 : 8;
-    const usableWidth = panelW - MARGIN * 2;
-    const usableHeight = panelH - MARGIN * 2;
-
-    const positions: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }> = [];
-    const occupiedAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
-    const placedCounts: Record<string, number> = {};
-
-    const allPieces: Array<{ width: number; height: number; itemId: string }> = [];
-    items.forEach(item => {
-      for (let i = 0; i < item.quantity; i++) {
-        allPieces.push({ width: item.width, height: item.height, itemId: item.id });
-      }
-    });
-    allPieces.sort((a, b) => b.width * b.height - a.width * a.height);
-
-    const isOverlapping = (x: number, y: number, w: number, h: number): boolean => {
-      return occupiedAreas.some(area =>
-        !(x >= area.x + area.width + SPACING || x + w + SPACING <= area.x ||
-          y >= area.y + area.height + SPACING || y + h + SPACING <= area.y)
-      );
-    };
-
-    for (const piece of allPieces) {
-      let bestPosition: any = null;
-      let bestScore = -1;
-
-      const orientations = [
-        { width: piece.width, height: piece.height, rotated: false },
-        { width: piece.height, height: piece.width, rotated: true },
-      ];
-
-      for (const orientation of orientations) {
-        if (orientation.width > usableWidth || orientation.height > usableHeight) continue;
-
-        for (let y = MARGIN; y <= MARGIN + usableHeight - orientation.height; y += 10) {
-          for (let x = MARGIN; x <= MARGIN + usableWidth - orientation.width; x += 10) {
-            if (!isOverlapping(x, y, orientation.width, orientation.height)) {
-              const distanceScore = Math.sqrt((x - MARGIN) ** 2 + (y - MARGIN) ** 2);
-              let score = 10000 - distanceScore;
-              if (!orientation.rotated) score += 5;
-              const edgeBonus = Math.min(x - MARGIN, y - MARGIN, usableWidth - (x - MARGIN) - orientation.width, usableHeight - (y - MARGIN) - orientation.height);
-              if (edgeBonus < SPACING) score += 10;
-
-              if (score > bestScore) {
-                bestScore = score;
-                bestPosition = { x, y, width: orientation.width, height: orientation.height, rotated: orientation.rotated };
-              }
-            }
-          }
-        }
-      }
-
-      if (bestPosition) {
-        positions.push({ ...bestPosition, itemId: piece.itemId });
-        occupiedAreas.push({ x: bestPosition.x, y: bestPosition.y, width: bestPosition.width, height: bestPosition.height });
-        placedCounts[piece.itemId] = (placedCounts[piece.itemId] || 0) + 1;
-      } else {
-        break;
-      }
-    }
-
-    return { positions, totalPieces: positions.length, canFitAll: positions.length === allPieces.length, placedCounts };
-  }, [selectedThickness]);
-
-  const calculateYield = useCallback((
-    items: Array<{ width: number; height: number; quantity: number; id: string }>,
-    panelW: number,
-    panelH: number
-  ) => {
-    let remainingItems = [...items];
-    let totalPanelsNeeded = 0;
-    const allPlacedCounts: Record<string, number> = {};
-
-    for (const item of items) {
-      const usableWidth = panelW - 100;
-      const usableHeight = panelH - 100;
-      const canFitNormally = item.width <= usableWidth && item.height <= usableHeight;
-      const canFitRotated = item.height <= usableWidth && item.width <= usableHeight;
-      if (!canFitNormally && !canFitRotated) {
-        return { piecesPerPanel: 0, efficiency: 0, wasteArea: panelW * panelH, canFitAll: false, panelsNeeded: 0, placedCounts: {} };
-      }
-    }
-
-    while (remainingItems.some(item => item.quantity > 0)) {
-      const itemsToPlace = remainingItems.filter(item => item.quantity > 0);
-      if (itemsToPlace.length === 0) break;
-      const { totalPieces, placedCounts } = calculateMultiItemLayout(itemsToPlace, panelW, panelH);
-      if (totalPieces === 0) break;
-      totalPanelsNeeded++;
-      Object.entries(placedCounts).forEach(([itemId, count]) => {
-        allPlacedCounts[itemId] = (allPlacedCounts[itemId] || 0) + count;
-      });
-      remainingItems = remainingItems.map(item => ({
-        ...item, quantity: Math.max(0, item.quantity - (placedCounts[item.id] || 0))
-      }));
-      if (totalPanelsNeeded > 50) break;
-    }
-
-    const totalRequired = items.reduce((sum, item) => sum + item.quantity, 0);
-    const totalPlaced = Object.values(allPlacedCounts).reduce((sum, count) => sum + count, 0);
-    const totalRequiredArea = items.reduce((sum, item) => sum + item.width * item.height * item.quantity, 0);
-    const totalPanelArea = panelW * panelH * totalPanelsNeeded;
-    const efficiency = totalPanelArea > 0 ? totalRequiredArea / totalPanelArea * 100 : 0;
-    const wasteArea = totalPanelArea - totalRequiredArea;
-    const avgPiecesPerPanel = totalPanelsNeeded > 0 ? Math.round(totalPlaced / totalPanelsNeeded) : 0;
-
-    return {
-      piecesPerPanel: avgPiecesPerPanel,
-      efficiency, wasteArea,
-      canFitAll: totalPlaced >= totalRequired,
-      panelsNeeded: totalPanelsNeeded,
-      placedCounts: allPlacedCounts,
-    };
-  }, [calculateMultiItemLayout]);
 
   // ---- Calculate handler ----
   const handleCalculate = async () => {
@@ -206,7 +85,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
       for (let i = 0; i < availablePanelSizes.length; i++) {
         const panel = availablePanelSizes[i];
         await new Promise(r => setTimeout(r, 0));
-        const { canFitAll, efficiency, wasteArea, panelsNeeded, piecesPerPanel } = calculateYield(itemsForNesting, panel.width, panel.height);
+        const plan = calculateYieldPlan(itemsForNesting, panel.width, panel.height, selectedThickness);
+        const { canFitAll, efficiency, wasteArea, panelsNeeded, piecesPerPanel, offcut, score } = plan;
 
         if (canFitAll && piecesPerPanel > 0) {
           const totalRequired = itemsForNesting.reduce((sum, item) => sum + item.quantity, 0);
@@ -215,6 +95,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
             panelSize: panel.name, panelWidth: panel.width, panelHeight: panel.height,
             piecesPerPanel, panelsNeeded, totalPieces: totalRequired,
             efficiency, wasteArea, surplus: Math.max(0, surplus),
+            offcut,
+            score,
           });
         }
         completedSteps++;
@@ -222,9 +104,14 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
       }
 
       const sortedResults = results.sort((a, b) => {
+        if (a.panelsNeeded !== b.panelsNeeded) return a.panelsNeeded - b.panelsNeeded;
+        if (Math.abs(a.wasteArea - b.wasteArea) > 1000) return a.wasteArea - b.wasteArea;
+        const aReusable = a.offcut?.largestReusableRect.area || 0;
+        const bReusable = b.offcut?.largestReusableRect.area || 0;
+        if (Math.abs(aReusable - bReusable) > 1000) return bReusable - aReusable;
         if (a.surplus !== b.surplus) return a.surplus - b.surplus;
         if (Math.abs(a.efficiency - b.efficiency) > 1) return b.efficiency - a.efficiency;
-        return a.panelsNeeded - b.panelsNeeded;
+        return (a.score || 0) - (b.score || 0);
       });
 
       await new Promise(r => setTimeout(r, 0));
@@ -270,7 +157,7 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
   };
 
   // ---- Restore from history ----
-  const handleRestoreHistory = (item: any) => {
+  const handleRestoreHistory = (item: HistoryItem) => {
     const items = item.cut_items as CutItem[];
     setCutItems(items);
     setSelectedQuality(item.quality);
