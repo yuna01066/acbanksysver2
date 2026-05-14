@@ -33,6 +33,13 @@ import ManualProductEntry, { ManualProductItem } from "./ManualProductEntry";
 
 const DEFAULT_COLOR_MIXING_COST = 40000;
 
+interface PricingVersion {
+  id: string;
+  version_name: string;
+  supplier_name: string;
+  effective_from: string;
+}
+
 const PROCESSING_OPTIONS = [{
   id: 'raw-only',
   name: '원판 단독 구매'
@@ -95,6 +102,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [selectedAdhesion, setSelectedAdhesion] = useState<string>('');
   const [selectedFilm, setSelectedFilm] = useState<string>('');
   const [selectedBaseType, setSelectedBaseType] = useState<string>(''); // 필름 아크릴 기본 재질 (Clear/Bright/Astel)
+  const [activePricingVersion, setActivePricingVersion] = useState<PricingVersion | null>(null);
   
   // 편집 모드 관련 상태
   const [editMode, setEditMode] = useState<string | null>(null);
@@ -291,6 +299,30 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       }
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const loadActivePricingVersion = async () => {
+      try {
+        const { data, error } = await (supabase.from('panel_pricing_versions' as any) as any)
+          .select('id, version_name, supplier_name, effective_from')
+          .eq('is_active', true)
+          .order('effective_from', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          console.warn('Active pricing version is not available yet:', error.message);
+          return;
+        }
+
+        setActivePricingVersion(data as PricingVersion | null);
+      } catch (error) {
+        console.warn('Failed to load active pricing version:', error);
+      }
+    };
+
+    loadActivePricingVersion();
+  }, []);
   
   // initialType이 있으면 자동으로 계산기 타입 선택 단계를 건너뛰기
   // 단, editMode=saved일 때는 URL 파라미터에서 복원한 step을 유지
@@ -515,6 +547,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     hexCode: string;
     customColorName?: string;
     customOpacity?: string;
+    isBrightPigment?: boolean;
   }) => {
     console.log('Color selected:', colorId, colorInfo);
     if (colorInfo) {
@@ -522,6 +555,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       setSelectedColorHex(colorInfo.hexCode);
       setCustomColorName(colorInfo.customColorName || '');
       setCustomOpacity(colorInfo.customOpacity || '');
+      setSelectedColorType(colorInfo.isBrightPigment ? '브라이트/진백/스리' : '');
     } else {
       setSelectedColor(colorId);
     }
@@ -649,6 +683,60 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     
     setCurrentStep(9); // 가공 선택 단계로 이동 (수량 포함)
   };
+
+  const createCalculationSnapshot = (
+    breakdown: { label: string; price: number }[],
+    totalPrice: number,
+    extraOptions: Record<string, unknown> = {}
+  ) => ({
+    schemaVersion: 1,
+    capturedAt: new Date().toISOString(),
+    pricingVersion: activePricingVersion ? {
+      id: activePricingVersion.id,
+      versionName: activePricingVersion.version_name,
+      supplierName: activePricingVersion.supplier_name,
+      effectiveFrom: activePricingVersion.effective_from,
+    } : null,
+    selectedOptions: {
+      factory: 'jangwon',
+      materialId: selectedMaterial?.id,
+      materialName: selectedMaterial?.name,
+      qualityId: selectedQuality?.id,
+      qualityName: selectedQuality?.name,
+      thickness: selectedThickness,
+      sizes: selectedSizes.map(s => ({
+        size: s.size,
+        quantity: s.quantity,
+        surface: s.surface,
+        colorMixingCost: s.colorMixingCost || 0,
+      })),
+      colorType: selectedColorType,
+      selectedColor,
+      selectedColorHex,
+      customColorName,
+      customOpacity,
+      processing: selectedProcessing,
+      processingName: selectedProcessingName || PROCESSING_OPTIONS.find(p => p.id === selectedProcessing)?.name || '',
+      additionalOptions: selectedAdditionalOptions,
+      qty,
+      isComplex,
+      bevelLengthM,
+      laserHoles,
+      corners90,
+      useDetailedBond,
+      joinLengthM,
+      trayHeightMm,
+      edgeFinishing,
+      bulgwang,
+      tapung,
+      mugwangPainting,
+      ...extraOptions,
+    },
+    breakdown: breakdown.map(item => ({ ...item })),
+    totalPrice,
+    note: '저장 당시 단가와 계산 근거입니다. 이후 단가표 변경은 이 견적 금액에 자동 반영되지 않습니다.',
+  });
+
   const handleAddQuote = async () => {
     // 다중 선택 방식으로 검증 수정
     if (!selectedMaterial || !selectedQuality || !selectedThickness || selectedSizes.length === 0) {
@@ -683,7 +771,10 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       processingName: processingName,
       totalPrice: priceInfo.totalPrice,
       quantity: 1,
-      breakdown: priceInfo.breakdown
+      breakdown: priceInfo.breakdown,
+      pricingVersionId: activePricingVersion?.id || null,
+      pricingVersionName: activePricingVersion?.version_name || '미지정 단가표',
+      calculationSnapshot: createCalculationSnapshot(priceInfo.breakdown, priceInfo.totalPrice)
     };
 
     // 편집 모드일 때: 저장된 견적서의 해당 항목을 업데이트
@@ -722,7 +813,20 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
             items,
             subtotal: roundedSubtotal,
             tax: newTax,
-            total: newTotal
+            total: newTotal,
+            pricing_version_id: activePricingVersion?.id || null,
+            calculation_snapshot: {
+              schemaVersion: 1,
+              capturedAt: new Date().toISOString(),
+              pricingVersionId: activePricingVersion?.id || null,
+              pricingVersionName: activePricingVersion?.version_name || '미지정 단가표',
+              items: items.map(item => ({
+                id: item.id,
+                totalPrice: item.totalPrice,
+                quantity: item.quantity || 1,
+                calculationSnapshot: item.calculationSnapshot || null,
+              })),
+            },
           })
           .eq('id', savedQuoteId);
 
@@ -772,7 +876,20 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
             items,
             subtotal: roundedSubtotal,
             tax: newTax,
-            total: newTotal
+            total: newTotal,
+            pricing_version_id: activePricingVersion?.id || null,
+            calculation_snapshot: {
+              schemaVersion: 1,
+              capturedAt: new Date().toISOString(),
+              pricingVersionId: activePricingVersion?.id || null,
+              pricingVersionName: activePricingVersion?.version_name || '미지정 단가표',
+              items: items.map(item => ({
+                id: item.id,
+                totalPrice: item.totalPrice,
+                quantity: item.quantity || 1,
+                calculationSnapshot: item.calculationSnapshot || null,
+              })),
+            },
           })
           .eq('id', savedQuoteId);
 
@@ -877,7 +994,14 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         processingName: `${item.itemNumber ? `[${item.itemNumber}] ` : ''}${item.name}`,
         totalPrice: item.unitPrice * item.quantity,
         quantity: 1,
-        breakdown: breakdownItems
+        breakdown: breakdownItems,
+        pricingVersionId: activePricingVersion?.id || null,
+        pricingVersionName: activePricingVersion?.version_name || '미지정 단가표',
+        calculationSnapshot: createCalculationSnapshot(
+          breakdownItems,
+          item.unitPrice * item.quantity,
+          { manualProductItem: { ...item } }
+        )
       };
     });
 
@@ -912,7 +1036,20 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
             items,
             subtotal: roundedSubtotal,
             tax: newTax,
-            total: newTotal
+            total: newTotal,
+            pricing_version_id: activePricingVersion?.id || null,
+            calculation_snapshot: {
+              schemaVersion: 1,
+              capturedAt: new Date().toISOString(),
+              pricingVersionId: activePricingVersion?.id || null,
+              pricingVersionName: activePricingVersion?.version_name || '미지정 단가표',
+              items: items.map(item => ({
+                id: item.id,
+                totalPrice: item.totalPrice,
+                quantity: item.quantity || 1,
+                calculationSnapshot: item.calculationSnapshot || null,
+              })),
+            },
           })
           .eq('id', savedQuoteId);
 

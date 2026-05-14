@@ -12,6 +12,10 @@ interface ColorOption {
   color_name: string;
   color_code: string;
   is_active: boolean;
+  is_producible?: boolean;
+  is_bright_pigment?: boolean;
+  unavailable_reason?: string | null;
+  color_attribute_note?: string | null;
 }
 
 interface ColorSelectionProps {
@@ -21,6 +25,7 @@ interface ColorSelectionProps {
     hexCode: string;
     customColorName?: string;
     customOpacity?: string;
+    isBrightPigment?: boolean;
   }) => void;
   selectedQuality?: { id: string; name: string } | null;
   initialCustomColor?: string;
@@ -75,6 +80,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
         .select('*')
         .eq('panel_master_id', panelMaster.id)
         .eq('is_active', true)
+        .neq('is_producible', false)
         .order('display_order', { ascending: true });
 
       if (error) {
@@ -295,7 +301,11 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                 <div
                   key={color.id}
                   className="relative group cursor-pointer"
-                  onClick={() => onColorSelect(color.id, { acCode, hexCode: color.color_code || '' })}
+                  onClick={() => onColorSelect(color.id, { 
+                    acCode, 
+                    hexCode: color.color_code || '',
+                    isBrightPigment: color.is_bright_pigment || false,
+                  })}
                 >
                   <div className={`aspect-square rounded-lg border-2 transition-all ${
                     isSelected 
@@ -314,6 +324,9 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                     <div className="text-xs text-muted-foreground truncate">
                       {color.color_code}
                     </div>
+                    {color.is_bright_pigment && (
+                      <div className="text-[10px] text-rose-600 truncate">조색비 대상</div>
+                    )}
                   </div>
                 </div>
               );

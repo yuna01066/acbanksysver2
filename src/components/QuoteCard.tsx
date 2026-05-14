@@ -46,6 +46,9 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
 
   const unitPrice = quote.totalPrice;
   const totalPrice = unitPrice * quote.quantity;
+  const snapshot = quote.calculationSnapshot;
+  const snapshotVersionName = snapshot?.pricingVersion?.versionName || quote.pricingVersionName;
+  const snapshotCapturedAt = snapshot?.capturedAt ? new Date(snapshot.capturedAt) : null;
 
   return (
     <Card className="border border-gray-200 shadow-none rounded-lg">
@@ -140,7 +143,20 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
         {/* 가격 상세 내역 */}
         {quote.breakdown.length > 0 && (
           <div className="mb-3">
-            <h4 className="text-[12px] font-semibold text-black mb-1.5">가격 상세 내역 (단가)</h4>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+              <h4 className="text-[12px] font-semibold text-black">계산 근거 스냅샷</h4>
+              {snapshotVersionName && (
+                <span className="text-[11px] text-gray-500">
+                  {snapshotVersionName}
+                  {snapshotCapturedAt && ` · ${snapshotCapturedAt.toLocaleDateString('ko-KR')}`}
+                </span>
+              )}
+            </div>
+            {snapshot?.note && (
+              <div className="mb-1.5 rounded bg-blue-50 px-2 py-1 text-[11px] text-blue-700">
+                {snapshot.note}
+              </div>
+            )}
             <div className="space-y-0.5">
               {quote.breakdown.map((item, itemIndex) => (
                 <div key={itemIndex} className="flex justify-between text-[12px] py-1 px-2 bg-gray-50 rounded">

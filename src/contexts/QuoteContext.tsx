@@ -20,6 +20,22 @@ export interface Quote {
   totalPrice: number;
   quantity: number;
   breakdown: { label: string; price: number }[];
+  pricingVersionId?: string | null;
+  pricingVersionName?: string;
+  calculationSnapshot?: {
+    schemaVersion: number;
+    capturedAt: string;
+    pricingVersion?: {
+      id?: string | null;
+      versionName?: string;
+      supplierName?: string;
+      effectiveFrom?: string;
+    } | null;
+    selectedOptions?: Record<string, unknown>;
+    breakdown: { label: string; price: number }[];
+    totalPrice: number;
+    note?: string;
+  };
   createdAt: Date;
   serialNumber?: string;
 }
