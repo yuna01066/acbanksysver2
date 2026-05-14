@@ -17,6 +17,10 @@ interface ColorOption {
   color_name: string;
   color_code?: string;
   is_active: boolean;
+  is_producible?: boolean;
+  is_bright_pigment?: boolean;
+  unavailable_reason?: string | null;
+  color_attribute_note?: string | null;
   display_order: number;
 }
 
@@ -31,7 +35,14 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<ColorOption>>({});
   const [isAdding, setIsAdding] = useState(false);
-  const [newColor, setNewColor] = useState({ color_name: '', color_code: '' });
+  const [newColor, setNewColor] = useState({
+    color_name: '',
+    color_code: '',
+    is_bright_pigment: false,
+    is_producible: true,
+    unavailable_reason: '',
+    color_attribute_note: '',
+  });
 
   // panel_master_id 조회 (qualityId가 주어진 경우)
   const { data: panelMaster } = useQuery({
@@ -120,7 +131,14 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
       queryClient.invalidateQueries({ queryKey: ['color-options', panelMasterId] });
       toast({ title: '추가 완료', description: '새 컬러가 추가되었습니다.' });
       setIsAdding(false);
-      setNewColor({ color_name: '', color_code: '' });
+      setNewColor({
+        color_name: '',
+        color_code: '',
+        is_bright_pigment: false,
+        is_producible: true,
+        unavailable_reason: '',
+        color_attribute_note: '',
+      });
     },
     onError: (error: Error) => {
       toast({ title: '추가 실패', description: error.message, variant: 'destructive' });
@@ -175,6 +193,10 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
       color_name: newColor.color_name,
       color_code: newColor.color_code || undefined,
       is_active: true,
+      is_producible: newColor.is_producible,
+      is_bright_pigment: newColor.is_bright_pigment,
+      unavailable_reason: newColor.unavailable_reason || null,
+      color_attribute_note: newColor.color_attribute_note || null,
       display_order: maxOrder + 1,
     });
   };
@@ -210,7 +232,7 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
       <CardContent>
         {isAdding && (
           <div className="mb-4 p-4 border rounded-lg bg-muted/50">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">컬러 이름</Label>
                 <Input
@@ -225,6 +247,36 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
                   placeholder="예: #FFFFFF"
                   value={newColor.color_code}
                   onChange={(e) => setNewColor({ ...newColor, color_code: e.target.value })}
+                />
+              </div>
+              <div className="flex items-center justify-between rounded border bg-background px-3 py-2">
+                <Label className="text-xs">생산 가능</Label>
+                <Switch
+                  checked={newColor.is_producible}
+                  onCheckedChange={(checked) => setNewColor({ ...newColor, is_producible: checked })}
+                />
+              </div>
+              <div className="flex items-center justify-between rounded border bg-background px-3 py-2">
+                <Label className="text-xs">브라이트/진백/스리 조색비 대상</Label>
+                <Switch
+                  checked={newColor.is_bright_pigment}
+                  onCheckedChange={(checked) => setNewColor({ ...newColor, is_bright_pigment: checked })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">생산 불가 사유</Label>
+                <Input
+                  placeholder="예: 해당 두께 생산 불가"
+                  value={newColor.unavailable_reason}
+                  onChange={(e) => setNewColor({ ...newColor, unavailable_reason: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">속성 메모</Label>
+                <Input
+                  placeholder="예: 흰색 안료 추가 컬러"
+                  value={newColor.color_attribute_note}
+                  onChange={(e) => setNewColor({ ...newColor, color_attribute_note: e.target.value })}
                 />
               </div>
             </div>
@@ -264,6 +316,8 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
               <TableRow>
                 <TableHead>컬러 이름</TableHead>
                 <TableHead>컬러 코드</TableHead>
+                <TableHead className="text-center">생산</TableHead>
+                <TableHead className="text-center">속성</TableHead>
                 <TableHead className="text-center">활성</TableHead>
                 <TableHead className="text-right">작업</TableHead>
               </TableRow>
@@ -300,6 +354,55 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
                                 />
                                 <span className="text-sm font-mono">{color.color_code}</span>
                               </>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {isEditing ? (
+                          <Switch
+                            checked={editForm.is_producible ?? true}
+                            onCheckedChange={(checked) => setEditForm({ ...editForm, is_producible: checked })}
+                          />
+                        ) : (
+                          <Badge variant={color.is_producible === false ? 'destructive' : 'default'}>
+                            {color.is_producible === false ? '불가' : '가능'}
+                          </Badge>
+                        )}
+                        {isEditing && editForm.is_producible === false && (
+                          <Input
+                            className="mt-2 h-8 text-xs"
+                            placeholder="불가 사유"
+                            value={editForm.unavailable_reason || ''}
+                            onChange={(e) => setEditForm({ ...editForm, unavailable_reason: e.target.value })}
+                          />
+                        )}
+                        {!isEditing && color.is_producible === false && color.unavailable_reason && (
+                          <div className="mt-1 text-[11px] text-muted-foreground">{color.unavailable_reason}</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {isEditing ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-center gap-2">
+                              <Switch
+                                checked={editForm.is_bright_pigment ?? false}
+                                onCheckedChange={(checked) => setEditForm({ ...editForm, is_bright_pigment: checked })}
+                              />
+                              <span className="text-xs">조색비</span>
+                            </div>
+                            <Input
+                              className="h-8 text-xs"
+                              placeholder="속성 메모"
+                              value={editForm.color_attribute_note || ''}
+                              onChange={(e) => setEditForm({ ...editForm, color_attribute_note: e.target.value })}
+                            />
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {color.is_bright_pigment && <Badge variant="outline">조색비 대상</Badge>}
+                            {color.color_attribute_note && (
+                              <div className="text-[11px] text-muted-foreground">{color.color_attribute_note}</div>
                             )}
                           </div>
                         )}
@@ -347,7 +450,7 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     {activeTab === 'A' ? '카테고리 A' : '카테고리 B'}에 등록된 컬러가 없습니다
                   </TableCell>
                 </TableRow>

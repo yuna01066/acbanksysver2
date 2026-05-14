@@ -51,6 +51,8 @@ interface SavedQuote {
   issuer_position: string | null;
   attachments: any;
   items: any;
+  pricing_version_id?: string | null;
+  calculation_snapshot?: any;
   subtotal: number;
   tax: number;
   total: number;
@@ -328,6 +330,21 @@ const SavedQuoteDetailPage = () => {
           issuer_phone: recipientData.issuerPhone,
           attachments: allAttachments,
           items: editedItems,
+          calculation_snapshot: {
+            ...(quote.calculation_snapshot && typeof quote.calculation_snapshot === 'object' ? quote.calculation_snapshot : {}),
+            schemaVersion: 1,
+            editedAt: new Date().toISOString(),
+            subtotal: roundedSubtotal,
+            tax: newTax,
+            total: newTotal,
+            items: editedItems.map(item => ({
+              id: item.id,
+              totalPrice: item.totalPrice,
+              quantity: item.quantity || 1,
+              calculationSnapshot: item.calculationSnapshot || null,
+            })),
+            note: '견적 저장 당시 계산 근거입니다. 수동 편집 시 품목 스냅샷은 기존 값을 유지합니다.',
+          },
           subtotal: roundedSubtotal,
           tax: newTax,
           total: newTotal
@@ -429,6 +446,14 @@ const SavedQuoteDetailPage = () => {
   const subtotal = (isEditing && manualTotalOverride) ? manualTotalOverride.subtotal : autoSubtotal;
   const tax = (isEditing && manualTotalOverride) ? manualTotalOverride.tax : autoTax;
   const totalWithTax = (isEditing && manualTotalOverride) ? manualTotalOverride.total : autoTotal;
+  const calculationSnapshot = quote.calculation_snapshot && typeof quote.calculation_snapshot === 'object'
+    ? quote.calculation_snapshot
+    : null;
+  const snapshotVersionName = calculationSnapshot?.pricingVersionName
+    || items.find((item: any) => item?.pricingVersionName)?.pricingVersionName
+    || items.find((item: any) => item?.calculationSnapshot?.pricingVersion?.versionName)?.calculationSnapshot?.pricingVersion?.versionName;
+  const snapshotCapturedAt = calculationSnapshot?.capturedAt
+    || items.find((item: any) => item?.calculationSnapshot?.capturedAt)?.calculationSnapshot?.capturedAt;
 
   return (
     <>
@@ -475,6 +500,23 @@ const SavedQuoteDetailPage = () => {
                 tax={tax}
                 totalWithTax={totalWithTax}
               />
+
+              {viewMode === 'internal' && !isEditing && (snapshotVersionName || snapshotCapturedAt) && (
+                <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 print:hidden">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-semibold text-blue-950">단가 영향도</div>
+                      <div className="mt-1 text-xs text-blue-800">
+                        이 견적은 저장 당시 계산 스냅샷 기준으로 고정되어 이후 단가 변경에 자동 영향받지 않습니다.
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="bg-white">
+                      {snapshotVersionName || '미지정 단가표'}
+                      {snapshotCapturedAt && ` · ${new Date(snapshotCapturedAt).toLocaleDateString('ko-KR')}`}
+                    </Badge>
+                  </div>
+                </div>
+              )}
 
               {/* Edit Form */}
               {isEditing && (

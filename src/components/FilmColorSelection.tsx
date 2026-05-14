@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 interface FilmColorSelectionProps {
   selectedColor: string;
   selectedBaseType: string;
-  onColorSelect: (colorId: string, colorInfo: { acCode: string; hexCode: string }) => void;
+  onColorSelect: (colorId: string, colorInfo: { acCode: string; hexCode: string; isBrightPigment?: boolean }) => void;
   onBaseTypeSelect: (baseType: string) => void;
 }
 
@@ -67,7 +67,7 @@ const FilmColorSelection: React.FC<FilmColorSelectionProps> = ({
 
   const handleDetailColorSelect = (colorId: string, colorInfo: { acCode: string; hexCode: string }) => {
     // 세부 색상 선택 시에만 onColorSelect 호출하여 다음 단계로 진행
-    onColorSelect(colorId, colorInfo);
+    onColorSelect(colorId, { ...colorInfo, isBrightPigment: selectedBase === 'bright' });
   };
 
   const getDetailColors = () => {

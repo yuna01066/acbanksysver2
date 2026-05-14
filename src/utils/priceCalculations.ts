@@ -739,6 +739,16 @@ export const calculatePrice = (
     }
   }
 
+  if (basePrice <= 0) {
+    return {
+      totalPrice: 0,
+      breakdown: [{
+        label: `생산 불가 조합 또는 단가 미등록: ${qualityId} / ${thickness} / ${sizeKey}`,
+        price: 0
+      }]
+    };
+  }
+
   const dbBrightPigmentSurcharge = findOptionSurcharge('bright_pigment');
   if (isBrightPigmentColor(colorType)) {
     const brightPigmentCost = dbBrightPigmentSurcharge?.cost && dbBrightPigmentSurcharge.cost > 0

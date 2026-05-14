@@ -74,6 +74,9 @@ const InternalQuotePage = () => {
       const subtotal = getTotalPrice();
       const tax = subtotal * 0.1;
       const total = getTotalPriceWithTax();
+      const primaryPricingVersionId = quotes.find(q => q.pricingVersionId)?.pricingVersionId || null;
+      const primaryPricingVersionName = quotes.find(q => q.pricingVersionName)?.pricingVersionName || '미지정 단가표';
+      const capturedAt = new Date().toISOString();
 
       const quoteData = {
         user_id: user.id,
@@ -98,6 +101,23 @@ const InternalQuotePage = () => {
         issuer_department: recipient?.issuerDepartment || '',
         issuer_position: recipient?.issuerPosition || '',
         items: quotes.map(q => ({ ...q })),
+        pricing_version_id: primaryPricingVersionId,
+        calculation_snapshot: {
+          schemaVersion: 1,
+          capturedAt,
+          pricingVersionId: primaryPricingVersionId,
+          pricingVersionName: primaryPricingVersionName,
+          subtotal: Math.round(subtotal),
+          tax: Math.round(tax),
+          total: Math.round(total),
+          items: quotes.map(q => ({
+            id: q.id,
+            totalPrice: q.totalPrice,
+            quantity: q.quantity,
+            calculationSnapshot: q.calculationSnapshot || null,
+          })),
+          note: '견적 저장 당시 계산 근거입니다. 이후 단가표 변경은 저장 견적 금액에 자동 반영되지 않습니다.',
+        },
         subtotal: Math.round(subtotal),
         tax: Math.round(tax),
         total: Math.round(total),
