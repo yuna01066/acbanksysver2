@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Minus, Trash2, ShoppingCart, ArrowRight } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
+const DEFAULT_COLOR_MIXING_COST = 40000;
+
 interface PanelSizeInfo {
   baseName: string;
   baseWidth: number;
@@ -83,12 +85,12 @@ const MultipleSizeSelection: React.FC<MultipleSizeSelectionProps> = ({
       // 이미 선택된 경우 제거
       onSelectionChange(selectedSizes.filter(s => s.size !== size));
     } else {
-      // 새로 추가 (기본 수량 1, 조색비 20000원, 기본 면수 단면)
+      // 새로 추가 (기본 수량 1, 조색비 40000원, 기본 면수 단면)
       onSelectionChange([...selectedSizes, { 
         size, 
         quantity: 1,
         surface: '단면',
-        colorMixingCost: 20000
+        colorMixingCost: DEFAULT_COLOR_MIXING_COST
       }]);
     }
   };

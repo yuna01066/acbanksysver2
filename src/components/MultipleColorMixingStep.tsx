@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Palette, Plus, Minus, ArrowRight } from "lucide-react";
 import { SizeQuantitySelection } from "./MultipleSizeSelection";
 
+const DEFAULT_COLOR_MIXING_COST = 40000;
+
 interface MultipleColorMixingStepProps {
   selectedSizes: SizeQuantitySelection[];
   onSelectionChange: (selections: SizeQuantitySelection[]) => void;
@@ -27,7 +29,7 @@ const MultipleColorMixingStep: React.FC<MultipleColorMixingStepProps> = ({
       onSelectionChange(
         selectedSizes.map(item => ({
           ...item,
-          colorMixingCost: item.colorMixingCost ?? 20000
+          colorMixingCost: item.colorMixingCost ?? DEFAULT_COLOR_MIXING_COST
         }))
       );
     }
@@ -37,7 +39,7 @@ const MultipleColorMixingStep: React.FC<MultipleColorMixingStepProps> = ({
     onSelectionChange(
       selectedSizes.map(item => {
         if (item.size === size) {
-          const currentCost = item.colorMixingCost || 20000;
+          const currentCost = item.colorMixingCost || DEFAULT_COLOR_MIXING_COST;
           const newCost = Math.max(0, currentCost + delta);
           return { ...item, colorMixingCost: newCost };
         }
@@ -60,14 +62,14 @@ const MultipleColorMixingStep: React.FC<MultipleColorMixingStepProps> = ({
       <div className="text-center">
         <h3 className="text-2xl font-bold mb-2">각 판재의 조색비를 설정해 주세요</h3>
         <p className="text-muted-foreground">
-          선택한 각 사이즈별로 조색비를 설정하세요 (기본: 20,000원)
+          선택한 각 사이즈별로 조색비를 설정하세요 (기본: 40,000원)
         </p>
       </div>
 
       <div className="space-y-4">
         {selectedSizes.map((item) => {
           const baseName = getSizeBaseName(item.size);
-          const colorMixingCost = item.colorMixingCost ?? 20000;
+          const colorMixingCost = item.colorMixingCost ?? DEFAULT_COLOR_MIXING_COST;
 
           return (
             <Card 
@@ -144,7 +146,7 @@ const MultipleColorMixingStep: React.FC<MultipleColorMixingStepProps> = ({
           <div className="flex items-center justify-between">
             <span className="font-semibold text-lg">총 조색비</span>
             <span className="text-2xl font-bold text-primary">
-              {selectedSizes.reduce((sum, item) => sum + (item.colorMixingCost || 20000), 0).toLocaleString()}원
+              {selectedSizes.reduce((sum, item) => sum + (item.colorMixingCost || DEFAULT_COLOR_MIXING_COST), 0).toLocaleString()}원
             </span>
           </div>
         </CardContent>
