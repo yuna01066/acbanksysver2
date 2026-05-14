@@ -30,6 +30,9 @@ import YieldCalculator from "./YieldCalculator";
 import AdvancedProcessingOptions from "./AdvancedProcessingOptions";
 import EdgeFinishingOption from "./EdgeFinishingOption";
 import ManualProductEntry, { ManualProductItem } from "./ManualProductEntry";
+
+const DEFAULT_COLOR_MIXING_COST = 40000;
+
 const PROCESSING_OPTIONS = [{
   id: 'raw-only',
   name: '원판 단독 구매'
@@ -86,7 +89,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [customColorName, setCustomColorName] = useState<string>('');
   const [customOpacity, setCustomOpacity] = useState<string>('');
   const [selectedSurface, setSelectedSurface] = useState<string>('');
-  const [colorMixingCost, setColorMixingCost] = useState<number>(20000);
+  const [colorMixingCost, setColorMixingCost] = useState<number>(DEFAULT_COLOR_MIXING_COST);
   const [selectedProcessing, setSelectedProcessing] = useState<string>('');
   const [selectedProcessingName, setSelectedProcessingName] = useState<string>('');
   const [selectedAdhesion, setSelectedAdhesion] = useState<string>('');
@@ -200,11 +203,11 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
               size: match[1].trim(), 
               quantity: parseInt(match[2]), 
               surface: '', 
-              // undefined로 두면 MultipleColorMixingStep에서 기본값(20,000) 초기화 가능
-              colorMixingCost: hasRestoredColorMixingCost ? undefined : 20000 
+              // undefined로 두면 MultipleColorMixingStep에서 기본값(40,000) 초기화 가능
+              colorMixingCost: hasRestoredColorMixingCost ? undefined : DEFAULT_COLOR_MIXING_COST 
             };
           }
-          return { size: entry, quantity: 1, surface: '', colorMixingCost: hasRestoredColorMixingCost ? undefined : 20000 };
+          return { size: entry, quantity: 1, surface: '', colorMixingCost: hasRestoredColorMixingCost ? undefined : DEFAULT_COLOR_MIXING_COST };
         });
 
         // 저장된 견적에서 넘어온 조색비를 각 사이즈 항목에 적용
@@ -369,7 +372,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       setSelectedSize('');
       setSelectedColorType('');
       setSelectedSurface('');
-      setColorMixingCost(20000);
+      setColorMixingCost(DEFAULT_COLOR_MIXING_COST);
       setSelectedProcessing('');
       setSelectedProcessingName('');
       setSelectedAdhesion('');
@@ -383,7 +386,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       setSelectedSize('');
       setSelectedColorType('');
       setSelectedSurface('');
-      setColorMixingCost(20000);
+      setColorMixingCost(DEFAULT_COLOR_MIXING_COST);
       setSelectedProcessing('');
       setSelectedProcessingName('');
       setSelectedAdhesion('');
@@ -396,7 +399,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       setSelectedSize('');
       setSelectedColorType('');
       setSelectedSurface('');
-      setColorMixingCost(20000);
+      setColorMixingCost(DEFAULT_COLOR_MIXING_COST);
       setSelectedProcessing('');
       setSelectedProcessingName('');
       setSelectedAdhesion('');
@@ -409,7 +412,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       setSelectedSize('');
       setSelectedColorType('');
       setSelectedSurface('');
-      setColorMixingCost(20000);
+      setColorMixingCost(DEFAULT_COLOR_MIXING_COST);
       setSelectedProcessing('');
       setSelectedProcessingName('');
       setSelectedAdhesion('');
@@ -419,7 +422,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       setSelectedSize('');
       setSelectedColorType('');
       setSelectedSurface('');
-      setColorMixingCost(20000);
+      setColorMixingCost(DEFAULT_COLOR_MIXING_COST);
       setSelectedProcessing('');
       setSelectedProcessingName('');
       setSelectedAdhesion('');
@@ -428,20 +431,20 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       setSelectedSize('');
       setSelectedColorType('');
       setSelectedSurface('');
-      setColorMixingCost(20000);
+      setColorMixingCost(DEFAULT_COLOR_MIXING_COST);
       setSelectedProcessing('');
       setSelectedProcessingName('');
       setSelectedAdhesion('');
       setCurrentStep(5);
     } else if (step <= 6) {
       setSelectedSurface('');
-      setColorMixingCost(20000);
+      setColorMixingCost(DEFAULT_COLOR_MIXING_COST);
       setSelectedProcessing('');
       setSelectedProcessingName('');
       setSelectedAdhesion('');
       setCurrentStep(6);
     } else if (step <= 7) {
-      setColorMixingCost(20000);
+      setColorMixingCost(DEFAULT_COLOR_MIXING_COST);
       setSelectedProcessing('');
       setSelectedProcessingName('');
       setSelectedAdhesion('');
@@ -570,9 +573,9 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     console.log('Surface selected:', surface);
     setSelectedSurface(surface);
     
-    // 필름 아크릴의 경우 조색비를 기본 20000원으로 설정
+    // 필름 아크릴의 경우 조색비를 기본 40000원으로 설정
     if (selectedQuality?.id === 'film-acrylic') {
-      setColorMixingCost(20000);
+      setColorMixingCost(DEFAULT_COLOR_MIXING_COST);
     }
     
     resetFromStep(7);
@@ -805,7 +808,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     setCustomColorName('');
     setCustomOpacity('');
     setSelectedSurface('');
-    setColorMixingCost(20000);
+    setColorMixingCost(DEFAULT_COLOR_MIXING_COST);
     setSelectedProcessing('');
     setSelectedProcessingName('');
     setSelectedAdhesion('');
@@ -977,7 +980,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       size: panel.size,
       quantity: panel.quantity,
       surface: '',
-      colorMixingCost: 20000,
+      colorMixingCost: DEFAULT_COLOR_MIXING_COST,
     }));
 
     // 두께와 사이즈 설정. 컬러는 견적계산기 순서에 맞춰 사용자가 다음 단계에서 선택합니다.
@@ -988,7 +991,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     setSelectedColorHex('');
     setSelectedColorType('');
     setSelectedSurface('');
-    setColorMixingCost(20000);
+    setColorMixingCost(DEFAULT_COLOR_MIXING_COST);
     setSelectedProcessing('');
     setSelectedProcessingName('');
     setSelectedAdhesion('');
