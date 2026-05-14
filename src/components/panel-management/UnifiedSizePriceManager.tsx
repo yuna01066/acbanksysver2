@@ -22,6 +22,18 @@ interface PanelSizeWithPrice {
   is_active: boolean;
 }
 
+type OptionSurchargeType = 'double_surface' | 'satin_astel' | 'bright_pigment';
+
+interface PanelOptionSurcharge {
+  id: string;
+  quality_id: string;
+  surcharge_type: OptionSurchargeType;
+  size_name: string;
+  cost: number;
+  is_active: boolean;
+  notes?: string | null;
+}
+
 interface PanelSizeManagerProps {
   qualityId: string;
   qualityName: string;
@@ -36,6 +48,8 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
   const [editingPrice, setEditingPrice] = useState<string>('');
   const [editingCost, setEditingCost] = useState<{ type: 'color' | 'adhesive', thickness: string } | null>(null);
   const [editCostValue, setEditCostValue] = useState<string>('');
+  const [editingOptionCost, setEditingOptionCost] = useState<{ type: OptionSurchargeType; sizeName: string } | null>(null);
+  const [editOptionCostValue, setEditOptionCostValue] = useState<string>('');
   
   const quality = CASTING_QUALITIES.find(q => q.id === qualityId);
   const thicknesses = quality?.thicknesses || [];
@@ -102,6 +116,21 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
       return data || [];
     },
     enabled: !!panelMaster?.id
+  });
+
+  const { data: optionSurchargeData } = useQuery({
+    queryKey: ['panel-option-surcharges', qualityId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('panel_option_surcharges')
+        .select('*')
+        .in('quality_id', ['global', qualityId])
+        .order('surcharge_type')
+        .order('size_name');
+
+      if (error) throw error;
+      return data as PanelOptionSurcharge[];
+    },
   });
 
   // 실시간 업데이트 구독 - 다른 사용자의 변경사항 즉시 반영
@@ -361,6 +390,63 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
     setEditCostValue('');
   };
 
+  const saveOptionSurchargeMutation = useMutation({
+    mutationFn: async ({
+      type,
+      sizeName,
+      cost,
+    }: {
+      type: OptionSurchargeType;
+      sizeName: string;
+      cost: number;
+    }) => {
+      const { error } = await (supabase as any)
+        .from('panel_option_surcharges')
+        .upsert({
+          quality_id: 'global',
+          surcharge_type: type,
+          size_name: sizeName,
+          cost,
+          is_active: cost > 0,
+        }, {
+          onConflict: 'quality_id,surcharge_type,size_name'
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['panel-option-surcharges'] });
+      queryClient.invalidateQueries({ queryKey: ['panel-option-surcharges-calc'] });
+      setEditingOptionCost(null);
+      setEditOptionCostValue('');
+      toast.success('옵션 추가금이 저장되었습니다');
+    },
+    onError: (error) => {
+      toast.error(`저장 실패: ${error.message}`);
+    }
+  });
+
+  const handleEditOptionCostStart = (type: OptionSurchargeType, sizeName: string, currentCost: number = 0) => {
+    setEditingOptionCost({ type, sizeName });
+    setEditOptionCostValue(currentCost.toString());
+  };
+
+  const handleSaveOptionCost = (type: OptionSurchargeType, sizeName: string) => {
+    const cost = parseFloat(editOptionCostValue);
+
+    if (isNaN(cost) || cost < 0) {
+      toast.error('올바른 금액을 입력해주세요');
+      return;
+    }
+
+    saveOptionSurchargeMutation.mutate({ type, sizeName, cost });
+  };
+
+  const handleEditOptionCostCancel = () => {
+    setEditingOptionCost(null);
+    setEditOptionCostValue('');
+  };
+
   const getColorMixingCost = (thickness: string): number => {
     const cost = colorMixingData?.find(c => c.thickness === thickness);
     return cost?.cost || 0;
@@ -370,6 +456,40 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
     const cost = adhesiveData?.find(c => c.thickness === thickness);
     return cost?.cost || 0;
   };
+
+  const getOptionSurchargeCost = (type: OptionSurchargeType, sizeName: string): number => {
+    const matchingSurcharges = optionSurchargeData?.filter(item =>
+      item.surcharge_type === type &&
+      item.size_name === sizeName &&
+      item.is_active &&
+      (item.quality_id === qualityId || item.quality_id === 'global')
+    );
+    const surcharge = matchingSurcharges?.find(item => item.quality_id === qualityId) || matchingSurcharges?.[0];
+
+    return surcharge?.cost || 0;
+  };
+
+  const optionSurchargeSections: Array<{
+    type: OptionSurchargeType;
+    title: string;
+    description: string;
+  }> = [
+    {
+      type: 'double_surface',
+      title: '양단면 추가금',
+      description: '양면 선택 시 사이즈별로 추가되는 양단면 비용입니다.'
+    },
+    {
+      type: 'satin_astel',
+      title: '사틴/아스텔 추가금',
+      description: 'CLEAR 유광 기본가에 더해지는 표면 추가금입니다.'
+    },
+    {
+      type: 'bright_pigment',
+      title: '브라이트/진백/스리 조색비',
+      description: '흰색 안료가 들어가는 컬러 생산 시 사이즈별로 추가됩니다.'
+    }
+  ];
 
   if (isLoading) {
     return (
@@ -587,7 +707,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
           </div>
 
           <div className="border rounded-lg p-4">
-            <h4 className="font-semibold text-sm mb-3">양면 테이프 (두께별)</h4>
+            <h4 className="font-semibold text-sm mb-3">양단면 추가금 (기존 두께별)</h4>
             <div className="space-y-2">
               {thicknesses.map(thickness => {
                 const currentCost = getAdhesiveCost(thickness);
@@ -644,13 +764,89 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
           </div>
         </div>
 
+        <div className="mt-6 space-y-4">
+          <div>
+            <h4 className="font-semibold text-base">사이즈별 옵션 추가금</h4>
+            <p className="text-sm text-muted-foreground mt-1">
+              단가표의 하단 추가금 영역을 사이즈별로 관리합니다. 금액이 없거나 0원이면 계산에 적용되지 않습니다.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {optionSurchargeSections.map(section => (
+              <div key={section.type} className="border rounded-lg p-4">
+                <div className="mb-3">
+                  <h5 className="font-semibold text-sm">{section.title}</h5>
+                  <p className="text-xs text-muted-foreground mt-1">{section.description}</p>
+                </div>
+                <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                  {availableSizes.map(sizeName => {
+                    const currentCost = getOptionSurchargeCost(section.type, sizeName);
+                    const isEditing =
+                      editingOptionCost?.type === section.type &&
+                      editingOptionCost?.sizeName === sizeName;
+
+                    return (
+                      <div key={`${section.type}-${sizeName}`} className="flex items-center justify-between p-2 border rounded bg-background">
+                        <span className="font-medium text-sm">{sizeName}</span>
+                        {isEditing ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              value={editOptionCostValue}
+                              onChange={(e) => setEditOptionCostValue(e.target.value)}
+                              className="w-24 h-8 text-sm"
+                              placeholder="금액"
+                              autoFocus
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => handleSaveOptionCost(section.type, sizeName)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={handleEditOptionCostCancel}
+                              className="h-8 w-8 p-0"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-mono">
+                              {currentCost > 0 ? `₩${currentCost.toLocaleString()}` : '-'}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleEditOptionCostStart(section.type, sizeName, currentCost)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-2">
           <h4 className="font-semibold text-sm">안내</h4>
           <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
             <li>셀을 클릭하여 사이즈와 가격을 입력할 수 있습니다</li>
             <li>스위치를 통해 각 사이즈의 활성화/비활성화를 관리할 수 있습니다</li>
             <li>비활성화된 사이즈는 계산기에 표시되지 않습니다</li>
-            <li>조색비와 양면 테이프 비용은 두께별로 관리됩니다</li>
+            <li>기존 두께별 양단면 금액보다 사이즈별 양단면 추가금이 우선 적용됩니다</li>
+            <li>사틴/아스텔은 CLEAR 유광 기본가에 사이즈별 추가금을 더하는 방식으로 계산됩니다</li>
           </ul>
         </div>
       </CardContent>

@@ -168,7 +168,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
                               </span>
                             </div>
                             <div className="text-xs text-muted-foreground pt-1 border-t border-border/30">
-                              원판 + 면수(테이프) + 조색비 포함
+                              원판 + 면수(양단면) + 조색비 포함
                             </div>
                           </div>
                         </div>

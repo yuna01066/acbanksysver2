@@ -25,7 +25,7 @@ export const initializeGlossyColorPrices = (): PricingData => {
             const singleKey = createPriceKey('casting', 'glossy-color', thickness, size, '단면');
             initialPrices[singleKey] = price;
             
-            // 양면 가격 설정 (단면 가격 + 테이프 가격)
+            // 양면 가격 설정 (단면 가격 + 양단면 추가금)
             const tapePrice = tapePrices[size as keyof typeof tapePrices] || 0;
             if (tapePrice > 0) {
               const doubleKey = createPriceKey('casting', 'glossy-color', thickness, size, '양면');
@@ -59,7 +59,7 @@ export const initializeAstelColorPrices = (): PricingData => {
                 const singleKey = createPriceKey('casting', 'astel-color', thickness, size, '단면');
                 initialPrices[singleKey] = price + astelSurcharge;
               } else {
-                // 8T 이상: 양면만 (기본 가격 + 테이프 + 아스텔 추가금액)
+                // 8T 이상: 양면만 (기본 가격 + 양단면 + 아스텔 추가금액)
                 const tapePrice = tapePrices[size as keyof typeof tapePrices] || 0;
                 const astelSurcharge = astelDoubleSideSurcharge[size as keyof typeof astelDoubleSideSurcharge] || 0;
                 const doubleKey = createPriceKey('casting', 'astel-color', thickness, size, '양면');
@@ -72,7 +72,7 @@ export const initializeAstelColorPrices = (): PricingData => {
               const singleKey = createPriceKey('casting', 'astel-color', thickness, size, '단면');
               initialPrices[singleKey] = price + astelSurcharge;
               
-              // 양면 가격 설정 (기본 가격 + 테이프 + 아스텔 추가금액)
+              // 양면 가격 설정 (기본 가격 + 양단면 + 아스텔 추가금액)
               const tapePrice = tapePrices[size as keyof typeof tapePrices] || 0;
               if (tapePrice > 0) {
                 const doubleKey = createPriceKey('casting', 'astel-color', thickness, size, '양면');
@@ -129,7 +129,7 @@ export const initializeGlossyStandardPrices = (): PricingData => {
             const colorSingleKey = createPriceKey('casting', 'glossy-standard', thickness, size, '단면', '컬러');
             initialPrices[colorSingleKey] = price;
             
-            // 컬러 양면 가격 설정 (단면 가격 + 테이프 가격)
+            // 컬러 양면 가격 설정 (단면 가격 + 양단면 추가금)
             const tapePrice = tapePrices[size as keyof typeof tapePrices] || 0;
             if (tapePrice > 0) {
               const colorDoubleKey = createPriceKey('casting', 'glossy-standard', thickness, size, '양면', '컬러');
@@ -142,7 +142,7 @@ export const initializeGlossyStandardPrices = (): PricingData => {
               const jinbaekSingleKey = createPriceKey('casting', 'glossy-standard', thickness, size, '단면', '진백');
               initialPrices[jinbaekSingleKey] = price + jinbaekPrice;
               
-              // 진백 양면 가격 설정 (기본 가격 + 진백 추가 가격 + 테이프 가격)
+              // 진백 양면 가격 설정 (기본 가격 + 진백 추가 가격 + 양단면 추가금)
               if (tapePrice > 0) {
                 const jinbaekDoubleKey = createPriceKey('casting', 'glossy-standard', thickness, size, '양면', '진백');
                 initialPrices[jinbaekDoubleKey] = price + jinbaekPrice + tapePrice;
@@ -627,6 +627,14 @@ export interface AdhesiveCostData {
   cost: number;
 }
 
+export interface PanelOptionSurchargeData {
+  quality_id: string;
+  surcharge_type: 'double_surface' | 'satin_astel' | 'bright_pigment';
+  size_name: string;
+  cost: number;
+  is_active: boolean;
+}
+
 export interface PanelSizeData {
   size_name: string;
   thickness: string;
@@ -647,6 +655,8 @@ export const calculatePrice = (
     colorMixingCostsData?: ColorMixingCostData[];
     adhesiveCostsData?: AdhesiveCostData[];
     panelSizesData?: PanelSizeData[];
+    basePanelSizesData?: PanelSizeData[];
+    optionSurchargesData?: PanelOptionSurchargeData[];
   }
 ): { totalPrice: number; breakdown: { label: string; price: number }[] } => {
   const breakdown: { label: string; price: number }[] = [];
@@ -657,6 +667,20 @@ export const calculatePrice = (
 
   // 사이즈에서 실제 키 추출 (예: "소3*6 (850*1750)" -> "소3*6")
   const sizeKey = size.split(' ')[0];
+  const optionSurchargesData = options?.optionSurchargesData || [];
+  const findOptionSurcharge = (type: PanelOptionSurchargeData['surcharge_type']) => {
+    const matchingSurcharges = optionSurchargesData.filter(surcharge =>
+      surcharge.surcharge_type === type &&
+      surcharge.size_name === sizeKey &&
+      surcharge.is_active &&
+      (surcharge.quality_id === qualityId || surcharge.quality_id === 'global')
+    );
+    return matchingSurcharges.find(surcharge => surcharge.quality_id === qualityId) || matchingSurcharges[0];
+  };
+  const isBrightPigmentColor = (value?: string) => {
+    if (!value) return false;
+    return /진백|스리|브라이트|bright/i.test(value);
+  };
 
   // 1) 기본 단면 가격 가져오기 (원자재 비용)
   let basePrice = 0;
@@ -667,11 +691,32 @@ export const calculatePrice = (
     ps => ps.size_name === sizeKey && ps.thickness === thickness && ps.is_active
   );
   
+  const finishSurcharge = qualityId === 'astel-color' || qualityId === 'satin-color'
+    ? findOptionSurcharge('satin_astel')
+    : undefined;
+
+  if (finishSurcharge && finishSurcharge.cost > 0) {
+    const clearDbPanelSize = options?.basePanelSizesData?.find(
+      ps => ps.size_name === sizeKey && ps.thickness === thickness && ps.is_active
+    );
+    const clearPrices = glossyColorSinglePrices[thickness as keyof typeof glossyColorSinglePrices];
+    const clearBasePrice = clearDbPanelSize?.price && clearDbPanelSize.price > 0
+      ? clearDbPanelSize.price
+      : clearPrices?.[sizeKey as keyof typeof clearPrices] || 0;
+
+    if (clearBasePrice > 0) {
+      basePrice = clearBasePrice;
+      breakdown.push({ label: 'CLEAR 유광 색상판 기본가', price: basePrice });
+      breakdown.push({ label: '사틴/아스텔 추가금 (DB)', price: finishSurcharge.cost });
+      basePrice += finishSurcharge.cost;
+    }
+  }
+
   // DB에 가격이 있으면 우선 사용
-  if (dbPanelSize?.price && dbPanelSize.price > 0) {
+  if (basePrice === 0 && dbPanelSize?.price && dbPanelSize.price > 0) {
     basePrice = dbPanelSize.price;
     breakdown.push({ label: `${qualityId} 기본가 (DB)`, price: basePrice });
-  } else {
+  } else if (basePrice === 0) {
     // DB에 없으면 하드코딩된 값 사용 (fallback)
     if (qualityId === 'glossy-color') {
       const prices = glossyColorSinglePrices[thickness as keyof typeof glossyColorSinglePrices];
@@ -697,39 +742,52 @@ export const calculatePrice = (
       basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
       breakdown.push({ label: '유광 보급판 기본가', price: basePrice });
       
-      // 진백 추가금액
-      if (colorType === '진백') {
-        const jinbaekPrice = jinbaekPrices[sizeKey as keyof typeof jinbaekPrices] || 0;
-        if (jinbaekPrice > 0) {
-          breakdown.push({ label: '진백 추가금액', price: jinbaekPrice });
-          basePrice += jinbaekPrice;
-        }
-      }
+    }
+  }
+
+  const dbBrightPigmentSurcharge = findOptionSurcharge('bright_pigment');
+  if (isBrightPigmentColor(colorType)) {
+    const brightPigmentCost = dbBrightPigmentSurcharge?.cost && dbBrightPigmentSurcharge.cost > 0
+      ? dbBrightPigmentSurcharge.cost
+      : jinbaekPrices[sizeKey as keyof typeof jinbaekPrices] || 0;
+
+    if (brightPigmentCost > 0) {
+      breakdown.push({
+        label: dbBrightPigmentSurcharge ? '브라이트/진백/스리 조색비 (DB)' : '브라이트/진백/스리 조색비',
+        price: brightPigmentCost
+      });
+      basePrice += brightPigmentCost;
     }
   }
 
   // 2) 양면 추가금액 (자재비에 포함)
   if (surface === '양면') {
     let doubleSidePrice = 0;
+    const dbDoubleSurfaceSurcharge = findOptionSurcharge('double_surface');
     
-    // DB에서 가져온 양면 테이프 비용이 있으면 우선 사용
-    const adhesiveCostsData = options?.adhesiveCostsData || [];
-    const dbAdhesiveCost = adhesiveCostsData.find(c => c.thickness === thickness);
-    
-    if (dbAdhesiveCost && dbAdhesiveCost.cost > 0) {
-      doubleSidePrice = dbAdhesiveCost.cost;
-      breakdown.push({ label: '양면 테이프 추가금액 (DB)', price: doubleSidePrice });
+    if (dbDoubleSurfaceSurcharge && dbDoubleSurfaceSurcharge.cost > 0) {
+      doubleSidePrice = dbDoubleSurfaceSurcharge.cost;
+      breakdown.push({ label: '양단면 추가금 (DB)', price: doubleSidePrice });
     } else {
-      // DB에 없으면 기존 하드코딩된 값 사용
-      if (qualityId === 'astel-color') {
-        doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
-        breakdown.push({ label: '양면 테이프 추가금액', price: doubleSidePrice });
-      } else if (qualityId === 'satin-color') {
-        doubleSidePrice = satinDoubleSideSurcharge[sizeKey as keyof typeof satinDoubleSideSurcharge] || 0;
-        breakdown.push({ label: '사틴 양면 추가금액', price: doubleSidePrice });
+      // DB에서 가져온 양단면 비용이 있으면 우선 사용
+      const adhesiveCostsData = options?.adhesiveCostsData || [];
+      const dbAdhesiveCost = adhesiveCostsData.find(c => c.thickness === thickness);
+      
+      if (dbAdhesiveCost && dbAdhesiveCost.cost > 0) {
+        doubleSidePrice = dbAdhesiveCost.cost;
+        breakdown.push({ label: '양단면 추가금 (DB)', price: doubleSidePrice });
       } else {
-        doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
-        breakdown.push({ label: '양면 테이프 추가금액', price: doubleSidePrice });
+        // DB에 없으면 기존 하드코딩된 값 사용
+        if (qualityId === 'astel-color') {
+          doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
+          breakdown.push({ label: '양단면 추가금', price: doubleSidePrice });
+        } else if (qualityId === 'satin-color') {
+          doubleSidePrice = satinDoubleSideSurcharge[sizeKey as keyof typeof satinDoubleSideSurcharge] || 0;
+          breakdown.push({ label: '사틴 양단면 추가금', price: doubleSidePrice });
+        } else {
+          doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
+          breakdown.push({ label: '양단면 추가금', price: doubleSidePrice });
+        }
       }
     }
     
@@ -759,7 +817,7 @@ export const calculatePrice = (
   let totalPrice = basePrice;
 
   // ===== 원장 금액 계산 완료 =====
-  // 원장 = 원판금액 + 면수(테이프) + 조색비
+  // 원장 = 원판금액 + 면수(양단면) + 조색비
   // 여러 원장인 경우, totalWonJangBase로 전달된 값을 사용
   const wonJang = options?.totalWonJangBase || basePrice;
   
@@ -855,7 +913,7 @@ export const calculatePrice = (
     const t = parseFloat(thickness.replace('T', ''));
 
     // 엣지 경면(10T 이상) 계산에 사용될 “가공비용”을 별도로 추적
-    // (totalPrice에서 역산하면 테이프/조색비 등 원판 외 항목까지 포함되어 음수가 될 수 있음)
+    // (totalPrice에서 역산하면 양단면/조색비 등 원판 외 항목까지 포함되어 음수가 될 수 있음)
     let processingCostApplied = 0;
     
     // 설정값 가져오기 (DB 또는 기본값)
@@ -921,7 +979,7 @@ export const calculatePrice = (
         edgeCost = wonJang * 0.8;
         breakdown.push({ label: `엣지 경면 비용 (×1.8)`, price: edgeCost });
       } else {
-        // “가공비용”은 5-1에서 계산된 가공비만 사용 (테이프/조색비 등 제외)
+        // “가공비용”은 5-1에서 계산된 가공비만 사용 (양단면/조색비 등 제외)
         edgeCost = (wonJang - processingCostApplied) * 0.5;
         // 원판보다 가공비가 더 큰 특이 케이스에서도 음수로 내려가지 않도록 방어
         if (edgeCost < 0) edgeCost = 0;
@@ -1061,4 +1119,3 @@ export const exportPricingData = (pricingData: PricingData): void => {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
-

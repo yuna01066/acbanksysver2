@@ -19,7 +19,7 @@ export interface SizeQuantitySelection {
   quantity: number;
   surface?: string; // 단면/양면
   colorMixingCost?: number; // 조색비
-  surfaceAdditionalCost?: number; // 면수 추가금액 (양면테이프 등)
+  surfaceAdditionalCost?: number; // 면수 추가금액 (양단면 등)
 }
 
 interface MultipleSizeSelectionProps {
