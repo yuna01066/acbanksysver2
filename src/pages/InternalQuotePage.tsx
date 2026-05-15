@@ -131,7 +131,7 @@ const InternalQuotePage = () => {
 
       const { data, error } = await supabase
         .from('saved_quotes')
-        .insert([quoteData as any])
+        .insert([quoteData as never])
         .select('id')
         .single();
 
@@ -141,7 +141,7 @@ const InternalQuotePage = () => {
       logActivity('quote_created', data?.id || null, recipient?.projectName || quoteNumber);
       clearQuotes();
       navigate('/saved-quotes');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving quote:', error);
       toast.error('견적서 저장에 실패했습니다.');
     } finally {
