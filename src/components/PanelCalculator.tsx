@@ -774,6 +774,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       breakdown: priceInfo.breakdown,
       pricingVersionId: activePricingVersion?.id || null,
       pricingVersionName: activePricingVersion?.version_name || '미지정 단가표',
+      quoteStyle: 'panel' as const,
       calculationSnapshot: createCalculationSnapshot(priceInfo.breakdown, priceInfo.totalPrice)
     };
 
@@ -997,6 +998,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         breakdown: breakdownItems,
         pricingVersionId: activePricingVersion?.id || null,
         pricingVersionName: activePricingVersion?.version_name || '미지정 단가표',
+        quoteStyle: 'fabrication' as const,
         calculationSnapshot: createCalculationSnapshot(
           breakdownItems,
           item.unitPrice * item.quantity,

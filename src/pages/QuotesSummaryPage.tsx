@@ -20,6 +20,8 @@ import QuoteWarningNote from "@/components/QuoteWarningNote";
 import RecipientInfoForm from "@/components/RecipientInfoForm";
 import PrintStyles from "@/components/PrintStyles";
 import QuoteAttachments from "@/components/QuoteAttachments";
+import QuoteStyleBanner from "@/components/quote-detail/QuoteStyleBanner";
+import { detectQuoteStyleFromItems, getQuoteStyleProfile } from "@/utils/quoteStyle";
 
 const QuotesSummaryPage = () => {
   const navigate = useNavigate();
@@ -73,6 +75,8 @@ const QuotesSummaryPage = () => {
   const subtotal = Math.round(getTotalPrice());
   const tax = Math.round(subtotal * 0.1); // 10% 부가세
   const totalWithTax = Math.round(getTotalPriceWithTax());
+  const quoteStyle = detectQuoteStyleFromItems(quotes);
+  const quoteStyleProfile = getQuoteStyleProfile(quoteStyle);
 
   const handlePrintPDF = () => {
     window.print();
@@ -167,9 +171,14 @@ const QuotesSummaryPage = () => {
                   <div className="text-sm text-slate-300 mb-2">ARCBANK QUOTATION</div>
                   <CardTitle className="text-3xl font-bold flex items-center gap-3 mb-2">
                     <FileText className="w-8 h-8" />
-                    아크뱅크 견적서
+                    {quoteStyleProfile.title}
                   </CardTitle>
-                  <p className="text-slate-200 text-lg">Panel Material Quotation</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-slate-200 text-lg">{quoteStyleProfile.subtitle}</p>
+                    <Badge className="bg-white/15 text-white border border-white/30">
+                      {quoteStyleProfile.label}
+                    </Badge>
+                  </div>
                 </div>
                 <div className="text-right">
                   <div className="flex items-center gap-2 text-slate-200 mb-2">
@@ -184,6 +193,7 @@ const QuotesSummaryPage = () => {
             </CardHeader>
           </Card>
 
+          <QuoteStyleBanner styleType={quoteStyle} itemCount={quotes.length} />
 
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
             <CardContent className="p-8">
@@ -214,7 +224,7 @@ const QuotesSummaryPage = () => {
               <div className="mb-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                   <Calculator className="w-5 h-5" />
-                  견적 목록 ({quotes.length}개)
+                  {quoteStyleProfile.itemListTitle} ({quotes.length}개)
                 </h3>
                 <div className="space-y-6">
                   {quotes.map((quote, index) => (

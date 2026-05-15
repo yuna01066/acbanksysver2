@@ -27,6 +27,8 @@ import QuoteDocumentsSection from "@/components/quote-detail/QuoteDocumentsSecti
 import QuoteVersionHistory from "@/components/quote-detail/QuoteVersionHistory";
 import QuoteStageTimeline from "@/components/quote-detail/QuoteStageTimeline";
 import { useQuoteVersions } from "@/hooks/useQuoteVersions";
+import QuoteStyleBanner from "@/components/quote-detail/QuoteStyleBanner";
+import { detectQuoteStyleFromItems, getQuoteStyleProfile } from "@/utils/quoteStyle";
 
 interface SavedQuote {
   id: string;
@@ -431,6 +433,9 @@ const SavedQuoteDetailPage = () => {
   });
 
   const items = Array.isArray(quote.items) ? quote.items : [];
+  const displayItems = isEditing ? editedItems : items;
+  const quoteStyle = detectQuoteStyleFromItems(displayItems);
+  const quoteStyleProfile = getQuoteStyleProfile(quoteStyle);
   
   // 편집 모드일 때는 editedItems 기반으로 계산, 아닐 때는 저장된 값 사용
   const autoSubtotal = isEditing 
@@ -488,6 +493,7 @@ const SavedQuoteDetailPage = () => {
             onToggleViewMode={toggleViewMode}
             viewMode={viewMode}
             showSavedQuoteActions={true}
+            quoteStyle={quoteStyle}
           />
 
           <Card className="shadow-lg border border-gray-300 rounded-xl bg-white quote-main-card [backdrop-filter:none] [-webkit-backdrop-filter:none] [background:white]" style={{ overflow: 'visible' }}>
@@ -496,11 +502,13 @@ const SavedQuoteDetailPage = () => {
               <QuoteSummarySection
                 quoteNumber={quote.quote_number}
                 currentDate={currentDate}
-                itemCount={items.length}
+                itemCount={displayItems.length}
                 subtotal={subtotal}
                 tax={tax}
                 totalWithTax={totalWithTax}
               />
+
+              <QuoteStyleBanner styleType={quoteStyle} itemCount={displayItems.length} />
 
               {viewMode === 'internal' && !isEditing && (snapshotVersionName || snapshotCapturedAt || snapshotItemsCount > 0) && (
                 <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4 print:hidden">
@@ -589,7 +597,7 @@ const SavedQuoteDetailPage = () => {
               <div className="mb-6 quote-section">
                 <h3 className="text-[17px] font-bold text-black mb-4 flex items-center gap-2">
                   <Calculator className="w-5 h-5" />
-                  견적 목록 ({isEditing ? editedItems.length : items.length}개) {isEditing ? '- 편집 모드' : viewMode === 'customer' ? '' : '- 내부 관리용'}
+                  {quoteStyleProfile.itemListTitle} ({displayItems.length}개) {isEditing ? '- 편집 모드' : viewMode === 'customer' ? '' : '- 내부 관리용'}
                 </h3>
                 <div className="space-y-4">
                   {isEditing ? (

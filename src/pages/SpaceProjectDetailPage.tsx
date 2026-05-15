@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import PrintStyles from '@/components/PrintStyles';
 import QuoteDocumentsSection from '@/components/quote-detail/QuoteDocumentsSection';
+import QuoteStyleBanner from '@/components/quote-detail/QuoteStyleBanner';
 
 interface SpaceQuote {
   id: string;
@@ -134,6 +135,11 @@ const SpaceProjectDetailPage = () => {
   const cb = (data.cost_breakdown as Record<string, number>) ?? {};
   const zones: string[] = Array.isArray(data.zones) ? data.zones : [];
   const attachments = (data.attachments as any[]) ?? [];
+  const spaceMeta = [
+    data.total_area ? { label: '규모', value: `${data.total_area} ${data.area_unit || ''}`.trim() } : null,
+    zones.length > 0 ? { label: '구역', value: `${zones.length.toLocaleString()}개` } : null,
+    data.project_type ? { label: '유형', value: data.project_type } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
 
   return (
     <div className="min-h-screen bg-background print-layout-wrapper">
@@ -155,7 +161,7 @@ const SpaceProjectDetailPage = () => {
           <Button variant="ghost" size="sm" onClick={() => navigate('/space-quotes')}>
             <ArrowLeft className="w-4 h-4 mr-1" />목록
           </Button>
-          <h1 className="text-xl sm:text-2xl font-bold">공간 프로젝트 견적</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">공간 프로젝트 견적서</h1>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => navigate(`/space-quote?id=${data.id}`)}>
               <Pencil className="w-4 h-4 mr-1" />수정
@@ -169,8 +175,10 @@ const SpaceProjectDetailPage = () => {
         {/* 인쇄용 헤더 */}
         <div className="hidden print:block text-center mb-4">
           <h1 className="text-2xl font-bold tracking-wider">견 적 서</h1>
-          <div className="text-xs text-gray-600 mt-1">QUOTATION · 공간 프로젝트</div>
+          <div className="text-xs text-gray-600 mt-1">SPACE PROJECT QUOTATION</div>
         </div>
+
+        <QuoteStyleBanner styleType="space" itemCount={items.length} extraMeta={spaceMeta} />
 
         <Card>
           <CardHeader><CardTitle>{data.project_name}</CardTitle></CardHeader>

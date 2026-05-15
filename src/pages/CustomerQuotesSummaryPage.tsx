@@ -13,6 +13,8 @@ import PrintStyles from "@/components/PrintStyles";
 import businessRegistration from "@/assets/arcbank-business-registration.jpg";
 import bankAccount from "@/assets/arcbank-bank-account.jpg";
 import arcbankLogo from "@/assets/arcbank-logo.png";
+import QuoteStyleBanner from "@/components/quote-detail/QuoteStyleBanner";
+import { detectQuoteStyleFromItems, getQuoteStyleProfile } from "@/utils/quoteStyle";
 
 const CustomerQuotesSummaryPage = () => {
   const navigate = useNavigate();
@@ -44,6 +46,8 @@ const CustomerQuotesSummaryPage = () => {
   const subtotal = Math.round(getTotalPrice());
   const tax = Math.round(subtotal * 0.1); // 10% 부가세
   const totalWithTax = Math.round(getTotalPriceWithTax());
+  const quoteStyle = detectQuoteStyleFromItems(quotes);
+  const quoteStyleProfile = getQuoteStyleProfile(quoteStyle);
 
   const handlePrintPDF = () => {
     window.print();
@@ -85,6 +89,7 @@ const CustomerQuotesSummaryPage = () => {
             onViewCustomerQuote={handleViewInternalQuote}
             currentDate={currentDate}
             quoteNumber={quoteNumber}
+            quoteStyle={quoteStyle}
           />
 
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
@@ -136,6 +141,8 @@ const CustomerQuotesSummaryPage = () => {
                   </div>
                 </div>
               </div>
+
+              <QuoteStyleBanner styleType={quoteStyle} itemCount={quotes.length} />
 
               {/* 회사 정보 섹션 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
@@ -213,7 +220,7 @@ const CustomerQuotesSummaryPage = () => {
               <div className="mb-8">
                 <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800">
                   <Calculator className="w-5 h-5" />
-                  견적 상세 내역
+                  {quoteStyleProfile.customerItemListTitle}
                 </h3>
                 <div className="space-y-4">
                   {quotes.map((quote, index) => (
