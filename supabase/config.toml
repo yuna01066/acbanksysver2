@@ -48,6 +48,9 @@ verify_jwt = false
 [functions.imweb-api]
 verify_jwt = false
 
+[functions.channel-talk-webhook]
+verify_jwt = false
+
 [functions.auto-expire-quotes]
 verify_jwt = false
 
