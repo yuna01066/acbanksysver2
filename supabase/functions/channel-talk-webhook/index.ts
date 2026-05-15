@@ -29,6 +29,12 @@ type QuoteAnalysis = {
   recommended_reply?: string | null;
 };
 
+type QuoteTriage = {
+  priority: "normal" | "high";
+  recommendedTags: string[];
+  followUpQuestions: string[];
+};
+
 type ExtractedFile = {
   id?: string;
   key?: string;
@@ -307,30 +313,74 @@ function mergeAnalyses(analyses: QuoteAnalysis[]): QuoteAnalysis {
   return merged;
 }
 
+function uniq(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function hasAny(value: string | null | undefined, patterns: RegExp[]): boolean {
+  if (!value) return false;
+  return patterns.some((pattern) => pattern.test(value));
+}
+
+function deriveQuoteTriage(analysis: QuoteAnalysis): QuoteTriage {
+  const tags = ["견적문의", "자동분석완료"];
+  const inquiryType = analysis.inquiry_type || "";
+  const processing = (analysis.processing || []).join(" ");
+  const summary = analysis.summary || "";
+  const missing = analysis.missing_fields || [];
+
+  if (hasAny(inquiryType, [/도면/]) || analysis.dimensions) tags.push("도면있음");
+  if (hasAny(inquiryType, [/레퍼런스|사진|이미지/]) || hasAny(summary, [/사진|레퍼런스|이미지/])) tags.push("사진견적");
+  if (hasAny(inquiryType, [/구상/])) tags.push("구상단계");
+  if (hasAny(inquiryType, [/재단|가공/]) || hasAny(processing, [/재단|CNC|레이저|절곡|접착|인쇄/])) tags.push("재단가공");
+  if (hasAny(summary, [/설치|배송|현장/]) || analysis.delivery_or_installation) tags.push("배송설치확인");
+  if (analysis.desired_due_date || hasAny(summary, [/급|긴급|빠른|납기/])) tags.push("납기확인");
+  if (analysis.confidence === "low") tags.push("수동검토필요");
+
+  const followUpQuestions = missing.slice(0, 5).map((field) => `${field} 확인 필요`);
+  if (!analysis.quantity) followUpQuestions.push("제작 수량 확인 필요");
+  if (!analysis.dimensions) followUpQuestions.push("사이즈 확인 필요");
+  if (!analysis.desired_due_date) followUpQuestions.push("희망 납기 확인 필요");
+
+  return {
+    priority: missing.length >= 4 || analysis.confidence === "low" ? "normal" : "high",
+    recommendedTags: uniq(tags),
+    followUpQuestions: uniq(followUpQuestions).slice(0, 6),
+  };
+}
+
 function formatAnalysisMessage(analysis: QuoteAnalysis, files: ExtractedFile[], leadId?: string): string {
   const missing = analysis.missing_fields?.length ? analysis.missing_fields.join(", ") : "없음";
   const processing = analysis.processing?.length ? analysis.processing.join(", ") : "미확인";
+  const triage = deriveQuoteTriage(analysis);
 
   return [
-    "[AI 견적 파일 분석]",
+    "[아크뱅크 견적 파일 자동분석]",
     "",
-    `리드 ID: ${leadId || "저장 전"}`,
-    `첨부파일: ${files.map((file) => file.name || file.key).join(", ")}`,
-    `문의 유형: ${analysis.inquiry_type || "미확인"}`,
-    `품목: ${analysis.item_name || "미확인"}`,
-    `사이즈: ${analysis.dimensions || "미확인"}`,
-    `수량: ${analysis.quantity || "미확인"}`,
-    `소재/두께: ${[analysis.material, analysis.thickness].filter(Boolean).join(" / ") || "미확인"}`,
-    `색상: ${analysis.color || "미확인"}`,
-    `가공: ${processing}`,
-    `희망 납기: ${analysis.desired_due_date || "미확인"}`,
-    `배송/설치: ${analysis.delivery_or_installation || "미확인"}`,
-    `신뢰도: ${analysis.confidence || "low"}`,
+    "1) 상담 분류",
+    `- 리드 ID: ${leadId || "저장 전"}`,
+    `- 문의 유형: ${analysis.inquiry_type || "미확인"}`,
+    `- 추천 태그: ${triage.recommendedTags.join(", ")}`,
+    `- 검토 우선도: ${triage.priority === "high" ? "높음" : "보통"}`,
     "",
-    `누락 정보: ${missing}`,
+    "2) 파일/제작 정보",
+    `- 첨부파일: ${files.map((file) => file.name || file.key).join(", ")}`,
+    `- 품목: ${analysis.item_name || "미확인"}`,
+    `- 사이즈: ${analysis.dimensions || "미확인"}`,
+    `- 수량: ${analysis.quantity || "미확인"}`,
+    `- 소재/두께: ${[analysis.material, analysis.thickness].filter(Boolean).join(" / ") || "미확인"}`,
+    `- 색상: ${analysis.color || "미확인"}`,
+    `- 가공: ${processing}`,
+    `- 희망 납기: ${analysis.desired_due_date || "미확인"}`,
+    `- 배송/설치: ${analysis.delivery_or_installation || "미확인"}`,
     "",
-    `요약: ${analysis.summary || "자동 요약 없음"}`,
-    `추천 응답: ${analysis.recommended_reply || "누락된 정보를 고객에게 확인해주세요."}`,
+    "3) 추가 확인 필요",
+    `- 누락 정보: ${missing}`,
+    `- 질문 후보: ${triage.followUpQuestions.length ? triage.followUpQuestions.join(" / ") : "없음"}`,
+    "",
+    "4) 상담원 메모",
+    `- 요약: ${analysis.summary || "자동 요약 없음"}`,
+    `- 고객에게 보낼 추천 답변: ${analysis.recommended_reply || "누락된 정보를 고객에게 확인해주세요."}`,
   ].join("\n");
 }
 
@@ -415,6 +465,7 @@ async function processWebhook(payload: JsonObject) {
   }
 
   const analysis = mergeAnalyses(analyses);
+  const triage = deriveQuoteTriage(analysis);
   const supabase = getServiceClient();
 
   const { data: lead, error } = await supabase
@@ -430,7 +481,10 @@ async function processWebhook(payload: JsonObject) {
       customer_email: customer.email,
       inquiry_type: analysis.inquiry_type || "quote",
       status: analysis.confidence === "low" ? "needs_review" : "analyzed",
-      analysis,
+      analysis: {
+        ...analysis,
+        triage,
+      },
       missing_fields: analysis.missing_fields || [],
       raw_payload: payload,
     })
