@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Pencil, Save, X, Trash2, Plus } from "lucide-react";
+import { Pencil, Save, X, Trash2, Plus, AlertTriangle, Palette } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -98,6 +97,9 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
   }) || [];
 
   const displayColors = activeTab === 'A' ? categoryAColors : categoryBColors;
+  const activeCount = colors?.filter(color => color.is_active).length || 0;
+  const blockedCount = colors?.filter(color => color.is_producible === false).length || 0;
+  const pigmentCount = colors?.filter(color => color.is_bright_pigment).length || 0;
 
   // 컬러 업데이트
   const updateColor = useMutation({
@@ -230,6 +232,21 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
         </div>
       </CardHeader>
       <CardContent>
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <div className="text-xs text-muted-foreground">활성 컬러</div>
+            <div className="mt-1 text-xl font-semibold">{activeCount.toLocaleString()}개</div>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <div className="text-xs text-muted-foreground">조색비 대상</div>
+            <div className="mt-1 text-xl font-semibold">{pigmentCount.toLocaleString()}개</div>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <div className="text-xs text-muted-foreground">생산 불가</div>
+            <div className="mt-1 text-xl font-semibold">{blockedCount.toLocaleString()}개</div>
+          </div>
+        </div>
+
         {isAdding && (
           <div className="mb-4 p-4 border rounded-lg bg-muted/50">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -310,154 +327,150 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
           </button>
         </div>
 
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>컬러 이름</TableHead>
-                <TableHead>컬러 코드</TableHead>
-                <TableHead className="text-center">생산</TableHead>
-                <TableHead className="text-center">속성</TableHead>
-                <TableHead className="text-center">활성</TableHead>
-                <TableHead className="text-right">작업</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {displayColors && displayColors.length > 0 ? (
-                displayColors.map((color) => {
-                  const isEditing = editingId === color.id;
-                  return (
-                    <TableRow key={color.id}>
-                      <TableCell>
-                        {isEditing ? (
+        {displayColors && displayColors.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {displayColors.map((color) => {
+              const isEditing = editingId === color.id;
+
+              return (
+                <div
+                  key={color.id}
+                  className={`rounded-lg border bg-background p-3 shadow-sm transition-colors ${
+                    color.is_producible === false ? 'border-destructive/30 bg-destructive/5' : ''
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="h-12 w-12 shrink-0 rounded-md border"
+                      style={{ backgroundColor: color.color_code || '#ffffff' }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      {isEditing ? (
+                        <div className="space-y-2">
                           <Input
                             value={editForm.color_name || ''}
                             onChange={(e) => setEditForm({ ...editForm, color_name: e.target.value })}
+                            placeholder="컬러 이름"
                           />
-                        ) : (
-                          <div className="font-medium">{color.color_name}</div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
                           <Input
                             value={editForm.color_code || ''}
                             onChange={(e) => setEditForm({ ...editForm, color_code: e.target.value })}
+                            placeholder="#FFFFFF"
+                            className="font-mono"
                           />
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            {color.color_code && (
-                              <>
-                                <div
-                                  className="w-6 h-6 rounded border"
-                                  style={{ backgroundColor: color.color_code }}
-                                />
-                                <span className="text-sm font-mono">{color.color_code}</span>
-                              </>
-                            )}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="truncate font-semibold">{color.color_name}</div>
+                          <div className="mt-0.5 text-xs font-mono text-muted-foreground">
+                            {color.color_code || '컬러 코드 없음'}
                           </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {isEditing ? (
-                          <Switch
-                            checked={editForm.is_producible ?? true}
-                            onCheckedChange={(checked) => setEditForm({ ...editForm, is_producible: checked })}
-                          />
-                        ) : (
-                          <Badge variant={color.is_producible === false ? 'destructive' : 'default'}>
-                            {color.is_producible === false ? '불가' : '가능'}
-                          </Badge>
-                        )}
-                        {isEditing && editForm.is_producible === false && (
-                          <Input
-                            className="mt-2 h-8 text-xs"
-                            placeholder="불가 사유"
-                            value={editForm.unavailable_reason || ''}
-                            onChange={(e) => setEditForm({ ...editForm, unavailable_reason: e.target.value })}
-                          />
-                        )}
-                        {!isEditing && color.is_producible === false && color.unavailable_reason && (
-                          <div className="mt-1 text-[11px] text-muted-foreground">{color.unavailable_reason}</div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {isEditing ? (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-center gap-2">
-                              <Switch
-                                checked={editForm.is_bright_pigment ?? false}
-                                onCheckedChange={(checked) => setEditForm({ ...editForm, is_bright_pigment: checked })}
-                              />
-                              <span className="text-xs">조색비</span>
-                            </div>
-                            <Input
-                              className="h-8 text-xs"
-                              placeholder="속성 메모"
-                              value={editForm.color_attribute_note || ''}
-                              onChange={(e) => setEditForm({ ...editForm, color_attribute_note: e.target.value })}
-                            />
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            {color.is_bright_pigment && <Badge variant="outline">조색비 대상</Badge>}
-                            {color.color_attribute_note && (
-                              <div className="text-[11px] text-muted-foreground">{color.color_attribute_note}</div>
-                            )}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {isEditing ? (
-                          <Switch
-                            checked={editForm.is_active ?? false}
-                            onCheckedChange={(checked) => setEditForm({ ...editForm, is_active: checked })}
-                          />
-                        ) : (
-                          <Badge variant={color.is_active ? 'default' : 'secondary'}>
-                            {color.is_active ? '활성' : '비활성'}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {isEditing ? (
-                          <div className="flex items-center justify-end gap-2">
-                            <Button size="sm" variant="default" onClick={saveEdit}>
-                              <Save className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={cancelEdit}>
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-end gap-2">
-                            <Button size="sm" variant="ghost" onClick={() => startEdit(color)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDelete(color.id)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    {activeTab === 'A' ? '카테고리 A' : '카테고리 B'}에 등록된 컬러가 없습니다
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {isEditing ? (
+                        <>
+                          <Button size="sm" variant="default" onClick={saveEdit} className="h-8 w-8 p-0">
+                            <Save className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-8 w-8 p-0">
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button size="sm" variant="ghost" onClick={() => startEdit(color)} className="h-8 w-8 p-0">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDelete(color.id)}
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {isEditing ? (
+                    <div className="mt-3 grid grid-cols-1 gap-2">
+                      <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                        <span className="text-xs font-medium">활성</span>
+                        <Switch
+                          checked={editForm.is_active ?? false}
+                          onCheckedChange={(checked) => setEditForm({ ...editForm, is_active: checked })}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                        <span className="text-xs font-medium">생산 가능</span>
+                        <Switch
+                          checked={editForm.is_producible ?? true}
+                          onCheckedChange={(checked) => setEditForm({ ...editForm, is_producible: checked })}
+                        />
+                      </div>
+                      {editForm.is_producible === false && (
+                        <Input
+                          className="h-8 text-xs"
+                          placeholder="생산 불가 사유"
+                          value={editForm.unavailable_reason || ''}
+                          onChange={(e) => setEditForm({ ...editForm, unavailable_reason: e.target.value })}
+                        />
+                      )}
+                      <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                        <span className="text-xs font-medium">조색비 대상</span>
+                        <Switch
+                          checked={editForm.is_bright_pigment ?? false}
+                          onCheckedChange={(checked) => setEditForm({ ...editForm, is_bright_pigment: checked })}
+                        />
+                      </div>
+                      <Input
+                        className="h-8 text-xs"
+                        placeholder="속성 메모"
+                        value={editForm.color_attribute_note || ''}
+                        onChange={(e) => setEditForm({ ...editForm, color_attribute_note: e.target.value })}
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      <Badge variant={color.is_active ? 'default' : 'secondary'}>
+                        {color.is_active ? '활성' : '비활성'}
+                      </Badge>
+                      <Badge variant={color.is_producible === false ? 'destructive' : 'outline'}>
+                        {color.is_producible === false ? '생산 불가' : '생산 가능'}
+                      </Badge>
+                      {color.is_bright_pigment && (
+                        <Badge variant="outline" className="gap-1 border-rose-200 text-rose-700">
+                          <Palette className="h-3 w-3" />
+                          조색비 대상
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {!isEditing && color.is_producible === false && color.unavailable_reason && (
+                    <div className="mt-3 flex items-start gap-2 rounded-md bg-background/80 p-2 text-xs text-destructive">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>{color.unavailable_reason}</span>
+                    </div>
+                  )}
+                  {!isEditing && color.color_attribute_note && (
+                    <div className="mt-2 rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
+                      {color.color_attribute_note}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+            {activeTab === 'A' ? '카테고리 A' : '카테고리 B'}에 등록된 컬러가 없습니다
+          </div>
+        )}
       </CardContent>
     </Card>
   );

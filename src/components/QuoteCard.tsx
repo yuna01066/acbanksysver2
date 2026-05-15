@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Trash2, Plus, Minus, Edit } from "lucide-react";
+import { Trash2, Plus, Minus, Edit, FileText, ShieldCheck } from "lucide-react";
 import { formatPrice } from "@/utils/priceCalculations";
 import { Quote } from "@/contexts/QuoteContext";
 
@@ -142,26 +142,36 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
         
         {/* 가격 상세 내역 */}
         {quote.breakdown.length > 0 && (
-          <div className="mb-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-              <h4 className="text-[12px] font-semibold text-black">계산 근거 스냅샷</h4>
-              {snapshotVersionName && (
-                <span className="text-[11px] text-gray-500">
-                  {snapshotVersionName}
-                  {snapshotCapturedAt && ` · ${snapshotCapturedAt.toLocaleDateString('ko-KR')}`}
-                </span>
-              )}
+          <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-slate-500" />
+                <h4 className="text-[12px] font-semibold text-black">계산 근거</h4>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {snapshotVersionName && (
+                  <span className="rounded-full border bg-white px-2 py-0.5 text-[11px] text-gray-600">
+                    {snapshotVersionName}
+                  </span>
+                )}
+                {snapshotCapturedAt && (
+                  <span className="rounded-full border bg-white px-2 py-0.5 text-[11px] text-gray-600">
+                    {snapshotCapturedAt.toLocaleDateString('ko-KR')}
+                  </span>
+                )}
+              </div>
             </div>
             {snapshot?.note && (
-              <div className="mb-1.5 rounded bg-blue-50 px-2 py-1 text-[11px] text-blue-700">
+              <div className="mb-2 flex items-start gap-1.5 rounded-md border border-blue-100 bg-blue-50 px-2 py-1.5 text-[11px] text-blue-700">
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 {snapshot.note}
               </div>
             )}
-            <div className="space-y-0.5">
+            <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
               {quote.breakdown.map((item, itemIndex) => (
-                <div key={itemIndex} className="flex justify-between text-[12px] py-1 px-2 bg-gray-50 rounded">
+                <div key={itemIndex} className="flex justify-between gap-3 rounded-md bg-white px-2 py-1.5 text-[12px]">
                   <span className="text-gray-600 whitespace-pre-line">{item.label}</span>
-                  <span className="font-semibold text-black">{formatPrice(item.price)}</span>
+                  <span className="shrink-0 font-semibold text-black">{formatPrice(item.price)}</span>
                 </div>
               ))}
             </div>
