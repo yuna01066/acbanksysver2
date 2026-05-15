@@ -615,13 +615,13 @@ const StorageStatusPage = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Google Drive 공유 드라이브</CardTitle>
-                <CardDescription>프로젝트별 폴더 사용량과 파일 원장 동기화 상태</CardDescription>
+                <CardDescription>프로젝트별 폴더 사용량과 문서 파일 동기화 상태</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="mb-4 rounded-lg border bg-muted/30 p-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm font-medium">파일 원장 Drive 동기화</p>
+                      <p className="text-sm font-medium">문서 파일 Drive 동기화</p>
                       {documentSyncLoading ? (
                         <p className="text-xs text-muted-foreground mt-1">동기화 상태 조회 중...</p>
                       ) : (
@@ -659,7 +659,7 @@ const StorageStatusPage = () => {
                     </div>
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-3">
-                    한 번에 최대 20건씩 처리합니다. 기존 Drive 폴더에 같은 파일이 있으면 새로 업로드하지 않고 원장에 연결합니다.
+                    한 번에 최대 20건씩 처리합니다. 기존 Drive 폴더에 같은 파일이 있으면 새로 업로드하지 않고 문서 파일 기록에 연결합니다.
                   </p>
                 </div>
                 {driveLoading ? (

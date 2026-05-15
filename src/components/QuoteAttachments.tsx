@@ -306,7 +306,7 @@ const QuoteAttachments = ({
             } catch (recordError) {
               console.error('Document file record failed:', recordError);
               await supabase.storage.from('quote-attachments').remove([filePath]);
-              toast.error(`${file.name}: 파일 원장 기록 실패`);
+              toast.error(`${file.name}: 파일 관리 기록 실패`);
               uploadedCount.failed++;
               continue;
             }
@@ -539,7 +539,7 @@ const QuoteAttachments = ({
         } catch (recordError) {
           console.error('PDF document file record failed:', recordError);
           await supabase.storage.from('quote-pdfs').remove([filePath]);
-          toast.error('PDF 파일 원장 기록에 실패했습니다.');
+          toast.error('PDF 파일 관리 기록에 실패했습니다.');
           return;
         }
       }
@@ -607,7 +607,7 @@ const QuoteAttachments = ({
       }
 
       onQuotePdfChange?.(pdfData);
-      toast.success(quoteId ? '견적서 PDF가 업로드되고 파일 원장에 기록되었습니다.' : '견적서 PDF가 업로드되었습니다. 저장 버튼을 눌러 변경사항을 저장하세요.');
+      toast.success(quoteId ? '견적서 PDF가 업로드되고 파일 관리 기록에 저장되었습니다.' : '견적서 PDF가 업로드되었습니다. 저장 버튼을 눌러 변경사항을 저장하세요.');
     } catch (error) {
       console.error('Error uploading PDF:', error);
       toast.error('PDF 업로드 중 오류가 발생했습니다.');
