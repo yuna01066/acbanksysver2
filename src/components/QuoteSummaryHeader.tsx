@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Download, FileText, Calendar, Trash2, Users, Building2, Home, Save, List, Edit, X } from "lucide-react";
 import arcbankLogo from "@/assets/arcbank-logo.png";
+import { cn } from "@/lib/utils";
+import { getQuoteStyleProfile, type QuoteStyleType } from "@/utils/quoteStyle";
 
 interface QuoteSummaryHeaderProps {
   onClearQuotes: () => void;
@@ -22,6 +24,7 @@ interface QuoteSummaryHeaderProps {
   onCancelEdit?: () => void;
   onToggleViewMode?: () => void;
   viewMode?: 'internal' | 'customer';
+  quoteStyle?: QuoteStyleType;
 }
 
 const QuoteSummaryHeader = ({
@@ -38,11 +41,13 @@ const QuoteSummaryHeader = ({
   onSaveEdit,
   onCancelEdit,
   onToggleViewMode,
-  viewMode = 'internal'
+  viewMode = 'internal',
+  quoteStyle = 'panel'
 }: QuoteSummaryHeaderProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isCustomerView = location.pathname === '/customer-quotes-summary';
+  const styleProfile = getQuoteStyleProfile(quoteStyle);
   return <>
       {/* 상단 액션 버튼들 */}
       <div className="flex flex-wrap justify-between items-center gap-2 mb-6 print:hidden">
@@ -128,9 +133,14 @@ const QuoteSummaryHeader = ({
             <div className="min-w-0">
               <CardTitle className="text-lg sm:text-2xl font-bold flex items-center gap-2 sm:gap-3 mb-1 text-black">
                 <img src={arcbankLogo} alt="아크뱅크 로고" className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0" />
-                <span className="truncate">아크뱅크 견적서</span>
+                <span className="truncate">{styleProfile.title}</span>
               </CardTitle>
-              <p className="text-gray-500 text-xs sm:text-sm font-normal tracking-wider">ACBANK Quotation</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-gray-500 text-xs sm:text-sm font-normal tracking-wider">{styleProfile.subtitle}</p>
+                <Badge variant="outline" className={cn("px-2 py-0.5 text-[11px] font-semibold", styleProfile.badgeClassName)}>
+                  {styleProfile.label}
+                </Badge>
+              </div>
             </div>
             <div className="sm:text-right">
               <div className="flex items-center gap-2 text-gray-500 mb-2 text-xs sm:text-sm sm:justify-end">

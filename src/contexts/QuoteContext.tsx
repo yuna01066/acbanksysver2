@@ -22,6 +22,7 @@ export interface Quote {
   breakdown: { label: string; price: number }[];
   pricingVersionId?: string | null;
   pricingVersionName?: string;
+  quoteStyle?: 'panel' | 'fabrication' | 'space' | 'mixed';
   calculationSnapshot?: {
     schemaVersion: number;
     capturedAt: string;

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Trash2, Plus, Minus } from "lucide-react";
 import { formatPrice } from "@/utils/priceCalculations";
 import { Quote } from "@/contexts/QuoteContext";
+import { getQuoteStyleForItem, getQuoteStyleProfile } from "@/utils/quoteStyle";
 
 interface CustomerQuoteCardProps {
   quote: Quote;
@@ -25,14 +26,20 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
 
   const unitPrice = quote.totalPrice;
   const totalPrice = unitPrice * quote.quantity;
+  const quoteStyle = getQuoteStyleForItem(quote);
+  const styleProfile = getQuoteStyleProfile(quoteStyle);
+  const isFabrication = quoteStyle === 'fabrication';
+  const quoteTitle = isFabrication
+    ? quote.processingName || `제품 제작 #${index + 1}`
+    : `견적 #${index + 1}`;
 
   return (
     <Card className="border border-gray-200 shadow-none rounded-lg">
       <CardHeader className="pb-3 bg-gray-100 text-black print:bg-gray-100 px-4 py-3">
         <div className="flex justify-between items-center">
           <div>
-            <div className="text-[11px] text-gray-500 mb-0.5">아크뱅크 견적서</div>
-            <CardTitle className="text-[14px] font-bold text-black">견적 #{index + 1}</CardTitle>
+            <div className="text-[11px] text-gray-500 mb-0.5">{styleProfile.label}</div>
+            <CardTitle className="text-[14px] font-bold text-black">{quoteTitle}</CardTitle>
           </div>
           {!readOnly && (
             <div className="flex items-center gap-2">
@@ -58,7 +65,7 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
           <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
             <div className="text-[11px] text-gray-500 mb-0.5">색상</div>
             <div className="flex flex-col gap-1">
-              {quote.selectedColorHex && (
+              {quote.selectedColorHex ? (
                 <>
                   <div className="flex items-center gap-1.5">
                     <div className="w-3.5 h-3.5 rounded border border-gray-300" style={{ backgroundColor: quote.selectedColorHex }} />
@@ -74,36 +81,38 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
                     </div>
                   )}
                 </>
+              ) : (
+                <span className="font-semibold text-black text-[12px]">{quote.selectedColor || quote.colorType || '-'}</span>
               )}
             </div>
           </div>
           <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-[11px] text-gray-500 mb-0.5">소재</div>
+            <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '견적 기준' : '소재'}</div>
             <div className="font-semibold text-black text-[12px]">{quote.material}</div>
           </div>
           <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-[11px] text-gray-500 mb-0.5">재질</div>
+            <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '소재' : '재질'}</div>
             <div className="font-semibold text-black text-[12px]">{quote.quality}</div>
           </div>
           <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
             <div className="text-[11px] text-gray-500 mb-0.5">두께</div>
             <div className="font-semibold text-black text-[12px]">{quote.thickness}</div>
           </div>
-          {!isCustomerView && (
+          {(!isCustomerView || isFabrication) && (
             <>
               <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="text-[11px] text-gray-500 mb-0.5">사이즈</div>
+                <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '규격' : '사이즈'}</div>
                 <div className="font-semibold text-black text-[12px]">{quote.size}</div>
               </div>
               <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="text-[11px] text-gray-500 mb-0.5">면수</div>
+                <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '마감/면' : '면수'}</div>
                 <div className="font-semibold text-black text-[12px]">{quote.surface}</div>
               </div>
             </>
           )}
-          {quote.processing && !isCustomerView && (
+          {quote.processing && (!isCustomerView || isFabrication) && (
             <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200 md:col-span-2">
-              <div className="text-[11px] text-gray-500 mb-0.5">가공방법</div>
+              <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '제작 품목' : '가공방법'}</div>
               <div className="font-semibold text-black text-[12px]">{quote.processingName}</div>
             </div>
           )}

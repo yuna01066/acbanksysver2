@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Trash2, Plus, Minus, Edit, FileText, ShieldCheck } from "lucide-react";
 import { formatPrice } from "@/utils/priceCalculations";
 import { Quote } from "@/contexts/QuoteContext";
+import { getQuoteStyleForItem, getQuoteStyleProfile } from "@/utils/quoteStyle";
 
 interface QuoteCardProps {
   quote: Quote;
@@ -49,14 +50,20 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
   const snapshot = quote.calculationSnapshot;
   const snapshotVersionName = snapshot?.pricingVersion?.versionName || quote.pricingVersionName;
   const snapshotCapturedAt = snapshot?.capturedAt ? new Date(snapshot.capturedAt) : null;
+  const quoteStyle = getQuoteStyleForItem(quote);
+  const styleProfile = getQuoteStyleProfile(quoteStyle);
+  const isFabrication = quoteStyle === 'fabrication';
+  const quoteTitle = isFabrication
+    ? quote.processingName || `제품 제작 #${index + 1}`
+    : `견적 #${index + 1}`;
 
   return (
     <Card className="border border-gray-200 shadow-none rounded-lg">
       <CardHeader className="pb-3 bg-gray-100 text-black print:bg-gray-100 px-4 py-3">
         <div className="flex justify-between items-center">
           <div>
-            <div className="text-[11px] text-gray-500 mb-0.5">아크뱅크 견적서</div>
-            <CardTitle className="text-[14px] font-bold text-black">견적 #{index + 1}</CardTitle>
+            <div className="text-[11px] text-gray-500 mb-0.5">{styleProfile.label}</div>
+            <CardTitle className="text-[14px] font-bold text-black">{quoteTitle}</CardTitle>
           </div>
           {!readOnly && (
             <div className="flex items-center gap-2">
@@ -102,16 +109,16 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
                   )}
                 </>
               ) : (
-                <div className="font-semibold text-black text-[12px]">AC-미선택</div>
+                <div className="font-semibold text-black text-[12px]">{quote.selectedColor || quote.colorType || 'AC-미선택'}</div>
               )}
             </div>
           </div>
           <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-[11px] text-gray-500 mb-0.5">소재</div>
+            <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '견적 기준' : '소재'}</div>
             <div className="font-semibold text-black text-[12px]">{quote.material}</div>
           </div>
           <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-[11px] text-gray-500 mb-0.5">재질</div>
+            <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '소재' : '재질'}</div>
             <div className="font-semibold text-black text-[12px]">{quote.quality}</div>
           </div>
           <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
@@ -119,16 +126,16 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
             <div className="font-semibold text-black text-[12px]">{quote.thickness}</div>
           </div>
           <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-[11px] text-gray-500 mb-0.5">사이즈</div>
+            <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '규격' : '사이즈'}</div>
             <div className="font-semibold text-black text-[12px]">{quote.size}</div>
           </div>
           <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-[11px] text-gray-500 mb-0.5">면수</div>
+            <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '마감/면' : '면수'}</div>
             <div className="font-semibold text-black text-[12px]">{quote.surface}</div>
           </div>
           {quote.processing && (
             <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200 md:col-span-2">
-              <div className="text-[11px] text-gray-500 mb-0.5">가공방법</div>
+              <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '제작 품목' : '가공방법'}</div>
               <div className="font-semibold text-black text-[12px]">{quote.processingName}</div>
             </div>
           )}

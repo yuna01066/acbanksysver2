@@ -18,6 +18,8 @@ import bankAccount from "@/assets/arcbank-bank-account.jpg";
 import arcbankLogo from "@/assets/arcbank-logo.png";
 import { FileText } from "lucide-react";
 import { useActivityLog } from "@/hooks/useActivityLog";
+import QuoteStyleBanner from "@/components/quote-detail/QuoteStyleBanner";
+import { detectQuoteStyleFromItems, getQuoteStyleProfile } from "@/utils/quoteStyle";
 
 const InternalQuotePage = () => {
   const navigate = useNavigate();
@@ -53,6 +55,8 @@ const InternalQuotePage = () => {
   const subtotal = getTotalPrice();
   const tax = subtotal * 0.1; // 10% 부가세
   const totalWithTax = getTotalPriceWithTax();
+  const quoteStyle = detectQuoteStyleFromItems(quotes);
+  const quoteStyleProfile = getQuoteStyleProfile(quoteStyle);
 
   const handlePrintPDF = () => {
     window.print();
@@ -107,6 +111,7 @@ const InternalQuotePage = () => {
           capturedAt,
           pricingVersionId: primaryPricingVersionId,
           pricingVersionName: primaryPricingVersionName,
+          quoteStyle,
           subtotal: Math.round(subtotal),
           tax: Math.round(tax),
           total: Math.round(total),
@@ -179,6 +184,7 @@ const InternalQuotePage = () => {
             currentDate={currentDate}
             quoteNumber={quoteNumber}
             isSaving={isSaving}
+            quoteStyle={quoteStyle}
           />
 
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">
@@ -230,6 +236,8 @@ const InternalQuotePage = () => {
                   </div>
                 </div>
               </div>
+
+              <QuoteStyleBanner styleType={quoteStyle} itemCount={quotes.length} />
 
               {/* 회사 정보 섹션 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
@@ -307,7 +315,7 @@ const InternalQuotePage = () => {
               <div className="mb-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                   <Calculator className="w-5 h-5" />
-                  견적 목록 ({quotes.length}개) - 내부 관리용
+                  {quoteStyleProfile.itemListTitle} ({quotes.length}개) - 내부 관리용
                 </h3>
                 <div className="space-y-6">
                   {quotes.map((quote, index) => (
