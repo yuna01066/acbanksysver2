@@ -970,9 +970,11 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       const sizeParts = [item.sizeWidth, item.sizeHeight, item.sizeDepth].filter(p => p.trim());
       const sizeStr = sizeParts.length > 0 ? sizeParts.join(' × ') : '-';
       
-      const breakdownItems: { label: string; price: number }[] = [
-        { label: `${item.name} (${item.quantity}개 × ₩${item.unitPrice.toLocaleString()})`, price: item.unitPrice * item.quantity }
-      ];
+      const breakdownItems: { label: string; price: number }[] = item.calculationBreakdown?.length
+        ? item.calculationBreakdown.map(entry => ({ ...entry }))
+        : [
+            { label: `${item.name} (${item.quantity}개 × ₩${item.unitPrice.toLocaleString()})`, price: item.unitPrice * item.quantity }
+          ];
       
       if (item.notes.trim()) {
         breakdownItems.push({ label: `기타: ${item.notes}`, price: 0 });
@@ -1002,7 +1004,10 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         calculationSnapshot: createCalculationSnapshot(
           breakdownItems,
           item.unitPrice * item.quantity,
-          { manualProductItem: { ...item } }
+          {
+            manualProductItem: { ...item },
+            pricingMeta: item.pricingMeta || null,
+          }
         )
       };
     });
