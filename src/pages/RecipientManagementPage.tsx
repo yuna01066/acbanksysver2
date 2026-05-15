@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import CorpStatusCheck from '@/components/CorpStatusCheck';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,7 +37,7 @@ interface QuoteHistoryItem {
 
 const RecipientManagementPage = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const {
     recipients, loading, fetchRecipients, updateRecipient, deleteRecipient,
@@ -108,6 +108,7 @@ const RecipientManagementPage = () => {
     if (success) {
       if (selectedRecipientId === id) {
         setSelectedRecipientId(null);
+        setSearchParams({}, { replace: true });
         setQuoteHistory([]);
       }
       fetchRecipients();
@@ -118,8 +119,11 @@ const RecipientManagementPage = () => {
     const s = searchTerm.toLowerCase();
     return (
       r.company_name.toLowerCase().includes(s) ||
-      r.contact_person.toLowerCase().includes(s) ||
-      r.email.toLowerCase().includes(s) ||
+      (r.business_name || '').toLowerCase().includes(s) ||
+      (r.contact_person || '').toLowerCase().includes(s) ||
+      (r.email || '').toLowerCase().includes(s) ||
+      (r.phone || '').toLowerCase().includes(s) ||
+      (r.ceo_name || '').toLowerCase().includes(s) ||
       (r.business_registration_number || '').includes(s)
     );
   }).sort((a, b) => {
@@ -129,11 +133,27 @@ const RecipientManagementPage = () => {
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
+  const recipientSummary = useMemo(() => ({
+    total: recipients.length,
+    filtered: filteredRecipients.length,
+    withBusinessNumber: recipients.filter(r =>
+      r.business_registration_number && r.business_registration_number !== '000-00-00000'
+    ).length,
+    withAccountingContact: recipients.filter(r =>
+      r.accounting_contact_person || r.accounting_email || r.accounting_phone
+    ).length,
+  }), [recipients, filteredRecipients.length]);
+
+  const handleSelectRecipient = useCallback((recipientId: string) => {
+    setSelectedRecipientId(recipientId);
+    setSearchParams({ id: recipientId }, { replace: true });
+  }, [setSearchParams]);
+
   useEffect(() => {
     if (companyFilter && !selectedRecipientId && filteredRecipients.length > 0) {
-      setSelectedRecipientId(filteredRecipients[0].id);
+      handleSelectRecipient(filteredRecipients[0].id);
     }
-  }, [companyFilter, filteredRecipients, selectedRecipientId]);
+  }, [companyFilter, filteredRecipients, selectedRecipientId, handleSelectRecipient]);
 
   const [unregisteredCompany, setUnregisteredCompany] = useState<{
     company: string;
@@ -248,11 +268,24 @@ const RecipientManagementPage = () => {
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Building2 className="w-5 h-5" />
                   고객사 목록
+                  <Badge variant="secondary" className="ml-auto text-xs">
+                    {recipientSummary.filtered}/{recipientSummary.total}
+                  </Badge>
                 </CardTitle>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-md bg-muted/50 px-2.5 py-2">
+                    <div className="text-muted-foreground">사업자번호</div>
+                    <div className="font-semibold">{recipientSummary.withBusinessNumber}곳</div>
+                  </div>
+                  <div className="rounded-md bg-muted/50 px-2.5 py-2">
+                    <div className="text-muted-foreground">회계 담당</div>
+                    <div className="font-semibold">{recipientSummary.withAccountingContact}곳</div>
+                  </div>
+                </div>
                 <div className="relative mt-2">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    placeholder="회사명, 담당자, 사업자번호 검색..."
+                    placeholder="회사명, 담당자, 연락처, 사업자번호 검색..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -292,7 +325,7 @@ const RecipientManagementPage = () => {
                         className={`p-4 cursor-pointer hover:bg-muted/50 transition-colors ${
                           selectedRecipientId === r.id ? 'bg-primary/5 border-l-4 border-l-primary' : ''
                         }`}
-                        onClick={() => setSelectedRecipientId(r.id)}
+                        onClick={() => handleSelectRecipient(r.id)}
                       >
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-semibold text-sm truncate">{r.company_name}</span>
@@ -322,12 +355,20 @@ const RecipientManagementPage = () => {
                 {/* Recipient Detail */}
                 <Card>
                   <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <CardTitle className="text-lg flex items-center gap-2">
                         <Building2 className="w-5 h-5" />
                         {selectedRecipient.company_name}
                       </CardTitle>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate('/saved-quotes')}
+                        >
+                          <FileText className="w-4 h-4 mr-1" />
+                          견적 보기
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -437,6 +478,61 @@ const RecipientManagementPage = () => {
                     }
                   }}
                 />
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      최근 견적
+                      <Badge variant="secondary" className="ml-1">{quoteHistory.length}건</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {historyLoading ? (
+                      <div className="p-6 text-center text-sm text-muted-foreground">견적 이력을 불러오는 중...</div>
+                    ) : quoteHistory.length === 0 ? (
+                      <div className="p-6 text-center text-sm text-muted-foreground">연결된 견적 이력이 없습니다.</div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>견적번호</TableHead>
+                            <TableHead>프로젝트명</TableHead>
+                            <TableHead>견적일</TableHead>
+                            <TableHead>단계</TableHead>
+                            <TableHead className="text-right">금액</TableHead>
+                            <TableHead className="w-10"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {quoteHistory.slice(0, 8).map((q) => {
+                            const stageInfo = getStageInfo(q.project_stage);
+                            return (
+                              <TableRow key={q.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/saved-quotes/${q.id}`)}>
+                                <TableCell className="font-medium">{q.quote_number}</TableCell>
+                                <TableCell className="max-w-[220px] truncate">{q.project_name || '-'}</TableCell>
+                                <TableCell>{new Date(q.quote_date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })}</TableCell>
+                                <TableCell><Badge variant="outline" className={`text-xs ${stageInfo.color}`}>{stageInfo.label}</Badge></TableCell>
+                                <TableCell className="text-right font-semibold">{formatPrice(q.total)}</TableCell>
+                                <TableCell><Eye className="w-4 h-4 text-muted-foreground" /></TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    )}
+                    {quoteHistory.length > 8 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-3 w-full"
+                        onClick={() => navigate('/saved-quotes')}
+                      >
+                        전체 견적 보기
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* Tabbed CRM View */}
                 <Tabs defaultValue="timeline" className="w-full">

@@ -15,7 +15,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ArrowLeft, Plus, FolderOpen, FileText, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { ArrowLeft, Plus, FolderOpen, FileText, ChevronDown, ChevronUp, Download, Search } from 'lucide-react';
 import MaterialOrderCard, { MaterialOrderData } from '@/components/MaterialOrderCard';
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -72,6 +72,8 @@ const MaterialOrdersPage: React.FC = () => {
   const [selectedProjectForImport, setSelectedProjectForImport] = useState('');
   const [selectedQuoteForImport, setSelectedQuoteForImport] = useState('');
   const [importItems, setImportItems] = useState<ImportItemForm[]>([]);
+  const [orderSearch, setOrderSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const monthStart = format(startOfMonth(calendarMonth), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(calendarMonth), 'yyyy-MM-dd');
@@ -206,6 +208,43 @@ const MaterialOrdersPage: React.FC = () => {
   }, [orders, selectedDate]);
 
   const displayOrders = showAllOrders ? orders : selectedDayOrders;
+
+  const orderSummary = useMemo(() => {
+    const pendingDelivery = orders.filter(o => o.status === 'pending_delivery').length;
+    const totalQuantity = orders.reduce((sum, order) => sum + Number(order.quantity || 0), 0);
+    return { pendingDelivery, totalQuantity };
+  }, [orders]);
+
+  const filteredDisplayOrders = useMemo(() => {
+    const normalizedSearch = orderSearch.trim().toLowerCase();
+    return displayOrders.filter(order => {
+      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+      if (!matchesStatus) return false;
+      if (!normalizedSearch) return true;
+
+      const searchable = [
+        order.material,
+        order.quality,
+        order.thickness,
+        order.size_name,
+        order.color_code,
+        order.surface_type,
+        order.memo,
+        order.user_name,
+        order.projects?.project_name,
+        order.saved_quotes?.quote_number,
+        order.saved_quotes?.project_name,
+        order.quote_item_summary,
+      ].filter(Boolean).join(' ').toLowerCase();
+
+      return searchable.includes(normalizedSearch);
+    });
+  }, [displayOrders, orderSearch, statusFilter]);
+
+  const resetOrderFilters = () => {
+    setOrderSearch('');
+    setStatusFilter('all');
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof emptyForm) => {
@@ -424,6 +463,33 @@ const MaterialOrdersPage: React.FC = () => {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
+          <Card>
+            <CardContent className="p-3">
+              <div className="text-xs text-muted-foreground">이번 달 발주</div>
+              <div className="mt-1 text-xl font-semibold">{orders.length}건</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <div className="text-xs text-muted-foreground">선택일 발주</div>
+              <div className="mt-1 text-xl font-semibold">{selectedDayOrders.length}건</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <div className="text-xs text-muted-foreground">입고대기</div>
+              <div className="mt-1 text-xl font-semibold">{orderSummary.pendingDelivery}건</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <div className="text-xs text-muted-foreground">총 발주 수량</div>
+              <div className="mt-1 text-xl font-semibold">{orderSummary.totalQuantity.toLocaleString()}장</div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Calendar */}
         <Card className="mb-6">
           <CardContent className="p-4">
@@ -452,6 +518,41 @@ const MaterialOrdersPage: React.FC = () => {
           </CardContent>
         </Card>
 
+        <Card className="mb-4">
+          <CardContent className="p-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_180px_auto]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={orderSearch}
+                  onChange={(e) => setOrderSearch(e.target.value)}
+                  placeholder="프로젝트, 견적번호, 재질, 컬러, 담당자 검색"
+                  className="pl-9"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 상태</SelectItem>
+                  {Object.entries(STATUS_MAP).map(([key, value]) => (
+                    <SelectItem key={key} value={key}>{value.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={resetOrderFilters}
+                disabled={!orderSearch && statusFilter === 'all'}
+              >
+                필터 초기화
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Orders List */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -459,7 +560,9 @@ const MaterialOrdersPage: React.FC = () => {
               {showAllOrders
                 ? `${format(calendarMonth, 'yyyy년 M월', { locale: ko })} 전체 발주`
                 : `${format(selectedDate, 'M월 d일 (EEE)', { locale: ko })} 발주`}
-              <span className="ml-2 text-muted-foreground font-normal">{displayOrders.length}건</span>
+              <span className="ml-2 text-muted-foreground font-normal">
+                {filteredDisplayOrders.length}/{displayOrders.length}건
+              </span>
             </h2>
             <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => setShowAllOrders(!showAllOrders)}>
               {showAllOrders ? '선택일만' : '전체 보기'}
@@ -473,9 +576,13 @@ const MaterialOrdersPage: React.FC = () => {
             <div className="py-12 text-center text-sm text-muted-foreground">
               {showAllOrders ? '이번 달 발주 내역이 없습니다.' : '해당 날짜의 발주 내역이 없습니다.'}
             </div>
+          ) : filteredDisplayOrders.length === 0 ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              조건에 맞는 발주 내역이 없습니다.
+            </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {displayOrders.map(order => (
+              {filteredDisplayOrders.map(order => (
                 <MaterialOrderCard
                   key={order.id}
                   order={order}
