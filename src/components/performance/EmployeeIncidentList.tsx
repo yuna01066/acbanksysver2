@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { AlertTriangle, Loader2, Eye, MapPin, Clock, Send, CheckCircle2, Paperclip, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { resolveFileUrl } from '@/hooks/useGcsStorage';
 
 interface IncidentReport {
   id: string;
@@ -62,7 +63,6 @@ const EmployeeIncidentList: React.FC<Props> = ({ userId }) => {
 
   const downloadAttachment = async (attachment: any) => {
     try {
-      const { resolveFileUrl } = await import('@/hooks/useGcsStorage');
       const url = await resolveFileUrl(attachment.path);
       if (url) window.open(url, '_blank');
     } catch {

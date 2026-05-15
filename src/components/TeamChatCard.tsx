@@ -16,6 +16,7 @@ import MentionDropdown from '@/components/chat/MentionDropdown';
 import ProjectDropdown from '@/components/chat/ProjectDropdown';
 import MessageContent from '@/components/chat/MessageContent';
 import ChatAttachments from '@/components/chat/ChatAttachments';
+import { gcsUploadFile } from '@/hooks/useGcsStorage';
 
 interface ChatAttachment {
   name: string;
@@ -190,7 +191,6 @@ const TeamChatCard: React.FC = () => {
         continue;
       }
       try {
-        const { gcsUploadFile } = await import('@/hooks/useGcsStorage');
         const prefix = `team-chat/${user.id}`;
         const { gcsPath } = await gcsUploadFile(file, prefix);
         newAttachments.push({
