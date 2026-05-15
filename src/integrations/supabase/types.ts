@@ -264,6 +264,74 @@ export type Database = {
         }
         Relationships: []
       }
+      channel_talk_quote_leads: {
+        Row: {
+          analysis: Json
+          channel_talk_file_keys: string[]
+          channel_talk_message_id: string | null
+          channel_talk_user_chat_id: string
+          channel_talk_user_id: string | null
+          created_at: string
+          customer_company: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          id: string
+          inquiry_type: string
+          missing_fields: string[]
+          project_id: string | null
+          raw_payload: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          analysis?: Json
+          channel_talk_file_keys?: string[]
+          channel_talk_message_id?: string | null
+          channel_talk_user_chat_id: string
+          channel_talk_user_id?: string | null
+          created_at?: string
+          customer_company?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          inquiry_type?: string
+          missing_fields?: string[]
+          project_id?: string | null
+          raw_payload?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          analysis?: Json
+          channel_talk_file_keys?: string[]
+          channel_talk_message_id?: string | null
+          channel_talk_user_chat_id?: string
+          channel_talk_user_id?: string | null
+          created_at?: string
+          customer_company?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          inquiry_type?: string
+          missing_fields?: string[]
+          project_id?: string | null
+          raw_payload?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_talk_quote_leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       color_mixing_costs: {
         Row: {
           cost: number
