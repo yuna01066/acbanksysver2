@@ -8,6 +8,7 @@ import { QuoteProvider } from "@/contexts/QuoteContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "next-themes";
 import PageAccessGuard from "@/components/PageAccessGuard";
+import GlobalQuickNav from "@/components/GlobalQuickNav";
 
 // 즉시 로드 (항상 필요)
 import Index from "./pages/Index";
@@ -70,6 +71,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <QuoteProvider>
+            <GlobalQuickNav />
             <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
               <Routes>
               <Route path="/" element={<Index />} />
