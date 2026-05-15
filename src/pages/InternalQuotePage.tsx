@@ -20,6 +20,12 @@ import { FileText } from "lucide-react";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import QuoteStyleBanner from "@/components/quote-detail/QuoteStyleBanner";
 import { detectQuoteStyleFromItems, getQuoteStyleProfile } from "@/utils/quoteStyle";
+import {
+  createDocumentFileRecord,
+  type DocumentSyncStatus,
+  type StorageProvider,
+} from "@/services/documentFiles";
+import { buildIssuedQuoteDrivePath, toDrivePathText } from "@/utils/documentOrganization";
 
 const InternalQuotePage = () => {
   const navigate = useNavigate();
@@ -64,6 +70,75 @@ const InternalQuotePage = () => {
 
   const handleViewCustomerQuote = () => {
     navigate('/customer-quotes-summary');
+  };
+
+  const attachLedgerRecordsToSavedFiles = async (
+    quoteId: string,
+    attachments: any[],
+    savedQuoteNumber: string,
+  ) => {
+    if (!attachments.length) return attachments;
+
+    const result: any[] = [];
+
+    for (const attachment of attachments) {
+      const existingDocumentFileId = attachment.documentFileId || attachment.document_file_id || null;
+      if (existingDocumentFileId) {
+        result.push(attachment);
+        continue;
+      }
+
+      const documentType = attachment.type === 'quote_pdf' ? 'quote_pdf' : 'customer_attachment';
+      const fallbackBucket = documentType === 'quote_pdf' ? 'quote-pdfs' : 'quote-attachments';
+      const section = documentType === 'quote_pdf' ? '00_견적서PDF' : '01_고객첨부';
+      const driveFolderPath = savedQuoteNumber ? buildIssuedQuoteDrivePath({
+        quoteNumber: savedQuoteNumber,
+        recipientCompany: recipient?.companyName,
+        projectName: recipient?.projectName,
+        section,
+      }) : null;
+      const storageProvider = (attachment.storageProvider || attachment.storage_provider || 'supabase_storage') as StorageProvider;
+      const storageBucket = attachment.storageBucket || attachment.storage_bucket || fallbackBucket;
+      const storagePath = attachment.storagePath || attachment.storage_path || attachment.path || null;
+      const syncStatus = (attachment.syncStatus || attachment.sync_status || (attachment.driveFileId || attachment.drive_file_id ? 'synced' : driveFolderPath ? 'pending' : 'not_required')) as DocumentSyncStatus;
+
+      const documentFileId = await createDocumentFileRecord({
+        owner_type: 'quote',
+        quote_id: quoteId,
+        project_id: null,
+        document_type: documentType,
+        file_name: attachment.name,
+        storage_provider: storageProvider,
+        storage_bucket: storageBucket,
+        storage_path: storagePath,
+        external_url: attachment.externalUrl || attachment.external_url || attachment.url || null,
+        drive_file_id: attachment.driveFileId || attachment.drive_file_id || null,
+        drive_folder_id: attachment.driveFolderId || attachment.drive_folder_id || null,
+        drive_path: driveFolderPath ? toDrivePathText(driveFolderPath) : attachment.drivePath || attachment.drive_path || null,
+        mime_type: documentType === 'quote_pdf' ? 'application/pdf' : attachment.type || null,
+        file_size: attachment.size || null,
+        uploaded_by: user?.id || null,
+        sync_status: syncStatus,
+        synced_at: syncStatus === 'synced' ? new Date().toISOString() : null,
+        metadata: {
+          source: 'InternalQuotePage.save',
+          quoteNumber: savedQuoteNumber,
+          originalPath: attachment.path || storagePath,
+        },
+      });
+
+      const { pendingDelete, ...persistedAttachment } = attachment;
+      result.push({
+        ...persistedAttachment,
+        documentFileId,
+        storageProvider,
+        storageBucket,
+        storagePath,
+        syncStatus,
+      });
+    }
+
+    return result;
   };
 
   const handleSaveQuote = async () => {
@@ -136,10 +211,29 @@ const InternalQuotePage = () => {
         .single();
 
       if (error) throw error;
+      const savedQuoteId = data?.id;
+
+      if (savedQuoteId && quoteData.attachments.length > 0) {
+        try {
+          const attachmentsWithLedger = await attachLedgerRecordsToSavedFiles(
+            savedQuoteId,
+            quoteData.attachments as any[],
+            quoteNumber,
+          );
+          const { error: attachmentUpdateError } = await supabase
+            .from('saved_quotes')
+            .update({ attachments: attachmentsWithLedger as any })
+            .eq('id', savedQuoteId);
+          if (attachmentUpdateError) throw attachmentUpdateError;
+        } catch (ledgerError) {
+          console.error('Attachment ledger creation failed:', ledgerError);
+          toast.warning('견적서는 저장됐지만 일부 첨부파일 원장 기록을 확인해야 합니다.');
+        }
+      }
 
       toast.success('견적서가 저장되었습니다.');
-      logActivity('quote_created', data?.id || null, recipient?.projectName || quoteNumber);
-      clearQuotes();
+      logActivity('quote_created', savedQuoteId || null, recipient?.projectName || quoteNumber);
+      clearQuotes({ deleteAttachments: false });
       navigate('/saved-quotes');
     } catch (error) {
       console.error('Error saving quote:', error);

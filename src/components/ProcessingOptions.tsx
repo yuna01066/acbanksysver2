@@ -3,10 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Package, Scissors, Layers, Zap, Droplet, Settings, ChevronRight, CheckCircle2, Box, PaintBucket, Sparkles, Star, Circle, Square, Grid, Folder, FileText } from "lucide-react";
+import { Package, Scissors, Layers, Zap, Droplet, Settings, ChevronRight, CheckCircle2, Box, PaintBucket, Sparkles, Star, Circle, Square, Grid, Folder, FileText, type LucideIcon } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { useProcessingOptions } from "@/hooks/useProcessingOptions";
+import { useProcessingOptions, type ProcessingOption } from "@/hooks/useProcessingOptions";
 import { useSlotTypes } from "@/hooks/useSlotTypes";
 import { useCategoryLogic } from "@/hooks/useCategoryLogic";
 import { useProcessingCategories } from "@/hooks/useProcessingCategories";
@@ -16,6 +16,7 @@ interface ProcessingOptionsProps {
   selectedAdhesion: string;
   onProcessingSelect: (processingId: string, processingName?: string) => void;
   onAdhesionSelect: (adhesionId: string) => void;
+  onSelectionCompleteChange?: (isComplete: boolean) => void;
   isGlossyStandard: boolean;
   selectedThickness: string;
   qty?: number;
@@ -36,7 +37,7 @@ interface ProcessingOptionsProps {
 }
 
 // 아이콘 매핑
-const ICON_MAP: Record<string, any> = {
+const ICON_MAP: Record<string, LucideIcon> = {
   Package,
   Scissors,
   Layers,
@@ -57,6 +58,7 @@ const ICON_MAP: Record<string, any> = {
 const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   selectedProcessing,
   onProcessingSelect,
+  onSelectionCompleteChange,
   isGlossyStandard,
   selectedThickness,
   qty = 1,
@@ -135,14 +137,14 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     }
   }, [selectedProcessing, processingOptions, categories, isLoading, isLoadingCategories, isLoadingLogic, hasRestoredSelection, getCategoryLogicSlots]);
 
-  const getCategorySlots = (category: string) => {
+  const getCategorySlots = React.useCallback((category: string) => {
     if (!processingOptions) return {};
     
     // 해당 카테고리에 정의된 슬롯 키 가져오기
     const logicSlots = getCategoryLogicSlots(category);
     const allowedSlotKeys = logicSlots.map(logic => logic.slot_key);
     
-  const slots: Record<string, any[]> = {};
+  const slots: Record<string, ProcessingOption[]> = {};
   processingOptions
     .filter(opt => {
       // option_type이 허용된 슬롯 키에 포함되어야 함
@@ -164,10 +166,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     
     console.log('getCategorySlots result:', { category, allowedSlotKeys, slots });
     return slots;
-  };
+  }, [getCategoryLogicSlots, processingOptions]);
 
   // 옵션이 선택된 두께에 적용 가능한지 확인
-  const isOptionApplicable = (option: any): boolean => {
+  const isOptionApplicable = (option: ProcessingOption): boolean => {
     if (!option.applicable_thicknesses || option.applicable_thicknesses.length === 0) {
       return true; // 두께 제한이 없으면 항상 적용 가능
     }
@@ -199,7 +201,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   };
 
   // 선택 완료 여부 확인 (메인 슬롯만, advanced_pricing과 additional 제외)
-  const isSelectionComplete = (): boolean => {
+  const isSelectionComplete = React.useCallback((): boolean => {
     if (!mainCategory) return false;
     
     const slots = getCategorySlots(mainCategory);
@@ -212,7 +214,28 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     const isComplete = requiredSlots.every(slot => selectedSlots[slot]);
     console.log('Selection complete check:', { requiredSlots, selectedSlots, isComplete });
     return isComplete;
-  };
+  }, [getCategoryLogicSlots, getCategorySlots, mainCategory, selectedSlots]);
+
+  React.useEffect(() => {
+    if (isLoading || isLoadingSlots || isLoadingLogic || isLoadingCategories) {
+      onSelectionCompleteChange?.(false);
+      return;
+    }
+
+    onSelectionCompleteChange?.(isSelectionComplete());
+  }, [
+    mainCategory,
+    selectedSlots,
+    selectedThickness,
+    processingOptions,
+    categories,
+    isLoading,
+    isLoadingSlots,
+    isLoadingLogic,
+    isLoadingCategories,
+    isSelectionComplete,
+    onSelectionCompleteChange,
+  ]);
 
   if (isLoading || isLoadingSlots || isLoadingLogic || isLoadingCategories) {
     return (
@@ -518,6 +541,12 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
           );
         });
       })()}
+
+      {mainCategory && !isSelectionComplete() && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          선택한 가공 카테고리의 세부 옵션을 모두 선택하면 견적에 반영됩니다.
+        </div>
+      )}
 
     </div>
   );

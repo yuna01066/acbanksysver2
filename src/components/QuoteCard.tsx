@@ -50,6 +50,7 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
   const snapshot = quote.calculationSnapshot;
   const snapshotVersionName = snapshot?.pricingVersion?.versionName || quote.pricingVersionName;
   const snapshotCapturedAt = snapshot?.capturedAt ? new Date(snapshot.capturedAt) : null;
+  const yieldRecommendation = snapshot?.selectedOptions?.yieldRecommendation as any;
   const quoteStyle = getQuoteStyleForItem(quote);
   const styleProfile = getQuoteStyleProfile(quoteStyle);
   const isFabrication = quoteStyle === 'fabrication';
@@ -172,6 +173,23 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
               <div className="mb-2 flex items-start gap-1.5 rounded-md border border-blue-100 bg-blue-50 px-2 py-1.5 text-[11px] text-blue-700">
                 <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 {snapshot.note}
+              </div>
+            )}
+            {yieldRecommendation && (
+              <div className="mb-2 rounded-md border border-emerald-100 bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-800">
+                <div className="font-semibold">수율계산 근거</div>
+                <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
+                  <span>추천: {yieldRecommendation.recommendationType === 'combination' ? '복합 원판' : '단일 원판'}</span>
+                  <span>효율: {Number(yieldRecommendation.efficiency || 0).toFixed(1)}%</span>
+                  <span>원판: {(yieldRecommendation.panels || []).map((panel: any) => `${panel.size} ${panel.quantity}장`).join(', ')}</span>
+                  <span>재단품목: {(yieldRecommendation.cutItems || []).length}종</span>
+                  {yieldRecommendation.largestReusableRect && (
+                    <span className="col-span-2">
+                      재활용 잔재 최대: {Number(yieldRecommendation.largestReusableRect.width || 0).toFixed(0)}
+                      ×{Number(yieldRecommendation.largestReusableRect.height || 0).toFixed(0)}mm
+                    </span>
+                  )}
+                </div>
               </div>
             )}
             <div className="max-h-64 space-y-1 overflow-y-auto pr-1">

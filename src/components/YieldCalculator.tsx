@@ -1,9 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Package, Image as ImageIcon } from "lucide-react";
 import NestingThumbnail from "@/components/NestingThumbnail";
-import UnifiedRecommendations from "@/components/UnifiedRecommendations";
+import UnifiedRecommendations, { type YieldRecommendationSnapshot } from "@/components/UnifiedRecommendations";
 import YieldInputForm from "@/components/yield/YieldInputForm";
 import YieldHistoryPanel from "@/components/yield/YieldHistoryPanel";
 import { SavePresetDialog, LoadPresetDialog } from "@/components/yield/YieldPresetDialog";
@@ -22,6 +22,7 @@ interface YieldCalculatorProps {
     size: string;
     quantity: number;
     panels?: Array<{ size: string; quantity: number }>;
+    yieldRecommendation?: YieldRecommendationSnapshot;
   }) => void;
 }
 
@@ -46,6 +47,13 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
   const { availablePanelSizes, availableThicknesses } = useAvailablePanelSizes(selectedQuality, selectedThickness);
   const { presets, savePreset, deletePreset } = useYieldPresets();
   const { history, saveHistory, deleteHistory } = useYieldHistory();
+
+  useEffect(() => {
+    if (availableThicknesses.length > 0 && !availableThicknesses.includes(selectedThickness)) {
+      setSelectedThickness(availableThicknesses[0]);
+      setShowResults(false);
+    }
+  }, [availableThicknesses, selectedThickness]);
 
   // Reset results when inputs change
   const handleSetCutItems: typeof setCutItems = (action) => {

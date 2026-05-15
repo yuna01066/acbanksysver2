@@ -56,6 +56,29 @@ interface UnifiedRecommendation {
   panelInfo?: { panelSize: string; panelWidth: number; panelHeight: number };
 }
 
+export interface YieldRecommendationSnapshot {
+  source: 'yield-calculator';
+  recommendationType: 'single' | 'combination';
+  quality: string;
+  thickness: string;
+  generatedAt: string;
+  cutItems: Array<{ id: string; width: string; height: string; quantity: string }>;
+  efficiency: number;
+  panelsNeeded: number;
+  wasteArea: number;
+  totalCost?: number;
+  largestReusableRect?: { width: number; height: number; area: number } | null;
+  panels: Array<{
+    size: string;
+    quantity: number;
+    width?: number;
+    height?: number;
+    efficiency?: number;
+    placedItems?: Array<{ itemId: string; count: number }>;
+    largestReusableRect?: { width: number; height: number; area: number } | null;
+  }>;
+}
+
 interface UnifiedRecommendationsProps {
   yieldResults: YieldResult[];
   combinations: CombinationResult[];
@@ -66,6 +89,7 @@ interface UnifiedRecommendationsProps {
     size: string;
     quantity: number;
     panels?: Array<{ size: string; quantity: number }>;
+    yieldRecommendation?: YieldRecommendationSnapshot;
   }) => void;
   selectedQuality: string;
   selectedThickness: string;
@@ -151,8 +175,68 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
     return null;
   }
 
+  const createYieldRecommendationSnapshot = (recommendation: UnifiedRecommendation): YieldRecommendationSnapshot => {
+    if (recommendation.type === 'single') {
+      const data = recommendation.data as YieldResult;
+      return {
+        source: 'yield-calculator',
+        recommendationType: 'single',
+        quality: selectedQuality,
+        thickness: selectedThickness,
+        generatedAt: new Date().toISOString(),
+        cutItems: cutItems.map(item => ({ ...item })),
+        efficiency: data.efficiency,
+        panelsNeeded: data.panelsNeeded,
+        wasteArea: data.wasteArea,
+        largestReusableRect: data.offcut?.largestReusableRect || null,
+        panels: [{
+          size: data.panelSize,
+          quantity: data.panelsNeeded,
+          width: data.panelWidth,
+          height: data.panelHeight,
+          efficiency: data.efficiency,
+          largestReusableRect: data.offcut?.largestReusableRect || null,
+        }],
+      };
+    }
+
+    const data = recommendation.data as CombinationResult;
+    const largestReusableRect = data.panels
+      .map(panel => panel.offcut?.largestReusableRect)
+      .filter(Boolean)
+      .sort((a, b) => (b?.area || 0) - (a?.area || 0))[0] || null;
+
+    return {
+      source: 'yield-calculator',
+      recommendationType: 'combination',
+      quality: selectedQuality,
+      thickness: selectedThickness,
+      generatedAt: new Date().toISOString(),
+      cutItems: cutItems.map(item => ({ ...item })),
+      efficiency: data.totalEfficiency,
+      panelsNeeded: data.panels.reduce((sum, panel) => sum + panel.quantity, 0),
+      wasteArea: data.totalWasteArea,
+      totalCost: data.totalCost,
+      largestReusableRect,
+      panels: data.panels.map(panel => {
+        const panelInfo = availablePanelSizes.find(p => p.name === panel.panelName);
+        return {
+          size: panel.panelName,
+          quantity: panel.quantity,
+          width: panelInfo?.width,
+          height: panelInfo?.height,
+          efficiency: panel.efficiency,
+          placedItems: panel.placedItems.map(item => ({ ...item })),
+          largestReusableRect: panel.offcut?.largestReusableRect || null,
+        };
+      }),
+    };
+  };
+
   const applyRecommendationToQuote = (recommendation: UnifiedRecommendation) => {
     if (!onPanelSelect) return;
+
+    const yieldRecommendation = createYieldRecommendationSnapshot(recommendation);
 
     if (recommendation.type === 'single') {
       const data = recommendation.data as YieldResult;
@@ -161,6 +245,7 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
         thickness: selectedThickness,
         size: data.panelSize,
         quantity: data.panelsNeeded,
+        yieldRecommendation,
       });
       return;
     }
@@ -176,6 +261,7 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
       size: panels[0]?.size || '',
       quantity: panels[0]?.quantity || 1,
       panels,
+      yieldRecommendation,
     });
   };
 
