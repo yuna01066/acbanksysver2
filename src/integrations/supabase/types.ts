@@ -301,33 +301,45 @@ export type Database = {
       }
       color_options: {
         Row: {
+          color_attribute_note: string | null
           color_code: string | null
           color_name: string
           created_at: string | null
           display_order: number | null
           id: string
           is_active: boolean | null
+          is_bright_pigment: boolean
+          is_producible: boolean
           panel_master_id: string
+          unavailable_reason: string | null
           updated_at: string | null
         }
         Insert: {
+          color_attribute_note?: string | null
           color_code?: string | null
           color_name: string
           created_at?: string | null
           display_order?: number | null
           id?: string
           is_active?: boolean | null
+          is_bright_pigment?: boolean
+          is_producible?: boolean
           panel_master_id: string
+          unavailable_reason?: string | null
           updated_at?: string | null
         }
         Update: {
+          color_attribute_note?: string | null
           color_code?: string | null
           color_name?: string
           created_at?: string | null
           display_order?: number | null
           id?: string
           is_active?: boolean | null
+          is_bright_pigment?: boolean
+          is_producible?: boolean
           panel_master_id?: string
+          unavailable_reason?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -606,6 +618,97 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      document_files: {
+        Row: {
+          created_at: string
+          document_type: string
+          drive_file_id: string | null
+          drive_folder_id: string | null
+          drive_path: string | null
+          external_url: string | null
+          file_name: string
+          file_size: number | null
+          id: string
+          metadata: Json
+          mime_type: string | null
+          owner_type: string
+          project_id: string | null
+          quote_id: string | null
+          recipient_id: string | null
+          storage_bucket: string | null
+          storage_path: string | null
+          storage_provider: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_type: string
+          drive_file_id?: string | null
+          drive_folder_id?: string | null
+          drive_path?: string | null
+          external_url?: string | null
+          file_name: string
+          file_size?: number | null
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          owner_type: string
+          project_id?: string | null
+          quote_id?: string | null
+          recipient_id?: string | null
+          storage_bucket?: string | null
+          storage_path?: string | null
+          storage_provider?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          drive_file_id?: string | null
+          drive_folder_id?: string | null
+          drive_path?: string | null
+          external_url?: string | null
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          owner_type?: string
+          project_id?: string | null
+          quote_id?: string | null
+          recipient_id?: string | null
+          storage_bucket?: string | null
+          storage_path?: string | null
+          storage_provider?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_files_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employee_documents: {
         Row: {
@@ -1710,6 +1813,89 @@ export type Database = {
         }
         Relationships: []
       }
+      panel_option_surcharges: {
+        Row: {
+          cost: number
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          pricing_version_id: string | null
+          quality_id: string
+          size_name: string
+          surcharge_type: string
+          updated_at: string
+        }
+        Insert: {
+          cost?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          pricing_version_id?: string | null
+          quality_id?: string
+          size_name: string
+          surcharge_type: string
+          updated_at?: string
+        }
+        Update: {
+          cost?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          pricing_version_id?: string | null
+          quality_id?: string
+          size_name?: string
+          surcharge_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "panel_option_surcharges_pricing_version_id_fkey"
+            columns: ["pricing_version_id"]
+            isOneToOne: false
+            referencedRelation: "panel_pricing_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      panel_pricing_versions: {
+        Row: {
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          source_note: string | null
+          supplier_name: string
+          updated_at: string
+          version_name: string
+        }
+        Insert: {
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          source_note?: string | null
+          supplier_name?: string
+          updated_at?: string
+          version_name: string
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          source_note?: string | null
+          supplier_name?: string
+          updated_at?: string
+          version_name?: string
+        }
+        Relationships: []
+      }
       panel_sizes: {
         Row: {
           actual_height: number
@@ -1719,6 +1905,7 @@ export type Database = {
           is_active: boolean | null
           panel_master_id: string
           price: number | null
+          pricing_version_id: string | null
           size_name: string
           thickness: string
           updated_at: string | null
@@ -1731,6 +1918,7 @@ export type Database = {
           is_active?: boolean | null
           panel_master_id: string
           price?: number | null
+          pricing_version_id?: string | null
           size_name: string
           thickness: string
           updated_at?: string | null
@@ -1743,6 +1931,7 @@ export type Database = {
           is_active?: boolean | null
           panel_master_id?: string
           price?: number | null
+          pricing_version_id?: string | null
           size_name?: string
           thickness?: string
           updated_at?: string | null
@@ -1753,6 +1942,13 @@ export type Database = {
             columns: ["panel_master_id"]
             isOneToOne: false
             referencedRelation: "panel_masters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "panel_sizes_pricing_version_id_fkey"
+            columns: ["pricing_version_id"]
+            isOneToOne: false
+            referencedRelation: "panel_pricing_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -2524,6 +2720,8 @@ export type Database = {
           created_at: string
           custom_data: Json | null
           description: string | null
+          drive_folder_id: string | null
+          drive_folder_path: string | null
           id: string
           linked_project_id: string | null
           name: string
@@ -2543,6 +2741,8 @@ export type Database = {
           created_at?: string
           custom_data?: Json | null
           description?: string | null
+          drive_folder_id?: string | null
+          drive_folder_path?: string | null
           id?: string
           linked_project_id?: string | null
           name: string
@@ -2562,6 +2762,8 @@ export type Database = {
           created_at?: string
           custom_data?: Json | null
           description?: string | null
+          drive_folder_id?: string | null
+          drive_folder_path?: string | null
           id?: string
           linked_project_id?: string | null
           name?: string
@@ -2888,6 +3090,8 @@ export type Database = {
           contact_person: string
           created_at: string
           detail_address: string | null
+          drive_folder_id: string | null
+          drive_folder_path: string | null
           email: string
           id: string
           memo: string | null
@@ -2913,6 +3117,8 @@ export type Database = {
           contact_person: string
           created_at?: string
           detail_address?: string | null
+          drive_folder_id?: string | null
+          drive_folder_path?: string | null
           email: string
           id?: string
           memo?: string | null
@@ -2938,6 +3144,8 @@ export type Database = {
           contact_person?: string
           created_at?: string
           detail_address?: string | null
+          drive_folder_id?: string | null
+          drive_folder_path?: string | null
           email?: string
           id?: string
           memo?: string | null
@@ -3083,11 +3291,15 @@ export type Database = {
       saved_quotes: {
         Row: {
           attachments: Json | null
+          calculation_snapshot: Json
           created_at: string
           custom_color_name: string | null
           custom_opacity: string | null
           delivery_period: string | null
           desired_delivery_date: string | null
+          drive_folder_id: string | null
+          drive_folder_path: string | null
+          drive_pdf_file_id: string | null
           id: string
           issuer_department: string | null
           issuer_email: string | null
@@ -3097,6 +3309,7 @@ export type Database = {
           issuer_position: string | null
           items: Json
           payment_condition: string | null
+          pricing_version_id: string | null
           project_id: string | null
           project_name: string | null
           project_stage: string
@@ -3118,11 +3331,15 @@ export type Database = {
         }
         Insert: {
           attachments?: Json | null
+          calculation_snapshot?: Json
           created_at?: string
           custom_color_name?: string | null
           custom_opacity?: string | null
           delivery_period?: string | null
           desired_delivery_date?: string | null
+          drive_folder_id?: string | null
+          drive_folder_path?: string | null
+          drive_pdf_file_id?: string | null
           id?: string
           issuer_department?: string | null
           issuer_email?: string | null
@@ -3132,6 +3349,7 @@ export type Database = {
           issuer_position?: string | null
           items: Json
           payment_condition?: string | null
+          pricing_version_id?: string | null
           project_id?: string | null
           project_name?: string | null
           project_stage?: string
@@ -3153,11 +3371,15 @@ export type Database = {
         }
         Update: {
           attachments?: Json | null
+          calculation_snapshot?: Json
           created_at?: string
           custom_color_name?: string | null
           custom_opacity?: string | null
           delivery_period?: string | null
           desired_delivery_date?: string | null
+          drive_folder_id?: string | null
+          drive_folder_path?: string | null
+          drive_pdf_file_id?: string | null
           id?: string
           issuer_department?: string | null
           issuer_email?: string | null
@@ -3167,6 +3389,7 @@ export type Database = {
           issuer_position?: string | null
           items?: Json
           payment_condition?: string | null
+          pricing_version_id?: string | null
           project_id?: string | null
           project_name?: string | null
           project_stage?: string
@@ -3187,6 +3410,13 @@ export type Database = {
           valid_until?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "saved_quotes_pricing_version_id_fkey"
+            columns: ["pricing_version_id"]
+            isOneToOne: false
+            referencedRelation: "panel_pricing_versions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "saved_quotes_project_id_fkey"
             columns: ["project_id"]
