@@ -22,6 +22,7 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { gcsUploadFile, resolveFileUrl } from '@/hooks/useGcsStorage';
 
 interface IncidentReport {
   id: string;
@@ -163,7 +164,6 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
   };
 
   const uploadFiles = async (reportId: string): Promise<any[]> => {
-    const { gcsUploadFile } = await import('@/hooks/useGcsStorage');
     const uploaded: any[] = [];
     for (const file of files) {
       try {
@@ -268,7 +268,6 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
 
   const downloadAttachment = async (attachment: any) => {
     try {
-      const { resolveFileUrl } = await import('@/hooks/useGcsStorage');
       const url = await resolveFileUrl(attachment.path);
       if (url) window.open(url, '_blank');
       else toast.error('파일 다운로드에 실패했습니다.');
