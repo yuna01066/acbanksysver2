@@ -1,20 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import CustomerQuoteCard from '@/components/CustomerQuoteCard';
-import QuoteCard from '@/components/QuoteCard';
 import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import ProjectStageSelect, { PROJECT_STAGES, getStageInfo } from '@/components/ProjectStageSelect';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import ProjectStageSelect, { PROJECT_STAGES } from '@/components/ProjectStageSelect';
 import { getPaymentStatusInfo } from '@/components/project/PaymentStatusSelect';
 
 interface LinkedProject {
@@ -187,6 +184,32 @@ const SavedQuotesPage = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, dateFilter, userFilter]);
+
+  const activeFilterCount = [
+    searchTerm.trim() ? 'search' : null,
+    dateFilter ? 'date' : null,
+    stageFilter !== 'all' ? 'stage' : null,
+    isAdmin && userFilter !== 'all' ? 'user' : null,
+  ].filter(Boolean).length;
+
+  const listSummary = useMemo(() => {
+    const totalAmount = filteredQuotes.reduce((sum, quote) => sum + Number(quote.total || 0), 0);
+    const linkedProjectCount = filteredQuotes.filter(quote => quote.linked_project).length;
+    const recipientCount = new Set(
+      filteredQuotes
+        .map(quote => quote.recipient_company || quote.recipient_name)
+        .filter(Boolean)
+    ).size;
+
+    return { totalAmount, linkedProjectCount, recipientCount };
+  }, [filteredQuotes]);
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setDateFilter('');
+    setStageFilter('all');
+    if (isAdmin) setUserFilter('all');
+  };
 
   const fetchUsers = async () => {
     try {
@@ -524,43 +547,70 @@ const SavedQuotesPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex justify-between gap-2 mb-4">
-            <Button onClick={() => navigate('/space-quotes')} variant="outline">
-              <FileText className="w-4 h-4 mr-2" />
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-7xl px-4 py-6">
+        <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              <h1 className="text-2xl font-bold tracking-tight">발행 견적서</h1>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              견적 상태, 연결 프로젝트, 거래처 정보를 한 화면에서 확인합니다.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => navigate('/calculator')} size="sm">
+              견적서 작성
+            </Button>
+            <Button onClick={() => navigate('/space-quotes')} variant="outline" size="sm">
               공간디자인 견적서
             </Button>
-            <Button onClick={() => navigate('/')} variant="outline">
-              <Home className="w-4 h-4 mr-2" />
-              홈으로
+            <Button onClick={() => navigate('/')} variant="outline" size="sm">
+              <Home className="mr-1.5 h-4 w-4" />
+              홈
             </Button>
-          </div>
-          <div className="text-center">
-            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">
-              발행 견적서 목록
-            </h1>
-            <p className="text-muted-foreground">저장된 견적서를 확인하고 관리합니다</p>
           </div>
         </div>
 
-        {/* Search, Filter and Sort */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="rounded-lg border bg-card px-4 py-3">
+            <div className="text-xs text-muted-foreground">표시 견적</div>
+            <div className="mt-1 text-xl font-semibold">{filteredQuotes.length.toLocaleString()}건</div>
+          </div>
+          <div className="rounded-lg border bg-card px-4 py-3">
+            <div className="text-xs text-muted-foreground">표시 합계</div>
+            <div className="mt-1 text-xl font-semibold">{formatPrice(listSummary.totalAmount)}</div>
+          </div>
+          <div className="rounded-lg border bg-card px-4 py-3">
+            <div className="text-xs text-muted-foreground">프로젝트 연결</div>
+            <div className="mt-1 text-xl font-semibold">
+              {listSummary.linkedProjectCount.toLocaleString()}건
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                거래처 {listSummary.recipientCount.toLocaleString()}곳
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <Card className="mb-4">
+          <CardContent className="space-y-3 p-4">
+            <div className={`grid grid-cols-1 gap-3 md:grid-cols-2 ${
+              isAdmin
+                ? 'lg:grid-cols-[minmax(0,1.5fr)_180px_190px_190px_auto]'
+                : 'lg:grid-cols-[minmax(0,1.5fr)_180px_190px_auto]'
+            }`}>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="견적번호, 프로젝트명, 업체명, 담당자로 검색..."
+                  placeholder="견적번호, 프로젝트명, 업체명, 담당자 검색"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
               </div>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="date"
                   value={dateFilter}
@@ -571,13 +621,13 @@ const SavedQuotesPage = () => {
               {isAdmin && (
                 <Select value={userFilter} onValueChange={setUserFilter}>
                   <SelectTrigger>
-                    <div className="flex items-center gap-2">
-                      <Filter className="w-4 h-4" />
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Filter className="h-4 w-4 shrink-0" />
                       <SelectValue placeholder="담당자 선택" />
                     </div>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">전체 견적서</SelectItem>
+                    <SelectItem value="all">전체 담당자</SelectItem>
                     {users.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.full_name} ({user.email})
@@ -589,7 +639,7 @@ const SavedQuotesPage = () => {
               <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
-                    <ArrowUpDown className="w-4 h-4" />
+                    <ArrowUpDown className="h-4 w-4" />
                     <SelectValue />
                   </div>
                 </SelectTrigger>
@@ -602,10 +652,19 @@ const SavedQuotesPage = () => {
                   <SelectItem value="number-asc">견적번호 오름차순</SelectItem>
                 </SelectContent>
               </Select>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={resetFilters}
+                disabled={activeFilterCount === 0}
+                className="whitespace-nowrap"
+              >
+                필터 초기화
+              </Button>
             </div>
-            {/* Stage Filter */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="text-sm text-muted-foreground mr-1">단계:</span>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted-foreground">단계</span>
               <Badge
                 variant={stageFilter === 'all' ? 'default' : 'outline'}
                 className="cursor-pointer text-xs"
@@ -613,41 +672,32 @@ const SavedQuotesPage = () => {
               >
                 전체
               </Badge>
-              {PROJECT_STAGES.map((s) => (
+              {PROJECT_STAGES.map((stage) => (
                 <Badge
-                  key={s.value}
+                  key={stage.value}
                   variant="outline"
-                  className={`cursor-pointer text-xs ${stageFilter === s.value ? s.color + ' border-current' : ''}`}
-                  onClick={() => setStageFilter(s.value)}
+                  className={`cursor-pointer text-xs ${stageFilter === stage.value ? stage.color + ' border-current' : ''}`}
+                  onClick={() => setStageFilter(stage.value)}
                 >
-                  {s.label}
+                  {stage.label}
                 </Badge>
               ))}
-            </div>
-            {isAdmin && (
-              <div className="mt-3 flex items-center gap-2">
-                <Badge variant="secondary" className="text-xs">
-                  관리자 모드
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {userFilter === 'all' 
-                    ? '전체 견적서를 조회하고 있습니다' 
-                    : `${users.find(u => u.id === userFilter)?.full_name || '선택된 사용자'}의 견적서를 조회하고 있습니다`
-                  }
+              {isAdmin && (
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {userFilter === 'all'
+                    ? '관리자: 전체 담당자 조회'
+                    : `담당자: ${users.find(u => u.id === userFilter)?.full_name || '선택된 사용자'}`}
                 </span>
-              </div>
-            )}
+              )}
+            </div>
           </CardContent>
         </Card>
 
-        {/* Quotes List */}
         {filteredQuotes.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
-              <p className="text-muted-foreground mb-4">
-                {quotes.length === 0 
-                  ? '저장된 견적서가 없습니다.' 
-                  : '검색 결과가 없습니다.'}
+              <p className="mb-4 text-sm text-muted-foreground">
+                {quotes.length === 0 ? '저장된 견적서가 없습니다.' : '검색 결과가 없습니다.'}
               </p>
               <Button onClick={() => navigate('/calculator')} variant="outline">
                 견적서 작성하기
@@ -656,175 +706,195 @@ const SavedQuotesPage = () => {
           </Card>
         ) : (
           <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {filteredQuotes.map((quote) => (
-                <Card key={quote.id} className="hover:shadow-lg transition-all hover:scale-[1.02]">
-                  <CardContent className="p-6">
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FileText className="w-5 h-5 text-primary" />
-                          <h3 className="text-lg font-bold">{quote.quote_number}</h3>
-                        </div>
-                        {quote.project_name && (
-                          <p className="text-base font-semibold text-foreground mb-2">{quote.project_name}</p>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <Badge variant="outline" className="text-xs">
-                          {new Date(quote.quote_date).toLocaleDateString('ko-KR', { 
-                            month: 'short', 
-                            day: 'numeric' 
-                          })}
-                        </Badge>
-                      </div>
-                    </div>
+            <Card className="overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="w-[210px]">견적</TableHead>
+                    <TableHead className="min-w-[220px]">거래처</TableHead>
+                    <TableHead className="min-w-[220px]">프로젝트</TableHead>
+                    <TableHead className="w-[150px]">단계</TableHead>
+                    <TableHead className="w-[140px] text-right">금액</TableHead>
+                    <TableHead className="w-[120px]">발행일</TableHead>
+                    <TableHead className="w-[132px] text-right">작업</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredQuotes.map((quote) => {
+                    const paymentInfo = quote.linked_project?.payment_status
+                      ? getPaymentStatusInfo(quote.linked_project.payment_status)
+                      : null;
 
-                    {/* Project Stage */}
-                    <div className="mb-3">
-                      <ProjectStageSelect
-                        quoteId={quote.id}
-                        currentStage={quote.project_stage || 'quote_issued'}
-                        quoteNumber={quote.quote_number}
-                        quoteUserId={quote.user_id}
-                        onStageChanged={(newStage) => {
-                          setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, project_stage: newStage } : q));
-                        }}
-                      />
-                    </div>
-
-                    {/* Linked Project */}
-                    {quote.linked_project && (
-                      <div
-                        className="mb-3 p-3 rounded-lg border border-primary/20 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/project-management?id=${quote.linked_project!.id}`);
-                        }}
+                    return (
+                      <TableRow
+                        key={quote.id}
+                        className="cursor-pointer"
+                        onClick={() => navigate(`/saved-quotes/${quote.id}`)}
                       >
-                        <div className="flex items-center gap-2 mb-1">
-                          <FolderOpen className="w-4 h-4 text-primary flex-shrink-0" />
-                          <span className="text-sm font-semibold text-foreground truncate">{quote.linked_project.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 ml-6">
-                          {quote.linked_project.payment_status && (
-                            <Badge className={`text-xs ${getPaymentStatusInfo(quote.linked_project.payment_status).color}`}>
-                              {getPaymentStatusInfo(quote.linked_project.payment_status).label}
+                        <TableCell className="py-3">
+                          <div className="flex min-w-0 flex-col gap-1">
+                            <div className="font-semibold tabular-nums">{quote.quote_number}</div>
+                            {quote.project_name && (
+                              <div className="max-w-[260px] truncate text-xs text-muted-foreground">
+                                {quote.project_name}
+                              </div>
+                            )}
+                            <div className="flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
+                              {quote.issuer_name && <span>담당 {quote.issuer_name}</span>}
+                              {quote.creator_name && <span>작성 {quote.creator_name}</span>}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-3">
+                          <div className="flex min-w-0 flex-col gap-1">
+                            {quote.recipient_company ? (
+                              <button
+                                type="button"
+                                className="flex max-w-[240px] items-center gap-1.5 truncate text-left text-sm font-medium text-primary hover:underline"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  navigate(`/recipients?company=${encodeURIComponent(quote.recipient_company!)}`);
+                                }}
+                              >
+                                <Building2 className="h-3.5 w-3.5 shrink-0" />
+                                <span className="truncate">{quote.recipient_company}</span>
+                              </button>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">거래처 없음</span>
+                            )}
+                            {quote.recipient_name && (
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <User className="h-3.5 w-3.5" />
+                                {quote.recipient_name}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-3">
+                          {quote.linked_project ? (
+                            <button
+                              type="button"
+                              className="flex max-w-[240px] flex-col items-start gap-1 rounded-md border border-primary/20 bg-primary/5 px-2.5 py-2 text-left transition-colors hover:bg-primary/10"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                navigate(`/project-management?id=${quote.linked_project!.id}`);
+                              }}
+                            >
+                              <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+                                <FolderOpen className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                <span className="truncate">{quote.linked_project.name}</span>
+                              </span>
+                              {paymentInfo && (
+                                <Badge className={`text-[10px] ${paymentInfo.color}`}>
+                                  {paymentInfo.label}
+                                </Badge>
+                              )}
+                            </button>
+                          ) : (
+                            <Badge variant="outline" className="text-xs text-muted-foreground">
+                              미연결
                             </Badge>
                           )}
-                        </div>
-                      </div>
-                    )}
+                        </TableCell>
+                        <TableCell className="py-3">
+                          <div onClick={(event) => event.stopPropagation()}>
+                            <ProjectStageSelect
+                              quoteId={quote.id}
+                              currentStage={quote.project_stage || 'quote_issued'}
+                              quoteNumber={quote.quote_number}
+                              quoteUserId={quote.user_id}
+                              onStageChanged={(newStage) => {
+                                setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, project_stage: newStage } : q));
+                              }}
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-3 text-right font-semibold tabular-nums">
+                          {formatPrice(quote.total)}
+                        </TableCell>
+                        <TableCell className="py-3 text-sm text-muted-foreground">
+                          {new Date(quote.quote_date).toLocaleDateString('ko-KR', {
+                            year: '2-digit',
+                            month: '2-digit',
+                            day: '2-digit',
+                          })}
+                        </TableCell>
+                        <TableCell className="py-3">
+                          <div className="flex justify-end gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="상세보기"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                navigate(`/saved-quotes/${quote.id}`);
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                              title="견적서 복제"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleDuplicateQuote(quote.id);
+                              }}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              title="견적서 삭제"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleDeleteQuote(quote.id);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </Card>
 
-                    {/* Info Grid */}
-                    <div className="space-y-3 mb-4">
-                      {quote.recipient_company && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                          <span
-                            className="text-primary hover:underline cursor-pointer truncate"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/recipients?company=${encodeURIComponent(quote.recipient_company!)}`);
-                            }}
-                          >
-                            {quote.recipient_company}
-                          </span>
-                        </div>
-                      )}
-                      {quote.recipient_name && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                          <span className="text-muted-foreground">{quote.recipient_name}</span>
-                        </div>
-                      )}
-                    </div>
-
-                      {/* Issuer & Creator */}
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
-                        {quote.issuer_name && (
-                          <span className="bg-muted px-2 py-0.5 rounded">담당: {quote.issuer_name}</span>
-                        )}
-                        {quote.creator_name && (
-                          <span className="bg-muted px-2 py-0.5 rounded">작성: {quote.creator_name}</span>
-                        )}
-                      </div>
-
-                    {/* Price */}
-                    <div className="bg-muted/50 rounded-lg p-3 mb-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">총 금액</span>
-                        <span className="text-xl font-bold text-muted-foreground">{formatPrice(quote.total)}</span>
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate(`/saved-quotes/${quote.id}`)}
-                        className="flex-1"
-                      >
-                        <Eye className="w-4 h-4 mr-1" />
-                        상세보기
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDuplicateQuote(quote.id)}
-                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                        title="견적서 복제"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteQuote(quote.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Pagination */}
             {!searchTerm && !dateFilter && totalCount > ITEMS_PER_PAGE && (
-              <Card className="mt-6">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      총 {totalCount}개 중 {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-
-                      {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}개 표시
+              <Card className="mt-4">
+                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    총 {totalCount}개 중 {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-
+                    {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}개 표시
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="mr-1 h-4 w-4" />
+                      이전
+                    </Button>
+                    <div className="px-3 text-sm font-medium">
+                      {currentPage} / {Math.ceil(totalCount / ITEMS_PER_PAGE)}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                      >
-                        <ChevronLeft className="w-4 h-4 mr-1" />
-                        이전
-                      </Button>
-                      <div className="text-sm font-medium px-4">
-                        {currentPage} / {Math.ceil(totalCount / ITEMS_PER_PAGE)}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalCount / ITEMS_PER_PAGE), p + 1))}
-                        disabled={currentPage >= Math.ceil(totalCount / ITEMS_PER_PAGE)}
-                      >
-                        다음
-                        <ChevronRight className="w-4 h-4 ml-1" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalCount / ITEMS_PER_PAGE), p + 1))}
+                      disabled={currentPage >= Math.ceil(totalCount / ITEMS_PER_PAGE)}
+                    >
+                      다음
+                      <ChevronRight className="ml-1 h-4 w-4" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
