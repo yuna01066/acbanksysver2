@@ -23,22 +23,51 @@ import SurfaceSelection from "./SurfaceSelection";
 import ColorSelection from "./ColorSelection";
 import FilmColorSelection from "./FilmColorSelection";
 import FilmSelection from "./FilmSelection";
-import { useQuotes } from "@/contexts/QuoteContext";
+import { useQuotes, type Quote } from "@/contexts/QuoteContext";
 import { usePriceCalculation } from "@/hooks/usePriceCalculation";
 import { Input } from "@/components/ui/input";
 import YieldCalculator from "./YieldCalculator";
+import type { YieldRecommendationSnapshot } from "./UnifiedRecommendations";
 import AdvancedProcessingOptions from "./AdvancedProcessingOptions";
 import EdgeFinishingOption from "./EdgeFinishingOption";
 import ManualProductEntry, { ManualProductItem } from "./ManualProductEntry";
+import type { Database } from '@/integrations/supabase/types';
 
 const DEFAULT_COLOR_MIXING_COST = 40000;
 
-interface PricingVersion {
-  id: string;
-  version_name: string;
-  supplier_name: string;
-  effective_from: string;
-}
+type PricingVersion = Pick<
+  Database['public']['Tables']['panel_pricing_versions']['Row'],
+  'id' | 'version_name' | 'supplier_name' | 'effective_from'
+>;
+
+type QuoteDraft = Omit<Quote, 'id' | 'createdAt'>;
+
+type SavedQuoteItem = Partial<QuoteDraft> & {
+  id?: string;
+  createdAt?: string | Date;
+  totalPrice?: number;
+  quantity?: number;
+  calculationSnapshot?: Quote['calculationSnapshot'] | null;
+  [key: string]: unknown;
+};
+
+const toSavedQuoteItems = (items: unknown): SavedQuoteItem[] => {
+  if (!Array.isArray(items)) return [];
+
+  return items
+    .filter((item): item is Record<string, unknown> => (
+      Boolean(item) && typeof item === 'object' && !Array.isArray(item)
+    ))
+    .map(item => ({ ...item }));
+};
+
+const calculateSavedQuoteSubtotal = (items: SavedQuoteItem[]) => (
+  items.reduce((sum, item) => {
+    const totalPrice = Number(item.totalPrice) || 0;
+    const quantity = Number(item.quantity) || 1;
+    return sum + (totalPrice * quantity);
+  }, 0)
+);
 
 const PROCESSING_OPTIONS = [{
   id: 'raw-only',
@@ -100,6 +129,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [selectedProcessing, setSelectedProcessing] = useState<string>('');
   const [selectedProcessingName, setSelectedProcessingName] = useState<string>('');
   const [selectedAdhesion, setSelectedAdhesion] = useState<string>('');
+  const [isProcessingSelectionComplete, setIsProcessingSelectionComplete] = useState<boolean>(false);
   const [selectedFilm, setSelectedFilm] = useState<string>('');
   const [selectedBaseType, setSelectedBaseType] = useState<string>(''); // 필름 아크릴 기본 재질 (Clear/Bright/Astel)
   const [activePricingVersion, setActivePricingVersion] = useState<PricingVersion | null>(null);
@@ -126,6 +156,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [yieldAppliedSelection, setYieldAppliedSelection] = useState<{
     thickness: string;
     sizes: SizeQuantitySelection[];
+    yieldRecommendation?: YieldRecommendationSnapshot;
   } | null>(null);
   
   // 제품 제작 수동 입력 상태
@@ -225,7 +256,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
             ? restoredColorMixingCost
             : Math.round((restoredColorMixingCost / sizeEntries.length) / 10000) * 10000;
 
-          sizeEntries.forEach((e: any) => {
+          sizeEntries.forEach(e => {
             e.colorMixingCost = perEntryCost;
           });
         }
@@ -303,7 +334,8 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   useEffect(() => {
     const loadActivePricingVersion = async () => {
       try {
-        const { data, error } = await (supabase.from('panel_pricing_versions' as any) as any)
+        const { data, error } = await supabase
+          .from('panel_pricing_versions')
           .select('id, version_name, supplier_name, effective_from')
           .eq('is_active', true)
           .order('effective_from', { ascending: false })
@@ -395,6 +427,10 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
 
   // 이전 단계로 돌아가기 버튼
   const resetFromStep = (step: number) => {
+    if (step <= 8) {
+      setIsProcessingSelectionComplete(false);
+    }
+
     if (step <= 0) {
       setSelectedMaterial(null);
       setSelectedQuality(null);
@@ -659,6 +695,8 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   };
 
   const handleNextFromMultipleColorMixing = () => {
+    setIsProcessingSelectionComplete(false);
+
     // 가공 옵션 단계로 진입하면 기본값 설정하여 실시간 가격 계산
     if (!selectedProcessing) {
       setSelectedProcessing('none');
@@ -675,6 +713,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const handleFilmSelect = (filmId: string) => {
     console.log('Film selected:', filmId);
     setSelectedFilm(filmId);
+    setIsProcessingSelectionComplete(false);
     
     // 가공 옵션 단계로 진입하면 기본값 설정하여 실시간 가격 계산
     if (!selectedProcessing) {
@@ -710,6 +749,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         surface: s.surface,
         colorMixingCost: s.colorMixingCost || 0,
       })),
+      yieldRecommendation: yieldAppliedSelection?.yieldRecommendation || null,
       colorType: selectedColorType,
       selectedColor,
       selectedColorHex,
@@ -751,10 +791,15 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       return;
     }
 
+    if (!isProcessingSelectionComplete) {
+      alert('가공 카테고리의 세부 옵션을 선택해주세요. 가공이 없는 경우 원판 구매 옵션을 선택해주세요.');
+      return;
+    }
+
     const processingName = selectedProcessingName || PROCESSING_OPTIONS.find(p => p.id === selectedProcessing)?.name || '';
     
     // 다중 선택된 사이즈를 하나의 견적으로 처리 (총 가격은 priceInfo.totalPrice)
-    const quoteData = {
+    const quoteData: QuoteDraft = {
       factory: 'jangwon',
       material: selectedMaterial.name,
       quality: selectedQuality.name,
@@ -791,9 +836,9 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         if (fetchError) throw fetchError;
 
         // items 배열 업데이트
-        const items: any[] = Array.isArray(existingQuote.items) ? [...existingQuote.items] : [];
+        const items = toSavedQuoteItems(existingQuote.items);
         if (itemIndex >= 0 && itemIndex < items.length) {
-          const existingItem = items[itemIndex] as any;
+          const existingItem = items[itemIndex];
           items[itemIndex] = {
             ...existingItem,
             ...quoteData,
@@ -802,7 +847,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         }
 
         // 총액 재계산
-        const newSubtotal = items.reduce((sum: number, item: any) => sum + (item.totalPrice * (item.quantity || 1)), 0);
+        const newSubtotal = calculateSavedQuoteSubtotal(items);
         const roundedSubtotal = Math.round(newSubtotal / 100) * 100;
         const newTax = Math.round(roundedSubtotal * 0.1);
         const newTotal = roundedSubtotal + newTax;
@@ -859,14 +904,14 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
 
         if (fetchError) throw fetchError;
 
-        const items: any[] = Array.isArray(existingQuote.items) ? [...existingQuote.items] : [];
+        const items = toSavedQuoteItems(existingQuote.items);
         items.push({
           ...quoteData,
           id: Date.now().toString(),
           createdAt: new Date().toISOString()
         });
 
-        const newSubtotal = items.reduce((sum: number, item: any) => sum + (item.totalPrice * (item.quantity || 1)), 0);
+        const newSubtotal = calculateSavedQuoteSubtotal(items);
         const roundedSubtotal = Math.round(newSubtotal / 100) * 100;
         const newTax = Math.round(roundedSubtotal * 0.1);
         const newTotal = roundedSubtotal + newTax;
@@ -966,7 +1011,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     }
 
     // 각 항목의 quoteData 생성
-    const quoteDataList = validItems.map(item => {
+    const quoteDataList: QuoteDraft[] = validItems.map(item => {
       const sizeParts = [item.sizeWidth, item.sizeHeight, item.sizeDepth].filter(p => p.trim());
       const sizeStr = sizeParts.length > 0 ? sizeParts.join(' × ') : '-';
       
@@ -1023,7 +1068,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
 
         if (fetchError) throw fetchError;
 
-        const items: any[] = Array.isArray(existingQuote.items) ? [...existingQuote.items] : [];
+        const items = toSavedQuoteItems(existingQuote.items);
         quoteDataList.forEach(qd => {
           items.push({
             ...qd,
@@ -1032,7 +1077,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
           });
         });
 
-        const newSubtotal = items.reduce((sum: number, item: any) => sum + (item.totalPrice * (item.quantity || 1)), 0);
+        const newSubtotal = calculateSavedQuoteSubtotal(items);
         const roundedSubtotal = Math.round(newSubtotal / 100) * 100;
         const newTax = Math.round(roundedSubtotal * 0.1);
         const newTotal = roundedSubtotal + newTax;
@@ -1104,6 +1149,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     size: string;
     quantity: number;
     panels?: Array<{ size: string; quantity: number }>;
+    yieldRecommendation?: YieldRecommendationSnapshot;
   }) => {
     // 재질 매핑 (캐스팅만 지원)
     const castingMaterial = MATERIALS.find(m => m.id === 'casting');
@@ -1142,6 +1188,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     setYieldAppliedSelection({
       thickness: panelData.thickness,
       sizes: yieldSizes,
+      yieldRecommendation: panelData.yieldRecommendation,
     });
 
     // 견적계산기 모드로 전환하고 컬러 선택 단계로 이동
@@ -1279,6 +1326,14 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
                   <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
                     수율계산 추천 원판을 적용했습니다: {yieldAppliedSelection.thickness} · {' '}
                     {yieldAppliedSelection.sizes.map(s => `${s.size} ${s.quantity}장`).join(', ')}
+                    {yieldAppliedSelection.yieldRecommendation && (
+                      <span className="block mt-1">
+                        효율 {yieldAppliedSelection.yieldRecommendation.efficiency.toFixed(1)}%
+                        {yieldAppliedSelection.yieldRecommendation.largestReusableRect
+                          ? ` · 재활용 잔재 최대 ${yieldAppliedSelection.yieldRecommendation.largestReusableRect.width.toFixed(0)}×${yieldAppliedSelection.yieldRecommendation.largestReusableRect.height.toFixed(0)}mm`
+                          : ''}
+                      </span>
+                    )}
                   </div>
                   <Button
                     onClick={() => setCurrentStep(6)}
@@ -1357,28 +1412,49 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
           {/* Step 8 또는 9: 가공 선택 (수량 및 복잡도 포함) */}
           {((currentStep === 8 && selectedQuality?.id !== 'film-acrylic') || 
             (currentStep === 9 && selectedQuality?.id === 'film-acrylic')) && (
-            <ProcessingOptions 
-              selectedProcessing={selectedProcessing}
-              selectedAdhesion={selectedAdhesion}
-              onProcessingSelect={handleProcessingSelect}
-              onAdhesionSelect={handleAdhesionSelect}
-              isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
-              selectedThickness={selectedThickness}
-              qty={qty}
-              onQtyChange={setQty}
-              isComplex={isComplex}
-              onComplexChange={setIsComplex}
-              edgeFinishing={edgeFinishing}
-              onEdgeFinishingChange={setEdgeFinishing}
-              bulgwang={bulgwang}
-              onBulgwangChange={setBulgwang}
-              tapung={tapung}
-              onTapungChange={setTapung}
-              mugwangPainting={mugwangPainting}
-              onMugwangPaintingChange={setMugwangPainting}
-              selectedAdditionalOptions={selectedAdditionalOptions}
-              onAdditionalOptionsChange={setSelectedAdditionalOptions}
-            />
+            <>
+              <ProcessingOptions
+                selectedProcessing={selectedProcessing}
+                selectedAdhesion={selectedAdhesion}
+                onProcessingSelect={handleProcessingSelect}
+                onAdhesionSelect={handleAdhesionSelect}
+                onSelectionCompleteChange={setIsProcessingSelectionComplete}
+                isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
+                selectedThickness={selectedThickness}
+                qty={qty}
+                onQtyChange={setQty}
+                isComplex={isComplex}
+                onComplexChange={setIsComplex}
+                edgeFinishing={edgeFinishing}
+                onEdgeFinishingChange={setEdgeFinishing}
+                bulgwang={bulgwang}
+                onBulgwangChange={setBulgwang}
+                tapung={tapung}
+                onTapungChange={setTapung}
+                mugwangPainting={mugwangPainting}
+                onMugwangPaintingChange={setMugwangPainting}
+                selectedAdditionalOptions={selectedAdditionalOptions}
+                onAdditionalOptionsChange={setSelectedAdditionalOptions}
+              />
+              <AdvancedProcessingOptions
+                qty={qty}
+                onQtyChange={setQty}
+                isComplex={isComplex}
+                onComplexChange={setIsComplex}
+                bevelLengthM={bevelLengthM}
+                onBevelLengthChange={setBevelLengthM}
+                laserHoles={laserHoles}
+                onLaserHolesChange={setLaserHoles}
+                corners90={corners90}
+                onCorners90Change={setCorners90}
+                useDetailedBond={useDetailedBond}
+                onDetailedBondChange={setUseDetailedBond}
+                joinLengthM={joinLengthM}
+                onJoinLengthChange={setJoinLengthM}
+                trayHeightMm={trayHeightMm}
+                onTrayHeightChange={setTrayHeightMm}
+              />
+            </>
           )}
 
           {/* 견적 추가/수정 버튼 */}
@@ -1387,7 +1463,12 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
             <>
               <Separator className="my-8" />
               <div className="flex justify-center gap-4">
-                <Button onClick={handleAddQuote} size="lg" className={`px-8 animate-fade-up ${(editMode === 'saved' || editMode === 'addToSaved') ? 'bg-green-600 hover:bg-green-700' : ''}`}>
+                <Button
+                  onClick={handleAddQuote}
+                  size="lg"
+                  disabled={!isProcessingSelectionComplete}
+                  className={`px-8 animate-fade-up ${(editMode === 'saved' || editMode === 'addToSaved') ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                >
                   <Plus className="w-5 h-5" />
                   {editMode === 'saved' ? '견적 수정' : editMode === 'addToSaved' ? '견적서에 항목 추가' : '견적 추가'}
                 </Button>
