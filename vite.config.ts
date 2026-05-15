@@ -28,12 +28,8 @@ const getVendorChunk = (id: string) => {
   ) {
     return 'vendor-editor';
   }
-  if (
-    normalizedId.includes('/recharts/') ||
-    normalizedId.includes('/d3-')
-  ) {
-    return 'vendor-charts';
-  }
+  // Recharts/d3 have internal circular dependencies that can hit a TDZ error
+  // when forced into a standalone vendor chunk in production builds.
   if (
     normalizedId.includes('/html2canvas/') ||
     normalizedId.includes('/jspdf/')
