@@ -666,7 +666,7 @@ const SavedQuoteDetailPage = () => {
             <CardContent>
               {linkedProject ? (
                 <button
-                  onClick={() => navigate(`/projects?id=${linkedProject.id}`)}
+                  onClick={() => navigate(`/project-management?id=${linkedProject.id}`)}
                   className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors group"
                 >
                   <div className="flex items-center justify-between">

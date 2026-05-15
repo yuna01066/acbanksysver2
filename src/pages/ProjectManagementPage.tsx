@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,11 +22,13 @@ const paymentStatusConfig: Record<string, { label: string; dot: string }> = {
 
 const ProjectManagementPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'client' | 'internal'>('client');
+  const projectIdFromUrl = searchParams.get('id') || searchParams.get('project');
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ['projects'],
@@ -71,6 +73,37 @@ const ProjectManagementPage = () => {
     },
     enabled: !!user,
   });
+
+  useEffect(() => {
+    if (!projectIdFromUrl) {
+      setSelectedProjectId(null);
+      return;
+    }
+
+    const linkedProject = projects.find((project: any) => project.id === projectIdFromUrl);
+    if (!linkedProject) return;
+
+    const linkedProjectType = linkedProject.project_type === 'internal' ? 'internal' : 'client';
+    setActiveTab(linkedProjectType);
+    setSelectedProjectId(projectIdFromUrl);
+    setSearchQuery('');
+  }, [projectIdFromUrl, projects]);
+
+  const handleTabChange = (tab: 'client' | 'internal') => {
+    setActiveTab(tab);
+    setSelectedProjectId(null);
+    setSearchParams({}, { replace: true });
+  };
+
+  const handleProjectSelect = (projectId: string) => {
+    setSelectedProjectId(projectId);
+    setSearchParams({ id: projectId }, { replace: true });
+  };
+
+  const handleProjectDeleted = () => {
+    setSelectedProjectId(null);
+    setSearchParams({}, { replace: true });
+  };
 
   const filteredProjects = projects.filter((p: any) =>
     (p.project_type || 'client') === activeTab &&
@@ -118,7 +151,7 @@ const ProjectManagementPage = () => {
             {/* Tab buttons */}
             <div className="flex bg-muted rounded-lg p-0.5 mb-3">
               <button
-                onClick={() => { setActiveTab('client'); setSelectedProjectId(null); }}
+                onClick={() => handleTabChange('client')}
                 className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-md transition-all ${
                   activeTab === 'client'
                     ? 'bg-background text-foreground shadow-sm'
@@ -129,7 +162,7 @@ const ProjectManagementPage = () => {
                 클라이언트 (매출)
               </button>
               <button
-                onClick={() => { setActiveTab('internal'); setSelectedProjectId(null); }}
+                onClick={() => handleTabChange('internal')}
                 className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-md transition-all ${
                   activeTab === 'internal'
                     ? 'bg-background text-foreground shadow-sm'
@@ -185,7 +218,7 @@ const ProjectManagementPage = () => {
                   return (
                     <div
                       key={project.id}
-                      onClick={() => setSelectedProjectId(project.id)}
+                      onClick={() => handleProjectSelect(project.id)}
                       className={`group cursor-pointer rounded-lg border p-3 transition-all ${
                         isSelected
                           ? 'border-primary/40 bg-primary/[0.03] shadow-sm'
@@ -257,7 +290,7 @@ const ProjectManagementPage = () => {
             {selectedProjectId ? (
               <ProjectDetailPanel
                 projectId={selectedProjectId}
-                onDeleted={() => setSelectedProjectId(null)}
+                onDeleted={handleProjectDeleted}
               />
             ) : (
               <div className="flex items-center justify-center h-[500px] border border-dashed rounded-xl bg-muted/20">
@@ -278,4 +311,3 @@ const ProjectManagementPage = () => {
 };
 
 export default ProjectManagementPage;
-
