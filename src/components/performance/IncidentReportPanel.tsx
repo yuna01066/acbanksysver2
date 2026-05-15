@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { getDownloadUrl } from '@/services/documentFiles';
+import { gcsUploadFile } from '@/hooks/useGcsStorage';
 
 interface IncidentReport {
   id: string;
@@ -164,7 +165,6 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
   };
 
   const uploadFiles = async (reportId: string): Promise<any[]> => {
-    const { gcsUploadFile } = await import('@/hooks/useGcsStorage');
     const uploaded: any[] = [];
     for (const file of files) {
       try {

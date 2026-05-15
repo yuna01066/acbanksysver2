@@ -3,6 +3,49 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
+const getVendorChunk = (id: string) => {
+  const normalizedId = id.split(path.sep).join('/');
+  if (!normalizedId.includes('/node_modules/')) return undefined;
+
+  if (
+    normalizedId.includes('/react/') ||
+    normalizedId.includes('/react-dom/') ||
+    normalizedId.includes('/scheduler/')
+  ) {
+    return 'vendor-react';
+  }
+  if (normalizedId.includes('/@supabase/')) return 'vendor-supabase';
+  if (normalizedId.includes('/@tanstack/')) return 'vendor-query';
+  if (
+    normalizedId.includes('/@radix-ui/') ||
+    normalizedId.includes('/lucide-react/')
+  ) {
+    return 'vendor-ui';
+  }
+  if (
+    normalizedId.includes('/@tiptap/') ||
+    normalizedId.includes('/prosemirror-')
+  ) {
+    return 'vendor-editor';
+  }
+  if (
+    normalizedId.includes('/recharts/') ||
+    normalizedId.includes('/d3-')
+  ) {
+    return 'vendor-charts';
+  }
+  if (
+    normalizedId.includes('/html2canvas/') ||
+    normalizedId.includes('/jspdf/')
+  ) {
+    return 'vendor-pdf';
+  }
+  if (normalizedId.includes('/xlsx/')) return 'vendor-xlsx';
+  if (normalizedId.includes('/date-fns/')) return 'vendor-date';
+
+  return undefined;
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
@@ -42,5 +85,12 @@ export default defineConfig(({ mode }) => ({
       '@tiptap/suggestion',
     ],
     force: true,
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: getVendorChunk,
+      },
+    },
   },
 }));

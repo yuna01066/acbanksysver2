@@ -17,6 +17,7 @@ import { Recipient, RecipientInput } from '@/hooks/useRecipients';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { createDocumentFileRecord } from '@/services/documentFiles';
+import { gcsUploadFile } from '@/hooks/useGcsStorage';
 
 interface RecipientEditDialogProps {
   recipient: Recipient | null;
@@ -101,7 +102,6 @@ export function RecipientEditDialog({
     setExtracting(true);
     try {
       // Upload file to GCS
-      const { gcsUploadFile } = await import('@/hooks/useGcsStorage');
       const fileExt = file.name.split('.').pop();
       const prefix = `recipient-documents/${user?.id}/${recipient?.id}`;
       const renamedFile = new File([file], `business-doc.${fileExt}`, { type: file.type });
