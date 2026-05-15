@@ -127,7 +127,7 @@ const MaterialOrderCard: React.FC<Props> = ({ order, canManage, currentUserId, o
             {order.projects && (
               <button
                 className="flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
-                onClick={() => navigate(`/project-management?project=${order.projects!.id}`)}
+                onClick={() => navigate(`/project-management?id=${order.projects!.id}`)}
               >
                 <FolderOpen className="h-4 w-4" />
                 {order.projects.project_name}

@@ -394,7 +394,7 @@ const DashboardCalendar = () => {
       return;
     }
     if (event.type === 'project') {
-      navigate(`/project-management?project=${event.id}`);
+      navigate(`/project-management?id=${event.id}`);
       return;
     }
     if (isAdmin || isModerator || event.userId === user?.id) {

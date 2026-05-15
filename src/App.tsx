@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { QuoteProvider } from "@/contexts/QuoteContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "next-themes";
@@ -62,6 +62,11 @@ const G: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <PageAccessGuard>{children}</PageAccessGuard>
 );
 
+const ProjectRouteRedirect = () => {
+  const location = useLocation();
+  return <Navigate to={`/project-management${location.search}`} replace />;
+};
+
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
   <QueryClientProvider client={queryClient}>
@@ -103,6 +108,7 @@ const App = () => (
               <Route path="/team-chat" element={<G><TeamChatPage /></G>} />
               <Route path="/company-settings" element={<CompanySettingsPage />} />
               <Route path="/project-management" element={<G><ProjectManagementPage /></G>} />
+              <Route path="/projects" element={<ProjectRouteRedirect />} />
               <Route path="/review-settings" element={<ReviewSettingsPage />} />
               <Route path="/performance-review" element={<G><PerformanceReviewPage /></G>} />
               <Route path="/material-orders" element={<G><MaterialOrdersPage /></G>} />

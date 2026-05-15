@@ -23,7 +23,7 @@ const MessageContent: React.FC<MessageContentProps> = ({ message, isMine }) => {
     } else if (project.source === 'quote') {
       window.open(`/saved-quotes/${project.id}`, '_self');
     } else if (project.source === 'project') {
-      window.open(`/project-management?project=${project.id}`, '_self');
+      window.open(`/project-management?id=${project.id}`, '_self');
     }
   };
 

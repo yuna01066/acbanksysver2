@@ -310,7 +310,7 @@ const NotificationPanel = ({
                         className="h-7 text-xs"
                         onClick={() => {
                           onRemove(notification.id);
-                          navigate(`/project-management?project=${notification.data?.projectId}`);
+                          navigate(`/project-management?id=${notification.data?.projectId}`);
                           setOpen(false);
                         }}
                       >
