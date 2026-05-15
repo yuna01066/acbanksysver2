@@ -214,8 +214,8 @@ const SpaceProjectFormPage = () => {
     try {
       const newAttachments: SpaceAttachment[] = [];
       for (const file of Array.from(files)) {
-        if (file.size > 20 * 1024 * 1024) {
-          toast.error(`${file.name}: 20MB 이하만 업로드 가능`);
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`${file.name}: 견적 첨부는 10MB 이하만 업로드 가능합니다.`);
           continue;
         }
         const path = `space/${user.id}/${quoteNumber}/${Date.now()}-${file.name}`;

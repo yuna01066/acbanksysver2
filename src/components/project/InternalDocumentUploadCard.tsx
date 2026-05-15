@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { buildProjectDrivePath } from '@/utils/documentOrganization';
+import { createDocumentFileRecord, updateDocumentFileRecord } from '@/services/documentFiles';
 
 interface Props {
   projectId: string;
@@ -81,6 +82,32 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, d
         .single();
       if (insertError) throw insertError;
 
+      let documentFileId: string | null = null;
+      try {
+        documentFileId = await createDocumentFileRecord({
+          owner_type: 'project',
+          project_id: projectId,
+          document_type: documentType === 'quote' ? 'purchase_quote' : documentType,
+          file_name: file.name,
+          storage_provider: 'gcs',
+          storage_path: gcsPath,
+          mime_type: file.type,
+          file_size: file.size,
+          drive_path: projectName ? buildProjectDrivePath({
+            projectName,
+            section: `02_발주_매입/${typeFolder}/${y}년/${m}월`,
+          }).join('/') : null,
+          uploaded_by: user.id,
+          sync_status: projectName ? 'pending' : 'not_required',
+          metadata: {
+            source: 'internal_project_documents',
+            internal_document_id: doc.id,
+          },
+        });
+      } catch (recordError) {
+        console.warn('Document file record failed:', recordError);
+      }
+
       toast.success('파일이 업로드되었습니다. OCR 분석 중...');
 
       // Run OCR
@@ -140,9 +167,25 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, d
                 },
               });
               if (driveErr) console.error('Drive upload error:', driveErr);
-              else toast.success('Google Drive에 자동 저장되었습니다.');
+              if (driveErr) {
+                await updateDocumentFileRecord(documentFileId, {
+                  sync_status: 'failed',
+                  sync_error: driveErr.message || 'Google Drive upload failed',
+                });
+              } else {
+                await updateDocumentFileRecord(documentFileId, {
+                  sync_status: 'synced',
+                  sync_error: null,
+                  synced_at: new Date().toISOString(),
+                });
+                toast.success('Google Drive에 자동 저장되었습니다.');
+              }
             } catch (driveErr) {
               console.error('Drive upload failed:', driveErr);
+              await updateDocumentFileRecord(documentFileId, {
+                sync_status: 'failed',
+                sync_error: driveErr instanceof Error ? driveErr.message : 'Google Drive upload failed',
+              });
             }
           }
         } else {

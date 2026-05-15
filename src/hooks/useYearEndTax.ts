@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { createDocumentFileRecord } from '@/services/documentFiles';
 
 export interface TaxSettlement {
   id: string;
@@ -321,7 +322,7 @@ export function useYearEndTax(taxYear: number = TAX_YEAR) {
       const prefix = `tax-documents/${user.id}/${settlement.id}`;
       const { gcsPath } = await gcsUploadFile(file, prefix);
 
-      const { error } = await supabase.from('tax_documents').insert({
+      const { data: taxDocument, error } = await supabase.from('tax_documents').insert({
         settlement_id: settlement.id,
         user_id: user.id,
         document_type: documentType,
@@ -330,10 +331,30 @@ export function useYearEndTax(taxYear: number = TAX_YEAR) {
         file_size: file.size,
         mime_type: file.type,
         memo,
-      });
+      }).select('id').single();
       if (error) {
         toast.error('서류 등록 실패');
         return;
+      }
+      try {
+        await createDocumentFileRecord({
+          owner_type: 'tax',
+          document_type: documentType,
+          file_name: file.name,
+          storage_provider: 'gcs',
+          storage_path: gcsPath,
+          mime_type: file.type,
+          file_size: file.size,
+          uploaded_by: user.id,
+          sync_status: 'not_required',
+          metadata: {
+            source: 'tax_documents',
+            settlement_id: settlement.id,
+            tax_document_id: taxDocument?.id || null,
+          },
+        });
+      } catch (recordError) {
+        console.warn('Document file record failed:', recordError);
       }
       toast.success('서류가 업로드되었습니다.');
       await fetchDocuments(settlement.id);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Image, Download, X, Loader2 } from 'lucide-react';
-import { resolveFileUrl, isGcsPath } from '@/hooks/useGcsStorage';
+import { isGcsPath } from '@/hooks/useGcsStorage';
+import { getDownloadUrl } from '@/services/documentFiles';
 
 interface Attachment {
   name: string;
@@ -37,7 +38,9 @@ const ResolvedAttachment: React.FC<{
 
   useEffect(() => {
     if (isGcsPath(att.url)) {
-      resolveFileUrl(att.url).then(setResolvedUrl).catch(() => setResolvedUrl(null));
+      getDownloadUrl({ storageProvider: 'gcs', storagePath: att.url })
+        .then(setResolvedUrl)
+        .catch(() => setResolvedUrl(null));
     }
   }, [att.url]);
 
