@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { createDocumentFileRecord } from '@/services/documentFiles';
+import { gcsUploadFile } from '@/hooks/useGcsStorage';
 
 export interface TaxSettlement {
   id: string;
@@ -318,7 +319,6 @@ export function useYearEndTax(taxYear: number = TAX_YEAR) {
   ) => {
     if (!user || !settlement) return;
     try {
-      const { gcsUploadFile } = await import('@/hooks/useGcsStorage');
       const prefix = `tax-documents/${user.id}/${settlement.id}`;
       const { gcsPath } = await gcsUploadFile(file, prefix);
 
