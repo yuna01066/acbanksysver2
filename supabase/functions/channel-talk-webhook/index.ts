@@ -382,11 +382,14 @@ async function notifyAdmins(supabase: ReturnType<typeof createClient>, lead: Jso
 async function processWebhook(payload: JsonObject) {
   if (!isCustomerMessage(payload)) return;
 
-  const userChatId = extractUserChatId(payload);
-  if (!userChatId) throw new Error("Could not determine Channel Talk userChatId");
-
   const files = extractFiles(payload);
   if (files.length === 0) return;
+
+  const userChatId = extractUserChatId(payload);
+  if (!userChatId) {
+    console.warn("Ignoring attachment webhook without userChatId");
+    return;
+  }
 
   const customer = extractCustomer(payload);
   const analyses: QuoteAnalysis[] = [];
