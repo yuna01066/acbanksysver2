@@ -348,6 +348,9 @@ serve(async (req) => {
         .update({
           drive_file_id: result.id,
           drive_folder_id: folderId,
+          sync_status: 'synced',
+          sync_error: null,
+          synced_at: new Date().toISOString(),
           metadata: {
             ...currentMetadata,
             copied_to_drive_at: new Date().toISOString(),
@@ -444,7 +447,7 @@ serve(async (req) => {
         accessToken, folderId, fileName, contentType || 'application/octet-stream', fileSize || 0
       );
 
-      return new Response(JSON.stringify({ success: true, uploadUri }), {
+      return new Response(JSON.stringify({ success: true, uploadUri, folderId }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

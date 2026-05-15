@@ -5,6 +5,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Button } from '@/components/ui/button';
 import { Building2, User, Phone, Mail, MapPin, FileText, Hash, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { openDocumentFile } from '@/services/documentFiles';
 
 interface Props {
   recipientId: string | null;
@@ -106,16 +108,25 @@ const RecipientDetailSheet: React.FC<Props> = ({ recipientId, open, onOpenChange
               <h3 className="text-sm font-bold mb-2">사업자등록증</h3>
               {recipient.business_document_url ? (
                 <div className="bg-muted/30 rounded-lg p-4">
-                  <a
-                    href={recipient.business_document_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await openDocumentFile({
+                          storageProvider: recipient.business_document_url.startsWith('http') ? 'external_url' : 'gcs',
+                          storagePath: recipient.business_document_url,
+                          externalUrl: recipient.business_document_url.startsWith('http') ? recipient.business_document_url : null,
+                        });
+                      } catch {
+                        toast.error('사업자등록증을 불러오지 못했습니다.');
+                      }
+                    }}
                     className="flex items-center gap-2 text-sm text-primary hover:underline"
                   >
                     <FileText className="h-4 w-4" />
                     사업자등록증 보기
                     <ExternalLink className="h-3 w-3" />
-                  </a>
+                  </button>
                 </div>
               ) : (
                 <div className="bg-muted/30 rounded-lg p-4 text-center">

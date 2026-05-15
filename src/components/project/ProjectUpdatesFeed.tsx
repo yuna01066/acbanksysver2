@@ -14,7 +14,13 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { gcsUploadFile, gcsGetDownloadUrl } from '@/hooks/useGcsStorage';
+import { gcsUploadFile } from '@/hooks/useGcsStorage';
+import {
+  createDocumentFileRecord,
+  getDownloadUrl,
+  updateDocumentFileRecord,
+  type DocumentSyncStatus,
+} from '@/services/documentFiles';
 
 interface NotionProject {
   id: string;
@@ -33,6 +39,10 @@ interface Attachment {
   path: string;
   size: number;
   type: string;
+  documentFileId?: string | null;
+  syncStatus?: DocumentSyncStatus;
+  driveFileId?: string | null;
+  driveFolderId?: string | null;
 }
 
 interface DriveLink {
@@ -71,12 +81,17 @@ const ImageThumbnail: React.FC<{ attachment: Attachment; onClick: (url: string) 
     // Check if this is a GCS path (project-updates/ prefix) or legacy Supabase path
     const isGcsPath = attachment.path.startsWith('project-updates/');
     if (isGcsPath) {
-      gcsGetDownloadUrl(attachment.path)
+      getDownloadUrl({ storageProvider: 'gcs', storagePath: attachment.path })
         .then(url => setUrl(url))
         .catch(() => {});
     } else {
-      supabase.storage.from('project-update-attachments').createSignedUrl(attachment.path, 600)
-        .then(({ data }) => { if (data?.signedUrl) setUrl(data.signedUrl); });
+      getDownloadUrl({
+        storageProvider: 'supabase_storage',
+        storageBucket: 'project-update-attachments',
+        storagePath: attachment.path,
+      })
+        .then(url => setUrl(url))
+        .catch(() => {});
     }
   }, [attachment.path]);
 
@@ -279,8 +294,8 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId, projectName }) => {
     return (sanitized || 'file') + ext;
   };
 
-  const uploadToGoogleDrive = async (file: File) => {
-    if (!projectName) return;
+  const uploadToGoogleDrive = async (file: File): Promise<{ success: boolean; fileId?: string; folderId?: string; error?: string }> => {
+    if (!projectName) return { success: false, error: 'projectName is missing' };
     try {
       // 1. Init resumable upload session via edge function
       const { data, error } = await supabase.functions.invoke('google-drive', {
@@ -294,7 +309,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId, projectName }) => {
       });
       if (error || !data?.uploadUri) {
         console.error('Drive init failed:', error || data?.error);
-        return;
+        return { success: false, error: error?.message || data?.error || 'Drive init failed' };
       }
       // 2. Upload file directly to Google Drive using resumable URI
       const uploadRes = await fetch(data.uploadUri, {
@@ -307,11 +322,16 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId, projectName }) => {
       });
       if (uploadRes.ok) {
         console.log('Google Drive upload success:', file.name);
+        const uploaded = await uploadRes.json().catch(() => null);
+        return { success: true, fileId: uploaded?.id, folderId: data.folderId };
       } else {
-        console.error('Drive upload failed:', await uploadRes.text());
+        const message = await uploadRes.text();
+        console.error('Drive upload failed:', message);
+        return { success: false, folderId: data.folderId, error: message };
       }
     } catch (err) {
       console.error('Drive upload error:', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Drive upload error' };
     }
   };
 
@@ -321,9 +341,51 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId, projectName }) => {
     for (const file of files) {
       try {
         const result = await gcsUploadFile(file, pathPrefix);
-        uploaded.push({ name: file.name, path: result.gcsPath, size: file.size, type: file.type || 'application/octet-stream' });
-        // Google Drive 자동 업로드
-        uploadToGoogleDrive(file);
+        let documentFileId: string | null = null;
+        let syncStatus: DocumentSyncStatus = projectName ? 'pending' : 'not_required';
+        let driveFileId: string | null = null;
+        let driveFolderId: string | null = null;
+        try {
+          documentFileId = await createDocumentFileRecord({
+            owner_type: 'project',
+            project_id: projectId,
+            document_type: 'project_update_attachment',
+            file_name: file.name,
+            storage_provider: 'gcs',
+            storage_path: result.gcsPath,
+            mime_type: file.type || 'application/octet-stream',
+            file_size: file.size,
+            drive_path: projectName ? [projectName, '프로젝트업데이트'].join('/') : null,
+            uploaded_by: user!.id,
+            sync_status: syncStatus,
+            metadata: { source: 'project_updates.attachments' },
+          });
+        } catch (recordError) {
+          console.warn('Document file record failed:', recordError);
+        }
+        if (projectName) {
+          const driveResult = await uploadToGoogleDrive(file);
+          syncStatus = driveResult.success ? 'synced' : 'failed';
+          driveFileId = driveResult.fileId || null;
+          driveFolderId = driveResult.folderId || null;
+          await updateDocumentFileRecord(documentFileId, {
+            sync_status: syncStatus,
+            sync_error: driveResult.success ? null : driveResult.error || 'Drive upload failed',
+            synced_at: driveResult.success ? new Date().toISOString() : null,
+            drive_file_id: driveFileId,
+            drive_folder_id: driveFolderId,
+          }).catch((statusError) => console.warn('Drive sync status update failed:', statusError));
+        }
+        uploaded.push({
+          name: file.name,
+          path: result.gcsPath,
+          size: file.size,
+          type: file.type || 'application/octet-stream',
+          documentFileId,
+          syncStatus,
+          driveFileId,
+          driveFolderId,
+        });
       } catch (err: any) {
         console.error('파일 업로드 실패:', file.name, err);
         toast.error(`파일 업로드 실패: ${file.name}`);
@@ -399,8 +461,51 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId, projectName }) => {
     for (const file of editNewFiles) {
       try {
         const result = await gcsUploadFile(file, pathPrefix);
-        uploaded.push({ name: file.name, path: result.gcsPath, size: file.size, type: file.type || 'application/octet-stream' });
-        uploadToGoogleDrive(file);
+        let documentFileId: string | null = null;
+        let syncStatus: DocumentSyncStatus = projectName ? 'pending' : 'not_required';
+        let driveFileId: string | null = null;
+        let driveFolderId: string | null = null;
+        try {
+          documentFileId = await createDocumentFileRecord({
+            owner_type: 'project',
+            project_id: projectId,
+            document_type: 'project_update_attachment',
+            file_name: file.name,
+            storage_provider: 'gcs',
+            storage_path: result.gcsPath,
+            mime_type: file.type || 'application/octet-stream',
+            file_size: file.size,
+            drive_path: projectName ? [projectName, '프로젝트업데이트'].join('/') : null,
+            uploaded_by: user!.id,
+            sync_status: syncStatus,
+            metadata: { source: 'project_updates.attachments' },
+          });
+        } catch (recordError) {
+          console.warn('Document file record failed:', recordError);
+        }
+        if (projectName) {
+          const driveResult = await uploadToGoogleDrive(file);
+          syncStatus = driveResult.success ? 'synced' : 'failed';
+          driveFileId = driveResult.fileId || null;
+          driveFolderId = driveResult.folderId || null;
+          await updateDocumentFileRecord(documentFileId, {
+            sync_status: syncStatus,
+            sync_error: driveResult.success ? null : driveResult.error || 'Drive upload failed',
+            synced_at: driveResult.success ? new Date().toISOString() : null,
+            drive_file_id: driveFileId,
+            drive_folder_id: driveFolderId,
+          }).catch((statusError) => console.warn('Drive sync status update failed:', statusError));
+        }
+        uploaded.push({
+          name: file.name,
+          path: result.gcsPath,
+          size: file.size,
+          type: file.type || 'application/octet-stream',
+          documentFileId,
+          syncStatus,
+          driveFileId,
+          driveFolderId,
+        });
       } catch (err: any) {
         console.error('파일 업로드 실패:', file.name, err);
         toast.error(`파일 업로드 실패: ${file.name}`);
@@ -447,13 +552,16 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId, projectName }) => {
     try {
       const isGcsPath = att.path.startsWith('project-updates/');
       if (isGcsPath) {
-        const url = await gcsGetDownloadUrl(att.path);
+        const url = await getDownloadUrl({ storageProvider: 'gcs', storagePath: att.path });
         window.open(url, '_blank');
       } else {
         // Legacy: Supabase storage
-        const { data } = await supabase.storage.from('project-update-attachments').createSignedUrl(att.path, 300);
-        if (data?.signedUrl) window.open(data.signedUrl, '_blank');
-        else toast.error('파일 다운로드에 실패했습니다.');
+        const url = await getDownloadUrl({
+          storageProvider: 'supabase_storage',
+          storageBucket: 'project-update-attachments',
+          storagePath: att.path,
+        });
+        window.open(url, '_blank');
       }
     } catch {
       toast.error('파일 다운로드에 실패했습니다.');
@@ -480,10 +588,13 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId, projectName }) => {
     try {
       const isGcsPath = path.startsWith('project-updates/');
       if (isGcsPath) {
-        return await gcsGetDownloadUrl(path);
+        return await getDownloadUrl({ storageProvider: 'gcs', storagePath: path });
       }
-      const { data } = await supabase.storage.from('project-update-attachments').createSignedUrl(path, 300);
-      return data?.signedUrl || null;
+      return await getDownloadUrl({
+        storageProvider: 'supabase_storage',
+        storageBucket: 'project-update-attachments',
+        storagePath: path,
+      });
     } catch {
       return null;
     }

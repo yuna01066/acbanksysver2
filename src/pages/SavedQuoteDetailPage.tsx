@@ -27,6 +27,11 @@ import QuoteDocumentsSection from "@/components/quote-detail/QuoteDocumentsSecti
 import QuoteVersionHistory from "@/components/quote-detail/QuoteVersionHistory";
 import QuoteStageTimeline from "@/components/quote-detail/QuoteStageTimeline";
 import { useQuoteVersions } from "@/hooks/useQuoteVersions";
+import {
+  deleteStoredFile,
+  getAttachmentTarget,
+  removeDocumentFileRecord,
+} from "@/services/documentFiles";
 
 interface SavedQuote {
   id: string;
@@ -37,6 +42,7 @@ interface SavedQuote {
   valid_until: string | null;
   delivery_period: string | null;
   payment_condition: string | null;
+  project_id?: string | null;
   recipient_name: string | null;
   recipient_company: string | null;
   recipient_phone: string | null;
@@ -214,11 +220,11 @@ const SavedQuoteDetailPage = () => {
       }
       
       setQuote(formattedData);
-      setAttachments(Array.isArray(formattedData.attachments) ? formattedData.attachments : []);
+      const attachmentsArray = Array.isArray(formattedData.attachments) ? formattedData.attachments : [];
+      setAttachments(attachmentsArray.filter((a: any) => a?.type !== 'quote_pdf'));
       setEditedItems(Array.isArray(formattedData.items) ? formattedData.items : []);
       
       // 견적서 PDF 정보 로드 (attachments 배열에서 quote_pdf 타입 찾기)
-      const attachmentsArray = Array.isArray(formattedData.attachments) ? formattedData.attachments : [];
       const savedQuotePdf = attachmentsArray.find((a: any) => 
         typeof a === 'object' && a !== null && a.type === 'quote_pdf'
       ) as { name: string; path: string; size: number; url: string; uploadedAt?: string; type: string } | undefined;
@@ -227,9 +233,19 @@ const SavedQuoteDetailPage = () => {
           name: savedQuotePdf.name,
           path: savedQuotePdf.path,
           size: savedQuotePdf.size,
-          url: savedQuotePdf.url,
-          uploadedAt: savedQuotePdf.uploadedAt || ''
+          url: savedQuotePdf.url || '',
+          uploadedAt: savedQuotePdf.uploadedAt || '',
+          type: 'quote_pdf',
+          documentFileId: (savedQuotePdf as any).documentFileId || (savedQuotePdf as any).document_file_id || null,
+          storageProvider: (savedQuotePdf as any).storageProvider || (savedQuotePdf as any).storage_provider || 'supabase_storage',
+          storageBucket: (savedQuotePdf as any).storageBucket || (savedQuotePdf as any).storage_bucket || 'quote-pdfs',
+          storagePath: (savedQuotePdf as any).storagePath || (savedQuotePdf as any).storage_path || savedQuotePdf.path,
+          driveFileId: (savedQuotePdf as any).driveFileId || (savedQuotePdf as any).drive_file_id || null,
+          driveFolderId: (savedQuotePdf as any).driveFolderId || (savedQuotePdf as any).drive_folder_id || null,
+          syncStatus: (savedQuotePdf as any).syncStatus || (savedQuotePdf as any).sync_status || undefined,
         });
+      } else {
+        setQuotePdf(null);
       }
       
       // RecipientData 설정 - issuer 정보는 profiles에서 가져오거나 saved_quotes에 저장된 값 사용
@@ -278,6 +294,24 @@ const SavedQuoteDetailPage = () => {
     setRecipientData(prev => ({ ...prev, ...updates }));
   };
 
+  const stripRuntimeAttachmentState = (attachment: any) => {
+    const { pendingDelete, ...persisted } = attachment;
+    return persisted;
+  };
+
+  const cleanupPendingFiles = async (pendingFiles: any[]) => {
+    for (const file of pendingFiles) {
+      try {
+        const fallbackBucket = file.type === 'quote_pdf' ? 'quote-pdfs' : 'quote-attachments';
+        await deleteStoredFile(getAttachmentTarget(file, fallbackBucket));
+        await removeDocumentFileRecord(file.documentFileId || file.document_file_id);
+      } catch (cleanupError) {
+        console.warn('Pending file cleanup failed:', cleanupError);
+        toast.warning(`${file.name || '파일'} 삭제 정리에 실패했습니다. 관리자 화면에서 확인해주세요.`);
+      }
+    }
+  };
+
   const handleSaveEdit = async () => {
     if (!id) return;
 
@@ -299,14 +333,22 @@ const SavedQuoteDetailPage = () => {
       }
 
       // 첨부 파일 목록 구성 (PDF 정보 + 기존 첨부 파일)
+      const pendingFiles = [
+        ...attachments.filter((a: any) => a.pendingDelete),
+        ...(quotePdf?.pendingDelete ? [quotePdf] : []),
+      ];
+      const activeAttachments = attachments
+        .filter((a: any) => a.type !== 'quote_pdf' && !a.pendingDelete)
+        .map(stripRuntimeAttachmentState);
+
       const allAttachments = [
         // 견적서 PDF (type: 'quote_pdf'로 구분)
-        ...(quotePdf ? [{
-          ...quotePdf,
+        ...(quotePdf && !quotePdf.pendingDelete ? [{
+          ...stripRuntimeAttachmentState(quotePdf),
           type: 'quote_pdf'
         }] : []),
         // 기존 첨부 파일 (quote_pdf가 아닌 것들만)
-        ...attachments.filter((a: any) => a.type !== 'quote_pdf')
+        ...activeAttachments
       ];
 
       const { error } = await supabase
@@ -352,6 +394,7 @@ const SavedQuoteDetailPage = () => {
         .eq('id', id);
 
       if (error) throw error;
+      await cleanupPendingFiles(pendingFiles);
 
       // Save version snapshot before edit
       if (quote) {
@@ -484,7 +527,7 @@ const SavedQuoteDetailPage = () => {
             isEditMode={isEditing}
             onEdit={() => setIsEditing(true)}
             onSaveEdit={handleSaveEdit}
-            onCancelEdit={() => { setIsEditing(false); setManualTotalOverride(null); }}
+            onCancelEdit={() => { setIsEditing(false); setManualTotalOverride(null); fetchQuote(); }}
             onToggleViewMode={toggleViewMode}
             viewMode={viewMode}
             showSavedQuoteActions={true}
@@ -565,6 +608,7 @@ const SavedQuoteDetailPage = () => {
                       onAttachmentsChange={handleAttachmentsChange}
                       readOnly={false}
                       quoteId={id}
+                      projectId={quote.project_id}
                       quoteNumber={quote.quote_number}
                       recipientCompany={quote.recipient_company || recipientData.companyName}
                       projectName={quote.project_name || recipientData.projectName}

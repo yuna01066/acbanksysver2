@@ -1,12 +1,13 @@
 import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { gcsUploadFile, gcsGetDownloadUrl, gcsDeleteFile } from '@/hooks/useGcsStorage';
+import { gcsUploadFile, gcsDeleteFile } from '@/hooks/useGcsStorage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FileText, Upload, Trash2, Eye, Loader2, FileImage, ZoomIn, ZoomOut } from 'lucide-react';
 import { toast } from 'sonner';
+import { createDocumentFileRecord, getDownloadUrl } from '@/services/documentFiles';
 
 interface RecipientDocumentUploadProps {
   recipientId: string;
@@ -66,6 +67,24 @@ export function RecipientDocumentUpload({
         new File([file], `business-doc.${ext}`, { type: file.type }),
         prefix,
       );
+
+      try {
+        await createDocumentFileRecord({
+          owner_type: 'recipient',
+          recipient_id: recipientId,
+          document_type: 'business_registration',
+          file_name: file.name,
+          storage_provider: 'gcs',
+          storage_path: gcsPath,
+          mime_type: file.type,
+          file_size: file.size,
+          uploaded_by: user.id,
+          sync_status: 'not_required',
+          metadata: { source: 'RecipientDocumentUpload' },
+        });
+      } catch (recordError) {
+        console.warn('Document file record failed:', recordError);
+      }
 
       // Save path to recipients table
       const { error: updateError } = await supabase
@@ -146,7 +165,11 @@ export function RecipientDocumentUpload({
     setPreviewLoading(true);
     setPreviewOpen(true);
     try {
-      const url = await gcsGetDownloadUrl(documentUrl);
+      const url = await getDownloadUrl({
+        storageProvider: documentUrl.startsWith('http') ? 'external_url' : 'gcs',
+        storagePath: documentUrl,
+        externalUrl: documentUrl.startsWith('http') ? documentUrl : null,
+      });
       setPreviewUrl(url);
     } catch (err) {
       console.error('미리보기 에러:', err);

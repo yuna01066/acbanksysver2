@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Recipient, RecipientInput } from '@/hooks/useRecipients';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { createDocumentFileRecord } from '@/services/documentFiles';
 
 interface RecipientEditDialogProps {
   recipient: Recipient | null;
@@ -105,6 +106,26 @@ export function RecipientEditDialog({
       const prefix = `recipient-documents/${user?.id}/${recipient?.id}`;
       const renamedFile = new File([file], `business-doc.${fileExt}`, { type: file.type });
       const { gcsPath } = await gcsUploadFile(renamedFile, prefix);
+
+      if (recipient?.id && user?.id) {
+        try {
+          await createDocumentFileRecord({
+            owner_type: 'recipient',
+            recipient_id: recipient.id,
+            document_type: 'business_registration',
+            file_name: file.name,
+            storage_provider: 'gcs',
+            storage_path: gcsPath,
+            mime_type: file.type,
+            file_size: file.size,
+            uploaded_by: user.id,
+            sync_status: 'not_required',
+            metadata: { source: 'RecipientEditDialog' },
+          });
+        } catch (recordError) {
+          console.warn('Document file record failed:', recordError);
+        }
+      }
 
       // Save path to recipients table directly
       await supabase

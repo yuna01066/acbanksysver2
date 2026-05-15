@@ -22,6 +22,7 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { getDownloadUrl } from '@/services/documentFiles';
 
 interface IncidentReport {
   id: string;
@@ -268,8 +269,11 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
 
   const downloadAttachment = async (attachment: any) => {
     try {
-      const { resolveFileUrl } = await import('@/hooks/useGcsStorage');
-      const url = await resolveFileUrl(attachment.path);
+      const url = await getDownloadUrl({
+        storageProvider: attachment.path?.startsWith('http') ? 'external_url' : 'gcs',
+        storagePath: attachment.path,
+        externalUrl: attachment.path?.startsWith('http') ? attachment.path : null,
+      });
       if (url) window.open(url, '_blank');
       else toast.error('파일 다운로드에 실패했습니다.');
     } catch {

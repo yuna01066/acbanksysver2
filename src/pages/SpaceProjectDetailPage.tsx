@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import PrintStyles from '@/components/PrintStyles';
 import QuoteDocumentsSection from '@/components/quote-detail/QuoteDocumentsSection';
+import { getDownloadUrl } from '@/services/documentFiles';
 
 interface SpaceQuote {
   id: string;
@@ -108,18 +109,20 @@ const SpaceProjectDetailPage = () => {
   }, [id, navigate]);
 
   const downloadAttachment = async (path: string, name: string) => {
-    const { data: signed, error } = await supabase.storage
-      .from('quote-attachments')
-      .createSignedUrl(path, 60);
-    if (error || !signed) {
+    try {
+      const url = await getDownloadUrl({
+        storageProvider: 'supabase_storage',
+        storageBucket: 'quote-attachments',
+        storagePath: path,
+      });
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.target = '_blank';
+      a.click();
+    } catch {
       toast.error('다운로드 실패');
-      return;
     }
-    const a = document.createElement('a');
-    a.href = signed.signedUrl;
-    a.download = name;
-    a.target = '_blank';
-    a.click();
   };
 
   if (loading || !data) {
