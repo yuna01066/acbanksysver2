@@ -68,7 +68,7 @@ async function findOrCreateFolder(
   parentId: string,
   driveId: string
 ): Promise<string> {
-  const q = `name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const q = `name='${escapeDriveQueryValue(name)}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
   const searchRes = await fetch(
     `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=drive&driveId=${driveId}&fields=files(id,name)`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -254,6 +254,197 @@ function drivePathSegments(path: string): string[] {
     .filter(Boolean);
 }
 
+function escapeDriveQueryValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function getMetadataRecord(value: any): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+async function findDriveFilesByName(
+  accessToken: string,
+  folderId: string,
+  fileName: string,
+  driveId: string
+): Promise<any[]> {
+  const q = `name='${escapeDriveQueryValue(fileName)}' and '${folderId}' in parents and trashed=false`;
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=drive&driveId=${driveId}&fields=files(id,name,size,mimeType,createdTime)&pageSize=10&orderBy=createdTime desc`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Drive duplicate lookup failed: ${errText}`);
+  }
+
+  const data = await res.json();
+  return data.files || [];
+}
+
+async function markDocumentFileSynced(
+  supabase: any,
+  documentFile: any,
+  driveFile: any,
+  folderId: string | null,
+  metadataUpdate: Record<string, unknown>
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('document_files')
+    .update({
+      drive_file_id: driveFile.id,
+      drive_folder_id: folderId,
+      sync_status: 'synced',
+      sync_error: null,
+      synced_at: now,
+      metadata: {
+        ...getMetadataRecord(documentFile.metadata),
+        ...metadataUpdate,
+      },
+    })
+    .eq('id', documentFile.id);
+
+  if (error) {
+    throw new Error(`Document file update failed after Drive sync: ${error.message}`);
+  }
+}
+
+async function markDocumentFileSyncFailed(
+  supabase: any,
+  documentFile: any,
+  message: string
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('document_files')
+    .update({
+      sync_status: 'failed',
+      sync_error: message,
+      metadata: {
+        ...getMetadataRecord(documentFile.metadata),
+        last_sync_failed_at: now,
+      },
+    })
+    .eq('id', documentFile.id);
+
+  if (error) {
+    console.error('Failed to record document sync failure:', error);
+  }
+}
+
+async function copyDocumentFileToDrive(
+  supabase: any,
+  accessToken: string,
+  sharedDriveId: string,
+  documentFile: any
+): Promise<any> {
+  if (documentFile.drive_file_id) {
+    if (documentFile.sync_status !== 'synced') {
+      await markDocumentFileSynced(
+        supabase,
+        documentFile,
+        { id: documentFile.drive_file_id, name: documentFile.file_name },
+        documentFile.drive_folder_id,
+        { marked_synced_at: new Date().toISOString() }
+      );
+    }
+
+    return {
+      success: true,
+      skipped: true,
+      reason: 'already_copied',
+      documentFileId: documentFile.id,
+      fileId: documentFile.drive_file_id,
+      folderId: documentFile.drive_folder_id,
+    };
+  }
+
+  if (documentFile.storage_provider !== 'supabase_storage') {
+    throw new Error(`Only supabase_storage copy is supported for now. provider=${documentFile.storage_provider}`);
+  }
+  if (!documentFile.storage_bucket || !documentFile.storage_path) {
+    throw new Error('Missing storage_bucket or storage_path');
+  }
+  if (!documentFile.drive_path) {
+    throw new Error('Missing drive_path');
+  }
+
+  const folderId = await ensureFolderPath(
+    accessToken,
+    drivePathSegments(documentFile.drive_path),
+    sharedDriveId,
+    sharedDriveId
+  );
+
+  const existingFiles = await findDriveFilesByName(accessToken, folderId, documentFile.file_name, sharedDriveId);
+  const expectedSize = Number(documentFile.file_size || 0);
+  const reusableFile = existingFiles.find((file) => expectedSize > 0 && Number(file.size || 0) === expectedSize)
+    || (existingFiles.length === 1 ? existingFiles[0] : null);
+
+  if (reusableFile) {
+    await markDocumentFileSynced(
+      supabase,
+      documentFile,
+      reusableFile,
+      folderId,
+      {
+        reused_existing_drive_file_at: new Date().toISOString(),
+        reused_existing_drive_file_name: reusableFile.name,
+      }
+    );
+
+    return {
+      success: true,
+      reused: true,
+      documentFileId: documentFile.id,
+      fileId: reusableFile.id,
+      fileName: reusableFile.name,
+      folderId,
+      viewLink: `https://drive.google.com/file/d/${reusableFile.id}/view`,
+    };
+  }
+
+  const { data: storageFile, error: downloadError } = await supabase.storage
+    .from(documentFile.storage_bucket)
+    .download(documentFile.storage_path);
+
+  if (downloadError || !storageFile) {
+    throw new Error(`Storage download failed: ${downloadError?.message || documentFile.storage_path}`);
+  }
+
+  const bytes = new Uint8Array(await storageFile.arrayBuffer());
+  const result = await uploadBytes(
+    accessToken,
+    folderId,
+    documentFile.file_name,
+    bytes,
+    documentFile.mime_type || storageFile.type || 'application/octet-stream'
+  );
+
+  await markDocumentFileSynced(
+    supabase,
+    documentFile,
+    result,
+    folderId,
+    {
+      copied_to_drive_at: new Date().toISOString(),
+      copied_from_bucket: documentFile.storage_bucket,
+      copied_from_path: documentFile.storage_path,
+    }
+  );
+
+  return {
+    success: true,
+    documentFileId: documentFile.id,
+    fileId: result.id,
+    fileName: result.name,
+    folderId,
+    viewLink: `https://drive.google.com/file/d/${result.id}/view`,
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -295,81 +486,75 @@ serve(async (req) => {
         throw new Error(`Document file not found: ${documentError?.message || documentFileId}`);
       }
 
-      if (documentFile.drive_file_id) {
-        return new Response(JSON.stringify({
-          success: true,
-          skipped: true,
-          reason: 'already_copied',
-          fileId: documentFile.drive_file_id,
-          folderId: documentFile.drive_folder_id,
-        }), {
+      try {
+        const result = await copyDocumentFileToDrive(supabase, accessToken, sharedDriveId, documentFile);
+        return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      } catch (copyError) {
+        const message = copyError instanceof Error ? copyError.message : 'Unknown Drive sync error';
+        await markDocumentFileSyncFailed(supabase, documentFile, message);
+        throw copyError;
       }
+    }
 
-      if (documentFile.storage_provider !== 'supabase_storage') {
-        throw new Error(`Only supabase_storage copy is supported for now. provider=${documentFile.storage_provider}`);
-      }
-      if (!documentFile.storage_bucket || !documentFile.storage_path) {
-        throw new Error('Missing storage_bucket or storage_path');
-      }
-      if (!documentFile.drive_path) {
-        throw new Error('Missing drive_path');
-      }
+    if (action === 'sync-pending-document-files') {
+      const supabase = getSupabaseAdminClient();
+      const limit = Math.min(Math.max(Number(body.limit || 20), 1), 50);
+      const retryFailed = body.retryFailed === true;
+      const statuses = retryFailed ? ['pending', 'failed'] : ['pending'];
 
-      const { data: storageFile, error: downloadError } = await supabase.storage
-        .from(documentFile.storage_bucket)
-        .download(documentFile.storage_path);
-
-      if (downloadError || !storageFile) {
-        throw new Error(`Storage download failed: ${downloadError?.message || documentFile.storage_path}`);
-      }
-
-      const bytes = new Uint8Array(await storageFile.arrayBuffer());
-      const folderId = await ensureFolderPath(
-        accessToken,
-        drivePathSegments(documentFile.drive_path),
-        sharedDriveId,
-        sharedDriveId
-      );
-      const result = await uploadBytes(
-        accessToken,
-        folderId,
-        documentFile.file_name,
-        bytes,
-        documentFile.mime_type || storageFile.type || 'application/octet-stream'
-      );
-
-      const currentMetadata = documentFile.metadata && typeof documentFile.metadata === 'object'
-        ? documentFile.metadata
-        : {};
-      const { error: updateError } = await supabase
+      const { data: documentFiles, error: listError } = await supabase
         .from('document_files')
-        .update({
-          drive_file_id: result.id,
-          drive_folder_id: folderId,
-          sync_status: 'synced',
-          sync_error: null,
-          synced_at: new Date().toISOString(),
-          metadata: {
-            ...currentMetadata,
-            copied_to_drive_at: new Date().toISOString(),
-            copied_from_bucket: documentFile.storage_bucket,
-            copied_from_path: documentFile.storage_path,
-          },
-        })
-        .eq('id', documentFileId);
+        .select('*')
+        .in('sync_status', statuses)
+        .eq('storage_provider', 'supabase_storage')
+        .not('drive_path', 'is', null)
+        .not('storage_bucket', 'is', null)
+        .not('storage_path', 'is', null)
+        .order('created_at', { ascending: true })
+        .limit(limit);
 
-      if (updateError) {
-        throw new Error(`Document file update failed after Drive upload: ${updateError.message}`);
+      if (listError) {
+        throw new Error(`Document files query failed: ${listError.message}`);
+      }
+
+      const results: Record<string, unknown>[] = [];
+      let synced = 0;
+      let reused = 0;
+      let skipped = 0;
+      let failed = 0;
+
+      for (const documentFile of (documentFiles || [])) {
+        try {
+          const result = await copyDocumentFileToDrive(supabase, accessToken, sharedDriveId, documentFile);
+          results.push(result);
+          if (result.skipped) skipped++;
+          else if (result.reused) reused++;
+          else synced++;
+        } catch (syncError) {
+          const message = syncError instanceof Error ? syncError.message : 'Unknown Drive sync error';
+          await markDocumentFileSyncFailed(supabase, documentFile, message);
+          failed++;
+          results.push({
+            success: false,
+            documentFileId: documentFile.id,
+            fileName: documentFile.file_name,
+            error: message,
+          });
+        }
       }
 
       return new Response(JSON.stringify({
         success: true,
-        fileId: result.id,
-        fileName: result.name,
-        folderId,
-        viewLink: `https://drive.google.com/file/d/${result.id}/view`,
+        requestedLimit: limit,
+        processed: results.length,
+        synced,
+        reused,
+        skipped,
+        failed,
+        retryFailed,
+        results,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

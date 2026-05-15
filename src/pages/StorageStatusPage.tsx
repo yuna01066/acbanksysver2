@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, HardDrive, RefreshCw, FolderOpen, Cloud, Database, Server, Info, MapPin } from "lucide-react";
+import { ArrowLeft, HardDrive, RefreshCw, FolderOpen, Cloud, Database, Server, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 interface BucketUsage {
   name: string;
   fileCount: number;
@@ -24,6 +25,14 @@ interface DriveFolderInfo {
   name: string;
   fileCount: number;
   totalSize: number;
+}
+
+interface DocumentSyncCounts {
+  pending: number;
+  synced: number;
+  failed: number;
+  not_required: number;
+  total: number;
 }
 
 const LOVABLE_FREE_STORAGE = 1 * 1024 * 1024 * 1024; // 1GB
@@ -85,6 +94,15 @@ const StorageStatusPage = () => {
   const [driveTotalFiles, setDriveTotalFiles] = useState(0);
   const [driveTotalSize, setDriveTotalSize] = useState(0);
   const [driveLoading, setDriveLoading] = useState(true);
+  const [documentSyncCounts, setDocumentSyncCounts] = useState<DocumentSyncCounts>({
+    pending: 0,
+    synced: 0,
+    failed: 0,
+    not_required: 0,
+    total: 0,
+  });
+  const [documentSyncLoading, setDocumentSyncLoading] = useState(true);
+  const [documentSyncing, setDocumentSyncing] = useState(false);
 
   const bucketLabels: Record<string, string> = {
     'quote-attachments': '견적서 첨부',
@@ -207,12 +225,87 @@ const StorageStatusPage = () => {
     }
   }, []);
 
+  const fetchDocumentSyncCounts = useCallback(async () => {
+    setDocumentSyncLoading(true);
+    try {
+      const statuses: Array<keyof Omit<DocumentSyncCounts, 'total'>> = [
+        'pending',
+        'synced',
+        'failed',
+        'not_required',
+      ];
+      const results = await Promise.all(
+        statuses.map(async (status) => {
+          const { count, error } = await supabase
+            .from('document_files' as any)
+            .select('*', { count: 'exact', head: true })
+            .eq('sync_status', status);
+          if (error) throw error;
+          return [status, count || 0] as const;
+        })
+      );
+
+      const nextCounts: DocumentSyncCounts = {
+        pending: 0,
+        synced: 0,
+        failed: 0,
+        not_required: 0,
+        total: 0,
+      };
+      results.forEach(([status, count]) => {
+        nextCounts[status] = count;
+        nextCounts.total += count;
+      });
+      setDocumentSyncCounts(nextCounts);
+    } catch (err) {
+      console.error('Document sync status fetch error:', err);
+    } finally {
+      setDocumentSyncLoading(false);
+    }
+  }, []);
+
+  const syncPendingDocumentFiles = useCallback(async (retryFailed = false) => {
+    setDocumentSyncing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('로그인이 필요합니다.');
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('google-drive', {
+        body: {
+          action: 'sync-pending-document-files',
+          limit: 20,
+          retryFailed,
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (error || data?.error) {
+        throw new Error(error?.message || data?.error || 'Drive 동기화 실행에 실패했습니다.');
+      }
+
+      toast.success(
+        `Drive 동기화 ${data.processed || 0}건 처리: 신규 ${data.synced || 0}, 기존 연결 ${data.reused || 0}, 실패 ${data.failed || 0}`
+      );
+      await fetchDocumentSyncCounts();
+      await fetchDriveStorage();
+    } catch (err) {
+      console.error('Document sync run error:', err);
+      toast.error(err instanceof Error ? err.message : 'Drive 동기화 실행에 실패했습니다.');
+    } finally {
+      setDocumentSyncing(false);
+    }
+  }, [fetchDocumentSyncCounts, fetchDriveStorage]);
+
   const refreshAll = useCallback(() => {
     fetchLovableStorage();
     fetchDbSize();
     fetchGcsStorage();
     fetchDriveStorage();
-  }, [fetchLovableStorage, fetchDbSize, fetchGcsStorage, fetchDriveStorage]);
+    fetchDocumentSyncCounts();
+  }, [fetchLovableStorage, fetchDbSize, fetchGcsStorage, fetchDriveStorage, fetchDocumentSyncCounts]);
 
   useEffect(() => {
     if (!authLoading && userRole !== 'admin' && userRole !== 'moderator') {
@@ -227,7 +320,7 @@ const StorageStatusPage = () => {
   const lovableTotalUsed = bucketUsages.reduce((sum, b) => sum + b.totalSize, 0);
   const lovablePercent = Math.min((lovableTotalUsed / LOVABLE_FREE_STORAGE) * 100, 100);
   const totalFiles = bucketUsages.reduce((sum, b) => sum + b.fileCount, 0);
-  const isLoading = lovableLoading || dbLoading || gcsLoading || driveLoading;
+  const isLoading = lovableLoading || dbLoading || gcsLoading || driveLoading || documentSyncLoading;
 
   const tableLabels: Record<string, string> = {
     profiles: '사용자 프로필', saved_quotes: '저장된 견적서', recipients: '거래처',
@@ -376,7 +469,7 @@ const StorageStatusPage = () => {
           <CardContent>
             <div className="space-y-3">
               {[
-                { data: '견적서 첨부 / PDF', locations: ['Lovable Cloud'], badges: ['quote-attachments', 'quote-pdfs'] },
+                { data: '견적서 첨부 / PDF', locations: ['Lovable Cloud', 'Google Drive'], badges: ['quote-attachments', 'quote-pdfs', 'document_files'] },
                 { data: '프로젝트 업데이트 첨부파일', locations: ['Lovable Cloud', 'GCS', 'Google Drive'], badges: ['project-update-attachments', '프로젝트업데이트'] },
                 { data: '내부 프로젝트 증빙 (견적서/영수증)', locations: ['GCS', 'Google Drive'], badges: ['프로젝트명 > 문서유형 > 년 > 월'] },
                 { data: '직원 문서 / 프로필 사진', locations: ['Lovable Cloud'], badges: ['employee-documents', 'avatars'] },
@@ -522,9 +615,53 @@ const StorageStatusPage = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Google Drive 공유 드라이브</CardTitle>
-                <CardDescription>프로젝트별 폴더 사용량</CardDescription>
+                <CardDescription>프로젝트별 폴더 사용량과 파일 원장 동기화 상태</CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="mb-4 rounded-lg border bg-muted/30 p-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-medium">파일 원장 Drive 동기화</p>
+                      {documentSyncLoading ? (
+                        <p className="text-xs text-muted-foreground mt-1">동기화 상태 조회 중...</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          <Badge variant="secondary" className="text-[10px]">대기 {documentSyncCounts.pending}</Badge>
+                          <Badge variant="secondary" className="text-[10px]">완료 {documentSyncCounts.synced}</Badge>
+                          <Badge variant={documentSyncCounts.failed > 0 ? 'destructive' : 'secondary'} className="text-[10px]">
+                            실패 {documentSyncCounts.failed}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px]">제외 {documentSyncCounts.not_required}</Badge>
+                          <Badge variant="outline" className="text-[10px]">총 {documentSyncCounts.total}</Badge>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => syncPendingDocumentFiles(false)}
+                        disabled={documentSyncing || documentSyncCounts.pending === 0}
+                        className="h-8"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 mr-1 ${documentSyncing ? 'animate-spin' : ''}`} />
+                        대기 20건 동기화
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => syncPendingDocumentFiles(true)}
+                        disabled={documentSyncing || (documentSyncCounts.pending + documentSyncCounts.failed) === 0}
+                        className="h-8"
+                      >
+                        실패 포함 재시도
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-3">
+                    한 번에 최대 20건씩 처리합니다. 기존 Drive 폴더에 같은 파일이 있으면 새로 업로드하지 않고 원장에 연결합니다.
+                  </p>
+                </div>
                 {driveLoading ? (
                   <div className="text-sm text-muted-foreground">조회 중...</div>
                 ) : driveFolders.length === 0 ? (

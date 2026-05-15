@@ -5,6 +5,7 @@ export type StorageProvider = 'supabase_storage' | 'gcs' | 'google_drive' | 'ext
 export type DocumentSyncStatus = 'pending' | 'synced' | 'failed' | 'not_required';
 
 export interface DocumentDownloadTarget {
+  documentFileId?: string | null;
   storageProvider?: StorageProvider;
   storageBucket?: string | null;
   storagePath?: string | null;
@@ -37,6 +38,40 @@ interface DocumentFileInput {
 }
 
 const documentFilesTable = 'document_files' as any;
+
+async function getDriveFileIdFromLedger(
+  documentFileId: string | null | undefined,
+  storageBucket?: string | null,
+  storagePath?: string | null,
+): Promise<string | null> {
+  if (!documentFileId && (!storageBucket || !storagePath)) return null;
+
+  let query = supabase
+    .from(documentFilesTable)
+    .select('drive_file_id')
+    .limit(1);
+
+  query = documentFileId
+    ? query.eq('id', documentFileId)
+    : query.eq('storage_bucket', storageBucket).eq('storage_path', storagePath);
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error) throw error;
+  return (data as { drive_file_id?: string | null } | null)?.drive_file_id || null;
+}
+
+export async function deleteDriveFile(fileId: string | null | undefined): Promise<void> {
+  if (!fileId) return;
+
+  const { data, error } = await supabase.functions.invoke('google-drive', {
+    body: { action: 'delete-file', fileId },
+  });
+
+  if (error || data?.error) {
+    throw new Error(error?.message || data?.error || 'Google Drive 파일 삭제에 실패했습니다.');
+  }
+}
 
 export async function getDownloadUrl(target: DocumentDownloadTarget): Promise<string> {
   const provider = target.storageProvider || (target.externalUrl || target.publicUrl ? 'external_url' : 'supabase_storage');
@@ -108,6 +143,12 @@ export async function removeDocumentFileRecord(id: string | null | undefined): P
 
 export async function deleteStoredFile(target: DocumentDownloadTarget): Promise<void> {
   const provider = target.storageProvider || 'supabase_storage';
+  const driveFileId = target.driveFileId
+    || await getDriveFileIdFromLedger(target.documentFileId, target.storageBucket, target.storagePath);
+
+  if (driveFileId) {
+    await deleteDriveFile(driveFileId);
+  }
 
   if (provider === 'gcs') {
     if (target.storagePath) await gcsDeleteFile(target.storagePath);
@@ -133,6 +174,7 @@ export function getAttachmentTarget(
   const storagePath = attachment.storagePath || attachment.storage_path || attachment.path || null;
 
   return {
+    documentFileId: attachment.documentFileId || attachment.document_file_id || null,
     storageProvider,
     storageBucket,
     storagePath,
