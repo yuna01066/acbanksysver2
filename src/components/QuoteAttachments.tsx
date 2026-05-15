@@ -1,29 +1,33 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Upload, X, Download, FileText, File, CloudUpload } from "lucide-react";
+import { Upload, X, Download, FileText, File, RotateCcw } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { buildIssuedQuoteDrivePath, toDrivePathText } from '@/utils/documentOrganization';
+import {
+  createDocumentFileRecord,
+  deleteStoredFile,
+  getAttachmentTarget,
+  getDownloadUrl,
+  removeDocumentFileRecord,
+  updateDocumentFileRecord,
+  type DocumentSyncStatus,
+} from '@/services/documentFiles';
+
+interface DriveSyncResult {
+  success: boolean;
+  fileId?: string;
+  folderId?: string;
+  error?: string;
+}
 
 // Google Drive에 파일을 동기화하는 헬퍼 함수
 async function syncFileToGoogleDrive(
   file: globalThis.File,
-  quoteNumber: string,
-  options?: {
-    recipientCompany?: string;
-    projectName?: string;
-    section?: string;
-  }
-): Promise<boolean> {
+  folderPath: string[],
+): Promise<DriveSyncResult> {
   try {
-    const folderPath = buildIssuedQuoteDrivePath({
-      quoteNumber,
-      recipientCompany: options?.recipientCompany,
-      projectName: options?.projectName,
-      section: options?.section || '01_고객첨부',
-    });
-
     // 1. Init resumable upload session via edge function
     const { data: sessionData, error: sessionError } = await supabase.functions.invoke('google-drive', {
       body: {
@@ -37,7 +41,7 @@ async function syncFileToGoogleDrive(
 
     if (sessionError || !sessionData?.uploadUri) {
       console.error('Google Drive session init failed:', sessionError || sessionData);
-      return false;
+      return { success: false, error: sessionError?.message || sessionData?.error || 'Drive upload session init failed' };
     }
 
     // 2. Client-side direct upload to Google Drive
@@ -51,15 +55,21 @@ async function syncFileToGoogleDrive(
     });
 
     if (!uploadRes.ok) {
-      console.error('Google Drive upload failed:', await uploadRes.text());
-      return false;
+      const message = await uploadRes.text();
+      console.error('Google Drive upload failed:', message);
+      return { success: false, folderId: sessionData.folderId, error: message };
     }
 
+    const uploaded = await uploadRes.json().catch(() => null);
     console.log(`Google Drive sync successful: ${toDrivePathText(folderPath)}/${file.name}`);
-    return true;
+    return {
+      success: true,
+      fileId: uploaded?.id,
+      folderId: sessionData.folderId,
+    };
   } catch (error) {
     console.error('Google Drive sync error:', error);
-    return false;
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown Drive sync error' };
   }
 }
 
@@ -68,6 +78,14 @@ interface Attachment {
   path: string;
   size: number;
   type: string;
+  documentFileId?: string | null;
+  storageProvider?: 'supabase_storage' | 'gcs' | 'google_drive' | 'external_url';
+  storageBucket?: string;
+  storagePath?: string;
+  driveFileId?: string | null;
+  driveFolderId?: string | null;
+  syncStatus?: DocumentSyncStatus;
+  pendingDelete?: boolean;
 }
 
 export interface QuotePdfAttachment {
@@ -76,6 +94,15 @@ export interface QuotePdfAttachment {
   size: number;
   url: string;
   uploadedAt: string;
+  type?: string;
+  documentFileId?: string | null;
+  storageProvider?: 'supabase_storage' | 'gcs' | 'google_drive' | 'external_url';
+  storageBucket?: string;
+  storagePath?: string;
+  driveFileId?: string | null;
+  driveFolderId?: string | null;
+  syncStatus?: DocumentSyncStatus;
+  pendingDelete?: boolean;
 }
 
 interface QuoteAttachmentsProps {
@@ -83,6 +110,7 @@ interface QuoteAttachmentsProps {
   onAttachmentsChange: (attachments: Attachment[]) => void;
   readOnly?: boolean;
   quoteId?: string;
+  projectId?: string | null;
   quoteNumber?: string;
   recipientCompany?: string;
   projectName?: string;
@@ -97,6 +125,7 @@ const QuoteAttachments = ({
   onAttachmentsChange, 
   readOnly = false, 
   quoteId,
+  projectId,
   quoteNumber,
   recipientCompany,
   projectName,
@@ -106,6 +135,63 @@ const QuoteAttachments = ({
 }: QuoteAttachmentsProps) => {
   const [uploading, setUploading] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+
+  useEffect(() => {
+    if (readOnly || quoteId || attachments.length === 0) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [attachments.length, quoteId, readOnly]);
+
+  const buildSavedAttachments = (
+    clientAttachments: Attachment[],
+    pdf: QuotePdfAttachment | null = quotePdf,
+  ) => [
+    ...(pdf && !pdf.pendingDelete ? [{ ...pdf, type: 'quote_pdf' }] : []),
+    ...clientAttachments
+      .filter((attachment) => attachment.type !== 'quote_pdf' && !attachment.pendingDelete)
+      .map(({ pendingDelete, ...attachment }) => attachment),
+  ];
+
+  const persistQuoteAttachments = async (
+    clientAttachments: Attachment[],
+    pdf: QuotePdfAttachment | null = quotePdf,
+  ) => {
+    if (!quoteId) return;
+    const { error } = await supabase
+      .from('saved_quotes')
+      .update({ attachments: buildSavedAttachments(clientAttachments, pdf) as any })
+      .eq('id', quoteId);
+    if (error) throw error;
+  };
+
+  const markDriveSyncResult = async (
+    documentFileId: string | null,
+    result: DriveSyncResult,
+  ) => {
+    if (!documentFileId) return;
+    await updateDocumentFileRecord(documentFileId, {
+      sync_status: result.success ? 'synced' : 'failed',
+      sync_error: result.success ? null : result.error || 'Google Drive sync failed',
+      synced_at: result.success ? new Date().toISOString() : null,
+      drive_file_id: result.fileId || null,
+      drive_folder_id: result.folderId || null,
+    });
+  };
+
+  const rollbackUploadedAttachments = async (items: Attachment[]) => {
+    await Promise.allSettled(
+      items.map(async (item) => {
+        await deleteStoredFile(getAttachmentTarget(item, 'quote-attachments'));
+        await removeDocumentFileRecord(item.documentFileId);
+      })
+    );
+  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -183,17 +269,64 @@ const QuoteAttachments = ({
 
           console.log('Upload successful:', data);
 
+          const driveFolderPath = quoteNumber ? buildIssuedQuoteDrivePath({
+            quoteNumber,
+            recipientCompany,
+            projectName,
+            section: '01_고객첨부',
+          }) : null;
+          const initialSyncStatus: DocumentSyncStatus = driveFolderPath ? 'pending' : 'not_required';
+          let documentFileId: string | null = null;
+          let driveFileId: string | null = null;
+          let driveFolderId: string | null = null;
+          let syncStatus: DocumentSyncStatus = initialSyncStatus;
+
+          if (quoteId) {
+            try {
+              documentFileId = await createDocumentFileRecord({
+                owner_type: 'quote',
+                quote_id: quoteId,
+                project_id: projectId || null,
+                document_type: 'customer_attachment',
+                file_name: file.name,
+                storage_provider: 'supabase_storage',
+                storage_bucket: 'quote-attachments',
+                storage_path: filePath,
+                mime_type: file.type || 'application/octet-stream',
+                file_size: file.size,
+                drive_path: driveFolderPath ? toDrivePathText(driveFolderPath) : null,
+                uploaded_by: user.id,
+                sync_status: initialSyncStatus,
+                metadata: {
+                  source: 'QuoteAttachments',
+                  quoteNumber: quoteNumber || null,
+                  originalPath: filePath,
+                },
+              });
+            } catch (recordError) {
+              console.error('Document file record failed:', recordError);
+              await supabase.storage.from('quote-attachments').remove([filePath]);
+              toast.error(`${file.name}: 파일 원장 기록 실패`);
+              uploadedCount.failed++;
+              continue;
+            }
+          }
+
           // Google Drive 동기화 (quoteNumber가 있으면)
-          if (quoteNumber) {
-            const driveSuccess = await syncFileToGoogleDrive(file, quoteNumber, {
-              recipientCompany,
-              projectName,
-              section: '01_고객첨부',
-            });
-            if (driveSuccess) {
+          if (driveFolderPath) {
+            const driveResult = await syncFileToGoogleDrive(file, driveFolderPath);
+            driveFileId = driveResult.fileId || null;
+            driveFolderId = driveResult.folderId || null;
+            syncStatus = driveResult.success ? 'synced' : 'failed';
+            try {
+              await markDriveSyncResult(documentFileId, driveResult);
+            } catch (syncRecordError) {
+              console.error('Drive sync status update failed:', syncRecordError);
+            }
+            if (driveResult.success) {
               console.log(`Google Drive sync OK: ${file.name}`);
             } else {
-              console.warn(`Google Drive sync failed for: ${file.name} (Supabase 저장은 완료)`);
+              toast.warning(`${file.name}: Drive 동기화 실패, 파일은 저장되었습니다.`);
             }
           }
           
@@ -201,7 +334,14 @@ const QuoteAttachments = ({
             name: file.name,
             path: filePath,
             size: file.size,
-            type: file.type
+            type: file.type,
+            documentFileId,
+            storageProvider: 'supabase_storage',
+            storageBucket: 'quote-attachments',
+            storagePath: filePath,
+            driveFileId,
+            driveFolderId,
+            syncStatus,
           });
           
           uploadedCount.success++;
@@ -213,7 +353,14 @@ const QuoteAttachments = ({
       }
 
       if (newAttachments.length > 0) {
-        onAttachmentsChange([...attachments, ...newAttachments]);
+        const nextAttachments = [...attachments.filter((a) => a.type !== 'quote_pdf'), ...newAttachments];
+        try {
+          await persistQuoteAttachments(nextAttachments);
+        } catch (persistError) {
+          if (quoteId) await rollbackUploadedAttachments(newAttachments);
+          throw persistError;
+        }
+        onAttachmentsChange(nextAttachments);
       }
 
       // 결과 메시지
@@ -234,12 +381,18 @@ const QuoteAttachments = ({
   };
 
   const handleRemoveAttachment = async (attachment: Attachment) => {
-    try {
-      const { error } = await supabase.storage
-        .from('quote-attachments')
-        .remove([attachment.path]);
+    if (quoteId) {
+      const nextAttachments = attachments.map((item) =>
+        item.path === attachment.path ? { ...item, pendingDelete: true } : item
+      );
+      onAttachmentsChange(nextAttachments);
+      toast.info('저장 버튼을 누르면 파일이 삭제됩니다.');
+      return;
+    }
 
-      if (error) throw error;
+    try {
+      await deleteStoredFile(getAttachmentTarget(attachment, 'quote-attachments'));
+      await removeDocumentFileRecord(attachment.documentFileId);
 
       onAttachmentsChange(attachments.filter(a => a.path !== attachment.path));
       toast.success('파일이 삭제되었습니다.');
@@ -249,17 +402,21 @@ const QuoteAttachments = ({
     }
   };
 
-  const handleDownloadAttachment = async (attachment: Attachment) => {
-    try {
-      // createSignedUrl을 사용하여 스토리지 정책 문제 우회
-      const { data, error } = await supabase.storage
-        .from('quote-attachments')
-        .createSignedUrl(attachment.path, 300); // 5분 유효
+  const handleRestoreAttachment = (attachment: Attachment) => {
+    onAttachmentsChange(
+      attachments.map((item) =>
+        item.path === attachment.path ? { ...item, pendingDelete: false } : item
+      )
+    );
+  };
 
-      if (error) throw error;
+  const handleDownloadAttachment = async (attachment: Attachment) => {
+    if (attachment.pendingDelete) return;
+    try {
+      const url = await getDownloadUrl(getAttachmentTarget(attachment, 'quote-attachments'));
 
       const a = document.createElement('a');
-      a.href = data.signedUrl;
+      a.href = url;
       a.download = attachment.name;
       a.target = '_blank';
       document.body.appendChild(a);
@@ -309,11 +466,13 @@ const QuoteAttachments = ({
 
       // 견적번호 기반 경로로 저장 (수정 시 덮어쓰기 가능)
       const safeQuoteNumber = quoteNumber || `temp-${Date.now()}`;
-      const fileName = `${safeQuoteNumber}.pdf`;
+      const fileRevision = quoteId ? `-${Date.now()}-${Math.random().toString(36).substring(2, 7)}` : '';
+      const fileName = `${safeQuoteNumber}${fileRevision}.pdf`;
       const filePath = `${user.id}/${safeQuoteNumber}/${fileName}`;
 
-      // 기존 파일이 있으면 먼저 삭제 (덮어쓰기)
-      if (quotePdf?.path) {
+      // 신규 견적 작성 중에는 기존 파일을 바로 지워도 DB 참조가 없습니다.
+      // 저장된 견적에서는 새 PDF가 DB에 반영된 뒤 이전 파일을 정리합니다.
+      if (quotePdf?.path && !quoteId) {
         try {
           await supabase.storage
             .from('quote-pdfs')
@@ -329,7 +488,7 @@ const QuoteAttachments = ({
         .from('quote-pdfs')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: true
+          upsert: false
         });
 
       if (uploadError) {
@@ -343,30 +502,112 @@ const QuoteAttachments = ({
         .from('quote-pdfs')
         .getPublicUrl(filePath);
 
+      const driveFolderPath = quoteNumber ? buildIssuedQuoteDrivePath({
+        quoteNumber: safeQuoteNumber,
+        recipientCompany,
+        projectName,
+        section: '00_견적서PDF',
+      }) : null;
+      const initialSyncStatus: DocumentSyncStatus = driveFolderPath ? 'pending' : 'not_required';
+      let documentFileId: string | null = null;
+      let driveFileId: string | null = null;
+      let driveFolderId: string | null = null;
+      let syncStatus: DocumentSyncStatus = initialSyncStatus;
+
+      if (quoteId) {
+        try {
+          documentFileId = await createDocumentFileRecord({
+            owner_type: 'quote',
+            quote_id: quoteId,
+            project_id: projectId || null,
+            document_type: 'quote_pdf',
+            file_name: file.name,
+            storage_provider: 'supabase_storage',
+            storage_bucket: 'quote-pdfs',
+            storage_path: filePath,
+            mime_type: file.type || 'application/pdf',
+            file_size: file.size,
+            drive_path: driveFolderPath ? toDrivePathText(driveFolderPath) : null,
+            uploaded_by: user.id,
+            sync_status: initialSyncStatus,
+            metadata: {
+              source: 'QuoteAttachments',
+              quoteNumber: safeQuoteNumber,
+              originalPath: filePath,
+            },
+          });
+        } catch (recordError) {
+          console.error('PDF document file record failed:', recordError);
+          await supabase.storage.from('quote-pdfs').remove([filePath]);
+          toast.error('PDF 파일 원장 기록에 실패했습니다.');
+          return;
+        }
+      }
+
       const pdfData: QuotePdfAttachment = {
         name: file.name,
         path: filePath,
         size: file.size,
         url: urlData.publicUrl,
-        uploadedAt: new Date().toISOString()
+        uploadedAt: new Date().toISOString(),
+        type: 'quote_pdf',
+        documentFileId,
+        storageProvider: 'supabase_storage',
+        storageBucket: 'quote-pdfs',
+        storagePath: filePath,
+        driveFileId,
+        driveFolderId,
+        syncStatus,
       };
 
       // Google Drive 동기화
-      if (quoteNumber) {
-        const driveSuccess = await syncFileToGoogleDrive(file, safeQuoteNumber, {
-          recipientCompany,
-          projectName,
-          section: '00_견적서PDF',
-        });
-        if (driveSuccess) {
+      if (driveFolderPath) {
+        const driveResult = await syncFileToGoogleDrive(file, driveFolderPath);
+        driveFileId = driveResult.fileId || null;
+        driveFolderId = driveResult.folderId || null;
+        syncStatus = driveResult.success ? 'synced' : 'failed';
+        pdfData.driveFileId = driveFileId;
+        pdfData.driveFolderId = driveFolderId;
+        pdfData.syncStatus = syncStatus;
+        try {
+          await markDriveSyncResult(documentFileId, driveResult);
+        } catch (syncRecordError) {
+          console.error('PDF Drive sync status update failed:', syncRecordError);
+        }
+        if (driveResult.success) {
           console.log('PDF Google Drive sync OK');
         } else {
-          console.warn('PDF Google Drive sync failed (Supabase 저장은 완료)');
+          toast.warning('PDF Drive 동기화 실패, 파일은 저장되었습니다.');
+        }
+      }
+
+      if (quoteId) {
+        const previousPdf = quotePdf;
+        try {
+          await persistQuoteAttachments(attachments as Attachment[], pdfData);
+        } catch (persistError) {
+          await deleteStoredFile(getAttachmentTarget(pdfData, 'quote-pdfs'));
+          await removeDocumentFileRecord(documentFileId);
+          throw persistError;
+        }
+        if (previousPdf?.path && previousPdf.path !== pdfData.path) {
+          try {
+            await deleteStoredFile(getAttachmentTarget(previousPdf, 'quote-pdfs'));
+          } catch (cleanupError) {
+            console.warn('Old PDF storage cleanup failed:', cleanupError);
+          }
+        }
+        if (previousPdf?.documentFileId && previousPdf.documentFileId !== documentFileId) {
+          try {
+            await removeDocumentFileRecord(previousPdf.documentFileId);
+          } catch (cleanupError) {
+            console.warn('Old PDF ledger cleanup failed:', cleanupError);
+          }
         }
       }
 
       onQuotePdfChange?.(pdfData);
-      toast.success('견적서 PDF가 업로드되었습니다. 저장 버튼을 눌러 변경사항을 저장하세요.');
+      toast.success(quoteId ? '견적서 PDF가 업로드되고 파일 원장에 기록되었습니다.' : '견적서 PDF가 업로드되었습니다. 저장 버튼을 눌러 변경사항을 저장하세요.');
     } catch (error) {
       console.error('Error uploading PDF:', error);
       toast.error('PDF 업로드 중 오류가 발생했습니다.');
@@ -380,15 +621,15 @@ const QuoteAttachments = ({
   const handleRemovePdf = async () => {
     if (!quotePdf) return;
 
-    try {
-      const { error } = await supabase.storage
-        .from('quote-pdfs')
-        .remove([quotePdf.path]);
+    if (quoteId) {
+      onQuotePdfChange?.({ ...quotePdf, pendingDelete: true });
+      toast.info('저장 버튼을 누르면 PDF가 삭제됩니다.');
+      return;
+    }
 
-      if (error) {
-        console.error('PDF delete error:', error);
-        // 스토리지에서 삭제 실패해도 로컬 상태는 업데이트
-      }
+    try {
+      await deleteStoredFile(getAttachmentTarget(quotePdf, 'quote-pdfs'));
+      await removeDocumentFileRecord(quotePdf.documentFileId);
 
       onQuotePdfChange?.(null);
       toast.success('견적서 PDF가 삭제되었습니다.');
@@ -396,6 +637,11 @@ const QuoteAttachments = ({
       console.error('Error removing PDF:', error);
       toast.error('PDF 삭제에 실패했습니다.');
     }
+  };
+
+  const handleRestorePdf = () => {
+    if (!quotePdf) return;
+    onQuotePdfChange?.({ ...quotePdf, pendingDelete: false });
   };
 
   return (
@@ -435,7 +681,11 @@ const QuoteAttachments = ({
           </div>
 
           {quotePdf ? (
-            <Card className="p-4 bg-gradient-to-br from-red-50 to-orange-50 border-2 border-red-200 shadow-sm">
+            <Card className={`p-4 border-2 shadow-sm ${
+              quotePdf.pendingDelete
+                ? 'bg-red-50 border-red-300 opacity-70'
+                : 'bg-gradient-to-br from-red-50 to-orange-50 border-red-200'
+            }`}>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className="bg-red-100 p-2 rounded-lg">
@@ -446,21 +696,41 @@ const QuoteAttachments = ({
                       {quotePdf.name}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {formatFileSize(quotePdf.size)} • Pluuug 동기화 시 링크 포함됨
+                      {formatFileSize(quotePdf.size)}
+                      {quotePdf.pendingDelete ? ' • 저장 시 삭제 예정' : ' • Pluuug 동기화 시 링크 포함됨'}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => window.open(quotePdf.url, '_blank')}
-                    className="hover:bg-red-100 text-red-600"
-                    title="다운로드"
-                  >
-                    <Download className="w-4 h-4" />
-                  </Button>
-                  {!readOnly && (
+                  {!quotePdf.pendingDelete && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const url = await getDownloadUrl(getAttachmentTarget(quotePdf, 'quote-pdfs'));
+                          window.open(url, '_blank', 'noopener,noreferrer');
+                        } catch {
+                          toast.error('PDF 다운로드에 실패했습니다.');
+                        }
+                      }}
+                      className="hover:bg-red-100 text-red-600"
+                      title="다운로드"
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                  )}
+                  {!readOnly && quotePdf.pendingDelete ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRestorePdf}
+                      className="text-slate-600 hover:bg-white"
+                      title="삭제 취소"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </Button>
+                  ) : !readOnly && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -532,10 +802,17 @@ const QuoteAttachments = ({
       {attachments.length > 0 ? (
         <div className="space-y-3 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
           <div className="text-sm text-blue-700 font-medium mb-2">
-            📎 첨부된 파일 목록
+            첨부된 파일 목록
           </div>
           {attachments.map((attachment, index) => (
-            <Card key={index} className="p-4 bg-white border-2 border-blue-200 shadow-sm hover:shadow-md transition-all">
+            <Card
+              key={index}
+              className={`p-4 bg-white border-2 shadow-sm transition-all ${
+                attachment.pendingDelete
+                  ? 'border-red-200 opacity-70'
+                  : 'border-blue-200 hover:shadow-md'
+              }`}
+            >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className="bg-blue-100 p-2 rounded-lg">
@@ -547,20 +824,34 @@ const QuoteAttachments = ({
                     </p>
                     <p className="text-xs text-gray-500">
                       파일 크기: {formatFileSize(attachment.size)}
+                      {attachment.pendingDelete && ' • 저장 시 삭제 예정'}
+                      {attachment.syncStatus === 'failed' && ' • Drive 동기화 실패'}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDownloadAttachment(attachment)}
-                    className="hover:bg-blue-100 text-blue-600"
-                    title="다운로드"
-                  >
-                    <Download className="w-4 h-4" />
-                  </Button>
-                  {!readOnly && (
+                  {!attachment.pendingDelete && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDownloadAttachment(attachment)}
+                      className="hover:bg-blue-100 text-blue-600"
+                      title="다운로드"
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                  )}
+                  {!readOnly && attachment.pendingDelete ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRestoreAttachment(attachment)}
+                      className="text-slate-600 hover:text-slate-700 hover:bg-slate-50"
+                      title="삭제 취소"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </Button>
+                  ) : !readOnly && (
                     <Button
                       variant="ghost"
                       size="sm"

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getDownloadUrl } from '@/services/documentFiles';
 
 export interface DocumentCategory {
   id: string;
@@ -116,11 +117,11 @@ export const useEmployeeDocuments = (userId?: string) => {
   };
 
   const getSignedUrl = async (filePath: string) => {
-    const { data, error } = await supabase.storage
-      .from('employee-documents')
-      .createSignedUrl(filePath, 3600);
-    if (error) throw error;
-    return data.signedUrl;
+    return getDownloadUrl({
+      storageProvider: 'supabase_storage',
+      storageBucket: 'employee-documents',
+      storagePath: filePath,
+    });
   };
 
   return { documents, loading, uploadDocument, deleteDocument, getSignedUrl, refresh: fetchDocuments };

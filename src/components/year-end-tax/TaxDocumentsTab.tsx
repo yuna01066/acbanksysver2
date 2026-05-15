@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, FileText, Trash2, Download, File } from 'lucide-react';
 import { DOCUMENT_TYPES, type TaxSettlement, type TaxDocument } from '@/hooks/useYearEndTax';
+import { toast } from 'sonner';
+import { openDocumentFile } from '@/services/documentFiles';
 
 interface Props {
   settlement: TaxSettlement;
@@ -99,10 +101,23 @@ const TaxDocumentsTab: React.FC<Props> = ({ documents, onUpload, onDelete, isEdi
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                      <Download className="h-3.5 w-3.5" />
-                    </a>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={async () => {
+                      try {
+                        await openDocumentFile({
+                          storageProvider: doc.file_url.startsWith('http') ? 'external_url' : 'gcs',
+                          storagePath: doc.file_url,
+                          externalUrl: doc.file_url.startsWith('http') ? doc.file_url : null,
+                        });
+                      } catch {
+                        toast.error('파일 다운로드에 실패했습니다.');
+                      }
+                    }}
+                  >
+                    <Download className="h-3.5 w-3.5" />
                   </Button>
                   {isEditable && (
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDelete(doc.id)}>
