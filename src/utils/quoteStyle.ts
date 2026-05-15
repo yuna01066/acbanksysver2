@@ -73,25 +73,35 @@ export const getQuoteStyleProfile = (type: QuoteStyleType = 'panel') => {
   return QUOTE_STYLE_PROFILES[type] || QUOTE_STYLE_PROFILES.panel;
 };
 
-export const isFabricationQuoteItem = (item: any): boolean => {
-  const snapshot = item?.calculationSnapshot || item?.calculation_snapshot;
-  const selectedOptions = snapshot?.selectedOptions || snapshot?.selected_options || {};
+const asRecord = (value: unknown): Record<string, unknown> | null => {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : null;
+};
+
+export const isFabricationQuoteItem = (item: unknown): boolean => {
+  const itemRecord = asRecord(item);
+
+  if (!itemRecord) {
+    return false;
+  }
+
+  const snapshot = asRecord(itemRecord.calculationSnapshot) || asRecord(itemRecord.calculation_snapshot);
+  const selectedOptions = asRecord(snapshot?.selectedOptions) || asRecord(snapshot?.selected_options);
 
   return (
-    item?.quoteStyle === 'fabrication'
-    || item?.quote_style === 'fabrication'
-    || item?.material === '제품 제작'
-    || item?.processing === 'manual'
+    itemRecord.quoteStyle === 'fabrication'
+    || itemRecord.quote_style === 'fabrication'
+    || itemRecord.material === '제품 제작'
+    || itemRecord.processing === 'manual'
     || Boolean(selectedOptions?.manualProductItem)
     || Boolean(snapshot?.manualProductItem)
   );
 };
 
-export const getQuoteStyleForItem = (item: any): QuoteStyleType => {
+export const getQuoteStyleForItem = (item: unknown): QuoteStyleType => {
   return isFabricationQuoteItem(item) ? 'fabrication' : 'panel';
 };
 
-export const detectQuoteStyleFromItems = (items: any[] = []): QuoteStyleType => {
+export const detectQuoteStyleFromItems = (items: unknown[] = []): QuoteStyleType => {
   const normalizedItems = Array.isArray(items) ? items.filter(Boolean) : [];
 
   if (normalizedItems.length === 0) {

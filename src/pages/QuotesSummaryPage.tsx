@@ -86,7 +86,7 @@ const QuotesSummaryPage = () => {
     navigate('/calculator');
   };
 
-  const handleRecipientChange = (field: keyof QuoteRecipient, value: any) => {
+  const handleRecipientChange = (field: keyof QuoteRecipient, value: QuoteRecipient[keyof QuoteRecipient]) => {
     const newRecipientData = { ...recipientData, [field]: value };
     // 견적일자 변경 시 유효기간 자동 재계산
     if (field === 'quoteDate' && value instanceof Date) {
