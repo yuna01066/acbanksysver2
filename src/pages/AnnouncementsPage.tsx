@@ -11,13 +11,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Megaphone, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper, Building2, Users, X, Coffee, LayoutGrid, Home, Search, CalendarDays } from 'lucide-react';
+import { Megaphone, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper, Building2, Users, X, Coffee, LayoutGrid, Home, Search, CalendarDays, AlertCircle, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { endOfWeek, format, isSameDay, isWithinInterval, startOfWeek } from 'date-fns';
+import { endOfWeek, format, isBefore, isSameDay, isWithinInterval, startOfDay, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { PageHeader, PageShell, SearchFilterBar } from '@/components/layout/PageLayout';
 
 type AnnouncementType = 'general' | 'event' | 'conference' | 'meeting';
+type SummaryFilter = 'all' | 'today' | 'week' | 'pinned';
+
+const SCHEDULED_TYPES = ['event', 'conference', 'meeting'];
 
 interface Announcement {
   id: string;
@@ -47,6 +50,15 @@ const TAB_CONFIG: { value: string; label: string; icon: React.ReactNode; types: 
   { value: 'meeting', label: '미팅', icon: <Coffee className="h-4 w-4" />, types: ['meeting'] },
 ];
 
+const isScheduledAnnouncement = (announcement: Announcement) =>
+  SCHEDULED_TYPES.includes(announcement.announcement_type);
+
+const getAnnouncementDate = (announcement: Announcement) => {
+  const dateValue = announcement.meeting_date || announcement.created_at;
+  const date = new Date(dateValue.length === 10 ? `${dateValue}T00:00:00` : dateValue);
+  return isNaN(date.getTime()) ? null : date;
+};
+
 const AnnouncementsPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -55,6 +67,7 @@ const AnnouncementsPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('');
+  const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -113,9 +126,26 @@ const AnnouncementsPage = () => {
     enabled: !!user && canManage,
   });
 
+  const getFormError = () => {
+    if (!title.trim()) return '제목을 입력해주세요.';
+    if (!content.trim()) return '내용을 입력해주세요.';
+    if ((announcementType === 'conference' || announcementType === 'meeting' || announcementType === 'event') && !meetingDate) {
+      return '일정이 있는 공지는 날짜를 입력해주세요.';
+    }
+    if (announcementType === 'event' && meetingDate && eventEndDate) {
+      const start = new Date(`${meetingDate}T00:00:00`);
+      const end = new Date(`${eventEndDate}T00:00:00`);
+      if (isBefore(end, start)) return '이벤트 종료일은 시작일보다 빠를 수 없습니다.';
+    }
+    return '';
+  };
+
+  const formError = getFormError();
+
   const postMutation = useMutation({
     mutationFn: async () => {
       if (!user || !profile) throw new Error('로그인 필요');
+      if (formError) throw new Error(formError);
 
       const hasDateFields = announcementType === 'event' || announcementType === 'conference' || announcementType === 'meeting';
       const assigneeNames = selectedAssigneeIds.map(id => employees?.find(e => e.id === id)?.full_name || '').filter(Boolean);
@@ -281,14 +311,13 @@ const AnnouncementsPage = () => {
 
   const allAnnouncements = useMemo(() => announcements || [], [announcements]);
 
-  const getAnnouncementDate = (announcement: Announcement) => {
-    const dateValue = announcement.meeting_date || announcement.created_at;
-    const date = new Date(dateValue);
-    return isNaN(date.getTime()) ? null : date;
-  };
-
   const filteredAnnouncements = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
+    const today = startOfDay(new Date());
+    const weekRange = {
+      start: startOfWeek(today, { weekStartsOn: 1 }),
+      end: endOfWeek(today, { weekStartsOn: 1 }),
+    };
 
     return allAnnouncements.filter((announcement) => {
       const searchableText = [
@@ -309,10 +338,18 @@ const AnnouncementsPage = () => {
         announcementDate
         && format(announcementDate, 'yyyy-MM-dd') === dateFilter
       );
+      const matchesSummaryFilter = (() => {
+        if (summaryFilter === 'all') return true;
+        if (summaryFilter === 'pinned') return announcement.is_pinned;
+        if (!announcementDate || !isScheduledAnnouncement(announcement)) return false;
+        if (summaryFilter === 'today') return isSameDay(announcementDate, today);
+        if (summaryFilter === 'week') return isWithinInterval(announcementDate, weekRange);
+        return true;
+      })();
 
-      return matchesSearch && matchesDate;
+      return matchesSearch && matchesDate && matchesSummaryFilter;
     });
-  }, [allAnnouncements, searchTerm, dateFilter]);
+  }, [allAnnouncements, searchTerm, dateFilter, summaryFilter]);
 
   const summary = useMemo(() => {
     const today = new Date();
@@ -321,9 +358,7 @@ const AnnouncementsPage = () => {
       end: endOfWeek(today, { weekStartsOn: 1 }),
     };
 
-    const scheduled = allAnnouncements.filter((announcement) =>
-      ['event', 'conference', 'meeting'].includes(announcement.announcement_type)
-    );
+    const scheduled = allAnnouncements.filter(isScheduledAnnouncement);
 
     return {
       total: allAnnouncements.length,
@@ -338,6 +373,39 @@ const AnnouncementsPage = () => {
       }).length,
     };
   }, [allAnnouncements]);
+
+  const upcomingAnnouncements = useMemo(() => {
+    const today = startOfDay(new Date());
+
+    return allAnnouncements
+      .filter((announcement) => {
+        const date = getAnnouncementDate(announcement);
+        return isScheduledAnnouncement(announcement) && date && !isBefore(date, today);
+      })
+      .sort((a, b) => {
+        const dateA = getAnnouncementDate(a)?.getTime() || 0;
+        const dateB = getAnnouncementDate(b)?.getTime() || 0;
+        const timeA = a.meeting_time || '';
+        const timeB = b.meeting_time || '';
+        return dateA - dateB || timeA.localeCompare(timeB);
+      })
+      .slice(0, 6);
+  }, [allAnnouncements]);
+
+  const focusAnnouncement = (announcement: Announcement) => {
+    setSearchParams({ focus: announcement.id });
+    setSummaryFilter('all');
+    setDateFilter('');
+    setActiveTab(announcement.announcement_type || 'all');
+    setExpandedIds(prev => new Set(prev).add(announcement.id));
+
+    window.setTimeout(() => {
+      document.getElementById(`announcement-${announcement.id}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 100);
+  };
 
   useEffect(() => {
     if (!focusedAnnouncementId || allAnnouncements.length === 0) return;
@@ -394,6 +462,20 @@ const AnnouncementsPage = () => {
     return null;
   };
 
+  const getScheduleBadge = (announcement: Announcement) => {
+    if (!isScheduledAnnouncement(announcement)) return null;
+    const date = getAnnouncementDate(announcement);
+    if (!date) return null;
+    const today = startOfDay(new Date());
+    if (isSameDay(date, today)) {
+      return <Badge className="h-4 px-1.5 py-0 text-[10px]">오늘</Badge>;
+    }
+    if (isBefore(date, today)) {
+      return <Badge variant="secondary" className="h-4 px-1.5 py-0 text-[10px]">지난 일정</Badge>;
+    }
+    return <Badge variant="secondary" className="h-4 px-1.5 py-0 text-[10px]">예정</Badge>;
+  };
+
   const renderAnnouncementCard = (a: Announcement) => {
     const isEvent = a.announcement_type === 'event';
     const isConference = a.announcement_type === 'conference';
@@ -416,6 +498,7 @@ const AnnouncementsPage = () => {
               <div className="flex items-center gap-2 mb-1">
                 {a.is_pinned && <Pin className="h-3.5 w-3.5 text-primary shrink-0" />}
                 {getTypeBadge(a.announcement_type)}
+                {getScheduleBadge(a)}
                 <h3 className="font-semibold text-lg">{a.title}</h3>
               </div>
               {hasDateInfo && (a.meeting_date || a.meeting_time || a.meeting_location) && (
@@ -493,9 +576,7 @@ const AnnouncementsPage = () => {
   };
 
   const isFormValid = () => {
-    if (!title.trim() || !content.trim()) return false;
-    if ((announcementType === 'conference' || announcementType === 'meeting' || announcementType === 'event') && !meetingDate) return false;
-    return true;
+    return !formError;
   };
 
   const handleTabChange = (tab: string) => {
@@ -507,6 +588,7 @@ const AnnouncementsPage = () => {
   const resetFilters = () => {
     setSearchTerm('');
     setDateFilter('');
+    setSummaryFilter('all');
     if (focusedAnnouncementId) setSearchParams({}, { replace: true });
   };
 
@@ -526,6 +608,10 @@ const AnnouncementsPage = () => {
 
   const renderForm = () => {
     if (!canManage || !showForm) return null;
+    const shouldShowFormError = Boolean(
+      formError
+      && (title || content || meetingDate || eventEndDate || meetingTime || meetingLocation || recipientNameInput || selectedAssigneeIds.length > 0)
+    );
 
     return (
       <Card className="mb-6">
@@ -541,7 +627,7 @@ const AnnouncementsPage = () => {
           />
           {/* 회의: date/time/location */}
           {announcementType === 'conference' && (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid gap-2 md:grid-cols-3">
               <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} placeholder="날짜" />
               <Input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} placeholder="시간" />
               <Input placeholder="장소 (선택)" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} />
@@ -550,12 +636,12 @@ const AnnouncementsPage = () => {
           {/* 미팅: date/time/location + recipient + assignees */}
           {announcementType === 'meeting' && (
             <>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid gap-2 md:grid-cols-3">
                 <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} placeholder="날짜" />
                 <Input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} placeholder="시간" />
                 <Input placeholder="장소" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-2 md:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" />고객사 (선택)</label>
                   <div className="flex gap-1">
@@ -609,7 +695,7 @@ const AnnouncementsPage = () => {
           )}
           {/* 이벤트: start/end date + location */}
           {announcementType === 'event' && (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid gap-2 md:grid-cols-3">
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground">시작일</label>
                 <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} />
@@ -625,6 +711,12 @@ const AnnouncementsPage = () => {
             </div>
           )}
           <Textarea placeholder="내용을 입력하세요..." value={content} onChange={(e) => setContent(e.target.value)} rows={5} className="resize-none" />
+          {shouldShowFormError && (
+            <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={resetForm}>취소</Button>
             <Button onClick={() => postMutation.mutate()} disabled={!isFormValid() || postMutation.isPending}>
@@ -683,6 +775,11 @@ const AnnouncementsPage = () => {
     meeting: <Coffee className="h-10 w-10 mx-auto" />,
   };
 
+  const summaryCardClass = (filter: SummaryFilter) => [
+    'glass-surface rounded-2xl px-4 py-3 text-left transition-all hover:border-primary/30 hover:bg-primary/5',
+    summaryFilter === filter ? 'border-primary/40 bg-primary/10 ring-1 ring-primary/15' : '',
+  ].filter(Boolean).join(' ');
+
   return (
     <PageShell maxWidth="7xl">
       <PageHeader
@@ -714,25 +811,107 @@ const AnnouncementsPage = () => {
       />
 
       <div className="grid gap-3 md:grid-cols-4">
-        <div className="glass-surface rounded-2xl px-4 py-3">
+        <button
+          type="button"
+          className={summaryCardClass('all')}
+          onClick={() => {
+            setSummaryFilter('all');
+            setDateFilter('');
+            setActiveTab('all');
+          }}
+        >
           <div className="text-xs text-muted-foreground">전체 공지</div>
           <div className="mt-1 text-xl font-semibold">{summary.total.toLocaleString()}건</div>
-        </div>
-        <div className="glass-surface rounded-2xl px-4 py-3">
+        </button>
+        <button
+          type="button"
+          className={summaryCardClass('today')}
+          onClick={() => {
+            setSummaryFilter('today');
+            setDateFilter('');
+            setActiveTab('all');
+          }}
+        >
           <div className="text-xs text-muted-foreground">오늘 일정</div>
           <div className="mt-1 text-xl font-semibold">{summary.today.toLocaleString()}건</div>
-        </div>
-        <div className="glass-surface rounded-2xl px-4 py-3">
+        </button>
+        <button
+          type="button"
+          className={summaryCardClass('week')}
+          onClick={() => {
+            setSummaryFilter('week');
+            setDateFilter('');
+            setActiveTab('all');
+          }}
+        >
           <div className="text-xs text-muted-foreground">이번주 일정</div>
           <div className="mt-1 text-xl font-semibold">{summary.thisWeek.toLocaleString()}건</div>
-        </div>
-        <div className="glass-surface rounded-2xl px-4 py-3">
+        </button>
+        <button
+          type="button"
+          className={summaryCardClass('pinned')}
+          onClick={() => {
+            setSummaryFilter('pinned');
+            setDateFilter('');
+            setActiveTab('all');
+          }}
+        >
           <div className="text-xs text-muted-foreground">고정 공지</div>
           <div className="mt-1 text-xl font-semibold">{summary.pinned.toLocaleString()}건</div>
-        </div>
+        </button>
       </div>
 
       <DashboardCalendar />
+
+      {upcomingAnnouncements.length > 0 && (
+        <section className="glass-surface rounded-2xl p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold">다가오는 일정</h2>
+              <p className="text-xs text-muted-foreground">오늘 이후 일정 중 가까운 순서로 표시합니다.</p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSummaryFilter('week');
+                setActiveTab('all');
+              }}
+            >
+              이번주 보기
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {upcomingAnnouncements.map((announcement) => {
+              const date = getAnnouncementDate(announcement);
+              return (
+                <button
+                  key={announcement.id}
+                  type="button"
+                  onClick={() => focusAnnouncement(announcement)}
+                  className="rounded-xl border border-border/70 bg-background/60 p-3 text-left transition-colors hover:border-primary/30 hover:bg-primary/5"
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    {getTypeBadge(announcement.announcement_type)}
+                    <span className="text-xs text-muted-foreground">
+                      {date ? format(date, 'M월 d일 (EEE)', { locale: ko }) : '날짜 미정'}
+                      {announcement.meeting_time ? ` ${announcement.meeting_time}` : ''}
+                    </span>
+                  </div>
+                  <div className="truncate text-sm font-semibold">{announcement.title}</div>
+                  {(announcement.recipient_name || announcement.meeting_location) && (
+                    <div className="mt-1 truncate text-xs text-muted-foreground">
+                      {announcement.recipient_name || announcement.meeting_location}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <SearchFilterBar>
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto]">
@@ -750,7 +929,10 @@ const AnnouncementsPage = () => {
             <Input
               type="date"
               value={dateFilter}
-              onChange={(event) => setDateFilter(event.target.value)}
+              onChange={(event) => {
+                setDateFilter(event.target.value);
+                setSummaryFilter('all');
+              }}
               className="pl-10"
             />
           </div>
@@ -758,13 +940,18 @@ const AnnouncementsPage = () => {
             type="button"
             variant="outline"
             onClick={resetFilters}
-            disabled={!searchTerm && !dateFilter && !focusedAnnouncementId}
+            disabled={!searchTerm && !dateFilter && !focusedAnnouncementId && summaryFilter === 'all'}
           >
             필터 초기화
           </Button>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>표시 {filteredAnnouncements.length.toLocaleString()}건</span>
+          {summaryFilter !== 'all' && (
+            <Badge variant="secondary" className="h-6">
+              {summaryFilter === 'today' ? '오늘 일정' : summaryFilter === 'week' ? '이번주 일정' : '고정 공지'} 필터 적용 중
+            </Badge>
+          )}
           {focusedAnnouncementId && (
             <Badge variant="secondary" className="h-6">
               캘린더에서 선택한 일정 표시 중
