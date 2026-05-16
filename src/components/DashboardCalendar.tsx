@@ -22,6 +22,7 @@ interface CalendarEvent {
   userId: string;
   url?: string;
   assignee?: string;
+  assigneeIds?: string[];
 }
 
 const DashboardCalendar = () => {
@@ -104,7 +105,7 @@ const DashboardCalendar = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('announcements')
-        .select('id, title, meeting_date, meeting_time, meeting_location, announcement_type, event_end_date, recipient_name')
+        .select('id, title, author_id, meeting_date, meeting_time, meeting_location, announcement_type, event_end_date, recipient_name, assignee_ids')
         .in('announcement_type', ['meeting', 'conference', 'event'])
         .not('meeting_date', 'is', null);
       if (error) throw error;
@@ -153,7 +154,7 @@ const DashboardCalendar = () => {
     const result: CalendarEvent[] = [];
 
     // 휴일 이벤트
-    holidays?.forEach((h: any) => {
+    holidays?.forEach((h) => {
       const start = new Date(h.start_date);
       const end = new Date(h.end_date);
       const days = eachDayOfInterval({ start, end });
@@ -181,7 +182,7 @@ const DashboardCalendar = () => {
       }
       if (q.desired_delivery_date) {
         // 취소된 프로젝트 또는 취소된 견적서의 납기 희망일은 표시하지 않음
-        const projectStatus = (q as any).projects?.status;
+        const projectStatus = (q as { projects?: { status?: string } | null }).projects?.status;
         if (projectStatus === 'cancelled' || q.project_stage === 'cancelled') return;
         
         const deliveryDate = new Date(q.desired_delivery_date);
@@ -198,7 +199,7 @@ const DashboardCalendar = () => {
     });
 
     // Notion 프로젝트 이벤트
-    notionProjects?.forEach((project: any) => {
+    notionProjects?.forEach((project) => {
       const dateStr = project.date || project.createdDate;
       if (dateStr) {
         const date = new Date(dateStr);
@@ -217,7 +218,7 @@ const DashboardCalendar = () => {
     });
 
     // 미팅 이벤트
-    meetings?.forEach((m: any) => {
+    meetings?.forEach((m) => {
       if (m.meeting_date) {
         const date = new Date(m.meeting_date);
         if (!isNaN(date.getTime())) {
@@ -233,7 +234,7 @@ const DashboardCalendar = () => {
     });
 
     // 생일 이벤트
-    birthdays?.forEach((p: any) => {
+    birthdays?.forEach((p) => {
       if (p.birthday) {
         // birthday format: YYYY-MM-DD or MM-DD
         const parts = p.birthday.split('-');
@@ -254,7 +255,7 @@ const DashboardCalendar = () => {
     });
 
     // 회의/미팅/이벤트 공지 이벤트
-    announcementMeetings?.forEach((am: any) => {
+    announcementMeetings?.forEach((am) => {
       if (am.meeting_date) {
         if (am.announcement_type === 'event' && am.event_end_date) {
           // Multi-day event
@@ -268,7 +269,7 @@ const DashboardCalendar = () => {
                 projectName: am.title,
                 type: 'announcement_event',
                 date: d,
-                userId: '',
+                userId: am.author_id || '',
               });
             });
           }
@@ -281,7 +282,7 @@ const DashboardCalendar = () => {
               projectName: am.title,
               type: 'announcement_event',
               date,
-              userId: '',
+              userId: am.author_id || '',
             });
           }
         } else if (am.announcement_type === 'conference') {
@@ -293,7 +294,7 @@ const DashboardCalendar = () => {
               projectName: `${am.title}${am.meeting_time ? ` ${am.meeting_time}` : ''}`,
               type: 'announcement_conference',
               date,
-              userId: '',
+              userId: am.author_id || '',
             });
           }
         } else {
@@ -305,7 +306,8 @@ const DashboardCalendar = () => {
               projectName: `${am.title}${am.recipient_name ? ` (${am.recipient_name})` : ''}${am.meeting_time ? ` ${am.meeting_time}` : ''}`,
               type: 'announcement_meeting',
               date,
-              userId: '',
+              userId: am.author_id || '',
+              assigneeIds: am.assignee_ids || [],
             });
           }
         }
@@ -313,7 +315,7 @@ const DashboardCalendar = () => {
     });
 
     // 프로젝트 관리 이벤트
-    managedProjects?.forEach((p: any) => {
+    managedProjects?.forEach((p) => {
       if (p.created_at) {
         const date = new Date(p.created_at);
         if (!isNaN(date.getTime())) {
@@ -329,7 +331,7 @@ const DashboardCalendar = () => {
     });
 
     // 휴가 이벤트
-    leaveRequests?.forEach((lr: any) => {
+    leaveRequests?.forEach((lr) => {
       const start = new Date(lr.start_date);
       const end = new Date(lr.end_date);
       if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
@@ -362,7 +364,7 @@ const DashboardCalendar = () => {
       if (e.type === 'holiday') return true;
       if (e.type === 'birthday') return true;
       if (e.type === 'leave') return e.userId === user.id;
-      if (e.type === 'announcement_meeting') return true;
+      if (e.type === 'announcement_meeting') return e.userId === user.id || (e.assigneeIds || []).includes(user.id);
       if (e.type === 'announcement_conference') return true;
       if (e.type === 'announcement_event') return true;
       // Meetings are already filtered to current user
@@ -390,7 +392,7 @@ const DashboardCalendar = () => {
       return;
     }
     if (event.type === 'announcement_meeting' || event.type === 'announcement_conference' || event.type === 'announcement_event') {
-      navigate('/announcements');
+      navigate(`/announcements?focus=${event.id}`);
       return;
     }
     if (event.type === 'project') {

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardCalendar from '@/components/DashboardCalendar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,10 +11,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Megaphone, ArrowLeft, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper, Building2, Users, X, Coffee, LayoutGrid } from 'lucide-react';
+import { Megaphone, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper, Building2, Users, X, Coffee, LayoutGrid, Home, Search, CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { endOfWeek, format, isSameDay, isWithinInterval, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { PageHeader, PageShell, SearchFilterBar } from '@/components/layout/PageLayout';
 
 type AnnouncementType = 'general' | 'event' | 'conference' | 'meeting';
 
@@ -48,9 +49,12 @@ const TAB_CONFIG: { value: string; label: string; icon: React.ReactNode; types: 
 
 const AnnouncementsPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, profile, isAdmin, isModerator } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -66,6 +70,7 @@ const AnnouncementsPage = () => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const canManage = isAdmin || isModerator;
+  const focusedAnnouncementId = searchParams.get('focus');
 
   const { data: announcements, isLoading } = useQuery({
     queryKey: ['announcements'],
@@ -137,7 +142,7 @@ const AnnouncementsPage = () => {
           .eq('id', editingId);
         if (error) throw error;
       } else {
-        const insertData: any = {
+        const insertData: Record<string, unknown> = {
           title,
           content,
           author_id: user.id,
@@ -236,8 +241,9 @@ const AnnouncementsPage = () => {
       queryClient.invalidateQueries({ queryKey: ['announcement-meetings'] });
       queryClient.invalidateQueries({ queryKey: ['announcement-events'] });
     },
-    onError: (err: any) => {
-      toast.error('실패: ' + (err.message || '알 수 없는 오류'));
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : '알 수 없는 오류';
+      toast.error('실패: ' + message);
     },
   });
 
@@ -267,10 +273,88 @@ const AnnouncementsPage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
     },
-    onError: (err: any) => {
-      toast.error(err.message || '처리 실패');
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : '처리 실패';
+      toast.error(message);
     },
   });
+
+  const allAnnouncements = useMemo(() => announcements || [], [announcements]);
+
+  const getAnnouncementDate = (announcement: Announcement) => {
+    const dateValue = announcement.meeting_date || announcement.created_at;
+    const date = new Date(dateValue);
+    return isNaN(date.getTime()) ? null : date;
+  };
+
+  const filteredAnnouncements = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return allAnnouncements.filter((announcement) => {
+      const searchableText = [
+        announcement.title,
+        announcement.content,
+        announcement.author_name,
+        announcement.recipient_name,
+        announcement.meeting_location,
+        ...(announcement.assignee_names || []),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      const matchesSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
+      const announcementDate = getAnnouncementDate(announcement);
+      const matchesDate = !dateFilter || (
+        announcementDate
+        && format(announcementDate, 'yyyy-MM-dd') === dateFilter
+      );
+
+      return matchesSearch && matchesDate;
+    });
+  }, [allAnnouncements, searchTerm, dateFilter]);
+
+  const summary = useMemo(() => {
+    const today = new Date();
+    const weekRange = {
+      start: startOfWeek(today, { weekStartsOn: 1 }),
+      end: endOfWeek(today, { weekStartsOn: 1 }),
+    };
+
+    const scheduled = allAnnouncements.filter((announcement) =>
+      ['event', 'conference', 'meeting'].includes(announcement.announcement_type)
+    );
+
+    return {
+      total: allAnnouncements.length,
+      pinned: allAnnouncements.filter((announcement) => announcement.is_pinned).length,
+      today: scheduled.filter((announcement) => {
+        const date = getAnnouncementDate(announcement);
+        return date ? isSameDay(date, today) : false;
+      }).length,
+      thisWeek: scheduled.filter((announcement) => {
+        const date = getAnnouncementDate(announcement);
+        return date ? isWithinInterval(date, weekRange) : false;
+      }).length,
+    };
+  }, [allAnnouncements]);
+
+  useEffect(() => {
+    if (!focusedAnnouncementId || allAnnouncements.length === 0) return;
+
+    const target = allAnnouncements.find((announcement) => announcement.id === focusedAnnouncementId);
+    if (!target) return;
+
+    setActiveTab(target.announcement_type || 'all');
+    setExpandedIds(prev => new Set(prev).add(target.id));
+
+    window.setTimeout(() => {
+      document.getElementById(`announcement-${target.id}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 120);
+  }, [focusedAnnouncementId, allAnnouncements]);
 
   const resetForm = () => {
     setTitle('');
@@ -315,9 +399,17 @@ const AnnouncementsPage = () => {
     const isConference = a.announcement_type === 'conference';
     const isMeeting = a.announcement_type === 'meeting';
     const hasDateInfo = isEvent || isConference || isMeeting;
+    const isFocused = focusedAnnouncementId === a.id;
 
     return (
-      <Card key={a.id} className={a.is_pinned ? 'border-primary/30 bg-primary/5' : ''}>
+      <Card
+        key={a.id}
+        id={`announcement-${a.id}`}
+        className={[
+          a.is_pinned ? 'border-primary/30 bg-primary/5' : '',
+          isFocused ? 'ring-2 ring-primary/35 shadow-depth' : '',
+        ].filter(Boolean).join(' ')}
+      >
         <CardContent className="pt-5 pb-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
@@ -412,10 +504,16 @@ const AnnouncementsPage = () => {
     setAnnouncementType(tab === 'all' ? 'general' : tab as AnnouncementType);
   };
 
+  const resetFilters = () => {
+    setSearchTerm('');
+    setDateFilter('');
+    if (focusedAnnouncementId) setSearchParams({}, { replace: true });
+  };
+
   const getItemsForTab = (tab: string) => {
     const config = TAB_CONFIG.find(t => t.value === tab);
     if (!config) return [];
-    return announcements?.filter(a => config.types.includes(a.announcement_type)) || [];
+    return filteredAnnouncements.filter(a => config.types.includes(a.announcement_type));
   };
 
   if (!user) {
@@ -428,7 +526,6 @@ const AnnouncementsPage = () => {
 
   const renderForm = () => {
     if (!canManage || !showForm) return null;
-    const isConferenceOrMeeting = announcementType === 'conference' || announcementType === 'meeting';
 
     return (
       <Card className="mb-6">
@@ -587,58 +684,123 @@ const AnnouncementsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-              <ArrowLeft className="h-5 w-5" />
+    <PageShell maxWidth="7xl">
+      <PageHeader
+        eyebrow="Notice & Calendar"
+        title="공지사항"
+        description="사내 공지와 회의, 미팅, 이벤트 일정을 한 화면에서 확인합니다."
+        icon={<Megaphone className="h-5 w-5" />}
+        actions={(
+          <>
+            {canManage && (
+              <Button
+                onClick={() => {
+                  resetForm();
+                  setAnnouncementType(activeTab === 'all' ? 'general' : activeTab as AnnouncementType);
+                  setShowForm(true);
+                }}
+                size="sm"
+              >
+                <Plus className="h-4 w-4" />
+                새 {tabLabels[activeTab] || '공지'} 작성
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => navigate('/')}>
+              <Home className="h-4 w-4" />
+              홈
             </Button>
-            <h1 className="text-2xl font-bold">공지사항</h1>
+          </>
+        )}
+      />
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <div className="glass-surface rounded-2xl px-4 py-3">
+          <div className="text-xs text-muted-foreground">전체 공지</div>
+          <div className="mt-1 text-xl font-semibold">{summary.total.toLocaleString()}건</div>
+        </div>
+        <div className="glass-surface rounded-2xl px-4 py-3">
+          <div className="text-xs text-muted-foreground">오늘 일정</div>
+          <div className="mt-1 text-xl font-semibold">{summary.today.toLocaleString()}건</div>
+        </div>
+        <div className="glass-surface rounded-2xl px-4 py-3">
+          <div className="text-xs text-muted-foreground">이번주 일정</div>
+          <div className="mt-1 text-xl font-semibold">{summary.thisWeek.toLocaleString()}건</div>
+        </div>
+        <div className="glass-surface rounded-2xl px-4 py-3">
+          <div className="text-xs text-muted-foreground">고정 공지</div>
+          <div className="mt-1 text-xl font-semibold">{summary.pinned.toLocaleString()}건</div>
+        </div>
+      </div>
+
+      <DashboardCalendar />
+
+      <SearchFilterBar>
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="제목, 내용, 작성자, 장소, 담당자 검색"
+              className="pl-10"
+            />
           </div>
-          {canManage && (
-            <Button onClick={() => { resetForm(); setAnnouncementType(activeTab === 'all' ? 'general' : activeTab as AnnouncementType); setShowForm(true); }} className="gap-2">
-              <Plus className="h-4 w-4" />
-              새 {tabLabels[activeTab] || '공지'} 작성
-            </Button>
+          <div className="relative">
+            <CalendarDays className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="date"
+              value={dateFilter}
+              onChange={(event) => setDateFilter(event.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={resetFilters}
+            disabled={!searchTerm && !dateFilter && !focusedAnnouncementId}
+          >
+            필터 초기화
+          </Button>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>표시 {filteredAnnouncements.length.toLocaleString()}건</span>
+          {focusedAnnouncementId && (
+            <Badge variant="secondary" className="h-6">
+              캘린더에서 선택한 일정 표시 중
+            </Badge>
           )}
         </div>
+      </SearchFilterBar>
 
-        {/* Calendar */}
-        <div className="mb-6">
-          <DashboardCalendar />
-        </div>
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-5">
+          {TAB_CONFIG.map(tab => {
+            const count = getItemsForTab(tab.value).length;
+            return (
+              <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
+                {tab.icon}
+                {tab.label}
+                {count > 0 && (
+                  <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{count}</Badge>
+                )}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
 
-        {/* Tabs below calendar */}
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
-            {TAB_CONFIG.map(tab => {
-              const count = getItemsForTab(tab.value).length;
-              return (
-                <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
-                  {tab.icon}
-                  {tab.label}
-                  {count > 0 && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 h-4 ml-0.5">{count}</Badge>
-                  )}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-
-          {TAB_CONFIG.map(tab => (
-            <TabsContent key={tab.value} value={tab.value}>
-              {renderForm()}
-              {renderList(
-                getItemsForTab(tab.value),
-                tabEmptyIcons[tab.value],
-                `등록된 ${tab.label}이(가) 없습니다.`
-              )}
-            </TabsContent>
-          ))}
-        </Tabs>
-      </div>
-    </div>
+        {TAB_CONFIG.map(tab => (
+          <TabsContent key={tab.value} value={tab.value}>
+            {renderForm()}
+            {renderList(
+              getItemsForTab(tab.value),
+              tabEmptyIcons[tab.value],
+              `등록된 ${tab.label}이(가) 없습니다.`
+            )}
+          </TabsContent>
+        ))}
+      </Tabs>
+    </PageShell>
   );
 };
 
