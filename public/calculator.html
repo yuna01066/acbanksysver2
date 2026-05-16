@@ -14,29 +14,33 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #f9fafb;
+            background:
+                linear-gradient(160deg, #f8fafc 0%, #eef3f9 48%, #f5f7fb 100%);
             padding: 20px;
+            color: #1f2937;
         }
 
         .calculator-container {
             max-width: 600px;
             margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.78);
+            border-radius: 16px;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.05);
             overflow: hidden;
+            backdrop-filter: blur(16px);
         }
 
         .header {
-            background: #3b82f6;
+            background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
             color: white;
-            padding: 24px;
+            padding: 22px 24px;
             text-align: center;
         }
 
         .header h1 {
-            font-size: 24px;
-            font-weight: bold;
+            font-size: 22px;
+            font-weight: 700;
         }
 
         .content {
@@ -65,7 +69,7 @@
         }
 
         .step.active {
-            background: #3b82f6;
+            background: #2563eb;
             color: white;
         }
 
@@ -76,11 +80,12 @@
         }
 
         .step-line.active {
-            background: #3b82f6;
+            background: #2563eb;
         }
 
         .selection-summary {
             background: #f9fafb;
+            border: 1px solid #edf0f3;
             border-radius: 8px;
             padding: 16px;
             margin-bottom: 24px;
@@ -134,13 +139,13 @@
 
         .option-button {
             padding: 12px 16px;
-            border: 2px solid #e5e7eb;
-            background: white;
+            border: 1px solid #dbe4ef;
+            background: rgba(255, 255, 255, 0.82);
             border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
-            transition: all 0.2s;
+            transition: background-color 0.16s, border-color 0.16s, color 0.16s;
         }
 
         .option-button:hover {
@@ -149,14 +154,15 @@
         }
 
         .option-button.selected {
-            border-color: #3b82f6;
-            background: #3b82f6;
+            border-color: #2563eb;
+            background: #2563eb;
             color: white;
+            font-weight: 600;
         }
 
         .result-box {
-            background: #ecfdf5;
-            border: 2px solid #10b981;
+            background: #f0fdf4;
+            border: 1px solid #86efac;
             border-radius: 8px;
             padding: 16px;
             margin-top: 24px;
@@ -221,8 +227,6 @@
                 <div class="step" id="step-3">3</div>
                 <div class="step-line" id="line-3"></div>
                 <div class="step" id="step-4">4</div>
-                <div class="step-line" id="line-4"></div>
-                <div class="step" id="step-5">5</div>
             </div>
 
             <!-- Selection Summary -->
@@ -233,23 +237,9 @@
                 </div>
             </div>
 
-            <!-- Step 1: 소재 선택 -->
+            <!-- Step 1: 재질 선택 -->
             <div class="step-content" id="content-1">
-                <h3>1. 소재를 선택해주세요</h3>
-                <div class="button-grid grid-3">
-                    <button class="option-button" onclick="selectMaterial('casting', '캐스팅')">캐스팅</button>
-                    <button class="option-button" onclick="selectMaterial('extrusion', '압출')">압출</button>
-                    <button class="option-button" onclick="selectMaterial('acrylic-mirror', '아크릴 미러')">아크릴 미러</button>
-                    <button class="option-button" onclick="selectMaterial('format', '포마트')">포마트</button>
-                    <button class="option-button" onclick="selectMaterial('abs', 'ABS')">ABS</button>
-                    <button class="option-button" onclick="selectMaterial('pc', 'PC')">PC</button>
-                    <button class="option-button" onclick="selectMaterial('a-pet', 'A-PET')">A-PET</button>
-                </div>
-            </div>
-
-            <!-- Step 2: 재질 선택 -->
-            <div class="step-content hidden" id="content-2">
-                <h3>2. 재질을 선택해주세요</h3>
+                <h3>1. 재질을 선택해주세요</h3>
                 <div class="button-grid grid-2">
                     <button class="option-button" onclick="selectQuality('glossy-color', '유광 색상판')">유광 색상판</button>
                     <button class="option-button" onclick="selectQuality('astel-color', '아스텔 색상판')">아스텔 색상판</button>
@@ -260,9 +250,9 @@
                 </div>
             </div>
 
-            <!-- Step 3: 두께 선택 -->
-            <div class="step-content hidden" id="content-3">
-                <h3>3. 두께를 선택해주세요</h3>
+            <!-- Step 2: 두께 선택 -->
+            <div class="step-content hidden" id="content-2">
+                <h3>2. 두께를 선택해주세요</h3>
                 <div class="button-grid grid-4">
                     <button class="option-button" onclick="selectThickness('1.3T')">1.3T</button>
                     <button class="option-button" onclick="selectThickness('1.5T')">1.5T</button>
@@ -279,17 +269,17 @@
                 </div>
             </div>
 
-            <!-- Step 4: 사이즈 선택 -->
-            <div class="step-content hidden" id="content-4">
-                <h3>4. 판재 사이즈를 선택해주세요</h3>
+            <!-- Step 3: 사이즈 선택 -->
+            <div class="step-content hidden" id="content-3">
+                <h3>3. 판재 사이즈를 선택해주세요</h3>
                 <div class="button-grid grid-3" id="size-buttons">
                     <!-- 동적으로 생성됩니다 -->
                 </div>
             </div>
 
-            <!-- Step 5: 면수 선택 -->
-            <div class="step-content hidden" id="content-5">
-                <h3>5. 면수를 선택해주세요</h3>
+            <!-- Step 4: 면수 선택 -->
+            <div class="step-content hidden" id="content-4">
+                <h3>4. 면수를 선택해주세요</h3>
                 <div class="button-grid grid-2">
                     <button class="option-button" onclick="selectSurface('single', '단면')">단면</button>
                     <button class="option-button" onclick="selectSurface('double', '양면')">양면</button>
@@ -313,8 +303,6 @@
     <script>
         let currentStep = 1;
         let selections = {
-            material: null,
-            materialName: '',
             quality: null,
             qualityName: '',
             thickness: '',
@@ -333,7 +321,7 @@
         };
 
         function updateStepIndicator() {
-            for (let i = 1; i <= 5; i++) {
+            for (let i = 1; i <= 4; i++) {
                 const step = document.getElementById(`step-${i}`);
                 const line = document.getElementById(`line-${i}`);
                 
@@ -355,9 +343,6 @@
             const summaryContent = document.getElementById('summary-content');
             let html = '';
             
-            if (selections.materialName) {
-                html += `<div class="selection-item"><span class="badge">소재</span><span>${selections.materialName}</span></div>`;
-            }
             if (selections.qualityName) {
                 html += `<div class="selection-item"><span class="badge">재질</span><span>${selections.qualityName}</span></div>`;
             }
@@ -376,7 +361,7 @@
 
         function showStep(step) {
             // Hide all step contents
-            for (let i = 1; i <= 5; i++) {
+            for (let i = 1; i <= 4; i++) {
                 document.getElementById(`content-${i}`).classList.add('hidden');
             }
             
@@ -394,28 +379,6 @@
             updateStepIndicator();
         }
 
-        function selectMaterial(materialId, materialName) {
-            selections.material = materialId;
-            selections.materialName = materialName;
-            
-            // Clear subsequent selections
-            selections.quality = null;
-            selections.qualityName = '';
-            selections.thickness = '';
-            selections.size = '';
-            selections.surface = null;
-            selections.surfaceName = '';
-            
-            if (materialId === 'casting') {
-                currentStep = 2;
-                showStep(2);
-            } else {
-                alert('해당 소재는 아직 지원되지 않습니다.');
-            }
-            
-            updateSummary();
-        }
-
         function selectQuality(qualityId, qualityName) {
             selections.quality = qualityId;
             selections.qualityName = qualityName;
@@ -426,8 +389,8 @@
             selections.surface = null;
             selections.surfaceName = '';
             
-            currentStep = 3;
-            showStep(3);
+            currentStep = 2;
+            showStep(2);
             updateSummary();
         }
 
@@ -452,8 +415,8 @@
                 sizeButtonsContainer.appendChild(button);
             });
             
-            currentStep = 4;
-            showStep(4);
+            currentStep = 3;
+            showStep(3);
             updateSummary();
         }
 
@@ -464,8 +427,8 @@
             selections.surface = null;
             selections.surfaceName = '';
             
-            currentStep = 5;
-            showStep(5);
+            currentStep = 4;
+            showStep(4);
             updateSummary();
         }
 

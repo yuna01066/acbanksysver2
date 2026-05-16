@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import type { ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,16 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 
+type DashboardLink = {
+  title: string;
+  icon: ComponentType<{ className?: string }>;
+  description: string;
+  url?: string;
+  requiresAuth?: boolean;
+  requiresAdmin?: boolean;
+  action: () => void;
+};
+
 const Home = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, isAdmin, isModerator } = useAuth();
@@ -38,19 +49,23 @@ const Home = () => {
     
     // Play a subtle click sound
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
-      osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.25);
-      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
-      osc.start(audioCtx.currentTime);
-      osc.stop(audioCtx.currentTime + 0.4);
+      const AudioContextCtor = window.AudioContext
+        || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (AudioContextCtor) {
+        const audioCtx = new AudioContextCtor();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+        osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.25);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.4);
+      }
     } catch (e) { /* audio not supported */ }
 
     // Toggle theme after half rotation
@@ -74,14 +89,14 @@ const Home = () => {
     enabled: !!user,
   });
 
-  const quickLinks = [
+  const quickLinks: DashboardLink[] = [
     { title: "홈페이지", icon: HomeIcon, action: () => window.open("https://acbank.co.kr", "_blank") },
     { title: "팀 채팅", icon: MessageCircle, action: () => navigate("/team-chat") },
     { title: "인스타그램", icon: Instagram, action: () => window.open("https://www.instagram.com/acbank.co.kr/", "_blank") },
     { title: "아크뱅크 노션", icon: BookOpen, action: () => window.open("https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link", "_blank") },
   ];
 
-  const links = [{
+  const links: DashboardLink[] = [{
     title: "공지사항",
     icon: Megaphone,
     description: "공지사항 게시판",
@@ -174,7 +189,7 @@ const Home = () => {
     }
   }];
 
-  const handleCardClick = (link: typeof links[0]) => {
+  const handleCardClick = (link: DashboardLink) => {
     if (link.requiresAuth && !user) {
       toast.error('로그인이 필요한 서비스입니다.');
       navigate('/auth');
@@ -188,49 +203,8 @@ const Home = () => {
     return <LoginScreen />;
   }
 
-  /* ── Shared skeuomorphic inline styles ── */
-  const pageBg = { background: 'linear-gradient(170deg, hsl(220 12% 93%) 0%, hsl(220 10% 91%) 50%, hsl(220 10% 89%) 100%)' };
-
-  const cardSurface = {
-    background: 'linear-gradient(180deg, hsl(220 12% 95%) 0%, hsl(220 12% 90%) 100%)',
-    boxShadow: '0 2px 1px hsl(0 0% 100% / 0.8), 0 -1px 1px hsl(0 0% 0% / 0.04), 0 8px 20px hsl(220 20% 0% / 0.08)',
-    border: '1px solid hsl(220 12% 88%)',
-  } as const;
-
-  const circleBtn = {
-    background: 'linear-gradient(180deg, hsl(220 10% 97%) 0%, hsl(220 12% 88%) 100%)',
-    boxShadow: '0 2px 1px hsl(0 0% 100% / 0.9), 0 -1px 1px hsl(0 0% 0% / 0.06), 0 4px 8px hsl(220 20% 0% / 0.08)',
-    border: '1px solid hsl(220 12% 86%)',
-  } as const;
-
-  const iconBox = {
-    background: 'linear-gradient(180deg, hsl(220 10% 96%) 0%, hsl(220 12% 89%) 100%)',
-    boxShadow: '0 2px 1px hsl(0 0% 100% / 0.7), 0 -1px 1px hsl(0 0% 0% / 0.05), 0 3px 6px hsl(220 20% 0% / 0.06)',
-    border: '1px solid hsl(220 12% 87%)',
-  } as const;
-
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[hsl(220,10%,95%)] dark:bg-[hsl(230,18%,7%)]">
-      {/* Light mode fluid gradient background */}
-      <div className="absolute inset-0 pointer-events-none dark:hidden" aria-hidden="true">
-        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full opacity-[0.18]"
-          style={{ background: 'radial-gradient(circle, hsl(300 40% 85%) 0%, transparent 70%)', filter: 'blur(80px)' }} />
-        <div className="absolute top-[10%] right-[-15%] w-[55%] h-[55%] rounded-full opacity-[0.15]"
-          style={{ background: 'radial-gradient(circle, hsl(260 50% 82%) 0%, transparent 70%)', filter: 'blur(90px)' }} />
-        <div className="absolute bottom-[-10%] left-[20%] w-[50%] h-[50%] rounded-full opacity-[0.14]"
-          style={{ background: 'radial-gradient(circle, hsl(220 55% 82%) 0%, transparent 70%)', filter: 'blur(80px)' }} />
-        <div className="absolute top-[50%] left-[50%] w-[40%] h-[40%] rounded-full opacity-[0.10] -translate-x-1/2 -translate-y-1/2"
-          style={{ background: 'radial-gradient(circle, hsl(280 45% 80%) 0%, transparent 70%)', filter: 'blur(70px)' }} />
-      </div>
-      {/* Dark mode ambient glow background – subtle, premium */}
-      <div className="absolute inset-0 pointer-events-none hidden dark:block" aria-hidden="true">
-        <div className="absolute top-[-15%] left-[-5%] w-[50%] h-[50%] rounded-full opacity-[0.12]"
-          style={{ background: 'radial-gradient(circle, hsl(280 60% 35%) 0%, transparent 70%)', filter: 'blur(100px)' }} />
-        <div className="absolute top-[5%] right-[-10%] w-[45%] h-[50%] rounded-full opacity-[0.10]"
-          style={{ background: 'radial-gradient(circle, hsl(250 55% 40%) 0%, transparent 70%)', filter: 'blur(100px)' }} />
-        <div className="absolute bottom-[-5%] left-[25%] w-[40%] h-[40%] rounded-full opacity-[0.08]"
-          style={{ background: 'radial-gradient(circle, hsl(215 60% 35%) 0%, transparent 70%)', filter: 'blur(90px)' }} />
-      </div>
+    <div className="min-h-screen bg-transparent">
       <div className="container mx-auto px-3 sm:px-4 py-8 sm:py-16">
         <div className="max-w-6xl mx-auto">
           {/* Top Bar */}
@@ -261,19 +235,18 @@ const Home = () => {
             </div>
           </div>
 
-          {/* Header – metal embossed button style (kept skeuomorphic) */}
+          {/* Header – subtle metal logo, kept from the original tone */}
           <div className="text-center mb-8 sm:mb-14 animate-fade-up space-y-3">
-            <div className="inline-block logo-neon-wrap rounded-[24px] p-[5px]" onClick={handleLogoClick}>
+            <div className="inline-block logo-neon-wrap rounded-[22px] p-[4px]" onClick={handleLogoClick}>
               <div
                 className={cn(
-                  "px-10 sm:px-14 py-3 sm:py-4 rounded-[20px] logo-metal cursor-pointer select-none",
+                  "px-10 sm:px-14 py-3 rounded-[18px] logo-metal cursor-pointer select-none",
                   logoSpinning && "logo-spin-3d"
                 )}
-                 style={{
-                   boxShadow: '0 2px 1px hsl(0 0% 100% / 1), 0 -2px 1px hsl(0 0% 0% / 0.1), 0 6px 16px hsl(220 20% 0% / 0.12), inset 0 1px 2px hsl(0 0% 100% / 0.5), inset 0 -1px 2px hsl(0 0% 0% / 0.08)',
-                 }}
               >
-                <h1 className="text-3xl sm:text-[42px] font-black leading-none tracking-[3px] relative" style={{ fontFamily: "'Pretendard Variable', Pretendard, sans-serif", color: 'transparent', background: 'linear-gradient(180deg, hsl(220 8% 38%) 0%, hsl(220 10% 22%) 50%, hsl(220 8% 32%) 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextStroke: '0.5px hsl(0 0% 0% / 0.35)', filter: 'drop-shadow(0 1px 0 hsl(0 0% 100% / 0.4))' }}>ACBANK</h1>
+                <h1 className="text-3xl sm:text-[40px] font-black leading-none tracking-[3px] text-transparent bg-clip-text bg-gradient-to-b from-slate-600 to-slate-900 dark:from-slate-200 dark:to-slate-500">
+                  ACBANK
+                </h1>
               </div>
             </div>
             <p className="text-[11px] sm:text-[12px] font-medium tracking-[0.22em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>Management System</p>
@@ -317,7 +290,7 @@ const Home = () => {
 
           {/* Links Grid */}
           {(() => {
-            const sideCards: (null | { title: string; icon: any; description: string; requiresAuth: boolean; action: () => void })[] = [
+            const sideCards: (null | DashboardLink)[] = [
               { title: "샘플칩 관리", icon: Palette, description: "샘플칩 재고 관리", requiresAuth: true, action: () => navigate("/sample-chip-inventory") },
               { title: "박람회 관리", icon: Landmark, description: "박람회 일정·준비·상담 관리", requiresAuth: true, action: () => navigate("/exhibition-management") },
               { title: "세금계산서 관리", icon: Receipt, description: "세금계산서 발행·조회", requiresAuth: true, action: () => navigate("/tax-invoices") },
@@ -326,10 +299,10 @@ const Home = () => {
             const cols = 3;
             const totalRows = Math.ceil(links.length / cols);
 
-            const renderCard = (item: { title: string; icon: any; description: string; requiresAuth?: boolean; action: () => void; requiresAdmin?: boolean }, key: string) => {
+            const renderCard = (item: DashboardLink, key: string) => {
               const Icon = item.icon;
               const isLocked = item.requiresAuth && !user;
-              const isAdminOnly = (item as any).requiresAdmin && !isAdmin && !isModerator;
+              const isAdminOnly = item.requiresAdmin && !isAdmin && !isModerator;
 
               return (
                 <div

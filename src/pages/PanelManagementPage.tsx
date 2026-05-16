@@ -77,7 +77,7 @@ const PanelManagementPage = () => {
 
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold">원판 관리</h1>
+            <h1 className="text-3xl font-bold tracking-tight">원판 관리</h1>
             <p className="text-muted-foreground mt-2">
               소재 → 재질 선택 후, 사이즈/가격 또는 컬러를 관리합니다.
             </p>
