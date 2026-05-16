@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, BarChart3, FolderKanban, Star, Shield, Receipt, FileText, Sparkles, Monitor, TrendingUp } from "lucide-react";
+import { ArrowLeft, Home, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, FolderKanban, Star, Shield, Receipt, FileText, Sparkles, TrendingUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import SecretEventManager from '@/components/admin/SecretEventManager';
+import { PageHeader, PageShell } from '@/components/layout/PageLayout';
 
 const AdminSettingsPage = () => {
   const navigate = useNavigate();
@@ -48,45 +49,45 @@ const AdminSettingsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 p-4">
-      <div className="w-full max-w-6xl mx-auto">
-        <div className="mb-6">
-          <Button variant="outline" onClick={() => navigate('/')} className="flex items-center gap-2" size="sm">
-            <ArrowLeft className="w-4 h-4" />
-            홈으로 돌아가기
+    <PageShell maxWidth="6xl">
+      <PageHeader
+        eyebrow="Admin"
+        title="관리자 설정"
+        description="직원, 프로젝트, 원판, 가공, 시스템 연동 설정을 한 곳에서 관리합니다."
+        icon={<Settings className="h-5 w-5" />}
+        actions={(
+          <Button variant="outline" onClick={() => navigate('/')} size="sm">
+            <Home className="w-4 h-4" />
+            홈
           </Button>
-        </div>
+        )}
+      />
 
-        <h1 className="text-xl font-bold flex items-center gap-2 mb-6">
-          <Settings className="w-6 h-6" />
-          관리자 설정
-        </h1>
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* 직원 관리 Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Users className="w-5 h-5 text-primary" />
-                직원 관리
-              </CardTitle>
-              <CardDescription>직원 프로필, 근무 관리 및 회사 설정</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              <button
-                onClick={() => navigate('/employee-profiles')}
-                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
-              >
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <UserCog className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">구성원 관리</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {isAdmin ? '인사 정보, 근태, 휴가, 평가, 계약, 문서함, 권한 통합 관리' : '근태기록, 연차·휴가, 업무평가 열람'}
-                  </p>
-                </div>
-              </button>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* 직원 관리 Card */}
+        <Card className="border-white/60 bg-card/70">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Users className="w-5 h-5 text-primary" />
+              직원 관리
+            </CardTitle>
+            <CardDescription>직원 프로필, 근무 관리 및 회사 설정</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <button
+              onClick={() => navigate('/employee-profiles')}
+              className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+            >
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                <UserCog className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">구성원 관리</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {isAdmin ? '인사 정보, 근태, 휴가, 평가, 계약, 문서함, 권한 통합 관리' : '근태기록, 연차·휴가, 업무평가 열람'}
+                </p>
+              </div>
+            </button>
 
               <button
                 onClick={() => navigate('/review-settings')}
@@ -145,7 +146,7 @@ const AdminSettingsPage = () => {
           </Card>
 
           {/* 프로젝트 관리 Card */}
-          <Card>
+          <Card className="border-white/60 bg-card/70">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <FolderKanban className="w-5 h-5 text-primary" />
@@ -250,9 +251,8 @@ const AdminSettingsPage = () => {
               </Dialog>
             </CardContent>
           </Card>
-        </div>
       </div>
-    </div>
+    </PageShell>
   );
 };
 
