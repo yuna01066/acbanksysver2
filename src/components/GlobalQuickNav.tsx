@@ -105,6 +105,14 @@ const GlobalQuickNav = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isHidden]);
 
+  useEffect(() => {
+    document.documentElement.classList.toggle('quick-nav-active', !isHidden);
+
+    return () => {
+      document.documentElement.classList.remove('quick-nav-active');
+    };
+  }, [isHidden]);
+
   if (isHidden) return null;
 
   const goTo = (path: string) => {
@@ -119,7 +127,7 @@ const GlobalQuickNav = () => {
         variant="outline"
         size="sm"
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-40 h-10 gap-2 rounded-full border-border/70 bg-background/90 px-3 text-xs shadow-smooth backdrop-blur print:hidden"
+        className="fixed right-4 top-3 z-40 h-10 gap-2 rounded-full border-border/70 bg-background/90 px-3 text-xs shadow-smooth backdrop-blur print:hidden sm:right-6 sm:top-4"
       >
         <Search className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">빠른 이동</span>
