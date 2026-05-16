@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Home, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, FolderKanban, Star, Shield, Receipt, FileText, Sparkles, TrendingUp } from "lucide-react";
+import { ArrowLeft, Home, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, FolderKanban, Star, Shield, Receipt, FileText, Sparkles, TrendingUp, ClipboardCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import SecretEventManager from '@/components/admin/SecretEventManager';
 import { PageHeader, PageShell } from '@/components/layout/PageLayout';
@@ -165,6 +165,19 @@ const AdminSettingsPage = () => {
                 <div>
                   <p className="text-sm font-medium">경영 대시보드</p>
                   <p className="text-xs text-muted-foreground mt-0.5">매출·비용·수익성 종합 분석 및 견적 통계</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate('/review-hub')}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <ClipboardCheck className="w-4 h-4 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">승인/검토 센터</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">휴가 승인, 파일 동기화, 견적 연결 확인</p>
                 </div>
               </button>
 

@@ -356,22 +356,15 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     loadActivePricingVersion();
   }, []);
   
-  // initialType이 있으면 자동으로 계산기 타입 선택 단계를 건너뛰기
-  // 단, editMode=saved일 때는 URL 파라미터에서 복원한 step을 유지
+  // URL의 type 파라미터와 내부 계산기 모드를 동기화한다.
+  // 단, 편집 모드와 수율 추천 적용 중에는 기존 복원/전환 흐름을 유지한다.
   useEffect(() => {
     const editModeParam = searchParams.get('editMode');
-    if (editModeParam === 'saved') {
-      // 편집 모드일 때는 URL 파라미터 복원 useEffect에서 step을 설정하므로 여기서 건너뜀
-      return;
-    }
-    if (initialType && calculatorType === initialType && currentStep === 0) {
-      if (initialType === 'yield') {
-        setCurrentStep(-1); // 수율 계산기는 -1 단계
-      } else {
-        setCurrentStep(1); // 견적 계산기는 1단계부터 시작
-      }
-    }
-  }, [initialType, calculatorType, currentStep, searchParams]);
+    if (editModeParam === 'saved' || !initialType || yieldAppliedSelection) return;
+
+    setCalculatorType(initialType);
+    setCurrentStep(initialType === 'yield' ? -1 : 1);
+  }, [initialType, searchParams, yieldAppliedSelection]);
   
   // Convert all selected options (main slots + additional options) to processingType format
   const getProcessingTypeFromOptions = () => {
@@ -1193,6 +1186,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
 
     // 견적계산기 모드로 전환하고 컬러 선택 단계로 이동
     setCalculatorType('quote');
+    navigate('/calculator?type=quote', { replace: true });
     setCurrentStep(3);
   };
   const handleBackToCalculatorSelection = () => {
@@ -1290,6 +1284,26 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
             />
           )}
 
+          {yieldAppliedSelection && currentStep >= 3 && (
+            <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+              <div className="font-semibold text-foreground">수율 계산 추천을 견적에 적용 중입니다.</div>
+              <div className="mt-1 text-muted-foreground">
+                {yieldAppliedSelection.thickness} · {yieldAppliedSelection.sizes.map(s => `${s.size} ${s.quantity}장`).join(', ')}
+                {yieldAppliedSelection.yieldRecommendation && (
+                  <span>
+                    {' '}· 효율 {yieldAppliedSelection.yieldRecommendation.efficiency.toFixed(1)}%
+                    {yieldAppliedSelection.yieldRecommendation.largestReusableRect
+                      ? ` · 재활용 잔재 최대 ${yieldAppliedSelection.yieldRecommendation.largestReusableRect.width.toFixed(0)}×${yieldAppliedSelection.yieldRecommendation.largestReusableRect.height.toFixed(0)}mm`
+                      : ''}
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                색상, 면수, 조색비, 가공 옵션만 이어서 선택하면 견적 항목에 수율 계산 근거가 함께 저장됩니다.
+              </div>
+            </div>
+          )}
+
           {/* Step 2: 재질 선택 */}
           {currentStep === 2 && selectedMaterial?.id === 'casting' && <QualitySelection qualities={CASTING_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}
           {currentStep === 2 && selectedMaterial?.id === 'acrylic-dye' && <QualitySelection qualities={CASTING_QUALITIES} selectedQuality={selectedQuality} selectedFactory="jangwon" onQualitySelect={handleQualitySelect} />}
@@ -1329,18 +1343,6 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
               )}
               {yieldAppliedSelection && selectedColor && (
                 <div className="pt-4 space-y-3">
-                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
-                    수율계산 추천 원판을 적용했습니다: {yieldAppliedSelection.thickness} · {' '}
-                    {yieldAppliedSelection.sizes.map(s => `${s.size} ${s.quantity}장`).join(', ')}
-                    {yieldAppliedSelection.yieldRecommendation && (
-                      <span className="block mt-1">
-                        효율 {yieldAppliedSelection.yieldRecommendation.efficiency.toFixed(1)}%
-                        {yieldAppliedSelection.yieldRecommendation.largestReusableRect
-                          ? ` · 재활용 잔재 최대 ${yieldAppliedSelection.yieldRecommendation.largestReusableRect.width.toFixed(0)}×${yieldAppliedSelection.yieldRecommendation.largestReusableRect.height.toFixed(0)}mm`
-                          : ''}
-                      </span>
-                    )}
-                  </div>
                   <Button
                     onClick={() => setCurrentStep(6)}
                     size="lg"

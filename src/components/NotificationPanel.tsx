@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,8 @@ interface NotificationPanelProps {
   onRefresh: () => void;
 }
 
+type NotificationFilter = 'all' | 'unread' | 'approval' | 'work' | 'hr' | 'system';
+
 const NotificationPanel = ({
   notifications,
   unviewedCount,
@@ -29,10 +31,10 @@ const NotificationPanel = ({
   const { session } = useAuth();
   const [open, setOpen] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<NotificationFilter>('all');
 
   const handleOpen = () => {
     setOpen(true);
-    onMarkViewed();
   };
 
   const handleClose = () => {
@@ -146,6 +148,76 @@ const NotificationPanel = ({
     }
   };
 
+  const getGroup = (notification: AppNotification): NotificationFilter => {
+    if (notification.type === 'password_reset' || notification.type === 'pending_approval') return 'approval';
+    if (
+      notification.type === 'quote_update'
+      || notification.type === 'quote_modified'
+      || notification.type === 'project_mention'
+      || notification.type === 'performance_review_summary'
+    ) return 'work';
+    if (
+      notification.type === 'leave_request'
+      || notification.type === 'leave_approved'
+      || notification.type === 'leave_rejected'
+      || notification.type === 'leave_expiry_warning'
+      || notification.type === 'leave_promotion_summary'
+      || notification.type === 'peer_feedback'
+    ) return 'hr';
+    return 'system';
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'password_reset': return '비밀번호';
+      case 'pending_approval': return '가입 승인';
+      case 'quote_update':
+      case 'quote_modified': return '견적';
+      case 'project_mention': return '프로젝트';
+      case 'leave_request':
+      case 'leave_approved':
+      case 'leave_rejected':
+      case 'leave_expiry_warning':
+      case 'leave_promotion_summary': return '근태';
+      case 'peer_feedback':
+      case 'performance_review_summary': return '평가';
+      case 'system':
+      default: return '공지';
+    }
+  };
+
+  const counts = useMemo(() => {
+    const next: Record<NotificationFilter, number> = {
+      all: notifications.length,
+      unread: notifications.filter(notification => !notification.is_read).length,
+      approval: 0,
+      work: 0,
+      hr: 0,
+      system: 0,
+    };
+
+    notifications.forEach(notification => {
+      next[getGroup(notification)] += 1;
+    });
+
+    return next;
+  }, [notifications]);
+
+  const filteredNotifications = useMemo(() => {
+    if (activeFilter === 'all') return notifications;
+    if (activeFilter === 'unread') return notifications.filter(notification => !notification.is_read);
+    return notifications.filter(notification => getGroup(notification) === activeFilter);
+  }, [activeFilter, notifications]);
+
+  const filters: Array<{ value: NotificationFilter; label: string }> = [
+    { value: 'all', label: '전체' },
+    { value: 'unread', label: '미확인' },
+    { value: 'approval', label: '승인' },
+    { value: 'work', label: '업무' },
+    { value: 'hr', label: '인사' },
+    { value: 'system', label: '공지' },
+  ];
+
   return (
     <>
       {/* Bell Button */}
@@ -174,11 +246,11 @@ const NotificationPanel = ({
       {/* Side Panel */}
       <div
         className={cn(
-          "fixed top-0 left-0 h-full w-[380px] max-w-[90vw] bg-background border-r shadow-xl z-50 transition-transform duration-300 ease-in-out",
+          "fixed top-0 left-0 flex h-full w-[420px] max-w-[92vw] flex-col bg-background border-r shadow-xl z-50 transition-transform duration-300 ease-in-out",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center justify-between p-4 border-b shrink-0">
           <div className="flex items-center gap-2">
             <Bell className="h-5 w-5 text-primary" />
             <h2 className="font-semibold text-lg">알림</h2>
@@ -193,23 +265,78 @@ const NotificationPanel = ({
           </Button>
         </div>
 
-        <ScrollArea className="h-[calc(100%-65px)]">
-          {notifications.length === 0 ? (
+        <div className="shrink-0 border-b p-3 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              미확인 {counts.unread}건 · 총 {counts.all}건
+            </p>
+            <div className="flex gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={onRefresh}
+              >
+                새로고침
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={onMarkViewed}
+                disabled={counts.unread === 0}
+              >
+                모두 읽음
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {filters.map(filter => (
+              <button
+                key={filter.value}
+                type="button"
+                onClick={() => setActiveFilter(filter.value)}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                  activeFilter === filter.value
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-muted/40 text-muted-foreground hover:bg-muted"
+                )}
+              >
+                {filter.label} {counts[filter.value]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <ScrollArea className="min-h-0 flex-1">
+          {filteredNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <Bell className="h-10 w-10 mb-3 opacity-30" />
-              <p className="text-sm">새로운 알림이 없습니다</p>
+              <p className="text-sm">{activeFilter === 'all' ? '새로운 알림이 없습니다' : '해당 조건의 알림이 없습니다'}</p>
             </div>
           ) : (
             <div className="p-3 space-y-2">
-              {notifications.map((notification) => (
+              {filteredNotifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className="rounded-lg border bg-card p-3 space-y-2"
+                  className={cn(
+                    "rounded-lg border bg-card p-3 space-y-2",
+                    !notification.is_read && "border-primary/30 bg-primary/[0.03]"
+                  )}
                 >
                   <div className="flex items-start gap-2">
                     <div className="mt-0.5">{getIcon(notification.type)}</div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{notification.title}</p>
+                      <div className="flex items-start gap-2">
+                        {!notification.is_read && (
+                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                        )}
+                        <p className="text-sm font-medium leading-snug">{notification.title}</p>
+                      </div>
+                      <Badge variant="outline" className="mt-1 h-5 text-[10px]">
+                        {getTypeLabel(notification.type)}
+                      </Badge>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {notification.description}
                       </p>

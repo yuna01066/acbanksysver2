@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, FolderOpen } from 'lucide-react';
+import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, FolderOpen, Loader2, PlusCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -45,6 +45,7 @@ interface SavedQuote {
   issuer_phone: string | null;
   issuer_email: string | null;
   attachments: unknown;
+  desired_delivery_date?: string | null;
   project_stage?: string;
   project_id?: string | null;
   linked_project?: LinkedProject | null;
@@ -73,6 +74,7 @@ const SavedQuotesPage = () => {
   const [userFilter, setUserFilter] = useState<string>('all');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [stageFilter, setStageFilter] = useState<string>('all');
+  const [creatingProjectQuoteId, setCreatingProjectQuoteId] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 50;
 
   // valid_until 문자열에서 마지막 날짜를 파싱하는 함수
@@ -541,6 +543,90 @@ const SavedQuotesPage = () => {
     }
   };
 
+  const handleCreateProjectFromQuote = async (quote: SavedQuote) => {
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    if (quote.project_id) {
+      navigate(`/project-management?id=${quote.project_id}`);
+      return;
+    }
+
+    setCreatingProjectQuoteId(quote.id);
+
+    try {
+      let recipientId: string | null = null;
+
+      if (quote.recipient_company?.trim()) {
+        const { data: recipient, error: recipientError } = await supabase
+          .from('recipients')
+          .select('id')
+          .eq('company_name', quote.recipient_company.trim())
+          .maybeSingle();
+
+        if (recipientError) throw recipientError;
+        recipientId = recipient?.id || null;
+      }
+
+      const projectName = quote.project_name?.trim()
+        || [quote.recipient_company, quote.quote_number].filter(Boolean).join(' · ')
+        || `견적 ${quote.quote_number}`;
+
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .insert({
+          name: projectName,
+          description: `견적서 ${quote.quote_number}에서 생성된 프로젝트입니다.`,
+          status: 'active',
+          project_type: 'client',
+          recipient_id: recipientId,
+          contact_name: quote.recipient_name || null,
+          contact_phone: quote.recipient_phone || null,
+          contact_email: quote.recipient_email || null,
+          specs: {
+            sourceQuoteId: quote.id,
+            sourceQuoteNumber: quote.quote_number,
+            quoteTotal: quote.total,
+            desiredDeliveryDate: quote.desired_delivery_date || null,
+          },
+          user_id: quote.user_id || user.id,
+        } as any)
+        .select('id, name, status, payment_status')
+        .single();
+
+      if (projectError) throw projectError;
+
+      const { error: quoteError } = await supabase
+        .from('saved_quotes')
+        .update({ project_id: project.id })
+        .eq('id', quote.id);
+
+      if (quoteError) throw quoteError;
+
+      await supabase
+        .from('document_files' as any)
+        .update({ project_id: project.id })
+        .eq('quote_id', quote.id)
+        .is('project_id', null);
+
+      setQuotes((prev) => prev.map((item) => (
+        item.id === quote.id
+          ? { ...item, project_id: project.id, linked_project: project as LinkedProject }
+          : item
+      )));
+
+      toast.success('견적서 기준 프로젝트가 생성되었습니다.');
+      navigate(`/project-management?id=${project.id}`);
+    } catch (error) {
+      console.error('Error creating project from quote:', error);
+      toast.error('프로젝트 생성에 실패했습니다.');
+    } finally {
+      setCreatingProjectQuoteId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center">
@@ -789,9 +875,31 @@ const SavedQuotesPage = () => {
                               )}
                             </button>
                           ) : (
-                            <Badge variant="outline" className="text-xs text-muted-foreground">
-                              미연결
-                            </Badge>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="text-xs text-muted-foreground">
+                                미연결
+                              </Badge>
+                              {quote.project_stage !== 'cancelled' && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 gap-1.5 px-2 text-xs"
+                                  disabled={creatingProjectQuoteId === quote.id}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleCreateProjectFromQuote(quote);
+                                  }}
+                                >
+                                  {creatingProjectQuoteId === quote.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <PlusCircle className="h-3.5 w-3.5" />
+                                  )}
+                                  프로젝트 생성
+                                </Button>
+                              )}
+                            </div>
                           )}
                         </TableCell>
                         <TableCell className="py-3">
