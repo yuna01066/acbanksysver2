@@ -4,7 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, Upload, Edit3, Check, X, RefreshCw } from "lucide-react";
+import { Search, Download, Edit3, Check, X, RefreshCw, BadgeDollarSign } from "lucide-react";
+import { PageHeader, SearchFilterBar } from "@/components/layout/PageLayout";
 import { PricingData } from "@/types/pricing";
 import { 
   initializeGlossyColorPrices, 
@@ -183,7 +184,11 @@ const QualityTab: React.FC<QualityTabProps> = ({
   );
 };
 
-const ModernPriceManager = () => {
+interface ModernPriceManagerProps {
+  navigationActions?: React.ReactNode;
+}
+
+const ModernPriceManager = ({ navigationActions }: ModernPriceManagerProps) => {
   const [pricingData, setPricingData] = useState<PricingData>({});
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>('glossy-color');
@@ -255,38 +260,38 @@ const ModernPriceManager = () => {
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-8 animate-fade-up">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-        <div className="space-y-2">
-          <h1 className="text-display">가격 관리</h1>
-          <p className="text-body text-muted-foreground">제품별 가격을 쉽게 관리하고 수정할 수 있습니다</p>
-        </div>
-        <div className="flex gap-3">
-          <Button onClick={loadAllPrices} variant="minimal">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            전체 새로고침
-          </Button>
-          <Button onClick={handleExportPricing}>
-            <Download className="h-4 w-4 mr-2" />
-            내보내기
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Pricing"
+        title="가격 관리"
+        description="제품별 가격을 한 화면에서 검색하고 수정합니다."
+        icon={<BadgeDollarSign className="h-5 w-5" />}
+        actions={(
+          <>
+            {navigationActions}
+            <Button onClick={loadAllPrices} variant="minimal">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              전체 새로고침
+            </Button>
+            <Button onClick={handleExportPricing}>
+              <Download className="h-4 w-4 mr-2" />
+              내보내기
+            </Button>
+          </>
+        )}
+      />
 
       {/* Search */}
-      <Card className="hover:shadow-smooth transition-all duration-200">
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="두께로 검색 (예: 3T, 10T)"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-12 h-12 rounded-xl border-border/50 focus:border-primary"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <SearchFilterBar>
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="두께로 검색 (예: 3T, 10T)"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-12 h-12 rounded-xl border-border/50 focus:border-primary"
+          />
+        </div>
+      </SearchFilterBar>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -62,7 +62,7 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('saved_quotes')
-        .select('id, quote_number, project_name, recipient_company, total, quote_date')
+        .select('id, quote_number, project_name, recipient_company, recipient_name, recipient_phone, recipient_email, total, quote_date, desired_delivery_date')
         .is('project_id', null)
         .order('quote_date', { ascending: false });
       if (error) throw error;
@@ -90,6 +90,21 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
     mutationFn: async () => {
       if (!user) throw new Error('로그인 필요');
 
+      const selectedQuotes = availableQuotes.filter((quote: any) => selectedQuoteIds.includes(quote.id));
+      const primaryQuote = selectedQuotes[0] as any | undefined;
+      let recipientId: string | null = null;
+
+      if (projectType === 'client' && primaryQuote?.recipient_company?.trim()) {
+        const { data: recipient, error: recipientError } = await supabase
+          .from('recipients')
+          .select('id')
+          .eq('company_name', primaryQuote.recipient_company.trim())
+          .maybeSingle();
+
+        if (recipientError) throw recipientError;
+        recipientId = recipient?.id || null;
+      }
+
       // 1. Create project
       const { data: project, error } = await supabase
         .from('projects')
@@ -98,8 +113,18 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
           description: desc.trim() || null,
           status,
           project_type: projectType,
+          recipient_id: recipientId,
+          contact_name: primaryQuote?.recipient_name || null,
+          contact_phone: primaryQuote?.recipient_phone || null,
+          contact_email: primaryQuote?.recipient_email || null,
           notion_url: projectType === 'internal' && notionUrl.trim() ? notionUrl.trim() : null,
           linked_project_id: projectType === 'internal' && linkedProjectId ? linkedProjectId : null,
+          specs: selectedQuotes.length > 0 ? {
+            sourceQuoteIds: selectedQuotes.map((quote: any) => quote.id),
+            sourceQuoteNumbers: selectedQuotes.map((quote: any) => quote.quote_number),
+            quoteTotal: selectedQuotes.reduce((sum: number, quote: any) => sum + Number(quote.total || 0), 0),
+            desiredDeliveryDate: primaryQuote?.desired_delivery_date || null,
+          } : null,
           user_id: user.id,
         } as any)
         .select('id')
@@ -124,6 +149,13 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
           .update({ project_id: project.id })
           .in('id', selectedQuoteIds);
         if (qError) throw qError;
+
+        const { error: fileError } = await supabase
+          .from('document_files' as any)
+          .update({ project_id: project.id })
+          .in('quote_id', selectedQuoteIds)
+          .is('project_id', null);
+        if (fileError) throw fileError;
       }
 
       return project.id;
@@ -164,6 +196,27 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
       prev.includes(quoteId) ? prev.filter((id) => id !== quoteId) : [...prev, quoteId]
     );
   };
+
+  const selectedQuoteSummary = useMemo(() => {
+    const selected = availableQuotes.filter((quote: any) => selectedQuoteIds.includes(quote.id));
+    return {
+      selected,
+      totalAmount: selected.reduce((sum: number, quote: any) => sum + Number(quote.total || 0), 0),
+    };
+  }, [availableQuotes, selectedQuoteIds]);
+
+  useEffect(() => {
+    if (!linkQuotes || selectedQuoteIds.length !== 1) return;
+    const selectedQuote = availableQuotes.find((quote: any) => quote.id === selectedQuoteIds[0]) as any | undefined;
+    if (!selectedQuote) return;
+
+    const autoName = selectedQuote.project_name?.trim()
+      || [selectedQuote.recipient_company, selectedQuote.quote_number].filter(Boolean).join(' · ')
+      || `견적 ${selectedQuote.quote_number}`;
+
+    if (!name.trim()) setName(autoName);
+    if (!desc.trim()) setDesc(`견적서 ${selectedQuote.quote_number}에서 생성된 프로젝트입니다.`);
+  }, [availableQuotes, desc, linkQuotes, name, selectedQuoteIds]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
@@ -301,27 +354,41 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
               견적서 연결
             </label>
             {linkQuotes && (
-              <ScrollArea className="h-[140px] border rounded-md p-2">
-                {availableQuotes.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-4">연결 가능한 견적서가 없습니다.</p>
-                ) : (
-                  availableQuotes.map((q: any) => (
-                    <label key={q.id} className="flex items-center gap-2 py-1.5 px-1 hover:bg-muted/50 rounded cursor-pointer text-sm">
-                      <Checkbox
-                        checked={selectedQuoteIds.includes(q.id)}
-                        onCheckedChange={() => toggleQuote(q.id)}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="font-mono text-xs">{q.quote_number}</span>
-                        {q.recipient_company && <span className="text-xs text-muted-foreground ml-1.5">· {q.recipient_company}</span>}
-                      </div>
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {q.total?.toLocaleString()}원
-                      </span>
-                    </label>
-                  ))
+              <div className="space-y-2">
+                {selectedQuoteSummary.selected.length > 0 && (
+                  <div className="rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">선택 견적 {selectedQuoteSummary.selected.length}건</span>
+                      <span className="font-semibold tabular-nums">{selectedQuoteSummary.totalAmount.toLocaleString()}원</span>
+                    </div>
+                    <p className="mt-1 text-muted-foreground">
+                      프로젝트 생성 시 견적서와 첨부 파일 원장이 함께 연결됩니다.
+                    </p>
+                  </div>
                 )}
-              </ScrollArea>
+                <ScrollArea className="h-[140px] border rounded-md p-2">
+                  {availableQuotes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">연결 가능한 견적서가 없습니다.</p>
+                  ) : (
+                    availableQuotes.map((q: any) => (
+                      <label key={q.id} className="flex items-center gap-2 py-1.5 px-1 hover:bg-muted/50 rounded cursor-pointer text-sm">
+                        <Checkbox
+                          checked={selectedQuoteIds.includes(q.id)}
+                          onCheckedChange={() => toggleQuote(q.id)}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="font-mono text-xs">{q.quote_number}</span>
+                          {q.recipient_company && <span className="text-xs text-muted-foreground ml-1.5">· {q.recipient_company}</span>}
+                          {q.project_name && <div className="truncate text-[10px] text-muted-foreground">{q.project_name}</div>}
+                        </div>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {q.total?.toLocaleString()}원
+                        </span>
+                      </label>
+                    ))
+                  )}
+                </ScrollArea>
+              </div>
             )}
           </div>}
 

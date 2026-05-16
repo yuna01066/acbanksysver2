@@ -269,9 +269,16 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Star className="w-5 h-5" />
-            잔재 최소화 추천
+          <div>
+            <div className="flex items-center gap-2">
+              <Star className="w-5 h-5" />
+              잔재 최소화 추천
+            </div>
+            {onPanelSelect && (
+              <p className="mt-1 text-xs font-normal text-muted-foreground">
+                추천안을 적용하면 색상 선택 단계로 이동하며 원판 수량과 수율 근거가 견적에 저장됩니다.
+              </p>
+            )}
           </div>
           {onPanelSelect && unifiedRecommendations[0] && (
             <Button
@@ -280,7 +287,7 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
               onClick={() => applyRecommendationToQuote(unifiedRecommendations[0])}
               className="animate-fade-in"
             >
-              추천안 견적 적용
+              최적 추천안 적용
             </Button>
           )}
         </CardTitle>
@@ -491,7 +498,7 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                     onClick={() => applyRecommendationToQuote(recommendation)}
                     className="whitespace-nowrap"
                   >
-                    견적에 적용
+                    이 안으로 적용
                   </Button>
                 )}
               </div>

@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, FolderOpen } from 'lucide-react';
+import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, FolderOpen, Loader2, PlusCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import ProjectStageSelect, { PROJECT_STAGES } from '@/components/ProjectStageSelect';
 import { getPaymentStatusInfo } from '@/components/project/PaymentStatusSelect';
+import { PageHeader, PageShell, SearchFilterBar } from '@/components/layout/PageLayout';
 
 interface LinkedProject {
   id: string;
@@ -32,7 +33,7 @@ interface SavedQuote {
   recipient_email: string | null;
   recipient_address: string | null;
   recipient_memo: string | null;
-  items: any;
+  items: unknown;
   subtotal: number;
   tax: number;
   total: number;
@@ -43,7 +44,8 @@ interface SavedQuote {
   issuer_name: string | null;
   issuer_phone: string | null;
   issuer_email: string | null;
-  attachments: any;
+  attachments: unknown;
+  desired_delivery_date?: string | null;
   project_stage?: string;
   project_id?: string | null;
   linked_project?: LinkedProject | null;
@@ -72,6 +74,7 @@ const SavedQuotesPage = () => {
   const [userFilter, setUserFilter] = useState<string>('all');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [stageFilter, setStageFilter] = useState<string>('all');
+  const [creatingProjectQuoteId, setCreatingProjectQuoteId] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 50;
 
   // valid_until 문자열에서 마지막 날짜를 파싱하는 함수
@@ -488,8 +491,10 @@ const SavedQuotesPage = () => {
 
       const newQuoteNumber = generateNewQuoteNumber();
 
-      const originalAttachments = Array.isArray(originalQuote.attachments) ? originalQuote.attachments : [];
-      const filteredAttachments = originalAttachments.filter((a: any) => a?.type !== 'quote_pdf');
+      const originalAttachments = Array.isArray(originalQuote.attachments)
+        ? (originalQuote.attachments as Array<{ type?: string }>)
+        : [];
+      const filteredAttachments = originalAttachments.filter((attachment) => attachment?.type !== 'quote_pdf');
       
       const duplicateData = {
         quote_number: newQuoteNumber,
@@ -538,6 +543,90 @@ const SavedQuotesPage = () => {
     }
   };
 
+  const handleCreateProjectFromQuote = async (quote: SavedQuote) => {
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    if (quote.project_id) {
+      navigate(`/project-management?id=${quote.project_id}`);
+      return;
+    }
+
+    setCreatingProjectQuoteId(quote.id);
+
+    try {
+      let recipientId: string | null = null;
+
+      if (quote.recipient_company?.trim()) {
+        const { data: recipient, error: recipientError } = await supabase
+          .from('recipients')
+          .select('id')
+          .eq('company_name', quote.recipient_company.trim())
+          .maybeSingle();
+
+        if (recipientError) throw recipientError;
+        recipientId = recipient?.id || null;
+      }
+
+      const projectName = quote.project_name?.trim()
+        || [quote.recipient_company, quote.quote_number].filter(Boolean).join(' · ')
+        || `견적 ${quote.quote_number}`;
+
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .insert({
+          name: projectName,
+          description: `견적서 ${quote.quote_number}에서 생성된 프로젝트입니다.`,
+          status: 'active',
+          project_type: 'client',
+          recipient_id: recipientId,
+          contact_name: quote.recipient_name || null,
+          contact_phone: quote.recipient_phone || null,
+          contact_email: quote.recipient_email || null,
+          specs: {
+            sourceQuoteId: quote.id,
+            sourceQuoteNumber: quote.quote_number,
+            quoteTotal: quote.total,
+            desiredDeliveryDate: quote.desired_delivery_date || null,
+          },
+          user_id: quote.user_id || user.id,
+        } as any)
+        .select('id, name, status, payment_status')
+        .single();
+
+      if (projectError) throw projectError;
+
+      const { error: quoteError } = await supabase
+        .from('saved_quotes')
+        .update({ project_id: project.id })
+        .eq('id', quote.id);
+
+      if (quoteError) throw quoteError;
+
+      await supabase
+        .from('document_files' as any)
+        .update({ project_id: project.id })
+        .eq('quote_id', quote.id)
+        .is('project_id', null);
+
+      setQuotes((prev) => prev.map((item) => (
+        item.id === quote.id
+          ? { ...item, project_id: project.id, linked_project: project as LinkedProject }
+          : item
+      )));
+
+      toast.success('견적서 기준 프로젝트가 생성되었습니다.');
+      navigate(`/project-management?id=${project.id}`);
+    } catch (error) {
+      console.error('Error creating project from quote:', error);
+      toast.error('프로젝트 생성에 실패했습니다.');
+    } finally {
+      setCreatingProjectQuoteId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center">
@@ -547,19 +636,14 @@ const SavedQuotesPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-6">
-        <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              <h1 className="text-2xl font-bold tracking-tight">발행 견적서</h1>
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              견적 상태, 연결 프로젝트, 거래처 정보를 한 화면에서 확인합니다.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+    <PageShell maxWidth="7xl">
+      <PageHeader
+        eyebrow="Issued Quotes"
+        title="발행 견적서"
+        description="견적 상태, 연결 프로젝트, 거래처 정보를 한 화면에서 확인합니다."
+        icon={<FileText className="h-5 w-5" />}
+        actions={(
+          <>
             <Button onClick={() => navigate('/calculator')} size="sm">
               견적서 작성
             </Button>
@@ -567,22 +651,24 @@ const SavedQuotesPage = () => {
               공간디자인 견적서
             </Button>
             <Button onClick={() => navigate('/')} variant="outline" size="sm">
-              <Home className="mr-1.5 h-4 w-4" />
+              <Home className="h-4 w-4" />
               홈
             </Button>
-          </div>
-        </div>
+          </>
+        )}
+      />
 
-        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="rounded-lg border bg-card px-4 py-3">
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="glass-surface rounded-2xl px-4 py-3">
             <div className="text-xs text-muted-foreground">표시 견적</div>
             <div className="mt-1 text-xl font-semibold">{filteredQuotes.length.toLocaleString()}건</div>
           </div>
-          <div className="rounded-lg border bg-card px-4 py-3">
+          <div className="glass-surface rounded-2xl px-4 py-3">
             <div className="text-xs text-muted-foreground">표시 합계</div>
             <div className="mt-1 text-xl font-semibold">{formatPrice(listSummary.totalAmount)}</div>
           </div>
-          <div className="rounded-lg border bg-card px-4 py-3">
+          <div className="glass-surface rounded-2xl px-4 py-3">
             <div className="text-xs text-muted-foreground">프로젝트 연결</div>
             <div className="mt-1 text-xl font-semibold">
               {listSummary.linkedProjectCount.toLocaleString()}건
@@ -593,105 +679,103 @@ const SavedQuotesPage = () => {
           </div>
         </div>
 
-        <Card className="mb-4">
-          <CardContent className="space-y-3 p-4">
-            <div className={`grid grid-cols-1 gap-3 md:grid-cols-2 ${
-              isAdmin
-                ? 'lg:grid-cols-[minmax(0,1.5fr)_180px_190px_190px_auto]'
-                : 'lg:grid-cols-[minmax(0,1.5fr)_180px_190px_auto]'
-            }`}>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="견적번호, 프로젝트명, 업체명, 담당자 검색"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              {isAdmin && (
-                <Select value={userFilter} onValueChange={setUserFilter}>
-                  <SelectTrigger>
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Filter className="h-4 w-4 shrink-0" />
-                      <SelectValue placeholder="담당자 선택" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">전체 담당자</SelectItem>
-                    {users.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.full_name} ({user.email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+        <SearchFilterBar>
+          <div className={`grid grid-cols-1 gap-3 md:grid-cols-2 ${
+            isAdmin
+              ? 'lg:grid-cols-[minmax(0,1.5fr)_180px_190px_190px_auto]'
+              : 'lg:grid-cols-[minmax(0,1.5fr)_180px_190px_auto]'
+          }`}>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="견적번호, 프로젝트명, 업체명, 담당자 검색"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            {isAdmin && (
+              <Select value={userFilter} onValueChange={setUserFilter}>
                 <SelectTrigger>
-                  <div className="flex items-center gap-2">
-                    <ArrowUpDown className="h-4 w-4" />
-                    <SelectValue />
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Filter className="h-4 w-4 shrink-0" />
+                    <SelectValue placeholder="담당자 선택" />
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="date-desc">최신 날짜순</SelectItem>
-                  <SelectItem value="date-asc">오래된 날짜순</SelectItem>
-                  <SelectItem value="amount-desc">금액 높은순</SelectItem>
-                  <SelectItem value="amount-asc">금액 낮은순</SelectItem>
-                  <SelectItem value="number-desc">견적번호 내림차순</SelectItem>
-                  <SelectItem value="number-asc">견적번호 오름차순</SelectItem>
+                  <SelectItem value="all">전체 담당자</SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name} ({user.email})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetFilters}
-                disabled={activeFilterCount === 0}
-                className="whitespace-nowrap"
-              >
-                필터 초기화
-              </Button>
-            </div>
+            )}
+            <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+              <SelectTrigger>
+                <div className="flex items-center gap-2">
+                  <ArrowUpDown className="h-4 w-4" />
+                  <SelectValue />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date-desc">최신 날짜순</SelectItem>
+                <SelectItem value="date-asc">오래된 날짜순</SelectItem>
+                <SelectItem value="amount-desc">금액 높은순</SelectItem>
+                <SelectItem value="amount-asc">금액 낮은순</SelectItem>
+                <SelectItem value="number-desc">견적번호 내림차순</SelectItem>
+                <SelectItem value="number-asc">견적번호 오름차순</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={resetFilters}
+              disabled={activeFilterCount === 0}
+              className="whitespace-nowrap"
+            >
+              필터 초기화
+            </Button>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-muted-foreground">단계</span>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground">단계</span>
+            <Badge
+              variant={stageFilter === 'all' ? 'default' : 'outline'}
+              className="cursor-pointer text-xs"
+              onClick={() => setStageFilter('all')}
+            >
+              전체
+            </Badge>
+            {PROJECT_STAGES.map((stage) => (
               <Badge
-                variant={stageFilter === 'all' ? 'default' : 'outline'}
-                className="cursor-pointer text-xs"
-                onClick={() => setStageFilter('all')}
+                key={stage.value}
+                variant="outline"
+                className={`cursor-pointer text-xs ${stageFilter === stage.value ? stage.color + ' border-current' : ''}`}
+                onClick={() => setStageFilter(stage.value)}
               >
-                전체
+                {stage.label}
               </Badge>
-              {PROJECT_STAGES.map((stage) => (
-                <Badge
-                  key={stage.value}
-                  variant="outline"
-                  className={`cursor-pointer text-xs ${stageFilter === stage.value ? stage.color + ' border-current' : ''}`}
-                  onClick={() => setStageFilter(stage.value)}
-                >
-                  {stage.label}
-                </Badge>
-              ))}
-              {isAdmin && (
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {userFilter === 'all'
-                    ? '관리자: 전체 담당자 조회'
-                    : `담당자: ${users.find(u => u.id === userFilter)?.full_name || '선택된 사용자'}`}
-                </span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+            ))}
+            {isAdmin && (
+              <span className="ml-auto text-xs text-muted-foreground">
+                {userFilter === 'all'
+                  ? '관리자: 전체 담당자 조회'
+                  : `담당자: ${users.find(u => u.id === userFilter)?.full_name || '선택된 사용자'}`}
+              </span>
+            )}
+          </div>
+        </SearchFilterBar>
 
         {filteredQuotes.length === 0 ? (
           <Card>
@@ -791,9 +875,31 @@ const SavedQuotesPage = () => {
                               )}
                             </button>
                           ) : (
-                            <Badge variant="outline" className="text-xs text-muted-foreground">
-                              미연결
-                            </Badge>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="text-xs text-muted-foreground">
+                                미연결
+                              </Badge>
+                              {quote.project_stage !== 'cancelled' && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 gap-1.5 px-2 text-xs"
+                                  disabled={creatingProjectQuoteId === quote.id}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleCreateProjectFromQuote(quote);
+                                  }}
+                                >
+                                  {creatingProjectQuoteId === quote.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <PlusCircle className="h-3.5 w-3.5" />
+                                  )}
+                                  프로젝트 생성
+                                </Button>
+                              )}
+                            </div>
                           )}
                         </TableCell>
                         <TableCell className="py-3">
@@ -902,7 +1008,7 @@ const SavedQuotesPage = () => {
           </>
         )}
       </div>
-    </div>
+    </PageShell>
   );
 };
 

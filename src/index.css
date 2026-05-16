@@ -192,6 +192,28 @@
     min-height: 100vh;
   }
 
+  #root {
+    transition: padding-top 0.18s ease;
+  }
+
+  .quick-nav-active #root {
+    padding-top: 4.5rem;
+    scroll-padding-top: 5.5rem;
+  }
+
+  @media (max-width: 640px) {
+    .quick-nav-active #root {
+      padding-top: 4rem;
+      scroll-padding-top: 5rem;
+    }
+  }
+
+  @media print {
+    .quick-nav-active #root {
+      padding-top: 0;
+    }
+  }
+
   .dark body {
     background: linear-gradient(160deg, hsl(230 18% 7%) 0%, hsl(240 16% 10%) 46%, hsl(230 18% 8%) 100%);
   }

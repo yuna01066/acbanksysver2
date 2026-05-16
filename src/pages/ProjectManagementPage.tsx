@@ -6,11 +6,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Plus, FolderOpen, Building2, FileText, Search, Users, CircleDollarSign, Briefcase, Home } from 'lucide-react';
+import { Plus, FolderOpen, Building2, FileText, Search, Users, CircleDollarSign, Briefcase, Home } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import ProjectDetailPanel from '@/components/project/ProjectDetailPanel';
 import CreateProjectDialog from '@/components/project/CreateProjectDialog';
+import { PageHeader, PageShell, SearchFilterBar } from '@/components/layout/PageLayout';
 
 const paymentStatusConfig: Record<string, { label: string; dot: string }> = {
   unpaid: { label: '미입금', dot: 'bg-gray-400' },
@@ -19,6 +20,27 @@ const paymentStatusConfig: Record<string, { label: string; dot: string }> = {
   card_paid: { label: '카드결제', dot: 'bg-violet-400' },
   fully_paid: { label: '완료', dot: 'bg-emerald-400' },
 };
+
+interface ProjectRow {
+  id: string;
+  name: string;
+  description: string | null;
+  project_type: string | null;
+  status: string;
+  payment_status: string | null;
+  created_at: string;
+  recipients: {
+    company_name: string | null;
+    contact_person: string | null;
+  } | null;
+}
+
+interface ProjectAssignment {
+  project_id: string;
+  user_name: string | null;
+}
+
+type ProjectQuoteSummary = Record<string, { count: number; totalAmount: number }>;
 
 const ProjectManagementPage = () => {
   const navigate = useNavigate();
@@ -30,7 +52,7 @@ const ProjectManagementPage = () => {
   const [activeTab, setActiveTab] = useState<'client' | 'internal'>('client');
   const projectIdFromUrl = searchParams.get('id') || searchParams.get('project');
 
-  const { data: projects = [], isLoading } = useQuery({
+  const { data: projects = [], isLoading } = useQuery<ProjectRow[]>({
     queryKey: ['projects'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -38,12 +60,12 @@ const ProjectManagementPage = () => {
         .select('*, recipients(company_name, contact_person)')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return (data || []) as ProjectRow[];
     },
     enabled: !!user,
   });
 
-  const { data: quoteData = {} } = useQuery({
+  const { data: quoteData = {} } = useQuery<ProjectQuoteSummary>({
     queryKey: ['project-quote-summary'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -52,7 +74,7 @@ const ProjectManagementPage = () => {
         .not('project_id', 'is', null);
       if (error) throw error;
       const summary: Record<string, { count: number; totalAmount: number }> = {};
-      data?.forEach((q: any) => {
+      ((data || []) as Array<{ project_id: string; total: number | null }>).forEach((q) => {
         if (!summary[q.project_id]) summary[q.project_id] = { count: 0, totalAmount: 0 };
         summary[q.project_id].count += 1;
         summary[q.project_id].totalAmount += Number(q.total || 0);
@@ -62,14 +84,14 @@ const ProjectManagementPage = () => {
     enabled: !!user,
   });
 
-  const { data: allAssignments = [] } = useQuery({
+  const { data: allAssignments = [] } = useQuery<ProjectAssignment[]>({
     queryKey: ['project-assignments-all'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('project_assignments')
         .select('project_id, user_name');
       if (error) throw error;
-      return data;
+      return (data || []) as ProjectAssignment[];
     },
     enabled: !!user,
   });
@@ -80,7 +102,7 @@ const ProjectManagementPage = () => {
       return;
     }
 
-    const linkedProject = projects.find((project: any) => project.id === projectIdFromUrl);
+    const linkedProject = projects.find((project) => project.id === projectIdFromUrl);
     if (!linkedProject) return;
 
     const linkedProjectType = linkedProject.project_type === 'internal' ? 'internal' : 'client';
@@ -105,7 +127,7 @@ const ProjectManagementPage = () => {
     setSearchParams({}, { replace: true });
   };
 
-  const filteredProjects = projects.filter((p: any) =>
+  const filteredProjects = projects.filter((p) =>
     (p.project_type || 'client') === activeTab &&
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -133,66 +155,73 @@ const ProjectManagementPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2.5">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/')}>
-              <ArrowLeft className="h-4 w-4" />
+    <PageShell maxWidth="7xl">
+      <PageHeader
+        eyebrow="Projects"
+        title="프로젝트 관리"
+        description="견적서, 거래처, 담당자, 결제 상태를 프로젝트 기준으로 확인합니다."
+        icon={<FolderOpen className="h-5 w-5" />}
+        actions={(
+          <>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" />
+              새 프로젝트
             </Button>
-            <h1 className="text-xl font-bold tracking-tight">프로젝트 관리</h1>
-          </div>
-        </div>
+            <Button variant="outline" size="sm" onClick={() => navigate('/')}>
+              <Home className="h-4 w-4" />
+              홈
+            </Button>
+          </>
+        )}
+      />
+      <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
 
-        <div className="flex gap-5">
+      <div className="flex flex-col gap-5 lg:flex-row">
           {/* Left: Project List */}
-          <div className="w-[360px] shrink-0 flex flex-col">
+          <div className="w-full shrink-0 flex flex-col lg:w-[360px]">
             {/* Tab buttons */}
-            <div className="flex bg-muted rounded-lg p-0.5 mb-3">
-              <button
-                onClick={() => handleTabChange('client')}
-                className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-md transition-all ${
-                  activeTab === 'client'
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Briefcase className="h-3.5 w-3.5" />
-                클라이언트 (매출)
-              </button>
-              <button
-                onClick={() => handleTabChange('internal')}
-                className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-md transition-all ${
-                  activeTab === 'internal'
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Home className="h-3.5 w-3.5" />
-                내부 (매입)
-              </button>
-            </div>
-
-            {/* Search + Create */}
-            <div className="flex items-center gap-2 mb-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="프로젝트 검색..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 h-8 text-xs"
-                />
+            <SearchFilterBar className="mb-3 space-y-3">
+              <div className="flex bg-muted rounded-lg p-0.5">
+                <button
+                  onClick={() => handleTabChange('client')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-md transition-all ${
+                    activeTab === 'client'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Briefcase className="h-3.5 w-3.5" />
+                  클라이언트 (매출)
+                </button>
+                <button
+                  onClick={() => handleTabChange('internal')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-md transition-all ${
+                    activeTab === 'internal'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Home className="h-3.5 w-3.5" />
+                  내부 (매입)
+                </button>
               </div>
-              <Button size="sm" className="gap-1 h-8 text-xs shrink-0" onClick={() => setCreateOpen(true)}>
-                <Plus className="h-3.5 w-3.5" /> 새 프로젝트
-              </Button>
-              <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
-            </div>
+
+              {/* Search */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="프로젝트 검색..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8 h-8 text-xs"
+                  />
+                </div>
+              </div>
+            </SearchFilterBar>
 
             {/* Project list */}
-            <div className="space-y-1.5 max-h-[calc(100vh-200px)] overflow-y-auto pr-0.5">
+            <div className="space-y-1.5 max-h-[calc(100vh-240px)] overflow-y-auto pr-0.5">
               {isLoading ? (
                 <div className="space-y-2 py-4">
                   {[1, 2, 3].map(i => (
@@ -207,13 +236,14 @@ const ProjectManagementPage = () => {
                   </p>
                 </div>
               ) : (
-                filteredProjects.map((project: any) => {
-                  const qs = (quoteData as any)[project.id];
+                filteredProjects.map((project) => {
+                  const qs = quoteData[project.id];
                   const assignees = allAssignments
-                    .filter((a: any) => a.project_id === project.id)
-                    .map((a: any) => a.user_name);
+                    .filter((a) => a.project_id === project.id)
+                    .map((a) => a.user_name)
+                    .filter(Boolean);
                   const isSelected = selectedProjectId === project.id;
-                  const payment = paymentStatusConfig[(project as any).payment_status || 'unpaid'];
+                  const payment = paymentStatusConfig[project.payment_status || 'unpaid'];
 
                   return (
                     <div
@@ -304,9 +334,8 @@ const ProjectManagementPage = () => {
               </div>
             )}
           </div>
-        </div>
       </div>
-    </div>
+    </PageShell>
   );
 };
 

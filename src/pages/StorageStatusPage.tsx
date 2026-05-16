@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, HardDrive, RefreshCw, FolderOpen, Cloud, Database, Server, MapPin } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock3, FileText, HardDrive, RefreshCw, FolderOpen, Cloud, Database, Server, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,6 +35,27 @@ interface DocumentSyncCounts {
   total: number;
 }
 
+interface DocumentSyncIssue {
+  id: string;
+  file_name: string;
+  document_type: string;
+  owner_type: string;
+  storage_provider: string;
+  storage_bucket: string | null;
+  storage_path: string | null;
+  drive_path: string | null;
+  drive_file_id: string | null;
+  sync_status: 'pending' | 'synced' | 'failed' | 'not_required';
+  sync_error: string | null;
+  file_size: number | null;
+  quote_id: string | null;
+  project_id: string | null;
+  recipient_id: string | null;
+  created_at: string;
+  updated_at: string;
+  synced_at?: string | null;
+}
+
 const LOVABLE_FREE_STORAGE = 1 * 1024 * 1024 * 1024; // 1GB
 
 function formatBytes(bytes: number): string {
@@ -43,6 +64,18 @@ function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 // 버킷 내 모든 파일을 재귀적으로 탐색
@@ -103,6 +136,8 @@ const StorageStatusPage = () => {
   });
   const [documentSyncLoading, setDocumentSyncLoading] = useState(true);
   const [documentSyncing, setDocumentSyncing] = useState(false);
+  const [documentSyncIssues, setDocumentSyncIssues] = useState<DocumentSyncIssue[]>([]);
+  const [singleSyncingId, setSingleSyncingId] = useState<string | null>(null);
 
   const bucketLabels: Record<string, string> = {
     'quote-attachments': '견적서 첨부',
@@ -264,6 +299,50 @@ const StorageStatusPage = () => {
     }
   }, []);
 
+  const fetchDocumentSyncIssues = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('document_files' as any)
+        .select(`
+          id,
+          file_name,
+          document_type,
+          owner_type,
+          storage_provider,
+          storage_bucket,
+          storage_path,
+          drive_path,
+          drive_file_id,
+          sync_status,
+          sync_error,
+          file_size,
+          quote_id,
+          project_id,
+          recipient_id,
+          created_at,
+          updated_at,
+          synced_at
+        `)
+        .in('sync_status', ['pending', 'failed'])
+        .order('sync_status', { ascending: true })
+        .order('created_at', { ascending: false })
+        .limit(25);
+
+      if (error) throw error;
+      setDocumentSyncIssues((data || []) as DocumentSyncIssue[]);
+    } catch (err) {
+      console.error('Document sync issue fetch error:', err);
+      setDocumentSyncIssues([]);
+    }
+  }, []);
+
+  const refreshDocumentSync = useCallback(async () => {
+    await Promise.all([
+      fetchDocumentSyncCounts(),
+      fetchDocumentSyncIssues(),
+    ]);
+  }, [fetchDocumentSyncCounts, fetchDocumentSyncIssues]);
+
   const syncPendingDocumentFiles = useCallback(async (retryFailed = false) => {
     setDocumentSyncing(true);
     try {
@@ -289,7 +368,7 @@ const StorageStatusPage = () => {
       toast.success(
         `Drive 동기화 ${data.processed || 0}건 처리: 신규 ${data.synced || 0}, 기존 연결 ${data.reused || 0}, 실패 ${data.failed || 0}`
       );
-      await fetchDocumentSyncCounts();
+      await refreshDocumentSync();
       await fetchDriveStorage();
     } catch (err) {
       console.error('Document sync run error:', err);
@@ -297,15 +376,48 @@ const StorageStatusPage = () => {
     } finally {
       setDocumentSyncing(false);
     }
-  }, [fetchDocumentSyncCounts, fetchDriveStorage]);
+  }, [fetchDriveStorage, refreshDocumentSync]);
+
+  const syncSingleDocumentFile = useCallback(async (documentFileId: string) => {
+    setSingleSyncingId(documentFileId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('로그인이 필요합니다.');
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('google-drive', {
+        body: {
+          action: 'copy-document-file-to-drive',
+          documentFileId,
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (error || data?.error) {
+        throw new Error(error?.message || data?.error || '파일 동기화에 실패했습니다.');
+      }
+
+      toast.success(data?.reused ? '기존 Drive 파일과 연결했습니다.' : 'Drive 동기화가 완료되었습니다.');
+      await refreshDocumentSync();
+      await fetchDriveStorage();
+    } catch (err) {
+      console.error('Single document sync error:', err);
+      toast.error(err instanceof Error ? err.message : '파일 동기화에 실패했습니다.');
+      await refreshDocumentSync();
+    } finally {
+      setSingleSyncingId(null);
+    }
+  }, [fetchDriveStorage, refreshDocumentSync]);
 
   const refreshAll = useCallback(() => {
     fetchLovableStorage();
     fetchDbSize();
     fetchGcsStorage();
     fetchDriveStorage();
-    fetchDocumentSyncCounts();
-  }, [fetchLovableStorage, fetchDbSize, fetchGcsStorage, fetchDriveStorage, fetchDocumentSyncCounts]);
+    refreshDocumentSync();
+  }, [fetchLovableStorage, fetchDbSize, fetchGcsStorage, fetchDriveStorage, refreshDocumentSync]);
 
   useEffect(() => {
     if (!authLoading && userRole !== 'admin' && userRole !== 'moderator') {
@@ -356,6 +468,38 @@ const StorageStatusPage = () => {
     gcsGroups[prefix].count++;
     gcsGroups[prefix].size += parseInt(f.size) || 0;
   });
+
+  const documentTypeLabels: Record<string, string> = {
+    quote_pdf: '견적서 PDF',
+    customer_attachment: '고객 첨부',
+    internal_project_document: '프로젝트 문서',
+    project_update_attachment: '프로젝트 업데이트',
+    recipient_document: '거래처 문서',
+    employee_document: '직원 문서',
+  };
+
+  const syncStatusMeta = {
+    pending: {
+      label: '대기',
+      icon: Clock3,
+      className: 'border-amber-200 bg-amber-50 text-amber-700',
+    },
+    failed: {
+      label: '실패',
+      icon: AlertTriangle,
+      className: 'border-red-200 bg-red-50 text-red-700',
+    },
+    synced: {
+      label: '완료',
+      icon: CheckCircle2,
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    },
+    not_required: {
+      label: '제외',
+      icon: FileText,
+      className: 'border-muted bg-muted/50 text-muted-foreground',
+    },
+  } as const;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 p-4">
@@ -662,6 +806,100 @@ const StorageStatusPage = () => {
                     한 번에 최대 20건씩 처리합니다. 기존 Drive 폴더에 같은 파일이 있으면 새로 업로드하지 않고 원장에 연결합니다.
                   </p>
                 </div>
+
+                <div className="mb-5 rounded-lg border bg-background">
+                  <div className="flex flex-col gap-2 border-b p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-medium">동기화 확인 필요 파일</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        최근 pending/failed 25건을 표시합니다. 실패 항목은 개별 재시도로 원인을 바로 확인할 수 있습니다.
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={refreshDocumentSync}
+                      disabled={documentSyncLoading}
+                      className="h-8 self-start sm:self-center"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 mr-1 ${documentSyncLoading ? 'animate-spin' : ''}`} />
+                      큐 새로고침
+                    </Button>
+                  </div>
+
+                  {documentSyncLoading ? (
+                    <div className="p-4 text-sm text-muted-foreground">동기화 큐 조회 중...</div>
+                  ) : documentSyncIssues.length === 0 ? (
+                    <div className="p-5 text-center">
+                      <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-500" />
+                      <p className="text-sm font-medium">확인 필요한 파일이 없습니다.</p>
+                      <p className="mt-1 text-xs text-muted-foreground">pending/failed 상태의 파일 원장이 모두 정리되었습니다.</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {documentSyncIssues.map((file) => {
+                        const status = syncStatusMeta[file.sync_status] || syncStatusMeta.pending;
+                        const StatusIcon = status.icon;
+                        const canRetry = file.storage_provider === 'supabase_storage'
+                          && Boolean(file.storage_bucket)
+                          && Boolean(file.storage_path)
+                          && Boolean(file.drive_path);
+
+                        return (
+                          <div key={file.id} className="p-3">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Badge variant="outline" className={`h-5 gap-1 text-[10px] ${status.className}`}>
+                                    <StatusIcon className="h-3 w-3" />
+                                    {status.label}
+                                  </Badge>
+                                  <Badge variant="secondary" className="h-5 text-[10px]">
+                                    {documentTypeLabels[file.document_type] || file.document_type}
+                                  </Badge>
+                                  <span className="text-[11px] text-muted-foreground">
+                                    {formatDateTime(file.updated_at || file.created_at)}
+                                  </span>
+                                </div>
+                                <p className="mt-2 truncate text-sm font-medium">{file.file_name}</p>
+                                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                                  <span>{file.storage_provider}</span>
+                                  {file.file_size ? <span>{formatBytes(file.file_size)}</span> : null}
+                                  {file.quote_id ? <span>quote {file.quote_id.slice(0, 8)}</span> : null}
+                                  {file.project_id ? <span>project {file.project_id.slice(0, 8)}</span> : null}
+                                </div>
+                                <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                                  Drive: {file.drive_path || '경로 없음'}
+                                </p>
+                                {file.sync_error ? (
+                                  <p className="mt-2 rounded-md bg-red-50 px-2 py-1 text-[11px] text-red-700">
+                                    {file.sync_error}
+                                  </p>
+                                ) : null}
+                                {!canRetry ? (
+                                  <p className="mt-2 text-[11px] text-amber-700">
+                                    자동 재시도 불가: storage bucket/path 또는 drive_path가 필요합니다.
+                                  </p>
+                                ) : null}
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => syncSingleDocumentFile(file.id)}
+                                disabled={!canRetry || singleSyncingId === file.id || documentSyncing}
+                                className="h-8 shrink-0"
+                              >
+                                <RefreshCw className={`w-3.5 h-3.5 mr-1 ${singleSyncingId === file.id ? 'animate-spin' : ''}`} />
+                                개별 재시도
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 {driveLoading ? (
                   <div className="text-sm text-muted-foreground">조회 중...</div>
                 ) : driveFolders.length === 0 ? (

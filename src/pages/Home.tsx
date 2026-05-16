@@ -13,6 +13,7 @@ import AnnouncementCard from '@/components/AnnouncementCard';
 import QuickAttendanceButton from '@/components/QuickAttendanceButton';
 import DailyQuoteCard from '@/components/DailyQuoteCard';
 import ActivityFeedCard from '@/components/ActivityFeedCard';
+import TodayWorkCard from '@/components/TodayWorkCard';
 
 import { useAuth } from '@/contexts/AuthContext';
 import TimeGreeting from '@/components/TimeGreeting';
@@ -274,6 +275,7 @@ const Home = () => {
               <QuickAttendanceButton />
               <DailyQuoteCard />
             </div>
+            <TodayWorkCard notifications={notifications} />
             <DashboardCalendar />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <AnnouncementCard />

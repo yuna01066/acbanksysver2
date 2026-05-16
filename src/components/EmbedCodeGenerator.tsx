@@ -12,7 +12,7 @@ const EmbedCodeGenerator = () => {
 
   // 현재 도메인을 기반으로 임베드 URL 생성
   const currentDomain = window.location.origin;
-  const embedUrl = `${currentDomain}`;
+  const embedUrl = `${currentDomain}/calculator?type=quote`;
 
   const embedCode = `<!-- 판재 단가 계산기 위젯 -->
 <div style="width: 100%; max-width: 1400px; margin: 0 auto;">

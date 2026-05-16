@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Calculator,
   ClipboardList,
+  ClipboardCheck,
   FileSpreadsheet,
   FileText,
   FolderOpen,
@@ -58,6 +59,7 @@ const QUICK_NAV_ITEMS: QuickNavItem[] = [
   { title: '연차 관리', description: '휴가 신청/승인', path: '/leave-management', group: '직원', keywords: '연차 휴가 leave vacation', icon: CalendarDays },
   { title: '마이페이지', description: '내 정보와 개인 업무', path: '/my-page', group: '직원', keywords: '마이페이지 내정보 my page profile', icon: User },
   { title: '업무 평가', description: '평가 작성과 확인', path: '/performance-review', group: '직원', keywords: '평가 업무평가 review performance', icon: Star },
+  { title: '승인/검토 센터', description: '승인·동기화·견적 연결 확인', path: '/review-hub', group: '관리', keywords: '승인 검토 중간관리자 review approval moderator', icon: ClipboardCheck, adminOnly: true },
   { title: '관리자 설정', description: '시스템 설정 허브', path: '/admin-settings', group: '관리', keywords: '관리자 설정 admin settings', icon: Settings, adminOnly: true },
   { title: '원판 관리', description: '원판/컬러/사이즈 단가', path: '/panel-management', group: '관리', keywords: '원판 컬러 사이즈 단가 panel color price', icon: Palette, adminOnly: true },
   { title: '가공 가격 관리', description: '가공 옵션과 배수 관리', path: '/processing-price-management', group: '관리', keywords: '가공 가격 옵션 processing price', icon: Wrench, adminOnly: true },
@@ -105,6 +107,14 @@ const GlobalQuickNav = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isHidden]);
 
+  useEffect(() => {
+    document.documentElement.classList.toggle('quick-nav-active', !isHidden);
+
+    return () => {
+      document.documentElement.classList.remove('quick-nav-active');
+    };
+  }, [isHidden]);
+
   if (isHidden) return null;
 
   const goTo = (path: string) => {
@@ -119,7 +129,7 @@ const GlobalQuickNav = () => {
         variant="outline"
         size="sm"
         onClick={() => setOpen(true)}
-        className="fixed right-4 top-4 z-40 h-9 gap-2 rounded-full border-border/70 bg-background/90 px-3 text-xs shadow-sm backdrop-blur print:hidden"
+        className="fixed right-4 top-3 z-40 h-10 gap-2 rounded-full border-border/70 bg-background/90 px-3 text-xs shadow-smooth backdrop-blur print:hidden sm:right-6 sm:top-4"
       >
         <Search className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">빠른 이동</span>
