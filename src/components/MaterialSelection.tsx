@@ -21,8 +21,8 @@ const MaterialSelection: React.FC<MaterialSelectionProps> = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-2xl font-bold text-gray-900 mb-2">소재를 선택해주세요</h3>
-        <p className="text-gray-600">사용하실 판재의 소재를 선택해주세요</p>
+        <h3 className="text-2xl font-bold text-foreground mb-2">견적 방식을 선택해주세요</h3>
+        <p className="text-muted-foreground">원판 기준, 제품 제작, 공간 견적 중 선택해주세요</p>
         {selectedFactory !== 'jangwon' && (
           <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-yellow-800 font-medium">
@@ -37,10 +37,10 @@ const MaterialSelection: React.FC<MaterialSelectionProps> = ({
           <Button
             key={material.id}
             variant={selectedMaterial?.id === material.id ? "default" : "outline"}
-            className={`h-16 text-lg font-semibold transition-all duration-200 rounded-lg ${
+            className={`h-16 text-lg font-semibold transition-all duration-200 rounded-xl ${
               selectedMaterial?.id === material.id
-                ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
-                : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-900'
+                ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+                : 'bg-white/70 hover:bg-white border-white/70 text-foreground'
             }`}
             onClick={() => onMaterialSelect(material)}
           >

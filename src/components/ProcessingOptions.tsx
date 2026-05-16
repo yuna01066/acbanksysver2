@@ -249,18 +249,18 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   const activeCategories = categories?.filter(c => c.is_active) || [];
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-7 animate-fade-in">
       <div className="text-center space-y-3">
-        <h3 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+        <h3 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
           가공 방법을 선택해주세요
         </h3>
-        <p className="text-muted-foreground text-lg">
+        <p className="text-muted-foreground text-base">
           단계별로 가공 옵션을 선택하세요
         </p>
       </div>
 
       {/* STEP 1: 메인 카테고리 선택 */}
-      <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-background/80 to-background">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Settings className="w-5 h-5 text-primary" />
@@ -276,10 +276,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                 <button
                   key={category.id}
                   onClick={() => handleMainCategorySelect(category.category_key)}
-                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                  className={`p-4 rounded-lg border transition-colors text-left ${
                     mainCategory === category.category_key
-                      ? 'bg-primary/10 border-primary shadow-md'
-                      : 'bg-background border-border hover:border-primary/30'
+                      ? 'bg-primary/10 border-primary shadow-minimal'
+                      : 'bg-background border-border hover:border-primary/30 hover:bg-muted/30'
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-2">
@@ -328,7 +328,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
             return (
               <div key={slotType}>
                 <Separator />
-                <Card className="border-2 border-accent/20">
+                <Card className="border-accent/20 bg-background/70">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Settings className="w-5 h-5 text-accent" />
@@ -349,12 +349,12 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                         return (
                           <div
                             key={option.id}
-                            className={`p-4 rounded-lg border-2 transition-all ${
+                            className={`p-4 rounded-lg border transition-colors ${
                               !isApplicable
                                 ? 'bg-muted/50 border-muted opacity-50'
                                 : isSelected
-                                ? 'bg-primary/10 border-primary shadow-sm'
-                                : 'bg-background border-border hover:border-primary/30'
+                                ? 'bg-primary/10 border-primary shadow-minimal'
+                                : 'bg-background border-border hover:border-primary/30 hover:bg-muted/30'
                             }`}
                           >
                             <div className="flex items-start justify-between gap-4">
@@ -484,7 +484,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
           return (
             <div key={slotType}>
               <Separator />
-              <Card className="border-2 border-primary/20">
+              <Card className="border-primary/20 bg-background/70">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <ChevronRight className="w-5 h-5 text-primary" />
@@ -504,12 +504,12 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                           key={option.id}
                           onClick={() => isApplicable && handleSlotSelect(slotType, option.option_id)}
                           disabled={!isApplicable}
-                          className={`p-4 rounded-lg border-2 transition-all text-left ${
+                          className={`p-4 rounded-lg border transition-colors text-left ${
                             !isApplicable
                               ? 'bg-muted/50 border-muted cursor-not-allowed opacity-50'
-                              : selectedSlots[slotType] === option.option_id
-                              ? 'bg-primary/10 border-primary shadow-md'
-                              : 'bg-background border-border hover:border-primary/30'
+                            : selectedSlots[slotType] === option.option_id
+                              ? 'bg-primary/10 border-primary shadow-minimal'
+                              : 'bg-background border-border hover:border-primary/30 hover:bg-muted/30'
                           }`}
                         >
                           <div className="flex items-center gap-2 mb-2">

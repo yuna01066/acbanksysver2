@@ -56,9 +56,9 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
   if (!selectedMaterial) return null;
 
   return (
-    <Card className="mb-6 border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-background">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <Card className="mb-6 border-primary/20 bg-gradient-to-br from-primary/5 via-background/80 to-background">
+      <CardHeader className="border-b border-primary/10 bg-white/25 dark:bg-white/[0.03] pb-4">
+        <CardTitle className="flex items-center gap-2 text-lg">
           <Package className="w-5 h-5 text-primary" />
           선택된 옵션 상세
         </CardTitle>
@@ -124,7 +124,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
                   const wonJangTotal = wonJangItem?.price || 0;
                   
                   return (
-                    <Card key={`${sizeIndex}-${qtyIndex}`} className="border-2 border-primary/20 bg-gradient-to-br from-background to-muted/30">
+                    <Card key={`${sizeIndex}-${qtyIndex}`} className="border-primary/15 bg-background/70">
                       <CardContent className="p-4 space-y-3">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -157,7 +157,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
                         </div>
 
                         {/* 원판 금액 상세 */}
-                        <div className="pt-3 border-t-2 border-primary/20">
+                        <div className="pt-3 border-t">
                           <div className="bg-primary/5 rounded-lg p-3 space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium text-muted-foreground">
@@ -239,7 +239,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
 
         {/* 가격 계산 결과 */}
         {priceInfo && priceInfo.breakdown && priceInfo.breakdown.length > 0 && (
-          <div className="space-y-2 mt-6 pt-6 border-t-2 border-primary/30">
+          <div className="space-y-2 mt-6 pt-6 border-t border-primary/15">
             <h5 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
               <Calculator className="w-5 h-5 text-primary" />
               가격 계산 결과
@@ -266,7 +266,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
               ))}
               
               {/* 최종 견적가 강조 */}
-              <Card className="border-2 border-primary bg-primary/10 mt-4">
+              <Card className="border-primary/40 bg-primary/10 mt-4">
                 <CardContent className="p-4">
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-bold flex items-center gap-2">
