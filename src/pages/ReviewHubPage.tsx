@@ -140,7 +140,7 @@ const ReviewHubPage = () => {
       if (approvalResult.error) throw approvalResult.error;
 
       setLeaves((leaveResult.data || []) as LeaveReview[]);
-      setDocuments((documentResult.data || []) as DocumentReview[]);
+      setDocuments(((documentResult.data || []) as unknown) as DocumentReview[]);
       setQuotes((quoteResult.data || []) as QuoteReview[]);
       setProjects((projectResult.data || []) as ProjectReview[]);
       setApprovals((approvalResult.data || []) as ApprovalReview[]);

@@ -417,7 +417,7 @@ export const usePriceCalculation = ({
                 price: ps.price || undefined,
                 is_active: ps.is_active
               })),
-              optionSurchargesData: optionSurcharges,
+              optionSurchargesData: optionSurcharges as any,
               processingOptionsData: [],
               rawOnlyMultiplier: 1.0, // 원장 계산시에는 할증 제외
             }
@@ -565,7 +565,7 @@ export const usePriceCalculation = ({
               price: ps.price || undefined,
               is_active: ps.is_active
             })),
-            optionSurchargesData: optionSurcharges,
+            optionSurchargesData: optionSurcharges as any,
             rawOnlyMultiplier,
             selectedAdditionalOptions,
             // 총 원장을 기준가격으로 전달
@@ -620,7 +620,7 @@ export const usePriceCalculation = ({
             price: ps.price || undefined,
             is_active: ps.is_active
           })),
-          optionSurchargesData: optionSurcharges,
+          optionSurchargesData: optionSurcharges as any,
           rawOnlyMultiplier,
           selectedAdditionalOptions,
           qty,

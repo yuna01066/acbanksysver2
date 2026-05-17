@@ -198,7 +198,7 @@ const AnnouncementsPage = () => {
 
         const { data: announcement, error } = await supabase
           .from('announcements')
-          .insert(insertData)
+          .insert(insertData as any)
           .select()
           .single();
         if (error) throw error;

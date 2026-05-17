@@ -174,7 +174,7 @@ const ChannelTalkLeadsPage = () => {
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
-      return (data || []) as ChannelTalkLead[];
+      return ((data || []) as unknown) as ChannelTalkLead[];
     },
     enabled: !!user && canReview,
   });
@@ -329,7 +329,7 @@ const ChannelTalkLeadsPage = () => {
 
   if (!canReview) {
     return (
-      <PageShell maxWidth="4xl">
+      <PageShell maxWidth="5xl">
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
             <AlertTriangle className="h-8 w-8 text-muted-foreground" />
