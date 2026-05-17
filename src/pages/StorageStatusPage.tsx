@@ -330,7 +330,7 @@ const StorageStatusPage = () => {
         .limit(25);
 
       if (error) throw error;
-      setDocumentSyncIssues((data || []) as DocumentSyncIssue[]);
+      setDocumentSyncIssues(((data || []) as unknown) as DocumentSyncIssue[]);
     } catch (err) {
       console.error('Document sync issue fetch error:', err);
       setDocumentSyncIssues([]);
