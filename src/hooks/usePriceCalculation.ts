@@ -565,7 +565,7 @@ export const usePriceCalculation = ({
               price: ps.price || undefined,
               is_active: ps.is_active
             })),
-            optionSurchargesData: optionSurcharges,
+            optionSurchargesData: optionSurcharges as any,
             rawOnlyMultiplier,
             selectedAdditionalOptions,
             // 총 원장을 기준가격으로 전달
