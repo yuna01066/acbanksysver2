@@ -28,21 +28,21 @@ const getGreetingData = (): { message: string; icon: React.ReactNode; sub?: stri
   const m = now.getMinutes();
 
   if (h === 11 && m >= 30) {
-    return { message: '점심시간이 얼마 남지 않았어요!', icon: <Utensils className="h-5 w-5 text-orange-600" />, sub: '맛있는 점심 기대하세요 🍽️', gradient: 'from-amber-50 via-orange-50 to-yellow-50 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-yellow-950/20', iconBg: 'bg-orange-100 dark:bg-orange-900/40', timeColor: 'text-orange-700 dark:text-orange-300' };
+    return { message: '점심시간이 얼마 남지 않았어요.', icon: <Utensils className="h-5 w-5 text-orange-600" />, sub: '잠시 쉬어갈 준비를 해주세요.', gradient: 'from-amber-50 via-orange-50 to-yellow-50 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-yellow-950/20', iconBg: 'bg-orange-100 dark:bg-orange-900/40', timeColor: 'text-orange-700 dark:text-orange-300' };
   }
   if (h === 12) {
-    return { message: '점심시간입니다!', icon: <Utensils className="h-5 w-5 text-orange-600" />, sub: '맛있는 식사 하세요 🍚', gradient: 'from-amber-50 via-orange-50 to-yellow-50 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-yellow-950/20', iconBg: 'bg-orange-100 dark:bg-orange-900/40', timeColor: 'text-orange-700 dark:text-orange-300' };
+    return { message: '점심시간입니다.', icon: <Utensils className="h-5 w-5 text-orange-600" />, sub: '오후 업무 전 잠시 재정비하세요.', gradient: 'from-amber-50 via-orange-50 to-yellow-50 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-yellow-950/20', iconBg: 'bg-orange-100 dark:bg-orange-900/40', timeColor: 'text-orange-700 dark:text-orange-300' };
   }
   if (h === 17 && m >= 30) {
-    return { message: '퇴근시간이 얼마 남지 않았어요!', icon: <Clock className="h-5 w-5 text-emerald-600" />, sub: '오늘도 수고하셨습니다 🎉', gradient: 'from-emerald-50 via-green-50 to-teal-50 dark:from-emerald-950/40 dark:via-green-950/30 dark:to-teal-950/20', iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', timeColor: 'text-emerald-700 dark:text-emerald-300' };
+    return { message: '퇴근시간이 얼마 남지 않았어요.', icon: <Clock className="h-5 w-5 text-emerald-600" />, sub: '마감할 업무를 정리해 주세요.', gradient: 'from-emerald-50 via-green-50 to-teal-50 dark:from-emerald-950/40 dark:via-green-950/30 dark:to-teal-950/20', iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', timeColor: 'text-emerald-700 dark:text-emerald-300' };
   }
   if (h >= 5 && h < 12) {
-    return { message: '좋은 아침입니다.', icon: <Sun className="h-5 w-5 text-amber-500" />, sub: '오늘도 화이팅! ☀️', gradient: 'from-sky-50 via-amber-50/60 to-orange-50/40 dark:from-sky-950/40 dark:via-amber-950/20 dark:to-orange-950/10', iconBg: 'bg-amber-100 dark:bg-amber-900/40', timeColor: 'text-sky-700 dark:text-sky-300' };
+    return { message: '좋은 아침입니다.', icon: <Sun className="h-5 w-5 text-amber-500" />, sub: '오늘의 주요 업무를 확인해 주세요.', gradient: 'from-sky-50 via-amber-50/60 to-orange-50/40 dark:from-sky-950/40 dark:via-amber-950/20 dark:to-orange-950/10', iconBg: 'bg-amber-100 dark:bg-amber-900/40', timeColor: 'text-sky-700 dark:text-sky-300' };
   }
   if (h >= 12 && h < 18) {
-    return { message: '좋은 오후입니다.', icon: <Coffee className="h-5 w-5 text-blue-500" />, sub: '남은 오후도 힘내세요 💪', gradient: 'from-blue-50 via-sky-50 to-cyan-50/60 dark:from-blue-950/40 dark:via-sky-950/30 dark:to-cyan-950/20', iconBg: 'bg-blue-100 dark:bg-blue-900/40', timeColor: 'text-blue-700 dark:text-blue-300' };
+    return { message: '좋은 오후입니다.', icon: <Coffee className="h-5 w-5 text-blue-500" />, sub: '남은 일정과 납기 항목을 확인해 주세요.', gradient: 'from-blue-50 via-sky-50 to-cyan-50/60 dark:from-blue-950/40 dark:via-sky-950/30 dark:to-cyan-950/20', iconBg: 'bg-blue-100 dark:bg-blue-900/40', timeColor: 'text-blue-700 dark:text-blue-300' };
   }
-  return { message: '좋은 저녁입니다.', icon: <Moon className="h-5 w-5 text-indigo-400" />, sub: '오늘 하루도 수고하셨어요 🌙', gradient: 'from-indigo-50 via-violet-50/60 to-slate-100 dark:from-indigo-950/50 dark:via-violet-950/30 dark:to-slate-900/40', iconBg: 'bg-indigo-100 dark:bg-indigo-900/40', timeColor: 'text-indigo-700 dark:text-indigo-300' };
+  return { message: '좋은 저녁입니다.', icon: <Moon className="h-5 w-5 text-indigo-400" />, sub: '마무리할 업무가 있는지 확인해 주세요.', gradient: 'from-indigo-50 via-violet-50/60 to-slate-100 dark:from-indigo-950/50 dark:via-violet-950/30 dark:to-slate-900/40', iconBg: 'bg-indigo-100 dark:bg-indigo-900/40', timeColor: 'text-indigo-700 dark:text-indigo-300' };
 };
 
 // 🎯 시크릿 이벤트 시스템
@@ -173,7 +173,6 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
   const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
   const [secretEvent, setSecretEvent] = useState<SecretEvent | null>(null);
   const [showSecretBanner, setShowSecretBanner] = useState(false);
-  const [secretParticles, setSecretParticles] = useState<{ id: number; emoji: string; x: number; delay: number }[]>([]);
   const secretSoundPlayed = useRef<string | null>(null);
 
   // Fetch custom secret events from DB
@@ -287,16 +286,6 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
       setShowSecretBanner(true);
       secretSoundPlayed.current = eventKey;
 
-      if (event.particles) {
-        const newParticles = Array.from({ length: 12 }, (_, i) => ({
-          id: i,
-          emoji: event!.particles![Math.floor(Math.random() * event!.particles!.length)],
-          x: Math.random() * 100,
-          delay: Math.random() * 2,
-        }));
-        setSecretParticles(newParticles);
-      }
-
       if (event.sound) {
         try {
           const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -320,7 +309,6 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
     } else if (!event) {
       setSecretEvent(null);
       setShowSecretBanner(false);
-      setSecretParticles([]);
     }
   }, [now, name, customSecretEvents]);
 
@@ -378,46 +366,25 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
   const elapsedHours = Math.floor(elapsedMin / 60);
   const elapsedMins = elapsedMin % 60;
 
-  // Runner emoji based on progress
-  const getRunnerEmoji = () => {
-    if (workProgress >= 100) return '🎉';
-    if (workProgress >= 75) return '🏃';
-    if (workProgress >= 50) return '🚶';
-    if (workProgress >= 25) return '☕';
-    return '🌅';
-  };
-
   return (
-    <div className={`animate-fade-in glass-card p-4 sm:p-5 bg-gradient-to-r ${greeting.gradient} transition-colors duration-1000 relative overflow-hidden`}>
+    <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-background/80 p-4 text-card-foreground shadow-sm backdrop-blur animate-fade-in sm:p-5">
       {/* 🎯 시크릿 이벤트 배너 */}
       {showSecretBanner && secretEvent && (
         <>
-          {/* 파티클 애니메이션 */}
-          {secretParticles.map((p) => (
-            <span
-              key={p.id}
-              className="absolute text-lg pointer-events-none animate-secret-particle"
-              style={{
-                left: `${p.x}%`,
-                top: '-20px',
-                animationDelay: `${p.delay}s`,
-              }}
-            >
-              {p.emoji}
-            </span>
-          ))}
           {/* 배너 */}
           <div
-            className={`mb-3 rounded-xl p-3 bg-gradient-to-r ${secretEvent.gradient} border border-border/30 backdrop-blur-sm animate-secret-banner cursor-pointer relative`}
+            className="relative mb-3 cursor-pointer rounded-xl border border-primary/10 bg-primary/5 p-3"
             onClick={() => setShowSecretBanner(false)}
           >
-            <div className="flex items-center gap-2">
-              <span className="text-2xl animate-bounce" style={{ animationDuration: '1.5s' }}>{secretEvent.emoji}</span>
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background/80 text-lg">
+                {secretEvent.emoji}
+              </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-foreground">{secretEvent.message}</p>
-                <p className="text-xs text-muted-foreground">{secretEvent.sub}</p>
+                <p className="text-sm font-semibold text-foreground">{secretEvent.message}</p>
+                <p className="truncate text-xs text-muted-foreground">{secretEvent.sub}</p>
               </div>
-              <Sparkles className="h-4 w-4 text-primary animate-pulse shrink-0" />
+              <Sparkles className="h-4 w-4 shrink-0 text-primary/70" />
             </div>
           </div>
         </>
@@ -428,9 +395,9 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
           <div className="relative shrink-0">
             <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
               <PopoverTrigger asChild>
-                <Avatar className={`h-16 w-16 sm:h-[100px] sm:w-[100px] shrink-0 rounded-lg border-2 ${statusCfg.borderColor} shadow-sm cursor-pointer transition-transform hover:scale-105`}>
+                <Avatar className={`h-14 w-14 shrink-0 cursor-pointer rounded-xl border ${statusCfg.borderColor} shadow-sm transition-transform hover:scale-[1.02] sm:h-20 sm:w-20`}>
                   <AvatarImage src={avatarUrl || undefined} alt={name} className="object-cover" />
-                  <AvatarFallback className="bg-primary/10 text-primary text-xl sm:text-2xl font-semibold">
+                  <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold sm:text-xl">
                     {name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
@@ -455,20 +422,20 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-0.5">
-              <div className={`animate-scale-in flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full ${greeting.iconBg} transition-colors duration-1000 shrink-0`}>
+              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${greeting.iconBg} transition-colors duration-1000 sm:h-9 sm:w-9`}>
                 {greeting.icon}
               </div>
-              <p className="text-base sm:text-lg font-semibold text-foreground leading-tight">
+              <p className="text-base font-semibold leading-tight text-foreground sm:text-lg">
                 {name} 님, {greeting.message}
               </p>
             </div>
             {greeting.sub && (
-              <p className="text-xs sm:text-sm text-muted-foreground ml-10 sm:ml-12">{greeting.sub}</p>
+              <p className="ml-10 text-xs text-muted-foreground sm:ml-11 sm:text-sm">{greeting.sub}</p>
             )}
           </div>
         </div>
         <div className="text-right shrink-0 flex sm:block items-center justify-end gap-2 sm:gap-0">
-          <p className={`text-xl sm:text-2xl font-bold tabular-nums tracking-tight ${greeting.timeColor} transition-colors duration-1000`}>
+          <p className={`text-lg font-semibold tabular-nums sm:text-xl ${greeting.timeColor} transition-colors duration-1000`}>
             {formatTime(now)}
           </p>
           <p className="text-[10px] sm:text-xs text-muted-foreground">
@@ -478,43 +445,26 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
       </div>
 
       {/* Work Progress Bar */}
-      <div className="mt-4 pt-3 border-t border-border/40">
+      <div className="mt-4 border-t border-border/50 pt-3">
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-medium text-muted-foreground">오늘의 근무 진행률</span>
-            <span className="text-base leading-none">{getRunnerEmoji()}</span>
           </div>
-          <span className="text-xs font-bold text-foreground tabular-nums">{Math.round(workProgress)}%</span>
+          <span className="text-xs font-semibold text-foreground tabular-nums">{Math.round(workProgress)}%</span>
         </div>
 
         {/* Progress track */}
-        <div className="relative h-5 rounded-full bg-muted/60 overflow-hidden shadow-inner">
+        <div className="relative h-2 overflow-hidden rounded-full bg-muted/60">
           {/* Filled portion */}
           <div
             className="absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-out"
             style={{
               width: `${workProgress}%`,
               background: workProgress >= 100
-                ? 'linear-gradient(90deg, #10b981, #34d399, #6ee7b7)'
-                : 'linear-gradient(90deg, #60a5fa, #818cf8, #a78bfa)',
+                ? 'linear-gradient(90deg, #10b981, #34d399)'
+                : 'linear-gradient(90deg, #60a5fa, #2563eb)',
             }}
           />
-          {/* Runner icon on the progress edge */}
-          {workProgress > 0 && workProgress < 100 && (
-            <div
-              className="absolute top-1/2 -translate-y-1/2 transition-all duration-1000 ease-out"
-              style={{ left: `calc(${workProgress}% - 10px)` }}
-            >
-              <span className="text-sm drop-shadow-sm animate-bounce" style={{ animationDuration: '2s' }}>
-                {getRunnerEmoji()}
-              </span>
-            </div>
-          )}
-          {workProgress >= 100 && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-xs font-bold text-white drop-shadow-sm">퇴근!</span>
-            </div>
-          )}
         </div>
 
         {/* Time markers */}
@@ -528,10 +478,10 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
         {/* Elapsed / Remaining info */}
         <div className="flex items-center justify-between mt-1.5">
           <span className="text-[11px] text-muted-foreground">
-            ⏱️ 경과 <span className="font-semibold text-foreground">{elapsedHours}시간 {elapsedMins}분</span>
+            경과 <span className="font-semibold text-foreground">{elapsedHours}시간 {elapsedMins}분</span>
           </span>
           <span className="text-[11px] text-muted-foreground">
-            ⏳ 남은 시간 <span className="font-semibold text-foreground">{remainingHours}시간 {remainingMins}분</span>
+            남은 시간 <span className="font-semibold text-foreground">{remainingHours}시간 {remainingMins}분</span>
           </span>
         </div>
       </div>
@@ -541,9 +491,9 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
         <div className={`mt-3 grid gap-2.5 ${upcomingEvents.length === 1 ? 'grid-cols-1' : upcomingEvents.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
           {upcomingEvents.map((ev) => {
             const typeConfig = {
-              conference: { label: '회의', badgeBg: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300', cardBorder: 'border-violet-200 dark:border-violet-800', cardBg: 'bg-violet-50/80 dark:bg-violet-950/30', icon: <Users className="h-3.5 w-3.5" /> },
-              meeting: { label: '미팅', badgeBg: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', cardBorder: 'border-amber-200 dark:border-amber-800', cardBg: 'bg-amber-50/80 dark:bg-amber-950/30', icon: <Coffee className="h-3.5 w-3.5" /> },
-              event: { label: '이벤트', badgeBg: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300', cardBorder: 'border-emerald-200 dark:border-emerald-800', cardBg: 'bg-emerald-50/80 dark:bg-emerald-950/30', icon: <Calendar className="h-3.5 w-3.5" /> },
+              conference: { label: '회의', badgeBg: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300', cardBorder: 'border-violet-200/70 dark:border-violet-800/60', cardBg: 'bg-background/70', icon: <Users className="h-3.5 w-3.5" /> },
+              meeting: { label: '미팅', badgeBg: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', cardBorder: 'border-amber-200/70 dark:border-amber-800/60', cardBg: 'bg-background/70', icon: <Coffee className="h-3.5 w-3.5" /> },
+              event: { label: '이벤트', badgeBg: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300', cardBorder: 'border-emerald-200/70 dark:border-emerald-800/60', cardBg: 'bg-background/70', icon: <Calendar className="h-3.5 w-3.5" /> },
             }[ev.announcement_type] || { label: '일정', badgeBg: 'bg-muted text-muted-foreground', cardBorder: 'border-border', cardBg: 'bg-muted/50', icon: <Calendar className="h-3.5 w-3.5" /> };
 
             const formattedDate = ev.meeting_date

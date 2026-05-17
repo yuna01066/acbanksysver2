@@ -7,7 +7,7 @@ interface CalculatorWidgetProps {
 
 const CalculatorWidget = ({ initialType = null }: CalculatorWidgetProps) => {
   return (
-    <div className="w-full min-h-screen">
+    <div className="w-full">
       <PanelCalculator initialType={initialType} />
     </div>
   );

@@ -163,11 +163,11 @@ const ProjectManagementPage = () => {
         icon={<FolderOpen className="h-5 w-5" />}
         actions={(
           <>
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
               새 프로젝트
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate('/')}>
+            <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-2">
               <Home className="h-4 w-4" />
               홈
             </Button>
@@ -178,13 +178,13 @@ const ProjectManagementPage = () => {
 
       <div className="flex flex-col gap-5 lg:flex-row">
           {/* Left: Project List */}
-          <div className="w-full shrink-0 flex flex-col lg:w-[360px]">
+          <div className="flex w-full shrink-0 flex-col lg:w-[380px]">
             {/* Tab buttons */}
             <SearchFilterBar className="mb-3 space-y-3">
-              <div className="flex bg-muted rounded-lg p-0.5">
+              <div className="flex rounded-xl bg-muted/70 p-1">
                 <button
                   onClick={() => handleTabChange('client')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-md transition-all ${
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-all ${
                     activeTab === 'client'
                       ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
@@ -195,7 +195,7 @@ const ProjectManagementPage = () => {
                 </button>
                 <button
                   onClick={() => handleTabChange('internal')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-md transition-all ${
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-all ${
                     activeTab === 'internal'
                       ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
@@ -214,23 +214,23 @@ const ProjectManagementPage = () => {
                     placeholder="프로젝트 검색..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8 h-8 text-xs"
+                    className="h-9 rounded-xl pl-8 text-xs"
                   />
                 </div>
               </div>
             </SearchFilterBar>
 
             {/* Project list */}
-            <div className="space-y-1.5 max-h-[calc(100vh-240px)] overflow-y-auto pr-0.5">
+            <div className="max-h-[calc(100vh-240px)] space-y-2 overflow-y-auto pr-0.5">
               {isLoading ? (
                 <div className="space-y-2 py-4">
                   {[1, 2, 3].map(i => (
-                    <div key={i} className="h-16 bg-muted/50 rounded-lg animate-pulse" />
+                    <div key={i} className="h-20 animate-pulse rounded-xl bg-muted/50" />
                   ))}
                 </div>
               ) : filteredProjects.length === 0 ? (
-                <div className="text-center py-16">
-                  <FolderOpen className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                <div className="rounded-2xl border border-dashed bg-muted/20 px-4 py-16 text-center">
+                  <FolderOpen className="mx-auto mb-2 h-8 w-8 text-muted-foreground/35" />
                   <p className="text-xs text-muted-foreground">
                     {searchQuery ? '검색 결과가 없습니다.' : '프로젝트가 없습니다.'}
                   </p>
@@ -249,16 +249,16 @@ const ProjectManagementPage = () => {
                     <div
                       key={project.id}
                       onClick={() => handleProjectSelect(project.id)}
-                      className={`group cursor-pointer rounded-lg border p-3 transition-all ${
+                      className={`group cursor-pointer rounded-2xl border p-3.5 transition-all ${
                         isSelected
-                          ? 'border-primary/40 bg-primary/[0.03] shadow-sm'
-                          : 'border-transparent hover:bg-muted/50 hover:border-border'
+                          ? 'border-primary/40 bg-primary/[0.04] shadow-sm'
+                          : 'border-border/60 bg-background/65 hover:border-primary/20 hover:bg-accent/30'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2 mb-1.5">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
-                            <h3 className="font-semibold text-[13px] truncate leading-tight">{project.name}</h3>
+                            <h3 className="truncate text-sm font-semibold leading-tight">{project.name}</h3>
                             {qs && qs.count > 0 && (
                               <FileText className="h-3 w-3 text-primary/60 shrink-0" />
                             )}
@@ -266,17 +266,17 @@ const ProjectManagementPage = () => {
                         </div>
                         <Badge
                           variant="secondary"
-                          className={`text-[10px] px-1.5 py-0 h-[18px] font-medium border shrink-0 ${statusColors[project.status] || ''}`}
+                          className={`h-[20px] shrink-0 rounded-full border px-2 py-0 text-[10px] font-medium ${statusColors[project.status] || ''}`}
                         >
                           {statusLabels[project.status] || project.status}
                         </Badge>
                       </div>
 
                       {project.description && (
-                        <p className="text-[11px] text-muted-foreground line-clamp-1 mb-1.5">{project.description}</p>
+                        <p className="mb-2 line-clamp-1 text-[11px] text-muted-foreground">{project.description}</p>
                       )}
 
-                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10px] text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] text-muted-foreground">
                         {project.recipients && (
                           <span className="flex items-center gap-0.5">
                             <Building2 className="h-2.5 w-2.5" />
@@ -316,16 +316,16 @@ const ProjectManagementPage = () => {
           </div>
 
           {/* Right: Project Detail */}
-          <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
             {selectedProjectId ? (
               <ProjectDetailPanel
                 projectId={selectedProjectId}
                 onDeleted={handleProjectDeleted}
               />
             ) : (
-              <div className="flex items-center justify-center h-[500px] border border-dashed rounded-xl bg-muted/20">
+              <div className="flex h-[500px] items-center justify-center rounded-2xl border border-dashed bg-muted/20">
                 <div className="text-center">
-                  <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50">
                     <FolderOpen className="h-5 w-5 text-muted-foreground/50" />
                   </div>
                   <p className="text-sm text-muted-foreground">프로젝트를 선택하세요</p>

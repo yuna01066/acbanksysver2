@@ -3,13 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotionProjects } from '@/hooks/useNotionProjects';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Activity, FileText, Edit, ArrowRightLeft, Trash2, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 
 interface ActivityLog {
   id: string;
@@ -118,23 +119,25 @@ const ActivityFeedCard = () => {
   if (!user) return null;
 
   return (
-    <Card className="w-full">
+    <Card className="flex h-full w-full flex-col">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Activity className="w-4 h-4 text-primary" />
-          팀 활동 피드
-          {allActivities.length > 0 && (
-            <Badge variant="secondary" className="text-xs ml-auto">
-              {allActivities.length}
-            </Badge>
-          )}
-        </CardTitle>
+        <BrandedCardHeader
+          icon={Activity}
+          title="팀 활동 피드"
+          meta={
+            allActivities.length > 0 ? (
+              <Badge variant="secondary" className="rounded-full px-2.5 text-xs">
+                {allActivities.length}
+              </Badge>
+            ) : null
+          }
+        />
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="flex flex-1 flex-col pt-0">
         {allActivities.length === 0 ? (
-          <div className="text-center py-6 text-muted-foreground text-sm">
-            <Activity className="h-8 w-8 mx-auto mb-2 opacity-30" />
-            최근 활동이 없습니다
+          <div className="flex min-h-[180px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center text-sm text-muted-foreground">
+            <Activity className="mb-2 h-8 w-8 text-muted-foreground/35" />
+            최근 활동이 없습니다.
           </div>
         ) : (
           <ScrollArea className="h-[280px]">
@@ -146,7 +149,7 @@ const ActivityFeedCard = () => {
                 return (
                   <div
                     key={item.id}
-                    className={`flex items-start gap-2.5 p-2 rounded-lg border bg-card ${isClickable ? 'cursor-pointer hover:bg-accent/5 transition-colors' : ''}`}
+                    className={`flex items-start gap-2.5 rounded-xl border border-border/70 bg-background/70 p-2.5 ${isClickable ? 'cursor-pointer transition-colors hover:bg-accent/35' : ''}`}
                     onClick={() => isClickable && handleClick(item)}
                   >
                     <div className={`mt-0.5 ${config.color}`}>

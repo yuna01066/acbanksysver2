@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotionProjects } from '@/hooks/useNotionProjects';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 
 interface CalendarEvent {
   id: string;
@@ -440,9 +441,10 @@ const DashboardCalendar = () => {
   return (
     <Card className="w-full">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-3">
-            <CardTitle className="text-lg">프로젝트 캘린더</CardTitle>
+        <BrandedCardHeader
+          icon={Calendar}
+          title="프로젝트 캘린더"
+          meta={
             <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'all' | 'my')} className="h-8">
               <TabsList className="h-8 p-0.5">
                 <TabsTrigger value="all" className="h-7 text-xs gap-1 px-2.5">
@@ -453,7 +455,8 @@ const DashboardCalendar = () => {
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-          </div>
+          }
+          actions={
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
               <ChevronLeft className="h-4 w-4" />
@@ -465,7 +468,8 @@ const DashboardCalendar = () => {
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-        </div>
+          }
+        />
         <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
           <span className="flex items-center gap-1">
             <FileText className="h-3 w-3 text-primary" /> 견적 발행일

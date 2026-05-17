@@ -16,6 +16,7 @@ import ProjectDropdown from '@/components/chat/ProjectDropdown';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 
 interface CheckedInEmployee {
   user_id: string;
@@ -289,18 +290,23 @@ const OnlineEmployeesCard: React.FC = () => {
 
   return (
     <>
-      <div className="glass-card p-5 animate-fade-in flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Users2 className="h-4 w-4 text-green-500" />
-            현재 출근 중
-            <Badge variant="secondary" className="text-xs">{employees.length}명</Badge>
-          </h3>
+      <div className="glass-card flex h-full min-h-[360px] flex-col p-5 animate-fade-in">
+        <div className="mb-4">
+          <BrandedCardHeader
+            icon={Users2}
+            title="현재 출근 중"
+            meta={<Badge variant="secondary" className="rounded-full px-2.5 text-xs">{employees.length}명</Badge>}
+            iconClassName="text-emerald-500"
+            iconWrapClassName="border-emerald-500/10 bg-emerald-500/10"
+          />
         </div>
 
         <div className="flex-1">
           {employees.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-3">현재 출근한 직원이 없습니다.</p>
+            <div className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center">
+              <Users2 className="mb-2 h-8 w-8 text-muted-foreground/35" />
+              <p className="text-sm text-muted-foreground">현재 출근한 직원이 없습니다.</p>
+            </div>
           ) : (
             <div className="space-y-4">
               {/* My avatar row */}
@@ -315,7 +321,7 @@ const OnlineEmployeesCard: React.FC = () => {
                           <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
                             <PopoverTrigger asChild>
                               <Avatar
-                                className={`h-20 w-20 rounded-xl border-2 ${statusCfg.borderColor} shadow-md cursor-pointer transition-transform hover:scale-110 ring-2 ring-primary/30`}
+                                className={`h-14 w-14 cursor-pointer rounded-xl border ${statusCfg.borderColor} shadow-sm ring-2 ring-primary/20 transition-transform hover:scale-[1.03]`}
                               >
                                 <AvatarImage src={emp.avatar_url || undefined} alt={emp.user_name} className="object-cover" />
                                 <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-sm font-semibold">
@@ -366,7 +372,7 @@ const OnlineEmployeesCard: React.FC = () => {
                         <div className="flex flex-col items-center gap-1.5">
                           <div className="relative">
                             <Avatar
-                              className={`h-16 w-16 rounded-xl border-2 ${statusCfg.borderColor} shadow-sm cursor-pointer transition-transform hover:scale-110`}
+                              className={`h-12 w-12 cursor-pointer rounded-xl border ${statusCfg.borderColor} shadow-sm transition-transform hover:scale-[1.03]`}
                               onClick={() => {
                                 setActiveEmpId(activeEmpId === emp.user_id ? null : emp.user_id);
                               }}
@@ -425,25 +431,6 @@ const OnlineEmployeesCard: React.FC = () => {
           )}
         </div>
 
-        {/* Feature guide - bottom aligned */}
-        <div className="mt-auto pt-4 border-t space-y-2">
-          <p className="text-[11px] font-semibold text-muted-foreground">💡 사용 방법</p>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <span>❤️</span><span>인정 보내기</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span>💬</span><span>피드백 보내기</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span>🙏</span><span>업무 요청</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span>☕</span><span>1:1 미팅 요청</span>
-            </div>
-          </div>
-          <p className="text-[10px] text-muted-foreground/70">동료 아바타를 클릭하면 메시지를 보낼 수 있어요. #으로 프로젝트 태그도 가능!</p>
-        </div>
       </div>
 
       {/* Feedback Dialog */}

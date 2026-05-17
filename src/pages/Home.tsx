@@ -206,11 +206,11 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-transparent">
-      <div className="container mx-auto px-3 sm:px-4 py-8 sm:py-16">
-        <div className="max-w-6xl mx-auto">
+      <div className="container mx-auto px-4 py-6 sm:py-10">
+        <div className="mx-auto max-w-7xl">
           {/* Top Bar */}
-          <div className="flex flex-wrap justify-between items-center gap-3 mb-8">
-            <div>
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center">
               <NotificationPanel
                 notifications={notifications}
                 unviewedCount={unviewedCount}
@@ -219,17 +219,17 @@ const Home = () => {
                 onRefresh={refreshNotifications}
               />
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center justify-end gap-2">
               <button onClick={() => navigate('/team-chat')} title="팀챗"
-                className="w-10 h-10 rounded-full glass-pill flex items-center justify-center transition-transform active:scale-95 hover:scale-105 shrink-0">
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-background/75 shadow-sm backdrop-blur transition-colors hover:bg-accent/40 active:scale-95">
                 <MessageCircle className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
               <button onClick={() => navigate('/my-page')} title="마이페이지"
-                className="w-10 h-10 rounded-full glass-pill flex items-center justify-center transition-transform active:scale-95 hover:scale-105 shrink-0">
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-background/75 shadow-sm backdrop-blur transition-colors hover:bg-accent/40 active:scale-95">
                 <User className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
               <button onClick={signOut}
-                className="h-10 px-3 sm:px-4 rounded-full glass-pill flex items-center gap-2 text-[13px] font-medium text-muted-foreground transition-transform active:scale-95 hover:scale-105 shrink-0">
+                className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-border/70 bg-background/75 px-3 text-[13px] font-medium text-muted-foreground shadow-sm backdrop-blur transition-colors hover:bg-accent/40 active:scale-95 sm:px-4">
                 <LogOut className="h-4 w-4" />
                 <span className="hidden xs:inline sm:inline">로그아웃</span>
               </button>
@@ -237,15 +237,15 @@ const Home = () => {
           </div>
 
           {/* Header – subtle metal logo, kept from the original tone */}
-          <div className="text-center mb-8 sm:mb-14 animate-fade-up space-y-3">
+          <div className="mb-6 space-y-2 text-center animate-fade-up sm:mb-8">
             <div className="inline-block logo-neon-wrap rounded-[22px] p-[4px]" onClick={handleLogoClick}>
               <div
                 className={cn(
-                  "px-10 sm:px-14 py-3 rounded-[18px] logo-metal cursor-pointer select-none",
+                  "cursor-pointer select-none rounded-[18px] px-8 py-2.5 logo-metal sm:px-12",
                   logoSpinning && "logo-spin-3d"
                 )}
               >
-                <h1 className="text-3xl sm:text-[40px] font-black leading-none tracking-[3px] text-transparent bg-clip-text bg-gradient-to-b from-slate-600 to-slate-900 dark:from-slate-200 dark:to-slate-500">
+                <h1 className="bg-gradient-to-b from-slate-600 to-slate-900 bg-clip-text text-3xl font-black leading-none tracking-[3px] text-transparent dark:from-slate-200 dark:to-slate-500 sm:text-[36px]">
                   ACBANK
                 </h1>
               </div>
@@ -253,27 +253,34 @@ const Home = () => {
             <p className="text-[11px] sm:text-[12px] font-medium tracking-[0.22em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>Management System</p>
           </div>
 
-          <div className="mb-6 space-y-5">
+          <div className="mb-6 space-y-4 sm:space-y-5">
             {/* Quick icon links */}
-            <div className="flex justify-center sm:justify-end gap-4 flex-wrap">
-              {quickLinks.map((ql, i) => {
-                const QIcon = ql.icon;
-                return (
-                  <button key={i} onClick={ql.action} className="flex flex-col items-center gap-1.5 group" title={ql.title}>
-                    <div className="w-11 h-11 rounded-full glass-surface flex items-center justify-center transition-all group-hover:scale-110 group-hover:shadow-smooth">
-                      <QIcon className="h-[18px] w-[18px] text-muted-foreground group-hover:text-primary transition-colors" />
-                    </div>
-                    <span className="text-[10px] text-muted-foreground group-hover:text-foreground transition-colors">{ql.title}</span>
-                  </button>
-                );
-              })}
+            <div className="flex justify-center sm:justify-end">
+              <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-2xl border border-border/60 bg-background/70 p-1.5 shadow-sm backdrop-blur">
+                {quickLinks.map((ql, i) => {
+                  const QIcon = ql.icon;
+                  return (
+                    <button
+                      key={i}
+                      onClick={ql.action}
+                      className="group flex h-9 items-center gap-2 rounded-xl px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/45 hover:text-foreground sm:px-3"
+                      title={ql.title}
+                    >
+                      <QIcon className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+                      <span>{ql.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <TimeGreeting name={profile?.full_name || user.email?.split('@')[0] || '사용자'} avatarUrl={profile?.avatar_url} />
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+              <TimeGreeting name={profile?.full_name || user.email?.split('@')[0] || '사용자'} avatarUrl={profile?.avatar_url} />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <QuickAttendanceButton />
-              <DailyQuoteCard />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                <QuickAttendanceButton />
+                <DailyQuoteCard />
+              </div>
             </div>
             <TodayWorkCard notifications={notifications} />
             <DashboardCalendar />
@@ -292,14 +299,24 @@ const Home = () => {
 
           {/* Links Grid */}
           {(() => {
-            const sideCards: (null | DashboardLink)[] = [
+            const secondaryLinks: DashboardLink[] = [
               { title: "샘플칩 관리", icon: Palette, description: "샘플칩 재고 관리", requiresAuth: true, action: () => navigate("/sample-chip-inventory") },
               { title: "박람회 관리", icon: Landmark, description: "박람회 일정·준비·상담 관리", requiresAuth: true, action: () => navigate("/exhibition-management") },
               { title: "세금계산서 관리", icon: Receipt, description: "세금계산서 발행·조회", requiresAuth: true, action: () => navigate("/tax-invoices") },
             ];
 
-            const cols = 3;
-            const totalRows = Math.ceil(links.length / cols);
+            const byTitle = new Map(links.map((link) => [link.title, link]));
+            const secondaryByTitle = new Map(secondaryLinks.map((link) => [link.title, link]));
+            const pickLinks = (titles: string[]) => titles
+              .map((title) => byTitle.get(title) || secondaryByTitle.get(title))
+              .filter(Boolean) as DashboardLink[];
+
+            const linkGroups = [
+              { title: "업무", items: pickLinks(["공지사항", "근태 관리", "연차 관리", "업무 평가"]) },
+              { title: "견적 · 프로젝트", items: pickLinks(["고객사 관리", "프로젝트 관리", "원판 발주 관리", "수율 계산기", "견적 계산기", "발행 견적서 확인"]) },
+              { title: "관리", items: pickLinks(["샘플칩 관리", "박람회 관리", "세금계산서 관리", "관리자 설정"]) },
+              { title: "외부", items: pickLinks(["클라이언트 상담폼"]) },
+            ].filter((group) => group.items.length > 0);
 
             const renderCard = (item: DashboardLink, key: string) => {
               const Icon = item.icon;
@@ -310,7 +327,7 @@ const Home = () => {
                 <div
                   key={key}
                   className={cn(
-                    "glass-card p-5 sm:p-7 text-center cursor-pointer group relative",
+                    "group relative flex min-h-[92px] cursor-pointer items-center gap-3 rounded-2xl border border-border/70 bg-background/75 p-3 text-left shadow-sm backdrop-blur transition-colors hover:bg-accent/35 sm:p-4",
                     (isLocked || isAdminOnly) ? "opacity-50 cursor-not-allowed" : ""
                   )}
                   onClick={() => {
@@ -320,49 +337,43 @@ const Home = () => {
                   }}
                 >
                   {isLocked && (
-                    <div className="absolute top-3 right-3">
-                      <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">로그인 필요</Badge>
+                    <div className="absolute right-3 top-3">
+                      <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px]">로그인 필요</Badge>
                     </div>
                   )}
                   {isAdminOnly && (
-                    <div className="absolute top-3 right-3">
-                      <Badge variant="secondary" className="text-xs glass-pill px-2 py-0.5">관리자 전용</Badge>
+                    <div className="absolute right-3 top-3">
+                      <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px]">관리자 전용</Badge>
                     </div>
                   )}
-                  <div className="mb-3 sm:mb-4 flex justify-center">
-                    <div className={cn(
-                      "w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300",
-                      (isLocked || isAdminOnly) ? "glass-surface" : "glass-surface group-hover:shadow-smooth group-hover:scale-110"
-                    )}>
-                      {Icon && <Icon className={cn("w-5 h-5 sm:w-6 sm:h-6", (isLocked || isAdminOnly) ? "text-muted-foreground" : "text-primary")} />}
-                    </div>
+                  <div className={cn(
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-primary transition-colors",
+                    (isLocked || isAdminOnly) && "border-border bg-muted/50 text-muted-foreground"
+                  )}>
+                    {Icon && <Icon className="h-5 w-5" />}
                   </div>
-                  <h3 className="text-[13px] sm:text-[15px] font-semibold tracking-[-0.01em] mb-0.5 sm:mb-1 truncate">{item.title}</h3>
-                  <p className="text-[11px] sm:text-[12px] text-muted-foreground line-clamp-2">{item.description}</p>
+                  <div className="min-w-0 pr-12 sm:pr-14">
+                    <h3 className="truncate text-sm font-semibold leading-5 text-foreground">{item.title}</h3>
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{item.description}</p>
+                  </div>
                 </div>
               );
             };
 
             return (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
-                {Array.from({ length: totalRows }).flatMap((_, r) => {
-                  const rowItems: React.ReactNode[] = [];
-                  for (let c = 0; c < cols; c++) {
-                    const index = r * cols + c;
-                    if (index < links.length) {
-                      rowItems.push(renderCard(links[index], `link-${index}`));
-                    } else {
-                      rowItems.push(<div key={`empty-main-${r}-${c}`} />);
-                    }
-                  }
-                  const sideCard = sideCards[r];
-                  if (sideCard) {
-                    rowItems.push(renderCard(sideCard, `side-${r}`));
-                  } else {
-                    rowItems.push(<div key={`empty-col-${r}`} className="glass-card p-5 sm:p-7" />);
-                  }
-                  return rowItems;
-                })}
+              <div className="mt-6 space-y-5">
+                {linkGroups.map((group) => (
+                  <section key={group.title} className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-px flex-1 bg-border/60" />
+                      <h2 className="shrink-0 text-xs font-semibold text-muted-foreground">{group.title}</h2>
+                      <div className="h-px flex-1 bg-border/60" />
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {group.items.map((item) => renderCard(item, `${group.title}-${item.title}`))}
+                    </div>
+                  </section>
+                ))}
               </div>
             );
           })()}

@@ -17,6 +17,7 @@ import ProjectDropdown from '@/components/chat/ProjectDropdown';
 import MessageContent from '@/components/chat/MessageContent';
 import ChatAttachments from '@/components/chat/ChatAttachments';
 import { gcsUploadFile } from '@/hooks/useGcsStorage';
+import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 
 interface ChatAttachment {
   name: string;
@@ -251,12 +252,14 @@ const TeamChatCard: React.FC = () => {
   };
 
   return (
-    <div className="glass-card animate-fade-in flex flex-col h-[400px]">
+    <div className="glass-card flex h-[360px] flex-col animate-fade-in sm:h-[400px]">
       {/* Header */}
-      <div className="flex items-center gap-2 p-4 border-b shrink-0">
-        <MessageSquare className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">팀 채팅</h3>
-        <span className="text-xs text-muted-foreground">({messages.length})</span>
+      <div className="shrink-0 border-b border-border/70 p-4">
+        <BrandedCardHeader
+          icon={MessageSquare}
+          title="팀 채팅"
+          meta={<span className="text-xs font-medium text-muted-foreground">({messages.length})</span>}
+        />
       </div>
 
       {/* Messages */}
@@ -267,10 +270,9 @@ const TeamChatCard: React.FC = () => {
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="text-center py-8">
-              <MessageSquare className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+            <div className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 py-8 text-center">
+              <MessageSquare className="mx-auto mb-2 h-8 w-8 text-muted-foreground/35" />
               <p className="text-sm text-muted-foreground">아직 메시지가 없습니다</p>
-              <p className="text-xs text-muted-foreground/60">첫 번째 메시지를 보내보세요!</p>
             </div>
           ) : (
             messages.map((msg, idx) => {
@@ -305,10 +307,10 @@ const TeamChatCard: React.FC = () => {
                         </button>
                       )}
                       <div
-                        className={`rounded-xl px-3 py-1.5 text-sm break-words ${
+                        className={`rounded-xl px-3 py-1.5 text-sm break-words shadow-sm ${
                           isMine
-                            ? 'bg-primary text-primary-foreground rounded-br-sm'
-                            : 'bg-muted rounded-bl-sm'
+                            ? 'bg-primary/85 text-primary-foreground rounded-br-sm'
+                            : 'border border-border/70 bg-background/80 rounded-bl-sm'
                         }`}
                       >
                         <MessageContent message={msg.message} isMine={isMine} />
@@ -330,7 +332,7 @@ const TeamChatCard: React.FC = () => {
       </ScrollArea>
 
       {/* Input */}
-      <form onSubmit={handleSend} className="p-3 border-t shrink-0 relative">
+      <form onSubmit={handleSend} className="relative shrink-0 border-t border-border/70 p-3">
         {dropdownMode === 'mention' && mentionResults.length > 0 && (
           <MentionDropdown
             users={mentionResults}

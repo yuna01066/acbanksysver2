@@ -4,12 +4,13 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotionProjects, type NotionProject } from '@/hooks/useNotionProjects';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { differenceInDays, parseISO, isValid } from 'date-fns';
+import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 
 interface QuoteProject {
   id: string;
@@ -127,19 +128,18 @@ const ProjectProgressCard = () => {
   const hasData = notionWithProgress.length > 0 || quoteWithProgress.length > 0;
 
   return (
-    <Card className="w-full min-h-[160px]">
+    <Card className="flex h-full min-h-[160px] w-full flex-col">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          프로젝트 진행률
-        </CardTitle>
+        <BrandedCardHeader icon={FileSpreadsheet} title="프로젝트 진행률" />
       </CardHeader>
-      <CardContent className="space-y-3 pt-0">
+      <CardContent className="flex flex-1 flex-col space-y-3 pt-0">
         {isLoading ? (
-          <div className="flex items-center justify-center py-6">
+          <div className="flex min-h-[180px] flex-1 items-center justify-center py-6">
             <p className="text-sm text-muted-foreground">로딩 중...</p>
           </div>
         ) : !hasData ? (
-          <div className="flex items-center justify-center py-6">
+          <div className="flex min-h-[180px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center">
+            <FileSpreadsheet className="mb-2 h-8 w-8 text-muted-foreground/35" />
             <p className="text-sm text-muted-foreground">진행 중인 프로젝트가 없습니다</p>
           </div>
         ) : (

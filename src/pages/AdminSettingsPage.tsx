@@ -7,6 +7,7 @@ import { ArrowLeft, Home, Lock, Settings, Users, UserCog, Code, Wrench, HardDriv
 import { useAuth } from "@/contexts/AuthContext";
 import SecretEventManager from '@/components/admin/SecretEventManager';
 import { PageHeader, PageShell } from '@/components/layout/PageLayout';
+import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 
 const AdminSettingsPage = () => {
   const navigate = useNavigate();
@@ -67,10 +68,7 @@ const AdminSettingsPage = () => {
         {/* 직원 관리 Card */}
         <Card className="border-white/60 bg-card/70">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Users className="w-5 h-5 text-primary" />
-              직원 관리
-            </CardTitle>
+            <BrandedCardHeader icon={Users} title="직원 관리" />
             <CardDescription>직원 프로필, 근무 관리 및 회사 설정</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
@@ -148,10 +146,7 @@ const AdminSettingsPage = () => {
           {/* 프로젝트 관리 Card */}
           <Card className="border-white/60 bg-card/70">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <FolderKanban className="w-5 h-5 text-primary" />
-                프로젝트 · 시스템 관리
-              </CardTitle>
+              <BrandedCardHeader icon={FolderKanban} title="프로젝트 · 시스템 관리" />
               <CardDescription>견적, 원판, 가공 가격, 외부 연동 및 시스템 설정</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
