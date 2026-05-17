@@ -707,6 +707,9 @@ export type Database = {
           storage_bucket: string | null
           storage_path: string | null
           storage_provider: string
+          sync_error: string | null
+          sync_status: string
+          synced_at: string | null
           updated_at: string
           uploaded_by: string | null
         }
@@ -729,6 +732,9 @@ export type Database = {
           storage_bucket?: string | null
           storage_path?: string | null
           storage_provider?: string
+          sync_error?: string | null
+          sync_status?: string
+          synced_at?: string | null
           updated_at?: string
           uploaded_by?: string | null
         }
@@ -751,6 +757,9 @@ export type Database = {
           storage_bucket?: string | null
           storage_path?: string | null
           storage_provider?: string
+          sync_error?: string | null
+          sync_status?: string
+          synced_at?: string | null
           updated_at?: string
           uploaded_by?: string | null
         }
