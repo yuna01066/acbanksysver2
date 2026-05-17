@@ -26,6 +26,7 @@ import {
   type StorageProvider,
 } from "@/services/documentFiles";
 import { buildIssuedQuoteDrivePath, toDrivePathText } from "@/utils/documentOrganization";
+import { getQuoteCelebrationCopy, getTodayQuoteCount } from "@/utils/engagement";
 
 const InternalQuotePage = () => {
   const navigate = useNavigate();
@@ -231,7 +232,14 @@ const InternalQuotePage = () => {
         }
       }
 
-      toast.success('견적서가 저장되었습니다.');
+      try {
+        const todayQuoteCount = await getTodayQuoteCount(user.id);
+        const celebration = getQuoteCelebrationCopy(todayQuoteCount);
+        toast.success(celebration.title, { description: celebration.description });
+      } catch (celebrationError) {
+        console.warn('Quote celebration count failed:', celebrationError);
+        toast.success('견적서 발행 완료. 오늘도 한 건 처리했습니다.');
+      }
       logActivity('quote_created', savedQuoteId || null, recipient?.projectName || quoteNumber);
       clearQuotes({ deleteAttachments: false });
       navigate('/saved-quotes');

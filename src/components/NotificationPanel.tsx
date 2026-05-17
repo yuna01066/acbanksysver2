@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart, Star, FolderOpen } from 'lucide-react';
+import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart, Star, FolderOpen, MessageSquareText } from 'lucide-react';
 import { AppNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -143,6 +143,8 @@ const NotificationPanel = ({
         return <Star className="h-4 w-4 text-yellow-500" />;
       case 'project_mention':
         return <FolderOpen className="h-4 w-4 text-blue-500" />;
+      case 'channel_talk_quote_lead':
+        return <MessageSquareText className="h-4 w-4 text-emerald-500" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
@@ -155,6 +157,7 @@ const NotificationPanel = ({
       || notification.type === 'quote_modified'
       || notification.type === 'project_mention'
       || notification.type === 'performance_review_summary'
+      || notification.type === 'channel_talk_quote_lead'
     ) return 'work';
     if (
       notification.type === 'leave_request'
@@ -174,6 +177,7 @@ const NotificationPanel = ({
       case 'quote_update':
       case 'quote_modified': return '견적';
       case 'project_mention': return '프로젝트';
+      case 'channel_talk_quote_lead': return '채널톡';
       case 'leave_request':
       case 'leave_approved':
       case 'leave_rejected':
@@ -459,6 +463,22 @@ const NotificationPanel = ({
                       >
                         <FileText className="h-3 w-3 mr-1" />
                         바로가기
+                      </Button>
+                    )}
+
+                    {notification.type === 'channel_talk_quote_lead' && notification.data?.lead_id && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          onRemove(notification.id);
+                          navigate(`/channel-talk-leads?id=${notification.data?.lead_id}`);
+                          setOpen(false);
+                        }}
+                      >
+                        <MessageSquareText className="h-3 w-3 mr-1" />
+                        분석 열기
                       </Button>
                     )}
 

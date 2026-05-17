@@ -5,10 +5,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogIn, LogOut, Clock, Loader2 } from 'lucide-react';
+import { Award, LogIn, LogOut, Clock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import LocationConfirmDialog from '@/components/attendance/LocationConfirmDialog';
+import {
+  calculateCurrentWeekAttendanceStreak,
+  getAttendanceStreakCopy,
+  getWeekdayKeysThroughToday,
+} from '@/utils/engagement';
 
 interface WorkplaceInfo {
   workplace_lat: number | null;
@@ -36,6 +41,7 @@ const QuickAttendanceButton = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'check_in' | 'check_out' | null>(null);
   const [pendingLocation, setPendingLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [attendanceStreak, setAttendanceStreak] = useState(0);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -49,6 +55,36 @@ const QuickAttendanceButton = () => {
       .maybeSingle();
     setTodayRecord(data);
     setFetching(false);
+  };
+
+  const fetchAttendanceStreak = async () => {
+    if (!user) return 0;
+
+    const weekKeys = getWeekdayKeysThroughToday();
+    const weekStart = weekKeys[0];
+    const weekEnd = weekKeys[weekKeys.length - 1];
+
+    if (!weekStart || !weekEnd) {
+      setAttendanceStreak(0);
+      return 0;
+    }
+
+    const { data, error } = await supabase
+      .from('attendance_records')
+      .select('date, check_in, status')
+      .eq('user_id', user.id)
+      .gte('date', weekStart)
+      .lte('date', weekEnd);
+
+    if (error) {
+      console.warn('Attendance streak fetch failed:', error);
+      setAttendanceStreak(0);
+      return 0;
+    }
+
+    const streak = calculateCurrentWeekAttendanceStreak(data || []);
+    setAttendanceStreak(streak);
+    return streak;
   };
 
   const fetchWorkplace = async () => {
@@ -68,6 +104,7 @@ const QuickAttendanceButton = () => {
 
   useEffect(() => {
     fetchTodayRecord();
+    fetchAttendanceStreak();
     fetchWorkplace();
   }, [user]);
 
@@ -133,8 +170,12 @@ const QuickAttendanceButton = () => {
       }
       const { error } = await supabase.from('attendance_records').insert(insertData);
       if (error) throw error;
-      toast.success('출근이 기록되었습니다.');
       fetchTodayRecord();
+      const streak = await fetchAttendanceStreak();
+      const streakCopy = getAttendanceStreakCopy(streak);
+      toast.success('출근이 기록되었습니다.', {
+        description: streakCopy || undefined,
+      });
     } catch (e: any) {
       toast.error('출근 기록 실패: ' + (e.message || ''));
     } finally {
@@ -200,6 +241,7 @@ const QuickAttendanceButton = () => {
 
   const checkedIn = !!todayRecord?.check_in;
   const checkedOut = !!todayRecord?.check_out;
+  const streakCopy = checkedIn ? getAttendanceStreakCopy(attendanceStreak) : null;
 
   return (
     <>
@@ -227,6 +269,12 @@ const QuickAttendanceButton = () => {
                     <span className="text-xs text-muted-foreground">미출근</span>
                   )}
                 </div>
+                {streakCopy && (
+                  <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+                    <Award className="h-3.5 w-3.5" />
+                    <span>{streakCopy}</span>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex shrink-0 items-center justify-end gap-2">

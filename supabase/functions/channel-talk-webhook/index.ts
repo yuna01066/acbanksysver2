@@ -413,14 +413,22 @@ async function notifyAdmins(supabase: ReturnType<typeof createClient>, lead: Jso
     return;
   }
 
+  const confidenceLabel = analysis.confidence === "high"
+    ? "신뢰도 높음"
+    : analysis.confidence === "medium"
+      ? "신뢰도 보통"
+      : "수동 검토 필요";
+  const missingCount = analysis.missing_fields?.length || 0;
+
   const notifications = roles.map((role: { user_id: string }) => ({
     user_id: role.user_id,
     type: "channel_talk_quote_lead",
     title: "채널톡 견적 첨부파일 분석",
-    description: `${analysis.item_name || "견적 문의"} 분석 결과가 도착했습니다.`,
+    description: `${analysis.item_name || "견적 문의"} · ${confidenceLabel} · 누락 ${missingCount}건`,
     data: {
       lead_id: lead.id,
       user_chat_id: lead.channel_talk_user_chat_id,
+      confidence: analysis.confidence || "low",
       missing_fields: analysis.missing_fields || [],
     },
   }));
