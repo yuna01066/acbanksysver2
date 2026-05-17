@@ -85,6 +85,9 @@ function getNotificationPath(notification: AppNotification): string {
   if ((notification.type === 'quote_update' || notification.type === 'quote_modified') && notification.data?.quoteId) {
     return `/saved-quotes/${notification.data.quoteId}`;
   }
+  if (notification.type === 'channel_talk_quote_lead' && notification.data?.lead_id) {
+    return `/channel-talk-leads?id=${notification.data.lead_id}`;
+  }
   if (notification.type === 'leave_request' || notification.type === 'leave_approved' || notification.type === 'leave_rejected') {
     return '/leave-management';
   }

@@ -57,6 +57,7 @@ const SpaceProjectFormPage = lazy(() => import("./pages/SpaceProjectFormPage"));
 const SpaceProjectsListPage = lazy(() => import("./pages/SpaceProjectsListPage"));
 const SpaceProjectDetailPage = lazy(() => import("./pages/SpaceProjectDetailPage"));
 const ReviewHubPage = lazy(() => import("./pages/ReviewHubPage"));
+const ChannelTalkLeadsPage = lazy(() => import("./pages/ChannelTalkLeadsPage"));
 const queryClient = new QueryClient();
 
 const G: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -123,6 +124,7 @@ const App = () => (
               <Route path="/exhibition-management" element={<G><ExhibitionManagementPage /></G>} />
               <Route path="/business-dashboard" element={<G><BusinessDashboardPage /></G>} />
               <Route path="/review-hub" element={<G><ReviewHubPage /></G>} />
+              <Route path="/channel-talk-leads" element={<G><ChannelTalkLeadsPage /></G>} />
               <Route path="/space-quote" element={<G><SpaceProjectFormPage /></G>} />
               <Route path="/space-quotes" element={<G><SpaceProjectsListPage /></G>} />
               <Route path="/space-quotes/:id" element={<G><SpaceProjectDetailPage /></G>} />

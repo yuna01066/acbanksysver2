@@ -173,6 +173,33 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       return;
     }
 
+    // 채널톡 분석 리드에서 견적 초안으로 진입한 경우
+    const channelLeadId = searchParams.get('channelLeadId');
+    if (channelLeadId) {
+      setCalculatorType('quote');
+
+      const materialParam = searchParams.get('material') || '';
+      if (/아크릴|acrylic/i.test(materialParam)) {
+        const acrylicMaterial = MATERIALS.find(m => m.id === 'acrylic' || /아크릴/.test(m.name));
+        if (acrylicMaterial) setSelectedMaterial(acrylicMaterial);
+      }
+
+      const thicknessParam = searchParams.get('thickness');
+      if (thicknessParam) {
+        const thicknessMatch = thicknessParam.match(/\d+(?:\.\d+)?\s*T/i);
+        setSelectedThickness(thicknessMatch ? thicknessMatch[0].replace(/\s+/g, '').toUpperCase() : thicknessParam);
+      }
+
+      const quantityParam = Number(searchParams.get('quantity'));
+      if (Number.isFinite(quantityParam) && quantityParam > 0) setQty(quantityParam);
+
+      const selectedColorParam = searchParams.get('selectedColor');
+      if (selectedColorParam) setSelectedColor(selectedColorParam);
+
+      setCurrentStep(materialParam ? 2 : 1);
+      return;
+    }
+
     const editModeParam = searchParams.get('editMode');
     if (editModeParam === 'saved') {
       console.log('Edit mode detected, restoring quote data from URL params');
