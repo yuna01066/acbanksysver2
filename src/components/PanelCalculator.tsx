@@ -956,7 +956,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
                 calculationSnapshot: item.calculationSnapshot || null,
               })),
             },
-          })
+          } as any)
           .eq('id', savedQuoteId);
 
         if (updateError) throw updateError;
