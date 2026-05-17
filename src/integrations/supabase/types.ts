@@ -267,10 +267,13 @@ export type Database = {
       channel_talk_quote_leads: {
         Row: {
           analysis: Json
+          assigned_to: string | null
           channel_talk_file_keys: string[]
           channel_talk_message_id: string | null
           channel_talk_user_chat_id: string
           channel_talk_user_id: string | null
+          closed_at: string | null
+          converted_quote_id: string | null
           created_at: string
           customer_company: string | null
           customer_email: string | null
@@ -278,6 +281,7 @@ export type Database = {
           customer_phone: string | null
           id: string
           inquiry_type: string
+          memo: string | null
           missing_fields: string[]
           project_id: string | null
           raw_payload: Json
@@ -286,10 +290,13 @@ export type Database = {
         }
         Insert: {
           analysis?: Json
+          assigned_to?: string | null
           channel_talk_file_keys?: string[]
           channel_talk_message_id?: string | null
           channel_talk_user_chat_id: string
           channel_talk_user_id?: string | null
+          closed_at?: string | null
+          converted_quote_id?: string | null
           created_at?: string
           customer_company?: string | null
           customer_email?: string | null
@@ -297,6 +304,7 @@ export type Database = {
           customer_phone?: string | null
           id?: string
           inquiry_type?: string
+          memo?: string | null
           missing_fields?: string[]
           project_id?: string | null
           raw_payload?: Json
@@ -305,10 +313,13 @@ export type Database = {
         }
         Update: {
           analysis?: Json
+          assigned_to?: string | null
           channel_talk_file_keys?: string[]
           channel_talk_message_id?: string | null
           channel_talk_user_chat_id?: string
           channel_talk_user_id?: string | null
+          closed_at?: string | null
+          converted_quote_id?: string | null
           created_at?: string
           customer_company?: string | null
           customer_email?: string | null
@@ -316,6 +327,7 @@ export type Database = {
           customer_phone?: string | null
           id?: string
           inquiry_type?: string
+          memo?: string | null
           missing_fields?: string[]
           project_id?: string | null
           raw_payload?: Json
@@ -323,6 +335,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "channel_talk_quote_leads_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_talk_quote_leads_converted_quote_id_fkey"
+            columns: ["converted_quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "channel_talk_quote_leads_project_id_fkey"
             columns: ["project_id"]
