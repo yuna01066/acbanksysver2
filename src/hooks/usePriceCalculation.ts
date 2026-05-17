@@ -417,7 +417,7 @@ export const usePriceCalculation = ({
                 price: ps.price || undefined,
                 is_active: ps.is_active
               })),
-              optionSurchargesData: optionSurcharges,
+              optionSurchargesData: optionSurcharges as any,
               processingOptionsData: [],
               rawOnlyMultiplier: 1.0, // 원장 계산시에는 할증 제외
             }
