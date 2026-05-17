@@ -27,6 +27,7 @@ import AttendanceDashboard from '@/components/attendance/AttendanceDashboard';
 import OvertimeDetectionPanel from '@/components/attendance/OvertimeDetectionPanel';
 import MonthlyAttendanceReport from '@/components/attendance/MonthlyAttendanceReport';
 import DepartmentWorkPatternAnalysis from '@/components/attendance/DepartmentWorkPatternAnalysis';
+import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 
 const LEAVE_TYPES = [
   { value: 'annual', label: '연차' },
@@ -545,12 +546,14 @@ const AttendancePage = () => {
 
             <Card>
                <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base">
-                  {filterDate
-                    ? `${format(new Date(filterDate), 'yyyy년 M월 d일 (EEE)', { locale: ko })} 출퇴근 기록`
-                    : `${format(selectedMonth, 'yyyy년 M월', { locale: ko })} 출퇴근 기록`
+                <BrandedCardHeader
+                  icon={Clock}
+                  title={
+                    filterDate
+                      ? `${format(new Date(filterDate), 'yyyy년 M월 d일 (EEE)', { locale: ko })} 출퇴근 기록`
+                      : `${format(selectedMonth, 'yyyy년 M월', { locale: ko })} 출퇴근 기록`
                   }
-                </CardTitle>
+                />
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1">
                     <Search className="w-3.5 h-3.5 text-muted-foreground" />
@@ -728,7 +731,7 @@ const AttendancePage = () => {
           <TabsContent value="leave">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base">휴가 신청 내역</CardTitle>
+                <BrandedCardHeader icon={CalendarDays} title="휴가 신청 내역" />
                 <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="gap-1"><Plus className="w-4 h-4" />휴가 신청</Button>

@@ -15,7 +15,7 @@ import {
   HardDrive,
   Loader2,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -24,6 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import type { AppNotification } from '@/hooks/useNotifications';
+import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 
 interface TodayWorkCardProps {
   notifications: AppNotification[];
@@ -304,17 +305,12 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
   return (
     <Card className="w-full overflow-hidden border-primary/10 bg-background/85 shadow-sm backdrop-blur">
       <CardHeader className="pb-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <CheckCircle2 className="h-5 w-5 text-primary" />
-              오늘 처리할 일
-            </CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
-              알림, 승인, 납기, 프로젝트 상태를 우선순위 기준으로 모았습니다.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+        <BrandedCardHeader
+          icon={CheckCircle2}
+          title="오늘 처리할 일"
+          subtitle="알림, 승인, 납기, 프로젝트 상태를 우선순위 기준으로 모았습니다."
+          actions={
+            <div className="flex flex-wrap justify-end gap-2">
             <Badge variant="secondary" className="rounded-full px-2.5 py-1">
               총 {workItems.length}건
             </Badge>
@@ -323,8 +319,9 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
                 우선 확인 {urgentCount}건
               </Badge>
             )}
-          </div>
-        </div>
+            </div>
+          }
+        />
       </CardHeader>
       <CardContent className="pt-0">
         {isLoading ? (

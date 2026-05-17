@@ -190,8 +190,8 @@ const QuickAttendanceButton = () => {
 
   if (fetching) {
     return (
-      <Card className="w-full">
-        <CardContent className="p-4 flex items-center justify-center">
+      <Card className="h-full w-full border-primary/10 bg-background/75 shadow-sm">
+        <CardContent className="flex min-h-[104px] items-center justify-center p-4">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
@@ -203,11 +203,11 @@ const QuickAttendanceButton = () => {
 
   return (
     <>
-      <Card className="w-full">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-3">
+      <Card className="h-full w-full border-primary/10 bg-background/75 shadow-sm">
+        <CardContent className="flex h-full min-h-[104px] items-center p-4">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/10 bg-primary/10">
                 <Clock className="h-5 w-5 text-primary" />
               </div>
               <div className="min-w-0">
@@ -229,7 +229,7 @@ const QuickAttendanceButton = () => {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex shrink-0 items-center justify-end gap-2">
               {!checkedIn ? (
                 <Button size="sm" onClick={() => handleInitiateAction('check_in')} disabled={loading} className="gap-1.5">
                   {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogIn className="h-3.5 w-3.5" />}

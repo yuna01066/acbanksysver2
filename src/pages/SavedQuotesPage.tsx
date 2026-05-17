@@ -644,13 +644,14 @@ const SavedQuotesPage = () => {
         icon={<FileText className="h-5 w-5" />}
         actions={(
           <>
-            <Button onClick={() => navigate('/calculator')} size="sm">
+            <Button onClick={() => navigate('/calculator')} size="sm" className="gap-2">
+              <PlusCircle className="h-4 w-4" />
               견적서 작성
             </Button>
-            <Button onClick={() => navigate('/space-quotes')} variant="outline" size="sm">
+            <Button onClick={() => navigate('/space-quotes')} variant="outline" size="sm" className="gap-2">
               공간디자인 견적서
             </Button>
-            <Button onClick={() => navigate('/')} variant="outline" size="sm">
+            <Button onClick={() => navigate('/')} variant="outline" size="sm" className="gap-2">
               <Home className="h-4 w-4" />
               홈
             </Button>
@@ -660,17 +661,17 @@ const SavedQuotesPage = () => {
 
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="glass-surface rounded-2xl px-4 py-3">
-            <div className="text-xs text-muted-foreground">표시 견적</div>
-            <div className="mt-1 text-xl font-semibold">{filteredQuotes.length.toLocaleString()}건</div>
+          <div className="glass-surface rounded-2xl border border-border/60 px-4 py-3">
+            <div className="text-xs font-medium text-muted-foreground">표시 견적</div>
+            <div className="mt-1 text-xl font-semibold tabular-nums">{filteredQuotes.length.toLocaleString()}건</div>
           </div>
-          <div className="glass-surface rounded-2xl px-4 py-3">
-            <div className="text-xs text-muted-foreground">표시 합계</div>
-            <div className="mt-1 text-xl font-semibold">{formatPrice(listSummary.totalAmount)}</div>
+          <div className="glass-surface rounded-2xl border border-border/60 px-4 py-3">
+            <div className="text-xs font-medium text-muted-foreground">표시 합계</div>
+            <div className="mt-1 text-xl font-semibold tabular-nums">{formatPrice(listSummary.totalAmount)}</div>
           </div>
-          <div className="glass-surface rounded-2xl px-4 py-3">
-            <div className="text-xs text-muted-foreground">프로젝트 연결</div>
-            <div className="mt-1 text-xl font-semibold">
+          <div className="glass-surface rounded-2xl border border-border/60 px-4 py-3">
+            <div className="text-xs font-medium text-muted-foreground">프로젝트 연결</div>
+            <div className="mt-1 text-xl font-semibold tabular-nums">
               {listSummary.linkedProjectCount.toLocaleString()}건
               <span className="ml-2 text-sm font-normal text-muted-foreground">
                 거래처 {listSummary.recipientCount.toLocaleString()}곳
@@ -691,7 +692,7 @@ const SavedQuotesPage = () => {
                 placeholder="견적번호, 프로젝트명, 업체명, 담당자 검색"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="h-10 pl-10"
               />
             </div>
             <div className="relative">
@@ -700,7 +701,7 @@ const SavedQuotesPage = () => {
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="pl-10"
+                className="h-10 pl-10"
               />
             </div>
             {isAdmin && (
@@ -742,7 +743,7 @@ const SavedQuotesPage = () => {
               variant="outline"
               onClick={resetFilters}
               disabled={activeFilterCount === 0}
-              className="whitespace-nowrap"
+              className="h-10 whitespace-nowrap"
             >
               필터 초기화
             </Button>
@@ -752,7 +753,7 @@ const SavedQuotesPage = () => {
             <span className="text-sm text-muted-foreground">단계</span>
             <Badge
               variant={stageFilter === 'all' ? 'default' : 'outline'}
-              className="cursor-pointer text-xs"
+                className="cursor-pointer rounded-full px-2.5 text-xs"
               onClick={() => setStageFilter('all')}
             >
               전체
@@ -761,7 +762,7 @@ const SavedQuotesPage = () => {
               <Badge
                 key={stage.value}
                 variant="outline"
-                className={`cursor-pointer text-xs ${stageFilter === stage.value ? stage.color + ' border-current' : ''}`}
+                className={`cursor-pointer rounded-full px-2.5 text-xs ${stageFilter === stage.value ? stage.color + ' border-current' : ''}`}
                 onClick={() => setStageFilter(stage.value)}
               >
                 {stage.label}
@@ -779,7 +780,8 @@ const SavedQuotesPage = () => {
 
         {filteredQuotes.length === 0 ? (
           <Card>
-            <CardContent className="p-12 text-center">
+            <CardContent className="flex min-h-[260px] flex-col items-center justify-center p-12 text-center">
+              <FileText className="mb-3 h-9 w-9 text-muted-foreground/35" />
               <p className="mb-4 text-sm text-muted-foreground">
                 {quotes.length === 0 ? '저장된 견적서가 없습니다.' : '검색 결과가 없습니다.'}
               </p>
@@ -790,7 +792,7 @@ const SavedQuotesPage = () => {
           </Card>
         ) : (
           <>
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden border-border/70">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/40 hover:bg-muted/40">

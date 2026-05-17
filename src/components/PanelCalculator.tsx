@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, ArrowRight, Calculator, Plus, ShoppingCart, Home, Settings } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calculator, Plus, ShoppingCart } from "lucide-react";
 import { MATERIALS, CASTING_QUALITIES, OTHER_ACRYLIC_QUALITIES, Material, Quality } from "@/types/calculator";
 import ProcessingOptions from "./ProcessingOptions";
 import ColorMixingStep from "./ColorMixingStep";
@@ -1195,33 +1195,27 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   };
   // 필름 아크릴의 경우 maxSteps를 10으로 설정 (필름 선택 단계 추가)
   const maxSteps = selectedQuality?.id === 'film-acrylic' ? 10 : 9;
-  return <div className="min-h-screen p-4 sm:p-6">
-      <Card className="w-full max-w-4xl mx-auto border-white/60 shadow-smooth animate-fade-up overflow-hidden">
-        <CardHeader className="text-center pb-7 border-b border-white/50 bg-white/30 dark:bg-white/[0.03]">
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-6 print:hidden">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={() => navigate('/')} variant="outline" size="sm" className="animate-fade-up">
-                <Home className="w-4 h-4" />
-                홈으로
-              </Button>
-              <Button onClick={() => navigate('/admin-settings')} variant="outline" size="sm" className="animate-fade-up">
-                <Settings className="w-4 h-4" />
-                관리자 설정
-              </Button>
-            </div>
-            {quotes.length > 0 && <Button onClick={handleViewQuotesSummary} variant="default" className="animate-slide-in">
-                <ShoppingCart className="w-4 h-4" />
-                담은 견적 보기 ({quotes.length})
-              </Button>}
+  return <div className="w-full">
+      <Card className="mx-auto w-full max-w-5xl overflow-hidden border-white/60 shadow-sm animate-fade-up">
+        <CardHeader className="border-b border-white/50 bg-background/55 pb-5 dark:bg-white/[0.03]">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-primary">
+                <Calculator className="h-5 w-5" />
+              </span>
+              <div>
+                <div className="text-base font-semibold sm:text-lg">
+                  <span className="skeuo-engraved">ACBANK</span>{" "}
+                  <span className="font-medium text-muted-foreground">Quotation System</span>
+                </div>
+                <p className="mt-1 text-xs font-normal text-muted-foreground">아크뱅크 내부 계산 시스템</p>
+              </div>
+            </CardTitle>
+            {quotes.length > 0 && <Button onClick={handleViewQuotesSummary} variant="default" size="sm" className="shrink-0">
+              <ShoppingCart className="h-4 w-4" />
+              담은 견적 보기 ({quotes.length})
+            </Button>}
           </div>
-          <CardTitle className="flex items-center justify-center gap-3 mb-2">
-            <Calculator className="w-6 h-6 text-primary" />
-            <div className="text-xl sm:text-2xl">
-              <span className="skeuo-engraved">ACBANK</span>{" "}
-              <span className="font-medium text-muted-foreground">Quotation System</span>
-            </div>
-          </CardTitle>
-          <p className="text-body text-muted-foreground">아크뱅크 견적 시스템</p>
         </CardHeader>
         <CardContent className="p-5 sm:p-7 space-y-7">
           {/* 수율 계산기 */}

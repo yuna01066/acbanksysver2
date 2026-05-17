@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Clock3, FileText, HardDrive, RefreshCw, FolderOpen, Cloud, Database, Server, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { BrandedCardHeader } from "@/components/ui/branded-card-header";
 interface BucketUsage {
   name: string;
   fileCount: number;
@@ -604,10 +605,7 @@ const StorageStatusPage = () => {
         {/* 데이터 저장 위치 안내 */}
         <Card className="mb-6">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              데이터 저장 위치 안내
-            </CardTitle>
+            <BrandedCardHeader icon={MapPin} title="데이터 저장 위치 안내" />
             <CardDescription>각 데이터가 어디에 저장되는지 확인하세요</CardDescription>
           </CardHeader>
           <CardContent>
@@ -660,7 +658,7 @@ const StorageStatusPage = () => {
           <TabsContent value="lovable">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">파일 스토리지 버킷</CardTitle>
+                <BrandedCardHeader icon={FolderOpen} title="파일 스토리지 버킷" />
                 <CardDescription>Lovable Cloud 스토리지 (무료 1GB)</CardDescription>
               </CardHeader>
               <CardContent>
@@ -693,7 +691,7 @@ const StorageStatusPage = () => {
           <TabsContent value="database">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">데이터베이스 테이블</CardTitle>
+                <BrandedCardHeader icon={Database} title="데이터베이스 테이블" />
                 <CardDescription>테이블별 레코드 수 (총 {dbSize})</CardDescription>
               </CardHeader>
               <CardContent>
@@ -725,7 +723,7 @@ const StorageStatusPage = () => {
           <TabsContent value="gcs">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Google Cloud Storage</CardTitle>
+                <BrandedCardHeader icon={Server} title="Google Cloud Storage" />
                 <CardDescription>acbank_sys2 버킷 · 폴더별 사용량</CardDescription>
               </CardHeader>
               <CardContent>
@@ -758,7 +756,7 @@ const StorageStatusPage = () => {
           <TabsContent value="drive">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Google Drive 공유 드라이브</CardTitle>
+                <BrandedCardHeader icon={FolderOpen} title="Google Drive 공유 드라이브" />
                 <CardDescription>프로젝트별 폴더 사용량과 파일 원장 동기화 상태</CardDescription>
               </CardHeader>
               <CardContent>

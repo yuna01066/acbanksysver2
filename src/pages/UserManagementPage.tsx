@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Edit, Trash2, Shield, User, Lock, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Shield, User, Users, Lock, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 
 interface UserProfile {
   id: string;
@@ -321,7 +322,7 @@ const UserManagementPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>담당자 관리</CardTitle>
+            <BrandedCardHeader icon={Users} title="담당자 관리" />
             <CardDescription>
               사용자 계정을 조회하고 관리할 수 있습니다. 권한: {ROLE_HIERARCHY.map(r => ROLE_LABELS[r]).join(' > ')}
             </CardDescription>

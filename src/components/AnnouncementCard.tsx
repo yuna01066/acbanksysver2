@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 
 type AnnouncementType = 'general' | 'event' | 'conference' | 'meeting';
 
@@ -213,26 +214,26 @@ const AnnouncementCard = () => {
   };
 
   return (
-    <Card className="w-full">
+    <Card className="flex h-full w-full flex-col">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Megaphone className="h-6 w-6 text-primary" />
-            <CardTitle className="text-xl">공지사항</CardTitle>
-          </div>
-          <div className="flex items-center gap-2">
+        <BrandedCardHeader
+          icon={Megaphone}
+          title="공지사항"
+          actions={
+            <>
             {canPost && (
-              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowForm(!showForm)}>
+              <Button variant="outline" size="sm" className="h-8 rounded-full px-2.5 text-xs" onClick={() => setShowForm(!showForm)}>
                 <Plus className="h-3 w-3 mr-1" />작성
               </Button>
             )}
-            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => navigate('/announcements')}>
+            <Button variant="ghost" size="sm" className="h-8 rounded-full px-2.5 text-xs" onClick={() => navigate('/announcements')}>
               전체보기<ArrowRight className="h-3 w-3 ml-1" />
             </Button>
-          </div>
-        </div>
+            </>
+          }
+        />
       </CardHeader>
-      <CardContent className="pt-0 space-y-3">
+      <CardContent className="flex flex-1 flex-col space-y-3 pt-0">
         {canPost && showForm && (
           <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
             <div className="flex gap-1 flex-wrap">
@@ -388,7 +389,7 @@ const AnnouncementCard = () => {
             {latestAnnouncements.map((ann) => (
               <div
                 key={ann.id}
-                className="cursor-pointer rounded-lg border p-3 hover:bg-muted/30 transition-colors"
+                className="cursor-pointer rounded-xl border border-border/70 bg-background/70 p-3 transition-colors hover:bg-accent/35"
                 onClick={() => navigate('/announcements')}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -432,7 +433,10 @@ const AnnouncementCard = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-4 text-sm text-muted-foreground">등록된 공지사항이 없습니다.</div>
+          <div className="flex min-h-[180px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center">
+            <Megaphone className="mb-2 h-8 w-8 text-muted-foreground/35" />
+            <p className="text-sm text-muted-foreground">등록된 공지사항이 없습니다.</p>
+          </div>
         )}
       </CardContent>
     </Card>

@@ -70,7 +70,7 @@ export function PageHeader({
               </div>
             )}
             <div className="min-w-0">
-              <h1 className="truncate text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              <h1 className="truncate text-2xl font-bold text-foreground sm:text-3xl">
                 {title}
               </h1>
               {description && (

@@ -12,10 +12,11 @@ import {
   Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 
 type LeaveReview = {
   id: string;
@@ -229,20 +230,16 @@ const ReviewHubPage = () => {
 
         <Card>
           <CardHeader className="pb-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <ShieldCheck className="h-6 w-6 text-primary" />
-                  승인/검토 센터
-                </CardTitle>
-                <CardDescription className="mt-1">
-                  중간관리자와 관리자가 오늘 확인해야 할 승인, 동기화, 견적 연결 업무를 모았습니다.
-                </CardDescription>
-              </div>
-              <Badge variant={urgentCount > 0 ? 'destructive' : 'secondary'} className="self-start sm:self-center">
+            <BrandedCardHeader
+              icon={ShieldCheck}
+              title="승인/검토 센터"
+              subtitle="중간관리자와 관리자가 오늘 확인해야 할 승인, 동기화, 견적 연결 업무를 모았습니다."
+              actions={(
+              <Badge variant={urgentCount > 0 ? 'destructive' : 'secondary'} className="self-start rounded-full px-2.5 sm:self-center">
                 확인 필요 {urgentCount}건
               </Badge>
-            </div>
+              )}
+            />
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -273,7 +270,7 @@ const ReviewHubPage = () => {
         <div className="grid gap-5 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">휴가 승인 대기</CardTitle>
+              <BrandedCardHeader icon={ClipboardCheck} title="휴가 승인 대기" />
               <CardDescription>승인/반려 처리는 연차 관리 화면에서 진행합니다.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -294,7 +291,7 @@ const ReviewHubPage = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">파일 동기화 확인</CardTitle>
+              <BrandedCardHeader icon={AlertTriangle} title="파일 동기화 확인" />
               <CardDescription>실패/대기 파일은 스토리지 현황에서 재시도합니다.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -315,7 +312,7 @@ const ReviewHubPage = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">프로젝트 연결 필요 견적</CardTitle>
+              <BrandedCardHeader icon={FileText} title="프로젝트 연결 필요 견적" />
               <CardDescription>발행 견적서를 프로젝트로 전환하거나 기존 프로젝트에 연결합니다.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -336,7 +333,7 @@ const ReviewHubPage = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">최근 프로젝트 상태</CardTitle>
+              <BrandedCardHeader icon={FolderOpen} title="최근 프로젝트 상태" />
               <CardDescription>진행 상태와 결제 상태를 빠르게 확인합니다.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -358,7 +355,7 @@ const ReviewHubPage = () => {
           {isAdmin && (
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle className="text-base">가입 승인 대기</CardTitle>
+                <BrandedCardHeader icon={Users} title="가입 승인 대기" />
                 <CardDescription>계정 승인은 관리자 권한에서만 처리합니다.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
