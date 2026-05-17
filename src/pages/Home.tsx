@@ -91,10 +91,10 @@ const Home = () => {
   });
 
   const quickLinks: DashboardLink[] = [
-    { title: "홈페이지", icon: HomeIcon, action: () => window.open("https://acbank.co.kr", "_blank") },
-    { title: "팀 채팅", icon: MessageCircle, action: () => navigate("/team-chat") },
-    { title: "인스타그램", icon: Instagram, action: () => window.open("https://www.instagram.com/acbank.co.kr/", "_blank") },
-    { title: "아크뱅크 노션", icon: BookOpen, action: () => window.open("https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link", "_blank") },
+    { title: "홈페이지", description: "", icon: HomeIcon, action: () => window.open("https://acbank.co.kr", "_blank") },
+    { title: "팀 채팅", description: "", icon: MessageCircle, action: () => navigate("/team-chat") },
+    { title: "인스타그램", description: "", icon: Instagram, action: () => window.open("https://www.instagram.com/acbank.co.kr/", "_blank") },
+    { title: "아크뱅크 노션", description: "", icon: BookOpen, action: () => window.open("https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link", "_blank") },
   ];
 
   const links: DashboardLink[] = [{
