@@ -67,6 +67,8 @@ interface SavedQuote {
   total: number;
 }
 
+type QuoteViewMode = 'internal' | 'customer';
+
 const SavedQuoteDetailPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -88,7 +90,8 @@ const SavedQuoteDetailPage = () => {
     deliveryAddress: '',
     clientMemo: ''
   });
-  const [viewMode, setViewMode] = useState<'internal' | 'customer'>('internal');
+  const [viewMode, setViewMode] = useState<QuoteViewMode>('internal');
+  const [printModeOverride, setPrintModeOverride] = useState<QuoteViewMode | null>(null);
   const [loading, setLoading] = useState(true);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [editedItems, setEditedItems] = useState<any[]>([]);
@@ -124,6 +127,13 @@ const SavedQuoteDetailPage = () => {
     }
     fetchQuoteDefaults();
   }, [id]);
+
+  useEffect(() => {
+    const resetPrintMode = () => setPrintModeOverride(null);
+
+    window.addEventListener('afterprint', resetPrintMode);
+    return () => window.removeEventListener('afterprint', resetPrintMode);
+  }, []);
 
   const fetchQuoteDefaults = async () => {
     const { data } = await supabase
@@ -179,19 +189,6 @@ const SavedQuoteDetailPage = () => {
       setLinkedProject(null);
     }
   };
-
-  // PDF 파일명 설정
-  useEffect(() => {
-    if (quote) {
-      const parts = [quote.quote_number, quote.project_name, quote.recipient_company].filter(Boolean);
-      const fileName = parts.length > 0 ? parts.join('-') : '견적서';
-      document.title = fileName;
-    }
-    
-    return () => {
-      document.title = 'Lovable - Build for the web';
-    };
-  }, [quote]);
 
   const fetchQuote = async () => {
     try {
@@ -452,8 +449,12 @@ const SavedQuoteDetailPage = () => {
     setAttachments(newAttachments);
   };
 
-  const handlePrintPDF = () => {
-    window.print();
+  const handlePrintPDF = (mode: QuoteViewMode = viewMode) => {
+    setPrintModeOverride(mode);
+    window.setTimeout(() => {
+      window.print();
+      window.setTimeout(() => setPrintModeOverride(null), 500);
+    }, 80);
   };
 
 
@@ -480,6 +481,7 @@ const SavedQuoteDetailPage = () => {
   const displayItems = isEditing ? editedItems : items;
   const quoteStyle = detectQuoteStyleFromItems(displayItems);
   const quoteStyleProfile = getQuoteStyleProfile(quoteStyle);
+  const activeMode = printModeOverride ?? viewMode;
   
   // 편집 모드일 때는 editedItems 기반으로 계산, 아닐 때는 저장된 값 사용
   const autoSubtotal = isEditing 
@@ -511,7 +513,7 @@ const SavedQuoteDetailPage = () => {
 
   return (
     <>
-      <PrintStyles quoteNumber={quote.quote_number} projectName={quote.project_name} companyName={quote.recipient_company} isInternal={viewMode === 'internal'} />
+      <PrintStyles quoteNumber={quote.quote_number} projectName={quote.project_name} companyName={quote.recipient_company} isInternal={activeMode === 'internal'} />
       <div className="min-h-screen bg-[hsl(220,10%,95%)] p-2 sm:p-4 print-layout-wrapper">
         <div className="w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-4 lg:gap-6 print-flex-container">
         <div className="flex-1 min-w-0 max-w-full lg:max-w-4xl print-container" id="saved-quote-print-container" ref={printContainerRef}>
@@ -539,7 +541,7 @@ const SavedQuoteDetailPage = () => {
             onSaveEdit={handleSaveEdit}
             onCancelEdit={() => { setIsEditing(false); setManualTotalOverride(null); fetchQuote(); }}
             onToggleViewMode={toggleViewMode}
-            viewMode={viewMode}
+            viewMode={activeMode}
             showSavedQuoteActions={true}
             quoteStyle={quoteStyle}
           />
@@ -558,7 +560,7 @@ const SavedQuoteDetailPage = () => {
 
               <QuoteStyleBanner styleType={quoteStyle} itemCount={displayItems.length} />
 
-              {viewMode === 'internal' && !isEditing && (rawSnapshotVersionName || snapshotCapturedAt || snapshotItemsCount > 0) && (
+              {activeMode === 'internal' && !isEditing && (rawSnapshotVersionName || snapshotCapturedAt || snapshotItemsCount > 0) && (
                 <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4 print:hidden">
                   <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -646,7 +648,7 @@ const SavedQuoteDetailPage = () => {
               <div className="mb-6 quote-section">
                 <h3 className="text-[17px] font-bold text-black mb-4 flex items-center gap-2">
                   <Calculator className="w-5 h-5" />
-                  {quoteStyleProfile.itemListTitle} ({displayItems.length}개) {isEditing ? '- 편집 모드' : viewMode === 'customer' ? '' : '- 내부 관리용'}
+                  {(activeMode === 'customer' ? quoteStyleProfile.customerItemListTitle : quoteStyleProfile.itemListTitle)} ({displayItems.length}개) {isEditing ? '- 편집 모드' : activeMode === 'customer' ? '' : '- 내부 관리용'}
                 </h3>
                 <div className="space-y-4">
                   {isEditing ? (
@@ -672,7 +674,7 @@ const SavedQuoteDetailPage = () => {
                     </>
                   ) : (
                     items.map((item: any, index: number) => (
-                      viewMode === 'customer' ? (
+                      activeMode === 'customer' ? (
                         <CustomerQuoteCard
                           key={index}
                           quote={item}
@@ -716,7 +718,7 @@ const SavedQuoteDetailPage = () => {
               <QuoteNotesSection
                 notes={quoteDefaults.quote_notes}
                 consultation={quoteDefaults.quote_consultation}
-                viewMode={viewMode}
+                viewMode={activeMode}
               />
 
               {/* 연락처 정보 */}
@@ -731,7 +733,7 @@ const SavedQuoteDetailPage = () => {
               <QuoteClientRequestSection
                 recipientMemo={quote.recipient_memo}
                 attachments={attachments}
-                viewMode={viewMode}
+                viewMode={activeMode}
                 quoteId={id}
               />
 

@@ -124,41 +124,6 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
           )}
         </div>
 
-        {/* 가격 세부 내역 */}
-        {quote.breakdown && quote.breakdown.length > 0 && (
-          <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-[12px] font-bold text-black mb-2">
-              {isCustomerView ? '세부 내역' : '가격 세부 내역 (단가)'}
-            </div>
-            <div className="space-y-1">
-              {quote.breakdown.map((item, idx) => {
-                let displayLabel = item.label;
-                if (isCustomerView) {
-                  displayLabel = displayLabel
-                    .replace(/\s*\([^)]*\)/g, '')
-                    .replace(/\s*x\d+개/g, '')
-                    .trim();
-                }
-                
-                return (
-                  <div key={idx} className="flex justify-between items-center text-[12px]">
-                    <span className="text-gray-600 whitespace-pre-line">{displayLabel}</span>
-                    {!isCustomerView && (
-                      <span className="font-semibold text-black">{formatPrice(item.price)}</span>
-                    )}
-                  </div>
-                );
-              })}
-              {isCustomerView && (
-                <div className="flex justify-between items-center text-[12px] pt-1.5 border-t border-gray-200">
-                  <span className="text-gray-600 font-medium">합계금액 (단가)</span>
-                  <span className="font-semibold text-black">{formatPrice(unitPrice)}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-        
         {/* 가격 정보 */}
         <div className="space-y-1.5 pt-2 border-t border-gray-200">
           <div className="flex justify-between items-center text-[12px]">

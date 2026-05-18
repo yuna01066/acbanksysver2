@@ -10,7 +10,7 @@ import { getQuoteStyleProfile, type QuoteStyleType } from "@/utils/quoteStyle";
 
 interface QuoteSummaryHeaderProps {
   onClearQuotes: () => void;
-  onPrintPDF: () => void;
+  onPrintPDF: (mode?: 'internal' | 'customer') => void;
   onViewCustomerQuote?: () => void;
   onSaveQuote?: () => void;
   currentDate: string;
@@ -48,6 +48,7 @@ const QuoteSummaryHeader = ({
   const location = useLocation();
   const isCustomerView = location.pathname === '/customer-quotes-summary';
   const styleProfile = getQuoteStyleProfile(quoteStyle);
+  const effectiveViewMode = isCustomerView ? 'customer' : viewMode;
   return <>
       {/* 상단 액션 버튼들 */}
       <div className="flex flex-wrap justify-between items-center gap-2 mb-6 print:hidden">
@@ -90,9 +91,13 @@ const QuoteSummaryHeader = ({
                       </>
                     )}
                   </Button>
-                  <Button onClick={onPrintPDF} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+                  <Button variant="outline" onClick={() => onPrintPDF('internal')} className="flex items-center gap-2 text-slate-700 border-slate-400 hover:bg-slate-50">
                     <Download className="w-4 h-4" />
-                    PDF 출력
+                    내부용 PDF
+                  </Button>
+                  <Button onClick={() => onPrintPDF('customer')} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+                    <Download className="w-4 h-4" />
+                    고객용 PDF
                   </Button>
                 </>
               )}
@@ -117,7 +122,7 @@ const QuoteSummaryHeader = ({
                 <Trash2 className="w-4 h-4" />
                 전체 삭제
               </Button>
-              <Button onClick={onPrintPDF} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+              <Button onClick={() => onPrintPDF()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
                 <Download className="w-4 h-4" />
                 PDF 출력
               </Button>
@@ -139,6 +144,14 @@ const QuoteSummaryHeader = ({
                 <p className="text-gray-500 text-xs sm:text-sm font-normal tracking-wider">{styleProfile.subtitle}</p>
                 <Badge variant="outline" className={cn("px-2 py-0.5 text-[11px] font-semibold", styleProfile.badgeClassName)}>
                   {styleProfile.label}
+                </Badge>
+                <Badge variant="outline" className={cn(
+                  "px-2 py-0.5 text-[11px] font-semibold",
+                  effectiveViewMode === 'internal'
+                    ? "bg-slate-100 text-slate-700 border-slate-300"
+                    : "bg-blue-50 text-blue-700 border-blue-200"
+                )}>
+                  {effectiveViewMode === 'internal' ? '내부관리용' : '고객제출용'}
                 </Badge>
               </div>
             </div>

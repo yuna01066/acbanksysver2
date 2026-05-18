@@ -15,7 +15,9 @@ const QuoteClientRequestSection: React.FC<QuoteClientRequestSectionProps> = ({
   viewMode,
   quoteId,
 }) => {
-  if (!recipientMemo && !(attachments && attachments.length > 0)) return null;
+  const showAttachments = viewMode !== 'customer' && attachments && attachments.length > 0;
+
+  if (!recipientMemo && !showAttachments) return null;
 
   return (
     <div className="mb-6 space-y-5">
@@ -34,7 +36,7 @@ const QuoteClientRequestSection: React.FC<QuoteClientRequestSectionProps> = ({
           </div>
         )}
         
-        {viewMode !== 'customer' && attachments && attachments.length > 0 && (
+        {showAttachments && (
           <QuoteAttachments
             attachments={attachments}
             onAttachmentsChange={() => {}}
