@@ -32,6 +32,7 @@ import AdvancedProcessingOptions from "./AdvancedProcessingOptions";
 import EdgeFinishingOption from "./EdgeFinishingOption";
 import ManualProductEntry, { ManualProductItem } from "./ManualProductEntry";
 import type { Database } from '@/integrations/supabase/types';
+import { formatPricingVersionDisplayName } from '@/utils/pricingVersionDisplay';
 
 const DEFAULT_COLOR_MIXING_COST = 40000;
 
@@ -743,59 +744,71 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     setCurrentStep(9); // 가공 선택 단계로 이동 (수량 포함)
   };
 
+  const getActivePricingVersionDisplayName = (capturedAt?: string) => formatPricingVersionDisplayName({
+    versionName: activePricingVersion?.version_name,
+    supplierName: activePricingVersion?.supplier_name,
+    effectiveFrom: activePricingVersion?.effective_from,
+    capturedAt,
+  });
+
   const createCalculationSnapshot = (
     breakdown: { label: string; price: number }[],
     totalPrice: number,
     extraOptions: Record<string, unknown> = {}
-  ) => ({
-    schemaVersion: 1,
-    capturedAt: new Date().toISOString(),
-    pricingVersion: activePricingVersion ? {
-      id: activePricingVersion.id,
-      versionName: activePricingVersion.version_name,
-      supplierName: activePricingVersion.supplier_name,
-      effectiveFrom: activePricingVersion.effective_from,
-    } : null,
-    selectedOptions: {
-      factory: 'jangwon',
-      materialId: selectedMaterial?.id,
-      materialName: selectedMaterial?.name,
-      qualityId: selectedQuality?.id,
-      qualityName: selectedQuality?.name,
-      thickness: selectedThickness,
-      sizes: selectedSizes.map(s => ({
-        size: s.size,
-        quantity: s.quantity,
-        surface: s.surface,
-        colorMixingCost: s.colorMixingCost || 0,
-      })),
-      yieldRecommendation: yieldAppliedSelection?.yieldRecommendation || null,
-      colorType: selectedColorType,
-      selectedColor,
-      selectedColorHex,
-      customColorName,
-      customOpacity,
-      processing: selectedProcessing,
-      processingName: selectedProcessingName || PROCESSING_OPTIONS.find(p => p.id === selectedProcessing)?.name || '',
-      additionalOptions: selectedAdditionalOptions,
-      qty,
-      isComplex,
-      bevelLengthM,
-      laserHoles,
-      corners90,
-      useDetailedBond,
-      joinLengthM,
-      trayHeightMm,
-      edgeFinishing,
-      bulgwang,
-      tapung,
-      mugwangPainting,
-      ...extraOptions,
-    },
-    breakdown: breakdown.map(item => ({ ...item })),
-    totalPrice,
-    note: '저장 당시 단가와 계산 근거입니다. 이후 단가표 변경은 이 견적 금액에 자동 반영되지 않습니다.',
-  });
+  ) => {
+    const capturedAt = new Date().toISOString();
+    const pricingVersionDisplayName = getActivePricingVersionDisplayName(capturedAt);
+
+    return {
+      schemaVersion: 1,
+      capturedAt,
+      pricingVersion: activePricingVersion ? {
+        id: activePricingVersion.id,
+        versionName: pricingVersionDisplayName,
+        supplierName: activePricingVersion.supplier_name,
+        effectiveFrom: activePricingVersion.effective_from,
+      } : null,
+      selectedOptions: {
+        factory: 'jangwon',
+        materialId: selectedMaterial?.id,
+        materialName: selectedMaterial?.name,
+        qualityId: selectedQuality?.id,
+        qualityName: selectedQuality?.name,
+        thickness: selectedThickness,
+        sizes: selectedSizes.map(s => ({
+          size: s.size,
+          quantity: s.quantity,
+          surface: s.surface,
+          colorMixingCost: s.colorMixingCost || 0,
+        })),
+        yieldRecommendation: yieldAppliedSelection?.yieldRecommendation || null,
+        colorType: selectedColorType,
+        selectedColor,
+        selectedColorHex,
+        customColorName,
+        customOpacity,
+        processing: selectedProcessing,
+        processingName: selectedProcessingName || PROCESSING_OPTIONS.find(p => p.id === selectedProcessing)?.name || '',
+        additionalOptions: selectedAdditionalOptions,
+        qty,
+        isComplex,
+        bevelLengthM,
+        laserHoles,
+        corners90,
+        useDetailedBond,
+        joinLengthM,
+        trayHeightMm,
+        edgeFinishing,
+        bulgwang,
+        tapung,
+        mugwangPainting,
+        ...extraOptions,
+      },
+      breakdown: breakdown.map(item => ({ ...item })),
+      totalPrice,
+      note: '저장 당시 단가와 계산 근거입니다. 이후 단가표 변경은 이 견적 금액에 자동 반영되지 않습니다.',
+    };
+  };
 
   const handleAddQuote = async () => {
     // 다중 선택 방식으로 검증 수정
@@ -838,7 +851,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       quantity: 1,
       breakdown: priceInfo.breakdown,
       pricingVersionId: activePricingVersion?.id || null,
-      pricingVersionName: activePricingVersion?.version_name || '미지정 단가표',
+      pricingVersionName: getActivePricingVersionDisplayName(),
       quoteStyle: 'panel' as const,
       calculationSnapshot: createCalculationSnapshot(priceInfo.breakdown, priceInfo.totalPrice)
     };
@@ -885,7 +898,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
               schemaVersion: 1,
               capturedAt: new Date().toISOString(),
               pricingVersionId: activePricingVersion?.id || null,
-              pricingVersionName: activePricingVersion?.version_name || '미지정 단가표',
+              pricingVersionName: getActivePricingVersionDisplayName(),
               items: items.map(item => ({
                 id: item.id,
                 totalPrice: item.totalPrice,
@@ -948,7 +961,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
               schemaVersion: 1,
               capturedAt: new Date().toISOString(),
               pricingVersionId: activePricingVersion?.id || null,
-              pricingVersionName: activePricingVersion?.version_name || '미지정 단가표',
+              pricingVersionName: getActivePricingVersionDisplayName(),
               items: items.map(item => ({
                 id: item.id,
                 totalPrice: item.totalPrice,
@@ -1064,7 +1077,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         quantity: 1,
         breakdown: breakdownItems,
         pricingVersionId: activePricingVersion?.id || null,
-        pricingVersionName: activePricingVersion?.version_name || '미지정 단가표',
+        pricingVersionName: getActivePricingVersionDisplayName(),
         quoteStyle: 'fabrication' as const,
         calculationSnapshot: createCalculationSnapshot(
           breakdownItems,
@@ -1114,7 +1127,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
               schemaVersion: 1,
               capturedAt: new Date().toISOString(),
               pricingVersionId: activePricingVersion?.id || null,
-              pricingVersionName: activePricingVersion?.version_name || '미지정 단가표',
+              pricingVersionName: getActivePricingVersionDisplayName(),
               items: items.map(item => ({
                 id: item.id,
                 totalPrice: item.totalPrice,
@@ -1274,7 +1287,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
             )?.price}
             factories={[{
               id: 'jangwon',
-              name: '장원'
+              name: '공통 단가'
             }]}
             priceInfo={priceInfo}
           />}
@@ -1293,7 +1306,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
           {/* Step 1: 소재 선택 */}
           {currentStep === 1 && <MaterialSelection materials={MATERIALS} selectedMaterial={selectedMaterial} selectedFactory="jangwon" factories={[{
             id: 'jangwon',
-            name: '장원'
+            name: '공통 단가'
           }]} onMaterialSelect={handleMaterialSelect} />}
 
           {/* Step 100: 제품 제작 수동 입력 */}

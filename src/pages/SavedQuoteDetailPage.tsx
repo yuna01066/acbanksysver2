@@ -34,6 +34,7 @@ import {
   getAttachmentTarget,
   removeDocumentFileRecord,
 } from "@/services/documentFiles";
+import { formatPricingVersionDisplayName } from "@/utils/pricingVersionDisplay";
 
 interface SavedQuote {
   id: string;
@@ -497,11 +498,15 @@ const SavedQuoteDetailPage = () => {
   const calculationSnapshot = quote.calculation_snapshot && typeof quote.calculation_snapshot === 'object'
     ? quote.calculation_snapshot
     : null;
-  const snapshotVersionName = calculationSnapshot?.pricingVersionName
+  const rawSnapshotVersionName = calculationSnapshot?.pricingVersionName
     || items.find((item: any) => item?.pricingVersionName)?.pricingVersionName
     || items.find((item: any) => item?.calculationSnapshot?.pricingVersion?.versionName)?.calculationSnapshot?.pricingVersion?.versionName;
   const snapshotCapturedAt = calculationSnapshot?.capturedAt
     || items.find((item: any) => item?.calculationSnapshot?.capturedAt)?.calculationSnapshot?.capturedAt;
+  const snapshotVersionName = formatPricingVersionDisplayName({
+    versionName: rawSnapshotVersionName,
+    capturedAt: snapshotCapturedAt,
+  });
   const snapshotItemsCount = items.filter((item: any) => item?.calculationSnapshot).length;
 
   return (
@@ -553,7 +558,7 @@ const SavedQuoteDetailPage = () => {
 
               <QuoteStyleBanner styleType={quoteStyle} itemCount={displayItems.length} />
 
-              {viewMode === 'internal' && !isEditing && (snapshotVersionName || snapshotCapturedAt || snapshotItemsCount > 0) && (
+              {viewMode === 'internal' && !isEditing && (rawSnapshotVersionName || snapshotCapturedAt || snapshotItemsCount > 0) && (
                 <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4 print:hidden">
                   <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -574,7 +579,7 @@ const SavedQuoteDetailPage = () => {
                         단가표
                       </div>
                       <div className="mt-1 truncate text-sm font-semibold text-slate-900">
-                        {snapshotVersionName || '미지정 단가표'}
+                        {snapshotVersionName}
                       </div>
                     </div>
                     <div className="rounded-md border bg-white p-3">

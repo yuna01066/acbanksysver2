@@ -27,6 +27,7 @@ import {
 } from "@/services/documentFiles";
 import { buildIssuedQuoteDrivePath, toDrivePathText } from "@/utils/documentOrganization";
 import { getQuoteCelebrationCopy, getTodayQuoteCount } from "@/utils/engagement";
+import { formatPricingVersionDisplayName } from "@/utils/pricingVersionDisplay";
 
 const InternalQuotePage = () => {
   const navigate = useNavigate();
@@ -155,8 +156,14 @@ const InternalQuotePage = () => {
       const tax = subtotal * 0.1;
       const total = getTotalPriceWithTax();
       const primaryPricingVersionId = quotes.find(q => q.pricingVersionId)?.pricingVersionId || null;
-      const primaryPricingVersionName = quotes.find(q => q.pricingVersionName)?.pricingVersionName || '미지정 단가표';
       const capturedAt = new Date().toISOString();
+      const primaryPricingSource = quotes.find(q => q.pricingVersionName || q.calculationSnapshot?.pricingVersion);
+      const primaryPricingVersionName = formatPricingVersionDisplayName({
+        versionName: primaryPricingSource?.pricingVersionName || primaryPricingSource?.calculationSnapshot?.pricingVersion?.versionName,
+        supplierName: primaryPricingSource?.calculationSnapshot?.pricingVersion?.supplierName,
+        effectiveFrom: primaryPricingSource?.calculationSnapshot?.pricingVersion?.effectiveFrom,
+        capturedAt,
+      });
 
       const quoteData = {
         user_id: user.id,
