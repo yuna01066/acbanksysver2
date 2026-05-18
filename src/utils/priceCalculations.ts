@@ -845,14 +845,42 @@ const calculateConfiguredOptionCost = (
   options?: CalculatePriceV2Options
 ) => {
   const method = option.pricing_method || 'legacy_multiplier';
-  const multiplier = option.multiplier ?? (method === 'panel_multiplier' ? option.rate ?? 1 : 0);
-  const rate = getNumericOptionValue(option.rate, option.base_cost, multiplier);
   const baseCost = option.base_cost ?? 0;
+  const storedRateLooksLikeBaseCost =
+    baseCost !== 0 && option.rate !== null && option.rate !== undefined && option.rate === baseCost;
+  const multiplier = method === 'panel_multiplier'
+    ? getNumericOptionValue(
+        option.multiplier,
+        storedRateLooksLikeBaseCost ? undefined : option.rate,
+        1
+      )
+    : (option.multiplier ?? 0);
+  const rate = method === 'fixed_fee'
+    ? getNumericOptionValue(option.rate, option.base_cost)
+    : getNumericOptionValue(
+        storedRateLooksLikeBaseCost ? undefined : option.rate,
+        option.multiplier
+      );
   const joinLength = options?.joinLengthM ?? 0;
   const bevelLength = options?.bevelLengthM ?? 0;
   const length = option.unit === 'bevel_m' || /bevel|45/i.test(option.option_id)
     ? bevelLength
     : joinLength;
+  const withBaseCost = (cost: number, label: string) => {
+    if (!baseCost || method === 'fixed_fee') {
+      return { cost, label };
+    }
+
+    const baseCostTotal = baseCost * quantity;
+    const baseCostLabel = quantity > 1
+      ? `기본비 ${baseCost.toLocaleString()}원 × ${quantity}`
+      : `기본비 ${baseCost.toLocaleString()}원`;
+
+    return {
+      cost: cost + baseCostTotal,
+      label: `${label} + ${baseCostLabel}`,
+    };
+  };
 
   if (method === 'requires_review') {
     return {
@@ -870,39 +898,39 @@ const calculateConfiguredOptionCost = (
   }
 
   if (method === 'panel_multiplier') {
-    return {
-      cost: wonJang * (multiplier - 1) * quantity,
-      label: quantity > 1 ? `${option.name} (원장×${multiplier}) x${quantity}개` : `${option.name} (최종 원장×${multiplier})`,
-    };
+    return withBaseCost(
+      wonJang * (multiplier - 1) * quantity,
+      quantity > 1 ? `${option.name} (원장×${multiplier}) x${quantity}개` : `${option.name} (최종 원장×${multiplier})`
+    );
   }
 
   if (method === 'panel_rate') {
-    return {
-      cost: wonJang * rate * quantity,
-      label: quantity > 1 ? `${option.name} (원장×${rate}) x${quantity}개` : `${option.name} (원장×${rate})`,
-    };
+    return withBaseCost(
+      wonJang * rate * quantity,
+      quantity > 1 ? `${option.name} (원장×${rate}) x${quantity}개` : `${option.name} (원장×${rate})`
+    );
   }
 
   if (method === 'per_unit') {
-    return {
-      cost: rate * quantity,
-      label: `${option.name} (${rate.toLocaleString()}원/개 × ${quantity})`,
-    };
+    return withBaseCost(
+      rate * quantity,
+      `${option.name} (${rate.toLocaleString()}원/개 × ${quantity})`
+    );
   }
 
   if (method === 'per_meter') {
-    return {
-      cost: rate * length * quantity,
-      label: `${option.name} (${rate.toLocaleString()}원/m × ${length.toFixed(2)}m${quantity > 1 ? ` × ${quantity}` : ''})`,
-    };
+    return withBaseCost(
+      rate * length * quantity,
+      `${option.name} (${rate.toLocaleString()}원/m × ${length.toFixed(2)}m${quantity > 1 ? ` × ${quantity}` : ''})`
+    );
   }
 
   if (method === 'per_corner') {
     const corners = options?.corners90 ?? 0;
-    return {
-      cost: rate * corners * quantity,
-      label: `${option.name} (${rate.toLocaleString()}원/코너 × ${corners}개${quantity > 1 ? ` × ${quantity}` : ''})`,
-    };
+    return withBaseCost(
+      rate * corners * quantity,
+      `${option.name} (${rate.toLocaleString()}원/코너 × ${corners}개${quantity > 1 ? ` × ${quantity}` : ''})`
+    );
   }
 
   return null;

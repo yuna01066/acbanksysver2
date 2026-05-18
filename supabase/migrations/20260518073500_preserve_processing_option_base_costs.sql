@@ -1,5 +1,7 @@
--- Add explicit pricing method fields for processing options.
--- Existing multiplier/base_cost values remain valid through legacy_multiplier.
+-- Preserve legacy multiplier + base_cost processing option behavior.
+-- Some rows, such as full-cutting options, intentionally use both a panel
+-- multiplier and a fixed setup/base cost. The rate field must represent the
+-- multiplier for panel methods; base_cost remains a separate additive cost.
 
 ALTER TABLE public.processing_options
   ADD COLUMN IF NOT EXISTS pricing_method TEXT NOT NULL DEFAULT 'legacy_multiplier',
@@ -25,12 +27,6 @@ ALTER TABLE public.processing_options
     )
   );
 
-COMMENT ON COLUMN public.processing_options.pricing_method IS
-  '가공 옵션 계산 방식: 기존 배수, 고정비, 원장 배수/추가율, 단위 단가, 검수 필요 등';
-COMMENT ON COLUMN public.processing_options.unit IS '단가 단위. 예: m, ea, corner, bevel_m';
-COMMENT ON COLUMN public.processing_options.rate IS 'pricing_method에서 사용하는 단가 또는 추가율';
-COMMENT ON COLUMN public.processing_options.requires_review IS '선택 시 견적 결과를 검수 필요 상태로 표시';
-
 UPDATE public.processing_options
 SET pricing_method = CASE
     WHEN option_id = 'raw-only' THEN 'panel_multiplier'
@@ -39,11 +35,23 @@ SET pricing_method = CASE
     WHEN multiplier IS NOT NULL AND multiplier > 0 THEN 'panel_rate'
     WHEN base_cost IS NOT NULL AND base_cost <> 0 THEN 'fixed_fee'
     ELSE pricing_method
-  END,
-  rate = CASE
-    WHEN option_type = 'additional' OR category = 'additional' THEN COALESCE(rate, multiplier)
-    WHEN multiplier IS NOT NULL AND multiplier > 0 THEN COALESCE(rate, multiplier)
-    WHEN base_cost IS NOT NULL AND base_cost <> 0 THEN COALESCE(rate, base_cost)
-    ELSE rate
   END
 WHERE pricing_method = 'legacy_multiplier';
+
+UPDATE public.processing_options
+SET rate = multiplier
+WHERE multiplier IS NOT NULL
+  AND multiplier > 0
+  AND pricing_method IN ('panel_multiplier', 'panel_rate')
+  AND (
+    rate IS NULL
+    OR rate = 0
+    OR (base_cost IS NOT NULL AND rate = base_cost)
+  );
+
+UPDATE public.processing_options
+SET rate = base_cost
+WHERE pricing_method = 'fixed_fee'
+  AND base_cost IS NOT NULL
+  AND base_cost <> 0
+  AND (rate IS NULL OR rate = 0);

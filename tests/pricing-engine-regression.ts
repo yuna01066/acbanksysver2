@@ -37,6 +37,18 @@ const edgeOption: ProcessingOptionData = {
   is_active: true,
 };
 
+const laserFullOption: ProcessingOptionData = {
+  option_id: 'laser-full',
+  name: '레이저 전체 재단',
+  option_type: 'processing',
+  category: 'full',
+  multiplier: 1.8,
+  base_cost: 150_000,
+  pricing_method: 'panel_multiplier',
+  rate: 150_000,
+  is_active: true,
+};
+
 const inRange = (value: number, min: number, max: number, message: string) => {
   assert.ok(
     value >= min && value <= max,
@@ -60,6 +72,28 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   assert.equal(result.status, 'calculable');
   assert.equal(result.totalPrice, 169_560);
   assert.equal(result.lineItems.some(item => item.source === 'processing'), true);
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'glossy-color',
+    '5T',
+    '4*8',
+    '단면',
+    undefined,
+    'laser-full',
+    0,
+    { processingOptionsData: [laserFullOption] }
+  );
+
+  assert.equal(result.status, 'calculable');
+  assert.equal(result.totalPrice, 313_080);
+  assert.equal(
+    result.breakdown.find(item => item.label.includes('레이저 전체 재단'))?.price,
+    222_480,
+    'panel_multiplier options must preserve base_cost as an additive setup fee'
+  );
 }
 
 {

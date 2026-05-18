@@ -78,6 +78,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   const [selectedSlots, setSelectedSlots] = React.useState<Record<string, string>>({});
   const [optionQuantities, setOptionQuantities] = React.useState<Record<string, number>>(selectedAdditionalOptions);
   const [hasRestoredSelection, setHasRestoredSelection] = React.useState(false);
+
+  React.useEffect(() => {
+    setOptionQuantities(selectedAdditionalOptions);
+  }, [selectedAdditionalOptions]);
   
   const { processingOptions, activeAdditionalOptions, isLoading } = useProcessingOptions();
   const { slotTypes, isLoading: isLoadingSlots } = useSlotTypes();
@@ -180,7 +184,9 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   const handleMainCategorySelect = (category: string) => {
     setMainCategory(category);
     setSelectedSlots({});
+    setOptionQuantities({});
     onProcessingSelect('');
+    onAdditionalOptionsChange?.({});
   };
 
   // 슬롯 선택
@@ -211,10 +217,18 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
       .map(logic => logic.slot_key)
       .filter(key => slots[key] && slots[key].length > 0);
     
-    const isComplete = requiredSlots.every(slot => selectedSlots[slot]);
-    console.log('Selection complete check:', { requiredSlots, selectedSlots, isComplete });
+    const isComplete = requiredSlots.every(slot => {
+      const slotTypeInfo = slotTypes?.find(st => st.slot_key === slot);
+      if (slotTypeInfo?.allow_multiple_selection) {
+        return slots[slot].some(option => (optionQuantities[option.option_id] || 0) > 0);
+      }
+
+      return Boolean(selectedSlots[slot]);
+    });
+
+    console.log('Selection complete check:', { requiredSlots, selectedSlots, optionQuantities, isComplete });
     return isComplete;
-  }, [getCategoryLogicSlots, getCategorySlots, mainCategory, selectedSlots]);
+  }, [getCategoryLogicSlots, getCategorySlots, mainCategory, optionQuantities, selectedSlots, slotTypes]);
 
   React.useEffect(() => {
     if (isLoading || isLoadingSlots || isLoadingLogic || isLoadingCategories) {
@@ -225,6 +239,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
     onSelectionCompleteChange?.(isSelectionComplete());
   }, [
     mainCategory,
+    optionQuantities,
     selectedSlots,
     selectedThickness,
     processingOptions,
