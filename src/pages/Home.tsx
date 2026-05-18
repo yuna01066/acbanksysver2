@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette } from "lucide-react";
 import LoginScreen from '@/components/LoginScreen';
 import DashboardCalendar from '@/components/DashboardCalendar';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
@@ -175,6 +175,20 @@ const Home = () => {
     requiresAuth: true,
     action: () => navigate("/performance-review")
   }, {
+    title: "채널톡 문의 분석함",
+    icon: MessageSquareText,
+    description: "도면 분석 리드 검토·견적 전환",
+    url: "/channel-talk-leads",
+    requiresAuth: true,
+    requiresAdmin: true,
+    action: () => {
+      if (isAdmin || isModerator) {
+        navigate("/channel-talk-leads");
+      } else {
+        toast.error('관리자 또는 중간관리자만 접근할 수 있습니다.');
+      }
+    }
+  }, {
     title: "관리자 설정",
     icon: Settings,
     description: "가격 및 옵션 관리",
@@ -314,7 +328,7 @@ const Home = () => {
             const linkGroups = [
               { title: "업무", items: pickLinks(["공지사항", "근태 관리", "연차 관리", "업무 평가"]) },
               { title: "견적 · 프로젝트", items: pickLinks(["고객사 관리", "프로젝트 관리", "원판 발주 관리", "수율 계산기", "견적 계산기", "발행 견적서 확인"]) },
-              { title: "관리", items: pickLinks(["샘플칩 관리", "박람회 관리", "세금계산서 관리", "관리자 설정"]) },
+              { title: "관리", items: pickLinks(["채널톡 문의 분석함", "샘플칩 관리", "박람회 관리", "세금계산서 관리", "관리자 설정"]) },
               { title: "외부", items: pickLinks(["클라이언트 상담폼"]) },
             ].filter((group) => group.items.length > 0);
 
