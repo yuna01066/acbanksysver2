@@ -536,6 +536,7 @@ const SavedQuoteDetailPage = () => {
             onPrintPDF={handlePrintPDF}
             currentDate={currentDate}
             quoteNumber={quote.quote_number}
+            validUntil={quote.valid_until}
             isEditMode={isEditing}
             onEdit={() => setIsEditing(true)}
             onSaveEdit={handleSaveEdit}
