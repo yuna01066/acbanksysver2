@@ -28,22 +28,58 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
   };
 
   const handleEditQuote = () => {
+    const quoteStyleForEdit = getQuoteStyleForItem(quote);
     const quoteParams = new URLSearchParams({
+      type: 'quote',
       factory: quote.factory,
       material: quote.material,
       quality: quote.quality,
       thickness: quote.thickness,
       size: quote.size,
       colorType: quote.colorType || '',
+      selectedColor: quote.selectedColor || '',
+      selectedColorHex: quote.selectedColorHex || '',
+      customColorName: quote.customColorName || '',
+      customOpacity: quote.customOpacity || '',
       surface: quote.surface,
+      colorMixingCost: String(quote.colorMixingCost ?? 0),
       processing: quote.processing,
       quantity: quote.quantity.toString(),
       serialNumber: quote.serialNumber || '',
-      editMode: 'true',
-      editId: quote.id
+      quoteStyle: quoteStyleForEdit,
+      totalPrice: String(quote.totalPrice ?? 0),
+      editMode: 'draft',
+      draftQuoteId: quote.id
     });
+
+    if (quoteStyleForEdit === 'fabrication') {
+      const manualProductItem = quote.calculationSnapshot?.selectedOptions?.manualProductItem;
+      const itemNumberMatch = quote.processingName?.match(/^\[([^\]]+)\]\s*(.*)$/);
+      const fallbackManualItem = {
+        id: quote.id,
+        itemNumber: itemNumberMatch?.[1] || '',
+        name: itemNumberMatch?.[2] || quote.processingName || '제품 제작',
+        quantity: 1,
+        unitPrice: quote.totalPrice || 0,
+        sizeWidth: '',
+        sizeHeight: '',
+        sizeDepth: '',
+        material: quote.quality || '',
+        thickness: quote.thickness || '',
+        color: quote.selectedColor || '',
+        colorHex: quote.selectedColorHex || '',
+        surfaceType: quote.surface || '',
+        notes: quote.breakdown?.map(item => `${item.label}: ${formatPrice(item.price)}`).join('\n') || '',
+      };
+
+      const restoredManualItem = manualProductItem && typeof manualProductItem === 'object'
+        ? { ...fallbackManualItem, ...(manualProductItem as Record<string, unknown>) }
+        : fallbackManualItem;
+
+      quoteParams.set('manualProductItem', JSON.stringify(restoredManualItem));
+    }
     
-    navigate(`/?${quoteParams.toString()}`);
+    navigate(`/calculator?${quoteParams.toString()}`);
   };
 
   const unitPrice = quote.totalPrice;

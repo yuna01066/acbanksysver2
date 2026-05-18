@@ -112,6 +112,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [searchParams] = useSearchParams();
   const {
     addQuote,
+    updateQuote,
     quotes
   } = useQuotes();
   const [currentStep, setCurrentStep] = useState(0);
@@ -139,6 +140,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   // 편집 모드 관련 상태
   const [editMode, setEditMode] = useState<string | null>(null);
   const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
+  const [draftQuoteId, setDraftQuoteId] = useState<string | null>(null);
   const [itemIndex, setItemIndex] = useState<number | null>(null);
   
   // 고급 옵션 상태
@@ -204,9 +206,87 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     }
 
     const editModeParam = searchParams.get('editMode');
-    if (editModeParam === 'saved') {
+    if (editModeParam === 'saved' || editModeParam === 'draft') {
       console.log('Edit mode detected, restoring quote data from URL params');
       console.log('All URL params:', Object.fromEntries(searchParams.entries()));
+
+      if (editModeParam === 'draft') {
+        const draftQuoteIdParam = searchParams.get('draftQuoteId');
+        const draftQuoteExists = draftQuoteIdParam
+          ? quotes.some(quote => quote.id === draftQuoteIdParam)
+          : false;
+
+        if (!draftQuoteIdParam || !draftQuoteExists) {
+          toast.error('수정할 임시 견적 항목을 찾을 수 없습니다.');
+          navigate(quotes.length > 0 ? '/internal-quote' : '/calculator?type=quote', { replace: true });
+          return;
+        }
+
+        setEditMode(editModeParam);
+        setDraftQuoteId(draftQuoteIdParam);
+        setSavedQuoteId(null);
+        setItemIndex(null);
+      } else {
+        setEditMode(editModeParam);
+        setSavedQuoteId(searchParams.get('savedQuoteId'));
+        setDraftQuoteId(null);
+        setItemIndex(searchParams.get('itemIndex') ? parseInt(searchParams.get('itemIndex')!) : null);
+      }
+
+      if (editModeParam === 'draft' && (
+        searchParams.get('quoteStyle') === 'fabrication' ||
+        searchParams.get('processing') === 'manual'
+      )) {
+        const draftQuoteIdParam = searchParams.get('draftQuoteId')!;
+        const manualProductItemParam = searchParams.get('manualProductItem');
+        let manualProductItemRecord: Record<string, unknown> = {};
+
+        if (manualProductItemParam) {
+          try {
+            const parsedManualItem = JSON.parse(manualProductItemParam);
+            if (parsedManualItem && typeof parsedManualItem === 'object' && !Array.isArray(parsedManualItem)) {
+              manualProductItemRecord = parsedManualItem;
+            }
+          } catch (error) {
+            console.warn('Failed to restore manual product draft:', error);
+          }
+        }
+
+        const manualMaterial = MATERIALS.find(material => material.id === 'manual-product') || {
+          id: 'manual-product',
+          name: '제품 제작',
+        };
+        const fallbackUnitPrice = Number(searchParams.get('totalPrice')) || 0;
+
+        const restoredManualItem: ManualProductItem = {
+          id: typeof manualProductItemRecord.id === 'string' ? manualProductItemRecord.id : draftQuoteIdParam,
+          itemNumber: typeof manualProductItemRecord.itemNumber === 'string' ? manualProductItemRecord.itemNumber : '',
+          name: typeof manualProductItemRecord.name === 'string' ? manualProductItemRecord.name : '제품 제작',
+          quantity: Number(manualProductItemRecord.quantity) || Number(searchParams.get('quantity')) || 1,
+          unitPrice: Number(manualProductItemRecord.unitPrice) || fallbackUnitPrice,
+          sizeWidth: typeof manualProductItemRecord.sizeWidth === 'string' ? manualProductItemRecord.sizeWidth : '',
+          sizeHeight: typeof manualProductItemRecord.sizeHeight === 'string' ? manualProductItemRecord.sizeHeight : '',
+          sizeDepth: typeof manualProductItemRecord.sizeDepth === 'string' ? manualProductItemRecord.sizeDepth : '',
+          material: typeof manualProductItemRecord.material === 'string' ? manualProductItemRecord.material : '',
+          thickness: typeof manualProductItemRecord.thickness === 'string' ? manualProductItemRecord.thickness : '',
+          color: typeof manualProductItemRecord.color === 'string' ? manualProductItemRecord.color : '',
+          colorHex: typeof manualProductItemRecord.colorHex === 'string' ? manualProductItemRecord.colorHex : '',
+          surfaceType: typeof manualProductItemRecord.surfaceType === 'string' ? manualProductItemRecord.surfaceType : '',
+          notes: typeof manualProductItemRecord.notes === 'string' ? manualProductItemRecord.notes : '',
+          calculationBreakdown: Array.isArray(manualProductItemRecord.calculationBreakdown)
+            ? manualProductItemRecord.calculationBreakdown as { label: string; price: number }[]
+            : undefined,
+          pricingMeta: manualProductItemRecord.pricingMeta && typeof manualProductItemRecord.pricingMeta === 'object'
+            ? manualProductItemRecord.pricingMeta as Record<string, unknown>
+            : undefined,
+        };
+
+        setSelectedMaterial(manualMaterial);
+        setManualProductItems([restoredManualItem]);
+        setCalculatorType('quote');
+        setCurrentStep(100);
+        return;
+      }
 
       // 조색비 복원 (저장 견적 → 계산기 편집 진입 시 초기화되는 문제 방지)
       const colorMixingCostParam = searchParams.get('colorMixingCost');
@@ -218,10 +298,6 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         console.log('Restoring colorMixingCost:', restoredColorMixingCost);
         setColorMixingCost(restoredColorMixingCost);
       }
-      
-      setEditMode(editModeParam);
-      setSavedQuoteId(searchParams.get('savedQuoteId'));
-      setItemIndex(searchParams.get('itemIndex') ? parseInt(searchParams.get('itemIndex')!) : null);
       
       // 소재 복원 (material 이름으로 매칭)
       const materialParam = searchParams.get('material');
@@ -359,7 +435,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         setCurrentStep(1); // 소재 선택 단계
       }
     }
-  }, [searchParams]);
+  }, [searchParams, quotes, navigate]);
 
   useEffect(() => {
     const loadActivePricingVersion = async () => {
@@ -390,7 +466,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   // 단, 편집 모드와 수율 추천 적용 중에는 기존 복원/전환 흐름을 유지한다.
   useEffect(() => {
     const editModeParam = searchParams.get('editMode');
-    if (editModeParam === 'saved' || !initialType || yieldAppliedSelection) return;
+    if (editModeParam === 'saved' || editModeParam === 'draft' || !initialType || yieldAppliedSelection) return;
 
     setCalculatorType(initialType);
     setCurrentStep(initialType === 'yield' ? -1 : 1);
@@ -633,7 +709,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     }
     
     // 편집 모드에서는 기존 두께/사이즈/면수/조색비/가공 데이터를 유지하고 두께 선택 단계로 이동
-    if (editMode === 'saved' && selectedThickness && selectedSize) {
+    if ((editMode === 'saved' || editMode === 'draft') && selectedThickness && selectedSize) {
       setCurrentStep(4);
     } else {
       resetFromStep(4);
@@ -644,7 +720,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     console.log('Thickness selected:', thickness);
     setSelectedThickness(thickness);
     // 편집 모드에서는 기존 사이즈/면수/조색비 데이터를 유지
-    if (editMode === 'saved' && selectedSize) {
+    if ((editMode === 'saved' || editMode === 'draft') && selectedSize) {
       setCurrentStep(5);
     } else {
       resetFromStep(5);
@@ -665,7 +741,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
 
   const handleNextFromMultipleSize = () => {
     // 편집 모드에서는 면수/조색비/가공 선택값을 유지
-    if (editMode !== 'saved') {
+    if (editMode !== 'saved' && editMode !== 'draft') {
       resetFromStep(6);
     }
     setCurrentStep(6);
@@ -685,7 +761,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
 
   const handleNextFromMultipleSurface = () => {
     // 편집 모드에서는 가공 선택값을 유지
-    if (editMode !== 'saved') {
+    if (editMode !== 'saved' && editMode !== 'draft') {
       resetFromStep(7);
     }
     setCurrentStep(7);
@@ -885,6 +961,24 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       calculationSnapshot: createCalculationSnapshot(priceInfo.breakdown, priceInfo.totalPrice, {}, priceInfo)
     };
 
+    // 발행 전 임시 견적 수정 모드: 새 항목을 추가하지 않고 기존 항목만 교체
+    if (editMode === 'draft' && draftQuoteId) {
+      const draftQuoteExists = quotes.some(quote => quote.id === draftQuoteId);
+
+      if (!draftQuoteExists) {
+        toast.error('수정할 임시 견적 항목을 찾을 수 없습니다.');
+        navigate(quotes.length > 0 ? '/internal-quote' : '/calculator?type=quote');
+        return;
+      }
+
+      updateQuote(draftQuoteId, quoteData);
+      toast.success('견적 항목이 수정되었습니다.');
+      setEditMode(null);
+      setDraftQuoteId(null);
+      navigate('/internal-quote');
+      return;
+    }
+
     // 편집 모드일 때: 저장된 견적서의 해당 항목을 업데이트
     if (editMode === 'saved' && savedQuoteId && itemIndex !== null) {
       try {
@@ -945,6 +1039,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         // 편집 모드 초기화 및 저장된 견적서 상세 페이지로 이동
         setEditMode(null);
         setSavedQuoteId(null);
+        setDraftQuoteId(null);
         setItemIndex(null);
         navigate(`/saved-quotes/${savedQuoteId}`);
         return;
@@ -1006,6 +1101,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         alert('새 견적 항목이 추가되었습니다!');
         setEditMode(null);
         setSavedQuoteId(null);
+        setDraftQuoteId(null);
         navigate(`/saved-quotes/${savedQuoteId}`);
         return;
       } catch (error) {
@@ -1120,6 +1216,33 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       };
     });
 
+    // 발행 전 제품 제작 임시 견적 수정 모드
+    if (editMode === 'draft' && draftQuoteId) {
+      const draftQuoteExists = quotes.some(quote => quote.id === draftQuoteId);
+
+      if (!draftQuoteExists) {
+        toast.error('수정할 임시 견적 항목을 찾을 수 없습니다.');
+        navigate(quotes.length > 0 ? '/internal-quote' : '/calculator?type=quote');
+        return;
+      }
+
+      if (quoteDataList.length !== 1) {
+        toast.error('제품 제작 견적 수정은 한 항목씩 진행해주세요.');
+        return;
+      }
+
+      updateQuote(draftQuoteId, quoteDataList[0]);
+      toast.success('견적 항목이 수정되었습니다.');
+      setEditMode(null);
+      setDraftQuoteId(null);
+      setManualProductItems([]);
+      setSelectedMaterial(null);
+      setCurrentStep(0);
+      setCalculatorType(null);
+      navigate('/internal-quote');
+      return;
+    }
+
     // 기존 발행 견적서에 새 항목 추가 모드
     if (editMode === 'addToSaved' && savedQuoteId) {
       try {
@@ -1173,6 +1296,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         alert(`${validItems.length}개의 제품 제작 항목이 견적서에 추가되었습니다!`);
         setEditMode(null);
         setSavedQuoteId(null);
+        setDraftQuoteId(null);
         setManualProductItems([]);
         setSelectedMaterial(null);
         setCurrentStep(0);
@@ -1541,20 +1665,23 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
                   onClick={handleAddQuote}
                   size="lg"
                   disabled={!isProcessingSelectionComplete || priceInfo.status === 'blocked' || priceInfo.totalPrice <= 0}
-                  className={`px-8 animate-fade-up ${(editMode === 'saved' || editMode === 'addToSaved') ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                  className={`px-8 animate-fade-up ${(editMode === 'saved' || editMode === 'draft' || editMode === 'addToSaved') ? 'bg-green-600 hover:bg-green-700' : ''}`}
                 >
                   <Plus className="w-5 h-5" />
-                  {editMode === 'saved' ? '견적 수정' : editMode === 'addToSaved' ? '견적서에 항목 추가' : '견적 추가'}
+                  {(editMode === 'saved' || editMode === 'draft') ? '견적 수정' : editMode === 'addToSaved' ? '견적서에 항목 추가' : '견적 추가'}
                 </Button>
-                {(editMode === 'saved' || editMode === 'addToSaved') && savedQuoteId && (
+                {(((editMode === 'saved' || editMode === 'addToSaved') && savedQuoteId) || (editMode === 'draft' && draftQuoteId)) && (
                   <Button 
                     variant="outline" 
                     size="lg" 
                     onClick={() => {
+                      const currentSavedQuoteId = savedQuoteId;
+                      const isDraftEdit = editMode === 'draft';
                       setEditMode(null);
                       setSavedQuoteId(null);
+                      setDraftQuoteId(null);
                       setItemIndex(null);
-                      navigate(`/saved-quotes/${savedQuoteId}`);
+                      navigate(isDraftEdit ? '/internal-quote' : `/saved-quotes/${currentSavedQuoteId}`);
                     }}
                     className="px-8"
                   >
@@ -1581,12 +1708,30 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
               <Separator className="my-8" />
               <div className="flex justify-center">
                 <Button variant="ghost" onClick={() => {
+                  const currentSavedQuoteId = savedQuoteId;
+                  const isDraftEdit = editMode === 'draft';
+                  const shouldReturnToSavedQuote = Boolean(currentSavedQuoteId && editMode === 'addToSaved');
                   setManualProductItems([]);
                   setSelectedMaterial(null);
+                  setEditMode(null);
+                  setSavedQuoteId(null);
+                  setDraftQuoteId(null);
+                  setItemIndex(null);
+
+                  if (isDraftEdit) {
+                    navigate('/internal-quote');
+                    return;
+                  }
+
+                  if (shouldReturnToSavedQuote) {
+                    navigate(`/saved-quotes/${currentSavedQuoteId}`);
+                    return;
+                  }
+
                   setCurrentStep(1);
                 }} className="px-6">
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  소재 선택으로
+                  {(editMode === 'draft' || editMode === 'addToSaved') ? '취소' : '소재 선택으로'}
                 </Button>
               </div>
             </>}
