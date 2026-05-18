@@ -12,6 +12,101 @@ import {
   jinbaekPrices 
 } from "@/data/glossyColorPricing";
 
+export type CalculationStatus = 'calculable' | 'needs_review' | 'blocked';
+
+export type CalculationLineItemSource =
+  | 'panel'
+  | 'surcharge'
+  | 'processing'
+  | 'adhesion'
+  | 'additional'
+  | 'validation'
+  | 'manual';
+
+export interface CalculationLineItem {
+  code: string;
+  label: string;
+  amount: number;
+  source: CalculationLineItemSource;
+  reason?: string;
+}
+
+export interface PriceBreakdownItem {
+  label: string;
+  price: number;
+  code?: string;
+  source?: CalculationLineItemSource;
+  reason?: string;
+}
+
+export interface CalculatePriceResult {
+  totalPrice: number;
+  breakdown: PriceBreakdownItem[];
+  status: CalculationStatus;
+  lineItems: CalculationLineItem[];
+  warnings: string[];
+  blockedReasons: string[];
+  snapshotVersion: 'pricing-engine-v1';
+}
+
+export type ProcessingPricingMethod =
+  | 'legacy_multiplier'
+  | 'fixed_fee'
+  | 'panel_multiplier'
+  | 'panel_rate'
+  | 'per_unit'
+  | 'per_meter'
+  | 'per_corner'
+  | 'requires_review';
+
+const slugifyCalculationCode = (label: string) =>
+  label
+    .toLowerCase()
+    .replace(/[^a-z0-9가-힣]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'calculation-item';
+
+export const classifyCalculationLineItem = (
+  item: Pick<PriceBreakdownItem, 'label' | 'source'>
+): CalculationLineItemSource => {
+  if (item.source) return item.source;
+
+  const label = item.label;
+  if (/생산 불가|단가 미등록|지원되지 않는|검수/.test(label)) return 'validation';
+  if (/원판 단독 구매|레이저|CNC|재단|가공|엣지 경면/.test(label)) return 'processing';
+  if (/접착|무기포|본드|45°|90°/.test(label)) return 'adhesion';
+  if (/불광|타공|도장|마감/.test(label)) return 'additional';
+  if (/양단면|조색비|추가금액|추가금|사틴|아스텔|브라이트|진백|스리/.test(label)) return 'surcharge';
+  if (/기본가|색상판|보급판|CLEAR|원장 #/.test(label)) return 'panel';
+
+  return 'manual';
+};
+
+const normalizeCalculationResult = (
+  totalPrice: number,
+  breakdown: PriceBreakdownItem[],
+  warnings: string[] = [],
+  blockedReasons: string[] = []
+): CalculatePriceResult => {
+  const lineItems = breakdown.map((item, index) => ({
+    code: item.code || `${classifyCalculationLineItem(item)}-${slugifyCalculationCode(item.label)}-${index + 1}`,
+    label: item.label,
+    amount: item.price,
+    source: classifyCalculationLineItem(item),
+    reason: item.reason,
+  }));
+
+  return {
+    totalPrice,
+    breakdown,
+    status: blockedReasons.length > 0 ? 'blocked' : warnings.length > 0 ? 'needs_review' : 'calculable',
+    lineItems,
+    warnings,
+    blockedReasons,
+    snapshotVersion: 'pricing-engine-v1',
+  };
+};
+
 export const initializeGlossyColorPrices = (): PricingData => {
   const initialPrices: PricingData = {};
   const glossyColorQuality = CASTING_QUALITIES.find(q => q.id === 'glossy-color');
@@ -634,6 +729,7 @@ export interface CalculatePriceV2Options {
   bondFactors?: BondFactorsData;                  // 접착 배수 (DB)
   selectedAdditionalOptions?: Record<string, number>; // 추가 옵션 수량
   totalWonJangBase?: number; // 여러 원장의 합계 (옵션 계산 시 기준가)
+  bondProductType?: 'flat' | 'tray' | 'box';
 }
 
 export interface ProcessingOptionData {
@@ -644,6 +740,10 @@ export interface ProcessingOptionData {
   multiplier?: number;
   base_cost?: number;
   is_active?: boolean;
+  pricing_method?: ProcessingPricingMethod | null;
+  unit?: string | null;
+  rate?: number | null;
+  requires_review?: boolean | null;
 }
 
 export interface ColorMixingCostData {
@@ -733,6 +833,124 @@ const shouldUseRateMultiplier = (option: ProcessingOptionData) => {
   );
 };
 
+const getNumericOptionValue = (...values: Array<number | null | undefined>) => {
+  const value = values.find(v => typeof v === 'number' && Number.isFinite(v));
+  return value ?? 0;
+};
+
+const calculateConfiguredOptionCost = (
+  option: ProcessingOptionData,
+  wonJang: number,
+  quantity: number,
+  options?: CalculatePriceV2Options
+) => {
+  const method = option.pricing_method || 'legacy_multiplier';
+  const multiplier = option.multiplier ?? (method === 'panel_multiplier' ? option.rate ?? 1 : 0);
+  const rate = getNumericOptionValue(option.rate, option.base_cost, multiplier);
+  const baseCost = option.base_cost ?? 0;
+  const joinLength = options?.joinLengthM ?? 0;
+  const bevelLength = options?.bevelLengthM ?? 0;
+  const length = option.unit === 'bevel_m' || /bevel|45/i.test(option.option_id)
+    ? bevelLength
+    : joinLength;
+
+  if (method === 'requires_review') {
+    return {
+      cost: 0,
+      label: `${option.name} (수동 검수 필요)`,
+      reason: '관리자 설정에서 수동 검수 옵션으로 지정되었습니다.',
+    };
+  }
+
+  if (method === 'fixed_fee') {
+    return {
+      cost: rate * quantity,
+      label: quantity > 1 ? `${option.name} (${rate.toLocaleString()}원 × ${quantity})` : `${option.name}`,
+    };
+  }
+
+  if (method === 'panel_multiplier') {
+    return {
+      cost: wonJang * (multiplier - 1) * quantity,
+      label: quantity > 1 ? `${option.name} (원장×${multiplier}) x${quantity}개` : `${option.name} (최종 원장×${multiplier})`,
+    };
+  }
+
+  if (method === 'panel_rate') {
+    return {
+      cost: wonJang * rate * quantity,
+      label: quantity > 1 ? `${option.name} (원장×${rate}) x${quantity}개` : `${option.name} (원장×${rate})`,
+    };
+  }
+
+  if (method === 'per_unit') {
+    return {
+      cost: rate * quantity,
+      label: `${option.name} (${rate.toLocaleString()}원/개 × ${quantity})`,
+    };
+  }
+
+  if (method === 'per_meter') {
+    return {
+      cost: rate * length * quantity,
+      label: `${option.name} (${rate.toLocaleString()}원/m × ${length.toFixed(2)}m${quantity > 1 ? ` × ${quantity}` : ''})`,
+    };
+  }
+
+  if (method === 'per_corner') {
+    const corners = options?.corners90 ?? 0;
+    return {
+      cost: rate * corners * quantity,
+      label: `${option.name} (${rate.toLocaleString()}원/코너 × ${corners}개${quantity > 1 ? ` × ${quantity}` : ''})`,
+    };
+  }
+
+  return null;
+};
+
+const collectProductionGuardrails = (
+  thickness: string,
+  selectedAdhesion: AdhesionProfile,
+  opts?: CalculatePriceV2Options
+) => {
+  const t = parseFloat(thickness.replace('T', ''));
+  const joinLength = opts?.joinLengthM ?? 0;
+  const corners = opts?.corners90 ?? 0;
+  const isBoxLike = opts?.bondProductType === 'box' || corners >= 8;
+  const usesAdhesion =
+    selectedAdhesion !== 'none' ||
+    (opts?.useDetailedBond ?? false) ||
+    joinLength > 0 ||
+    corners > 0;
+
+  const warnings: string[] = [];
+  const blockedReasons: string[] = [];
+
+  if (!usesAdhesion) {
+    return { warnings, blockedReasons };
+  }
+
+  if (isBoxLike && t <= 5 && joinLength >= 9) {
+    blockedReasons.push('5T 대형 6면체 박스는 휨과 접착 품질 리스크가 커서 자동 견적으로 발행할 수 없습니다. 두께 상향 또는 수동 검수가 필요합니다.');
+  } else if (isBoxLike && t <= 5 && joinLength >= 7) {
+    warnings.push('5T 6면체 박스는 크기가 커질수록 휨과 접착 품질 리스크가 있어 관리자 검수가 필요합니다.');
+  }
+
+  if ((selectedAdhesion === 'bond-mugipo-90' || selectedAdhesion === '90-mugipo' || selectedAdhesion === '90-normal') && corners > 0) {
+    warnings.push('90도 접착은 마감 품질 확보에 시간이 많이 들어 최종 발행 전 검수를 권장합니다.');
+  }
+
+  if (selectedAdhesion === 'auto') {
+    warnings.push('무기포 접착 자동 선택은 기준 금액으로 계산됩니다. 45도/90도 마감 방식이 정해진 경우 직접 선택해야 정확합니다.');
+  }
+
+  if ((selectedAdhesion !== 'none' || opts?.useDetailedBond) && joinLength <= 0) {
+    warnings.push('접착선 길이가 없어 접착비가 배수 기준으로만 계산되었습니다. 정확도를 높이려면 제품 유형 또는 접착선 길이를 입력하세요.');
+  }
+
+  return { warnings, blockedReasons };
+};
+
 export const calculatePrice = (
   materialId: string,
   qualityId: string,
@@ -748,11 +966,18 @@ export const calculatePrice = (
     basePanelSizesData?: PanelSizeData[];
     optionSurchargesData?: PanelOptionSurchargeData[];
   }
-): { totalPrice: number; breakdown: { label: string; price: number }[] } => {
-  const breakdown: { label: string; price: number }[] = [];
+): CalculatePriceResult => {
+  const breakdown: PriceBreakdownItem[] = [];
+  const warnings: string[] = [];
+  const blockedReasons: string[] = [];
   
   if (materialId !== 'casting') {
-    return { totalPrice: 0, breakdown: [{ label: '지원되지 않는 소재', price: 0 }] };
+    return normalizeCalculationResult(
+      0,
+      [{ label: '지원되지 않는 소재', price: 0, source: 'validation', code: 'unsupported-material' }],
+      [],
+      ['지원되지 않는 소재입니다.']
+    );
   }
 
   // 사이즈에서 실제 키 추출 (예: "소3*6 (850*1750)" -> "소3*6")
@@ -839,13 +1064,18 @@ export const calculatePrice = (
   }
 
   if (basePrice <= 0) {
-    return {
-      totalPrice: 0,
-      breakdown: [{
+    return normalizeCalculationResult(
+      0,
+      [{
         label: `생산 불가 조합 또는 단가 미등록: ${qualityId} / ${thickness} / ${sizeKey}`,
-        price: 0
-      }]
-    };
+        price: 0,
+        source: 'validation',
+        code: 'missing-panel-price',
+        reason: '선택한 재질, 두께, 원판 사이즈에 사용할 수 있는 단가가 없습니다.',
+      }],
+      [],
+      [`생산 불가 조합 또는 단가 미등록: ${qualityId} / ${thickness} / ${sizeKey}`]
+    );
   }
 
   const dbBrightPigmentSurcharge = findOptionSurcharge('bright_pigment');
@@ -914,6 +1144,7 @@ export const calculatePrice = (
 
   // 5) 기본 가격 설정
   let totalPrice = basePrice;
+  let effectiveAdhesionForGuardrails: AdhesionProfile = 'none';
 
   // ===== 원장 금액 계산 완료 =====
   // 원장 = 원판금액 + 면수(양단면) + 조색비
@@ -923,7 +1154,7 @@ export const calculatePrice = (
   console.log('원장 기준:', { wonJang, basePrice, totalWonJangBase: options?.totalWonJangBase });
   
   // 6) processingType이 있는 경우 슬롯 기반 처리
-  if (processingType && processingType !== '' && options?.processingOptionsData) {
+  if (processingType && processingType !== '' && processingType !== 'none' && options?.processingOptionsData) {
     const processingOptionsData = options?.processingOptionsData || [];
     const selectedOptionIds = processingType.split('|').filter(Boolean);
     const hasDetailedProcessingInputs =
@@ -949,11 +1180,16 @@ export const calculatePrice = (
     const additionalOptionsQuantities = options?.selectedAdditionalOptions || {};
 
     let fallbackProcessing: ProcessingProfile = 'none';
-    let fallbackAdhesion: AdhesionProfile = 'none';
+    let fallbackAdhesion: AdhesionProfile = selectedOptionIds.some(optionId => ADHESION_PROFILE_IDS[optionId])
+      ? 'none'
+      : options?.adhesion || 'none';
     const optionIdsForGenericCalculation: string[] = [];
 
     selectedOptionIds.forEach(optionId => {
       const option = processingOptionsData.find(opt => opt.option_id === optionId && opt.is_active);
+      if (ADHESION_PROFILE_IDS[optionId]) {
+        effectiveAdhesionForGuardrails = ADHESION_PROFILE_IDS[optionId];
+      }
       const needsProfileDelta =
         isKnownProfileOptionId(optionId) &&
         (
@@ -975,6 +1211,7 @@ export const calculatePrice = (
     });
 
     if (fallbackProcessing !== 'none' || fallbackAdhesion !== 'none') {
+      effectiveAdhesionForGuardrails = fallbackAdhesion;
       const delta = calcProcessingDelta(
         wonJang,
         thickness,
@@ -1013,6 +1250,24 @@ export const calculatePrice = (
       if (option) {
         // 수량 정보 확인 (기본값 1)
         const quantity = additionalOptionsQuantities[optionId] || 1;
+        if (option.requires_review) {
+          warnings.push(`${option.name} 옵션은 관리자 검수가 필요합니다.`);
+        }
+        const configuredOptionCost = calculateConfiguredOptionCost(option, wonJang, quantity, options);
+        if (configuredOptionCost) {
+          if (configuredOptionCost.reason) {
+            warnings.push(configuredOptionCost.reason);
+          }
+          breakdown.push({
+            label: configuredOptionCost.label,
+            price: configuredOptionCost.cost,
+            source: option.option_type === 'adhesion' ? 'adhesion' : option.option_type === 'additional' || option.category === 'additional' ? 'additional' : 'processing',
+            code: `option-${option.option_id}`,
+            reason: configuredOptionCost.reason,
+          });
+          totalPrice += configuredOptionCost.cost;
+          return;
+        }
         
         // raw-only 옵션 특별 처리: 원판에 대한 할증
         if (option.option_id === 'raw-only' && option.multiplier) {
@@ -1076,6 +1331,7 @@ export const calculatePrice = (
     const processing = options.processing || 'none';
     const adhesion = options.adhesion || 'none';
     const processingOptionsData = options?.processingOptionsData || [];
+    effectiveAdhesionForGuardrails = adhesion;
 
     const delta = calcProcessingDelta(
       wonJang,
@@ -1127,6 +1383,12 @@ export const calculatePrice = (
   // 추가 옵션들 - 맨 마지막에 적용
   // DB에서 가져온 처리 옵션 데이터 사용 (있으면 우선 사용, 없으면 기본값)
   const processingOptionsData = options?.processingOptionsData || [];
+  const selectedOptionSet = new Set([
+    ...(processingType ? processingType.split('|').filter(Boolean) : []),
+    ...Object.entries(options?.selectedAdditionalOptions || {})
+      .filter(([, quantity]) => quantity > 0)
+      .map(([optionId]) => optionId),
+  ]);
   
   const getOptionData = (optionId: string, defaultMultiplier: number) => {
     const dbOption = processingOptionsData.find(opt => opt.option_id === optionId);
@@ -1137,7 +1399,7 @@ export const calculatePrice = (
     };
   };
 
-  if (options?.edgeFinishing) {
+  if (options?.edgeFinishing && !selectedOptionSet.has('edgeFinishing')) {
     const optionData = getOptionData('edgeFinishing', 0.5);
     const cost = basePrice * optionData.multiplier + optionData.baseCost;
     breakdown.push({ 
@@ -1147,7 +1409,7 @@ export const calculatePrice = (
     totalPrice += cost;
   }
 
-  if (options?.bulgwang) {
+  if (options?.bulgwang && !selectedOptionSet.has('bulgwang')) {
     const optionData = getOptionData('bulgwang', 0.5);
     const cost = basePrice * optionData.multiplier + optionData.baseCost;
     breakdown.push({ 
@@ -1157,7 +1419,7 @@ export const calculatePrice = (
     totalPrice += cost;
   }
 
-  if (options?.tapung) {
+  if (options?.tapung && !selectedOptionSet.has('tapung')) {
     const optionData = getOptionData('tapung', 0.2);
     const cost = basePrice * optionData.multiplier + optionData.baseCost;
     breakdown.push({ 
@@ -1167,7 +1429,7 @@ export const calculatePrice = (
     totalPrice += cost;
   }
 
-  if (options?.mugwangPainting) {
+  if (options?.mugwangPainting && !selectedOptionSet.has('mugwangPainting')) {
     const optionData = getOptionData('mugwangPainting', 2.0);
     const cost = basePrice * optionData.multiplier + optionData.baseCost;
     breakdown.push({ 
@@ -1177,7 +1439,11 @@ export const calculatePrice = (
     totalPrice += cost;
   }
 
-  return { totalPrice, breakdown };
+  const guardrails = collectProductionGuardrails(thickness, effectiveAdhesionForGuardrails, options);
+  warnings.push(...guardrails.warnings);
+  blockedReasons.push(...guardrails.blockedReasons);
+
+  return normalizeCalculationResult(totalPrice, breakdown, warnings, blockedReasons);
 };
 
 export const formatPrice = (price: number): string => {

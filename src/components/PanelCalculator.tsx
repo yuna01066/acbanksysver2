@@ -42,6 +42,7 @@ type PricingVersion = Pick<
 >;
 
 type QuoteDraft = Omit<Quote, 'id' | 'createdAt'>;
+type BondProductType = 'flat' | 'tray' | 'box';
 
 type SavedQuoteItem = Partial<QuoteDraft> & {
   id?: string;
@@ -149,6 +150,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [useDetailedBond, setUseDetailedBond] = useState<boolean>(false);
   const [joinLengthM, setJoinLengthM] = useState<number>(0);
   const [trayHeightMm, setTrayHeightMm] = useState<number | undefined>(undefined);
+  const [bondProductType, setBondProductType] = useState<BondProductType>('flat');
   const [edgeFinishing, setEdgeFinishing] = useState<boolean>(false);
   const [bulgwang, setBulgwang] = useState<boolean>(false);
   const [tapung, setTapung] = useState<boolean>(false);
@@ -440,6 +442,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     useDetailedBond,
     joinLengthM,
     trayHeightMm,
+    bondProductType,
     edgeFinishing,
     bulgwang,
     tapung,
@@ -542,6 +545,13 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       // 가공 선택 단계 리셋 (수량/복잡도 포함)
       setQty(1);
       setIsComplex(false);
+      setBevelLengthM(0);
+      setLaserHoles(0);
+      setCorners90(0);
+      setUseDetailedBond(false);
+      setJoinLengthM(0);
+      setTrayHeightMm(undefined);
+      setBondProductType('flat');
       setSelectedProcessing('');
       setSelectedProcessingName('');
       setSelectedAdhesion('');
@@ -754,7 +764,14 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const createCalculationSnapshot = (
     breakdown: { label: string; price: number }[],
     totalPrice: number,
-    extraOptions: Record<string, unknown> = {}
+    extraOptions: Record<string, unknown> = {},
+    calculationMeta?: {
+      status?: string;
+      warnings?: string[];
+      blockedReasons?: string[];
+      lineItems?: unknown[];
+      snapshotVersion?: string;
+    }
   ) => {
     const capturedAt = new Date().toISOString();
     const pricingVersionDisplayName = getActivePricingVersionDisplayName(capturedAt);
@@ -798,12 +815,18 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         useDetailedBond,
         joinLengthM,
         trayHeightMm,
+        bondProductType,
         edgeFinishing,
         bulgwang,
         tapung,
         mugwangPainting,
         ...extraOptions,
       },
+      calculationStatus: calculationMeta?.status || 'calculable',
+      calculationWarnings: calculationMeta?.warnings || [],
+      calculationBlockedReasons: calculationMeta?.blockedReasons || [],
+      calculationLineItems: calculationMeta?.lineItems || [],
+      calculationEngineVersion: calculationMeta?.snapshotVersion || 'pricing-engine-v1',
       breakdown: breakdown.map(item => ({ ...item })),
       totalPrice,
       note: '저장 당시 단가와 계산 근거입니다. 이후 단가표 변경은 이 견적 금액에 자동 반영되지 않습니다.',
@@ -826,6 +849,12 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
 
     if (!isProcessingSelectionComplete) {
       alert('가공 카테고리의 세부 옵션을 선택해주세요. 가공이 없는 경우 원판 구매 옵션을 선택해주세요.');
+      return;
+    }
+
+    if (priceInfo.status === 'blocked' || priceInfo.totalPrice <= 0) {
+      const reason = priceInfo.blockedReasons?.[0] || '계산 가능한 견적 금액이 없습니다.';
+      alert(`견적을 추가할 수 없습니다.\n${reason}`);
       return;
     }
 
@@ -853,7 +882,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       pricingVersionId: activePricingVersion?.id || null,
       pricingVersionName: getActivePricingVersionDisplayName(),
       quoteStyle: 'panel' as const,
-      calculationSnapshot: createCalculationSnapshot(priceInfo.breakdown, priceInfo.totalPrice)
+      calculationSnapshot: createCalculationSnapshot(priceInfo.breakdown, priceInfo.totalPrice, {}, priceInfo)
     };
 
     // 편집 모드일 때: 저장된 견적서의 해당 항목을 업데이트
@@ -1019,6 +1048,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     setUseDetailedBond(false);
     setJoinLengthM(0);
     setTrayHeightMm(undefined);
+    setBondProductType('flat');
     setEdgeFinishing(false);
     setBulgwang(false);
     setTapung(false);
@@ -1495,6 +1525,8 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
                 onJoinLengthChange={setJoinLengthM}
                 trayHeightMm={trayHeightMm}
                 onTrayHeightChange={setTrayHeightMm}
+                productType={bondProductType}
+                onProductTypeChange={setBondProductType}
               />
             </>
           )}
@@ -1508,7 +1540,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
                 <Button
                   onClick={handleAddQuote}
                   size="lg"
-                  disabled={!isProcessingSelectionComplete}
+                  disabled={!isProcessingSelectionComplete || priceInfo.status === 'blocked' || priceInfo.totalPrice <= 0}
                   className={`px-8 animate-fade-up ${(editMode === 'saved' || editMode === 'addToSaved') ? 'bg-green-600 hover:bg-green-700' : ''}`}
                 >
                   <Plus className="w-5 h-5" />
