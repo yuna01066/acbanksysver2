@@ -8,6 +8,7 @@ import { Trash2, Plus, Minus, Edit, FileText, ShieldCheck } from "lucide-react";
 import { formatPrice } from "@/utils/priceCalculations";
 import { Quote } from "@/contexts/QuoteContext";
 import { getQuoteStyleForItem, getQuoteStyleProfile } from "@/utils/quoteStyle";
+import { formatPricingVersionDisplayName } from "@/utils/pricingVersionDisplay";
 
 interface QuoteCardProps {
   quote: Quote;
@@ -48,8 +49,14 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
   const unitPrice = quote.totalPrice;
   const totalPrice = unitPrice * quote.quantity;
   const snapshot = quote.calculationSnapshot;
-  const snapshotVersionName = snapshot?.pricingVersion?.versionName || quote.pricingVersionName;
   const snapshotCapturedAt = snapshot?.capturedAt ? new Date(snapshot.capturedAt) : null;
+  const rawSnapshotVersionName = snapshot?.pricingVersion?.versionName || quote.pricingVersionName;
+  const snapshotVersionName = formatPricingVersionDisplayName({
+    versionName: rawSnapshotVersionName,
+    supplierName: snapshot?.pricingVersion?.supplierName,
+    effectiveFrom: snapshot?.pricingVersion?.effectiveFrom,
+    capturedAt: snapshot?.capturedAt,
+  });
   const yieldRecommendation = snapshot?.selectedOptions?.yieldRecommendation as any;
   const quoteStyle = getQuoteStyleForItem(quote);
   const styleProfile = getQuoteStyleProfile(quoteStyle);
@@ -157,7 +164,7 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
                 <h4 className="text-[12px] font-semibold text-black">계산 근거</h4>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
-                {snapshotVersionName && (
+                {(rawSnapshotVersionName || snapshotCapturedAt) && (
                   <span className="rounded-full border bg-white px-2 py-0.5 text-[11px] text-gray-600">
                     {snapshotVersionName}
                   </span>
