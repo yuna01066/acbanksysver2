@@ -77,6 +77,26 @@ const SavedQuotesPage = () => {
   const [creatingProjectQuoteId, setCreatingProjectQuoteId] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 50;
 
+  const getQuoteTitle = (quote: SavedQuote): string => {
+    const projectName = quote.project_name?.trim();
+    if (projectName) return projectName;
+
+    const companyName = quote.recipient_company?.trim();
+    if (companyName) return `${companyName} 견적`;
+
+    return `견적서 ${quote.quote_number}`;
+  };
+
+  const formatCompactDate = (date: string): string => {
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) return '-';
+
+    const year = String(parsed.getFullYear()).slice(-2);
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const day = String(parsed.getDate()).padStart(2, '0');
+    return `${year}.${month}.${day}`;
+  };
+
   // valid_until 문자열에서 마지막 날짜를 파싱하는 함수
   const parseValidUntilDate = (validUntil: string | null): Date | null => {
     if (!validUntil || validUntil.trim() === '') return null;
@@ -689,7 +709,7 @@ const SavedQuotesPage = () => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="견적번호, 프로젝트명, 업체명, 담당자 검색"
+                placeholder="견적 제목, 견적번호, 업체명, 담당자 검색"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="h-10 pl-10"
@@ -796,12 +816,12 @@ const SavedQuotesPage = () => {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableHead className="w-[210px]">견적</TableHead>
-                    <TableHead className="min-w-[220px]">거래처</TableHead>
-                    <TableHead className="min-w-[220px]">프로젝트</TableHead>
+                    <TableHead className="w-[118px]">발행일</TableHead>
+                    <TableHead className="min-w-[320px]">견적 제목</TableHead>
+                    <TableHead className="min-w-[210px]">거래처</TableHead>
+                    <TableHead className="min-w-[210px]">프로젝트</TableHead>
                     <TableHead className="w-[150px]">단계</TableHead>
                     <TableHead className="w-[140px] text-right">금액</TableHead>
-                    <TableHead className="w-[120px]">발행일</TableHead>
                     <TableHead className="w-[132px] text-right">작업</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -814,24 +834,32 @@ const SavedQuotesPage = () => {
                     return (
                       <TableRow
                         key={quote.id}
-                        className="cursor-pointer"
+                        className="cursor-pointer hover:bg-muted/35"
                         onClick={() => navigate(`/saved-quotes/${quote.id}`)}
                       >
-                        <TableCell className="py-3">
-                          <div className="flex min-w-0 flex-col gap-1">
-                            <div className="font-semibold tabular-nums">{quote.quote_number}</div>
-                            {quote.project_name && (
-                              <div className="max-w-[260px] truncate text-xs text-muted-foreground">
-                                {quote.project_name}
-                              </div>
-                            )}
-                            <div className="flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
+                        <TableCell className="py-4 align-top">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-sm font-semibold tabular-nums text-foreground">
+                              {formatCompactDate(quote.quote_date)}
+                            </span>
+                            <span className="text-[11px] font-medium text-muted-foreground">발행</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 align-top">
+                          <div className="flex min-w-0 flex-col gap-1.5">
+                            <div className="max-w-[380px] truncate text-[15px] font-semibold leading-5 text-foreground">
+                              {getQuoteTitle(quote)}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                              <span className="rounded-full bg-muted/70 px-2 py-0.5 font-medium tabular-nums text-muted-foreground">
+                                No. {quote.quote_number}
+                              </span>
                               {quote.issuer_name && <span>담당 {quote.issuer_name}</span>}
                               {quote.creator_name && <span>작성 {quote.creator_name}</span>}
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="py-3">
+                        <TableCell className="py-4 align-top">
                           <div className="flex min-w-0 flex-col gap-1">
                             {quote.recipient_company ? (
                               <button
@@ -856,26 +884,26 @@ const SavedQuotesPage = () => {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="py-3">
+                        <TableCell className="py-4 align-top">
                           {quote.linked_project ? (
-                            <button
-                              type="button"
-                              className="flex max-w-[240px] flex-col items-start gap-1 rounded-md border border-primary/20 bg-primary/5 px-2.5 py-2 text-left transition-colors hover:bg-primary/10"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                navigate(`/project-management?id=${quote.linked_project!.id}`);
-                              }}
-                            >
-                              <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                className="flex h-8 max-w-[240px] items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-primary/10"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  navigate(`/project-management?id=${quote.linked_project!.id}`);
+                                }}
+                              >
                                 <FolderOpen className="h-3.5 w-3.5 shrink-0 text-primary" />
                                 <span className="truncate">{quote.linked_project.name}</span>
-                              </span>
+                              </button>
                               {paymentInfo && (
                                 <Badge className={`text-[10px] ${paymentInfo.color}`}>
                                   {paymentInfo.label}
                                 </Badge>
                               )}
-                            </button>
+                            </div>
                           ) : (
                             <div className="flex flex-wrap items-center gap-2">
                               <Badge variant="outline" className="text-xs text-muted-foreground">
@@ -904,7 +932,7 @@ const SavedQuotesPage = () => {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="py-3">
+                        <TableCell className="py-4 align-top">
                           <div onClick={(event) => event.stopPropagation()}>
                             <ProjectStageSelect
                               quoteId={quote.id}
@@ -917,17 +945,10 @@ const SavedQuotesPage = () => {
                             />
                           </div>
                         </TableCell>
-                        <TableCell className="py-3 text-right font-semibold tabular-nums">
+                        <TableCell className="py-4 text-right align-top font-semibold tabular-nums">
                           {formatPrice(quote.total)}
                         </TableCell>
-                        <TableCell className="py-3 text-sm text-muted-foreground">
-                          {new Date(quote.quote_date).toLocaleDateString('ko-KR', {
-                            year: '2-digit',
-                            month: '2-digit',
-                            day: '2-digit',
-                          })}
-                        </TableCell>
-                        <TableCell className="py-3">
+                        <TableCell className="py-4 align-top">
                           <div className="flex justify-end gap-1.5">
                             <Button
                               variant="outline"
