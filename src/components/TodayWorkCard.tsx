@@ -304,6 +304,7 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
 
   const isLoading = quotesLoading || projectsLoading || leavesLoading || syncLoading;
   const urgentCount = workItems.filter((item) => item.tone === 'danger' || item.tone === 'warning').length;
+  const shouldScrollWorkItems = workItems.length > 4;
 
   return (
     <Card className="w-full overflow-hidden border-primary/10 bg-background/85 shadow-sm backdrop-blur">
@@ -339,8 +340,8 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
             <p className="mt-1 text-xs text-muted-foreground">캘린더와 최근 활동은 아래 카드에서 계속 확인할 수 있습니다.</p>
           </div>
         ) : (
-          <ScrollArea className="max-h-[360px] pr-3">
-            <div className="space-y-2">
+          <ScrollArea className={cn('pr-3', shouldScrollWorkItems ? 'h-[340px] sm:h-[360px]' : 'max-h-[360px]')}>
+            <div className="space-y-2 pb-1">
               {workItems.map((item, index) => (
                 <React.Fragment key={item.id}>
                   <button

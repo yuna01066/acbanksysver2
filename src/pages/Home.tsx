@@ -14,6 +14,7 @@ import QuickAttendanceButton from '@/components/QuickAttendanceButton';
 import DailyQuoteCard from '@/components/DailyQuoteCard';
 import ActivityFeedCard from '@/components/ActivityFeedCard';
 import TodayWorkCard from '@/components/TodayWorkCard';
+import ChannelTalkInquiryCard from '@/components/ChannelTalkInquiryCard';
 
 import { useAuth } from '@/contexts/AuthContext';
 import TimeGreeting from '@/components/TimeGreeting';
@@ -177,17 +178,10 @@ const Home = () => {
   }, {
     title: "채널톡 문의 분석함",
     icon: MessageSquareText,
-    description: "도면 분석 리드 검토·견적 전환",
+    description: "AI 분석 문의 확인",
     url: "/channel-talk-leads",
     requiresAuth: true,
-    requiresAdmin: true,
-    action: () => {
-      if (isAdmin || isModerator) {
-        navigate("/channel-talk-leads");
-      } else {
-        toast.error('관리자 또는 중간관리자만 접근할 수 있습니다.');
-      }
-    }
+    action: () => navigate("/channel-talk-leads")
   }, {
     title: "관리자 설정",
     icon: Settings,
@@ -296,7 +290,10 @@ const Home = () => {
                 <DailyQuoteCard />
               </div>
             </div>
-            <TodayWorkCard notifications={notifications} />
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+              <TodayWorkCard notifications={notifications} />
+              <ChannelTalkInquiryCard />
+            </div>
             <DashboardCalendar />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <AnnouncementCard />

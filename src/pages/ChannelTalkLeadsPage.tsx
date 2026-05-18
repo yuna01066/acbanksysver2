@@ -4,8 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
-  AlertTriangle,
-  ArrowLeft,
   Bell,
   CheckCircle2,
   Clipboard,
@@ -176,7 +174,7 @@ const ChannelTalkLeadsPage = () => {
       if (error) throw error;
       return ((data || []) as unknown) as ChannelTalkLead[];
     },
-    enabled: !!user && canReview,
+    enabled: !!user,
   });
 
   const { data: projects = [] } = useQuery<ProjectOption[]>({
@@ -327,29 +325,14 @@ const ChannelTalkLeadsPage = () => {
     );
   }
 
-  if (!canReview) {
-    return (
-      <PageShell maxWidth="5xl">
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <AlertTriangle className="h-8 w-8 text-muted-foreground" />
-            <div>
-              <p className="font-semibold">접근 권한이 없습니다.</p>
-              <p className="mt-1 text-sm text-muted-foreground">채널톡 분석 리드는 관리자와 중간관리자만 확인할 수 있습니다.</p>
-            </div>
-            <Button variant="outline" onClick={() => navigate('/')}>홈으로</Button>
-          </CardContent>
-        </Card>
-      </PageShell>
-    );
-  }
-
   return (
     <PageShell maxWidth="7xl">
       <PageHeader
         eyebrow="Channel Talk"
         title="채널톡 문의 분석함"
-        description="채널톡 첨부파일 자동 분석 결과를 검토하고 견적/프로젝트 업무로 연결합니다."
+        description={canReview
+          ? '채널톡 첨부파일 자동 분석 결과를 검토하고 견적/프로젝트 업무로 연결합니다.'
+          : '채널톡 첨부파일 자동 분석 결과를 읽기 전용으로 확인합니다.'}
         icon={<MessageSquareText className="h-5 w-5" />}
         actions={(
           <>
@@ -529,123 +512,149 @@ const ChannelTalkLeadsPage = () => {
                 </ScrollArea>
 
                 <aside className="space-y-4">
-                  <div className="rounded-xl border bg-background/70 p-4">
-                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold"><UserRound className="h-4 w-4" /> 리드 관리</h3>
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-xs">상태</Label>
+                  {canReview ? (
+                    <>
+                      <div className="rounded-xl border bg-background/70 p-4">
+                        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold"><UserRound className="h-4 w-4" /> 리드 관리</h3>
+                        <div className="space-y-3">
+                          <div>
+                            <Label className="text-xs">상태</Label>
+                            <Select
+                              value={selectedLead.status}
+                              onValueChange={(value) => updateLead.mutate({ id: selectedLead.id, updates: { status: value } })}
+                            >
+                              <SelectTrigger className="mt-1 h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {statusTabs.filter(tab => tab.value !== 'all').map(tab => (
+                                  <SelectItem key={tab.value} value={tab.value}>{tab.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-xs">담당자</Label>
+                            <Select
+                              value={selectedLead.assigned_to || 'none'}
+                              onValueChange={(value) => updateLead.mutate({ id: selectedLead.id, updates: { assigned_to: value === 'none' ? null : value } })}
+                            >
+                              <SelectTrigger className="mt-1 h-9">
+                                <SelectValue placeholder="담당자 선택" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">미지정</SelectItem>
+                                {profiles.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>{p.full_name || p.email || p.id}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-xs">상담원 메모</Label>
+                            <Textarea
+                              defaultValue={selectedLead.memo || ''}
+                              placeholder="내부 확인 내용, 고객 확인 사항 등을 기록하세요."
+                              className="mt-1 min-h-24 text-xs"
+                              onBlur={(event) => {
+                                if (event.target.value !== (selectedLead.memo || '')) {
+                                  updateLead.mutate({ id: selectedLead.id, updates: { memo: event.target.value || null } });
+                                }
+                              }}
+                            />
+                          </div>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full gap-1.5"
+                            onClick={() => updateLead.mutate({ id: selectedLead.id, updates: { assigned_to: user.id, status: selectedLead.status === 'new' ? 'analyzed' : selectedLead.status } })}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            내 담당으로 지정
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border bg-background/70 p-4">
+                        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold"><FolderOpen className="h-4 w-4" /> 프로젝트 연결</h3>
                         <Select
-                          value={selectedLead.status}
-                          onValueChange={(value) => updateLead.mutate({ id: selectedLead.id, updates: { status: value } })}
+                          value={selectedLead.project_id || 'none'}
+                          onValueChange={(value) => updateLead.mutate({ id: selectedLead.id, updates: { project_id: value === 'none' ? null : value, status: value === 'none' ? selectedLead.status : 'converted' } })}
                         >
-                          <SelectTrigger className="mt-1 h-9">
-                            <SelectValue />
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="기존 프로젝트 선택" />
                           </SelectTrigger>
                           <SelectContent>
-                            {statusTabs.filter(tab => tab.value !== 'all').map(tab => (
-                              <SelectItem key={tab.value} value={tab.value}>{tab.label}</SelectItem>
+                            <SelectItem value="none">연결 안 함</SelectItem>
+                            {projects.map((project) => (
+                              <SelectItem key={project.id} value={project.id}>
+                                {project.name}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                      </div>
-
-                      <div>
-                        <Label className="text-xs">담당자</Label>
-                        <Select
-                          value={selectedLead.assigned_to || 'none'}
-                          onValueChange={(value) => updateLead.mutate({ id: selectedLead.id, updates: { assigned_to: value === 'none' ? null : value } })}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 w-full gap-1.5"
+                          onClick={() => selectedLead.project_id && navigate(`/project-management?id=${selectedLead.project_id}`)}
+                          disabled={!selectedLead.project_id}
                         >
-                          <SelectTrigger className="mt-1 h-9">
-                            <SelectValue placeholder="담당자 선택" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">미지정</SelectItem>
-                            {profiles.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>{p.full_name || p.email || p.id}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          <LinkIcon className="h-3.5 w-3.5" />
+                          연결 프로젝트 열기
+                        </Button>
                       </div>
 
-                      <div>
-                        <Label className="text-xs">상담원 메모</Label>
-                        <Textarea
-                          defaultValue={selectedLead.memo || ''}
-                          placeholder="내부 확인 내용, 고객 확인 사항 등을 기록하세요."
-                          className="mt-1 min-h-24 text-xs"
-                          onBlur={(event) => {
-                            if (event.target.value !== (selectedLead.memo || '')) {
-                              updateLead.mutate({ id: selectedLead.id, updates: { memo: event.target.value || null } });
-                            }
-                          }}
-                        />
+                      <div className="rounded-xl border bg-background/70 p-4">
+                        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Send className="h-4 w-4" /> 업무 전환</h3>
+                        <div className="space-y-2">
+                          <Button className="w-full gap-1.5" size="sm" onClick={() => navigate(toQuoteDraftParams(selectedLead))}>
+                            <FileText className="h-3.5 w-3.5" />
+                            견적 초안 만들기
+                          </Button>
+                          <Button variant="outline" className="w-full gap-1.5" size="sm" onClick={() => openProjectDialog(selectedLead)}>
+                            <FolderOpen className="h-3.5 w-3.5" />
+                            프로젝트 후보 만들기
+                          </Button>
+                          <Button variant="outline" className="w-full gap-1.5" size="sm" onClick={() => copyMemo(selectedLead)}>
+                            <MessageSquareText className="h-3.5 w-3.5" />
+                            채널톡 내부 메모 복사
+                          </Button>
+                        </div>
+                        <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+                          고객 자동답변은 전송하지 않습니다. 추천 답변은 내부 참고용으로만 사용합니다.
+                        </p>
                       </div>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full gap-1.5"
-                        onClick={() => updateLead.mutate({ id: selectedLead.id, updates: { assigned_to: user.id, status: selectedLead.status === 'new' ? 'analyzed' : selectedLead.status } })}
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        내 담당으로 지정
-                      </Button>
+                    </>
+                  ) : (
+                    <div className="rounded-xl border bg-background/70 p-4">
+                      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Bell className="h-4 w-4" /> 읽기 전용</h3>
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        문의 내용과 AI 분석 결과를 확인할 수 있습니다. 상태 변경, 담당자 지정, 견적/프로젝트 연결은 관리자 또는 중간관리자가 처리합니다.
+                      </p>
+                      <div className="mt-4 space-y-2 text-xs">
+                        <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2">
+                          <span className="text-muted-foreground">상태</span>
+                          <Badge variant="outline" className={statusInfo(selectedLead.status).className}>{statusInfo(selectedLead.status).label}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2">
+                          <span className="text-muted-foreground">AI 신뢰도</span>
+                          <Badge variant="outline" className={confidenceLabel(selectedLead.analysis?.confidence).className}>{confidenceLabel(selectedLead.analysis?.confidence).label}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2">
+                          <span className="text-muted-foreground">누락 정보</span>
+                          <span className="font-medium">{selectedLead.missing_fields?.length || 0}건</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="rounded-xl border bg-background/70 p-4">
-                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold"><FolderOpen className="h-4 w-4" /> 프로젝트 연결</h3>
-                    <Select
-                      value={selectedLead.project_id || 'none'}
-                      onValueChange={(value) => updateLead.mutate({ id: selectedLead.id, updates: { project_id: value === 'none' ? null : value, status: value === 'none' ? selectedLead.status : 'converted' } })}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="기존 프로젝트 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">연결 안 함</SelectItem>
-                        {projects.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2 w-full gap-1.5"
-                      onClick={() => selectedLead.project_id && navigate(`/project-management?id=${selectedLead.project_id}`)}
-                      disabled={!selectedLead.project_id}
-                    >
-                      <LinkIcon className="h-3.5 w-3.5" />
-                      연결 프로젝트 열기
-                    </Button>
-                  </div>
-
-                  <div className="rounded-xl border bg-background/70 p-4">
-                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Send className="h-4 w-4" /> 업무 전환</h3>
-                    <div className="space-y-2">
-                      <Button className="w-full gap-1.5" size="sm" onClick={() => navigate(toQuoteDraftParams(selectedLead))}>
-                        <FileText className="h-3.5 w-3.5" />
-                        견적 초안 만들기
-                      </Button>
-                      <Button variant="outline" className="w-full gap-1.5" size="sm" onClick={() => openProjectDialog(selectedLead)}>
-                        <FolderOpen className="h-3.5 w-3.5" />
-                        프로젝트 후보 만들기
-                      </Button>
-                      <Button variant="outline" className="w-full gap-1.5" size="sm" onClick={() => copyMemo(selectedLead)}>
-                        <MessageSquareText className="h-3.5 w-3.5" />
-                        채널톡 내부 메모 복사
-                      </Button>
-                    </div>
-                    <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-                      고객 자동답변은 전송하지 않습니다. 추천 답변은 내부 참고용으로만 사용합니다.
-                    </p>
-                  </div>
+                  )}
                 </aside>
               </CardContent>
 
+              {canReview && (
               <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
                 <DialogContent>
                   <DialogHeader>
@@ -676,6 +685,7 @@ const ChannelTalkLeadsPage = () => {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              )}
             </>
           )}
         </Card>
