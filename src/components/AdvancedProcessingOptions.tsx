@@ -42,6 +42,8 @@ interface AdvancedProcessingOptionsProps {
   
   trayHeightMm?: number;
   onTrayHeightChange?: (height: number) => void;
+  productType?: ProductType;
+  onProductTypeChange?: (type: ProductType) => void;
 }
 
 type ProductType = 'flat' | 'tray' | 'box';
@@ -63,15 +65,28 @@ const AdvancedProcessingOptions = ({
   onJoinLengthChange,
   trayHeightMm,
   onTrayHeightChange,
+  productType: controlledProductType,
+  onProductTypeChange,
 }: AdvancedProcessingOptionsProps) => {
-  const [isOpen, setIsOpen] = React.useState(false);
-  const [productType, setProductType] = React.useState<ProductType>('flat');
+  const [isOpen, setIsOpen] = React.useState(true);
+  const [productType, setProductTypeState] = React.useState<ProductType>(controlledProductType || 'flat');
   const { getSettingValue } = useAdvancedProcessingSettings();
   
   // 박스/트레이 치수
   const [boxWidth, setBoxWidth] = React.useState<number>(0);
   const [boxLength, setBoxLength] = React.useState<number>(0);
   const [boxHeight, setBoxHeight] = React.useState<number>(0);
+
+  React.useEffect(() => {
+    if (controlledProductType && controlledProductType !== productType) {
+      setProductTypeState(controlledProductType);
+    }
+  }, [controlledProductType, productType]);
+
+  const setProductType = (value: ProductType) => {
+    setProductTypeState(value);
+    onProductTypeChange?.(value);
+  };
   
   // DB에서 단가 가져오기
   const bevelCostPerM = getSettingValue('bevel_cost_per_m');
@@ -119,10 +134,10 @@ const AdvancedProcessingOptions = ({
               <div className="flex items-center gap-3">
                 <Settings2 className="w-5 h-5 text-primary" />
                 <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                  고급 옵션
+                  계산 세부 조건
                 </span>
                 <Badge variant="secondary" className="text-xs">
-                  선택사항
+                  정확도 보정
                 </Badge>
               </div>
               {isOpen ? (

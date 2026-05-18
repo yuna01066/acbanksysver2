@@ -6,7 +6,9 @@ import { Database } from '@/integrations/supabase/types';
 import { Material, Quality } from "@/types/calculator";
 import {
   calculatePrice,
+  classifyCalculationLineItem,
   DEFAULT_ADHESION_CONFIG,
+  CalculatePriceResult,
   ProcessingOptionData,
   ProcessingProfile,
   AdhesionProfile,
@@ -50,11 +52,24 @@ interface UsePriceCalculationProps {
   useDetailedBond?: boolean;
   joinLengthM?: number;
   trayHeightMm?: number;
+  bondProductType?: 'flat' | 'tray' | 'box';
   edgeFinishing?: boolean;
   bulgwang?: boolean;
   tapung?: boolean;
   mugwangPainting?: boolean;
 }
+
+type PriceInfo = Pick<CalculatePriceResult, 'totalPrice' | 'breakdown' | 'status' | 'lineItems' | 'warnings' | 'blockedReasons' | 'snapshotVersion'>;
+
+const EMPTY_PRICE_INFO: PriceInfo = {
+  totalPrice: 0,
+  breakdown: [],
+  status: 'calculable',
+  lineItems: [],
+  warnings: [],
+  blockedReasons: [],
+  snapshotVersion: 'pricing-engine-v1',
+};
 
 export const usePriceCalculation = ({
   selectedFactory,
@@ -78,15 +93,13 @@ export const usePriceCalculation = ({
   useDetailedBond = false,
   joinLengthM = 0,
   trayHeightMm,
+  bondProductType = 'flat',
   edgeFinishing = false,
   bulgwang = false,
   tapung = false,
   mugwangPainting = false
 }: UsePriceCalculationProps) => {
-  const [priceInfo, setPriceInfo] = useState<{ totalPrice: number; breakdown: { label: string; price: number }[] }>({
-    totalPrice: 0,
-    breakdown: []
-  });
+  const [priceInfo, setPriceInfo] = useState<PriceInfo>(EMPTY_PRICE_INFO);
 
   // Fetch panel master for the selected quality
   const { data: panelMaster } = useQuery({
@@ -377,7 +390,9 @@ export const usePriceCalculation = ({
     if (selectedMaterial && selectedQuality && selectedThickness && selectedSizes && selectedSizes.length > 0 && selectedFactory === 'jangwon') {
       // 1단계: 모든 원장 비용 계산 (원판금액 + 면수 + 조색비)
       let totalWonJang = 0;
-      const wonJangBreakdown: { label: string; price: number }[] = [];
+      const wonJangBreakdown: PriceInfo['breakdown'] = [];
+      const aggregateWarnings: string[] = [];
+      const aggregateBlockedReasons: string[] = [];
       
       let globalIndex = 0; // 전체 원판 순서
       selectedSizes.forEach((sizeSelection) => {
@@ -424,27 +439,28 @@ export const usePriceCalculation = ({
           );
 
           // 원장 비용만 추출 (원판 + 양단면 + 조색비)
-          const wonJangPrice = result.breakdown
-            .filter(item => 
-              !item.label.includes('할증') && 
-              !item.label.includes('가공') && 
-              !item.label.includes('접착')
-            )
-            .reduce((sum, item) => sum + item.price, 0);
+          const wonJangPrice = result.lineItems
+            .filter(item => item.source === 'panel' || item.source === 'surcharge')
+            .reduce((sum, item) => sum + item.amount, 0);
 
           totalWonJang += wonJangPrice;
           globalIndex++;
+          aggregateWarnings.push(...result.warnings);
+          aggregateBlockedReasons.push(...result.blockedReasons);
           
           wonJangBreakdown.push({
             label: `원장 #${globalIndex} (${actualSize}, ${surface})`,
-            price: wonJangPrice
+            price: wonJangPrice,
+            source: result.status === 'blocked' ? 'validation' : 'panel',
+            code: `panel-${globalIndex}`,
+            reason: result.blockedReasons[0],
           });
         }
       });
 
       // 2단계: 가공 옵션 비용 계산 (총 원장 기준)
       let totalPrice = totalWonJang;
-      const allBreakdown: { label: string; price: number }[] = [...wonJangBreakdown];
+      const allBreakdown: PriceInfo['breakdown'] = [...wonJangBreakdown];
 
       // 가공/접착 프로필 결정
       let processing: ProcessingProfile = 'none';
@@ -546,6 +562,7 @@ export const usePriceCalculation = ({
             useDetailedBond,
             joinLengthM,
             trayHeightMm,
+            bondProductType,
             adhesionConfig,
             edgeFinishing,
             bulgwang,
@@ -574,15 +591,15 @@ export const usePriceCalculation = ({
         );
 
         // 가공 옵션 breakdown만 추출
-        const optionsBreakdown = optionsResult.breakdown.filter(item =>
-          !item.label.includes('기본가') &&
-          !item.label.includes('양단면') &&
-          !item.label.includes('조색비') &&
-          !item.label.includes('추가금액')
-        );
+        const optionsBreakdown = optionsResult.breakdown.filter(item => {
+          const source = item.source || classifyCalculationLineItem(item);
+          return source === 'processing' || source === 'adhesion' || source === 'additional' || source === 'validation';
+        });
 
         allBreakdown.push(...optionsBreakdown);
         totalPrice += optionsBreakdown.reduce((sum, item) => sum + item.price, 0);
+        aggregateWarnings.push(...optionsResult.warnings);
+        aggregateBlockedReasons.push(...optionsResult.blockedReasons);
       }
 
       console.log('Multi-size price calculation result:', { 
@@ -590,11 +607,46 @@ export const usePriceCalculation = ({
         totalPrice, 
         breakdown: allBreakdown 
       });
-      setPriceInfo({ totalPrice, breakdown: allBreakdown });
+      setPriceInfo({
+        totalPrice,
+        breakdown: allBreakdown,
+        status: aggregateBlockedReasons.length > 0 ? 'blocked' : aggregateWarnings.length > 0 ? 'needs_review' : 'calculable',
+        lineItems: allBreakdown.map((item, index) => ({
+          code: item.code || `${item.source || classifyCalculationLineItem(item)}-${index + 1}`,
+          label: item.label,
+          amount: item.price,
+          source: item.source || classifyCalculationLineItem(item),
+          reason: item.reason,
+        })),
+        warnings: Array.from(new Set(aggregateWarnings)),
+        blockedReasons: Array.from(new Set(aggregateBlockedReasons)),
+        snapshotVersion: 'pricing-engine-v1',
+      });
     }
     // 단일 선택된 사이즈가 있는 경우 (하위 호환성)
     else if (selectedMaterial && selectedQuality && selectedThickness && selectedSize && selectedFactory === 'jangwon') {
       const surface = selectedSurface || '단면';
+      let singleProcessing: ProcessingProfile = 'none';
+      let singleAdhesion: AdhesionProfile = 'none';
+      let singleEdgeRequested = selectedProcessing === 'edge-finishing';
+
+      if (selectedProcessing === 'auto') singleProcessing = 'auto';
+      else if (selectedProcessing === 'simple-cutting') singleProcessing = 'simple-cutting';
+      else if (selectedProcessing === 'laser-simple') singleProcessing = 'laser-simple';
+      else if (selectedProcessing === 'laser-complex') singleProcessing = 'laser-complex';
+      else if (selectedProcessing === 'laser-full') singleProcessing = 'laser-full';
+      else if (selectedProcessing === 'cnc-simple') singleProcessing = 'cnc-simple';
+      else if (selectedProcessing === 'cnc-complex') singleProcessing = 'cnc-complex';
+      else if (selectedProcessing === 'cnc-full') singleProcessing = 'cnc-full';
+
+      if (selectedAdhesion === 'bond-normal') singleAdhesion = 'bond-normal';
+      else if (selectedAdhesion === 'bond-mugipo-auto') singleAdhesion = 'auto';
+      else if (selectedAdhesion === 'bond-mugipo-45') singleAdhesion = 'bond-mugipo-45';
+      else if (selectedAdhesion === 'bond-mugipo-90') singleAdhesion = 'bond-mugipo-90';
+      else if (selectedAdhesion === '45-normal') singleAdhesion = '45-normal';
+      else if (selectedAdhesion === '45-mugipo') singleAdhesion = '45-mugipo';
+      else if (selectedAdhesion === '90-normal') singleAdhesion = '90-normal';
+      else if (selectedAdhesion === '90-mugipo') singleAdhesion = '90-mugipo';
       
       const result = calculatePrice(
         selectedMaterial.id,
@@ -623,9 +675,11 @@ export const usePriceCalculation = ({
           optionSurchargesData: optionSurcharges as any,
           rawOnlyMultiplier,
           selectedAdditionalOptions,
+          processing: singleProcessing,
+          adhesion: singleAdhesion,
           qty,
           isComplex,
-          edgeRequested: selectedProcessing === 'edge-finishing',
+          edgeRequested: singleEdgeRequested,
           bevelLengthM,
           bevelFeePerM: bevelLengthM > 0 ? bevelFeePerM : undefined,
           laserHoles,
@@ -634,6 +688,7 @@ export const usePriceCalculation = ({
           useDetailedBond,
           joinLengthM,
           trayHeightMm,
+          bondProductType,
           adhesionConfig,
           edgeFinishing,
           bulgwang,
@@ -646,7 +701,7 @@ export const usePriceCalculation = ({
       setPriceInfo(result);
     } else {
       console.log('Price calculation skipped - missing required fields or not Jangwon factory');
-      setPriceInfo({ totalPrice: 0, breakdown: [] });
+      setPriceInfo(EMPTY_PRICE_INFO);
     }
   }, [
     selectedFactory, 
@@ -669,6 +724,7 @@ export const usePriceCalculation = ({
     useDetailedBond,
     joinLengthM,
     trayHeightMm,
+    bondProductType,
     edgeFinishing,
     bulgwang,
     tapung,

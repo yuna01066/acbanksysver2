@@ -11,6 +11,18 @@ export interface ProcessingOption {
   description?: string;
   multiplier?: number;
   base_cost?: number;
+  pricing_method?:
+    | 'legacy_multiplier'
+    | 'fixed_fee'
+    | 'panel_multiplier'
+    | 'panel_rate'
+    | 'per_unit'
+    | 'per_meter'
+    | 'per_corner'
+    | 'requires_review';
+  unit?: string;
+  rate?: number;
+  requires_review?: boolean;
   is_active: boolean;
   display_order: number;
   applicable_thicknesses?: string[];

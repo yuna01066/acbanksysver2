@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Material, Quality } from "@/types/calculator";
 import { SizeQuantitySelection } from "./MultipleSizeSelection";
-import { Package, Layers, Palette, DollarSign, Calculator, Receipt } from "lucide-react";
+import { AlertTriangle, Ban, CheckCircle2, Package, Layers, Palette, DollarSign, Calculator, Receipt } from "lucide-react";
 import { formatPrice } from "@/utils/priceCalculations";
 
 interface SelectionSummaryProps {
@@ -27,6 +27,9 @@ interface SelectionSummaryProps {
   priceInfo?: {
     totalPrice: number;
     breakdown: { label: string; price: number }[];
+    status?: 'calculable' | 'needs_review' | 'blocked';
+    warnings?: string[];
+    blockedReasons?: string[];
   };
 }
 
@@ -54,6 +57,26 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
   };
 
   if (!selectedMaterial) return null;
+
+  const status = priceInfo?.status || 'calculable';
+  const statusMeta = {
+    calculable: {
+      label: '정확도 높음',
+      icon: CheckCircle2,
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    },
+    needs_review: {
+      label: '검수 필요',
+      icon: AlertTriangle,
+      className: 'border-amber-200 bg-amber-50 text-amber-800',
+    },
+    blocked: {
+      label: '생산 불가',
+      icon: Ban,
+      className: 'border-red-200 bg-red-50 text-red-700',
+    },
+  }[status];
+  const StatusIcon = statusMeta.icon;
 
   return (
     <Card className="mb-6 border-primary/20 bg-gradient-to-br from-primary/5 via-background/80 to-background">
@@ -243,7 +266,26 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
             <h5 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
               <Calculator className="w-5 h-5 text-primary" />
               가격 계산 결과
+              <Badge variant="outline" className={`ml-auto gap-1 ${statusMeta.className}`}>
+                <StatusIcon className="h-3.5 w-3.5" />
+                {statusMeta.label}
+              </Badge>
             </h5>
+
+            {(priceInfo.blockedReasons?.length || priceInfo.warnings?.length) ? (
+              <div className={`rounded-lg border px-4 py-3 text-sm ${
+                status === 'blocked'
+                  ? 'border-red-200 bg-red-50 text-red-800'
+                  : 'border-amber-200 bg-amber-50 text-amber-800'
+              }`}>
+                {(priceInfo.blockedReasons || []).map((reason, index) => (
+                  <div key={`blocked-${index}`} className="font-medium">{reason}</div>
+                ))}
+                {(priceInfo.warnings || []).map((warning, index) => (
+                  <div key={`warning-${index}`}>{warning}</div>
+                ))}
+              </div>
+            ) : null}
             
             <div className="space-y-3 mt-4">
               <div className="flex items-center gap-2 mb-3">

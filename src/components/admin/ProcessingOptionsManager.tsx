@@ -56,10 +56,24 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type ProcessingOptionCategory = 'raw' | 'simple' | 'complex' | 'full' | 'adhesion' | 'additional';
+type PricingMethod = NonNullable<ProcessingOption['pricing_method']>;
 
 interface SlotConfig {
   slotKey: string;
 }
+
+const PRICING_METHOD_LABELS: Record<PricingMethod, string> = {
+  legacy_multiplier: '기존 배수',
+  fixed_fee: '고정비',
+  panel_multiplier: '원장 배수',
+  panel_rate: '원장 추가율',
+  per_unit: '개당 단가',
+  per_meter: 'm당 단가',
+  per_corner: '코너당 단가',
+  requires_review: '수동 검수',
+};
+
+const PRICING_METHODS = Object.entries(PRICING_METHOD_LABELS) as Array<[PricingMethod, string]>;
 
 // 드래그 가능한 행 컴포넌트
 const SortableOptionRow = ({ 
@@ -114,6 +128,14 @@ const SortableOptionRow = ({
       </TableCell>
       <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
         {option.description || '-'}
+      </TableCell>
+      <TableCell>
+        <Badge variant={option.requires_review || option.pricing_method === 'requires_review' ? 'destructive' : 'outline'}>
+          {PRICING_METHOD_LABELS[(option.pricing_method || 'legacy_multiplier') as PricingMethod]}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right font-mono">
+        {option.rate ? `${option.rate.toLocaleString()}${option.unit ? `/${option.unit}` : ''}` : '-'}
       </TableCell>
       <TableCell className="text-right font-mono">
         {option.multiplier ? `×${option.multiplier}` : '-'}
@@ -177,6 +199,10 @@ const ProcessingOptionsManager = () => {
     name: '',
     description: '',
     option_id: '',
+    pricing_method: 'legacy_multiplier',
+    rate: undefined,
+    unit: '',
+    requires_review: false,
     multiplier: undefined,
     base_cost: undefined,
     is_active: true,
@@ -316,6 +342,10 @@ const ProcessingOptionsManager = () => {
       name: '',
       description: '',
       option_id: '',
+      pricing_method: 'legacy_multiplier',
+      rate: undefined,
+      unit: '',
+      requires_review: false,
       multiplier: undefined,
       base_cost: undefined,
       is_active: true,
@@ -1015,6 +1045,10 @@ const ProcessingOptionsManager = () => {
                         name: '',
                         description: '',
                         option_id: '',
+                        pricing_method: 'legacy_multiplier',
+                        rate: undefined,
+                        unit: '',
+                        requires_review: false,
                         multiplier: undefined,
                         base_cost: undefined,
                         is_active: true,
@@ -1075,6 +1109,8 @@ const ProcessingOptionsManager = () => {
                                   <TableHead>이름</TableHead>
                                   <TableHead>적용 두께</TableHead>
                                   <TableHead>설명</TableHead>
+                                  <TableHead>계산 방식</TableHead>
+                                  <TableHead className="text-right">단가/율</TableHead>
                                   <TableHead className="text-right">배수</TableHead>
                                   <TableHead className="text-right">기본 비용</TableHead>
                                   <TableHead>활성화</TableHead>
@@ -1328,6 +1364,60 @@ const ProcessingOptionsManager = () => {
               />
             </div>
 
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+              <div>
+                <h4 className="text-sm font-semibold">계산 방식</h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  직원이 실수하지 않도록 검증된 방식 중 하나를 선택합니다.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="pricing_method">계산 방식</Label>
+                  <Select
+                    value={newOptionForm.pricing_method || 'legacy_multiplier'}
+                    onValueChange={(value) => setNewOptionForm({ ...newOptionForm, pricing_method: value as PricingMethod })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRICING_METHODS.map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="rate">단가/율</Label>
+                  <Input
+                    id="rate"
+                    type="number"
+                    step="0.01"
+                    value={newOptionForm.rate ?? ''}
+                    onChange={(e) => setNewOptionForm({ ...newOptionForm, rate: e.target.value ? parseFloat(e.target.value) : undefined })}
+                    placeholder="예: 0.5 / 3000"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="unit">단위</Label>
+                  <Input
+                    id="unit"
+                    value={newOptionForm.unit || ''}
+                    onChange={(e) => setNewOptionForm({ ...newOptionForm, unit: e.target.value })}
+                    placeholder="예: m, 개, corner"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={newOptionForm.requires_review ?? false}
+                  onCheckedChange={(checked) => setNewOptionForm({ ...newOptionForm, requires_review: checked })}
+                />
+                <Label>이 옵션 선택 시 관리자 검수 표시</Label>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="multiplier">배수 (×)</Label>
@@ -1500,6 +1590,60 @@ const ProcessingOptionsManager = () => {
                 value={editForm.description || ''}
                 onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
               />
+            </div>
+
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+              <div>
+                <h4 className="text-sm font-semibold">계산 방식</h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  기존 배수 외에 고정비, m당 단가, 코너당 단가 등으로 계산 방식을 분리합니다.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="edit_pricing_method">계산 방식</Label>
+                  <Select
+                    value={editForm.pricing_method || 'legacy_multiplier'}
+                    onValueChange={(value) => setEditForm({ ...editForm, pricing_method: value as PricingMethod })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRICING_METHODS.map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit_rate">단가/율</Label>
+                  <Input
+                    id="edit_rate"
+                    type="number"
+                    step="0.01"
+                    value={editForm.rate ?? ''}
+                    onChange={(e) => setEditForm({ ...editForm, rate: e.target.value ? parseFloat(e.target.value) : undefined })}
+                    placeholder="예: 0.5 / 3000"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit_unit">단위</Label>
+                  <Input
+                    id="edit_unit"
+                    value={editForm.unit || ''}
+                    onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })}
+                    placeholder="예: m, 개, corner"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={editForm.requires_review ?? false}
+                  onCheckedChange={(checked) => setEditForm({ ...editForm, requires_review: checked })}
+                />
+                <Label>이 옵션 선택 시 관리자 검수 표시</Label>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
