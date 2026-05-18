@@ -47,9 +47,25 @@ const confidenceLabel = (confidence?: string | null) => {
 
 const inquiryTypeLabel = (type?: string | null) => {
   if (!type || type === 'quote') return '견적 문의';
+  if (type === 'sample_chip') return '샘플칩';
+  if (type === 'mixed') return '혼합 문의';
+  if (type === 'unknown') return '유형 확인';
   if (type === 'drawing') return '도면 문의';
   if (type === 'production') return '제작 문의';
   return type;
+};
+
+const categoryInfo = (category?: string | null) => {
+  switch (category) {
+    case 'sample_chip':
+      return { label: '샘플칩', className: 'border-violet-200 bg-violet-50 text-violet-700' };
+    case 'production':
+      return { label: '제작', className: 'border-blue-200 bg-blue-50 text-blue-700' };
+    case 'mixed':
+      return { label: '혼합', className: 'border-orange-200 bg-orange-50 text-orange-700' };
+    default:
+      return { label: '유형 확인', className: 'border-muted bg-muted text-muted-foreground' };
+  }
 };
 
 const ChannelTalkInquiryCard = () => {
@@ -131,10 +147,11 @@ const ChannelTalkInquiryCard = () => {
               {inquiries.map((inquiry) => {
                 const status = statusLabel(inquiry.status);
                 const confidence = confidenceLabel(inquiry.analysis?.confidence);
+                const category = categoryInfo(inquiry.analysis?.primary_category || inquiry.inquiry_type);
                 const title = inquiry.analysis?.item_name
                   || inquiry.customer_company
                   || inquiry.customer_name
-                  || '채널톡 문의';
+                  || (inquiry.analysis?.primary_category === 'sample_chip' ? '샘플칩 문의' : '채널톡 문의');
                 const customer = [inquiry.customer_company, inquiry.customer_name].filter(Boolean).join(' · ') || '고객 미확인';
 
                 return (
@@ -152,6 +169,7 @@ const ChannelTalkInquiryCard = () => {
                       <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
+                      <Badge variant="outline" className={cn('text-[10px]', category.className)}>{category.label}</Badge>
                       <Badge variant="outline" className={cn('text-[10px]', status.className)}>{status.label}</Badge>
                       <Badge variant="outline" className={cn('text-[10px]', confidence.className)}>{confidence.label}</Badge>
                       <Badge variant="outline" className="text-[10px]">{inquiryTypeLabel(inquiry.analysis?.inquiry_type || inquiry.inquiry_type)}</Badge>
