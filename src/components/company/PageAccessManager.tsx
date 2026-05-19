@@ -15,6 +15,7 @@ interface PageDef {
 
 const MANAGED_PAGES: PageDef[] = [
   { key: '/saved-quotes', label: '견적 내역', description: '저장된 견적서 목록 조회' },
+  { key: '/quote-drafts', label: '견적서 초안함', description: '개인 견적서 초안 저장 및 선택 발행' },
   { key: '/quotes-summary', label: '견적 현황', description: '전체 견적 현황 요약' },
   { key: '/customer-quotes-summary', label: '고객 견적 현황', description: '고객별 견적 요약' },
   { key: '/recipients', label: '수신처 관리', description: '수신처 목록 및 정보 관리' },

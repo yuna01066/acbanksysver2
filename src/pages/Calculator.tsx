@@ -1,8 +1,9 @@
 import { useSearchParams } from 'react-router-dom';
 import CalculatorWidget from "@/components/CalculatorWidget";
+import QuoteDraftToolbar from "@/components/QuoteDraftToolbar";
 import { PageHeader, PageShell } from '@/components/layout/PageLayout';
 import { Button } from '@/components/ui/button';
-import { Calculator as CalculatorIcon, Home, Settings } from 'lucide-react';
+import { Calculator as CalculatorIcon, FileText, Home, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Calculator = () => {
@@ -24,6 +25,10 @@ const Calculator = () => {
               <Home className="h-4 w-4" />
               홈
             </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate('/quote-drafts')}>
+              <FileText className="h-4 w-4" />
+              초안함
+            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate('/admin-settings')}>
               <Settings className="h-4 w-4" />
               관리자 설정
@@ -31,6 +36,7 @@ const Calculator = () => {
           </>
         )}
       />
+      {type !== 'yield' && <QuoteDraftToolbar />}
       <CalculatorWidget initialType={type} />
     </PageShell>
   );

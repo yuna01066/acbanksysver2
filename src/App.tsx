@@ -29,6 +29,7 @@ const PanelManagementPage = lazy(() => import("./pages/PanelManagementPage"));
 const ProcessingPriceManagement = lazy(() => import("./pages/ProcessingPriceManagement"));
 const SavedQuotesPage = lazy(() => import("./pages/SavedQuotesPage"));
 const SavedQuoteDetailPage = lazy(() => import("./pages/SavedQuoteDetailPage"));
+const QuoteDraftsPage = lazy(() => import("./pages/QuoteDraftsPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 const MyPage = lazy(() => import("./pages/MyPage"));
 const UserStatisticsPage = lazy(() => import("./pages/UserStatisticsPage"));
@@ -96,6 +97,7 @@ const App = () => (
               <Route path="/saved-quotes" element={<G><SavedQuotesPage /></G>} />
               <Route path="/saved-quotes/:id" element={<G><SavedQuoteDetailPage /></G>} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/quote-drafts" element={<G><QuoteDraftsPage /></G>} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/my-page" element={<MyPage />} />
               <Route path="/user-management" element={<Navigate to="/employee-profiles" replace />} />

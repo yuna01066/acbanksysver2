@@ -21,12 +21,13 @@ import RecipientInfoForm from "@/components/RecipientInfoForm";
 import PrintStyles from "@/components/PrintStyles";
 import QuoteAttachments from "@/components/QuoteAttachments";
 import QuoteStyleBanner from "@/components/quote-detail/QuoteStyleBanner";
+import QuoteDraftToolbar from "@/components/QuoteDraftToolbar";
 import { detectQuoteStyleFromItems, getQuoteStyleProfile } from "@/utils/quoteStyle";
 
 const QuotesSummaryPage = () => {
   const navigate = useNavigate();
   const { profile, user } = useAuth();
-  const { quotes, recipient, removeQuote, updateQuoteQuantity, clearQuotes, getTotalPrice, getTotalPriceWithTax, updateRecipient, generateQuoteNumber, updateAttachments } = useQuotes();
+  const { quotes, recipient, activeDraftId, removeQuote, updateQuoteQuantity, clearQuotes, getTotalPrice, getTotalPriceWithTax, updateRecipient, generateQuoteNumber, updateAttachments } = useQuotes();
   
   const [recipientData, setRecipientData] = React.useState<QuoteRecipient>({
     projectName: recipient?.projectName || '',
@@ -55,6 +56,33 @@ const QuotesSummaryPage = () => {
     issuerDepartment: recipient?.issuerDepartment || profile?.department || '',
     issuerPosition: recipient?.issuerPosition || profile?.position || ''
   });
+
+  React.useEffect(() => {
+    const quoteDate = recipient?.quoteDate || new Date();
+    const validDate = new Date(quoteDate);
+    validDate.setDate(validDate.getDate() + 14);
+    setRecipientData({
+      projectName: recipient?.projectName || '',
+      quoteNumber: recipient?.quoteNumber || generateQuoteNumber(),
+      quoteDate,
+      validUntil: recipient?.validUntil || `${quoteDate.toLocaleDateString('ko-KR')} ~ ${validDate.toLocaleDateString('ko-KR')}`,
+      deliveryPeriod: recipient?.deliveryPeriod || '최대 14일 소요 예상',
+      paymentCondition: recipient?.paymentCondition || '선지급 조건',
+      companyName: recipient?.companyName || '',
+      contactPerson: recipient?.contactPerson || '',
+      phoneNumber: recipient?.phoneNumber || '',
+      email: recipient?.email || '',
+      desiredDeliveryDate: recipient?.desiredDeliveryDate || null,
+      deliveryAddress: recipient?.deliveryAddress || '',
+      clientMemo: recipient?.clientMemo || '',
+      issuerId: recipient?.issuerId || user?.id || '',
+      issuerName: recipient?.issuerName || profile?.full_name || '',
+      issuerEmail: recipient?.issuerEmail || profile?.email || '',
+      issuerPhone: recipient?.issuerPhone || profile?.phone || '',
+      issuerDepartment: recipient?.issuerDepartment || profile?.department || '',
+      issuerPosition: recipient?.issuerPosition || profile?.position || ''
+    });
+  }, [activeDraftId]);
 
   if (quotes.length === 0) {
     return (
@@ -126,6 +154,8 @@ const QuotesSummaryPage = () => {
       </div>
       <div className="min-h-screen bg-gray-50 p-4">
         <div className="w-full max-w-4xl mx-auto print-container">
+          <QuoteDraftToolbar />
+
           {/* 간단한 헤더 */}
           <div className="flex justify-between items-center mb-6 print:hidden">
             <Button 

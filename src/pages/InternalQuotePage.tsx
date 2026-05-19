@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useQuotes } from "@/contexts/QuoteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import QuoteSummaryHeader from "@/components/QuoteSummaryHeader";
+import QuoteDraftToolbar from "@/components/QuoteDraftToolbar";
 import QuoteCard from "@/components/QuoteCard";
 import PrintStyles from "@/components/PrintStyles";
 import businessRegistration from "@/assets/arcbank-business-registration.jpg";
@@ -35,7 +36,8 @@ const InternalQuotePage = () => {
     clearQuotes,
     getTotalPrice,
     getTotalPriceWithTax,
-    generateQuoteNumber
+    generateQuoteNumber,
+    markActiveDraftIssued
   } = useQuotes();
 
   if (quotes.length === 0) {
@@ -145,6 +147,7 @@ const InternalQuotePage = () => {
   const handleSaveQuote = async () => {
     const quoteId = await persistCurrentQuote('celebrate');
     if (quoteId) {
+      await markActiveDraftIssued(quoteId);
       window.sessionStorage.removeItem(savedQuoteSessionKey);
       clearQuotes({ deleteAttachments: false });
       navigate(`/saved-quotes/${quoteId}`);
@@ -179,6 +182,7 @@ const InternalQuotePage = () => {
             </Button>
           </div>
 
+          <QuoteDraftToolbar />
           
           <QuoteSummaryHeader 
             onClearQuotes={handleClearQuotes}
