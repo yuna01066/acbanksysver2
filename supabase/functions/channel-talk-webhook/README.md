@@ -1,6 +1,6 @@
 # Channel Talk Webhook
 
-Receives Channel Talk user chat message webhooks, detects customer file attachments, runs quote-oriented AI analysis, stores the result in `channel_talk_quote_leads`, and posts a private summary back to the Channel Talk user chat.
+Receives Channel Talk user chat message webhooks, detects inquiry-like customer messages or file attachments, classifies them as sample-chip or production inquiries, stores the result in `channel_talk_quote_leads`, and posts a private summary back to the Channel Talk user chat.
 
 ## Webhook URL
 
@@ -31,5 +31,6 @@ SUPABASE_SERVICE_ROLE_KEY
 ## Notes
 
 - The function ignores manager and bot messages to avoid loops.
+- Text-only messages are stored only when they look like sample-chip, quote, drawing, cutting, or production inquiries.
 - Summary messages are sent with Channel Talk `private` and `silent` options, so they are intended for internal staff review.
-- Image attachments are analyzed directly. Unsupported formats are stored and marked for manual review.
+- Image/PDF attachments are analyzed directly. Unsupported formats are stored and marked for manual review.

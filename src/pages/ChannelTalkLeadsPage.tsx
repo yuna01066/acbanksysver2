@@ -13,6 +13,7 @@ import {
   Link as LinkIcon,
   Loader2,
   MessageSquareText,
+  Palette,
   Search,
   Send,
   UserRound,
@@ -100,6 +101,30 @@ function confidenceLabel(confidence?: string | null) {
   return { label: '수동 검토', className: 'border-amber-200 text-amber-700' };
 }
 
+function categoryInfo(category?: string | null) {
+  switch (category) {
+    case 'sample_chip':
+      return { label: '샘플칩 문의', shortLabel: '샘플칩', className: 'border-violet-200 bg-violet-50 text-violet-700' };
+    case 'production':
+      return { label: '제작 문의', shortLabel: '제작', className: 'border-blue-200 bg-blue-50 text-blue-700' };
+    case 'mixed':
+      return { label: '혼합 문의', shortLabel: '혼합', className: 'border-orange-200 bg-orange-50 text-orange-700' };
+    default:
+      return { label: '유형 확인 필요', shortLabel: '유형 확인', className: 'border-muted bg-muted text-muted-foreground' };
+  }
+}
+
+function categoryConfidenceLabel(confidence?: string | null) {
+  if (confidence === 'high') return '높음';
+  if (confidence === 'medium') return '보통';
+  return '낮음';
+}
+
+function toArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+  return [];
+}
+
 function joinValue(value: unknown) {
   if (Array.isArray(value)) return value.filter(Boolean).join(', ');
   if (typeof value === 'string') return value;
@@ -109,8 +134,10 @@ function joinValue(value: unknown) {
 function buildInternalMemo(lead: ChannelTalkLead) {
   const analysis = lead.analysis || {};
   const triage = analysis.triage || {};
+  const category = categoryInfo(analysis.primary_category || lead.inquiry_type);
   const missing = lead.missing_fields?.length ? lead.missing_fields.join(', ') : '없음';
   const files = lead.channel_talk_file_keys?.length ? lead.channel_talk_file_keys.join(', ') : '없음';
+  const checklist = toArray(analysis.reply_checklist).length ? toArray(analysis.reply_checklist).join(', ') : '없음';
 
   return [
     '[아크뱅크 채널톡 문의 분석]',
@@ -118,9 +145,11 @@ function buildInternalMemo(lead: ChannelTalkLead) {
     `- 리드 ID: ${lead.id}`,
     `- 고객: ${[lead.customer_company, lead.customer_name].filter(Boolean).join(' / ') || '미확인'}`,
     `- 연락처: ${lead.customer_phone || lead.customer_email || '미확인'}`,
+    `- 1차 분류: ${category.label}`,
     `- 문의 유형: ${analysis.inquiry_type || lead.inquiry_type || '미확인'}`,
     `- 추천 태그: ${joinValue(triage.recommendedTags) || '없음'}`,
     `- 누락 정보: ${missing}`,
+    `- 답변 전 체크: ${checklist}`,
     '',
     `- 첨부파일: ${files}`,
     `- 품목: ${analysis.item_name || '미확인'}`,
@@ -133,7 +162,7 @@ function buildInternalMemo(lead: ChannelTalkLead) {
     `- 배송/설치: ${analysis.delivery_or_installation || '미확인'}`,
     '',
     `- 요약: ${analysis.summary || '자동 요약 없음'}`,
-    `- 고객 확인 질문: ${analysis.recommended_reply || '누락 정보를 확인해주세요.'}`,
+    `- 예상 답변: ${analysis.recommended_reply || '누락 정보를 확인해주세요.'}`,
   ].join('\n');
 }
 
@@ -287,8 +316,10 @@ const ChannelTalkLeadsPage = () => {
         lead.customer_phone,
         lead.customer_email,
         lead.inquiry_type,
+        lead.analysis?.primary_category,
         lead.analysis?.item_name,
         lead.analysis?.summary,
+        lead.analysis?.recommended_reply,
         lead.analysis?.dimensions,
       ].filter(Boolean).join(' ').toLowerCase();
       return haystack.includes(term);
@@ -299,6 +330,10 @@ const ChannelTalkLeadsPage = () => {
     () => leads.find((lead) => lead.id === selectedId) || filteredLeads[0] || null,
     [filteredLeads, leads, selectedId],
   );
+  const selectedCategory = selectedLead ? categoryInfo(selectedLead.analysis?.primary_category || selectedLead.inquiry_type) : null;
+  const selectedChecklist = selectedLead ? toArray(selectedLead.analysis?.reply_checklist) : [];
+  const isSampleLead = selectedLead?.analysis?.primary_category === 'sample_chip';
+  const isMixedLead = selectedLead?.analysis?.primary_category === 'mixed';
 
   const openProjectDialog = (lead: ChannelTalkLead) => {
     const analysis = lead.analysis || {};
@@ -315,6 +350,12 @@ const ChannelTalkLeadsPage = () => {
   const copyMemo = async (lead: ChannelTalkLead) => {
     await navigator.clipboard.writeText(buildInternalMemo(lead));
     toast.success('채널톡 내부 메모 내용이 복사되었습니다.');
+  };
+
+  const copyReply = async (lead: ChannelTalkLead) => {
+    const reply = lead.analysis?.recommended_reply || '누락된 정보를 고객에게 확인해주세요.';
+    await navigator.clipboard.writeText(reply);
+    toast.success('예상 답변이 복사되었습니다.');
   };
 
   if (!user) {
@@ -376,6 +417,7 @@ const ChannelTalkLeadsPage = () => {
               filteredLeads.map((lead) => {
                 const s = statusInfo(lead.status);
                 const confidence = confidenceLabel(lead.analysis?.confidence);
+                const category = categoryInfo(lead.analysis?.primary_category || lead.inquiry_type);
                 const isSelected = selectedLead?.id === lead.id;
                 return (
                   <button
@@ -401,6 +443,7 @@ const ChannelTalkLeadsPage = () => {
                       </Badge>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
+                      <Badge variant="outline" className={cn('text-[10px]', category.className)}>{category.shortLabel}</Badge>
                       <Badge variant="outline" className={cn('text-[10px]', confidence.className)}>{confidence.label}</Badge>
                       {lead.missing_fields?.length > 0 && (
                         <Badge variant="outline" className="border-amber-200 text-amber-700 text-[10px]">
@@ -435,7 +478,12 @@ const ChannelTalkLeadsPage = () => {
                   icon={MessageSquareText}
                   title={selectedLead.analysis?.item_name || selectedLead.customer_company || '채널톡 문의 분석'}
                   subtitle={`${[selectedLead.customer_company, selectedLead.customer_name].filter(Boolean).join(' / ') || '고객 미확인'} · ${format(new Date(selectedLead.created_at), 'yyyy. M. d HH:mm', { locale: ko })}`}
-                  meta={<Badge variant="outline" className={statusInfo(selectedLead.status).className}>{statusInfo(selectedLead.status).label}</Badge>}
+                  meta={(
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedCategory && <Badge variant="outline" className={selectedCategory.className}>{selectedCategory.shortLabel}</Badge>}
+                      <Badge variant="outline" className={statusInfo(selectedLead.status).className}>{statusInfo(selectedLead.status).label}</Badge>
+                    </div>
+                  )}
                   actions={(
                     <Button variant="outline" size="sm" onClick={() => copyMemo(selectedLead)} className="gap-1.5">
                       <Clipboard className="h-3.5 w-3.5" />
@@ -447,6 +495,19 @@ const ChannelTalkLeadsPage = () => {
               <CardContent className="grid gap-5 p-5 xl:grid-cols-[1fr_300px]">
                 <ScrollArea className="max-h-[calc(100vh-250px)] pr-3">
                   <div className="space-y-5">
+                    <section className="rounded-xl border bg-background/70 p-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-semibold">문의 분류</h3>
+                        {selectedCategory && <Badge variant="outline" className={selectedCategory.className}>{selectedCategory.label}</Badge>}
+                        <Badge variant="outline" className={confidenceLabel(selectedLead.analysis?.category_confidence).className}>
+                          분류 신뢰도 {categoryConfidenceLabel(selectedLead.analysis?.category_confidence)}
+                        </Badge>
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                        샘플칩 문의는 재고/수령 정보 확인 중심으로, 제작 문의는 치수/수량/가공 조건 확인 중심으로 응대합니다.
+                      </p>
+                    </section>
+
                     <section className="grid gap-3 sm:grid-cols-2">
                       {[
                         ['품목', selectedLead.analysis?.item_name],
@@ -471,10 +532,23 @@ const ChannelTalkLeadsPage = () => {
                     </section>
 
                     <section className="rounded-xl border bg-background/70 p-4">
-                      <h3 className="text-sm font-semibold">추천 질문 / 내부 참고 답변</h3>
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-sm font-semibold">예상 답변</h3>
+                        <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => copyReply(selectedLead)}>
+                          <Clipboard className="h-3.5 w-3.5" />
+                          답변 복사
+                        </Button>
+                      </div>
                       <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
                         {selectedLead.analysis?.recommended_reply || '누락된 정보를 고객에게 확인해주세요.'}
                       </p>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {(selectedChecklist.length ? selectedChecklist : ['추가 확인 필요']).map((item) => (
+                          <Badge key={item} variant="outline" className="border-slate-200 text-[11px] text-slate-700">
+                            {item}
+                          </Badge>
+                        ))}
+                      </div>
                     </section>
 
                     <section className="rounded-xl border bg-background/70 p-4">
@@ -611,13 +685,27 @@ const ChannelTalkLeadsPage = () => {
                       <div className="rounded-xl border bg-background/70 p-4">
                         <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Send className="h-4 w-4" /> 업무 전환</h3>
                         <div className="space-y-2">
-                          <Button className="w-full gap-1.5" size="sm" onClick={() => navigate(toQuoteDraftParams(selectedLead))}>
-                            <FileText className="h-3.5 w-3.5" />
-                            견적 초안 만들기
-                          </Button>
-                          <Button variant="outline" className="w-full gap-1.5" size="sm" onClick={() => openProjectDialog(selectedLead)}>
-                            <FolderOpen className="h-3.5 w-3.5" />
-                            프로젝트 후보 만들기
+                          {(isSampleLead || isMixedLead) && (
+                            <Button variant="outline" className="w-full gap-1.5" size="sm" onClick={() => navigate('/sample-chip-inventory')}>
+                              <Palette className="h-3.5 w-3.5" />
+                              샘플칩 재고 확인
+                            </Button>
+                          )}
+                          {(!isSampleLead || isMixedLead) && (
+                            <>
+                              <Button className="w-full gap-1.5" size="sm" onClick={() => navigate(toQuoteDraftParams(selectedLead))}>
+                                <FileText className="h-3.5 w-3.5" />
+                                견적 초안 만들기
+                              </Button>
+                              <Button variant="outline" className="w-full gap-1.5" size="sm" onClick={() => openProjectDialog(selectedLead)}>
+                                <FolderOpen className="h-3.5 w-3.5" />
+                                프로젝트 후보 만들기
+                              </Button>
+                            </>
+                          )}
+                          <Button variant="outline" className="w-full gap-1.5" size="sm" onClick={() => copyReply(selectedLead)}>
+                            <Clipboard className="h-3.5 w-3.5" />
+                            예상 답변 복사
                           </Button>
                           <Button variant="outline" className="w-full gap-1.5" size="sm" onClick={() => copyMemo(selectedLead)}>
                             <MessageSquareText className="h-3.5 w-3.5" />
@@ -636,6 +724,10 @@ const ChannelTalkLeadsPage = () => {
                         문의 내용과 AI 분석 결과를 확인할 수 있습니다. 상태 변경, 담당자 지정, 견적/프로젝트 연결은 관리자 또는 중간관리자가 처리합니다.
                       </p>
                       <div className="mt-4 space-y-2 text-xs">
+                        <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2">
+                          <span className="text-muted-foreground">문의 분류</span>
+                          {selectedCategory && <Badge variant="outline" className={selectedCategory.className}>{selectedCategory.shortLabel}</Badge>}
+                        </div>
                         <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2">
                           <span className="text-muted-foreground">상태</span>
                           <Badge variant="outline" className={statusInfo(selectedLead.status).className}>{statusInfo(selectedLead.status).label}</Badge>
