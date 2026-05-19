@@ -124,14 +124,14 @@ const inRange = (value: number, min: number, max: number, message: string) => {
     }
   );
 
-  assert.equal(result.status, 'needs_review');
+  assert.equal(result.status, 'calculable');
   assert.equal(result.totalPrice, 289_920);
   assert.equal(
     result.lineItems.filter(item => item.code === 'adhesion-mugipo-45').length,
     1,
     'sheet-based mugipo adhesion must be charged once'
   );
-  assert.match(result.warnings[0], /원판 총액 배수/);
+  assert.equal(result.warnings.length, 0, 'sheet-based mugipo adhesion should not ask for join length');
 }
 
 {
@@ -182,6 +182,7 @@ const inRange = (value: number, min: number, max: number, message: string) => {
     0,
     {
       joinLengthM: 4.2,
+      adhesionBasis: 'product_based',
       processingOptionsData: [mugipo45PerMeterOption],
     }
   );
@@ -192,6 +193,32 @@ const inRange = (value: number, min: number, max: number, message: string) => {
     result.lineItems.find(item => item.code === 'option-45-mugipo')?.source,
     'adhesion',
     'DB per-meter adhesion option must stay in the adhesion source'
+  );
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'glossy-color',
+    '5T',
+    '4*8',
+    '단면',
+    undefined,
+    '45-mugipo',
+    0,
+    {
+      joinLengthM: 4.2,
+      adhesionBasis: 'sheet_based',
+      processingOptionsData: [mugipo45PerMeterOption],
+    }
+  );
+
+  assert.equal(result.status, 'calculable');
+  assert.equal(result.totalPrice, 289_920);
+  assert.equal(
+    result.lineItems.find(item => item.code === 'adhesion-mugipo-45')?.source,
+    'adhesion',
+    'sheet-based mugipo adhesion should use panel multiplier instead of per-meter pricing'
   );
 }
 
