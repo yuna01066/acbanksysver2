@@ -2,11 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Calculator, ShoppingCart, Home, Save, Link } from "lucide-react";
-import { supabase } from '@/integrations/supabase/client';
+import { Calculator, ShoppingCart, Home } from "lucide-react";
 import { toast } from 'sonner';
 import { useQuotes } from "@/contexts/QuoteContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,19 +16,15 @@ import { FileText } from "lucide-react";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import QuoteStyleBanner from "@/components/quote-detail/QuoteStyleBanner";
 import { detectQuoteStyleFromItems, getQuoteStyleProfile } from "@/utils/quoteStyle";
-import {
-  createDocumentFileRecord,
-  type DocumentSyncStatus,
-  type StorageProvider,
-} from "@/services/documentFiles";
-import { buildIssuedQuoteDrivePath, toDrivePathText } from "@/utils/documentOrganization";
 import { getQuoteCelebrationCopy, getTodayQuoteCount } from "@/utils/engagement";
-import { formatPricingVersionDisplayName } from "@/utils/pricingVersionDisplay";
+import { saveIssuedQuote } from "@/services/issuedQuoteSaver";
+import { formatQuoteProjectTitle } from "@/utils/quoteNaming";
 
 const InternalQuotePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
+  const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
   const { logActivity } = useActivityLog();
   const printContainerRef = useRef<HTMLDivElement>(null);
   const {
@@ -65,89 +57,22 @@ const InternalQuotePage = () => {
   const totalWithTax = getTotalPriceWithTax();
   const quoteStyle = detectQuoteStyleFromItems(quotes);
   const quoteStyleProfile = getQuoteStyleProfile(quoteStyle);
+  const quoteNumber = recipient?.quoteNumber || generateQuoteNumber();
+  const savedQuoteSessionKey = `acbank_saved_quote_id:${quoteNumber}`;
+  const quoteProjectTitle = formatQuoteProjectTitle({
+    projectName: recipient?.projectName,
+    companyName: recipient?.companyName,
+  });
 
-  const handlePrintPDF = () => {
-    window.print();
-  };
-
-  const handleViewCustomerQuote = () => {
-    navigate('/customer-quotes-summary');
-  };
-
-  const attachLedgerRecordsToSavedFiles = async (
-    quoteId: string,
-    attachments: any[],
-    savedQuoteNumber: string,
-  ) => {
-    if (!attachments.length) return attachments;
-
-    const result: any[] = [];
-
-    for (const attachment of attachments) {
-      const existingDocumentFileId = attachment.documentFileId || attachment.document_file_id || null;
-      if (existingDocumentFileId) {
-        result.push(attachment);
-        continue;
-      }
-
-      const documentType = attachment.type === 'quote_pdf' ? 'quote_pdf' : 'customer_attachment';
-      const fallbackBucket = documentType === 'quote_pdf' ? 'quote-pdfs' : 'quote-attachments';
-      const section = documentType === 'quote_pdf' ? '00_견적서PDF' : '01_고객첨부';
-      const driveFolderPath = savedQuoteNumber ? buildIssuedQuoteDrivePath({
-        quoteNumber: savedQuoteNumber,
-        recipientCompany: recipient?.companyName,
-        projectName: recipient?.projectName,
-        section,
-      }) : null;
-      const storageProvider = (attachment.storageProvider || attachment.storage_provider || 'supabase_storage') as StorageProvider;
-      const storageBucket = attachment.storageBucket || attachment.storage_bucket || fallbackBucket;
-      const storagePath = attachment.storagePath || attachment.storage_path || attachment.path || null;
-      const syncStatus = (attachment.syncStatus || attachment.sync_status || (attachment.driveFileId || attachment.drive_file_id ? 'synced' : driveFolderPath ? 'pending' : 'not_required')) as DocumentSyncStatus;
-
-      const documentFileId = await createDocumentFileRecord({
-        owner_type: 'quote',
-        quote_id: quoteId,
-        project_id: null,
-        document_type: documentType,
-        file_name: attachment.name,
-        storage_provider: storageProvider,
-        storage_bucket: storageBucket,
-        storage_path: storagePath,
-        external_url: attachment.externalUrl || attachment.external_url || attachment.url || null,
-        drive_file_id: attachment.driveFileId || attachment.drive_file_id || null,
-        drive_folder_id: attachment.driveFolderId || attachment.drive_folder_id || null,
-        drive_path: driveFolderPath ? toDrivePathText(driveFolderPath) : attachment.drivePath || attachment.drive_path || null,
-        mime_type: documentType === 'quote_pdf' ? 'application/pdf' : attachment.type || null,
-        file_size: attachment.size || null,
-        uploaded_by: user?.id || null,
-        sync_status: syncStatus,
-        synced_at: syncStatus === 'synced' ? new Date().toISOString() : null,
-        metadata: {
-          source: 'InternalQuotePage.save',
-          quoteNumber: savedQuoteNumber,
-          originalPath: attachment.path || storagePath,
-        },
-      });
-
-      const { pendingDelete, ...persistedAttachment } = attachment;
-      result.push({
-        ...persistedAttachment,
-        documentFileId,
-        storageProvider,
-        storageBucket,
-        storagePath,
-        syncStatus,
-      });
-    }
-
-    return result;
-  };
-
-  const handleSaveQuote = async () => {
+  const persistCurrentQuote = async (successMode: 'celebrate' | 'autosave' | 'silent' = 'autosave') => {
     if (!user) {
       toast.error('로그인이 필요합니다.');
       navigate('/auth');
-      return;
+      return null;
+    }
+
+    if (isSaving) {
+      return null;
     }
 
     setIsSaving(true);
@@ -155,107 +80,80 @@ const InternalQuotePage = () => {
       const subtotal = getTotalPrice();
       const tax = subtotal * 0.1;
       const total = getTotalPriceWithTax();
-      const primaryPricingVersionId = quotes.find(q => q.pricingVersionId)?.pricingVersionId || null;
-      const capturedAt = new Date().toISOString();
-      const primaryPricingSource = quotes.find(q => q.pricingVersionName || q.calculationSnapshot?.pricingVersion);
-      const primaryPricingVersionName = formatPricingVersionDisplayName({
-        versionName: primaryPricingSource?.pricingVersionName || primaryPricingSource?.calculationSnapshot?.pricingVersion?.versionName,
-        supplierName: primaryPricingSource?.calculationSnapshot?.pricingVersion?.supplierName,
-        effectiveFrom: primaryPricingSource?.calculationSnapshot?.pricingVersion?.effectiveFrom,
-        capturedAt,
+      const existingSavedQuoteId = savedQuoteId || window.sessionStorage.getItem(savedQuoteSessionKey);
+
+      const result = await saveIssuedQuote({
+        userId: user.id,
+        quotes,
+        recipient,
+        quoteNumber,
+        quoteStyle,
+        subtotal,
+        tax,
+        total,
+        existingQuoteId: existingSavedQuoteId,
       });
 
-      const quoteData = {
-        user_id: user.id,
-        quote_number: quoteNumber,
-        quote_date: new Date().toISOString(),
-        quote_date_display: recipient?.quoteDate?.toISOString() || new Date().toISOString(),
-        project_name: recipient?.projectName || '',
-        recipient_name: recipient?.contactPerson || '',
-        recipient_company: recipient?.companyName || '',
-        recipient_phone: recipient?.phoneNumber || '',
-        recipient_email: recipient?.email || '',
-        recipient_address: recipient?.deliveryAddress || '',
-        recipient_memo: recipient?.clientMemo || '',
-        desired_delivery_date: recipient?.desiredDeliveryDate?.toISOString() || null,
-        valid_until: recipient?.validUntil || '',
-        delivery_period: recipient?.deliveryPeriod || '',
-        payment_condition: recipient?.paymentCondition || '',
-        issuer_id: recipient?.issuerId || user?.id || null,
-        issuer_name: recipient?.issuerName || '',
-        issuer_email: recipient?.issuerEmail || '',
-        issuer_phone: recipient?.issuerPhone || '',
-        issuer_department: recipient?.issuerDepartment || '',
-        issuer_position: recipient?.issuerPosition || '',
-        items: quotes.map(q => ({ ...q })),
-        pricing_version_id: primaryPricingVersionId,
-        calculation_snapshot: {
-          schemaVersion: 1,
-          capturedAt,
-          pricingVersionId: primaryPricingVersionId,
-          pricingVersionName: primaryPricingVersionName,
-          quoteStyle,
-          subtotal: Math.round(subtotal),
-          tax: Math.round(tax),
-          total: Math.round(total),
-          items: quotes.map(q => ({
-            id: q.id,
-            totalPrice: q.totalPrice,
-            quantity: q.quantity,
-            calculationSnapshot: q.calculationSnapshot || null,
-          })),
-          note: '견적 저장 당시 계산 근거입니다. 이후 단가표 변경은 저장 견적 금액에 자동 반영되지 않습니다.',
-        },
-        subtotal: Math.round(subtotal),
-        tax: Math.round(tax),
-        total: Math.round(total),
-        attachments: recipient?.attachments || [],
-      };
+      setSavedQuoteId(result.quoteId);
+      window.sessionStorage.setItem(savedQuoteSessionKey, result.quoteId);
 
-      const { data, error } = await supabase
-        .from('saved_quotes')
-        .insert([quoteData as never])
-        .select('id')
-        .single();
-
-      if (error) throw error;
-      const savedQuoteId = data?.id;
-
-      if (savedQuoteId && quoteData.attachments.length > 0) {
-        try {
-          const attachmentsWithLedger = await attachLedgerRecordsToSavedFiles(
-            savedQuoteId,
-            quoteData.attachments as any[],
-            quoteNumber,
-          );
-          const { error: attachmentUpdateError } = await supabase
-            .from('saved_quotes')
-            .update({ attachments: attachmentsWithLedger as any })
-            .eq('id', savedQuoteId);
-          if (attachmentUpdateError) throw attachmentUpdateError;
-        } catch (ledgerError) {
-          console.error('Attachment ledger creation failed:', ledgerError);
-          toast.warning('견적서는 저장됐지만 일부 첨부파일 원장 기록을 확인해야 합니다.');
+      if (successMode === 'celebrate') {
+        if (result.inserted) {
+          try {
+            const todayQuoteCount = await getTodayQuoteCount(user.id);
+            const celebration = getQuoteCelebrationCopy(todayQuoteCount);
+            toast.success(celebration.title, { description: celebration.description });
+          } catch (celebrationError) {
+            console.warn('Quote celebration count failed:', celebrationError);
+            toast.success('견적서 발행 완료. 오늘도 한 건 처리했습니다.');
+          }
+        } else {
+          toast.success('견적서 변경사항이 저장되었습니다.');
         }
+      } else if (successMode === 'autosave') {
+        toast.success(result.inserted ? '견적서가 자동 저장되었습니다.' : '견적서 변경사항이 자동 저장되었습니다.');
       }
 
-      try {
-        const todayQuoteCount = await getTodayQuoteCount(user.id);
-        const celebration = getQuoteCelebrationCopy(todayQuoteCount);
-        toast.success(celebration.title, { description: celebration.description });
-      } catch (celebrationError) {
-        console.warn('Quote celebration count failed:', celebrationError);
-        toast.success('견적서 발행 완료. 오늘도 한 건 처리했습니다.');
-      }
-      logActivity('quote_created', savedQuoteId || null, recipient?.projectName || quoteNumber);
-      clearQuotes({ deleteAttachments: false });
-      navigate('/saved-quotes');
+      logActivity(
+        result.inserted ? 'quote_created' : 'quote_updated',
+        result.quoteId,
+        recipient?.projectName || quoteNumber,
+        { autoSaved: successMode !== 'celebrate' },
+      );
+      return result.quoteId;
     } catch (error) {
       console.error('Error saving quote:', error);
       toast.error('견적서 저장에 실패했습니다.');
+      return null;
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handlePrintPDF = async () => {
+    const quoteId = await persistCurrentQuote('autosave');
+    if (!quoteId) return;
+    window.setTimeout(() => window.print(), 80);
+  };
+
+  const handleViewCustomerQuote = async () => {
+    const quoteId = await persistCurrentQuote('autosave');
+    if (!quoteId) return;
+    navigate('/customer-quotes-summary');
+  };
+
+  const handleSaveQuote = async () => {
+    const quoteId = await persistCurrentQuote('celebrate');
+    if (quoteId) {
+      window.sessionStorage.removeItem(savedQuoteSessionKey);
+      clearQuotes({ deleteAttachments: false });
+      navigate(`/saved-quotes/${quoteId}`);
+    }
+  };
+
+  const handleClearQuotes = () => {
+    window.sessionStorage.removeItem(savedQuoteSessionKey);
+    clearQuotes();
   };
 
   const currentDate = new Date().toLocaleDateString('ko-KR', {
@@ -264,12 +162,9 @@ const InternalQuotePage = () => {
     day: 'numeric'
   });
 
-  // 견적번호 생성 - QuoteContext에서 가져옴
-  const quoteNumber = recipient?.quoteNumber || generateQuoteNumber();
-
   return (
     <>
-      <PrintStyles quoteNumber={quoteNumber} projectName={recipient?.projectName} companyName={recipient?.companyName} isInternal={true} />
+      <PrintStyles quoteNumber={quoteNumber} projectName={quoteProjectTitle} companyName={recipient?.companyName} isInternal={true} />
       <div className="min-h-screen bg-gray-50 p-4">
           <div className="w-full max-w-4xl mx-auto print-container" id="quote-print-container" ref={printContainerRef}>
           <div className="mb-6 print:hidden">
@@ -286,7 +181,7 @@ const InternalQuotePage = () => {
 
           
           <QuoteSummaryHeader 
-            onClearQuotes={clearQuotes}
+            onClearQuotes={handleClearQuotes}
             onPrintPDF={handlePrintPDF}
             onViewCustomerQuote={handleViewCustomerQuote}
             onSaveQuote={handleSaveQuote}
@@ -358,7 +253,7 @@ const InternalQuotePage = () => {
                   <div className="p-4 bg-slate-50 rounded-lg">
                     <h4 className="font-semibold text-slate-800 mb-3">프로젝트 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
-                      <div><strong>프로젝트명:</strong> {recipient?.projectName || '-'}</div>
+                      <div><strong>프로젝트명:</strong> {quoteProjectTitle || '-'}</div>
                       <div><strong>견적번호:</strong> {recipient?.quoteNumber || quoteNumber}</div>
                       <div><strong>견적일자:</strong> {recipient?.quoteDate ? recipient.quoteDate.toLocaleDateString('ko-KR') : currentDate}</div>
                       <div><strong>견적 유효기간:</strong> {recipient?.validUntil || '-'}</div>
