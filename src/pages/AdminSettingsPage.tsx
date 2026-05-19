@@ -190,6 +190,19 @@ const AdminSettingsPage = () => {
               </button>
 
               <button
+                onClick={() => navigate('/response-assistant-management')}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-slate-900/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <MessageSquareText className="w-4 h-4 text-slate-900" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">상담 응대 보조 관리</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">AI instruction, 응대 근거, 템플릿 관리</p>
+                </div>
+              </button>
+
+              <button
                 onClick={() => navigate('/panel-management')}
                 className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
               >

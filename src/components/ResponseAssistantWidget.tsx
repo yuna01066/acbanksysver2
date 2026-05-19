@@ -393,9 +393,16 @@ type ResponseAssistantWidgetProps = {
   embedded?: boolean;
   autoGuide?: boolean;
   compact?: boolean;
+  guideOpenSignal?: number;
 };
 
-const ResponseAssistantWidget: React.FC<ResponseAssistantWidgetProps> = ({ className, embedded = false, autoGuide = true, compact = false }) => {
+const ResponseAssistantWidget: React.FC<ResponseAssistantWidgetProps> = ({
+  className,
+  embedded = false,
+  autoGuide = true,
+  compact = false,
+  guideOpenSignal = 0,
+}) => {
   const navigate = useNavigate();
   const [mode, setMode] = useState<WidgetMode>('reply');
   const [message, setMessage] = useState(scenarios[0].message);
@@ -438,6 +445,13 @@ const ResponseAssistantWidget: React.FC<ResponseAssistantWidgetProps> = ({ class
 
     return () => window.clearTimeout(guideTimer);
   }, [autoGuide]);
+
+  useEffect(() => {
+    if (guideOpenSignal <= 0) return;
+
+    setGuideStep(0);
+    setGuideOpen(true);
+  }, [guideOpenSignal]);
 
   const currentGuideStep = guideSteps[guideStep];
   const CurrentGuideIcon = currentGuideStep.icon;
@@ -504,41 +518,34 @@ const ResponseAssistantWidget: React.FC<ResponseAssistantWidgetProps> = ({ class
     <>
     <Card className={cn('overflow-hidden rounded-[28px] border border-[#dedede] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)]', className)}>
       <CardContent className={cn('p-0', compact ? 'space-y-3' : 'space-y-5')}>
-        <div className={cn('border-b border-[#dedede] px-4 text-center', compact ? 'py-4' : 'py-7')}>
-          <div className={cn('text-center', compact ? 'space-y-1' : 'space-y-2')}>
-            <p
-              className={cn(
-                'font-black uppercase leading-none tracking-[-0.01em] text-[#111111]',
-                compact ? 'text-[24px]' : 'text-[30px] sm:text-[38px]',
-              )}
-              style={{ fontFamily: '"Pretendard", "Apple SD Gothic Neo", "Arial Black", sans-serif', fontWeight: 900 }}
+        {!compact && (
+          <div className="border-b border-[#dedede] px-4 py-7 text-center">
+            <div className="space-y-2 text-center">
+              <p
+                className="text-[30px] font-black uppercase leading-none tracking-[-0.01em] text-[#111111] sm:text-[38px]"
+                style={{ fontFamily: '"Pretendard", "Apple SD Gothic Neo", "Arial Black", sans-serif', fontWeight: 900 }}
+              >
+                ACBANK
+              </p>
+              <p
+                className="text-[15px] font-semibold uppercase leading-none tracking-[0.08em] text-[#111111] sm:text-[17px]"
+                style={{ fontFamily: '"Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif' }}
+              >
+                RESPONSE TOOL
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={openGuide}
+              className="mt-5 inline-flex h-10 items-center gap-2 rounded-full border border-[#dedede] bg-[#fafafa] px-5 text-sm font-bold text-[#39393b] transition-colors hover:border-[#111111] hover:bg-white"
             >
-              ACBANK
-            </p>
-            <p
-              className={cn(
-                'font-semibold uppercase leading-none tracking-[0.08em] text-[#111111]',
-                compact ? 'text-[12px]' : 'text-[15px] sm:text-[17px]',
-              )}
-              style={{ fontFamily: '"Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif' }}
-            >
-              RESPONSE TOOL
-            </p>
+              <Gamepad2 className="h-4 w-4" />
+              사용 방법
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={openGuide}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-full border border-[#dedede] bg-[#fafafa] font-bold text-[#39393b] transition-colors hover:border-[#111111] hover:bg-white',
-              compact ? 'mt-3 h-8 px-4 text-xs' : 'mt-5 h-10 px-5 text-sm',
-            )}
-          >
-            <Gamepad2 className="h-4 w-4" />
-            사용 방법
-          </button>
-        </div>
+        )}
 
-        <div className={cn('px-4 text-center', compact ? '' : 'sm:px-7')}>
+        <div className={cn('px-4 text-center', compact ? 'pt-4' : 'sm:px-7')}>
           <h3 className={cn('font-black tracking-tight text-[#111111]', compact ? 'text-lg' : 'text-xl sm:text-2xl')}>
             상담 응대 시작하기
           </h3>
