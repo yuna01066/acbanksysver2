@@ -47,17 +47,17 @@ const QuoteTotalSection: React.FC<QuoteTotalSectionProps> = ({ subtotal, tax, to
   const displayTotal = totalWithTax;
 
   return (
-    <div className="mb-6 rounded-lg bg-[hsl(220,30%,94%)] border border-[hsl(220,25%,82%)] print-total quote-section">
+    <div className="mb-6 rounded-lg border border-blue-200 bg-white print-total quote-section">
       <div className="p-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-[14px] font-bold text-black bg-white px-4 py-2 rounded-lg border border-gray-200">총 견적 금액</h2>
+            <h2 className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-[14px] font-bold text-slate-950">총 견적 금액</h2>
             {isEditing && (
               <button
                 onClick={handleToggleManual}
                 className={`text-[11px] px-3 py-1.5 rounded-lg border transition-colors ${
                   editMode === 'manual'
-                    ? 'bg-blue-600 text-white border-blue-600'
+                    ? 'border-blue-300 bg-blue-50 text-blue-700'
                     : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
                 }`}
               >
@@ -65,35 +65,35 @@ const QuoteTotalSection: React.FC<QuoteTotalSectionProps> = ({ subtotal, tax, to
               </button>
             )}
           </div>
-          <div className="flex flex-col items-end gap-1.5 flex-1">
-            <div className="flex items-center gap-5">
-              <div className="flex items-center gap-2">
-                <span className="text-[12px] font-semibold text-gray-500">소계 (부가세 별도)</span>
-                <span className="text-[14px] font-bold text-black">{displaySubtotal.toLocaleString()}원</span>
+          <div className="flex flex-col gap-1.5 lg:items-end">
+            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="text-[12px] font-semibold text-slate-500">공급가</span>
+                <span className="text-[14px] font-bold text-slate-950">{displaySubtotal.toLocaleString()}원</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[12px] font-semibold text-gray-500">부가세 (10%)</span>
-                <span className="text-[14px] font-bold text-black">{displayTax.toLocaleString()}원</span>
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="text-[12px] font-semibold text-slate-500">부가세</span>
+                <span className="text-[14px] font-bold text-slate-950">{displayTax.toLocaleString()}원</span>
               </div>
               {isEditing && editMode === 'manual' ? (
-                <div className="flex items-center gap-2 px-4 py-2 bg-blue-600 rounded-lg">
-                  <span className="text-[13px] font-bold text-white">총 합계</span>
+                <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2">
+                  <span className="text-[13px] font-bold text-blue-700">총 합계</span>
                   <Input
                     type="number"
                     value={manualTotal}
                     onChange={(e) => handleManualTotalChange(e.target.value)}
-                    className="w-36 h-8 text-[16px] font-black text-right bg-white text-black border-0 rounded"
+                    className="h-8 w-36 rounded border-blue-200 bg-white text-right text-[16px] font-black text-slate-950"
                   />
-                  <span className="text-[13px] font-bold text-white">원</span>
+                  <span className="text-[13px] font-bold text-blue-700">원</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-3 px-4 py-2 bg-gray-900 rounded-lg">
-                  <span className="text-[13px] font-bold text-white">총 합계</span>
-                  <span className="text-[18px] font-black text-white">{displayTotal.toLocaleString()}원</span>
+                <div className="flex items-center gap-3 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2">
+                  <span className="text-[13px] font-bold text-blue-700">총 합계</span>
+                  <span className="text-[20px] font-black text-blue-700">{displayTotal.toLocaleString()}원</span>
                 </div>
               )}
             </div>
-            <p className="text-[12px] text-gray-500">* 배송비는 별도 입니다.</p>
+            <p className="text-[12px] text-slate-500">* 배송비는 별도 입니다.</p>
           </div>
         </div>
       </div>

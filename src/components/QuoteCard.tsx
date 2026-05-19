@@ -28,22 +28,58 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
   };
 
   const handleEditQuote = () => {
+    const quoteStyleForEdit = getQuoteStyleForItem(quote);
     const quoteParams = new URLSearchParams({
+      type: 'quote',
       factory: quote.factory,
       material: quote.material,
       quality: quote.quality,
       thickness: quote.thickness,
       size: quote.size,
       colorType: quote.colorType || '',
+      selectedColor: quote.selectedColor || '',
+      selectedColorHex: quote.selectedColorHex || '',
+      customColorName: quote.customColorName || '',
+      customOpacity: quote.customOpacity || '',
       surface: quote.surface,
+      colorMixingCost: String(quote.colorMixingCost ?? 0),
       processing: quote.processing,
       quantity: quote.quantity.toString(),
       serialNumber: quote.serialNumber || '',
-      editMode: 'true',
-      editId: quote.id
+      quoteStyle: quoteStyleForEdit,
+      totalPrice: String(quote.totalPrice ?? 0),
+      editMode: 'draft',
+      draftQuoteId: quote.id
     });
+
+    if (quoteStyleForEdit === 'fabrication') {
+      const manualProductItem = quote.calculationSnapshot?.selectedOptions?.manualProductItem;
+      const itemNumberMatch = quote.processingName?.match(/^\[([^\]]+)\]\s*(.*)$/);
+      const fallbackManualItem = {
+        id: quote.id,
+        itemNumber: itemNumberMatch?.[1] || '',
+        name: itemNumberMatch?.[2] || quote.processingName || '제품 제작',
+        quantity: 1,
+        unitPrice: quote.totalPrice || 0,
+        sizeWidth: '',
+        sizeHeight: '',
+        sizeDepth: '',
+        material: quote.quality || '',
+        thickness: quote.thickness || '',
+        color: quote.selectedColor || '',
+        colorHex: quote.selectedColorHex || '',
+        surfaceType: quote.surface || '',
+        notes: quote.breakdown?.map(item => `${item.label}: ${formatPrice(item.price)}`).join('\n') || '',
+      };
+
+      const restoredManualItem = manualProductItem && typeof manualProductItem === 'object'
+        ? { ...fallbackManualItem, ...(manualProductItem as Record<string, unknown>) }
+        : fallbackManualItem;
+
+      quoteParams.set('manualProductItem', JSON.stringify(restoredManualItem));
+    }
     
-    navigate(`/?${quoteParams.toString()}`);
+    navigate(`/calculator?${quoteParams.toString()}`);
   };
 
   const unitPrice = quote.totalPrice;
@@ -64,14 +100,32 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
   const quoteTitle = isFabrication
     ? quote.processingName || `제품 제작 #${index + 1}`
     : `견적 #${index + 1}`;
+  const visibleOptions = [
+    {
+      label: '색상',
+      value: quote.colorType === 'CUSTOM' ? (quote.customColorName || '맞춤 색상') : (quote.selectedColor || quote.colorType || 'AC-미선택'),
+      swatch: quote.selectedColorHex,
+    },
+    { label: isFabrication ? '견적 기준' : '소재', value: quote.material },
+    { label: isFabrication ? '소재' : '재질', value: quote.quality },
+    { label: '두께', value: quote.thickness },
+    { label: isFabrication ? '규격' : '사이즈', value: quote.size },
+    { label: isFabrication ? '마감/면' : '면수', value: quote.surface },
+    ...(quote.processing ? [
+      { label: isFabrication ? '제작 품목' : '가공방법', value: quote.processingName },
+    ] : []),
+  ];
 
   return (
-    <Card className="border border-gray-200 shadow-none rounded-lg">
-      <CardHeader className="pb-3 bg-gray-100 text-black print:bg-gray-100 px-4 py-3">
-        <div className="flex justify-between items-center">
-          <div>
-            <div className="text-[11px] text-gray-500 mb-0.5">{styleProfile.label}</div>
-            <CardTitle className="text-[14px] font-bold text-black">{quoteTitle}</CardTitle>
+    <Card className="break-inside-avoid rounded-lg border border-slate-200 bg-white shadow-none quote-item-card">
+      <CardHeader className="border-b border-slate-100 bg-white px-4 py-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-1 text-[11px] font-semibold text-blue-700">{styleProfile.label}</div>
+            <CardTitle className="text-[14px] font-bold text-slate-950">{quoteTitle}</CardTitle>
+            {quote.serialNumber && (
+              <div className="mt-1 text-[12px] font-medium text-amber-700">{quote.serialNumber}</div>
+            )}
           </div>
           {!readOnly && (
             <div className="flex items-center gap-2">
@@ -94,74 +148,48 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
           )}
         </div>
       </CardHeader>
-      <CardContent className="pt-3 px-4 pb-4">
-        {/* 선택한 옵션들 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-          <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-[11px] text-gray-500 mb-0.5">색상</div>
-            <div className="flex flex-col gap-1">
-              {quote.selectedColor && quote.selectedColorHex ? (
-                <>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3.5 h-3.5 rounded border border-gray-300" style={{ backgroundColor: quote.selectedColorHex }}></div>
-                    <div className="font-semibold text-black text-[12px]">
-                      {quote.colorType === 'CUSTOM' ? '맞춤 색상' : quote.selectedColor}
-                    </div>
-                  </div>
-                  {quote.colorType === 'CUSTOM' && (
-                    <div className="text-[11px] space-y-0.5 bg-blue-50 p-1.5 rounded border border-blue-200">
-                      {quote.customColorName && <div className="text-blue-700"><span className="font-medium">팬톤:</span> {quote.customColorName}</div>}
-                      {quote.customOpacity && <div className="text-blue-700"><span className="font-medium">투명도:</span> {quote.customOpacity}%</div>}
-                      <div className="text-blue-700"><span className="font-medium">컬러:</span> {quote.selectedColorHex}</div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="font-semibold text-black text-[12px]">{quote.selectedColor || quote.colorType || 'AC-미선택'}</div>
-              )}
+      <CardContent className="px-4 py-3">
+        <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap gap-1.5">
+              {visibleOptions.map((option, optionIndex) => (
+                <span key={`${option.label}-${optionIndex}`} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px]">
+                  {option.swatch && <span className="h-3 w-3 rounded-full border border-slate-300" style={{ backgroundColor: option.swatch }} />}
+                  <span className="font-semibold text-slate-500">{option.label}</span>
+                  <span className="font-bold text-slate-950">{option.value || '-'}</span>
+                </span>
+              ))}
+            </div>
+            {quote.colorType === 'CUSTOM' && quote.selectedColorHex && (
+              <div className="mt-2 rounded-md border border-blue-100 bg-blue-50 px-2 py-1.5 text-[11px] text-blue-700">
+                {quote.customOpacity && <span className="mr-3"><span className="font-medium">투명도:</span> {quote.customOpacity}%</span>}
+                <span><span className="font-medium">컬러:</span> {quote.selectedColorHex}</span>
+              </div>
+            )}
+          </div>
+          <div className="grid min-w-[210px] gap-1.5 text-[12px]">
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-500">단가</span>
+              <span className="font-semibold text-slate-950">{formatPrice(unitPrice)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-500">수량</span>
+              <span className="font-semibold text-slate-950">{quote.quantity}개</span>
+            </div>
+            <div className="flex justify-between gap-4 border-t border-slate-200 pt-1.5">
+              <span className="font-semibold text-slate-950">소계</span>
+              <span className="text-[15px] font-black text-blue-700">{formatPrice(totalPrice)}</span>
             </div>
           </div>
-          <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '견적 기준' : '소재'}</div>
-            <div className="font-semibold text-black text-[12px]">{quote.material}</div>
-          </div>
-          <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '소재' : '재질'}</div>
-            <div className="font-semibold text-black text-[12px]">{quote.quality}</div>
-          </div>
-          <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-[11px] text-gray-500 mb-0.5">두께</div>
-            <div className="font-semibold text-black text-[12px]">{quote.thickness}</div>
-          </div>
-          <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '규격' : '사이즈'}</div>
-            <div className="font-semibold text-black text-[12px]">{quote.size}</div>
-          </div>
-          <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '마감/면' : '면수'}</div>
-            <div className="font-semibold text-black text-[12px]">{quote.surface}</div>
-          </div>
-          {quote.processing && (
-            <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200 md:col-span-2">
-              <div className="text-[11px] text-gray-500 mb-0.5">{isFabrication ? '제작 품목' : '가공방법'}</div>
-              <div className="font-semibold text-black text-[12px]">{quote.processingName}</div>
-            </div>
-          )}
-          {quote.serialNumber && (
-            <div className="p-2.5 bg-yellow-50 rounded-lg border border-yellow-200">
-              <div className="text-[11px] text-yellow-700 mb-0.5">클라이언트 요청사항</div>
-              <div className="font-semibold text-yellow-900 text-[12px]">{quote.serialNumber}</div>
-            </div>
-          )}
         </div>
         
         {/* 가격 상세 내역 */}
         {quote.breakdown.length > 0 && (
-          <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <FileText className="h-3.5 w-3.5 text-slate-500" />
-                <h4 className="text-[12px] font-semibold text-black">계산 근거</h4>
+                <h4 className="text-[12px] font-semibold text-slate-950">계산 근거</h4>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 {(rawSnapshotVersionName || snapshotCapturedAt) && (
@@ -201,29 +229,14 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
             )}
             <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
               {quote.breakdown.map((item, itemIndex) => (
-                <div key={itemIndex} className="flex justify-between gap-3 rounded-md bg-white px-2 py-1.5 text-[12px]">
-                  <span className="text-gray-600 whitespace-pre-line">{item.label}</span>
-                  <span className="shrink-0 font-semibold text-black">{formatPrice(item.price)}</span>
+                <div key={itemIndex} className="flex justify-between gap-3 rounded-md border border-slate-100 bg-white px-2 py-1.5 text-[12px]">
+                  <span className="text-slate-600 whitespace-pre-line">{item.label}</span>
+                  <span className="shrink-0 font-semibold text-slate-950">{formatPrice(item.price)}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
-        
-        <div className="space-y-1.5 pt-2 border-t border-gray-200">
-          <div className="flex justify-between items-center text-[12px]">
-            <span className="text-gray-500">단가</span>
-            <span className="font-semibold text-black">{formatPrice(unitPrice)}</span>
-          </div>
-          <div className="flex justify-between items-center text-[12px]">
-            <span className="text-gray-500">수량</span>
-            <span className="font-semibold text-black">{quote.quantity}개</span>
-          </div>
-          <div className="flex justify-between items-center pt-1.5 border-t border-gray-200">
-            <span className="text-black font-semibold text-[12px]">소계</span>
-            <span className="text-[14px] font-bold text-black">{formatPrice(totalPrice)}</span>
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

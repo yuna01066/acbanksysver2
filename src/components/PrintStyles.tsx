@@ -11,8 +11,12 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
   useEffect(() => {
     const parts = [quoteNumber, projectName, companyName].filter(Boolean);
     const fileName = parts.length > 0 ? parts.join('-') : '견적서';
-    const finalFileName = isInternal ? `${fileName}_내부용` : fileName;
+    const finalFileName = `${fileName}_${isInternal ? '내부용' : '고객용'}`;
     document.title = finalFileName;
+
+    return () => {
+      document.title = 'Lovable - Build for the web';
+    };
   }, [quoteNumber, projectName, companyName, isInternal]);
 
   return (
@@ -119,6 +123,23 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
             overflow: visible !important;
           }
 
+          /* 인쇄 잉크 절감: 넓은 진한 배경은 흰 배경과 얇은 선으로 변환 */
+          .print-container .bg-gray-900,
+          .print-container .bg-slate-900,
+          .print-container .bg-black,
+          .print-container [class*="bg-gray-900"],
+          .print-container [class*="bg-slate-900"],
+          .print-container [class*="bg-black"] {
+            background: white !important;
+            color: #0f172a !important;
+            border: 1px solid #bfdbfe !important;
+          }
+
+          .print-container .text-white,
+          .print-container [class*="text-white"] {
+            color: #0f172a !important;
+          }
+
           /* 2열 grid 유지 */
           .grid.grid-cols-1.md\\:grid-cols-2 {
             display: grid !important;
@@ -149,11 +170,31 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
             break-inside: avoid !important;
           }
 
+          .quote-item-card {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          /* 화면용 스크롤/높이 제한은 PDF에서 내용 잘림을 만들 수 있어 해제 */
+          .print-container [class*="max-h-"],
+          .print-container [class*="overflow-y-auto"],
+          .print-container [class*="overflow-auto"],
+          .print-container .overflow-y-auto,
+          .print-container .overflow-auto {
+            max-height: none !important;
+            overflow: visible !important;
+          }
+
           /* 헤더 카드 인쇄 시 */
           .quote-header-card {
             border: 1px solid #d1d5db !important;
             box-shadow: none !important;
             margin-bottom: 12px !important;
+          }
+
+          .quote-header-accent {
+            background: #2563eb !important;
+            height: 4px !important;
           }
 
           /* 푸터 */
@@ -178,7 +219,7 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
       <div className="print-footer hidden print:flex">
         <span>견적번호: {quoteNumber}</span>
         <span>{projectName || '프로젝트명 없음'}</span>
-        <span></span>
+        <span>{isInternal ? '내부관리용' : '고객제출용'}</span>
       </div>
     </>
   );

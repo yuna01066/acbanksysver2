@@ -91,6 +91,7 @@ interface QuoteContextType {
   quotes: Quote[];
   recipient: QuoteRecipient | null;
   addQuote: (quote: Omit<Quote, 'id' | 'createdAt'>) => void;
+  updateQuote: (id: string, quote: Omit<Quote, 'id' | 'createdAt'>) => void;
   removeQuote: (id: string) => void;
   updateQuoteQuantity: (id: string, quantity: number) => void;
   clearQuotes: (options?: { deleteAttachments?: boolean }) => void;
@@ -205,6 +206,19 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     setQuotes(prev => [...prev, newQuote]);
   };
 
+  const updateQuote = (id: string, quoteData: Omit<Quote, 'id' | 'createdAt'>) => {
+    setQuotes(prev => prev.map(quote =>
+      quote.id === id
+        ? {
+          ...quote,
+          ...quoteData,
+          id: quote.id,
+          createdAt: quote.createdAt,
+        }
+        : quote
+    ));
+  };
+
   const removeQuote = (id: string) => {
     setQuotes(prev => prev.filter(quote => quote.id !== id));
   };
@@ -257,6 +271,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
       quotes,
       recipient,
       addQuote,
+      updateQuote,
       removeQuote,
       updateQuoteQuantity,
       clearQuotes,
