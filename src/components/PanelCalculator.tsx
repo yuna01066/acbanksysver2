@@ -42,7 +42,6 @@ type PricingVersion = Pick<
 >;
 
 type QuoteDraft = Omit<Quote, 'id' | 'createdAt'>;
-type BondProductType = 'flat' | 'tray' | 'box';
 
 type SavedQuoteItem = Partial<QuoteDraft> & {
   id?: string;
@@ -148,11 +147,6 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [isComplex, setIsComplex] = useState<boolean>(false);
   const [bevelLengthM, setBevelLengthM] = useState<number>(0);
   const [laserHoles, setLaserHoles] = useState<number>(0);
-  const [corners90, setCorners90] = useState<number>(0);
-  const [useDetailedBond, setUseDetailedBond] = useState<boolean>(false);
-  const [joinLengthM, setJoinLengthM] = useState<number>(0);
-  const [trayHeightMm, setTrayHeightMm] = useState<number | undefined>(undefined);
-  const [bondProductType, setBondProductType] = useState<BondProductType>('flat');
   const [edgeFinishing, setEdgeFinishing] = useState<boolean>(false);
   const [bulgwang, setBulgwang] = useState<boolean>(false);
   const [tapung, setTapung] = useState<boolean>(false);
@@ -514,11 +508,6 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     isComplex,
     bevelLengthM,
     laserHoles,
-    corners90,
-    useDetailedBond,
-    joinLengthM,
-    trayHeightMm,
-    bondProductType,
     edgeFinishing,
     bulgwang,
     tapung,
@@ -623,11 +612,6 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       setIsComplex(false);
       setBevelLengthM(0);
       setLaserHoles(0);
-      setCorners90(0);
-      setUseDetailedBond(false);
-      setJoinLengthM(0);
-      setTrayHeightMm(undefined);
-      setBondProductType('flat');
       setSelectedProcessing('');
       setSelectedProcessingName('');
       setSelectedAdhesion('');
@@ -889,11 +873,6 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         isComplex,
         bevelLengthM,
         laserHoles,
-        corners90,
-        useDetailedBond,
-        joinLengthM,
-        trayHeightMm,
-        bondProductType,
         edgeFinishing,
         bulgwang,
         tapung,
@@ -1142,11 +1121,6 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     setIsComplex(false);
     setBevelLengthM(0);
     setLaserHoles(0);
-    setCorners90(0);
-    setUseDetailedBond(false);
-    setJoinLengthM(0);
-    setTrayHeightMm(undefined);
-    setBondProductType('flat');
     setEdgeFinishing(false);
     setBulgwang(false);
     setTapung(false);
@@ -1652,16 +1626,6 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
                 onBevelLengthChange={setBevelLengthM}
                 laserHoles={laserHoles}
                 onLaserHolesChange={setLaserHoles}
-                corners90={corners90}
-                onCorners90Change={setCorners90}
-                useDetailedBond={useDetailedBond}
-                onDetailedBondChange={setUseDetailedBond}
-                joinLengthM={joinLengthM}
-                onJoinLengthChange={setJoinLengthM}
-                trayHeightMm={trayHeightMm}
-                onTrayHeightChange={setTrayHeightMm}
-                productType={bondProductType}
-                onProductTypeChange={setBondProductType}
               />
             </>
           )}

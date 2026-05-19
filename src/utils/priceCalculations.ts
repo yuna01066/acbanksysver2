@@ -555,7 +555,7 @@ export const calculateAdhesionCost = ({
 
   cost90 = cost90 * adhesionConfig.laborPremium90 + corners90 * adhesionConfig.cornerFinishFee;
 
-  if (useDetailedBond) {
+  if (basis === 'product_based' && useDetailedBond) {
     const detailed = (adhesionConfig.setupFee / Math.max(1, qty) + adhesionConfig.bondRatePerM * joinLengthM)
       * volumeQ(qty, adhesionConfig.kVolume)
       * Math.max(1, qty);
@@ -612,19 +612,15 @@ export const calculateAdhesionCost = ({
 
   edgeIncluded = true;
 
-  const isBoxLike = bondProductType === 'box' || corners90 >= 8;
-  if (isBoxLike && t <= 5 && joinLengthM >= 9) {
+  const isProductBasedBoxLike = basis === 'product_based' && (bondProductType === 'box' || corners90 >= 8);
+  if (isProductBasedBoxLike && t <= 5 && joinLengthM >= 9) {
     blockedReasons.push('5T 대형 6면체 박스는 휨과 접착 품질 리스크가 커서 자동 견적으로 발행할 수 없습니다. 두께 상향 또는 수동 검수가 필요합니다.');
-  } else if (isBoxLike && t <= 5 && joinLengthM >= 7) {
+  } else if (isProductBasedBoxLike && t <= 5 && joinLengthM >= 7) {
     warnings.push('5T 6면체 박스는 크기가 커질수록 휨과 접착 품질 리스크가 있어 관리자 검수가 필요합니다.');
   }
 
-  if (joinLengthM <= 0) {
-    warnings.push(
-      basis === 'sheet_based'
-        ? '접착선 길이가 없어 원판 총액 배수 기준으로 계산했습니다. 실제 제작 난이도는 검수가 필요합니다.'
-        : '접착선 길이가 없어 접착비가 배수 기준으로만 계산되었습니다. 정확도를 높이려면 제품 유형 또는 접착선 길이를 입력하세요.'
-    );
+  if (basis === 'product_based' && joinLengthM <= 0) {
+    warnings.push('접착선 길이가 없어 접착비가 배수 기준으로만 계산되었습니다. 정확도를 높이려면 제품 유형 또는 접착선 길이를 입력하세요.');
   }
 
   return {
@@ -1138,14 +1134,13 @@ const collectProductionGuardrails = (
   opts?: CalculatePriceV2Options
 ) => {
   const t = parseFloat(thickness.replace('T', ''));
+  const isProductBased = opts?.adhesionBasis === 'product_based';
   const joinLength = opts?.joinLengthM ?? 0;
   const corners = opts?.corners90 ?? 0;
-  const isBoxLike = opts?.bondProductType === 'box' || corners >= 8;
+  const isBoxLike = isProductBased && (opts?.bondProductType === 'box' || corners >= 8);
   const usesAdhesion =
     selectedAdhesion !== 'none' ||
-    (opts?.useDetailedBond ?? false) ||
-    joinLength > 0 ||
-    corners > 0;
+    (isProductBased && ((opts?.useDetailedBond ?? false) || joinLength > 0 || corners > 0));
 
   const warnings: string[] = [];
   const blockedReasons: string[] = [];
@@ -1168,7 +1163,7 @@ const collectProductionGuardrails = (
     warnings.push('무기포 접착 자동 선택은 기준 금액으로 계산됩니다. 45도/90도 마감 방식이 정해진 경우 직접 선택해야 정확합니다.');
   }
 
-  if ((selectedAdhesion !== 'none' || opts?.useDetailedBond) && joinLength <= 0) {
+  if (isProductBased && (selectedAdhesion !== 'none' || opts?.useDetailedBond) && joinLength <= 0) {
     warnings.push('접착선 길이가 없어 접착비가 배수 기준으로만 계산되었습니다. 정확도를 높이려면 제품 유형 또는 접착선 길이를 입력하세요.');
   }
 
@@ -1404,10 +1399,14 @@ export const calculatePrice = (
 
     selectedOptionIds.forEach(optionId => {
       const option = processingOptionsData.find(opt => opt.option_id === optionId && opt.is_active);
+      const isSheetBasedAdhesionProfile =
+        Boolean(ADHESION_PROFILE_IDS[optionId]) &&
+        (options?.adhesionBasis || 'sheet_based') === 'sheet_based';
       if (ADHESION_PROFILE_IDS[optionId]) {
         effectiveAdhesionForGuardrails = ADHESION_PROFILE_IDS[optionId];
       }
       const needsProfileDelta =
+        isSheetBasedAdhesionProfile ||
         isKnownProfileOptionId(optionId) &&
         (
           !option ||
