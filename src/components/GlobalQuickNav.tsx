@@ -50,6 +50,7 @@ type QuickNavItem = {
 const QUICK_NAV_ITEMS: QuickNavItem[] = [
   { title: '견적 계산기', description: '판재 견적 계산', path: '/calculator?type=quote', group: '영업', keywords: '견적 계산 단가 판재 quote calculator', icon: Calculator },
   { title: '수율 계산기', description: '원판 배치와 수율 확인', path: '/calculator?type=yield', group: '영업', keywords: '수율 네스팅 원판 yield nesting', icon: BarChart3 },
+  { title: '견적서 초안함', description: '여러 견적 초안 저장/발행', path: '/quote-drafts', group: '영업', keywords: '견적 초안 임시저장 draft quote', icon: FileText },
   { title: '발행 견적서', description: '저장된 견적서 검색/관리', path: '/saved-quotes', group: '영업', keywords: '발행 견적서 저장 quote saved', icon: FileSpreadsheet },
   { title: '고객사 관리', description: '거래처와 담당자 정보', path: '/recipients', group: '영업', keywords: '거래처 고객사 담당자 client recipient', icon: Building2 },
   { title: '프로젝트 관리', description: '견적·거래처·발주 연결', path: '/project-management', group: '업무', keywords: '프로젝트 프로젝트관리 project', icon: FolderOpen },
