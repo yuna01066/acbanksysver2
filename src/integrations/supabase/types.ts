@@ -3291,6 +3291,217 @@ export type Database = {
           },
         ]
       }
+      response_cases: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          created_by: string
+          customer_company: string | null
+          customer_contact: string | null
+          customer_message: string
+          customer_name: string | null
+          external_message_id: string | null
+          external_thread_id: string | null
+          final_response: string | null
+          id: string
+          inquiry_type: string
+          internal_context: string | null
+          related_project_id: string | null
+          related_quote_id: string | null
+          review_required: boolean
+          risk_level: string
+          source_channel: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by: string
+          customer_company?: string | null
+          customer_contact?: string | null
+          customer_message: string
+          customer_name?: string | null
+          external_message_id?: string | null
+          external_thread_id?: string | null
+          final_response?: string | null
+          id?: string
+          inquiry_type?: string
+          internal_context?: string | null
+          related_project_id?: string | null
+          related_quote_id?: string | null
+          review_required?: boolean
+          risk_level?: string
+          source_channel?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string
+          customer_company?: string | null
+          customer_contact?: string | null
+          customer_message?: string
+          customer_name?: string | null
+          external_message_id?: string | null
+          external_thread_id?: string | null
+          final_response?: string | null
+          id?: string
+          inquiry_type?: string
+          internal_context?: string | null
+          related_project_id?: string | null
+          related_quote_id?: string | null
+          review_required?: boolean
+          risk_level?: string
+          source_channel?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "response_cases_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "response_cases_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "response_cases_related_project_id_fkey"
+            columns: ["related_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "response_cases_related_quote_id_fkey"
+            columns: ["related_quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      response_drafts: {
+        Row: {
+          ai_risk_level: string
+          avoid_phrases: string[]
+          case_id: string
+          created_at: string
+          created_by: string
+          drafts_by_tone: Json
+          empathy_points: string[]
+          final_text: string | null
+          id: string
+          is_used: boolean
+          persuasion_points: string[]
+          review_required: boolean
+          selected_tone: string
+          summary: string | null
+          updated_at: string
+          used_knowledge_item_ids: string[]
+        }
+        Insert: {
+          ai_risk_level?: string
+          avoid_phrases?: string[]
+          case_id: string
+          created_at?: string
+          created_by: string
+          drafts_by_tone?: Json
+          empathy_points?: string[]
+          final_text?: string | null
+          id?: string
+          is_used?: boolean
+          persuasion_points?: string[]
+          review_required?: boolean
+          selected_tone?: string
+          summary?: string | null
+          updated_at?: string
+          used_knowledge_item_ids?: string[]
+        }
+        Update: {
+          ai_risk_level?: string
+          avoid_phrases?: string[]
+          case_id?: string
+          created_at?: string
+          created_by?: string
+          drafts_by_tone?: Json
+          empathy_points?: string[]
+          final_text?: string | null
+          id?: string
+          is_used?: boolean
+          persuasion_points?: string[]
+          review_required?: boolean
+          selected_tone?: string
+          summary?: string | null
+          updated_at?: string
+          used_knowledge_item_ids?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "response_drafts_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "response_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "response_drafts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      response_knowledge_items: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "response_knowledge_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sample_chip_inventory: {
         Row: {
           color_code: string | null

@@ -56,6 +56,7 @@ const QUICK_NAV_ITEMS: QuickNavItem[] = [
   { title: '프로젝트 관리', description: '견적·거래처·발주 연결', path: '/project-management', group: '업무', keywords: '프로젝트 프로젝트관리 project', icon: FolderOpen },
   { title: '원판 발주 관리', description: '자재 발주 내역', path: '/material-orders', group: '업무', keywords: '원판 발주 자재 material order', icon: Package },
   { title: '팀 채팅', description: '내부 메시지와 업무 대화', path: '/team-chat', group: '업무', keywords: '채팅 메시지 소통 chat', icon: MessageCircle },
+  { title: '상담 응대 보조', description: '고객 문의 답변 초안 생성', path: '/response-assistant', group: '영업', keywords: '상담 응대 메일 컴플레인 고객 답변 초안 ai response assistant', icon: MessageSquareText },
   { title: '공지사항', description: '사내 공지 확인', path: '/announcements', group: '업무', keywords: '공지 announcement notice', icon: ClipboardList },
   { title: '근태 관리', description: '출퇴근 기록', path: '/attendance', group: '직원', keywords: '근태 출근 퇴근 attendance', icon: CalendarDays },
   { title: '연차 관리', description: '휴가 신청/승인', path: '/leave-management', group: '직원', keywords: '연차 휴가 leave vacation', icon: CalendarDays },

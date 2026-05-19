@@ -9,6 +9,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "next-themes";
 import PageAccessGuard from "@/components/PageAccessGuard";
 import GlobalQuickNav from "@/components/GlobalQuickNav";
+import FloatingResponseAssistant from "@/components/FloatingResponseAssistant";
 
 // 즉시 로드 (항상 필요)
 import Index from "./pages/Index";
@@ -59,6 +60,7 @@ const SpaceProjectsListPage = lazy(() => import("./pages/SpaceProjectsListPage")
 const SpaceProjectDetailPage = lazy(() => import("./pages/SpaceProjectDetailPage"));
 const ReviewHubPage = lazy(() => import("./pages/ReviewHubPage"));
 const ChannelTalkLeadsPage = lazy(() => import("./pages/ChannelTalkLeadsPage"));
+const ResponseAssistantPage = lazy(() => import("./pages/ResponseAssistantPage"));
 const queryClient = new QueryClient();
 
 const G: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -80,6 +82,7 @@ const App = () => (
         <AuthProvider>
           <QuoteProvider>
             <GlobalQuickNav />
+            <FloatingResponseAssistant />
             <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
               <Routes>
               <Route path="/" element={<Index />} />
@@ -96,8 +99,8 @@ const App = () => (
               <Route path="/processing-price-management" element={<ProcessingPriceManagement />} />
               <Route path="/saved-quotes" element={<G><SavedQuotesPage /></G>} />
               <Route path="/saved-quotes/:id" element={<G><SavedQuoteDetailPage /></G>} />
-              <Route path="/auth" element={<AuthPage />} />
               <Route path="/quote-drafts" element={<G><QuoteDraftsPage /></G>} />
+              <Route path="/auth" element={<AuthPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/my-page" element={<MyPage />} />
               <Route path="/user-management" element={<Navigate to="/employee-profiles" replace />} />
@@ -127,6 +130,7 @@ const App = () => (
               <Route path="/business-dashboard" element={<G><BusinessDashboardPage /></G>} />
               <Route path="/review-hub" element={<G><ReviewHubPage /></G>} />
               <Route path="/channel-talk-leads" element={<G><ChannelTalkLeadsPage /></G>} />
+              <Route path="/response-assistant" element={<ResponseAssistantPage />} />
               <Route path="/space-quote" element={<G><SpaceProjectFormPage /></G>} />
               <Route path="/space-quotes" element={<G><SpaceProjectsListPage /></G>} />
               <Route path="/space-quotes/:id" element={<G><SpaceProjectDetailPage /></G>} />
