@@ -49,6 +49,17 @@ const laserFullOption: ProcessingOptionData = {
   is_active: true,
 };
 
+const mugipo45PerMeterOption: ProcessingOptionData = {
+  option_id: '45-mugipo',
+  name: '무기포 45도 접착',
+  option_type: 'adhesion',
+  category: 'adhesion',
+  pricing_method: 'per_meter',
+  unit: 'm',
+  rate: 10_000,
+  is_active: true,
+};
+
 const inRange = (value: number, min: number, max: number, message: string) => {
   assert.ok(
     value >= min && value <= max,
@@ -93,6 +104,94 @@ const inRange = (value: number, min: number, max: number, message: string) => {
     result.breakdown.find(item => item.label.includes('레이저 전체 재단'))?.price,
     222_480,
     'panel_multiplier options must preserve base_cost as an additive setup fee'
+  );
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'glossy-color',
+    '5T',
+    '4*8',
+    '단면',
+    undefined,
+    undefined,
+    0,
+    {
+      adhesion: 'bond-mugipo-45',
+      adhesionBasis: 'sheet_based',
+      bondProductType: 'flat',
+    }
+  );
+
+  assert.equal(result.status, 'needs_review');
+  assert.equal(result.totalPrice, 289_920);
+  assert.equal(
+    result.lineItems.filter(item => item.code === 'adhesion-mugipo-45').length,
+    1,
+    'sheet-based mugipo adhesion must be charged once'
+  );
+  assert.match(result.warnings[0], /원판 총액 배수/);
+}
+
+{
+  const canonical = calculatePrice(
+    'casting',
+    'glossy-color',
+    '5T',
+    '4*8',
+    '단면',
+    undefined,
+    undefined,
+    0,
+    {
+      adhesion: '45-mugipo',
+      adhesionBasis: 'sheet_based',
+      bondProductType: 'flat',
+    }
+  );
+
+  const legacy = calculatePrice(
+    'casting',
+    'glossy-color',
+    '5T',
+    '4*8',
+    '단면',
+    undefined,
+    undefined,
+    0,
+    {
+      adhesion: 'bond-mugipo-45',
+      adhesionBasis: 'sheet_based',
+      bondProductType: 'flat',
+    }
+  );
+
+  assert.equal(canonical.totalPrice, legacy.totalPrice, 'legacy and canonical 45 mugipo ids must match');
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'glossy-color',
+    '5T',
+    '4*8',
+    '단면',
+    undefined,
+    '45-mugipo',
+    0,
+    {
+      joinLengthM: 4.2,
+      processingOptionsData: [mugipo45PerMeterOption],
+    }
+  );
+
+  assert.equal(result.status, 'calculable');
+  assert.equal(result.totalPrice, 132_600);
+  assert.equal(
+    result.lineItems.find(item => item.code === 'option-45-mugipo')?.source,
+    'adhesion',
+    'DB per-meter adhesion option must stay in the adhesion source'
   );
 }
 

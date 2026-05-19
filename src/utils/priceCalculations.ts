@@ -276,6 +276,41 @@ export type AdhesionProfile =
   | '90-mugipo'         // 90° 절단면 가공 + 무기포 접착
   | 'none';
 
+export type AdhesionBasis = 'sheet_based' | 'product_based';
+
+export interface NormalizedAdhesionSelection {
+  profile: AdhesionProfile;
+  mode: 'none' | 'normal' | 'mugipo';
+  angle: '45' | '90' | 'auto' | null;
+}
+
+export interface AdhesionCalculationInput {
+  basis: AdhesionBasis;
+  materialCost: number;
+  thickness: string;
+  adhesion: AdhesionProfile;
+  qty?: number;
+  bevelLengthM?: number;
+  bevelFeePerM?: number;
+  corners90?: number;
+  useDetailedBond?: boolean;
+  joinLengthM?: number;
+  trayHeightMm?: number;
+  bondProductType?: 'flat' | 'tray' | 'box';
+  adhesionConfig?: AdhesionConfigData;
+  bondFactors?: BondFactorsData;
+}
+
+export interface AdhesionCalculationResult {
+  cost: number;
+  breakdown: PriceBreakdownItem[];
+  picked: 'none' | 'normal' | '45°' | '90°';
+  edgeIncluded: boolean;
+  hasAdhesion: boolean;
+  warnings: string[];
+  blockedReasons: string[];
+}
+
 // 기본 접착 관련 설정 (DB 값이 없을 때 사용)
 export const DEFAULT_ADHESION_CONFIG: AdhesionConfigData = {
   setupFee: 150_000,
@@ -399,6 +434,210 @@ const bondFactor45 = (
   return bondFactors.mugipo45_thick;
 };
 
+export const normalizeAdhesionSelection = (adhesion: AdhesionProfile): NormalizedAdhesionSelection => {
+  if (adhesion === 'none') {
+    return { profile: 'none', mode: 'none', angle: null };
+  }
+
+  if (adhesion === 'auto') {
+    return { profile: 'auto', mode: 'mugipo', angle: 'auto' };
+  }
+
+  if (adhesion === 'bond-normal') {
+    return { profile: 'bond-normal', mode: 'normal', angle: null };
+  }
+
+  if (adhesion === 'bond-mugipo-45' || adhesion === '45-mugipo') {
+    return { profile: '45-mugipo', mode: 'mugipo', angle: '45' };
+  }
+
+  if (adhesion === 'bond-mugipo-90' || adhesion === '90-mugipo') {
+    return { profile: '90-mugipo', mode: 'mugipo', angle: '90' };
+  }
+
+  if (adhesion === '45-normal') {
+    return { profile: '45-normal', mode: 'normal', angle: '45' };
+  }
+
+  if (adhesion === '90-normal') {
+    return { profile: '90-normal', mode: 'normal', angle: '90' };
+  }
+
+  return { profile: adhesion, mode: 'none', angle: null };
+};
+
+export const calculateAdhesionCost = ({
+  basis,
+  materialCost,
+  thickness,
+  adhesion,
+  qty = 1,
+  bevelLengthM,
+  bevelFeePerM,
+  corners90 = 0,
+  useDetailedBond = false,
+  joinLengthM = 0,
+  trayHeightMm,
+  bondProductType = 'flat',
+  adhesionConfig = DEFAULT_ADHESION_CONFIG,
+  bondFactors = DEFAULT_BOND_FACTORS,
+}: AdhesionCalculationInput): AdhesionCalculationResult => {
+  const t = parseFloat(thickness.replace('T', ''));
+  const normalized = normalizeAdhesionSelection(adhesion);
+  const breakdown: PriceBreakdownItem[] = [];
+  const warnings: string[] = [];
+  const blockedReasons: string[] = [];
+
+  if (normalized.mode === 'none' || materialCost <= 0) {
+    return {
+      cost: 0,
+      breakdown,
+      picked: 'none',
+      edgeIncluded: false,
+      hasAdhesion: false,
+      warnings,
+      blockedReasons,
+    };
+  }
+
+  const addBreakdown = (item: PriceBreakdownItem) => {
+    if (!Number.isFinite(item.price) || item.price <= 0) return;
+    breakdown.push({ ...item, source: 'adhesion' });
+  };
+
+  let picked: AdhesionCalculationResult['picked'] = 'normal';
+  let edgeIncluded = false;
+
+  if (normalized.mode === 'normal') {
+    const f = bondFactors.normal;
+    let cost = materialCost * (f - 1);
+    let label = basis === 'sheet_based'
+      ? `일반 접착 추가금 (원판 총액×${f})`
+      : `일반 접착 제작비 (원장×${f})`;
+    let code = 'adhesion-normal';
+
+    if (normalized.angle === '45') {
+      picked = '45°';
+      code = 'adhesion-normal-45';
+      label = basis === 'sheet_based'
+        ? `45° 일반 접착 추가금 (원판 총액×${f})`
+        : `45° 일반 접착 제작비 (원장×${f})`;
+      if (bevelLengthM && bevelFeePerM) {
+        cost += bevelLengthM * bevelFeePerM;
+        label += ` + 45° 베벨 ${bevelLengthM}m`;
+      }
+    } else if (normalized.angle === '90') {
+      picked = '90°';
+      code = 'adhesion-normal-90';
+      cost = cost * adhesionConfig.laborPremium90 + corners90 * adhesionConfig.cornerFinishFee;
+      label = basis === 'sheet_based'
+        ? `90° 일반 접착 추가금 (원판 총액×${f}, 프리미엄×${adhesionConfig.laborPremium90}${corners90 ? `, 코너 ${corners90}개` : ''})`
+        : `90° 일반 접착 제작비 (원장×${f}, 프리미엄×${adhesionConfig.laborPremium90}${corners90 ? `, 코너 ${corners90}개` : ''})`;
+      warnings.push('90도 접착은 마감 품질 확보에 시간이 많이 들어 최종 발행 전 검수를 권장합니다.');
+    }
+
+    addBreakdown({ label, price: cost, code });
+    return {
+      cost,
+      breakdown,
+      picked,
+      edgeIncluded,
+      hasAdhesion: true,
+      warnings,
+      blockedReasons,
+    };
+  }
+
+  const f45 = bondFactor45(t, trayHeightMm, bondFactors, adhesionConfig);
+  const f90 = bondFactors.mugipo90;
+  let cost45 = materialCost * (f45 - 1);
+  let cost90 = materialCost * (f90 - 1);
+
+  cost90 = cost90 * adhesionConfig.laborPremium90 + corners90 * adhesionConfig.cornerFinishFee;
+
+  if (useDetailedBond) {
+    const detailed = (adhesionConfig.setupFee / Math.max(1, qty) + adhesionConfig.bondRatePerM * joinLengthM)
+      * volumeQ(qty, adhesionConfig.kVolume)
+      * Math.max(1, qty);
+    cost45 += detailed;
+    cost90 += detailed;
+  }
+
+  if (bevelLengthM && bevelFeePerM) {
+    cost45 += bevelLengthM * bevelFeePerM;
+  }
+
+  let chosenCost = cost45;
+  let chosenFactor = f45;
+  picked = '45°';
+  let code = 'adhesion-mugipo-45';
+
+  if (normalized.angle === '90') {
+    chosenCost = cost90;
+    chosenFactor = f90;
+    picked = '90°';
+    code = 'adhesion-mugipo-90';
+  } else if (normalized.angle === 'auto') {
+    warnings.push('무기포 접착 자동 선택은 기준 금액으로 계산됩니다. 45도/90도 마감 방식이 정해진 경우 직접 선택해야 정확합니다.');
+    if (cost90 < cost45) {
+      chosenCost = cost90;
+      chosenFactor = f90;
+      picked = '90°';
+      code = 'adhesion-mugipo-90';
+    }
+  }
+
+  if (picked === '90°') {
+    warnings.push('90도 무기포 접착은 마감 품질 확보에 시간이 많이 들어 최종 발행 전 검수를 권장합니다.');
+  }
+
+  const labelPrefix = basis === 'sheet_based'
+    ? `무기포 ${picked} 접착 추가금`
+    : `무기포 ${picked} 접착 제작비`;
+  const labelBase = basis === 'sheet_based'
+    ? `원판 총액×${chosenFactor}`
+    : `원장×${chosenFactor}`;
+  const label = picked === '90°'
+    ? `${labelPrefix} (${labelBase}, 프리미엄×${adhesionConfig.laborPremium90}${corners90 ? `, 코너 ${corners90}개` : ''})`
+    : `${labelPrefix} (${labelBase})`;
+
+  addBreakdown({
+    label,
+    price: chosenCost,
+    code,
+    reason: basis === 'sheet_based'
+      ? '원판 기준 무기포 접착은 원판 총액 배수의 추가금으로 계산됩니다.'
+      : '제품제작 기준 무기포 접착은 제작 형태와 상세 조건을 반영한 추가금입니다.',
+  });
+
+  edgeIncluded = true;
+
+  const isBoxLike = bondProductType === 'box' || corners90 >= 8;
+  if (isBoxLike && t <= 5 && joinLengthM >= 9) {
+    blockedReasons.push('5T 대형 6면체 박스는 휨과 접착 품질 리스크가 커서 자동 견적으로 발행할 수 없습니다. 두께 상향 또는 수동 검수가 필요합니다.');
+  } else if (isBoxLike && t <= 5 && joinLengthM >= 7) {
+    warnings.push('5T 6면체 박스는 크기가 커질수록 휨과 접착 품질 리스크가 있어 관리자 검수가 필요합니다.');
+  }
+
+  if (joinLengthM <= 0) {
+    warnings.push(
+      basis === 'sheet_based'
+        ? '접착선 길이가 없어 원판 총액 배수 기준으로 계산했습니다. 실제 제작 난이도는 검수가 필요합니다.'
+        : '접착선 길이가 없어 접착비가 배수 기준으로만 계산되었습니다. 정확도를 높이려면 제품 유형 또는 접착선 길이를 입력하세요.'
+    );
+  }
+
+  return {
+    cost: chosenCost,
+    breakdown,
+    picked,
+    edgeIncluded,
+    hasAdhesion: true,
+    warnings,
+    blockedReasons,
+  };
+};
+
 // ========== 가공/접착 옵션 인터페이스 ==========
 
 export interface ProcessingDeltaOptions {
@@ -417,12 +656,16 @@ export interface ProcessingDeltaOptions {
   processFactors?: ProcessFactorsData;
   bondFactors?: BondFactorsData;
   processingOptions?: ProcessingOptionData[];
+  bondProductType?: 'flat' | 'tray' | 'box';
+  adhesionBasis?: AdhesionBasis;
+  onWarnings?: (warnings: string[]) => void;
+  onBlockedReasons?: (blockedReasons: string[]) => void;
 }
 
 export interface ProcessingDeltaResult {
   procCost: number;            // 증분 총액
   descriptions: string[];      // 브레이크다운 라벨
-  breakdown: { label: string; price: number }[];
+  breakdown: PriceBreakdownItem[];
   edgeIncluded: boolean;       // 접착에 엣지 포함 시 true
   hasAdhesion: boolean;        // 접착 가공 포함 여부
   picked: {
@@ -456,7 +699,7 @@ export const calcProcessingDelta = (
 
   let procCost = 0;
   const desc: string[] = [];
-  const breakdown: { label: string; price: number }[] = [];
+  const breakdown: PriceBreakdownItem[] = [];
   let edgeIncluded = false;
   let hasAdhesion = false;
 
@@ -481,89 +724,41 @@ export const calcProcessingDelta = (
   }
 
   // 2) 접착 프로필 선택
-  let pickedAdhesion: 'none' | 'normal' | '45°' | '90°' = 'none';
+  const adhesionResult = calculateAdhesionCost({
+    basis: opts.adhesionBasis || (opts.bondProductType === 'box' ? 'product_based' : 'sheet_based'),
+    materialCost,
+    thickness,
+    adhesion,
+    qty: n,
+    bevelLengthM: opts.bevelLengthM,
+    bevelFeePerM: opts.bevelFeePerM,
+    corners90: opts.corners90,
+    useDetailedBond: opts.useDetailedBond,
+    joinLengthM: opts.joinLengthM,
+    trayHeightMm: opts.trayHeightMm,
+    bondProductType: opts.bondProductType,
+    adhesionConfig,
+    bondFactors,
+  });
 
-  if (adhesion === 'bond-normal' || adhesion === '45-normal' || adhesion === '90-normal') {
-    const f = bondFactors.normal;
-    let normalCost = materialCost * (f - 1);
-    let label = `일반 접착 (원장×${f})`;
-
-    if (adhesion === '45-normal') {
-      pickedAdhesion = '45°';
-      label = `45° 일반 접착 (원장×${f})`;
-      if (opts.bevelLengthM && opts.bevelFeePerM) {
-        const bevelAdd = opts.bevelLengthM * opts.bevelFeePerM;
-        normalCost += bevelAdd;
-        label += ` + 45° 베벨 ${opts.bevelLengthM}m`;
-      }
-    } else if (adhesion === '90-normal') {
-      pickedAdhesion = '90°';
-      normalCost = normalCost * adhesionConfig.laborPremium90
-                 + (opts.corners90 ?? 0) * adhesionConfig.cornerFinishFee;
-      label = `90° 일반 접착 (원장×${f}, 프리미엄×${adhesionConfig.laborPremium90}${(opts.corners90 ?? 0) ? `, 코너 ${opts.corners90}개` : ''})`;
-    } else {
-      pickedAdhesion = 'normal';
+  adhesionResult.breakdown.forEach(item => {
+    addCost(item.label, item.price);
+    const latest = breakdown[breakdown.length - 1];
+    if (latest) {
+      latest.code = item.code;
+      latest.source = item.source;
+      latest.reason = item.reason;
     }
-
-    addCost(label, normalCost);
-    hasAdhesion = true;
-  } else if (
-    adhesion === 'bond-mugipo-45' ||
-    adhesion === 'bond-mugipo-90' ||
-    adhesion === '45-mugipo' ||
-    adhesion === '90-mugipo' ||
-    adhesion === 'auto'
-  ) {
-    // 45°와 90°를 각각 계산해 최소 비용 선택(adhesion==='auto'일 때)
-    const f45 = bondFactor45(t, opts.trayHeightMm, bondFactors, adhesionConfig);
-    const f90 = bondFactors.mugipo90;
-
-    // 배수 기반 증분
-    let cost45 = materialCost * (f45 - 1);
-    let cost90 = materialCost * (f90 - 1);
-
-    // 90°는 인건비 프리미엄 + 코너 마감비
-    cost90 = cost90 * adhesionConfig.laborPremium90
-           + (opts.corners90 ?? 0) * adhesionConfig.cornerFinishFee;
-
-    // 상세모드: S/n + rL에 Q(n) 적용(두 안에 동일 가중)
-    if (opts.useDetailedBond) {
-      const S = adhesionConfig.setupFee;
-      const r = adhesionConfig.bondRatePerM;
-      const L = opts.joinLengthM ?? 0;
-      const Qn = volumeQ(n, adhesionConfig.kVolume);
-      const detailed = (S / n + r * L) * Qn * n; // 총액
-      cost45 += detailed;
-      cost90 += detailed;
-      desc.push(`무기포 상세 보정(S/n + rL) × Q(n=${n.toLocaleString()})`);
-    }
-
-    // 45° 베벨 정액(길이 기반)이 있으면 45°쪽에만 추가
-    if (opts.bevelLengthM && opts.bevelFeePerM) {
-      const bevelAdd = opts.bevelLengthM * opts.bevelFeePerM;
-      cost45 += bevelAdd;
-    }
-
-    // 선택 강제 vs 자동
-    let chosenCost = cost45;
-    pickedAdhesion = '45°';
-    let chosenLabel = `무기포 45° 접착 (원장×${f45})`;
-
-    if (adhesion === 'bond-mugipo-90' || adhesion === '90-mugipo') {
-      chosenCost = cost90;
-      pickedAdhesion = '90°';
-      chosenLabel = `무기포 90° 접착 (원장×${f90}, 프리미엄×${adhesionConfig.laborPremium90}${(opts.corners90 ?? 0) ? `, 코너 ${opts.corners90}개` : ''})`;
-    } else if (adhesion === 'auto') {
-      if (cost90 < cost45) {
-        chosenCost = cost90;
-        pickedAdhesion = '90°';
-        chosenLabel = `무기포 90° 접착 (원장×${f90}, 프리미엄×${adhesionConfig.laborPremium90}${(opts.corners90 ?? 0) ? `, 코너 ${opts.corners90}개` : ''})`;
-      }
-    }
-
-    addCost(chosenLabel, chosenCost);
-    edgeIncluded = true; // 무기포는 레이저/엣지 포함 정의 → 별도 엣지 청구 OFF
-    hasAdhesion = true;
+  });
+  edgeIncluded = adhesionResult.edgeIncluded;
+  hasAdhesion = adhesionResult.hasAdhesion;
+  const pickedAdhesion = adhesionResult.picked;
+  if (adhesionResult.warnings.length > 0) {
+    desc.push(...adhesionResult.warnings);
+    opts.onWarnings?.(adhesionResult.warnings);
+  }
+  if (adhesionResult.blockedReasons.length > 0) {
+    opts.onBlockedReasons?.(adhesionResult.blockedReasons);
   }
 
   // 3) 엣지(요청 시, 무기포 포함이면 비활성)
@@ -727,6 +922,7 @@ export interface CalculatePriceV2Options {
   adhesionConfig?: AdhesionConfigData;            // 접착 설정 (DB)
   processFactors?: ProcessFactorsData;            // 가공 배수 (DB)
   bondFactors?: BondFactorsData;                  // 접착 배수 (DB)
+  adhesionBasis?: AdhesionBasis;                  // 원판 기준/제품제작 기준 접착 계산 분기
   selectedAdditionalOptions?: Record<string, number>; // 추가 옵션 수량
   totalWonJangBase?: number; // 여러 원장의 합계 (옵션 계산 시 기준가)
   bondProductType?: 'flat' | 'tray' | 'box';
@@ -863,7 +1059,7 @@ const calculateConfiguredOptionCost = (
       );
   const joinLength = options?.joinLengthM ?? 0;
   const bevelLength = options?.bevelLengthM ?? 0;
-  const length = option.unit === 'bevel_m' || /bevel|45/i.test(option.option_id)
+  const length = option.unit === 'bevel_m' || /bevel/i.test(option.option_id)
     ? bevelLength
     : joinLength;
   const withBaseCost = (cost: number, label: string) => {
@@ -1185,13 +1381,6 @@ export const calculatePrice = (
   if (processingType && processingType !== '' && processingType !== 'none' && options?.processingOptionsData) {
     const processingOptionsData = options?.processingOptionsData || [];
     const selectedOptionIds = processingType.split('|').filter(Boolean);
-    const hasDetailedProcessingInputs =
-      !!options.useDetailedBond ||
-      (options.joinLengthM ?? 0) > 0 ||
-      (options.bevelLengthM ?? 0) > 0 ||
-      (options.corners90 ?? 0) > 0 ||
-      options.trayHeightMm !== undefined;
-    
     console.log('Processing multiple options:', {
       processingType,
       selectedOptionIds,
@@ -1221,11 +1410,11 @@ export const calculatePrice = (
       const needsProfileDelta =
         isKnownProfileOptionId(optionId) &&
         (
-          hasDetailedProcessingInputs ||
           !option ||
           (
             (option.multiplier === undefined || option.multiplier === null || option.multiplier === 0) &&
-            (option.base_cost === undefined || option.base_cost === null || option.base_cost === 0)
+            (option.base_cost === undefined || option.base_cost === null || option.base_cost === 0) &&
+            (option.rate === undefined || option.rate === null || option.rate === 0)
           )
         );
 
@@ -1261,6 +1450,10 @@ export const calculatePrice = (
           processFactors: buildProcessFactorsFromOptions(processingOptionsData),
           bondFactors: buildBondFactorsFromOptions(processingOptionsData),
           processingOptions: processingOptionsData,
+          bondProductType: options.bondProductType,
+          adhesionBasis: options.adhesionBasis || (options.bondProductType === 'box' || options.bondProductType === 'tray' ? 'product_based' : 'sheet_based'),
+          onWarnings: nextWarnings => warnings.push(...nextWarnings),
+          onBlockedReasons: nextBlockedReasons => blockedReasons.push(...nextBlockedReasons),
         }
       );
 
@@ -1382,6 +1575,10 @@ export const calculatePrice = (
         processFactors: buildProcessFactorsFromOptions(processingOptionsData),
         bondFactors: buildBondFactorsFromOptions(processingOptionsData),
         processingOptions: processingOptionsData,
+        bondProductType: options.bondProductType,
+        adhesionBasis: options.adhesionBasis || (options.bondProductType === 'box' || options.bondProductType === 'tray' ? 'product_based' : 'sheet_based'),
+        onWarnings: nextWarnings => warnings.push(...nextWarnings),
+        onBlockedReasons: nextBlockedReasons => blockedReasons.push(...nextBlockedReasons),
       }
     );
 
@@ -1471,7 +1668,12 @@ export const calculatePrice = (
   warnings.push(...guardrails.warnings);
   blockedReasons.push(...guardrails.blockedReasons);
 
-  return normalizeCalculationResult(totalPrice, breakdown, warnings, blockedReasons);
+  return normalizeCalculationResult(
+    totalPrice,
+    breakdown,
+    Array.from(new Set(warnings)),
+    Array.from(new Set(blockedReasons))
+  );
 };
 
 export const formatPrice = (price: number): string => {
