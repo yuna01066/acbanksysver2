@@ -2495,6 +2495,10 @@ export type Database = {
           name: string
           option_id: string
           option_type: Database["public"]["Enums"]["processing_option_type"]
+          pricing_method: string
+          rate: number | null
+          requires_review: boolean
+          unit: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2515,6 +2519,10 @@ export type Database = {
           name: string
           option_id: string
           option_type: Database["public"]["Enums"]["processing_option_type"]
+          pricing_method?: string
+          rate?: number | null
+          requires_review?: boolean
+          unit?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2535,6 +2543,10 @@ export type Database = {
           name?: string
           option_id?: string
           option_type?: Database["public"]["Enums"]["processing_option_type"]
+          pricing_method?: string
+          rate?: number | null
+          requires_review?: boolean
+          unit?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -2892,6 +2904,68 @@ export type Database = {
             columns: ["recipient_id"]
             isOneToOne: false
             referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_drafts: {
+        Row: {
+          created_at: string
+          id: string
+          issued_at: string | null
+          issued_quote_id: string | null
+          items: Json
+          last_opened_at: string | null
+          quote_style: string
+          recipient: Json | null
+          status: string
+          subtotal: number
+          tax: number
+          title: string
+          total: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          issued_at?: string | null
+          issued_quote_id?: string | null
+          items?: Json
+          last_opened_at?: string | null
+          quote_style?: string
+          recipient?: Json | null
+          status?: string
+          subtotal?: number
+          tax?: number
+          title?: string
+          total?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          issued_at?: string | null
+          issued_quote_id?: string | null
+          items?: Json
+          last_opened_at?: string | null
+          quote_style?: string
+          recipient?: Json | null
+          status?: string
+          subtotal?: number
+          tax?: number
+          title?: string
+          total?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_drafts_issued_quote_id_fkey"
+            columns: ["issued_quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
             referencedColumns: ["id"]
           },
         ]

@@ -49,65 +49,62 @@ const FloatingResponseAssistant: React.FC = () => {
   if (isHidden) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 print:hidden sm:bottom-6 sm:right-6">
-      <div
-        className={cn(
-          'mb-3 origin-bottom-right transition-all duration-200',
-          open ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-4 scale-95 opacity-0',
-        )}
-      >
-        <section className="flex h-[min(720px,calc(100vh-118px))] w-[min(460px,calc(100vw-24px))] flex-col overflow-hidden rounded-[28px] border border-[#dedede] bg-white shadow-[0_18px_58px_rgba(0,0,0,0.22)]">
-          <header className="flex items-center justify-between gap-3 border-b border-[#e5e5e5] bg-white px-4 py-3">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center">
-                <img src={responseAssistantIcon} alt="" className="h-10 w-10 object-contain drop-shadow-sm" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-black leading-tight text-[#111111]">
-                  상담 응대 보조
-                </p>
-                <p className="truncate text-[11px] font-semibold text-[#9e9ea0]">
-                  답변 작성 · 문안 검수 · 견적 메일
-                </p>
+    <div className="pointer-events-none fixed bottom-4 right-4 z-40 print:hidden sm:bottom-6 sm:right-6">
+      {open && (
+        <div className="pointer-events-auto mb-3 origin-bottom-right translate-y-0 scale-100 opacity-100 transition-all duration-200">
+          <section className="flex h-[min(720px,calc(100vh-118px))] w-[min(460px,calc(100vw-24px))] flex-col overflow-hidden rounded-[28px] border border-[#dedede] bg-white shadow-[0_18px_58px_rgba(0,0,0,0.22)]">
+            <header className="flex items-center justify-between gap-3 border-b border-[#e5e5e5] bg-white px-4 py-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center">
+                  <img src={responseAssistantIcon} alt="" className="h-10 w-10 object-contain drop-shadow-sm" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black leading-tight text-[#111111]">
+                    상담 응대 보조
+                  </p>
+                  <p className="truncate text-[11px] font-semibold text-[#9e9ea0]">
+                    답변 작성 · 문안 검수 · 견적 메일
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => setGuideOpenSignal((signal) => signal + 1)}
-                className="h-8 w-8 rounded-full text-[#707072] hover:bg-[#f5f5f5]"
-                aria-label="상담 응대 보조 사용 방법"
-              >
-                <HelpCircle className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => setOpen(false)}
-                className="h-8 w-8 rounded-full text-[#707072] hover:bg-[#f5f5f5]"
-                aria-label="상담 응대 보조 닫기"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </header>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setGuideOpenSignal((signal) => signal + 1)}
+                  className="h-8 w-8 rounded-full text-[#707072] hover:bg-[#f5f5f5]"
+                  aria-label="상담 응대 보조 사용 방법"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setOpen(false)}
+                  className="h-8 w-8 rounded-full text-[#707072] hover:bg-[#f5f5f5]"
+                  aria-label="상담 응대 보조 닫기"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto bg-[#f5f5f5] p-3">
-            <ResponseAssistantWidget
-              embedded
-              autoGuide={false}
-              compact
-              guideOpenSignal={guideOpenSignal}
-              className="rounded-[24px] shadow-none"
-            />
-          </div>
-        </section>
-      </div>
+            <div className="min-h-0 flex-1 overflow-y-auto bg-[#f5f5f5] p-3">
+              <ResponseAssistantWidget
+                embedded
+                autoGuide={false}
+                compact
+                guideOpenSignal={guideOpenSignal}
+                className="rounded-[24px] shadow-none"
+              />
+            </div>
+          </section>
+        </div>
+      )}
 
-      <div className="group relative ml-auto flex h-[88px] w-[88px] items-center justify-center">
+      <div className="pointer-events-auto group relative ml-auto flex h-[88px] w-[88px] items-center justify-center">
         <div
           className={cn(
             'pointer-events-none absolute right-[76px] top-1/2 z-10 min-w-[188px] -translate-y-1/2 translate-x-3 scale-95 rounded-2xl border border-[#dedede] bg-white px-4 py-3 text-center text-sm font-black text-[#111111] opacity-0 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition-all duration-300 ease-out before:absolute before:-right-2 before:top-1/2 before:h-4 before:w-4 before:-translate-y-1/2 before:rotate-45 before:border-r before:border-t before:border-[#dedede] before:bg-white group-hover:translate-x-0 group-hover:scale-100 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:scale-100 group-focus-within:opacity-100',

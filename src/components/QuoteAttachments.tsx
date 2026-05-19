@@ -120,6 +120,54 @@ interface QuoteAttachmentsProps {
   showQuotePdfSection?: boolean;
 }
 
+const ALLOWED_ATTACHMENT_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/postscript',
+  'application/illustrator',
+  'application/acad',
+  'application/x-acad',
+  'application/autocad_dwg',
+  'application/dwg',
+  'application/x-dwg',
+  'image/vnd.dwg',
+  'application/dxf',
+  'application/x-dxf',
+  'image/vnd.dxf',
+  'application/octet-stream',
+]);
+
+const ALLOWED_ATTACHMENT_EXTENSIONS = new Set([
+  'pdf',
+  'jpg',
+  'jpeg',
+  'png',
+  'zip',
+  'xls',
+  'xlsx',
+  'doc',
+  'docx',
+  'dwg',
+  'dxf',
+  'ai',
+  'eps',
+]);
+
+const getFileExtension = (fileName: string) => fileName.split('.').pop()?.toLowerCase() || '';
+
+const isAllowedAttachmentFile = (file: globalThis.File) => {
+  const extension = getFileExtension(file.name);
+  return ALLOWED_ATTACHMENT_EXTENSIONS.has(extension) || ALLOWED_ATTACHMENT_TYPES.has(file.type);
+};
+
 const QuoteAttachments = ({ 
   attachments, 
   onAttachmentsChange, 
@@ -214,25 +262,12 @@ const QuoteAttachments = ({
         return;
       }
 
-      const allowedTypes = [
-        'application/pdf',
-        'image/jpeg',
-        'image/jpg', 
-        'image/png',
-        'application/zip',
-        'application/x-zip-compressed',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      ];
-
       const newAttachments: Attachment[] = [];
 
       for (const file of Array.from(files)) {
         try {
           // 파일 형식 체크
-          if (!allowedTypes.includes(file.type)) {
+          if (!isAllowedAttachmentFile(file)) {
             toast.error(`${file.name}: 지원하지 않는 파일 형식입니다.`);
             uploadedCount.failed++;
             continue;
@@ -245,7 +280,7 @@ const QuoteAttachments = ({
             continue;
           }
 
-          const fileExt = file.name.split('.').pop();
+          const fileExt = getFileExtension(file.name) || 'bin';
           const timestamp = Date.now();
           const random = Math.random().toString(36).substring(2, 9);
           const fileName = `${timestamp}-${random}.${fileExt}`;
@@ -783,7 +818,7 @@ const QuoteAttachments = ({
               multiple
               onChange={handleFileUpload}
               className="hidden"
-              accept=".pdf,.jpg,.jpeg,.png,.zip,.xls,.xlsx,.doc,.docx"
+              accept=".pdf,.jpg,.jpeg,.png,.zip,.xls,.xlsx,.doc,.docx,.dwg,.dxf,.ai,.eps"
             />
             <Button
               variant="outline"
