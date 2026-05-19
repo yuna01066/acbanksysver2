@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Star, Package, Layers } from "lucide-react";
 import NestingThumbnail from "@/components/NestingThumbnail";
 import CombinationThumbnail from "@/components/CombinationThumbnail";
+import { formatPrice } from "@/utils/priceCalculations";
 
 interface YieldResult {
   panelSize: string;
@@ -16,6 +17,8 @@ interface YieldResult {
   efficiency: number;
   wasteArea: number;
   surplus: number;
+  panelUnitPrice?: number;
+  panelTotalPrice?: number;
   offcut?: {
     largestReusableRect: { width: number; height: number; area: number };
     scrapArea: number;
@@ -27,6 +30,8 @@ interface YieldResult {
 interface PanelUsage {
   panelName: string;
   quantity: number;
+  unitPrice?: number;
+  totalPrice?: number;
   placedItems: Array<{ itemId: string; count: number }>;
   efficiency: number;
   positions?: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }>;
@@ -42,6 +47,7 @@ interface CombinationResult {
   totalEfficiency: number;
   totalWasteArea: number;
   totalCost: number;
+  totalPanelPrice?: number;
   allItemsPlaced: boolean;
   remainingItems: Array<{ itemId: string; remaining: number }>;
 }
@@ -74,6 +80,8 @@ export interface YieldRecommendationSnapshot {
     width?: number;
     height?: number;
     efficiency?: number;
+    unitPrice?: number;
+    totalPrice?: number;
     placedItems?: Array<{ itemId: string; count: number }>;
     largestReusableRect?: { width: number; height: number; area: number } | null;
   }>;
@@ -93,7 +101,7 @@ interface UnifiedRecommendationsProps {
   }) => void;
   selectedQuality: string;
   selectedThickness: string;
-  availablePanelSizes: Array<{ name: string; width: number; height: number }>;
+  availablePanelSizes: Array<{ name: string; width: number; height: number; price?: number }>;
 }
 
 const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
@@ -108,6 +116,27 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
   const totalQuantity = cutItems.reduce((sum, item) => 
     sum + (item.quantity ? parseInt(item.quantity) : 0), 0
   );
+
+  const getPanelUnitPrice = (panelName: string) =>
+    availablePanelSizes.find(panel => panel.name === panelName)?.price;
+
+  const getSinglePanelPriceSummary = (result: YieldResult) => {
+    const unitPrice = result.panelUnitPrice ?? getPanelUnitPrice(result.panelSize);
+    const totalPrice = result.panelTotalPrice ?? (unitPrice ? unitPrice * result.panelsNeeded : undefined);
+    return { unitPrice, totalPrice };
+  };
+
+  const getCombinationPanelPriceSummary = (combination: CombinationResult) => {
+    const hasAnyPrice = combination.totalPanelPrice != null || combination.panels.some(panel => (
+      panel.unitPrice ?? getPanelUnitPrice(panel.panelName)
+    ) != null);
+    const totalPrice = combination.totalPanelPrice ?? combination.panels.reduce((sum, panel) => {
+      const unitPrice = panel.unitPrice ?? getPanelUnitPrice(panel.panelName);
+      return sum + (unitPrice ? unitPrice * panel.quantity : 0);
+    }, 0);
+
+    return { totalPrice: hasAnyPrice ? totalPrice : undefined };
+  };
 
   // 모든 추천안을 통합하고 효율성 순으로 정렬 (모든 도형이 배치된 경우만)
   const allRecommendations: UnifiedRecommendation[] = [
@@ -178,6 +207,7 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
   const createYieldRecommendationSnapshot = (recommendation: UnifiedRecommendation): YieldRecommendationSnapshot => {
     if (recommendation.type === 'single') {
       const data = recommendation.data as YieldResult;
+      const priceSummary = getSinglePanelPriceSummary(data);
       return {
         source: 'yield-calculator',
         recommendationType: 'single',
@@ -188,6 +218,7 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
         efficiency: data.efficiency,
         panelsNeeded: data.panelsNeeded,
         wasteArea: data.wasteArea,
+        totalCost: priceSummary.totalPrice,
         largestReusableRect: data.offcut?.largestReusableRect || null,
         panels: [{
           size: data.panelSize,
@@ -195,6 +226,8 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
           width: data.panelWidth,
           height: data.panelHeight,
           efficiency: data.efficiency,
+          unitPrice: priceSummary.unitPrice,
+          totalPrice: priceSummary.totalPrice,
           largestReusableRect: data.offcut?.largestReusableRect || null,
         }],
       };
@@ -216,16 +249,19 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
       efficiency: data.totalEfficiency,
       panelsNeeded: data.panels.reduce((sum, panel) => sum + panel.quantity, 0),
       wasteArea: data.totalWasteArea,
-      totalCost: data.totalCost,
+      totalCost: getCombinationPanelPriceSummary(data).totalPrice,
       largestReusableRect,
       panels: data.panels.map(panel => {
         const panelInfo = availablePanelSizes.find(p => p.name === panel.panelName);
+        const unitPrice = panel.unitPrice ?? panelInfo?.price;
         return {
           size: panel.panelName,
           quantity: panel.quantity,
           width: panelInfo?.width,
           height: panelInfo?.height,
           efficiency: panel.efficiency,
+          unitPrice,
+          totalPrice: panel.totalPrice ?? (unitPrice ? unitPrice * panel.quantity : undefined),
           placedItems: panel.placedItems.map(item => ({ ...item })),
           largestReusableRect: panel.offcut?.largestReusableRect || null,
         };
@@ -332,12 +368,20 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                         <div className="text-sm text-muted-foreground">
                           가용사이즈: {(recommendation.data as YieldResult).panelWidth}×{(recommendation.data as YieldResult).panelHeight}mm
                         </div>
+                        {(() => {
+                          const { unitPrice } = getSinglePanelPriceSummary(recommendation.data as YieldResult);
+                          return unitPrice ? (
+                            <div className="text-xs text-muted-foreground">
+                              단가: {formatPrice(unitPrice)} / 장
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
                       <div className="bg-muted px-2 py-1 rounded text-xs text-muted-foreground">
                         {recommendation.panelsNeeded}장 (효율: {recommendation.efficiency.toFixed(1)}%)
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                       <div>
                         <div className="text-muted-foreground">총 필요 수량</div>
                         <div className="font-medium">{totalQuantity}개</div>
@@ -356,6 +400,22 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                           {(recommendation.wasteArea / 1000000).toFixed(2)}㎡
                         </div>
                       </div>
+                      {(() => {
+                        const { unitPrice, totalPrice } = getSinglePanelPriceSummary(recommendation.data as YieldResult);
+                        return (
+                          <div>
+                            <div className="text-muted-foreground">원판 금액</div>
+                            <div className="font-medium">
+                              {totalPrice ? formatPrice(totalPrice) : '단가 미등록'}
+                            </div>
+                            {unitPrice && (
+                              <div className="text-xs text-muted-foreground">
+                                {formatPrice(unitPrice)} × {recommendation.panelsNeeded}장
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                     {(recommendation.data as YieldResult).offcut?.largestReusableRect.area ? (
                       <div className="mt-3 rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground">
@@ -367,29 +427,35 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                 ) : (
                   <div>
                     <div className="space-y-2 mb-3">
-                      {(recommendation.data as CombinationResult).panels.map((panel, panelIndex) => {
-                        const panelInfo = availablePanelSizes.find(p => p.name === panel.panelName);
-                        return (
-                          <div key={panelIndex} className="flex justify-between items-center">
-                            <div>
-                              <span className="text-lg font-medium">{panel.panelName}</span>
-                              {panelInfo && (
-                                <div className="text-xs text-muted-foreground">
-                                  가용사이즈: {panelInfo.width}×{panelInfo.height}mm
-                                </div>
-                              )}
-                            </div>
-                            <div className="bg-muted px-2 py-1 rounded text-xs text-muted-foreground">
-                              {panel.quantity}장 (효율: {panel.efficiency.toFixed(1)}%)
+	                      {(recommendation.data as CombinationResult).panels.map((panel, panelIndex) => {
+	                        const panelInfo = availablePanelSizes.find(p => p.name === panel.panelName);
+	                        const unitPrice = panel.unitPrice ?? panelInfo?.price;
+	                        return (
+	                          <div key={panelIndex} className="flex justify-between items-center">
+	                            <div>
+	                              <span className="text-lg font-medium">{panel.panelName}</span>
+	                              {panelInfo && (
+	                                <div className="text-xs text-muted-foreground">
+	                                  가용사이즈: {panelInfo.width}×{panelInfo.height}mm
+	                                </div>
+	                              )}
+	                              {unitPrice && (
+	                                <div className="text-xs text-muted-foreground">
+	                                  단가: {formatPrice(unitPrice)} / 장
+	                                </div>
+	                              )}
+	                            </div>
+	                            <div className="bg-muted px-2 py-1 rounded text-xs text-muted-foreground">
+	                              {panel.quantity}장 (효율: {panel.efficiency.toFixed(1)}%)
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <div className="text-muted-foreground">총 필요 수량</div>
-                        <div className="font-medium">{totalQuantity}개</div>
+	                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+	                      <div>
+	                        <div className="text-muted-foreground">총 필요 수량</div>
+	                        <div className="font-medium">{totalQuantity}개</div>
                       </div>
                       <div>
                         <div className="text-muted-foreground">총 생산량</div>
@@ -405,11 +471,22 @@ const UnifiedRecommendations: React.FC<UnifiedRecommendationsProps> = ({
                       </div>
                       <div>
                         <div className="text-muted-foreground">잔재면적</div>
-                        <div className="font-medium">
-                          {(recommendation.wasteArea / 1000000).toFixed(2)}㎡
-                        </div>
-                      </div>
-                    </div>
+	                        <div className="font-medium">
+	                          {(recommendation.wasteArea / 1000000).toFixed(2)}㎡
+	                        </div>
+	                      </div>
+	                      {(() => {
+	                        const { totalPrice } = getCombinationPanelPriceSummary(recommendation.data as CombinationResult);
+	                        return (
+	                          <div>
+	                            <div className="text-muted-foreground">원판 금액</div>
+	                            <div className="font-medium">
+	                              {totalPrice ? formatPrice(totalPrice) : '단가 미등록'}
+	                            </div>
+	                          </div>
+	                        );
+	                      })()}
+	                    </div>
                     {(() => {
                       const largest = (recommendation.data as CombinationResult).panels
                         .map(panel => panel.offcut?.largestReusableRect)

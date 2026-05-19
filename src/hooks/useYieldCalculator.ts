@@ -22,6 +22,8 @@ export interface YieldResult {
   efficiency: number;
   wasteArea: number;
   surplus: number;
+  panelUnitPrice?: number;
+  panelTotalPrice?: number;
   offcut?: {
     largestReusableRect: { width: number; height: number; area: number };
     scrapArea: number;
@@ -35,6 +37,7 @@ interface PanelSize {
   width: number;
   height: number;
   available: boolean;
+  price?: number;
 }
 
 export const getPriceDataByQuality = (qualityId: string) => {
@@ -248,6 +251,7 @@ export const useAvailablePanelSizes = (selectedQuality: string, selectedThicknes
             width: ps.actual_width || fallback.width,
             height: ps.actual_height || fallback.height,
             available: true,
+            price: ps.price || undefined,
           };
         })
         .filter(panel => panel.width > 0 && panel.height > 0)
@@ -263,8 +267,8 @@ export const useAvailablePanelSizes = (selectedQuality: string, selectedThicknes
     const panelSizes: PanelSize[] = Array.from(allSizes).map(sizeStr => {
       const sizeInfo = getFallbackSizeInfo(sizeStr);
       const { width, height } = sizeInfo;
-      const isAvailable = priceData[selectedThickness] && priceData[selectedThickness][sizeStr];
-      return { name: sizeStr, width, height, available: !!isAvailable };
+      const price = priceData[selectedThickness]?.[sizeStr];
+      return { name: sizeStr, width, height, available: !!price, price };
     }).filter(p => p.available);
 
     return panelSizes.sort((a, b) => a.width * a.height - b.width * b.height);

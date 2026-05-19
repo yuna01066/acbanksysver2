@@ -3,6 +3,8 @@ import { calculateYieldPlan, type NumericCutItem, type PanelSize } from './yield
 export interface PanelUsage {
   panelName: string;
   quantity: number;
+  unitPrice?: number;
+  totalPrice?: number;
   placedItems: Array<{ itemId: string; count: number }>;
   efficiency: number;
   positions?: Array<{ x: number; y: number; width: number; height: number; rotated: boolean; itemId: string }>;
@@ -18,6 +20,7 @@ export interface CombinationResult {
   totalEfficiency: number;
   totalWasteArea: number;
   totalCost: number;
+  totalPanelPrice?: number;
   allItemsPlaced: boolean;
   remainingItems: Array<{ itemId: string; remaining: number }>;
   score?: number;
@@ -33,10 +36,13 @@ const remainingAfterPlaced = (
 
 const toPanelUsage = (
   panelName: string,
-  plan: ReturnType<typeof calculateYieldPlan>
+  plan: ReturnType<typeof calculateYieldPlan>,
+  unitPrice?: number
 ): PanelUsage => ({
   panelName,
   quantity: plan.panelsNeeded,
+  unitPrice,
+  totalPrice: unitPrice ? unitPrice * plan.panelsNeeded : undefined,
   placedItems: Object.entries(plan.placedCounts).map(([itemId, count]) => ({ itemId, count })),
   efficiency: plan.efficiency,
   positions: plan.layoutPanels[0]?.positions || [],
@@ -65,10 +71,11 @@ export const calculatePanelCombinations = (
     if (!plan.canFitAll || plan.panelsNeeded === 0) continue;
 
     results.push({
-      panels: [toPanelUsage(panel.name, plan)],
+      panels: [toPanelUsage(panel.name, plan, panel.price)],
       totalEfficiency: plan.efficiency,
       totalWasteArea: plan.wasteArea,
       totalCost: plan.panelsNeeded,
+      totalPanelPrice: panel.price ? panel.price * plan.panelsNeeded : undefined,
       allItemsPlaced: true,
       remainingItems: [],
       score: plan.score,
@@ -98,6 +105,8 @@ export const calculatePanelCombinations = (
       if (!allItemsPlaced) continue;
 
       const totalPanels = plan1.panelsNeeded + plan2.panelsNeeded;
+      const panel1TotalPrice = panel1.price ? panel1.price * plan1.panelsNeeded : undefined;
+      const panel2TotalPrice = panel2.price ? panel2.price * plan2.panelsNeeded : undefined;
       const totalPanelArea = panel1.width * panel1.height * plan1.panelsNeeded +
         panel2.width * panel2.height * plan2.panelsNeeded;
       const totalWasteArea = Math.max(0, totalPanelArea - totalRequiredArea);
@@ -115,10 +124,16 @@ export const calculatePanelCombinations = (
       );
 
       results.push({
-        panels: [toPanelUsage(panel1.name, plan1), toPanelUsage(panel2.name, plan2)],
+        panels: [
+          toPanelUsage(panel1.name, plan1, panel1.price),
+          toPanelUsage(panel2.name, plan2, panel2.price),
+        ],
         totalEfficiency,
         totalWasteArea,
         totalCost: totalPanels,
+        totalPanelPrice: typeof panel1TotalPrice === 'number' && typeof panel2TotalPrice === 'number'
+          ? panel1TotalPrice + panel2TotalPrice
+          : undefined,
         allItemsPlaced: true,
         remainingItems: [],
         score,

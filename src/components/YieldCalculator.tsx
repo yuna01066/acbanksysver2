@@ -103,6 +103,8 @@ const YieldCalculator: React.FC<YieldCalculatorProps> = ({ onBack, onPanelSelect
             panelSize: panel.name, panelWidth: panel.width, panelHeight: panel.height,
             piecesPerPanel, panelsNeeded, totalPieces: totalRequired,
             efficiency, wasteArea, surplus: Math.max(0, surplus),
+            panelUnitPrice: panel.price,
+            panelTotalPrice: panel.price ? panel.price * panelsNeeded : undefined,
             offcut,
             score,
           });

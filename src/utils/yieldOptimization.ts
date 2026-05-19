@@ -9,6 +9,7 @@ export interface PanelSize {
   name: string;
   width: number;
   height: number;
+  price?: number;
 }
 
 export interface PlacedItem {
