@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Home, Wrench } from "lucide-react";
+import { ArrowLeft, Wrench } from "lucide-react";
 import ProcessingOptionsManager from "@/components/admin/ProcessingOptionsManager";
 import { PageHeader, PageShell } from "@/components/layout/PageLayout";
 
@@ -24,14 +24,6 @@ const ProcessingPriceManagement = () => {
             >
               <ArrowLeft className="w-4 h-4" />
               관리자 설정
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/')}
-              size="sm"
-            >
-              <Home className="w-4 h-4" />
-              홈
             </Button>
           </>
         )}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Home, Package } from "lucide-react";
+import { ArrowLeft, Package } from "lucide-react";
 import { MaterialSelector } from "@/components/panel-management/MaterialSelector";
 import { ProductSelector } from "@/components/panel-management/ProductSelector";
 import { OptionSelector } from "@/components/panel-management/OptionSelector";
@@ -76,14 +76,6 @@ const PanelManagementPage = () => {
             >
               <ArrowLeft className="w-4 h-4" />
               관리자 설정
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/')}
-              size="sm"
-            >
-              <Home className="w-4 h-4" />
-              홈
             </Button>
           </>
         )}

@@ -11,7 +11,6 @@ import {
   FileSpreadsheet,
   FileText,
   FolderOpen,
-  Home,
   MessageCircle,
   MessageSquareText,
   Package,
@@ -129,6 +128,19 @@ const GlobalQuickNav = () => {
 
   return (
     <>
+      <button
+        type="button"
+        onClick={() => navigate('/')}
+        className="fixed left-4 top-3 z-40 h-10 rounded-[18px] border border-border/70 bg-background/90 p-[3px] shadow-smooth backdrop-blur transition-transform hover:scale-[1.02] active:scale-[0.98] print:hidden sm:left-6 sm:top-4"
+        aria-label="홈으로 이동"
+      >
+        <span className="logo-metal flex h-full items-center justify-center rounded-[14px] px-5 sm:px-7">
+          <span className="bg-gradient-to-b from-slate-600 to-slate-900 bg-clip-text text-base font-black leading-none tracking-[0.18em] text-transparent dark:from-slate-200 dark:to-slate-500 sm:text-lg">
+            ACBANK
+          </span>
+        </span>
+      </button>
+
       <Button
         type="button"
         variant="outline"

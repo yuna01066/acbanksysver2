@@ -19,7 +19,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  Home, Search, Building2, User, FileText, Eye, Pencil, Trash2,
+  Search, Building2, User, FileText, Eye, Pencil, Trash2,
   Loader2, ArrowLeft, Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -243,10 +243,6 @@ const RecipientManagementPage = () => {
             <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               뒤로
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate('/')}>
-              <Home className="w-4 h-4 mr-2" />
-              홈으로
             </Button>
           </div>
           <div className="text-center">

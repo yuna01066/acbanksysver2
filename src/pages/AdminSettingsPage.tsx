@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Home, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, FolderKanban, Star, Shield, Receipt, FileText, Sparkles, TrendingUp, ClipboardCheck, MessageSquareText } from "lucide-react";
+import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, FolderKanban, Star, Shield, Receipt, FileText, Sparkles, TrendingUp, ClipboardCheck, MessageSquareText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import SecretEventManager from '@/components/admin/SecretEventManager';
 import { PageHeader, PageShell } from '@/components/layout/PageLayout';
@@ -56,12 +56,6 @@ const AdminSettingsPage = () => {
         title="관리자 설정"
         description="직원, 프로젝트, 원판, 가공, 시스템 연동 설정을 한 곳에서 관리합니다."
         icon={<Settings className="h-5 w-5" />}
-        actions={(
-          <Button variant="outline" onClick={() => navigate('/')} size="sm">
-            <Home className="w-4 h-4" />
-            홈
-          </Button>
-        )}
       />
 
       <div className="grid gap-6 lg:grid-cols-2">

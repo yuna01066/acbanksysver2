@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Megaphone, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper, Building2, Users, X, Coffee, LayoutGrid, Home, Search, CalendarDays, AlertCircle, ChevronRight } from 'lucide-react';
+import { Megaphone, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper, Building2, Users, X, Coffee, LayoutGrid, Search, CalendarDays, AlertCircle, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { endOfWeek, format, isBefore, isSameDay, isWithinInterval, startOfDay, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -802,10 +802,6 @@ const AnnouncementsPage = () => {
                 새 {tabLabels[activeTab] || '공지'} 작성
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => navigate('/')}>
-              <Home className="h-4 w-4" />
-              홈
-            </Button>
           </>
         )}
       />

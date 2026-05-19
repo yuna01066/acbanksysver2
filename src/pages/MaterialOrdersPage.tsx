@@ -15,7 +15,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ArrowLeft, Plus, FolderOpen, FileText, ChevronDown, ChevronUp, Download, Search } from 'lucide-react';
+import { Plus, FolderOpen, FileText, ChevronDown, ChevronUp, Download, Search } from 'lucide-react';
 import MaterialOrderCard, { MaterialOrderData } from '@/components/MaterialOrderCard';
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -443,9 +443,6 @@ const MaterialOrdersPage: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/')} className="rounded-full">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
             <div>
               <h1 className="text-xl font-bold">원판 발주 관리</h1>
               <p className="text-xs text-muted-foreground">자재 발주 내역을 관리합니다</p>

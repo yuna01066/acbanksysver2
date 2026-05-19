@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Star, Search, Loader2, User, Shield, AlertTriangle, CalendarDays } from 'lucide-react';
+import { Star, Search, Loader2, User, Shield, AlertTriangle, CalendarDays } from 'lucide-react';
 import PerformanceReviewPanel from '@/components/employee/PerformanceReviewPanel';
 import AdminReviewDashboard from '@/components/performance/AdminReviewDashboard';
 import IncidentReportPanel from '@/components/performance/IncidentReportPanel';
@@ -45,9 +45,6 @@ const PerformanceReviewPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b px-4 py-3 flex items-center gap-3 bg-card">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
         <h1 className="text-base font-semibold flex items-center gap-2">
           <Star className="h-5 w-5 text-primary" />
           업무 평가

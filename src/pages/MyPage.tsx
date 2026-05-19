@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, User, Briefcase, Users } from 'lucide-react';
+import { User, Briefcase, Users } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MyPageHRSection from '@/components/mypage/MyPageHRSection';
 import MyPageBusinessSection from '@/components/mypage/MyPageBusinessSection';
@@ -28,10 +28,6 @@ const MyPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-primary/5 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <Button variant="ghost" onClick={() => navigate('/')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            홈으로
-          </Button>
           <Button variant="outline" onClick={signOut}>
             로그아웃
           </Button>

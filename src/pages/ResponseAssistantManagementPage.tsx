@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Bot,
-  Home,
   Loader2,
   MessageSquareText,
   Plus,
@@ -245,10 +244,6 @@ const ResponseAssistantManagementPage = () => {
             <Button variant="outline" size="sm" onClick={() => navigate('/admin-settings')} className="gap-2">
               <ArrowLeft className="h-4 w-4" />
               관리자 설정
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-2">
-              <Home className="h-4 w-4" />
-              홈
             </Button>
           </>
         )}

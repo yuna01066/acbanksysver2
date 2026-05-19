@@ -167,10 +167,6 @@ const ProjectManagementPage = () => {
               <Plus className="h-4 w-4" />
               새 프로젝트
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-2">
-              <Home className="h-4 w-4" />
-              홈
-            </Button>
           </>
         )}
       />

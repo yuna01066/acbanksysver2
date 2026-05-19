@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { format, endOfMonth } from 'date-fns';
-import { ArrowLeft, Plus, RefreshCw, Receipt, Building2, BarChart3, Search } from 'lucide-react';
+import { Plus, RefreshCw, Receipt, Building2, BarChart3, Search } from 'lucide-react';
 
 import TaxInvoiceStats from '@/components/tax-invoice/TaxInvoiceStats';
 import TaxInvoiceList from '@/components/tax-invoice/TaxInvoiceList';
@@ -385,9 +385,6 @@ const TaxInvoicesPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Receipt className="h-6 w-6 text-primary" />

@@ -9,7 +9,6 @@ import {
   Clipboard,
   FileText,
   FolderOpen,
-  Home,
   Link as LinkIcon,
   Loader2,
   MessageSquareText,
@@ -381,14 +380,6 @@ const ChannelTalkLeadsPage = () => {
           ? '채널톡 첨부파일 자동 분석 결과를 검토하고 견적/프로젝트 업무로 연결합니다.'
           : '채널톡 첨부파일 자동 분석 결과를 읽기 전용으로 확인합니다.'}
         icon={<MessageSquareText className="h-5 w-5" />}
-        actions={(
-          <>
-            <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-2">
-              <Home className="h-4 w-4" />
-              홈
-            </Button>
-          </>
-        )}
       />
 
       <div className="grid gap-5 lg:grid-cols-[420px_1fr]">

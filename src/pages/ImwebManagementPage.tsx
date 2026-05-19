@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
-  ArrowLeft, RefreshCw, Package, ShoppingCart, History,
+  RefreshCw, Package, ShoppingCart, History,
   Search, Wifi, WifiOff, Edit2, Check, Link2, Unlink
 } from 'lucide-react';
 
@@ -275,9 +275,6 @@ const ImwebManagementPage: React.FC = () => {
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-foreground">아임웹 연동 관리</h1>
             <p className="text-sm text-muted-foreground">상품 조회, 재고 동기화, 주문 내역 관리</p>

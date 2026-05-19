@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, ArrowLeft, FileText, Trash2, Search } from 'lucide-react';
+import { Plus, FileText, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 
@@ -72,9 +72,6 @@ const SpaceProjectsListPage = () => {
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto p-3 sm:p-6 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
-            <ArrowLeft className="w-4 h-4 mr-1" />홈
-          </Button>
           <h1 className="text-xl sm:text-2xl font-bold">공간 프로젝트 견적 목록</h1>
           <Button onClick={() => navigate('/space-quote')}>
             <Plus className="w-4 h-4 mr-1" />새 견적

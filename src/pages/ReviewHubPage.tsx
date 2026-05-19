@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
-  ArrowLeft,
   CheckCircle2,
   ClipboardCheck,
   FileText,
@@ -217,11 +216,7 @@ const ReviewHubPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 p-4">
       <div className="mx-auto w-full max-w-5xl space-y-5">
-        <div className="flex items-center justify-between gap-3">
-          <Button variant="outline" size="sm" onClick={() => navigate('/')}>
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            홈
-          </Button>
+        <div className="flex items-center justify-end gap-3">
           <Button variant="outline" size="sm" onClick={loadReviewData}>
             <RefreshCw className="mr-1 h-4 w-4" />
             새로고침

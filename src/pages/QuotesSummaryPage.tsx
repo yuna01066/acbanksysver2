@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calculator, ShoppingCart, Home, Download, FileText, Calendar as CalendarIcon, Plus, Trash2, Send } from "lucide-react";
+import { Calculator, ShoppingCart, Download, FileText, Calendar as CalendarIcon, Plus, Trash2, Send } from "lucide-react";
 import { useQuotes, QuoteRecipient, Attachment } from "@/contexts/QuoteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -91,7 +91,7 @@ const QuotesSummaryPage = () => {
           <CardContent className="text-center p-8">
             <ShoppingCart className="w-16 h-16 mx-auto text-gray-400 mb-4" />
             <p className="text-gray-600 mb-4">담긴 견적이 없습니다.</p>
-            <Button onClick={() => navigate('/')}>
+            <Button onClick={() => navigate('/calculator?type=quote')}>
               계산기로 돌아가기
             </Button>
           </CardContent>
@@ -157,15 +157,7 @@ const QuotesSummaryPage = () => {
           <QuoteDraftToolbar />
 
           {/* 간단한 헤더 */}
-          <div className="flex justify-between items-center mb-6 print:hidden">
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/')}
-              className="flex items-center gap-2"
-            >
-              <Home className="w-4 h-4" />
-              홈으로 돌아가기
-            </Button>
+          <div className="mb-6 flex justify-end print:hidden">
             <div className="flex gap-3">
               <Button 
                 variant="outline" 

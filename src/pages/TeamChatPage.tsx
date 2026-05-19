@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MessageSquare } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import TeamChatCard from '@/components/TeamChatCard';
 import MessengerSidebar, { ChatTarget } from '@/components/chat/MessengerSidebar';
 import DirectMessageView from '@/components/chat/DirectMessageView';
@@ -21,9 +21,6 @@ const TeamChatPage: React.FC = () => {
     <div className="h-screen bg-background flex flex-col">
       {/* Top bar */}
       <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0 bg-card">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
         <MessageSquare className="h-5 w-5 text-primary" />
         <h1 className="text-base font-semibold text-foreground">메신저</h1>
       </div>

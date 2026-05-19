@@ -147,9 +147,6 @@ const ExhibitionManagementPage = () => {
           <>
             {/* Dashboard Header */}
             <div className="flex items-center gap-4 mb-8">
-              <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
               <div className="flex-1">
                 <h1 className="text-2xl font-bold">박람회 관리</h1>
                 <p className="text-sm text-muted-foreground">박람회 관련 업무를 한 곳에서 관리합니다</p>

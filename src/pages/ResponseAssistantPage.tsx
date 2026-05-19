@@ -337,10 +337,6 @@ const ResponseAssistantPage = () => {
         )}
         actions={(
           <>
-            <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-2">
-              <Home className="h-4 w-4" />
-              홈
-            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="gap-2">
               <ArrowLeft className="h-4 w-4" />
               이전

@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Home, Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, FolderOpen, Loader2, PlusCircle } from 'lucide-react';
+import { Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, FolderOpen, Loader2, PlusCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -676,10 +676,6 @@ const SavedQuotesPage = () => {
             </Button>
             <Button onClick={() => navigate('/space-quotes')} variant="outline" size="sm" className="gap-2">
               공간디자인 견적서
-            </Button>
-            <Button onClick={() => navigate('/')} variant="outline" size="sm" className="gap-2">
-              <Home className="h-4 w-4" />
-              홈
             </Button>
           </>
         )}

@@ -2,7 +2,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Home } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import ModernPriceManager from "@/components/ModernPriceManager";
 import { PageShell } from "@/components/layout/PageLayout";
 
@@ -21,14 +21,6 @@ const PriceManagement = () => {
             >
               <ArrowLeft className="w-4 h-4" />
               관리자 설정
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/')}
-              size="sm"
-            >
-              <Home className="w-4 h-4" />
-              홈
             </Button>
           </>
         )}

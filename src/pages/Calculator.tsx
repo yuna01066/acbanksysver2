@@ -3,7 +3,7 @@ import CalculatorWidget from "@/components/CalculatorWidget";
 import QuoteDraftToolbar from "@/components/QuoteDraftToolbar";
 import { PageHeader, PageShell } from '@/components/layout/PageLayout';
 import { Button } from '@/components/ui/button';
-import { Calculator as CalculatorIcon, FileText, Home, Settings } from 'lucide-react';
+import { Calculator as CalculatorIcon, FileText, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Calculator = () => {
@@ -21,10 +21,6 @@ const Calculator = () => {
         icon={<CalculatorIcon className="h-5 w-5" />}
         actions={(
           <>
-            <Button variant="outline" size="sm" onClick={() => navigate('/')}>
-              <Home className="h-4 w-4" />
-              홈
-            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate('/quote-drafts')}>
               <FileText className="h-4 w-4" />
               초안함

@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { List, Save, Edit, X, Download, Users, Building2, Home, Calculator, FileText, Calendar as CalendarIcon, FolderOpen, ExternalLink } from "lucide-react";
+import { List, Save, Edit, X, Download, Users, Building2, Calculator, FileText, Calendar as CalendarIcon, FolderOpen, ExternalLink } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import QuoteCard from "@/components/QuoteCard";
@@ -521,20 +521,6 @@ const SavedQuoteDetailPage = () => {
       <div className="min-h-screen bg-[hsl(220,10%,95%)] p-2 sm:p-4 print-layout-wrapper">
         <div className="w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-4 lg:gap-6 print-flex-container">
         <div className="flex-1 min-w-0 max-w-full lg:max-w-4xl print-container" id="saved-quote-print-container" ref={printContainerRef}>
-          <div className="mb-4 sm:mb-6 print:hidden flex justify-between items-center">
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/')}
-              className="flex items-center gap-2"
-              size="sm"
-            >
-              <Home className="w-4 h-4" />
-              <span className="hidden sm:inline">홈으로 돌아가기</span>
-              <span className="sm:hidden">홈</span>
-            </Button>
-            
-          </div>
-
           <QuoteSummaryHeader 
             onClearQuotes={() => {}}
             onPrintPDF={handlePrintPDF}

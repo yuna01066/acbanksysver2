@@ -20,7 +20,7 @@ import {
   type QuoteDraftStatus,
 } from '@/services/quoteDrafts';
 import { formatPrice } from '@/utils/priceCalculations';
-import { Archive, CheckCircle2, Copy, FileText, Home, Loader2, Plus, Search, Send, ShoppingCart } from 'lucide-react';
+import { Archive, CheckCircle2, Copy, FileText, Loader2, Plus, Search, Send, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
 
 const STATUS_META: Record<QuoteDraftStatus, { label: string; className: string }> = {
@@ -191,10 +191,6 @@ const QuoteDraftsPage = () => {
         icon={<FileText className="h-5 w-5" />}
         actions={(
           <>
-            <Button variant="outline" size="sm" onClick={() => navigate('/')}>
-              <Home className="h-4 w-4" />
-              홈
-            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate('/calculator?type=quote')}>
               <ShoppingCart className="h-4 w-4" />
               계산기

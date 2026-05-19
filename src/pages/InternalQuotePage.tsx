@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calculator, ShoppingCart, Home } from "lucide-react";
+import { Calculator, ShoppingCart } from "lucide-react";
 import { toast } from 'sonner';
 import { useQuotes } from "@/contexts/QuoteContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -46,7 +46,7 @@ const InternalQuotePage = () => {
           <CardContent className="text-center p-8">
             <ShoppingCart className="w-16 h-16 mx-auto text-gray-400 mb-4" />
             <p className="text-gray-600 mb-4">담긴 견적이 없습니다.</p>
-            <Button onClick={() => navigate('/')}>
+            <Button onClick={() => navigate('/calculator?type=quote')}>
               계산기로 돌아가기
             </Button>
           </CardContent>
@@ -170,18 +170,6 @@ const InternalQuotePage = () => {
       <PrintStyles quoteNumber={quoteNumber} projectName={quoteProjectTitle} companyName={recipient?.companyName} isInternal={true} />
       <div className="min-h-screen bg-gray-50 p-4">
           <div className="w-full max-w-4xl mx-auto print-container" id="quote-print-container" ref={printContainerRef}>
-          <div className="mb-6 print:hidden">
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/')}
-              className="flex items-center gap-2"
-              size="sm"
-            >
-              <Home className="w-4 h-4" />
-              홈으로 돌아가기
-            </Button>
-          </div>
-
           <QuoteDraftToolbar />
           
           <QuoteSummaryHeader 
