@@ -130,6 +130,23 @@ const QuoteContext = createContext<QuoteContextType | undefined>(undefined);
 const QUOTE_DRAFT_STORAGE_KEY = 'acbank_quote_draft_v1';
 const ACTIVE_DRAFT_STORAGE_PREFIX = 'acbank_active_quote_draft_id';
 
+const createBlankRecipient = (quoteNumber = ''): QuoteRecipient => ({
+  projectName: '',
+  quoteNumber,
+  quoteDate: new Date(),
+  validUntil: '',
+  deliveryPeriod: '',
+  paymentCondition: '',
+  companyName: '',
+  contactPerson: '',
+  phoneNumber: '',
+  email: '',
+  desiredDeliveryDate: null,
+  deliveryAddress: '',
+  clientMemo: '',
+  attachments: [],
+});
+
 export const useQuotes = () => {
   const context = useContext(QuoteContext);
   if (!context) {
@@ -509,7 +526,10 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   };
 
   const updateAttachments = (attachments: Attachment[]) => {
-    setRecipient(prev => prev ? { ...prev, attachments } : null);
+    setRecipient(prev => prev
+      ? { ...prev, attachments }
+      : { ...createBlankRecipient(quoteNumberRef.current || quoteNumber), attachments }
+    );
   };
 
   const setDraftTitle = (title: string) => {
