@@ -36,6 +36,29 @@ import { cn } from '@/lib/utils';
 
 type LeadStatus = 'new' | 'needs_review' | 'analyzed' | 'converted' | 'closed';
 
+type LeadAnalysis = {
+  inquiry_type?: string | null;
+  item_name?: string | null;
+  dimensions?: string | null;
+  quantity?: string | null;
+  material?: string | null;
+  thickness?: string | null;
+  color?: string | null;
+  processing?: string[] | null;
+  desired_due_date?: string | null;
+  delivery_or_installation?: string | null;
+  confidence?: string | null;
+  missing_fields?: string[];
+  summary?: string | null;
+  recommended_reply?: string | null;
+  triage?: {
+    recommendedTags?: string[];
+  };
+  [key: string]: unknown;
+};
+
+type JsonRecord = Record<string, unknown>;
+
 type ChannelTalkLead = {
   id: string;
   channel_talk_user_chat_id: string;
@@ -48,9 +71,9 @@ type ChannelTalkLead = {
   customer_email: string | null;
   inquiry_type: string;
   status: LeadStatus | string;
-  analysis: Record<string, any>;
+  analysis: LeadAnalysis;
   missing_fields: string[];
-  raw_payload: Record<string, any>;
+  raw_payload: JsonRecord;
   project_id: string | null;
   assigned_to?: string | null;
   memo?: string | null;
@@ -149,6 +172,30 @@ function toQuoteDraftParams(lead: ChannelTalkLead) {
   return `/calculator?${params.toString()}`;
 }
 
+function toResponseAssistantParams(lead: ChannelTalkLead) {
+  const analysis = lead.analysis || {};
+  const params = new URLSearchParams({
+    source_channel: 'channel_talk',
+    external_thread_id: lead.channel_talk_user_chat_id,
+    inquiry_type: 'quote',
+    customer_message: [
+      analysis.summary && `[문의 요약]\n${analysis.summary}`,
+      analysis.recommended_reply && `[기존 추천 질문]\n${analysis.recommended_reply}`,
+      analysis.item_name && `[품목]\n${analysis.item_name}`,
+      analysis.dimensions && `[사이즈]\n${analysis.dimensions}`,
+      analysis.quantity && `[수량]\n${analysis.quantity}`,
+    ].filter(Boolean).join('\n\n') || buildInternalMemo(lead),
+    internal_context: buildInternalMemo(lead),
+  });
+  if (lead.channel_talk_message_id) params.set('external_message_id', lead.channel_talk_message_id);
+  if (lead.customer_company) params.set('customer_company', lead.customer_company);
+  if (lead.customer_name) params.set('customer_name', lead.customer_name);
+  if (lead.customer_phone || lead.customer_email) params.set('customer_contact', lead.customer_phone || lead.customer_email || '');
+  if (lead.project_id) params.set('related_project_id', lead.project_id);
+  if (lead.converted_quote_id) params.set('related_quote_id', lead.converted_quote_id);
+  return `/response-assistant?${params.toString()}`;
+}
+
 const ChannelTalkLeadsPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -167,7 +214,7 @@ const ChannelTalkLeadsPage = () => {
     queryKey: ['channel-talk-leads'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('channel_talk_quote_leads' as any)
+        .from('channel_talk_quote_leads')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(200);
@@ -206,13 +253,13 @@ const ChannelTalkLeadsPage = () => {
   });
 
   const updateLead = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Record<string, any> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Record<string, unknown> }) => {
       const next = { ...updates };
       if (next.status === 'closed' && !next.closed_at) next.closed_at = new Date().toISOString();
       if (next.status && next.status !== 'closed') next.closed_at = null;
 
       const { error } = await supabase
-        .from('channel_talk_quote_leads' as any)
+        .from('channel_talk_quote_leads')
         .update(next)
         .eq('id', id);
       if (error) throw error;
@@ -253,13 +300,13 @@ const ChannelTalkLeadsPage = () => {
             summary: analysis.summary || null,
           },
           user_id: user.id,
-        } as any)
+        })
         .select('id')
         .single();
       if (error) throw error;
 
       const { error: leadError } = await supabase
-        .from('channel_talk_quote_leads' as any)
+        .from('channel_talk_quote_leads')
         .update({ project_id: project.id, status: 'converted' })
         .eq('id', lead.id);
       if (leadError) throw leadError;
@@ -614,6 +661,10 @@ const ChannelTalkLeadsPage = () => {
                           <Button className="w-full gap-1.5" size="sm" onClick={() => navigate(toQuoteDraftParams(selectedLead))}>
                             <FileText className="h-3.5 w-3.5" />
                             견적 초안 만들기
+                          </Button>
+                          <Button variant="outline" className="w-full gap-1.5" size="sm" onClick={() => navigate(toResponseAssistantParams(selectedLead))}>
+                            <Send className="h-3.5 w-3.5" />
+                            응대 초안 만들기
                           </Button>
                           <Button variant="outline" className="w-full gap-1.5" size="sm" onClick={() => openProjectDialog(selectedLead)}>
                             <FolderOpen className="h-3.5 w-3.5" />
