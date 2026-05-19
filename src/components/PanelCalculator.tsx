@@ -804,9 +804,10 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const handleNextFromMultipleColorMixing = () => {
     setIsProcessingSelectionComplete(false);
 
-    // 가공 옵션 단계로 진입하면 기본값 설정하여 실시간 가격 계산
+    // 가공 옵션 단계로 진입하면 기본 원판 구매 기준을 설정하여 버튼 비활성/0원 계산을 방지
     if (!selectedProcessing) {
-      setSelectedProcessing('none');
+      setSelectedProcessing('raw-only');
+      setSelectedProcessingName('원판 단독 구매');
     }
     
     // 필름 아크릴의 경우 필름 선택 단계로, 아니면 가공 선택 단계로 이동
@@ -822,9 +823,10 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     setSelectedFilm(filmId);
     setIsProcessingSelectionComplete(false);
     
-    // 가공 옵션 단계로 진입하면 기본값 설정하여 실시간 가격 계산
+    // 가공 옵션 단계로 진입하면 기본 원판 구매 기준을 설정하여 버튼 비활성/0원 계산을 방지
     if (!selectedProcessing) {
-      setSelectedProcessing('none');
+      setSelectedProcessing('raw-only');
+      setSelectedProcessingName('원판 단독 구매');
     }
     
     setCurrentStep(9); // 가공 선택 단계로 이동 (수량 포함)
@@ -1389,6 +1391,15 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   };
   // 필름 아크릴의 경우 maxSteps를 10으로 설정 (필름 선택 단계 추가)
   const maxSteps = selectedQuality?.id === 'film-acrylic' ? 10 : 9;
+  const isRawOnlyProcessing = selectedProcessing === 'raw-only';
+  const isQuoteProcessingReady = isProcessingSelectionComplete || isRawOnlyProcessing;
+  const quoteSubmitDisabledReason = !isQuoteProcessingReady
+    ? '가공 카테고리의 세부 옵션을 선택해주세요. 가공이 없는 경우 원판 구매 옵션을 선택해주세요.'
+    : priceInfo.status === 'blocked'
+      ? priceInfo.blockedReasons?.[0] || '생산 불가 조합 또는 단가 미등록 상태입니다.'
+      : priceInfo.totalPrice <= 0
+        ? '계산 가능한 견적 금액이 없습니다. 원판 사이즈, 면수, 단가표를 확인해주세요.'
+        : null;
   return <div className="w-full">
       <Card className="mx-auto w-full max-w-5xl overflow-hidden border-white/60 shadow-sm animate-fade-up">
         <CardHeader className="border-b border-white/50 bg-background/55 pb-5 dark:bg-white/[0.03]">
@@ -1664,7 +1675,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
                 <Button
                   onClick={handleAddQuote}
                   size="lg"
-                  disabled={!isProcessingSelectionComplete || priceInfo.status === 'blocked' || priceInfo.totalPrice <= 0}
+                  disabled={Boolean(quoteSubmitDisabledReason)}
                   className={`px-8 animate-fade-up ${(editMode === 'saved' || editMode === 'draft' || editMode === 'addToSaved') ? 'bg-green-600 hover:bg-green-700' : ''}`}
                 >
                   <Plus className="w-5 h-5" />
@@ -1689,6 +1700,11 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
                   </Button>
                 )}
               </div>
+              {quoteSubmitDisabledReason && (
+                <div className="mx-auto mt-3 max-w-xl rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm font-medium text-amber-800">
+                  {quoteSubmitDisabledReason}
+                </div>
+              )}
             </>
           )}
 
