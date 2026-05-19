@@ -21,37 +21,30 @@ const QuoteStyleBanner: React.FC<QuoteStyleBannerProps> = ({
 }) => {
   const profile = getQuoteStyleProfile(styleType);
   const meta = [
-    { label: '견적 기준', value: profile.basisLabel },
     typeof itemCount === 'number' ? { label: '항목', value: `${itemCount.toLocaleString()}개` } : null,
     ...extraMeta,
   ].filter(Boolean) as Array<{ label: string; value: React.ReactNode }>;
 
   return (
-    <section className={cn('quote-section mb-6 rounded-lg border border-slate-200 bg-white p-4', className)}>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className={cn('font-semibold', profile.badgeClassName)}>
-              {profile.label}
-            </Badge>
-            {profile.chips.map((chip) => (
-              <span key={chip} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                {chip}
-              </span>
-            ))}
-          </div>
-          <h2 className="text-[17px] font-bold text-slate-950">{profile.title}</h2>
-          <p className="mt-1 text-[12px] leading-relaxed text-slate-600">{profile.description}</p>
+    <section className={cn('quote-section mb-6 rounded-lg border border-slate-200 bg-white px-4 py-3', className)}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Badge variant="outline" className={cn('font-semibold', profile.badgeClassName)}>
+            {profile.label}
+          </Badge>
+          <span className="text-[12px] font-medium text-slate-600">{profile.basisLabel}</span>
         </div>
 
-        <dl className="grid shrink-0 grid-cols-2 gap-2 sm:min-w-[240px]">
-          {meta.map((item) => (
-            <div key={item.label} className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2">
-              <dt className="text-[11px] font-semibold text-slate-500">{item.label}</dt>
-              <dd className="mt-0.5 text-[12px] font-bold text-slate-950">{item.value}</dd>
-            </div>
-          ))}
-        </dl>
+        {meta.length > 0 && (
+          <dl className="grid shrink-0 grid-cols-2 gap-2 sm:min-w-[180px]">
+            {meta.map((item) => (
+              <div key={item.label} className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2">
+                <dt className="text-[11px] font-semibold text-slate-500">{item.label}</dt>
+                <dd className="mt-0.5 text-[12px] font-bold text-slate-950">{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
       </div>
     </section>
   );

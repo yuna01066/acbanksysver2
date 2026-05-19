@@ -145,10 +145,10 @@ const QuoteSummaryHeader = ({
                 </div>
                 <div className="min-w-0">
                   <CardTitle className="truncate text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
-                    {styleProfile.title}
+                    아크뱅크 견적서
                   </CardTitle>
                   <p className="mt-0.5 text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
-                    {styleProfile.subtitle}
+                    ACBANK QUOTATION
                   </p>
                 </div>
               </div>
