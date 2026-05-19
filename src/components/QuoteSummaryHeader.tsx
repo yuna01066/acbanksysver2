@@ -10,9 +10,9 @@ import { getQuoteStyleProfile, type QuoteStyleType } from "@/utils/quoteStyle";
 
 interface QuoteSummaryHeaderProps {
   onClearQuotes: () => void;
-  onPrintPDF: (mode?: 'internal' | 'customer') => void;
-  onViewCustomerQuote?: () => void;
-  onSaveQuote?: () => void;
+  onPrintPDF: (mode?: 'internal' | 'customer') => void | Promise<void>;
+  onViewCustomerQuote?: () => void | Promise<void>;
+  onSaveQuote?: () => void | Promise<void>;
   currentDate: string;
   quoteNumber: string;
   validUntil?: string | null;
@@ -107,7 +107,7 @@ const QuoteSummaryHeader = ({
           ) : (
             // InternalQuotePage, CustomerQuotesSummaryPage용 버튼들
             <>
-              {onViewCustomerQuote && <Button variant="outline" onClick={onViewCustomerQuote} className={`flex items-center gap-2 ${isCustomerView ? 'text-blue-600 border-blue-600 hover:bg-blue-50' : 'text-green-600 border-green-600 hover:bg-green-50'}`}>
+              {onViewCustomerQuote && <Button variant="outline" onClick={onViewCustomerQuote} disabled={isSaving} className={`flex items-center gap-2 ${isCustomerView ? 'text-blue-600 border-blue-600 hover:bg-blue-50' : 'text-green-600 border-green-600 hover:bg-green-50'}`}>
                   {isCustomerView ? <>
                       <Building2 className="w-4 h-4" />
                       내부용 견적서
@@ -118,13 +118,13 @@ const QuoteSummaryHeader = ({
                 </Button>}
               {onSaveQuote && <Button variant="outline" onClick={onSaveQuote} disabled={isSaving} className="flex items-center gap-2 text-green-600 border-green-600 hover:bg-green-50">
                   <Save className="w-4 h-4" />
-                  {isSaving ? '저장 중...' : '견적서 저장'}
+                  {isSaving ? '저장 중...' : '견적서 발행'}
                 </Button>}
-              <Button variant="outline" onClick={onClearQuotes} className="flex items-center gap-2 text-red-600 border-red-600 hover:bg-red-50">
+              <Button variant="outline" onClick={onClearQuotes} disabled={isSaving} className="flex items-center gap-2 text-red-600 border-red-600 hover:bg-red-50">
                 <Trash2 className="w-4 h-4" />
                 전체 삭제
               </Button>
-              <Button onClick={() => onPrintPDF()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+              <Button onClick={() => onPrintPDF()} disabled={isSaving} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
                 <Download className="w-4 h-4" />
                 PDF 출력
               </Button>
