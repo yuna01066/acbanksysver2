@@ -24,7 +24,7 @@ export function PageShell({
   return (
     <main
       className={cn(
-        'min-h-screen bg-gradient-to-br from-background via-background to-muted/30 p-4 sm:p-6',
+        'min-h-screen bg-background p-4 sm:p-6',
         className
       )}
     >
@@ -55,26 +55,26 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   return (
-    <header className={cn('border-b border-white/50 pb-5 dark:border-white/10', className)}>
+    <header className={cn('border-b border-border/80 pb-5', className)}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0 space-y-2">
           {eyebrow && (
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               {eyebrow}
             </div>
           )}
           <div className="flex items-center gap-3">
             {icon && (
-              <div className="glass-surface flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-primary">
+              <div className="glass-surface flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-primary">
                 {icon}
               </div>
             )}
             <div className="min-w-0">
-              <h1 className="truncate text-2xl font-bold text-foreground sm:text-3xl">
+              <h1 className="truncate text-2xl font-bold tracking-normal text-foreground sm:text-[28px]">
                 {title}
               </h1>
               {description && (
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+                <p className="mt-1 max-w-2xl text-[13px] leading-5 tracking-normal text-muted-foreground sm:text-sm">
                   {description}
                 </p>
               )}
@@ -101,7 +101,7 @@ export function PageToolbar({ children, className }: PageToolbarProps) {
   return (
     <section
       className={cn(
-        'glass-surface flex flex-col gap-3 rounded-2xl p-3 sm:flex-row sm:items-center sm:justify-between',
+        'glass-surface flex flex-col gap-3 rounded-xl p-3 sm:flex-row sm:items-center sm:justify-between',
         className
       )}
     >
