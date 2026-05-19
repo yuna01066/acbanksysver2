@@ -1,5 +1,6 @@
 import React from 'react';
 import { QuoteRecipient } from "@/contexts/QuoteContext";
+import { formatQuoteProjectTitle } from '@/utils/quoteNaming';
 
 interface CompanyInfo {
   company_name: string;
@@ -41,6 +42,11 @@ const QuoteCompanyInfoSection: React.FC<QuoteCompanyInfoSectionProps> = ({
   companyInfo,
   bankInfo,
 }) => {
+  const quoteProjectTitle = formatQuoteProjectTitle({
+    projectName: quote.project_name,
+    companyName: quote.recipient_company,
+  });
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6 quote-section">
       {/* 견적서 수신 */}
@@ -50,7 +56,7 @@ const QuoteCompanyInfoSection: React.FC<QuoteCompanyInfoSectionProps> = ({
         <div>
           <h4 className="font-bold text-slate-950 mb-2 text-[14px]">프로젝트 정보</h4>
           <div className="space-y-1.5 text-[13px]">
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">프로젝트명</span><span className="font-semibold text-slate-950">{quote.project_name || '-'}</span></div>
+            <div className="flex"><span className="text-slate-500 w-20 shrink-0">프로젝트명</span><span className="font-semibold text-slate-950">{quoteProjectTitle || '-'}</span></div>
             <div className="flex"><span className="text-slate-500 w-20 shrink-0">견적번호</span><span className="font-semibold text-slate-950">{quote.quote_number}</span></div>
             <div className="flex"><span className="text-slate-500 w-20 shrink-0">견적일자</span><span className="font-semibold text-slate-950">{quote.quote_date_display ? new Date(quote.quote_date_display).toLocaleDateString('ko-KR') : currentDate}</span></div>
             <div className="flex"><span className="text-slate-500 w-20 shrink-0">유효기간</span><span className="font-semibold text-slate-950">{quote.valid_until || '-'}</span></div>

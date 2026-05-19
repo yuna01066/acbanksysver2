@@ -35,6 +35,7 @@ import {
   removeDocumentFileRecord,
 } from "@/services/documentFiles";
 import { formatPricingVersionDisplayName } from "@/utils/pricingVersionDisplay";
+import { formatQuoteProjectTitle } from "@/utils/quoteNaming";
 
 interface SavedQuote {
   id: string;
@@ -354,7 +355,10 @@ const SavedQuoteDetailPage = () => {
       const { error } = await supabase
         .from('saved_quotes')
         .update({
-          project_name: recipientData.projectName,
+          project_name: formatQuoteProjectTitle({
+            projectName: recipientData.projectName,
+            companyName: recipientData.companyName,
+          }),
           quote_date_display: recipientData.quoteDate?.toISOString(),
           valid_until: recipientData.validUntil,
           delivery_period: recipientData.deliveryPeriod,

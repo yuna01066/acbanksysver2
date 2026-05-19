@@ -121,7 +121,7 @@ const RecipientInfoForm: React.FC<RecipientInfoFormProps> = ({
                 id="projectName"
                 value={recipientData.projectName}
                 onChange={(e) => onChange('projectName', e.target.value)}
-                placeholder="프로젝트명을 입력하세요"
+                placeholder="예: 상판 제작의 건"
               />
             </div>
             <div>

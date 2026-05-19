@@ -9,6 +9,7 @@ import { formatPrice } from "@/utils/priceCalculations";
 import { Quote } from "@/contexts/QuoteContext";
 import { getQuoteStyleForItem, getQuoteStyleProfile } from "@/utils/quoteStyle";
 import { formatPricingVersionDisplayName } from "@/utils/pricingVersionDisplay";
+import { isPanelStockSummaryValue, isPanelSurfaceSummaryValue } from "@/utils/quoteOptionDisplay";
 
 interface QuoteCardProps {
   quote: Quote;
@@ -100,6 +101,8 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
   const quoteTitle = isFabrication
     ? quote.processingName || `제품 제작 #${index + 1}`
     : `견적 #${index + 1}`;
+  const shouldHideStockSize = !isFabrication && isPanelStockSummaryValue(quote.size);
+  const shouldHideStockSurface = !isFabrication && isPanelSurfaceSummaryValue(quote.surface);
   const visibleOptions = [
     {
       label: '색상',
@@ -109,8 +112,8 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
     { label: isFabrication ? '견적 기준' : '소재', value: quote.material },
     { label: isFabrication ? '소재' : '재질', value: quote.quality },
     { label: '두께', value: quote.thickness },
-    { label: isFabrication ? '규격' : '사이즈', value: quote.size },
-    { label: isFabrication ? '마감/면' : '면수', value: quote.surface },
+    ...(!shouldHideStockSize ? [{ label: isFabrication ? '규격' : '사이즈', value: quote.size }] : []),
+    ...(!shouldHideStockSurface ? [{ label: isFabrication ? '마감/면' : '면수', value: quote.surface }] : []),
     ...(quote.processing ? [
       { label: isFabrication ? '제작 품목' : '가공방법', value: quote.processingName },
     ] : []),

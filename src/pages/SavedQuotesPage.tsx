@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import ProjectStageSelect, { PROJECT_STAGES } from '@/components/ProjectStageSelect';
 import { getPaymentStatusInfo } from '@/components/project/PaymentStatusSelect';
 import { PageHeader, PageShell, SearchFilterBar } from '@/components/layout/PageLayout';
+import { formatQuoteProjectTitle } from '@/utils/quoteNaming';
 
 interface LinkedProject {
   id: string;
@@ -79,10 +80,15 @@ const SavedQuotesPage = () => {
 
   const getQuoteTitle = (quote: SavedQuote): string => {
     const projectName = quote.project_name?.trim();
-    if (projectName) return projectName;
+    if (projectName) {
+      return formatQuoteProjectTitle({
+        projectName,
+        companyName: quote.recipient_company,
+      });
+    }
 
     const companyName = quote.recipient_company?.trim();
-    if (companyName) return `${companyName} 견적`;
+    if (companyName) return formatQuoteProjectTitle({ projectName: '견적', companyName });
 
     return `견적서 ${quote.quote_number}`;
   };

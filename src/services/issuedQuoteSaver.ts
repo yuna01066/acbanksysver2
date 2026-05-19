@@ -8,6 +8,7 @@ import {
 import { buildIssuedQuoteDrivePath, toDrivePathText } from '@/utils/documentOrganization';
 import { formatPricingVersionDisplayName } from '@/utils/pricingVersionDisplay';
 import { type QuoteStyleType } from '@/utils/quoteStyle';
+import { formatQuoteProjectTitle } from '@/utils/quoteNaming';
 
 interface SaveIssuedQuoteParams {
   userId: string;
@@ -127,11 +128,15 @@ export async function saveIssuedQuote({
     effectiveFrom: primaryPricingSource?.calculationSnapshot?.pricingVersion?.effectiveFrom,
     capturedAt,
   });
+  const quoteProjectTitle = formatQuoteProjectTitle({
+    projectName: recipient?.projectName,
+    companyName: recipient?.companyName,
+  });
 
   const quoteData = {
     quote_number: quoteNumber,
     quote_date_display: recipient?.quoteDate?.toISOString() || capturedAt,
-    project_name: recipient?.projectName || '',
+    project_name: quoteProjectTitle,
     recipient_name: recipient?.contactPerson || '',
     recipient_company: recipient?.companyName || '',
     recipient_phone: recipient?.phoneNumber || '',

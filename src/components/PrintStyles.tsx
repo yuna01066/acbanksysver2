@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { formatQuotePrintFileName, formatQuoteProjectTitle } from '@/utils/quoteNaming';
 
 interface PrintStylesProps {
   quoteNumber: string;
@@ -8,16 +9,15 @@ interface PrintStylesProps {
 }
 
 const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, companyName, isInternal = true }) => {
+  const projectTitle = formatQuoteProjectTitle({ projectName, companyName, fallbackTitle: '프로젝트명 없음' });
+
   useEffect(() => {
-    const parts = [quoteNumber, projectName, companyName].filter(Boolean);
-    const fileName = parts.length > 0 ? parts.join('-') : '견적서';
-    const finalFileName = `${fileName}_${isInternal ? '내부용' : '고객용'}`;
-    document.title = finalFileName;
+    document.title = formatQuotePrintFileName({ quoteNumber, projectName, companyName });
 
     return () => {
       document.title = 'Lovable - Build for the web';
     };
-  }, [quoteNumber, projectName, companyName, isInternal]);
+  }, [quoteNumber, projectName, companyName]);
 
   return (
     <>
@@ -25,7 +25,7 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
         @media print {
           @page {
             size: A4;
-            margin: 12mm 14mm 14mm 14mm;
+            margin: 9mm 10mm 14mm 10mm;
           }
 
           * {
@@ -39,9 +39,13 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
+            width: 100% !important;
+            min-width: 0 !important;
             height: auto !important;
             overflow: visible !important;
             font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif !important;
+            font-size: 11px !important;
+            line-height: 1.32 !important;
           }
 
           /* 화면 레이아웃 요소 숨기기 */
@@ -79,11 +83,101 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
           /* 메인 콘텐츠 컨테이너 */
           .print-container {
             display: block !important;
-            max-width: 100% !important;
-            width: 100% !important;
-            margin: 0 !important;
+            max-width: 190mm !important;
+            width: 190mm !important;
+            margin: 0 auto !important;
             padding: 0 !important;
             flex: none !important;
+            font-size: 11px !important;
+            line-height: 1.32 !important;
+          }
+
+          .print-container * {
+            letter-spacing: 0 !important;
+          }
+
+          .print-container h1,
+          .print-container .text-3xl,
+          .print-container .text-4xl {
+            font-size: 18px !important;
+            line-height: 1.18 !important;
+          }
+
+          .print-container h2,
+          .print-container .text-2xl,
+          .print-container .text-xl {
+            font-size: 15px !important;
+            line-height: 1.22 !important;
+          }
+
+          .print-container h3,
+          .print-container .text-lg {
+            font-size: 13px !important;
+            line-height: 1.25 !important;
+          }
+
+          .print-container .text-base {
+            font-size: 12px !important;
+          }
+
+          .print-container .text-sm {
+            font-size: 10.5px !important;
+          }
+
+          .print-container .text-xs,
+          .print-container [class*="text-[11px]"],
+          .print-container [class*="text-[10px]"] {
+            font-size: 9px !important;
+          }
+
+          .print-container .p-8 {
+            padding: 12px !important;
+          }
+
+          .print-container .p-6 {
+            padding: 10px !important;
+          }
+
+          .print-container .p-4,
+          .print-container .p-3 {
+            padding: 7px !important;
+          }
+
+          .print-container .px-6,
+          .print-container .px-4 {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+          }
+
+          .print-container .py-3,
+          .print-container .py-2 {
+            padding-top: 5px !important;
+            padding-bottom: 5px !important;
+          }
+
+          .print-container .mb-8,
+          .print-container .mb-6 {
+            margin-bottom: 10px !important;
+          }
+
+          .print-container .mb-4,
+          .print-container .mb-3 {
+            margin-bottom: 6px !important;
+          }
+
+          .print-container .mt-8,
+          .print-container .mt-6 {
+            margin-top: 10px !important;
+          }
+
+          .print-container .gap-8,
+          .print-container .gap-6 {
+            gap: 10px !important;
+          }
+
+          .print-container .gap-4,
+          .print-container .gap-3 {
+            gap: 6px !important;
           }
 
           /* 견적서 메인 카드 - 인쇄 시 카드 스타일 제거 */
@@ -155,13 +249,13 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
 
           /* 견적 요약 */
           .print-summary {
-            margin-bottom: 12px !important;
+            margin-bottom: 8px !important;
             break-inside: avoid !important;
           }
 
           /* 총액 섹션 */
           .print-total {
-            margin-bottom: 12px !important;
+            margin-bottom: 8px !important;
             break-inside: avoid !important;
           }
 
@@ -189,26 +283,51 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
           .quote-header-card {
             border: 1px solid #d1d5db !important;
             box-shadow: none !important;
-            margin-bottom: 12px !important;
+            margin-bottom: 8px !important;
           }
 
           .quote-header-accent {
             background: #2563eb !important;
-            height: 4px !important;
+            height: 3px !important;
+          }
+
+          .quote-item-card {
+            margin-bottom: 8px !important;
+          }
+
+          .quote-item-card [class*="CardHeader"],
+          .quote-item-card [class*="CardContent"] {
+            padding: 7px !important;
+          }
+
+          .print-container img {
+            max-width: 100% !important;
+            height: auto !important;
+          }
+
+          .print-container .min-w-\\[210px\\],
+          .print-container [class*="min-w-[210px]"],
+          .print-container [class*="min-w-[220px]"] {
+            min-width: 150px !important;
+          }
+
+          .print-container .rounded-xl,
+          .print-container .rounded-lg {
+            border-radius: 6px !important;
           }
 
           /* 푸터 */
           .print-footer {
             position: fixed;
-            bottom: 6mm;
-            left: 14mm;
-            right: 14mm;
+            bottom: 5mm;
+            left: 10mm;
+            right: 10mm;
             display: flex !important;
             justify-content: space-between;
             align-items: center;
             padding: 4px 0;
             border-top: 1px solid #ccc;
-            font-size: 9px;
+            font-size: 8px;
             color: #666;
             background: white !important;
           }
@@ -218,7 +337,7 @@ const PrintStyles: React.FC<PrintStylesProps> = ({ quoteNumber, projectName, com
       {/* Print Footer */}
       <div className="print-footer hidden print:flex">
         <span>견적번호: {quoteNumber}</span>
-        <span>{projectName || '프로젝트명 없음'}</span>
+        <span>{projectTitle}</span>
         <span>{isInternal ? '내부관리용' : '고객제출용'}</span>
       </div>
     </>

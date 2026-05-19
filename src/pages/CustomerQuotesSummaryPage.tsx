@@ -15,6 +15,7 @@ import bankAccount from "@/assets/arcbank-bank-account.jpg";
 import arcbankLogo from "@/assets/arcbank-logo.png";
 import QuoteStyleBanner from "@/components/quote-detail/QuoteStyleBanner";
 import { detectQuoteStyleFromItems, getQuoteStyleProfile } from "@/utils/quoteStyle";
+import { formatQuoteProjectTitle } from "@/utils/quoteNaming";
 
 const CustomerQuotesSummaryPage = () => {
   const navigate = useNavigate();
@@ -65,10 +66,14 @@ const CustomerQuotesSummaryPage = () => {
 
   // 견적번호 생성 - QuoteContext에서 가져옴
   const quoteNumber = recipient?.quoteNumber || generateQuoteNumber();
+  const quoteProjectTitle = formatQuoteProjectTitle({
+    projectName: recipient?.projectName,
+    companyName: recipient?.companyName,
+  });
 
   return (
     <>
-      <PrintStyles quoteNumber={quoteNumber} projectName={recipient?.projectName} companyName={recipient?.companyName} />
+      <PrintStyles quoteNumber={quoteNumber} projectName={quoteProjectTitle} companyName={recipient?.companyName} />
       <div className="min-h-screen bg-gray-50 p-4">
         <div className="w-full max-w-4xl mx-auto print-container">
           <div className="mb-6 print:hidden">
@@ -154,7 +159,7 @@ const CustomerQuotesSummaryPage = () => {
                   <div className="p-4 bg-slate-50 rounded-lg">
                     <h4 className="font-semibold text-slate-800 mb-3">프로젝트 정보</h4>
                     <div className="space-y-2 text-sm text-slate-700">
-                      <div><strong>프로젝트명:</strong> {recipient?.projectName || '-'}</div>
+                      <div><strong>프로젝트명:</strong> {quoteProjectTitle || '-'}</div>
                       <div><strong>견적번호:</strong> {recipient?.quoteNumber || quoteNumber}</div>
                       <div><strong>견적일자:</strong> {recipient?.quoteDate ? recipient.quoteDate.toLocaleDateString('ko-KR') : currentDate}</div>
                       <div><strong>견적 유효기간:</strong> {recipient?.validUntil || '-'}</div>
