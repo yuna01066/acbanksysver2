@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { X } from 'lucide-react';
+import { HelpCircle, X } from 'lucide-react';
 import responseAssistantIcon from '@/assets/bongsun-face.png';
 import { Button } from '@/components/ui/button';
 import ResponseAssistantWidget from '@/components/ResponseAssistantWidget';
@@ -34,6 +34,7 @@ const readStoredOpenState = () => {
 const FloatingResponseAssistant: React.FC = () => {
   const location = useLocation();
   const [open, setOpen] = useState(readStoredOpenState);
+  const [guideOpenSignal, setGuideOpenSignal] = useState(0);
 
   const isHidden = isHiddenPath(location.pathname);
 
@@ -75,6 +76,16 @@ const FloatingResponseAssistant: React.FC = () => {
                 type="button"
                 variant="ghost"
                 size="icon"
+                onClick={() => setGuideOpenSignal((signal) => signal + 1)}
+                className="h-8 w-8 rounded-full text-[#707072] hover:bg-[#f5f5f5]"
+                aria-label="상담 응대 보조 사용 방법"
+              >
+                <HelpCircle className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setOpen(false)}
                 className="h-8 w-8 rounded-full text-[#707072] hover:bg-[#f5f5f5]"
                 aria-label="상담 응대 보조 닫기"
@@ -85,22 +96,42 @@ const FloatingResponseAssistant: React.FC = () => {
           </header>
 
           <div className="min-h-0 flex-1 overflow-y-auto bg-[#f5f5f5] p-3">
-            <ResponseAssistantWidget embedded autoGuide={false} compact className="rounded-[24px] shadow-none" />
+            <ResponseAssistantWidget
+              embedded
+              autoGuide={false}
+              compact
+              guideOpenSignal={guideOpenSignal}
+              className="rounded-[24px] shadow-none"
+            />
           </div>
         </section>
       </div>
 
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        className={cn(
-          'group ml-auto flex h-[88px] w-[88px] items-center justify-center bg-transparent p-0 transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-0 active:scale-95',
-          open && 'scale-95',
-        )}
-        aria-label={open ? '상담 응대 보조 닫기' : '상담 응대 보조 열기'}
-      >
-        <img src={responseAssistantIcon} alt="" className="h-[82px] w-[74px] object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.24)] transition-transform group-hover:scale-105" />
-      </button>
+      <div className="group relative ml-auto flex h-[88px] w-[88px] items-center justify-center">
+        <div
+          className={cn(
+            'pointer-events-none absolute right-[76px] top-1/2 z-10 min-w-[188px] -translate-y-1/2 translate-x-3 scale-95 rounded-2xl border border-[#dedede] bg-white px-4 py-3 text-center text-sm font-black text-[#111111] opacity-0 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition-all duration-300 ease-out before:absolute before:-right-2 before:top-1/2 before:h-4 before:w-4 before:-translate-y-1/2 before:rotate-45 before:border-r before:border-t before:border-[#dedede] before:bg-white group-hover:translate-x-0 group-hover:scale-100 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:scale-100 group-focus-within:opacity-100',
+            open && 'hidden',
+          )}
+          aria-hidden="true"
+        >
+          <span className="block origin-left translate-y-1 opacity-0 transition-all delay-100 duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
+            상담CS를 도와드릴까요?
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setOpen((current) => !current)}
+          className={cn(
+            'flex h-[88px] w-[88px] items-center justify-center bg-transparent p-0 transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-0 active:scale-95',
+            open && 'scale-95',
+          )}
+          aria-label={open ? '상담 응대 보조 닫기' : '상담 응대 보조 열기'}
+        >
+          <img src={responseAssistantIcon} alt="" className="h-[82px] w-[74px] object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.24)] transition-transform group-hover:scale-105" />
+        </button>
+      </div>
     </div>
   );
 };

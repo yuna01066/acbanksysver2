@@ -345,6 +345,12 @@ const ResponseAssistantPage = () => {
               <ArrowLeft className="h-4 w-4" />
               이전
             </Button>
+            {canManageKnowledge && (
+              <Button variant="outline" size="sm" onClick={() => navigate('/response-assistant-management')} className="gap-2">
+                <ShieldAlert className="h-4 w-4" />
+                관리
+              </Button>
+            )}
           </>
         )}
       />

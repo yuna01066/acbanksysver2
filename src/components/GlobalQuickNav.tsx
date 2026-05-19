@@ -65,6 +65,7 @@ const QUICK_NAV_ITEMS: QuickNavItem[] = [
   { title: '승인/검토 센터', description: '승인·동기화·견적 연결 확인', path: '/review-hub', group: '관리', keywords: '승인 검토 중간관리자 review approval moderator', icon: ClipboardCheck, adminOnly: true },
   { title: '채널톡 문의 분석함', description: 'AI 분석 문의 확인', path: '/channel-talk-leads', group: '관리', keywords: '채널톡 문의 도면 분석 channel talk lead drawing', icon: MessageSquareText },
   { title: '관리자 설정', description: '시스템 설정 허브', path: '/admin-settings', group: '관리', keywords: '관리자 설정 admin settings', icon: Settings, adminOnly: true },
+  { title: '응대 보조 관리', description: 'AI 응대 지침과 근거 관리', path: '/response-assistant-management', group: '관리', keywords: '상담 응대 보조 관리 instruction prompt response assistant', icon: MessageSquareText, adminOnly: true },
   { title: '원판 관리', description: '원판/컬러/사이즈 단가', path: '/panel-management', group: '관리', keywords: '원판 컬러 사이즈 단가 panel color price', icon: Palette, adminOnly: true },
   { title: '가공 가격 관리', description: '가공 옵션과 배수 관리', path: '/processing-price-management', group: '관리', keywords: '가공 가격 옵션 processing price', icon: Wrench, adminOnly: true },
   { title: '경영 대시보드', description: '매출·비용·수익성', path: '/business-dashboard', group: '관리', keywords: '경영 대시보드 매출 수익 dashboard', icon: Briefcase, adminOnly: true },
