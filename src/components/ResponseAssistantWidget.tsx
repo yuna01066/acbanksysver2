@@ -392,9 +392,10 @@ type ResponseAssistantWidgetProps = {
   className?: string;
   embedded?: boolean;
   autoGuide?: boolean;
+  compact?: boolean;
 };
 
-const ResponseAssistantWidget: React.FC<ResponseAssistantWidgetProps> = ({ className, embedded = false, autoGuide = true }) => {
+const ResponseAssistantWidget: React.FC<ResponseAssistantWidgetProps> = ({ className, embedded = false, autoGuide = true, compact = false }) => {
   const navigate = useNavigate();
   const [mode, setMode] = useState<WidgetMode>('reply');
   const [message, setMessage] = useState(scenarios[0].message);
@@ -502,17 +503,23 @@ const ResponseAssistantWidget: React.FC<ResponseAssistantWidgetProps> = ({ class
   return (
     <>
     <Card className={cn('overflow-hidden rounded-[28px] border border-[#dedede] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)]', className)}>
-      <CardContent className="space-y-5 p-0">
-        <div className="border-b border-[#dedede] px-4 py-7 text-center">
-          <div className="space-y-2 text-center">
+      <CardContent className={cn('p-0', compact ? 'space-y-3' : 'space-y-5')}>
+        <div className={cn('border-b border-[#dedede] px-4 text-center', compact ? 'py-4' : 'py-7')}>
+          <div className={cn('text-center', compact ? 'space-y-1' : 'space-y-2')}>
             <p
-              className="text-[30px] font-black uppercase leading-none tracking-[-0.01em] text-[#111111] sm:text-[38px]"
+              className={cn(
+                'font-black uppercase leading-none tracking-[-0.01em] text-[#111111]',
+                compact ? 'text-[24px]' : 'text-[30px] sm:text-[38px]',
+              )}
               style={{ fontFamily: '"Pretendard", "Apple SD Gothic Neo", "Arial Black", sans-serif', fontWeight: 900 }}
             >
               ACBANK
             </p>
             <p
-              className="text-[15px] font-semibold uppercase leading-none tracking-[0.08em] text-[#111111] sm:text-[17px]"
+              className={cn(
+                'font-semibold uppercase leading-none tracking-[0.08em] text-[#111111]',
+                compact ? 'text-[12px]' : 'text-[15px] sm:text-[17px]',
+              )}
               style={{ fontFamily: '"Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif' }}
             >
               RESPONSE TOOL
@@ -521,54 +528,63 @@ const ResponseAssistantWidget: React.FC<ResponseAssistantWidgetProps> = ({ class
           <button
             type="button"
             onClick={openGuide}
-            className="mt-5 inline-flex h-10 items-center gap-2 rounded-full border border-[#dedede] bg-[#fafafa] px-5 text-sm font-bold text-[#39393b] transition-colors hover:border-[#111111] hover:bg-white"
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full border border-[#dedede] bg-[#fafafa] font-bold text-[#39393b] transition-colors hover:border-[#111111] hover:bg-white',
+              compact ? 'mt-3 h-8 px-4 text-xs' : 'mt-5 h-10 px-5 text-sm',
+            )}
           >
             <Gamepad2 className="h-4 w-4" />
             사용 방법
           </button>
         </div>
 
-        <div className="px-4 text-center sm:px-7">
-          <h3 className="text-xl font-black tracking-tight text-[#111111] sm:text-2xl">
+        <div className={cn('px-4 text-center', compact ? '' : 'sm:px-7')}>
+          <h3 className={cn('font-black tracking-tight text-[#111111]', compact ? 'text-lg' : 'text-xl sm:text-2xl')}>
             상담 응대 시작하기
           </h3>
-          <p className="mx-auto mt-2 max-w-2xl text-xs font-bold leading-relaxed text-[#707072] sm:text-sm">
+          <p className={cn('mx-auto mt-2 max-w-2xl font-bold leading-relaxed text-[#707072]', compact ? 'text-[11px]' : 'text-xs sm:text-sm')}>
             받은 문의, 발송 전 문안, 견적 메일을 한 화면에서 빠르게 작성하고 비교합니다.
           </p>
         </div>
 
-        <Tabs value={mode} onValueChange={(value) => setMode(value as WidgetMode)} className="px-4 sm:px-7">
-          <TabsList className="grid h-auto gap-2 rounded-2xl border border-[#dedede] bg-[#f5f5f5] p-2 sm:grid-cols-2">
+        <Tabs value={mode} onValueChange={(value) => setMode(value as WidgetMode)} className={cn('px-4', compact ? '' : 'sm:px-7')}>
+          <TabsList className={cn('grid h-auto gap-2 rounded-2xl border border-[#dedede] bg-[#f5f5f5] p-2', compact ? 'grid-cols-2' : 'sm:grid-cols-2')}>
             {(Object.keys(modeMeta) as WidgetMode[]).map((key) => (
               <TabsTrigger
                 key={key}
                 value={key}
-                className="group block h-auto rounded-xl border border-[#e5e5e5] bg-white p-3 text-left shadow-none transition-colors data-[state=active]:border-[#111111] data-[state=active]:bg-white data-[state=active]:shadow-none"
+                className={cn(
+                  'group block h-auto rounded-xl border border-[#e5e5e5] bg-white text-left shadow-none transition-colors data-[state=active]:border-[#111111] data-[state=active]:bg-white data-[state=active]:shadow-none',
+                  compact ? 'min-h-[64px] p-2.5' : 'p-3',
+                )}
               >
-                <span className="flex items-start gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#8f8f8f] text-sm font-black text-white group-data-[state=active]:bg-[#111111]">
+                <span className={cn('flex items-start', compact ? 'gap-2' : 'gap-3')}>
+                  <span className={cn(
+                    'flex shrink-0 items-center justify-center rounded-full bg-[#8f8f8f] font-black text-white group-data-[state=active]:bg-[#111111]',
+                    compact ? 'h-6 w-6 text-xs' : 'h-7 w-7 text-sm',
+                  )}>
                     {modeMeta[key].step}
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-black leading-tight text-[#39393b] group-data-[state=active]:text-[#111111]">
+                    <span className={cn('block font-black leading-tight text-[#39393b] group-data-[state=active]:text-[#111111]', compact ? 'text-xs' : 'text-sm')}>
                       {modeMeta[key].title}
                     </span>
-                    <span className="mt-1 block whitespace-nowrap text-[10px] font-bold leading-tight text-[#9e9ea0] group-data-[state=active]:text-[#707072]">
+                    <span className={cn('mt-1 font-bold leading-tight text-[#9e9ea0] group-data-[state=active]:text-[#707072]', compact ? 'hidden' : 'block whitespace-nowrap text-[10px]')}>
                       {modeMeta[key].description}
                     </span>
                   </span>
                 </span>
               </TabsTrigger>
             ))}
-            <div className="flex min-h-[86px] items-start gap-3 rounded-xl border border-dashed border-[#cacacb] bg-white/55 p-3 text-left opacity-70">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#d8d8d8] text-sm font-black text-white">
+            <div className={cn('flex items-start rounded-xl border border-dashed border-[#cacacb] bg-white/55 text-left opacity-70', compact ? 'min-h-[64px] gap-2 p-2.5' : 'min-h-[86px] gap-3 p-3')}>
+              <span className={cn('flex shrink-0 items-center justify-center rounded-full bg-[#d8d8d8] font-black text-white', compact ? 'h-6 w-6 text-xs' : 'h-7 w-7 text-sm')}>
                 4
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-black leading-tight text-[#9e9ea0]">
+                <span className={cn('block font-black leading-tight text-[#9e9ea0]', compact ? 'text-xs' : 'text-sm')}>
                   추가 예정
                 </span>
-                <span className="mt-1 block whitespace-nowrap text-[10px] font-bold leading-tight text-[#b1b1b3]">
+                <span className={cn('mt-1 font-bold leading-tight text-[#b1b1b3]', compact ? 'hidden' : 'block whitespace-nowrap text-[10px]')}>
                   다음 응대 기능을 이 영역에 추가합니다.
                 </span>
               </span>
@@ -623,7 +639,7 @@ const ResponseAssistantWidget: React.FC<ResponseAssistantWidgetProps> = ({ class
                 })}
               </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className={cn('grid gap-3', !compact && 'md:grid-cols-2')}>
               <div className="space-y-2">
                 <Textarea
                   value={message}
@@ -667,7 +683,7 @@ const ResponseAssistantWidget: React.FC<ResponseAssistantWidgetProps> = ({ class
                 톤별 비교
               </Badge>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className={cn('grid gap-3', !compact && 'md:grid-cols-2')}>
               <Textarea
                 value={outgoingText}
                 onChange={(event) => setOutgoingText(event.target.value)}
@@ -720,7 +736,7 @@ const ResponseAssistantWidget: React.FC<ResponseAssistantWidgetProps> = ({ class
                 [] 항목 수정
               </Badge>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className={cn('grid gap-3', !compact && 'md:grid-cols-2')}>
               <div className="space-y-2">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <Textarea
@@ -757,8 +773,8 @@ const ResponseAssistantWidget: React.FC<ResponseAssistantWidgetProps> = ({ class
           </TabsContent>
         </Tabs>
 
-        <div className="flex flex-col items-center gap-3 px-4 pb-7 pt-1 sm:px-7">
-          <Button type="button" onClick={copyDraft} className="h-14 min-w-[240px] gap-2 rounded-full bg-[#111111] px-8 text-base font-black text-white shadow-none hover:bg-[#111111]/80">
+        <div className={cn('flex flex-col items-center gap-3 px-4 pt-1', compact ? 'pb-4' : 'pb-7 sm:px-7')}>
+          <Button type="button" onClick={copyDraft} className={cn('gap-2 rounded-full bg-[#111111] font-black text-white shadow-none hover:bg-[#111111]/80', compact ? 'h-11 min-w-[200px] px-6 text-sm' : 'h-14 min-w-[240px] px-8 text-base')}>
             <Clipboard className="h-4 w-4" />
             {mode === 'reply' ? '초안 복사' : mode === 'review' ? '검수 문안 복사' : '이메일 템플릿 복사'}
           </Button>
