@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Download, Calendar, Trash2, Users, Building2, Save, List, Edit, X } from "lucide-react";
 import arcbankLogo from "@/assets/arcbank-logo.png";
+import HomeLogoButton from "@/components/HomeLogoButton";
 import { cn } from "@/lib/utils";
 import { getQuoteStyleProfile, type QuoteStyleType } from "@/utils/quoteStyle";
 
@@ -54,11 +55,14 @@ const QuoteSummaryHeader = ({
   return <>
       {/* 상단 액션 버튼들 */}
       <div className="flex flex-wrap justify-between items-center gap-2 mb-6 print:hidden">
-        <Button variant="outline" size="sm" onClick={() => navigate('/saved-quotes')} className="flex items-center gap-2">
-          <List className="w-4 h-4" />
-          <span className="hidden sm:inline">발행 견적서 목록</span>
-          <span className="sm:hidden">목록</span>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <HomeLogoButton />
+          <Button variant="outline" size="sm" onClick={() => navigate('/saved-quotes')} className="flex h-10 items-center gap-2 rounded-2xl bg-white/90 shadow-sm">
+            <List className="w-4 h-4" />
+            <span className="hidden sm:inline">발행 견적서 목록</span>
+            <span className="sm:hidden">목록</span>
+          </Button>
+        </div>
         <div className="flex flex-wrap gap-2">
           {showSavedQuoteActions ? (
             // SavedQuoteDetailPage용 버튼들
