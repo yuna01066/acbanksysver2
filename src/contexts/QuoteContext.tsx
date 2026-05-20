@@ -53,6 +53,14 @@ export interface Quote {
     selectedOptions?: Record<string, unknown>;
     breakdown: { label: string; price: number }[];
     totalPrice: number;
+    snapshotVersion?: string;
+    formulaDocVersion?: number;
+    calculationEngineVersion?: string;
+    calculationStatus?: 'calculable' | 'needs_review' | 'blocked' | string;
+    calculationWarnings?: string[];
+    calculationBlockedReasons?: string[];
+    calculationLineItems?: unknown[];
+    quantityContext?: Record<string, unknown>;
     note?: string;
   };
   createdAt: Date;
