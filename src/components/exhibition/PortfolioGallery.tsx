@@ -355,7 +355,7 @@ const PortfolioGallery = () => {
     let result = posts;
     if (activeCategoryFilter !== 'all') {
       const category = PORTFOLIO_CATEGORY_FILTERS.find(filter => filter.key === activeCategoryFilter);
-      const categoryKeywords = category?.keywords || [];
+      const categoryKeywords: readonly string[] = category?.keywords || [];
       result = result.filter(p => {
         const searchable = [
           p.title,

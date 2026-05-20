@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart, Star, FolderOpen, MessageSquareText } from 'lucide-react';
+import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart, Star, FolderOpen, MessageSquareText, PenLine } from 'lucide-react';
 import { AppNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -145,6 +145,10 @@ const NotificationPanel = ({
         return <FolderOpen className="h-4 w-4 text-blue-500" />;
       case 'channel_talk_quote_lead':
         return <MessageSquareText className="h-4 w-4 text-emerald-500" />;
+      case 'contract_request':
+      case 'contract_signed':
+      case 'contract_rejected':
+        return <PenLine className="h-4 w-4 text-green-600" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
@@ -166,6 +170,9 @@ const NotificationPanel = ({
       || notification.type === 'leave_expiry_warning'
       || notification.type === 'leave_promotion_summary'
       || notification.type === 'peer_feedback'
+      || notification.type === 'contract_request'
+      || notification.type === 'contract_signed'
+      || notification.type === 'contract_rejected'
     ) return 'hr';
     return 'system';
   };
@@ -185,6 +192,9 @@ const NotificationPanel = ({
       case 'leave_promotion_summary': return '근태';
       case 'peer_feedback':
       case 'performance_review_summary': return '평가';
+      case 'contract_request':
+      case 'contract_signed':
+      case 'contract_rejected': return '계약';
       case 'system':
       default: return '공지';
     }
@@ -479,6 +489,22 @@ const NotificationPanel = ({
                       >
                         <MessageSquareText className="h-3 w-3 mr-1" />
                         분석 열기
+                      </Button>
+                    )}
+
+                    {(notification.type === 'contract_request' || notification.type === 'contract_signed' || notification.type === 'contract_rejected') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          onRemove(notification.id);
+                          navigate('/my-page?tab=hr&hrTab=contracts');
+                          setOpen(false);
+                        }}
+                      >
+                        <PenLine className="h-3 w-3 mr-1" />
+                        계약서 보기
                       </Button>
                     )}
 

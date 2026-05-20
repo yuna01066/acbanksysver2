@@ -11,19 +11,31 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import {
   X, Sparkles, Settings2, Save, Send, Loader2, CheckCircle2,
-  FileText, DollarSign, Eye, ChevronDown
+  FileText, DollarSign, Eye, ShieldCheck, FilePenLine, Stamp
 } from 'lucide-react';
 import { useContractTemplates, useEmploymentContracts, type EmploymentContract } from '@/hooks/useContracts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ContractTemplateSettings from './ContractTemplateSettings';
+import ContractPreviewDialog from './ContractPreviewDialog';
+import { PREBUILT_TEMPLATES } from './template-editor/prebuiltTemplates';
+import { renderContractHtml } from '@/utils/contractRenderer';
+import { getDownloadUrl } from '@/services/documentFiles';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface EmployeeForContract {
   id: string;
   full_name: string;
+  email: string;
+  phone: string;
+  address: string;
+  detail_address: string;
   department: string;
   position: string;
   birthday: string;
   join_date: string;
+  job_title: string;
+  rank_title: string;
   salary_info: string;
   avatar_url: string;
 }
@@ -32,6 +44,14 @@ const CONTRACT_TYPES: Record<string, string> = {
   regular: '정규직',
   fixed_term: '기간제',
   part_time: '파트타임',
+};
+
+const TEMPLATE_TYPE_INFO: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
+  labor: { label: '근로계약서', icon: <FileText className="h-5 w-5" />, className: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' },
+  salary: { label: '연봉계약서', icon: <DollarSign className="h-5 w-5" />, className: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' },
+  oath: { label: '서약서', icon: <ShieldCheck className="h-5 w-5" />, className: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' },
+  privacy: { label: '동의서', icon: <FileText className="h-5 w-5" />, className: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' },
+  custom: { label: '자유양식', icon: <FilePenLine className="h-5 w-5" />, className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' },
 };
 
 const PROBATION_OPTIONS = ['수습 없음', '1개월', '2개월', '3개월', '6개월'];
@@ -46,10 +66,14 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
 const ContractManagement: React.FC = () => {
   const { user, profile } = useAuth();
   const { templates, loading: templatesLoading } = useContractTemplates();
-  const { contracts, loading: contractsLoading, bulkCreate, updateContract } = useEmploymentContracts();
+  const { contracts, loading: contractsLoading, bulkCreate } = useEmploymentContracts();
   const [showContractEditor, setShowContractEditor] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [employees, setEmployees] = useState<EmployeeForContract[]>([]);
+  const [companyInfo, setCompanyInfo] = useState<Record<string, any> | null>(null);
+  const [companySealUrl, setCompanySealUrl] = useState<string | null>(null);
+  const [includeCompanySeal, setIncludeCompanySeal] = useState(true);
+  const [previewContract, setPreviewContract] = useState<Partial<EmploymentContract> | null>(null);
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
   const [draftContracts, setDraftContracts] = useState<Map<string, Partial<EmploymentContract>>>(new Map());
   const [salaryModalOpen, setSalaryModalOpen] = useState(false);
@@ -60,7 +84,7 @@ const ContractManagement: React.FC = () => {
   useEffect(() => {
     supabase
       .from('profiles')
-      .select('id, full_name, department, position, birthday, join_date, salary_info, avatar_url')
+      .select('id, full_name, email, phone, address, detail_address, department, position, birthday, join_date, job_title, rank_title, salary_info, avatar_url')
       .eq('is_approved', true)
       .order('full_name')
       .then(({ data }) => {
@@ -68,7 +92,75 @@ const ContractManagement: React.FC = () => {
       });
   }, []);
 
+  useEffect(() => {
+    supabase
+      .from('company_info')
+      .select('*')
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setCompanyInfo(data || null));
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const path = (companyInfo as any)?.company_seal_storage_path;
+    if (!path) {
+      setCompanySealUrl(null);
+      return;
+    }
+    getDownloadUrl({
+      storageProvider: 'supabase_storage',
+      storageBucket: 'employee-contracts',
+      storagePath: path,
+    })
+      .then((url) => { if (mounted) setCompanySealUrl(url); })
+      .catch(() => { if (mounted) setCompanySealUrl(null); });
+    return () => { mounted = false; };
+  }, [companyInfo]);
+
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
+
+  const getTemplateContent = (template = selectedTemplate) => {
+    if (template?.content) return template.content;
+    return PREBUILT_TEMPLATES.find(t => t.type === template?.template_type)?.content
+      || PREBUILT_TEMPLATES[0]?.content
+      || null;
+  };
+
+  const buildContractPayload = (draft: Partial<EmploymentContract>, status: 'draft' | 'requested') => {
+    const employee = employees.find(e => e.id === draft.user_id);
+    const templateContent = getTemplateContent();
+    const rendered_html = renderContractHtml({
+      templateContent,
+      contract: draft,
+      companyInfo,
+      employee,
+      companySealUrl: null,
+      includeCompanySeal,
+    });
+
+    return {
+      ...draft,
+      status,
+      template_snapshot: selectedTemplate ? {
+        id: selectedTemplate.id,
+        name: selectedTemplate.name,
+        template_type: selectedTemplate.template_type,
+        description: selectedTemplate.description,
+        pay_day: selectedTemplate.pay_day,
+        content: templateContent,
+      } : null,
+      rendered_html,
+      company_seal_included: includeCompanySeal,
+      company_seal_storage_path: includeCompanySeal ? ((companyInfo as any)?.company_seal_storage_path || null) : null,
+    };
+  };
+
+  const openDraftPreview = (empId: string) => {
+    const draft = draftContracts.get(empId);
+    if (!draft) return;
+    setPreviewContract(buildContractPayload(draft, 'draft') as Partial<EmploymentContract>);
+  };
 
   const toggleEmployee = (id: string) => {
     setSelectedEmployees(prev => {
@@ -173,7 +265,7 @@ const ContractManagement: React.FC = () => {
     if (draftContracts.size === 0) { toast.error('대상을 선택해주세요.'); return; }
     setSaving(true);
     try {
-      const contractsToSave = Array.from(draftContracts.values()).map(d => ({ ...d, status: 'draft' }));
+      const contractsToSave = Array.from(draftContracts.values()).map(d => buildContractPayload(d, 'draft'));
       await bulkCreate(contractsToSave);
       toast.success('임시저장되었습니다.');
       setShowContractEditor(false);
@@ -191,7 +283,7 @@ const ContractManagement: React.FC = () => {
 
     // Validate required fields
     for (const [, draft] of draftContracts) {
-      if (!draft.contract_start_date) {
+      if (['labor', 'salary'].includes(selectedTemplate?.template_type || '') && !draft.contract_start_date) {
         toast.error('근로계약 시작일을 입력해주세요.');
         return;
       }
@@ -204,22 +296,30 @@ const ContractManagement: React.FC = () => {
     setSaving(true);
     try {
       const contractsToSave = Array.from(draftContracts.values()).map(d => ({
-        ...d,
-        status: 'requested',
+        ...buildContractPayload(d, 'requested'),
         requested_by: user?.id,
         requested_at: new Date().toISOString(),
       }));
-      await bulkCreate(contractsToSave);
+      const createdContracts = await bulkCreate(contractsToSave);
 
       // Send notifications to each employee
-      const notifications = contractsToSave.map(c => ({
+      const notifications = createdContracts.map(c => ({
         user_id: c.user_id!,
-        type: 'system',
+        type: 'contract_request',
         title: '새 계약서가 도착했습니다',
-        description: `근로계약서가 발송되었습니다. 마이페이지에서 검토 후 서명해주세요.`,
-        data: { contract_user_name: c.user_name },
+        description: `${c.user_name}님 앞으로 전자계약서가 발송되었습니다. 마이페이지에서 검토 후 서명해주세요.`,
+        data: { contract_id: c.id, contract_user_name: c.user_name },
       }));
       await supabase.from('notifications').insert(notifications);
+
+      const events = createdContracts.map(c => ({
+        contract_id: c.id,
+        actor_id: user?.id,
+        actor_role: profile?.full_name ? 'admin' : null,
+        event_type: 'requested',
+        metadata: { template_id: c.template_id, template_name: selectedTemplate?.name },
+      }));
+      await supabase.from('contract_events' as any).insert(events as any[]);
 
       toast.success(`${contractsToSave.length}명에게 계약을 요청했습니다.`);
       setShowContractEditor(false);
@@ -243,8 +343,6 @@ const ContractManagement: React.FC = () => {
 
   // Contract Editor (full-screen overlay)
   if (showContractEditor && selectedTemplate) {
-    const selectedList = employees.filter(e => selectedEmployees.has(e.id));
-
     return (
       <div className="h-full flex flex-col">
         {/* Header */}
@@ -253,7 +351,7 @@ const ContractManagement: React.FC = () => {
             <Button variant="ghost" size="sm" onClick={() => setShowContractEditor(false)}>
               <X className="h-4 w-4" />
             </Button>
-            <h2 className="text-base font-semibold">자동 근로계약서</h2>
+            <h2 className="text-base font-semibold">{selectedTemplate.name}</h2>
             <Badge variant="outline" className="text-xs gap-1 text-primary border-primary">
               <Sparkles className="h-3 w-3" /> AI 금액 자동 계산
             </Badge>
@@ -261,6 +359,15 @@ const ContractManagement: React.FC = () => {
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
             <Button variant="ghost" size="sm"><Settings2 className="h-4 w-4" /></Button>
+            <div className="flex items-center gap-2 rounded-md border px-2 py-1">
+              <Stamp className="h-3.5 w-3.5 text-muted-foreground" />
+              <Label htmlFor="include-company-seal" className="text-xs">회사 직인</Label>
+              <Switch
+                id="include-company-seal"
+                checked={includeCompanySeal}
+                onCheckedChange={setIncludeCompanySeal}
+              />
+            </div>
             <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={saving} className="gap-1">
               <Save className="h-3.5 w-3.5" /> 임시저장
             </Button>
@@ -350,7 +457,14 @@ const ContractManagement: React.FC = () => {
                     </td>
                     <td className="px-3 py-2">
                       {isSelected && (
-                        <Button variant="link" size="sm" className="text-xs text-primary p-0 h-auto">미리보기</Button>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="text-xs text-primary p-0 h-auto"
+                          onClick={() => openDraftPreview(emp.id)}
+                        >
+                          미리보기
+                        </Button>
                       )}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">{emp.full_name}</td>
@@ -583,6 +697,12 @@ const ContractManagement: React.FC = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        <ContractPreviewDialog
+          open={!!previewContract}
+          onOpenChange={(open) => !open && setPreviewContract(null)}
+          contract={previewContract as any}
+        />
       </div>
     );
   }
@@ -606,6 +726,9 @@ const ContractManagement: React.FC = () => {
             <h3 className="font-semibold mb-3">전자계약서 선택</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {templates.map(t => (
+                (() => {
+                  const typeInfo = TEMPLATE_TYPE_INFO[t.template_type] || TEMPLATE_TYPE_INFO.custom;
+                  return (
                 <div
                   key={t.id}
                   className={`border rounded-lg p-4 cursor-pointer transition-all ${
@@ -617,37 +740,42 @@ const ContractManagement: React.FC = () => {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        t.template_type === 'labor'
-                          ? 'bg-blue-100 dark:bg-blue-900/30'
-                          : 'bg-green-100 dark:bg-green-900/30'
-                      }`}>
-                        <FileText className={`h-5 w-5 ${
-                          t.template_type === 'labor'
-                            ? 'text-blue-600 dark:text-blue-400'
-                            : 'text-green-600 dark:text-green-400'
-                        }`} />
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${typeInfo.className}`}>
+                        {typeInfo.icon}
                       </div>
                       <div>
                         <p className="font-medium text-sm">{t.name}</p>
-                        <Badge variant="outline" className="text-xs mt-1">급여일 {t.pay_day}일</Badge>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <Badge variant="outline" className="text-xs">{typeInfo.label}</Badge>
+                          <Badge variant="outline" className="text-xs">급여일 {t.pay_day}일</Badge>
+                        </div>
                       </div>
                     </div>
                     <Checkbox checked={selectedTemplateId === t.id} />
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">{t.description}</p>
                 </div>
+                  );
+                })()
               ))}
             </div>
           </div>
 
           {selectedTemplateId && (
-            <div className="flex justify-end">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm">
+                <Stamp className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">회사 직인 포함</span>
+                <Switch checked={includeCompanySeal} onCheckedChange={setIncludeCompanySeal} />
+                {includeCompanySeal && !companySealUrl && (
+                  <span className="text-xs text-amber-600">회사 설정에 직인을 등록하면 자동 삽입됩니다.</span>
+                )}
+              </div>
               <Button
                 onClick={() => setShowContractEditor(true)}
                 className="gap-1 bg-green-600 hover:bg-green-700 text-white"
               >
-                <Send className="h-4 w-4" /> 1건 계약 생성
+                <Send className="h-4 w-4" /> 계약 생성
               </Button>
             </div>
           )}

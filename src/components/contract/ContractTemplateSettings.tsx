@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, FileText, Pencil, Trash2, Loader2, FileSignature, DollarSign } from 'lucide-react';
+import { Plus, FileText, Pencil, Trash2, Loader2, FileSignature, DollarSign, ShieldCheck, FilePenLine } from 'lucide-react';
 import { type ContractTemplate } from '@/hooks/useContracts';
 import TemplateEditorDialog from './template-editor/TemplateEditorDialog';
 
@@ -23,6 +23,21 @@ const TEMPLATE_TYPES: Record<string, { label: string; icon: React.ReactNode; col
     label: '연봉계약서',
     icon: <DollarSign className="h-5 w-5" />,
     color: 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30',
+  },
+  oath: {
+    label: '서약서',
+    icon: <ShieldCheck className="h-5 w-5" />,
+    color: 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30',
+  },
+  privacy: {
+    label: '동의서',
+    icon: <FileSignature className="h-5 w-5" />,
+    color: 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30',
+  },
+  custom: {
+    label: '자유양식',
+    icon: <FilePenLine className="h-5 w-5" />,
+    color: 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800',
   },
 };
 
