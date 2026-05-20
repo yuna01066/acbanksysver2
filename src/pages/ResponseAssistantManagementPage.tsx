@@ -1,17 +1,20 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Bot,
+  ImageIcon,
   Loader2,
   MessageSquareText,
   Plus,
   RefreshCw,
   Save,
   ShieldAlert,
+  Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import defaultResponseAssistantIcon from '@/assets/response-assistant-default-icon.png';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader, PageShell } from '@/components/layout/PageLayout';
@@ -27,6 +30,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
   DEFAULT_RESPONSE_ASSISTANT_INSTRUCTION,
+  RESPONSE_ASSISTANT_ICON_SETTING_KEY,
   RESPONSE_ASSISTANT_SETTING_KEY,
   RESPONSE_KNOWLEDGE_CATEGORY_OPTIONS,
   responseKnowledgeCategoryLabel,
@@ -60,12 +64,56 @@ const emptyKnowledgeDraft: KnowledgeDraft = {
   is_active: true,
 };
 
+const MAX_ICON_SIZE = 512;
+
+function createLauncherIconDataUrl(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    return Promise.reject(new Error('이미지 파일만 업로드할 수 있습니다.'));
+  }
+
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    image.onload = () => {
+      const scale = Math.min(MAX_ICON_SIZE / image.naturalWidth, MAX_ICON_SIZE / image.naturalHeight, 1);
+      const width = Math.max(1, Math.round(image.naturalWidth * scale));
+      const height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+
+      if (!context) {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('이미지를 처리할 수 없습니다.'));
+        return;
+      }
+
+      context.clearRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL('image/png'));
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('이미지 파일을 읽을 수 없습니다.'));
+    };
+
+    image.src = objectUrl;
+  });
+}
+
 const ResponseAssistantManagementPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const iconInputRef = useRef<HTMLInputElement | null>(null);
   const { user, userRole, isAdmin, isModerator, loading } = useAuth();
   const canManage = userRole === 'admin' || userRole === 'moderator' || isAdmin || isModerator;
   const [instructionDraft, setInstructionDraft] = useState(DEFAULT_RESPONSE_ASSISTANT_INSTRUCTION);
+  const [iconDraft, setIconDraft] = useState('');
+  const [iconFileName, setIconFileName] = useState('');
   const [knowledgeDrafts, setKnowledgeDrafts] = useState<Record<string, KnowledgeDraft>>({});
   const [newKnowledge, setNewKnowledge] = useState<KnowledgeDraft>(emptyKnowledgeDraft);
 
@@ -80,6 +128,20 @@ const ResponseAssistantManagementPage = () => {
         .from('response_assistant_settings')
         .select('key, value, description, updated_by, created_at, updated_at')
         .eq('key', RESPONSE_ASSISTANT_SETTING_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      return (data || null) as ResponseAssistantSetting | null;
+    },
+    enabled: !!user && canManage,
+  });
+
+  const { data: iconSetting, isLoading: iconSettingLoading } = useQuery<ResponseAssistantSetting | null>({
+    queryKey: ['response-assistant-setting', RESPONSE_ASSISTANT_ICON_SETTING_KEY],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('response_assistant_settings')
+        .select('key, value, description, updated_by, created_at, updated_at')
+        .eq('key', RESPONSE_ASSISTANT_ICON_SETTING_KEY)
         .maybeSingle();
       if (error) throw error;
       return (data || null) as ResponseAssistantSetting | null;
@@ -106,6 +168,11 @@ const ResponseAssistantManagementPage = () => {
   }, [setting?.value]);
 
   useEffect(() => {
+    setIconDraft(iconSetting?.value || '');
+    setIconFileName('');
+  }, [iconSetting?.value]);
+
+  useEffect(() => {
     setKnowledgeDrafts(
       Object.fromEntries(
         knowledgeItems.map((item) => [
@@ -123,6 +190,9 @@ const ResponseAssistantManagementPage = () => {
 
   const currentInstruction = setting?.value || DEFAULT_RESPONSE_ASSISTANT_INSTRUCTION;
   const instructionChanged = instructionDraft !== currentInstruction;
+  const currentIcon = iconSetting?.value || '';
+  const iconChanged = iconDraft !== currentIcon;
+  const iconPreview = iconDraft || defaultResponseAssistantIcon;
   const activeKnowledgeCount = useMemo(
     () => knowledgeItems.filter((item) => item.is_active).length,
     [knowledgeItems],
@@ -179,6 +249,38 @@ const ResponseAssistantManagementPage = () => {
     onError: (error: Error) => toast.error('추가 실패: ' + error.message),
   });
 
+  const saveIcon = useMutation({
+    mutationFn: async () => {
+      if (!iconDraft) {
+        const { error } = await supabase
+          .from('response_assistant_settings')
+          .delete()
+          .eq('key', RESPONSE_ASSISTANT_ICON_SETTING_KEY);
+        if (error) throw error;
+        return;
+      }
+
+      const { error } = await supabase
+        .from('response_assistant_settings')
+        .upsert(
+          {
+            key: RESPONSE_ASSISTANT_ICON_SETTING_KEY,
+            value: iconDraft,
+            description: '상담 응대 보조 플로팅 런처 아이콘 이미지',
+            updated_by: user?.id || null,
+          },
+          { onConflict: 'key' },
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['response-assistant-setting', RESPONSE_ASSISTANT_ICON_SETTING_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['response-assistant-launcher-icon'] });
+      toast.success(iconDraft ? '위젯 아이콘이 저장되었습니다.' : '기본 아이콘으로 복원되었습니다.');
+    },
+    onError: (error: Error) => toast.error('아이콘 저장 실패: ' + error.message),
+  });
+
   const updateKnowledgeItem = useMutation({
     mutationFn: async ({ id, draft }: { id: string; draft: KnowledgeDraft }) => {
       const title = draft.title.trim();
@@ -214,7 +316,22 @@ const ResponseAssistantManagementPage = () => {
     }));
   };
 
-  if (loading || settingLoading) {
+  const handleIconFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      const dataUrl = await createLauncherIconDataUrl(file);
+      setIconDraft(dataUrl);
+      setIconFileName(file.name);
+      toast.success('아이콘 미리보기가 변경되었습니다. 저장 버튼을 눌러 적용하세요.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '이미지를 처리할 수 없습니다.');
+    }
+  };
+
+  if (loading || settingLoading || iconSettingLoading) {
     return (
       <PageShell maxWidth="5xl">
         <div className="flex min-h-[50vh] items-center justify-center">
@@ -309,6 +426,76 @@ const ResponseAssistantManagementPage = () => {
         </Card>
 
         <div className="space-y-5">
+          <Card className="border-white/60 bg-card/80">
+            <CardHeader className="border-b">
+              <BrandedCardHeader
+                icon={ImageIcon}
+                title="위젯 아이콘"
+                subtitle="우측 하단 상담 응대 보조 런처에 표시되는 아이콘입니다."
+                meta={iconChanged ? <Badge className="bg-amber-500 text-white">수정 중</Badge> : <Badge variant="outline">저장됨</Badge>}
+              />
+            </CardHeader>
+            <CardContent className="space-y-4 p-5">
+              <div className="flex items-center justify-center rounded-2xl border bg-muted/30 p-6">
+                <div className="relative flex h-28 w-28 items-center justify-center">
+                  <img
+                    src={iconPreview}
+                    alt="상담 응대 보조 아이콘 미리보기"
+                    className="max-h-28 max-w-28 object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.20)]"
+                  />
+                </div>
+              </div>
+
+              <input
+                ref={iconInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                onChange={handleIconFileChange}
+              />
+
+              <div className="rounded-lg border bg-muted/30 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                PNG/WebP 권장, 업로드 시 최대 {MAX_ICON_SIZE}px 기준으로 자동 축소됩니다.
+                {iconFileName && <span className="mt-1 block text-foreground">선택 파일: {iconFileName}</span>}
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => iconInputRef.current?.click()}
+                  className="gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  이미지 선택
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIconDraft('');
+                    setIconFileName('');
+                  }}
+                  disabled={!iconDraft}
+                  className="gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  기본값
+                </Button>
+              </div>
+
+              <Button
+                type="button"
+                onClick={() => saveIcon.mutate()}
+                disabled={saveIcon.isPending || !iconChanged}
+                className="w-full gap-2"
+              >
+                {saveIcon.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                아이콘 저장
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card className="border-white/60 bg-card/80">
             <CardHeader className="border-b">
               <BrandedCardHeader

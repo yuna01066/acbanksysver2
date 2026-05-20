@@ -1,4 +1,5 @@
 export const RESPONSE_ASSISTANT_SETTING_KEY = 'system_instruction';
+export const RESPONSE_ASSISTANT_ICON_SETTING_KEY = 'launcher_icon_data_url';
 
 export const DEFAULT_RESPONSE_ASSISTANT_INSTRUCTION = `아크뱅크 직원의 고객 상담 응대를 돕는 초안을 작성하세요.
 
