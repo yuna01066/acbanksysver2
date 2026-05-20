@@ -18,6 +18,7 @@ interface ProcessingOptionsProps {
   onAdhesionSelect: (adhesionId: string) => void;
   onSelectionCompleteChange?: (isComplete: boolean) => void;
   isGlossyStandard: boolean;
+  selectedQualityId?: string;
   selectedThickness: string;
   qty?: number;
   onQtyChange?: (qty: number) => void;
@@ -60,6 +61,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   onProcessingSelect,
   onSelectionCompleteChange,
   isGlossyStandard,
+  selectedQualityId,
   selectedThickness,
   qty = 1,
   onQtyChange,
@@ -174,6 +176,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
 
   // 옵션이 선택된 두께에 적용 가능한지 확인
   const isOptionApplicable = (option: ProcessingOption): boolean => {
+    if (['mirrorHardCoating', 'mirror-hard-coating'].includes(option.option_id)) {
+      return /mirror/i.test(selectedQualityId || '');
+    }
+
     if (!option.applicable_thicknesses || option.applicable_thicknesses.length === 0) {
       return true; // 두께 제한이 없으면 항상 적용 가능
     }
@@ -356,7 +362,9 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {options.map((option) => {
+                      {options
+                        .filter(option => !['mirrorHardCoating', 'mirror-hard-coating'].includes(option.option_id) || /mirror/i.test(selectedQualityId || ''))
+                        .map((option) => {
                         const isApplicable = isOptionApplicable(option);
                         const quantity = optionQuantities[option.option_id] || 0;
                         const isSelected = quantity > 0;
@@ -378,7 +386,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                                   <span className="font-semibold">{option.name}</span>
                                   {!isApplicable && (
                                     <Badge variant="destructive" className="text-xs">
-                                      {selectedThickness} 불가
+                                  {['mirrorHardCoating', 'mirror-hard-coating'].includes(option.option_id) ? '미러 전용' : `${selectedThickness} 불가`}
                                     </Badge>
                                   )}
                                   {isSelected && isApplicable && (
@@ -391,6 +399,11 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                                 {option.base_cost && (
                                   <p className="text-xs text-primary font-semibold">
                                     +{option.base_cost.toLocaleString()}원
+                                  </p>
+                                )}
+                                {['mirrorHardCoating', 'mirror-hard-coating'].includes(option.option_id) && (
+                                  <p className="text-xs text-primary font-semibold">
+                                    3*6 200,000원/장 · 4*8 300,000원/장
                                   </p>
                                 )}
                               </div>

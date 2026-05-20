@@ -13,6 +13,8 @@ import {
 } from "@/data/glossyColorPricing";
 
 export type CalculationStatus = 'calculable' | 'needs_review' | 'blocked';
+export const PRICING_ENGINE_V2_VERSION = 'pricing-engine-v2-core-260520' as const;
+export const FORMULA_DOC_VERSION = 260520 as const;
 
 export type CalculationLineItemSource =
   | 'panel'
@@ -20,6 +22,9 @@ export type CalculationLineItemSource =
   | 'processing'
   | 'adhesion'
   | 'additional'
+  | 'post_processing'
+  | 'mirror'
+  | 'outsourcing'
   | 'validation'
   | 'manual';
 
@@ -46,7 +51,8 @@ export interface CalculatePriceResult {
   lineItems: CalculationLineItem[];
   warnings: string[];
   blockedReasons: string[];
-  snapshotVersion: 'pricing-engine-v1';
+  snapshotVersion: typeof PRICING_ENGINE_V2_VERSION;
+  formulaDocVersion: typeof FORMULA_DOC_VERSION;
 }
 
 export type ProcessingPricingMethod =
@@ -73,9 +79,11 @@ export const classifyCalculationLineItem = (
 
   const label = item.label;
   if (/생산 불가|단가 미등록|지원되지 않는|검수/.test(label)) return 'validation';
-  if (/원판 단독 구매|레이저|CNC|재단|가공|엣지 경면/.test(label)) return 'processing';
+  if (/미러|증착|하드코팅/.test(label)) return 'mirror';
+  if (/불광|경면|유광 엣지|엣지/.test(label)) return 'post_processing';
+  if (/원판 단독 구매|레이저|CNC|재단|가공/.test(label)) return 'processing';
   if (/접착|무기포|본드|45°|90°/.test(label)) return 'adhesion';
-  if (/불광|타공|도장|마감/.test(label)) return 'additional';
+  if (/타공|도장|마감/.test(label)) return 'additional';
   if (/양단면|조색비|추가금액|추가금|사틴|아스텔|브라이트|진백|스리/.test(label)) return 'surcharge';
   if (/기본가|색상판|보급판|CLEAR|원장 #/.test(label)) return 'panel';
 
@@ -103,7 +111,8 @@ const normalizeCalculationResult = (
     lineItems,
     warnings,
     blockedReasons,
-    snapshotVersion: 'pricing-engine-v1',
+    snapshotVersion: PRICING_ENGINE_V2_VERSION,
+    formulaDocVersion: FORMULA_DOC_VERSION,
   };
 };
 
@@ -257,12 +266,18 @@ export const initializeGlossyStandardPrices = (): PricingData => {
 export type ProcessingProfile = 
   | 'auto' 
   | 'simple-cutting' 
+  | 'complex-cutting'
   | 'laser-simple' 
   | 'laser-complex' 
   | 'laser-full'
+  | 'laser-cutting-simple'
+  | 'laser-cutting-full'
   | 'cnc-simple' 
   | 'cnc-complex'
   | 'cnc-full'
+  | 'cnc-general'
+  | 'cnc-heavy'
+  | 'complex-shapes'
   | 'none';
 
 export type AdhesionProfile = 
@@ -298,6 +313,7 @@ export interface AdhesionCalculationInput {
   trayHeightMm?: number;
   bondProductType?: 'flat' | 'tray' | 'box';
   adhesionConfig?: AdhesionConfigData;
+  formulaConstants?: FormulaConstantsData;
   bondFactors?: BondFactorsData;
 }
 
@@ -313,23 +329,71 @@ export interface AdhesionCalculationResult {
 
 // 기본 접착 관련 설정 (DB 값이 없을 때 사용)
 export const DEFAULT_ADHESION_CONFIG: AdhesionConfigData = {
-  setupFee: 150_000,
-  bondRatePerM: 42_000,
-  kVolume: 0.10,
+  setupFee: 50_000,
+  bondRatePerM: 15_000,
+  kVolume: 0.15,
   laborPremium90: 1.12,
   cornerFinishFee: 4_000,
   thinTrayMaxHeightMm: 60,
 };
 
-// 기본 가공 배수 (DB 값이 없을 때 사용)
+export interface FormulaConstantsData {
+  rawOnlyMultiplier: number;
+  simpleCutThinMultiplier: number;
+  simpleCutThickMultiplier: number;
+  fabricationBaseMultiplier: number;
+  complexCutSetupFee: number;
+  laserThinFee: number;
+  laserThickFee: number;
+  laserFullThinSheetFee: number;
+  cncGeneralFee: number;
+  cncHeavyFee: number;
+  complexShapeFee: number;
+  mugipoBoxSetupFee: number;
+  mugipoBoxBondRatePerM: number;
+  mugipoBoxMinSalePrice5T250Cube: number;
+  polishedEdgeRatePerM: number;
+  bulgwangFinishMultiplier: number;
+  mirrorHardCoating3x6: number;
+  mirrorHardCoating4x8: number;
+}
+
+export const DEFAULT_FORMULA_CONSTANTS: FormulaConstantsData = {
+  rawOnlyMultiplier: 1.8,
+  simpleCutThinMultiplier: 1.2,
+  simpleCutThickMultiplier: 1.8,
+  fabricationBaseMultiplier: 1.3,
+  complexCutSetupFee: 70_000,
+  laserThinFee: 50_000,
+  laserThickFee: 70_000,
+  laserFullThinSheetFee: 200_000,
+  cncGeneralFee: 70_000,
+  cncHeavyFee: 100_000,
+  complexShapeFee: 250_000,
+  mugipoBoxSetupFee: 50_000,
+  mugipoBoxBondRatePerM: 45_000,
+  mugipoBoxMinSalePrice5T250Cube: 300_000,
+  polishedEdgeRatePerM: 14_200,
+  bulgwangFinishMultiplier: 3.0,
+  mirrorHardCoating3x6: 200_000,
+  mirrorHardCoating4x8: 300_000,
+};
+
+// 기본 가공 배수 (레거시 DB multiplier fallback)
 export const DEFAULT_PROCESS_FACTORS: ProcessFactorsData = {
   'simple-cutting': 0,
-  'laser-simple': 1.7,
-  'laser-complex': 2.0,
-  'laser-full': 2.5,
-  'cnc-simple': 1.8,
-  'cnc-complex': 2.5,
-  'cnc-full': 3.0,
+  'complex-cutting': DEFAULT_FORMULA_CONSTANTS.fabricationBaseMultiplier,
+  'laser-simple': DEFAULT_FORMULA_CONSTANTS.fabricationBaseMultiplier,
+  'laser-complex': DEFAULT_FORMULA_CONSTANTS.fabricationBaseMultiplier,
+  'laser-full': DEFAULT_FORMULA_CONSTANTS.fabricationBaseMultiplier,
+  'laser-cutting-simple': DEFAULT_FORMULA_CONSTANTS.fabricationBaseMultiplier,
+  'laser-cutting-full': DEFAULT_FORMULA_CONSTANTS.fabricationBaseMultiplier,
+  'cnc-simple': DEFAULT_FORMULA_CONSTANTS.fabricationBaseMultiplier,
+  'cnc-complex': DEFAULT_FORMULA_CONSTANTS.fabricationBaseMultiplier,
+  'cnc-full': DEFAULT_FORMULA_CONSTANTS.fabricationBaseMultiplier,
+  'cnc-general': DEFAULT_FORMULA_CONSTANTS.fabricationBaseMultiplier,
+  'cnc-heavy': DEFAULT_FORMULA_CONSTANTS.fabricationBaseMultiplier,
+  'complex-shapes': DEFAULT_FORMULA_CONSTANTS.fabricationBaseMultiplier,
   'none': 1.0,
 };
 
@@ -354,12 +418,18 @@ export interface AdhesionConfigData {
 // 가공 배수 설정
 export interface ProcessFactorsData {
   'simple-cutting': number;
+  'complex-cutting': number;
   'laser-simple': number;
   'laser-complex': number;
   'laser-full': number;
+  'laser-cutting-simple': number;
+  'laser-cutting-full': number;
   'cnc-simple': number;
   'cnc-complex': number;
   'cnc-full': number;
+  'cnc-general': number;
+  'cnc-heavy': number;
+  'complex-shapes': number;
   'none': number;
 }
 
@@ -649,6 +719,7 @@ export interface ProcessingDeltaOptions {
   joinLengthM?: number;
   trayHeightMm?: number;
   adhesionConfig?: AdhesionConfigData;
+  formulaConstants?: FormulaConstantsData;
   processFactors?: ProcessFactorsData;
   bondFactors?: BondFactorsData;
   processingOptions?: ProcessingOptionData[];
@@ -670,6 +741,70 @@ export interface ProcessingDeltaResult {
   };
 }
 
+const getProcessingFormula = (
+  profile: ProcessingProfile,
+  thicknessValue: number,
+  constants: FormulaConstantsData
+): { multiplier: number; fixedFee: number; label: string } | null => {
+  switch (profile) {
+    case 'simple-cutting': {
+      const multiplier = thicknessValue < 10
+        ? constants.simpleCutThinMultiplier
+        : constants.simpleCutThickMultiplier;
+      return { multiplier, fixedFee: 0, label: `단순 재단 (원장×${multiplier})` };
+    }
+    case 'complex-cutting':
+      return {
+        multiplier: constants.fabricationBaseMultiplier,
+        fixedFee: constants.complexCutSetupFee,
+        label: `복합 재단 (원장×${constants.fabricationBaseMultiplier} + 공임 ${constants.complexCutSetupFee.toLocaleString()}원)`,
+      };
+    case 'laser-simple':
+    case 'laser-cutting-simple':
+      return {
+        multiplier: constants.fabricationBaseMultiplier,
+        fixedFee: thicknessValue <= 10 ? constants.laserThinFee : constants.laserThickFee,
+        label: `레이저 재단 (원장×${constants.fabricationBaseMultiplier} + 공임 ${(thicknessValue <= 10 ? constants.laserThinFee : constants.laserThickFee).toLocaleString()}원)`,
+      };
+    case 'laser-complex':
+      return {
+        multiplier: constants.fabricationBaseMultiplier,
+        fixedFee: constants.laserThickFee,
+        label: `레이저 복합 재단 (원장×${constants.fabricationBaseMultiplier} + 공임 ${constants.laserThickFee.toLocaleString()}원)`,
+      };
+    case 'laser-full':
+    case 'laser-cutting-full':
+      return {
+        multiplier: constants.fabricationBaseMultiplier,
+        fixedFee: thicknessValue <= 2 ? constants.laserFullThinSheetFee : constants.laserThickFee,
+        label: `전체 레이저 재단 (원장×${constants.fabricationBaseMultiplier} + 공임 ${(thicknessValue <= 2 ? constants.laserFullThinSheetFee : constants.laserThickFee).toLocaleString()}원)`,
+      };
+    case 'cnc-simple':
+    case 'cnc-general':
+      return {
+        multiplier: constants.fabricationBaseMultiplier,
+        fixedFee: constants.cncGeneralFee,
+        label: `CNC 일반 가공 (원장×${constants.fabricationBaseMultiplier} + 공임 ${constants.cncGeneralFee.toLocaleString()}원)`,
+      };
+    case 'cnc-complex':
+    case 'cnc-full':
+    case 'cnc-heavy':
+      return {
+        multiplier: constants.fabricationBaseMultiplier,
+        fixedFee: constants.cncHeavyFee,
+        label: `CNC 고강도 가공 (원장×${constants.fabricationBaseMultiplier} + 공임 ${constants.cncHeavyFee.toLocaleString()}원)`,
+      };
+    case 'complex-shapes':
+      return {
+        multiplier: constants.fabricationBaseMultiplier,
+        fixedFee: constants.complexShapeFee,
+        label: `복잡 형상 가공 (원장×${constants.fabricationBaseMultiplier} + 공임 ${constants.complexShapeFee.toLocaleString()}원)`,
+      };
+    default:
+      return null;
+  }
+};
+
 /**
  * 가공/접착 증분 계산 (V2 로직)
  * materialCost: 자재비(이미 ×1.2/×1.3 적용된 값)
@@ -690,6 +825,7 @@ export const calcProcessingDelta = (
 
   // DB에서 가져온 설정 또는 기본값 사용
   const adhesionConfig = opts.adhesionConfig || DEFAULT_ADHESION_CONFIG;
+  const formulaConstants = opts.formulaConstants || DEFAULT_FORMULA_CONSTANTS;
   const processFactors = opts.processFactors || DEFAULT_PROCESS_FACTORS;
   const bondFactors = opts.bondFactors || DEFAULT_BOND_FACTORS;
 
@@ -710,13 +846,15 @@ export const calcProcessingDelta = (
   let pickedProcessing: ProcessingProfile = processing;
   if (processing === 'auto') pickedProcessing = autoPickProcessing(t, isComplex, opts.processingOptions);
 
-  if (pickedProcessing === 'simple-cutting') {
-    const f = (t < 10 ? 1.2 : 1.8);
-    addCost(`단순 재단 (원장×${f})`, materialCost * (f - 1));
+  const processingFormula = getProcessingFormula(pickedProcessing, t, formulaConstants);
+  if (processingFormula) {
+    addCost(
+      processingFormula.label,
+      materialCost * (processingFormula.multiplier - 1) + processingFormula.fixedFee
+    );
   } else if (pickedProcessing !== 'none') {
-    const baseF = processFactors[pickedProcessing as Exclude<ProcessingProfile, 'auto'>];
-    const fEff = baseF || 1;
-    addCost(`${pickedProcessing} (원장×${fEff.toFixed(2)})`, materialCost * (fEff - 1));
+    const baseF = processFactors[pickedProcessing as Exclude<ProcessingProfile, 'auto'>] || 1;
+    addCost(`${pickedProcessing} (원장×${baseF.toFixed(2)})`, materialCost * (baseF - 1));
   }
 
   // 2) 접착 프로필 선택
@@ -734,6 +872,7 @@ export const calcProcessingDelta = (
     trayHeightMm: opts.trayHeightMm,
     bondProductType: opts.bondProductType,
     adhesionConfig,
+    formulaConstants,
     bondFactors,
   });
 
@@ -911,16 +1050,19 @@ export interface CalculatePriceV2Options {
   trayHeightMm?: number;                          // 트레이 높이
   edgeFinishing?: boolean;                        // 엣지 경면 마감
   bulgwang?: boolean;                             // 불광 마감
+  polishedEdgeLengthM?: number;                   // 경면/불광 기준 엣지 길이
   tapung?: boolean;                               // 타공
   mugwangPainting?: boolean;                      // 무광 도장
   processingOptionsData?: ProcessingOptionData[]; // DB에서 가져온 가공 옵션 데이터
   rawOnlyMultiplier?: number;                     // 원판 단독 구매 할증률 (DB에서 가져옴)
+  formulaConstants?: FormulaConstantsData;        // 산식 v2 기준 상수 (DB)
   adhesionConfig?: AdhesionConfigData;            // 접착 설정 (DB)
   processFactors?: ProcessFactorsData;            // 가공 배수 (DB)
   bondFactors?: BondFactorsData;                  // 접착 배수 (DB)
   adhesionBasis?: AdhesionBasis;                  // 원판 기준/제품제작 기준 접착 계산 분기
   selectedAdditionalOptions?: Record<string, number>; // 추가 옵션 수량
   totalWonJangBase?: number; // 여러 원장의 합계 (옵션 계산 시 기준가)
+  selectedPanelSizesForOptions?: Array<{ size: string; quantity: number }>; // 원판 장수 기준 옵션용
   bondProductType?: 'flat' | 'tray' | 'box';
 }
 
@@ -961,12 +1103,19 @@ export interface PanelSizeData {
 const PROCESSING_PROFILE_IDS: Record<string, ProcessingProfile> = {
   'auto': 'auto',
   'simple-cutting': 'simple-cutting',
+  'complex-cutting': 'complex-cutting',
   'laser-simple': 'laser-simple',
   'laser-complex': 'laser-complex',
   'laser-full': 'laser-full',
+  'laser-cutting-simple': 'laser-cutting-simple',
+  'laser-cutting-full': 'laser-cutting-full',
   'cnc-simple': 'cnc-simple',
   'cnc-complex': 'cnc-complex',
   'cnc-full': 'cnc-full',
+  'cnc-general': 'cnc-general',
+  'cnc-heavy': 'cnc-heavy',
+  'complex-shapes': 'complex-shapes',
+  'bubble-free-adhesion': 'none',
 };
 
 const ADHESION_PROFILE_IDS: Record<string, AdhesionProfile> = {
@@ -974,6 +1123,7 @@ const ADHESION_PROFILE_IDS: Record<string, AdhesionProfile> = {
   'bond-mugipo-auto': 'auto',
   'bond-mugipo-45': 'bond-mugipo-45',
   'bond-mugipo-90': 'bond-mugipo-90',
+  'bubble-free-adhesion': 'bond-mugipo-45',
   '45-normal': '45-normal',
   '45-mugipo': '45-mugipo',
   '90-normal': '90-normal',
@@ -994,12 +1144,18 @@ const getOptionMultiplier = (options: ProcessingOptionData[], ids: string[]) => 
 
 const buildProcessFactorsFromOptions = (options: ProcessingOptionData[]): ProcessFactorsData => ({
   ...DEFAULT_PROCESS_FACTORS,
+  'complex-cutting': getOptionMultiplier(options, ['complex-cutting']) ?? DEFAULT_PROCESS_FACTORS['complex-cutting'],
   'laser-simple': getOptionMultiplier(options, ['laser-simple']) ?? DEFAULT_PROCESS_FACTORS['laser-simple'],
   'laser-complex': getOptionMultiplier(options, ['laser-complex']) ?? DEFAULT_PROCESS_FACTORS['laser-complex'],
   'laser-full': getOptionMultiplier(options, ['laser-full']) ?? DEFAULT_PROCESS_FACTORS['laser-full'],
+  'laser-cutting-simple': getOptionMultiplier(options, ['laser-cutting-simple']) ?? DEFAULT_PROCESS_FACTORS['laser-cutting-simple'],
+  'laser-cutting-full': getOptionMultiplier(options, ['laser-cutting-full']) ?? DEFAULT_PROCESS_FACTORS['laser-cutting-full'],
   'cnc-simple': getOptionMultiplier(options, ['cnc-simple']) ?? DEFAULT_PROCESS_FACTORS['cnc-simple'],
   'cnc-complex': getOptionMultiplier(options, ['cnc-complex']) ?? DEFAULT_PROCESS_FACTORS['cnc-complex'],
   'cnc-full': getOptionMultiplier(options, ['cnc-full']) ?? DEFAULT_PROCESS_FACTORS['cnc-full'],
+  'cnc-general': getOptionMultiplier(options, ['cnc-general']) ?? DEFAULT_PROCESS_FACTORS['cnc-general'],
+  'cnc-heavy': getOptionMultiplier(options, ['cnc-heavy']) ?? DEFAULT_PROCESS_FACTORS['cnc-heavy'],
+  'complex-shapes': getOptionMultiplier(options, ['complex-shapes']) ?? DEFAULT_PROCESS_FACTORS['complex-shapes'],
 });
 
 const buildBondFactorsFromOptions = (options: ProcessingOptionData[]): BondFactorsData => {
@@ -1030,12 +1186,97 @@ const getNumericOptionValue = (...values: Array<number | null | undefined>) => {
   return value ?? 0;
 };
 
+type ConfiguredOptionCost = {
+  cost: number;
+  label: string;
+  reason?: string;
+  source?: CalculationLineItemSource;
+};
+
+const normalizePanelSizeKey = (size: string) => size.split(' ')[0].trim();
+
+const isOptionId = (option: ProcessingOptionData, ids: string[]) =>
+  ids.includes(option.option_id);
+
+const getConfiguredOptionSource = (option: ProcessingOptionData): CalculationLineItemSource => {
+  if (isOptionId(option, ['mirrorHardCoating', 'mirror-hard-coating', 'mirrorDeposition', 'mirror-deposition'])) {
+    return 'mirror';
+  }
+
+  if (isOptionId(option, ['edgeFinishing', 'polishedEdge', 'polished-edge', 'bulgwang', 'bulgwangFinish', 'bulgwang-finish'])) {
+    return 'post_processing';
+  }
+
+  if (option.option_type === 'adhesion') return 'adhesion';
+  if (option.option_type === 'additional' || option.category === 'additional') return 'additional';
+
+  return 'processing';
+};
+
+const getMirrorHardCoatingUnitCost = (
+  sizeKey: string,
+  constants: FormulaConstantsData
+) => {
+  const normalizedSize = normalizePanelSizeKey(sizeKey);
+
+  if (normalizedSize.includes('4*8')) return constants.mirrorHardCoating4x8;
+  if (normalizedSize.includes('3*6')) return constants.mirrorHardCoating3x6;
+
+  return null;
+};
+
+const calculateMirrorHardCoatingCost = (
+  quantity: number,
+  fallbackSizeKey: string,
+  constants: FormulaConstantsData,
+  options?: CalculatePriceV2Options
+): ConfiguredOptionCost => {
+  const selectedPanels = options?.selectedPanelSizesForOptions?.length
+    ? options.selectedPanelSizesForOptions
+    : [{ size: fallbackSizeKey, quantity: 1 }];
+  let total = 0;
+  const unsupportedSizes: string[] = [];
+  const details: string[] = [];
+
+  selectedPanels.forEach(panel => {
+    const panelQty = Math.max(0, panel.quantity || 0);
+    if (panelQty <= 0) return;
+
+    const sizeKey = normalizePanelSizeKey(panel.size);
+    const unitCost = getMirrorHardCoatingUnitCost(sizeKey, constants);
+
+    if (unitCost === null) {
+      unsupportedSizes.push(sizeKey);
+      return;
+    }
+
+    const lineCost = unitCost * panelQty * Math.max(1, quantity);
+    total += lineCost;
+    details.push(`${sizeKey} ${panelQty}장 × ${unitCost.toLocaleString()}원`);
+  });
+
+  const reason = unsupportedSizes.length > 0
+    ? `미러 증착용 하드코팅은 3*6/4*8 기준만 자동 계산됩니다. 확인 필요: ${Array.from(new Set(unsupportedSizes)).join(', ')}`
+    : undefined;
+
+  return {
+    cost: total,
+    label: details.length > 0
+      ? `미러 증착용 하드코팅 (${details.join(', ')})`
+      : '미러 증착용 하드코팅 (수동 검수 필요)',
+    reason,
+    source: 'mirror' as CalculationLineItemSource,
+  };
+};
+
 const calculateConfiguredOptionCost = (
   option: ProcessingOptionData,
   wonJang: number,
   quantity: number,
+  fallbackSizeKey: string,
+  constants: FormulaConstantsData,
   options?: CalculatePriceV2Options
-) => {
+): ConfiguredOptionCost | null => {
   const method = option.pricing_method || 'legacy_multiplier';
   const baseCost = option.base_cost ?? 0;
   const storedRateLooksLikeBaseCost =
@@ -1055,6 +1296,7 @@ const calculateConfiguredOptionCost = (
       );
   const joinLength = options?.joinLengthM ?? 0;
   const bevelLength = options?.bevelLengthM ?? 0;
+  const polishedEdgeLength = options?.polishedEdgeLengthM ?? 0;
   const length = option.unit === 'bevel_m' || /bevel/i.test(option.option_id)
     ? bevelLength
     : joinLength;
@@ -1074,11 +1316,54 @@ const calculateConfiguredOptionCost = (
     };
   };
 
+  if (isOptionId(option, ['edgeFinishing', 'polishedEdge', 'polished-edge'])) {
+    if (polishedEdgeLength > 0) {
+      return {
+        cost: constants.polishedEdgeRatePerM * polishedEdgeLength * quantity,
+        label: `${option.name} (${constants.polishedEdgeRatePerM.toLocaleString()}원/m × ${polishedEdgeLength.toFixed(2)}m${quantity > 1 ? ` × ${quantity}` : ''})`,
+        source: 'post_processing' as CalculationLineItemSource,
+      };
+    }
+
+    const fallbackRate = option.multiplier || 0.5;
+    return {
+      cost: wonJang * fallbackRate * quantity,
+      label: `${option.name} (경면/유광 엣지 길이 미입력, 원장×${fallbackRate})`,
+      reason: '경면/유광 엣지 길이가 없어 기존 원판 비례 금액으로 임시 계산했습니다. 최종 발행 전 엣지 길이 확인이 필요합니다.',
+      source: 'post_processing' as CalculationLineItemSource,
+    };
+  }
+
+  if (isOptionId(option, ['bulgwang', 'bulgwangFinish', 'bulgwang-finish'])) {
+    if (polishedEdgeLength > 0) {
+      const polishedEdgeCost = constants.polishedEdgeRatePerM * polishedEdgeLength;
+      return {
+        cost: polishedEdgeCost * constants.bulgwangFinishMultiplier * quantity,
+        label: `${option.name} (경면/유광 엣지 ${polishedEdgeCost.toLocaleString()}원 × ${constants.bulgwangFinishMultiplier}${quantity > 1 ? ` × ${quantity}` : ''})`,
+        reason: '불광은 표면 투명도와 매끄러움을 높이는 후가공입니다. 미러증착과 별도로 계산됩니다.',
+        source: 'post_processing' as CalculationLineItemSource,
+      };
+    }
+
+    const fallbackRate = option.multiplier || 0.5;
+    return {
+      cost: wonJang * fallbackRate * constants.bulgwangFinishMultiplier * quantity,
+      label: `${option.name} (경면/유광 엣지 길이 미입력, 원장×${fallbackRate}×${constants.bulgwangFinishMultiplier})`,
+      reason: '불광 기준 엣지 길이가 없어 기존 원판 비례 금액으로 임시 계산했습니다. 최종 발행 전 경면/유광 엣지 길이 확인이 필요합니다.',
+      source: 'post_processing' as CalculationLineItemSource,
+    };
+  }
+
+  if (isOptionId(option, ['mirrorHardCoating', 'mirror-hard-coating'])) {
+    return calculateMirrorHardCoatingCost(quantity, fallbackSizeKey, constants, options);
+  }
+
   if (method === 'requires_review') {
     return {
       cost: 0,
       label: `${option.name} (수동 검수 필요)`,
       reason: '관리자 설정에서 수동 검수 옵션으로 지정되었습니다.',
+      source: getConfiguredOptionSource(option),
     };
   }
 
@@ -1189,6 +1474,10 @@ export const calculatePrice = (
   const breakdown: PriceBreakdownItem[] = [];
   const warnings: string[] = [];
   const blockedReasons: string[] = [];
+  const formulaConstants: FormulaConstantsData = {
+    ...DEFAULT_FORMULA_CONSTANTS,
+    ...(options?.formulaConstants || {}),
+  };
   
   if (materialId !== 'casting') {
     return normalizeCalculationResult(
@@ -1405,7 +1694,9 @@ export const calculatePrice = (
       if (ADHESION_PROFILE_IDS[optionId]) {
         effectiveAdhesionForGuardrails = ADHESION_PROFILE_IDS[optionId];
       }
+      const isFormulaProcessingProfile = Boolean(PROCESSING_PROFILE_IDS[optionId]);
       const needsProfileDelta =
+        isFormulaProcessingProfile ||
         isSheetBasedAdhesionProfile ||
         isKnownProfileOptionId(optionId) &&
         (
@@ -1446,6 +1737,7 @@ export const calculatePrice = (
           joinLengthM: options.joinLengthM,
           trayHeightMm: options.trayHeightMm,
           adhesionConfig: options.adhesionConfig,
+          formulaConstants,
           processFactors: buildProcessFactorsFromOptions(processingOptionsData),
           bondFactors: buildBondFactorsFromOptions(processingOptionsData),
           processingOptions: processingOptionsData,
@@ -1473,7 +1765,7 @@ export const calculatePrice = (
         if (option.requires_review) {
           warnings.push(`${option.name} 옵션은 관리자 검수가 필요합니다.`);
         }
-        const configuredOptionCost = calculateConfiguredOptionCost(option, wonJang, quantity, options);
+        const configuredOptionCost = calculateConfiguredOptionCost(option, wonJang, quantity, sizeKey, formulaConstants, options);
         if (configuredOptionCost) {
           if (configuredOptionCost.reason) {
             warnings.push(configuredOptionCost.reason);
@@ -1481,7 +1773,7 @@ export const calculatePrice = (
           breakdown.push({
             label: configuredOptionCost.label,
             price: configuredOptionCost.cost,
-            source: option.option_type === 'adhesion' ? 'adhesion' : option.option_type === 'additional' || option.category === 'additional' ? 'additional' : 'processing',
+            source: configuredOptionCost.source || getConfiguredOptionSource(option),
             code: `option-${option.option_id}`,
             reason: configuredOptionCost.reason,
           });
@@ -1535,9 +1827,10 @@ export const calculatePrice = (
           console.log(`Applied base_cost for ${option.name}: ${baseCostTotal}`);
         }
       } else if (optionId === 'raw-only') {
-        const rawOnlyCharge = wonJang * ((options.rawOnlyMultiplier || 1.8) - 1);
+        const rawOnlyMultiplier = options.rawOnlyMultiplier || formulaConstants.rawOnlyMultiplier;
+        const rawOnlyCharge = wonJang * (rawOnlyMultiplier - 1);
         breakdown.push({
-          label: `원판 단독 구매 할증 (×${options.rawOnlyMultiplier || 1.8})`,
+          label: `원판 단독 구매 할증 (×${rawOnlyMultiplier})`,
           price: rawOnlyCharge,
         });
         totalPrice += rawOnlyCharge;
@@ -1571,6 +1864,7 @@ export const calculatePrice = (
         joinLengthM: options.joinLengthM,
         trayHeightMm: options.trayHeightMm,
         adhesionConfig: options.adhesionConfig,
+        formulaConstants,
         processFactors: buildProcessFactorsFromOptions(processingOptionsData),
         bondFactors: buildBondFactorsFromOptions(processingOptionsData),
         processingOptions: processingOptionsData,
@@ -1625,20 +1919,41 @@ export const calculatePrice = (
 
   if (options?.edgeFinishing && !selectedOptionSet.has('edgeFinishing')) {
     const optionData = getOptionData('edgeFinishing', 0.5);
-    const cost = basePrice * optionData.multiplier + optionData.baseCost;
+    const polishedEdgeLength = options.polishedEdgeLengthM ?? 0;
+    const cost = polishedEdgeLength > 0
+      ? formulaConstants.polishedEdgeRatePerM * polishedEdgeLength
+      : wonJang * optionData.multiplier + optionData.baseCost;
+    if (polishedEdgeLength <= 0) {
+      warnings.push('경면/유광 엣지 길이가 없어 기존 원판 비례 금액으로 임시 계산했습니다. 최종 발행 전 엣지 길이 확인이 필요합니다.');
+    }
     breakdown.push({ 
-      label: `${optionData.name} (원판×${optionData.multiplier})`, 
-      price: cost 
+      label: polishedEdgeLength > 0
+        ? `${optionData.name} (${formulaConstants.polishedEdgeRatePerM.toLocaleString()}원/m × ${polishedEdgeLength.toFixed(2)}m)`
+        : `${optionData.name} (경면/유광 엣지 길이 미입력, 원장×${optionData.multiplier})`,
+      price: cost,
+      source: 'post_processing',
+      code: 'option-edgeFinishing',
     });
     totalPrice += cost;
   }
 
   if (options?.bulgwang && !selectedOptionSet.has('bulgwang')) {
     const optionData = getOptionData('bulgwang', 0.5);
-    const cost = basePrice * optionData.multiplier + optionData.baseCost;
+    const polishedEdgeLength = options.polishedEdgeLengthM ?? 0;
+    const cost = polishedEdgeLength > 0
+      ? formulaConstants.polishedEdgeRatePerM * polishedEdgeLength * formulaConstants.bulgwangFinishMultiplier
+      : wonJang * optionData.multiplier * formulaConstants.bulgwangFinishMultiplier + optionData.baseCost;
+    warnings.push(polishedEdgeLength > 0
+      ? '불광은 표면 투명도와 매끄러움을 높이는 후가공입니다. 미러증착과 별도로 계산됩니다.'
+      : '불광 기준 엣지 길이가 없어 기존 원판 비례 금액으로 임시 계산했습니다. 최종 발행 전 경면/유광 엣지 길이 확인이 필요합니다.'
+    );
     breakdown.push({ 
-      label: `${optionData.name} (원판×${optionData.multiplier})`, 
-      price: cost 
+      label: polishedEdgeLength > 0
+        ? `${optionData.name} (경면/유광 엣지 ${formatPrice(formulaConstants.polishedEdgeRatePerM * polishedEdgeLength)} × ${formulaConstants.bulgwangFinishMultiplier})`
+        : `${optionData.name} (경면/유광 엣지 길이 미입력, 원장×${optionData.multiplier}×${formulaConstants.bulgwangFinishMultiplier})`,
+      price: cost,
+      source: 'post_processing',
+      code: 'option-bulgwang',
     });
     totalPrice += cost;
   }
