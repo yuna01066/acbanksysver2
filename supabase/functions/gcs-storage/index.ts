@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { isAuthResponse, requireFunctionAuth, withCors } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -113,16 +114,17 @@ serve(async (req) => {
   }
 
   try {
-    const { accessKey, secretKey, projectId } = getCredentials();
-
     // Check if this is a binary upload via custom headers
     const headerAction = req.headers.get('x-gcs-action');
     if (headerAction === 'upload') {
+      await requireFunctionAuth(req);
+      const { accessKey, secretKey } = getCredentials();
       const bucket = req.headers.get('x-gcs-bucket');
       const path = decodeURIComponent(req.headers.get('x-gcs-path') || '');
       const contentType = req.headers.get('content-type') || 'application/octet-stream';
 
       if (!bucket || !path) throw new Error('bucket and path headers are required');
+      if (path.startsWith('/') || path.includes('..')) throw new Error('Invalid path');
 
       // Read body as binary directly - no base64 overhead
       const binaryData = new Uint8Array(await req.arrayBuffer());
@@ -141,6 +143,15 @@ serve(async (req) => {
 
     // JSON-based actions (non-upload)
     const { action, bucket, path, contentType, data: fileData, prefix } = await req.json();
+    const adminActions = new Set(['list-buckets', 'create-bucket', 'list-files']);
+    await requireFunctionAuth(req, adminActions.has(action) ? { allowedRoles: ['admin', 'moderator'] } : {});
+    const { accessKey, secretKey, projectId } = getCredentials();
+    if (typeof path === 'string' && (path.startsWith('/') || path.includes('..'))) {
+      throw new Error('Invalid path');
+    }
+    if (typeof prefix === 'string' && (prefix.startsWith('/') || prefix.includes('..'))) {
+      throw new Error('Invalid prefix');
+    }
 
     switch (action) {
       case 'list-buckets': {
@@ -268,6 +279,7 @@ serve(async (req) => {
         throw new Error(`Unknown action: ${action}. Supported: list-buckets, create-bucket, list-files, upload, get-download-url, delete`);
     }
   } catch (error) {
+    if (isAuthResponse(error)) return withCors(error, corsHeaders);
     console.error('GCS Storage error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),

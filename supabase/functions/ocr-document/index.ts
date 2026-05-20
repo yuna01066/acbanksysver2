@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { isAuthResponse, requireFunctionAuth, withCors } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,6 +12,8 @@ serve(async (req) => {
   }
 
   try {
+    await requireFunctionAuth(req);
+
     const { imageBase64, mimeType, documentType } = await req.json();
 
     if (!imageBase64) {
@@ -111,6 +114,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
+    if (isAuthResponse(error)) return withCors(error, corsHeaders);
     console.error('OCR error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

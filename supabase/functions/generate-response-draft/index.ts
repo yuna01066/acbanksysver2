@@ -122,6 +122,21 @@ async function getAuthenticatedUser(req: Request, supabase: ReturnType<typeof cr
   return data.user;
 }
 
+async function userIsManager(supabase: ReturnType<typeof createClient>, userId: string) {
+  const [{ data: isAdmin }, { data: isModerator }] = await Promise.all([
+    supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+    supabase.rpc("has_role", { _user_id: userId, _role: "moderator" }),
+  ]);
+
+  return Boolean(isAdmin || isModerator);
+}
+
+function stripInternalFields(record: JsonObject | null) {
+  if (!record) return null;
+  const { user_id: _userId, ...safeRecord } = record;
+  return safeRecord;
+}
+
 async function generateDraft(input: {
   caseInput: CaseInput;
   knowledgeItems: JsonObject[];
@@ -197,6 +212,7 @@ serve(async (req) => {
   try {
     const supabase = getServiceClient();
     const user = await getAuthenticatedUser(req, supabase);
+    const isManager = await userIsManager(supabase, user.id);
     const body = await req.json();
     const caseInput = body.caseInput as CaseInput;
     const knowledgeItemIds = Array.isArray(body.knowledgeItemIds) ? body.knowledgeItemIds.filter(Boolean) : [];
@@ -240,14 +256,14 @@ serve(async (req) => {
       quoteId
         ? supabase
             .from("saved_quotes")
-            .select("id, quote_number, recipient_company, recipient_name, project_name, total, subtotal, tax, items, calculation_snapshot, recipient_memo")
+            .select("id, user_id, quote_number, recipient_company, recipient_name, project_name, total, subtotal, tax, items, calculation_snapshot, recipient_memo")
             .eq("id", quoteId)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
       projectId
         ? supabase
             .from("projects")
-            .select("id, name, description, contact_name, contact_phone, contact_email, specs, status, payment_status")
+            .select("id, user_id, name, description, contact_name, contact_phone, contact_email, specs, status, payment_status")
             .eq("id", projectId)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
@@ -256,11 +272,19 @@ serve(async (req) => {
     if (quoteError) throw quoteError;
     if (projectError) throw projectError;
 
+    if (quote && !isManager && quote.user_id !== user.id) {
+      return ok({ error: "Forbidden" }, 403);
+    }
+
+    if (project && !isManager && project.user_id !== user.id) {
+      return ok({ error: "Forbidden" }, 403);
+    }
+
     const draft = await generateDraft({
       caseInput,
       knowledgeItems: (knowledgeItems || []) as JsonObject[],
-      quote: quote as JsonObject | null,
-      project: project as JsonObject | null,
+      quote: stripInternalFields(quote as JsonObject | null),
+      project: stripInternalFields(project as JsonObject | null),
       systemInstruction,
     });
 
