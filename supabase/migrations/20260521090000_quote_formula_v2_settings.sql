@@ -12,6 +12,7 @@ INSERT INTO public.advanced_processing_settings (setting_key, setting_value, dis
   ('laser_full_thin_sheet_fee', 200000, '전체 레이저 공임(1~2T)', '신규 계산 산식 v2: 1~2T 한판 전체 레이저 정액 공임', '원'),
   ('cnc_general_fee', 70000, 'CNC 일반 공임', '신규 계산 산식 v2: CNC 일반 정액 공임', '원'),
   ('cnc_heavy_fee', 100000, 'CNC 고강도 공임', '신규 계산 산식 v2: 20~30T 또는 고강도 CNC 정액 공임', '원'),
+  ('cnc_full_fee', 300000, 'CNC 전체 재단 공임', '신규 계산 산식 v2: CNC 전체 재단 정액 공임', '원'),
   ('complex_shape_fee', 250000, '복잡 형상 공임', '신규 계산 산식 v2: 복잡 형상 가공 기본 공임', '원'),
   ('mugipo45_thin_multiplier', 3.2, '무기포 45도 배수(10T 미만)', '신규 계산 산식 v2: 원판 기준 무기포 45도 10T 미만 최종 배수', '배'),
   ('mugipo45_thick_multiplier', 3.3, '무기포 45도 배수(10T 이상)', '신규 계산 산식 v2: 원판 기준 무기포 45도 10T 이상 최종 배수', '배'),
@@ -45,7 +46,7 @@ SET pricing_method = 'panel_multiplier',
       WHEN 'cnc-simple' THEN 70000
       WHEN 'cnc-general' THEN 70000
       WHEN 'cnc-complex' THEN 100000
-      WHEN 'cnc-full' THEN 100000
+      WHEN 'cnc-full' THEN 300000
       WHEN 'cnc-heavy' THEN 100000
       WHEN 'complex-shapes' THEN 250000
       ELSE base_cost

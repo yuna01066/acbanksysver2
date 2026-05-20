@@ -348,12 +348,15 @@ export interface FormulaConstantsData {
   laserFullThinSheetFee: number;
   cncGeneralFee: number;
   cncHeavyFee: number;
+  cncFullFee: number;
   complexShapeFee: number;
   mugipoBoxSetupFee: number;
   mugipoBoxBondRatePerM: number;
   mugipoBoxMinSalePrice5T250Cube: number;
   polishedEdgeRatePerM: number;
   bulgwangFinishMultiplier: number;
+  mirrorDeposition3x6: number;
+  mirrorDeposition4x8: number;
   mirrorHardCoating3x6: number;
   mirrorHardCoating4x8: number;
 }
@@ -369,12 +372,15 @@ export const DEFAULT_FORMULA_CONSTANTS: FormulaConstantsData = {
   laserFullThinSheetFee: 200_000,
   cncGeneralFee: 70_000,
   cncHeavyFee: 100_000,
+  cncFullFee: 300_000,
   complexShapeFee: 250_000,
   mugipoBoxSetupFee: 50_000,
   mugipoBoxBondRatePerM: 45_000,
   mugipoBoxMinSalePrice5T250Cube: 300_000,
   polishedEdgeRatePerM: 14_200,
   bulgwangFinishMultiplier: 3.0,
+  mirrorDeposition3x6: 0,
+  mirrorDeposition4x8: 0,
   mirrorHardCoating3x6: 200_000,
   mirrorHardCoating4x8: 300_000,
 };
@@ -786,8 +792,13 @@ const getProcessingFormula = (
         fixedFee: constants.cncGeneralFee,
         label: `CNC 일반 가공 (원장×${constants.fabricationBaseMultiplier} + 공임 ${constants.cncGeneralFee.toLocaleString()}원)`,
       };
-    case 'cnc-complex':
     case 'cnc-full':
+      return {
+        multiplier: constants.fabricationBaseMultiplier,
+        fixedFee: constants.cncFullFee,
+        label: `CNC 전체 재단 (원장×${constants.fabricationBaseMultiplier} + 공임 ${constants.cncFullFee.toLocaleString()}원)`,
+      };
+    case 'cnc-complex':
     case 'cnc-heavy':
       return {
         multiplier: constants.fabricationBaseMultiplier,
@@ -1213,6 +1224,23 @@ const getConfiguredOptionSource = (option: ProcessingOptionData): CalculationLin
   return 'processing';
 };
 
+const isMirrorQuality = (qualityId: string) => /mirror/i.test(qualityId);
+
+const isMirrorFinishQuality = (qualityId: string) =>
+  qualityId === 'astel-mirror' || qualityId === 'satin-mirror';
+
+const getMirrorDepositionUnitCost = (
+  sizeKey: string,
+  constants: FormulaConstantsData
+) => {
+  const normalizedSize = normalizePanelSizeKey(sizeKey);
+
+  if (normalizedSize.includes('4*8')) return constants.mirrorDeposition4x8;
+  if (normalizedSize.includes('3*6')) return constants.mirrorDeposition3x6;
+
+  return null;
+};
+
 const getMirrorHardCoatingUnitCost = (
   sizeKey: string,
   constants: FormulaConstantsData
@@ -1517,11 +1545,12 @@ export const calculatePrice = (
     ps => ps.size_name === sizeKey && ps.thickness === thickness && ps.is_active
   );
   
-  const finishSurcharge = qualityId === 'astel-color' || qualityId === 'satin-color'
+  const mirrorQualitySelected = isMirrorQuality(qualityId);
+  const finishSurcharge = qualityId === 'astel-color' || qualityId === 'satin-color' || isMirrorFinishQuality(qualityId)
     ? findOptionSurcharge('satin_astel')
     : undefined;
 
-  if (finishSurcharge && finishSurcharge.cost > 0) {
+  if (mirrorQualitySelected || (finishSurcharge && finishSurcharge.cost > 0)) {
     const clearDbPanelSize = options?.basePanelSizesData?.find(
       ps => ps.size_name === sizeKey && ps.thickness === thickness && ps.is_active
     );
@@ -1533,8 +1562,10 @@ export const calculatePrice = (
     if (clearBasePrice > 0) {
       basePrice = clearBasePrice;
       breakdown.push({ label: 'CLEAR 유광 색상판 기본가', price: basePrice });
-      breakdown.push({ label: '사틴/아스텔 추가금 (DB)', price: finishSurcharge.cost });
-      basePrice += finishSurcharge.cost;
+      if (finishSurcharge && finishSurcharge.cost > 0) {
+        breakdown.push({ label: '사틴/아스텔 추가금 (DB)', price: finishSurcharge.cost });
+        basePrice += finishSurcharge.cost;
+      }
     }
   }
 
@@ -1568,6 +1599,35 @@ export const calculatePrice = (
       basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
       breakdown.push({ label: '유광 보급판 기본가', price: basePrice });
       
+    }
+  }
+
+  if (basePrice > 0 && mirrorQualitySelected) {
+    const configuredMirrorDepositionCost = getMirrorDepositionUnitCost(sizeKey, formulaConstants);
+    const dbDerivedMirrorDepositionCost = dbPanelSize?.price && dbPanelSize.price > basePrice
+      ? Math.round(dbPanelSize.price - basePrice)
+      : 0;
+    const mirrorDepositionCost = configuredMirrorDepositionCost && configuredMirrorDepositionCost > 0
+      ? configuredMirrorDepositionCost
+      : dbDerivedMirrorDepositionCost;
+    const hasMirrorDepositionSetting =
+      formulaConstants.mirrorDeposition3x6 > 0 ||
+      formulaConstants.mirrorDeposition4x8 > 0;
+
+    if (mirrorDepositionCost > 0) {
+      const costDetail = configuredMirrorDepositionCost && configuredMirrorDepositionCost > 0
+        ? `${sizeKey} 1장 × ${configuredMirrorDepositionCost.toLocaleString()}원`
+        : 'DB 미러 재질 단가 차액';
+
+      breakdown.push({
+        label: `미러증착 원판 비용 (${costDetail})`,
+        price: mirrorDepositionCost,
+        source: 'mirror',
+        code: 'mirror-deposition-material',
+      });
+      basePrice += mirrorDepositionCost;
+    } else if (configuredMirrorDepositionCost === null && hasMirrorDepositionSetting) {
+      warnings.push(`미러증착 비용은 3*6/4*8 기준만 자동 계산됩니다. 확인 필요: ${sizeKey}`);
     }
   }
 

@@ -28,16 +28,23 @@ const QualitySelection: React.FC<QualitySelectionProps> = ({
         )}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {qualities.map((quality) => (
-          <Button
-            key={quality.id}
-            variant={selectedQuality?.id === quality.id ? "default" : "minimal"}
-            className="h-16 text-lg font-semibold shadow-depth hover:shadow-smooth transform hover:scale-105 transition-all duration-200"
-            onClick={() => onQualitySelect(quality)}
-          >
-            {quality.name}
-          </Button>
-        ))}
+        {qualities.map((quality) => {
+          const isMirrorQuality = /mirror/i.test(quality.id);
+
+          return (
+            <Button
+              key={quality.id}
+              variant={selectedQuality?.id === quality.id ? "default" : "minimal"}
+              className="h-auto min-h-16 flex-col items-start justify-center gap-1 text-left text-lg font-semibold shadow-depth hover:shadow-smooth transform hover:scale-105 transition-all duration-200"
+              onClick={() => onQualitySelect(quality)}
+            >
+              <span>{quality.name}</span>
+              {isMirrorQuality && (
+                <span className="text-xs font-medium opacity-80">미러증착 비용 포함</span>
+              )}
+            </Button>
+          );
+        })}
       </div>
     </div>
   );
