@@ -35,8 +35,10 @@ const FloatingResponseAssistant: React.FC = () => {
   const location = useLocation();
   const [open, setOpen] = useState(readStoredOpenState);
   const [guideOpenSignal, setGuideOpenSignal] = useState(0);
+  const [launcherHintVisible, setLauncherHintVisible] = useState(false);
 
   const isHidden = isHiddenPath(location.pathname);
+  const showLauncherHint = launcherHintVisible && !open;
 
   useEffect(() => {
     try {
@@ -104,15 +106,27 @@ const FloatingResponseAssistant: React.FC = () => {
         </div>
       )}
 
-      <div className="pointer-events-auto group relative ml-auto flex h-[88px] w-[88px] items-center justify-center">
+      <div
+        className="pointer-events-auto relative ml-auto flex h-[88px] w-[88px] items-center justify-center"
+        onMouseEnter={() => setLauncherHintVisible(true)}
+        onMouseLeave={() => setLauncherHintVisible(false)}
+        onFocus={() => setLauncherHintVisible(true)}
+        onBlur={() => setLauncherHintVisible(false)}
+      >
         <div
           className={cn(
-            'pointer-events-none absolute right-[76px] top-1/2 z-10 min-w-[188px] -translate-y-1/2 translate-x-3 scale-95 rounded-2xl border border-[#dedede] bg-white px-4 py-3 text-center text-sm font-black text-[#111111] opacity-0 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition-all duration-300 ease-out before:absolute before:-right-2 before:top-1/2 before:h-4 before:w-4 before:-translate-y-1/2 before:rotate-45 before:border-r before:border-t before:border-[#dedede] before:bg-white group-hover:translate-x-0 group-hover:scale-100 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:scale-100 group-focus-within:opacity-100',
+            'pointer-events-none absolute right-[72px] top-1 z-10 min-w-[166px] whitespace-nowrap rounded-2xl border border-[#dedede] bg-white px-3.5 py-2 text-center text-xs font-normal leading-none text-[#111111] shadow-[0_12px_30px_rgba(0,0,0,0.14)] transition-all duration-300 ease-out before:absolute before:-right-2 before:top-1/2 before:h-4 before:w-4 before:-translate-y-1/2 before:rotate-45 before:border-r before:border-t before:border-[#dedede] before:bg-white',
+            showLauncherHint ? 'translate-x-0 scale-100 opacity-100' : 'translate-x-3 scale-95 opacity-0',
             open && 'hidden',
           )}
           aria-hidden="true"
         >
-          <span className="block origin-left translate-y-1 opacity-0 transition-all delay-100 duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
+          <span
+            className={cn(
+              'block origin-left transition-all delay-100 duration-300',
+              showLauncherHint ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
+            )}
+          >
             상담CS를 도와드릴까요?
           </span>
         </div>
@@ -126,7 +140,14 @@ const FloatingResponseAssistant: React.FC = () => {
           )}
           aria-label={open ? '상담 응대 보조 닫기' : '상담 응대 보조 열기'}
         >
-          <img src={responseAssistantIcon} alt="" className="h-[82px] w-[74px] object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.24)] transition-transform group-hover:scale-105" />
+          <img
+            src={responseAssistantIcon}
+            alt=""
+            className={cn(
+              'h-[82px] w-[74px] object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.24)] transition-transform',
+              showLauncherHint && 'scale-105',
+            )}
+          />
         </button>
       </div>
     </div>
