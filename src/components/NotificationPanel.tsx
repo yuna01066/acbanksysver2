@@ -51,7 +51,7 @@ const NotificationPanel = ({
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      toast.success('비밀번호가 1234로 초기화되었습니다.');
+      toast.success(`임시 비밀번호가 발급되었습니다: ${data?.temporaryPassword || '관리자 화면에서 확인 필요'}`);
       onRemove(notification.id);
       onRefresh();
     } catch (err: any) {

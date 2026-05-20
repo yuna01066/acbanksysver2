@@ -82,7 +82,7 @@ const ForgotPasswordPage = () => {
                 <h3 className="text-lg font-semibold">요청이 접수되었습니다</h3>
                 <p className="text-sm text-muted-foreground">
                   관리자가 요청을 확인한 후 비밀번호가 초기화됩니다.<br />
-                  초기화된 비밀번호는 <strong>1234</strong> 입니다.<br />
+                  승인 후 안내받은 임시 비밀번호로 로그인해주세요.<br />
                   로그인 후 반드시 비밀번호를 변경해주세요.
                 </p>
                 <Button variant="outline" className="w-full" onClick={() => navigate('/auth')}>

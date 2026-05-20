@@ -32,4 +32,5 @@ SUPABASE_SERVICE_ROLE_KEY
 
 - The function ignores manager and bot messages to avoid loops.
 - Summary messages are sent with Channel Talk `private` and `silent` options, so they are intended for internal staff review.
-- Image attachments are analyzed directly. Unsupported formats are stored and marked for manual review.
+- JPG/PNG/WebP image attachments and PDFs are analyzed directly.
+- AI/CAD/DXF/DWG/EPS and other source files are treated as originals for manual review; the bot asks for a PDF/JPG/PNG preview file for faster automatic analysis.

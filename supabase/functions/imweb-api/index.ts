@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isAuthResponse, requireFunctionAuth, withCors } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -110,6 +111,29 @@ async function imwebPatch(token: string, path: string, body: Record<string, unkn
   return res.json();
 }
 
+function safeAppRedirect(value: string | null): string {
+  if (!value) return "/imweb-management";
+  if (value.startsWith("/")) return value;
+
+  try {
+    const parsed = new URL(value);
+    const allowedHosts = new Set([
+      "acbanksysver2.lovable.app",
+      "preview--acbanksysver2.lovable.app",
+      "id-preview--29211ce7-47f3-4107-b997-8f94d725e890.lovable.app",
+      "localhost",
+      "127.0.0.1",
+    ]);
+    if (allowedHosts.has(parsed.hostname)) {
+      return value;
+    }
+  } catch {
+    return "/imweb-management";
+  }
+
+  return "/imweb-management";
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -157,7 +181,7 @@ serve(async (req) => {
 
       if (!tokenRes.ok || !tokenData.data?.accessToken) {
         // Redirect to app with error
-        const appUrl = state || "/imweb-management";
+        const appUrl = safeAppRedirect(state);
         return new Response(null, {
           status: 302,
           headers: {
@@ -182,7 +206,7 @@ serve(async (req) => {
       });
 
       // Redirect back to app with success
-      const appUrl = state || "/imweb-management";
+      const appUrl = safeAppRedirect(state);
       return new Response(null, {
         status: 302,
         headers: {
@@ -191,6 +215,9 @@ serve(async (req) => {
         },
       });
     }
+
+    const authContext = await requireFunctionAuth(req, { allowedRoles: ["admin", "moderator"] });
+    const userId = authContext.user!.id;
 
     // === Generate OAuth authorize URL ===
     if (action === "get-auth-url") {
@@ -237,28 +264,12 @@ serve(async (req) => {
       });
     }
 
-    // --- All other actions require user auth ---
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
+    const authHeader = req.headers.get("Authorization")!;
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
-
-    const jwtToken = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(jwtToken);
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const userId = user.id;
 
     const imwebToken = await getImwebToken();
 
@@ -449,6 +460,7 @@ serve(async (req) => {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
+    if (isAuthResponse(error)) return withCors(error, corsHeaders);
     console.error("Imweb API error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
     const isNotConnected = message.includes("IMWEB_NOT_CONNECTED");

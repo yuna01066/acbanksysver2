@@ -196,6 +196,11 @@ function isAnalyzableMime(mimeType: string): boolean {
   return mimeType.startsWith("image/") || mimeType === "application/pdf";
 }
 
+function needsPreviewFile(file: ExtractedFile): boolean {
+  const name = (file.name || file.key || "").toLowerCase();
+  return /\.(ai|eps|dwg|dxf|skp|3dm|stp|step|igs|iges|obj|cad)$/.test(name);
+}
+
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
   const chunkSize = 0x8000;
@@ -207,18 +212,23 @@ function bytesToBase64(bytes: Uint8Array): string {
 
 async function analyzeAttachment(file: ExtractedFile, bytes: Uint8Array, mimeType: string): Promise<QuoteAnalysis> {
   if (!isAnalyzableMime(mimeType)) {
+    const previewNote = needsPreviewFile(file)
+      ? " 원본 파일은 보관하되, 빠른 자동 분석을 위해 PDF/JPG/PNG 미리보기 파일을 함께 요청해주세요."
+      : "";
+
     return {
       confidence: "low",
-      missing_fields: ["품목", "사이즈", "수량", "희망 납기"],
-      summary: `${file.name || "첨부파일"}은 자동 분석 지원 형식이 아니어서 수동 확인이 필요합니다.`,
-      recommended_reply: "첨부파일은 확인했습니다. 제작 품목, 사이즈, 수량, 희망 납기를 함께 알려주시면 견적 검토가 가능합니다.",
+      missing_fields: ["PDF/JPG/PNG 미리보기", "품목", "사이즈", "수량", "희망 납기"],
+      summary: `${file.name || "첨부파일"}은 자동 분석 지원 형식이 아니어서 수동 확인이 필요합니다.${previewNote}`,
+      recommended_reply: "원본 파일은 확인했습니다. 빠른 견적 확인을 위해 PDF, JPG 또는 PNG 미리보기 파일과 제작 품목, 사이즈, 수량, 희망 납기를 함께 알려주세요.",
     };
   }
 
   const apiKey = getEnv("LOVABLE_API_KEY");
   const base64 = bytesToBase64(bytes);
   const prompt = `아크뱅크의 아크릴/공간 제작 견적 상담을 위한 첨부파일입니다.
-도면, 스케치, 제품 이미지, 레퍼런스, PDF에서 견적 검토에 필요한 정보를 추출하세요.
+도면, 손그림 스케치, 제품 이미지, 레퍼런스 이미지, PDF에서 견적 검토에 필요한 정보를 추출하세요.
+AI/CAD/DXF/DWG/EPS 같은 원본 설계 파일은 원본 보관용이고, 자동 분석은 PDF/JPG/PNG 미리보기 기준으로 진행된다는 점을 전제로 누락 정보를 판단하세요.
 
 반드시 JSON만 응답하세요:
 {
@@ -465,9 +475,9 @@ async function processWebhook(payload: JsonObject) {
       console.error("Attachment analysis failed", file.key, error);
       analyses.push({
         confidence: "low",
-        missing_fields: ["품목", "사이즈", "수량", "희망 납기"],
-        summary: `${file.name || file.key} 자동 분석에 실패했습니다. 수동 확인이 필요합니다.`,
-        recommended_reply: "첨부파일은 확인했습니다. 제작 품목, 사이즈, 수량, 희망 납기를 함께 알려주시면 견적 검토가 가능합니다.",
+        missing_fields: ["PDF/JPG/PNG 미리보기", "품목", "사이즈", "수량", "희망 납기"],
+        summary: `${file.name || file.key} 자동 분석에 실패했습니다. PDF/JPG/PNG 미리보기가 없으면 수동 확인이 필요합니다.`,
+        recommended_reply: "첨부파일은 확인했습니다. 빠른 견적 확인을 위해 PDF, JPG 또는 PNG 미리보기 파일과 제작 품목, 사이즈, 수량, 희망 납기를 함께 알려주세요.",
       });
     }
   }
@@ -516,13 +526,17 @@ serve(async (req) => {
 
   try {
     const expectedToken = getEnv("CHANNEL_TALK_WEBHOOK_TOKEN", false);
+    if (!expectedToken) {
+      console.error("Missing CHANNEL_TALK_WEBHOOK_TOKEN");
+      return ok({ error: "Webhook token is not configured" }, 500);
+    }
     const url = new URL(req.url);
     const providedToken =
       req.headers.get("x-channel-talk-token") ||
       req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
       url.searchParams.get("token");
 
-    if (expectedToken && providedToken !== expectedToken) {
+    if (providedToken !== expectedToken) {
       return ok({ error: "Unauthorized" }, 401);
     }
 

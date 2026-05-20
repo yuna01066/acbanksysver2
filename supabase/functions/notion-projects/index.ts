@@ -1,3 +1,5 @@
+import { isAuthResponse, requireFunctionAuth, withCors } from "../_shared/auth.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -19,6 +21,8 @@ Deno.serve(async (req) => {
   }
 
   try {
+    await requireFunctionAuth(req);
+
     const NOTION_API_KEY = Deno.env.get('NOTION_API_KEY');
     if (!NOTION_API_KEY) {
       console.error('Missing required secret for notion-projects', { hasNotionApiKey: false });
@@ -144,6 +148,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {
+    if (isAuthResponse(error)) return withCors(error, corsHeaders);
     console.error('Error fetching Notion projects:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(JSON.stringify({ error: errorMessage }), {

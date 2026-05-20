@@ -28,6 +28,22 @@ interface TokenResponse {
 
 let cachedToken: { token: string; expiration: Date } | null = null;
 
+const MANAGER_ACTIONS = new Set([
+  "getToken",
+  "registIssue",
+  "register",
+  "issue",
+  "getInfo",
+  "getDetailInfo",
+  "cancelIssue",
+  "sendEmail",
+  "sendSMS",
+  "sendFAX",
+  "search",
+  "getPopbillURL",
+  "checkCertValidation",
+]);
+
 /**
  * 링크허브 인증 토큰 발급
  */
@@ -204,6 +220,20 @@ serve(async (req) => {
 
     // 요청 파싱
     const { action, ...params } = await req.json();
+
+    if (MANAGER_ACTIONS.has(action)) {
+      const [{ data: isAdmin }, { data: isModerator }] = await Promise.all([
+        supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+        supabase.rpc("has_role", { _user_id: userId, _role: "moderator" }),
+      ]);
+
+      if (!isAdmin && !isModerator) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     // 팝빌 토큰 발급
     const token = await getToken(POPBILL_LINK_ID, POPBILL_SECRET_KEY, POPBILL_CORP_NUM);
