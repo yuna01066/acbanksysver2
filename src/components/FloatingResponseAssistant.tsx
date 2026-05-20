@@ -1,9 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { HelpCircle, X } from 'lucide-react';
-import responseAssistantIcon from '@/assets/bongsun-face.png';
+import defaultResponseAssistantIcon from '@/assets/response-assistant-default-icon.png';
+import responseAssistantSpeechBubble from '@/assets/response-assistant-speech-bubble.png';
 import { Button } from '@/components/ui/button';
 import ResponseAssistantWidget from '@/components/ResponseAssistantWidget';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { RESPONSE_ASSISTANT_ICON_SETTING_KEY } from '@/lib/responseAssistantDefaults';
 import { cn } from '@/lib/utils';
 
 const HIDDEN_PATHS = [
@@ -31,14 +36,35 @@ const readStoredOpenState = () => {
   }
 };
 
+const isSupportedIconValue = (value?: string | null) => (
+  typeof value === 'string'
+  && (/^data:image\/(png|jpe?g|webp|gif);base64,/.test(value) || value.startsWith('/'))
+);
+
 const FloatingResponseAssistant: React.FC = () => {
   const location = useLocation();
+  const { user } = useAuth();
   const [open, setOpen] = useState(readStoredOpenState);
   const [guideOpenSignal, setGuideOpenSignal] = useState(0);
   const [launcherHintVisible, setLauncherHintVisible] = useState(false);
 
   const isHidden = isHiddenPath(location.pathname);
   const showLauncherHint = launcherHintVisible && !open;
+  const { data: iconSetting } = useQuery({
+    queryKey: ['response-assistant-launcher-icon'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('response_assistant_settings')
+        .select('value')
+        .eq('key', RESPONSE_ASSISTANT_ICON_SETTING_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.value || '';
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 5,
+  });
+  const responseAssistantIcon = isSupportedIconValue(iconSetting) ? iconSetting : defaultResponseAssistantIcon;
 
   useEffect(() => {
     try {
@@ -107,7 +133,7 @@ const FloatingResponseAssistant: React.FC = () => {
       )}
 
       <div
-        className="pointer-events-auto relative ml-auto flex h-[88px] w-[88px] items-center justify-center"
+        className="pointer-events-auto group relative ml-auto flex h-[88px] w-[88px] items-center justify-center"
         onMouseEnter={() => setLauncherHintVisible(true)}
         onMouseLeave={() => setLauncherHintVisible(false)}
         onFocus={() => setLauncherHintVisible(true)}
@@ -115,15 +141,20 @@ const FloatingResponseAssistant: React.FC = () => {
       >
         <div
           className={cn(
-            'pointer-events-none absolute right-[72px] top-1 z-10 min-w-[166px] whitespace-nowrap rounded-2xl border border-[#dedede] bg-white px-3.5 py-2 text-center text-xs font-normal leading-none text-[#111111] shadow-[0_12px_30px_rgba(0,0,0,0.14)] transition-all duration-300 ease-out before:absolute before:-right-2 before:top-1/2 before:h-4 before:w-4 before:-translate-y-1/2 before:rotate-45 before:border-r before:border-t before:border-[#dedede] before:bg-white',
+            'pointer-events-none absolute -top-10 right-[60px] z-10 h-[148px] w-[184px] transition-all duration-300 ease-out group-hover:translate-x-0 group-hover:scale-100 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:scale-100 group-focus-within:opacity-100',
             showLauncherHint ? 'translate-x-0 scale-100 opacity-100' : 'translate-x-3 scale-95 opacity-0',
             open && 'hidden',
           )}
           aria-hidden="true"
         >
+          <img
+            src={responseAssistantSpeechBubble}
+            alt=""
+            className="absolute inset-0 h-full w-full object-fill drop-shadow-[0_12px_20px_rgba(0,0,0,0.08)]"
+          />
           <span
             className={cn(
-              'block origin-left transition-all delay-100 duration-300',
+              'absolute left-5 right-9 top-[48px] block origin-left whitespace-nowrap text-center text-[11px] font-normal leading-none text-[#111111] transition-all delay-100 duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100',
               showLauncherHint ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
             )}
           >
