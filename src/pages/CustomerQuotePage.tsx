@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, FileText, Calendar } from "lucide-react";
+import { Download, FileText, Calendar } from "lucide-react";
 import { formatPrice } from "@/utils/priceCalculations";
 import PrintStyles from "@/components/PrintStyles";
+import HomeLogoButton from "@/components/HomeLogoButton";
 
 interface QuoteData {
   factory?: string;
@@ -26,6 +27,15 @@ interface QuoteData {
   issuerPhone?: string;
   issuerEmail?: string;
 }
+
+const toCustomerSafeBreakdownLabel = (label: string) => {
+  if (/미러.*하드코팅|하드코팅/.test(label)) return '미러 하드코팅 포함';
+  if (/불광/.test(label)) return '불광 마감 포함';
+  if (/경면|유광 엣지|엣지/.test(label)) return '엣지 마감 포함';
+  if (/UV|배면인쇄/.test(label)) return 'UV 배면인쇄 포함';
+  if (/염색/.test(label)) return '염색 외주 포함';
+  return label.replace(/\s*\([^)]*\)/g, '').trim();
+};
 
 const CustomerQuotePage = () => {
   const location = useLocation();
@@ -75,14 +85,7 @@ const CustomerQuotePage = () => {
       <div className="w-full max-w-4xl mx-auto print-container">
         {/* 상단 액션 버튼들 */}
         <div className="flex justify-between items-center mb-6 print:hidden">
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            홈으로 돌아가기
-          </Button>
+          <HomeLogoButton size="default" />
           <Button 
             onClick={handlePrintPDF}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
@@ -170,7 +173,7 @@ const CustomerQuotePage = () => {
                   <div className="space-y-2">
                     {quoteData.breakdown.map((item, index) => (
                       <div key={index} className="flex items-center py-2 border-b border-gray-200 last:border-0">
-                        <div className="text-gray-700">{item.label}</div>
+                        <div className="text-gray-700">{toCustomerSafeBreakdownLabel(item.label)}</div>
                       </div>
                     ))}
                   </div>

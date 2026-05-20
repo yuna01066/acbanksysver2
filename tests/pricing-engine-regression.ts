@@ -37,6 +37,29 @@ const edgeOption: ProcessingOptionData = {
   is_active: true,
 };
 
+const bulgwangOption: ProcessingOptionData = {
+  option_id: 'bulgwang',
+  name: '불광 후가공',
+  option_type: 'additional',
+  category: 'additional',
+  multiplier: 0.5,
+  pricing_method: 'per_meter',
+  unit: 'polished_edge_m',
+  rate: 14_200,
+  requires_review: true,
+  is_active: true,
+};
+
+const mirrorHardCoatingOption: ProcessingOptionData = {
+  option_id: 'mirrorHardCoating',
+  name: '미러 증착용 하드코팅',
+  option_type: 'additional',
+  category: 'additional',
+  pricing_method: 'per_unit',
+  unit: 'panel',
+  is_active: true,
+};
+
 const laserFullOption: ProcessingOptionData = {
   option_id: 'laser-full',
   name: '레이저 전체 재단',
@@ -99,11 +122,35 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 313_080);
+  assert.equal(result.snapshotVersion, 'pricing-engine-v2-core-260520');
+  assert.equal(result.formulaDocVersion, 260520);
+  assert.equal(result.totalPrice, 187_780);
   assert.equal(
-    result.breakdown.find(item => item.label.includes('레이저 전체 재단'))?.price,
-    222_480,
-    'panel_multiplier options must preserve base_cost as an additive setup fee'
+    result.breakdown.find(item => item.label.includes('전체 레이저 재단'))?.price,
+    97_180,
+    'known laser profiles must use formula v2: sheet cost x 1.3 + fixed labor'
+  );
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'glossy-color',
+    '5T',
+    '4*8',
+    '단면',
+    undefined,
+    'complex-cutting',
+    0,
+    { processingOptionsData: [] }
+  );
+
+  assert.equal(result.status, 'calculable');
+  assert.equal(result.totalPrice, 187_780);
+  assert.equal(
+    result.breakdown.find(item => item.label.includes('복합 재단'))?.price,
+    97_180,
+    'complex cutting must use formula v2: sheet cost x 1.3 + 70,000'
   );
 }
 
@@ -249,17 +296,99 @@ const inRange = (value: number, min: number, max: number, message: string) => {
     {
       edgeFinishing: true,
       selectedAdditionalOptions: { edgeFinishing: 1 },
+      polishedEdgeLengthM: 2,
       processingOptionsData: [edgeOption],
     }
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 135_900);
+  assert.equal(result.totalPrice, 119_000);
   assert.equal(
     result.lineItems.filter(item => item.code === 'option-edgeFinishing').length,
     1,
     'edgeFinishing must not be charged twice'
   );
+  assert.equal(
+    result.lineItems.find(item => item.code === 'option-edgeFinishing')?.source,
+    'post_processing',
+    'edge finishing must be classified separately from mirror deposition'
+  );
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'glossy-color',
+    '5T',
+    '4*8',
+    '단면',
+    undefined,
+    'bulgwang',
+    0,
+    {
+      selectedAdditionalOptions: { bulgwang: 1 },
+      polishedEdgeLengthM: 2,
+      processingOptionsData: [bulgwangOption],
+    }
+  );
+
+  assert.equal(result.status, 'needs_review');
+  assert.equal(result.totalPrice, 175_800);
+  assert.equal(
+    result.lineItems.find(item => item.code === 'option-bulgwang')?.source,
+    'post_processing',
+    'bulgwang must be post-processing, not mirror deposition'
+  );
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'acrylic-mirror',
+    '5T',
+    '4*8',
+    '단면',
+    undefined,
+    'mirrorHardCoating',
+    0,
+    {
+      selectedAdditionalOptions: { mirrorHardCoating: 1 },
+      selectedPanelSizesForOptions: [{ size: '4*8', quantity: 2 }],
+      processingOptionsData: [mirrorHardCoatingOption],
+      panelSizesData: [{ size_name: '4*8', thickness: '5T', price: 100_000, is_active: true }],
+    }
+  );
+
+  assert.equal(result.status, 'calculable');
+  assert.equal(result.totalPrice, 700_000);
+  assert.equal(
+    result.lineItems.find(item => item.code === 'option-mirrorHardCoating')?.source,
+    'mirror',
+    'mirror hard coating must be classified as mirror option'
+  );
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'acrylic-mirror',
+    '5T',
+    '5*6',
+    '단면',
+    undefined,
+    'mirrorHardCoating',
+    0,
+    {
+      selectedAdditionalOptions: { mirrorHardCoating: 1 },
+      selectedPanelSizesForOptions: [{ size: '5*6', quantity: 1 }],
+      processingOptionsData: [mirrorHardCoatingOption],
+      panelSizesData: [{ size_name: '5*6', thickness: '5T', price: 100_000, is_active: true }],
+    }
+  );
+
+  assert.equal(result.status, 'needs_review');
+  assert.equal(result.totalPrice, 100_000);
+  assert.match(result.warnings.join(' '), /3\*6\/4\*8/);
 }
 
 {

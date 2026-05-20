@@ -23,6 +23,10 @@ interface AdvancedProcessingOptionsProps {
   
   bevelLengthM?: number;
   onBevelLengthChange?: (length: number) => void;
+
+  polishedEdgeLengthM?: number;
+  onPolishedEdgeLengthChange?: (length: number) => void;
+  needsPolishedEdgeLength?: boolean;
   
   laserHoles?: number;
   onLaserHolesChange?: (holes: number) => void;
@@ -36,6 +40,9 @@ const AdvancedProcessingOptions = ({
   onComplexChange,
   bevelLengthM = 0,
   onBevelLengthChange,
+  polishedEdgeLengthM = 0,
+  onPolishedEdgeLengthChange,
+  needsPolishedEdgeLength = false,
   laserHoles = 0,
   onLaserHolesChange,
 }: AdvancedProcessingOptionsProps) => {
@@ -45,6 +52,8 @@ const AdvancedProcessingOptions = ({
   // DB에서 단가 가져오기
   const bevelCostPerM = getSettingValue('bevel_cost_per_m');
   const laserHoleCost = getSettingValue('laser_hole_cost');
+  const polishedEdgeRatePerM = getSettingValue('polished_edge_rate_per_m') || 14200;
+  const bulgwangMultiplier = getSettingValue('bulgwang_finish_multiplier') || 3;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-6">
@@ -133,6 +142,30 @@ const AdvancedProcessingOptions = ({
                   className="font-medium"
                 />
               </div>
+
+              {needsPolishedEdgeLength && (
+                <div className="space-y-2 rounded-lg border border-blue-100 bg-blue-50/60 p-3">
+                  <Label htmlFor="polishedEdgeLength" className="text-sm font-semibold flex items-center gap-2">
+                    경면/불광 기준 엣지 길이 (m)
+                    <Badge variant="outline" className="text-xs bg-white">
+                      {polishedEdgeRatePerM.toLocaleString()}원/m · 불광 ×{bulgwangMultiplier}
+                    </Badge>
+                  </Label>
+                  <Input
+                    id="polishedEdgeLength"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={polishedEdgeLengthM || ''}
+                    onChange={(e) => onPolishedEdgeLengthChange?.(parseFloat(e.target.value) || 0)}
+                    placeholder="예: 2.4"
+                    className="font-medium bg-white"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    불광은 미러증착이 아니라 표면을 매끄럽고 투명하게 만드는 후가공입니다. 길이를 비워두면 기존 원판 비례 금액으로 임시 계산되고 검수 필요로 표시됩니다.
+                  </p>
+                </div>
+              )}
 
               {/* 레이저 타공 */}
               <div className="space-y-2">

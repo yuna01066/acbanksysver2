@@ -146,6 +146,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [qty, setQty] = useState<number>(1);
   const [isComplex, setIsComplex] = useState<boolean>(false);
   const [bevelLengthM, setBevelLengthM] = useState<number>(0);
+  const [polishedEdgeLengthM, setPolishedEdgeLengthM] = useState<number>(0);
   const [laserHoles, setLaserHoles] = useState<number>(0);
   const [edgeFinishing, setEdgeFinishing] = useState<boolean>(false);
   const [bulgwang, setBulgwang] = useState<boolean>(false);
@@ -507,6 +508,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     qty,
     isComplex,
     bevelLengthM,
+    polishedEdgeLengthM,
     laserHoles,
     edgeFinishing,
     bulgwang,
@@ -833,14 +835,17 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       blockedReasons?: string[];
       lineItems?: unknown[];
       snapshotVersion?: string;
+      formulaDocVersion?: number;
     }
   ) => {
     const capturedAt = new Date().toISOString();
     const pricingVersionDisplayName = getActivePricingVersionDisplayName(capturedAt);
 
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       capturedAt,
+      snapshotVersion: calculationMeta?.snapshotVersion || 'pricing-engine-v2-core-260520',
+      formulaDocVersion: calculationMeta?.formulaDocVersion || 260520,
       pricingVersion: activePricingVersion ? {
         id: activePricingVersion.id,
         versionName: pricingVersionDisplayName,
@@ -869,9 +874,16 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         processing: selectedProcessing,
         processingName: selectedProcessingName || PROCESSING_OPTIONS.find(p => p.id === selectedProcessing)?.name || '',
         additionalOptions: selectedAdditionalOptions,
+        quantityContext: {
+          panelQty: selectedSizes.reduce((sum, item) => sum + Math.max(0, item.quantity || 0), 0),
+          optionQty: selectedAdditionalOptions,
+          lineQty: 1,
+          productQty: qty,
+        },
         qty,
         isComplex,
         bevelLengthM,
+        polishedEdgeLengthM,
         laserHoles,
         edgeFinishing,
         bulgwang,
@@ -883,7 +895,13 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       calculationWarnings: calculationMeta?.warnings || [],
       calculationBlockedReasons: calculationMeta?.blockedReasons || [],
       calculationLineItems: calculationMeta?.lineItems || [],
-      calculationEngineVersion: calculationMeta?.snapshotVersion || 'pricing-engine-v1',
+      calculationEngineVersion: calculationMeta?.snapshotVersion || 'pricing-engine-v2-core-260520',
+      quantityContext: {
+        panelQty: selectedSizes.reduce((sum, item) => sum + Math.max(0, item.quantity || 0), 0),
+        optionQty: selectedAdditionalOptions,
+        lineQty: 1,
+        productQty: qty,
+      },
       breakdown: breakdown.map(item => ({ ...item })),
       totalPrice,
       note: '저장 당시 단가와 계산 근거입니다. 이후 단가표 변경은 이 견적 금액에 자동 반영되지 않습니다.',
@@ -999,8 +1017,10 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
             total: newTotal,
             pricing_version_id: activePricingVersion?.id || null,
             calculation_snapshot: {
-              schemaVersion: 1,
+              schemaVersion: 2,
               capturedAt: new Date().toISOString(),
+              snapshotVersion: 'issued-quote-snapshot-v2',
+              formulaDocVersion: 260520,
               pricingVersionId: activePricingVersion?.id || null,
               pricingVersionName: getActivePricingVersionDisplayName(),
               items: items.map(item => ({
@@ -1063,8 +1083,10 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
             total: newTotal,
             pricing_version_id: activePricingVersion?.id || null,
             calculation_snapshot: {
-              schemaVersion: 1,
+              schemaVersion: 2,
               capturedAt: new Date().toISOString(),
+              snapshotVersion: 'issued-quote-snapshot-v2',
+              formulaDocVersion: 260520,
               pricingVersionId: activePricingVersion?.id || null,
               pricingVersionName: getActivePricingVersionDisplayName(),
               items: items.map(item => ({
@@ -1253,8 +1275,10 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
             total: newTotal,
             pricing_version_id: activePricingVersion?.id || null,
             calculation_snapshot: {
-              schemaVersion: 1,
+              schemaVersion: 2,
               capturedAt: new Date().toISOString(),
+              snapshotVersion: 'issued-quote-snapshot-v2',
+              formulaDocVersion: 260520,
               pricingVersionId: activePricingVersion?.id || null,
               pricingVersionName: getActivePricingVersionDisplayName(),
               items: items.map(item => ({
@@ -1601,6 +1625,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
                 onAdhesionSelect={handleAdhesionSelect}
                 onSelectionCompleteChange={setIsProcessingSelectionComplete}
                 isGlossyStandard={selectedQuality?.id === 'glossy-standard'}
+                selectedQualityId={selectedQuality?.id}
                 selectedThickness={selectedThickness}
                 qty={qty}
                 onQtyChange={setQty}
@@ -1624,6 +1649,14 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
                 onComplexChange={setIsComplex}
                 bevelLengthM={bevelLengthM}
                 onBevelLengthChange={setBevelLengthM}
+                polishedEdgeLengthM={polishedEdgeLengthM}
+                onPolishedEdgeLengthChange={setPolishedEdgeLengthM}
+                needsPolishedEdgeLength={Boolean(
+                  edgeFinishing ||
+                  bulgwang ||
+                  selectedAdditionalOptions.edgeFinishing ||
+                  selectedAdditionalOptions.bulgwang
+                )}
                 laserHoles={laserHoles}
                 onLaserHolesChange={setLaserHoles}
               />
