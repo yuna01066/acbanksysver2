@@ -141,7 +141,7 @@ const FloatingResponseAssistant: React.FC = () => {
       >
         <div
           className={cn(
-            'pointer-events-none absolute -top-10 right-[60px] z-10 h-[148px] w-[184px] transition-all duration-300 ease-out group-hover:translate-x-0 group-hover:scale-100 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:scale-100 group-focus-within:opacity-100',
+            'pointer-events-none absolute bottom-[42px] right-[44px] z-10 h-[120px] w-[150px] origin-bottom-right transition-all duration-300 ease-out group-hover:translate-x-0 group-hover:scale-100 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:scale-100 group-focus-within:opacity-100',
             showLauncherHint ? 'translate-x-0 scale-100 opacity-100' : 'translate-x-3 scale-95 opacity-0',
             open && 'hidden',
           )}
@@ -154,7 +154,7 @@ const FloatingResponseAssistant: React.FC = () => {
           />
           <span
             className={cn(
-              'absolute left-5 right-9 top-[48px] block origin-left whitespace-nowrap text-center text-[11px] font-normal leading-none text-[#111111] transition-all delay-100 duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100',
+              'absolute left-2.5 right-6 top-[41px] block origin-left whitespace-nowrap text-center text-[10px] font-normal leading-none text-[#111111] transition-all delay-100 duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100',
               showLauncherHint ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
             )}
           >
@@ -166,7 +166,7 @@ const FloatingResponseAssistant: React.FC = () => {
           type="button"
           onClick={() => setOpen((current) => !current)}
           className={cn(
-            'flex h-[88px] w-[88px] items-center justify-center bg-transparent p-0 transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-0 active:scale-95',
+            'relative z-20 flex h-[88px] w-[88px] items-center justify-center bg-transparent p-0 transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-0 active:scale-95',
             open && 'scale-95',
           )}
           aria-label={open ? '상담 응대 보조 닫기' : '상담 응대 보조 열기'}
