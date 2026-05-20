@@ -43,7 +43,7 @@ interface InfoRowProps {
 
 const InfoRow = ({ label, children, relaxed = false }: InfoRowProps) => (
   <div className="flex gap-3">
-    <span className="w-20 shrink-0 text-slate-500">{label}</span>
+    <span className="w-20 shrink-0 font-semibold text-slate-500">{label}</span>
     <span className={`font-normal text-slate-800 ${relaxed ? 'leading-relaxed' : ''}`}>
       {children}
     </span>
