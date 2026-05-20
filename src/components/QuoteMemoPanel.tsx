@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { logQuoteActivity } from '@/services/quoteActivity';
 
 interface QuoteMemoPanelProps {
   quoteId: string;
@@ -44,9 +45,17 @@ const QuoteMemoPanel: React.FC<QuoteMemoPanelProps> = ({ quoteId }) => {
         content,
       });
       if (error) throw error;
+      await logQuoteActivity({
+        quoteId,
+        actionType: 'memo_added',
+        actorId: user.id,
+        actorName: profile?.full_name || user.email || '알 수 없음',
+        memo: content,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quote-memos', quoteId] });
+      queryClient.invalidateQueries({ queryKey: ['quote-activity-history', quoteId] });
       setNewMemo('');
       toast.success('메모가 추가되었습니다.');
     },
@@ -54,12 +63,22 @@ const QuoteMemoPanel: React.FC<QuoteMemoPanelProps> = ({ quoteId }) => {
   });
 
   const deleteMemo = useMutation({
-    mutationFn: async (memoId: string) => {
-      const { error } = await supabase.from('quote_memos').delete().eq('id', memoId);
+    mutationFn: async (memo: any) => {
+      const { error } = await supabase.from('quote_memos').delete().eq('id', memo.id);
       if (error) throw error;
+      if (user) {
+        await logQuoteActivity({
+          quoteId,
+          actionType: 'memo_deleted',
+          actorId: user.id,
+          actorName: profile?.full_name || user.email || '알 수 없음',
+          memo: memo.content,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quote-memos', quoteId] });
+      queryClient.invalidateQueries({ queryKey: ['quote-activity-history', quoteId] });
       toast.success('메모가 삭제되었습니다.');
     },
     onError: () => toast.error('메모 삭제에 실패했습니다.'),
@@ -121,7 +140,7 @@ const QuoteMemoPanel: React.FC<QuoteMemoPanelProps> = ({ quoteId }) => {
                   </span>
                   {(memo.user_id === user?.id || isAdmin) && (
                     <button
-                      onClick={() => deleteMemo.mutate(memo.id)}
+                      onClick={() => deleteMemo.mutate(memo)}
                       className="text-muted-foreground hover:text-destructive transition-colors"
                     >
                       <Trash2 className="h-3 w-3" />

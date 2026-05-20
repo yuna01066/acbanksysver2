@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Upload, X, Download, FileText, File, RotateCcw } from "lucide-react";
@@ -14,6 +15,7 @@ import {
   updateDocumentFileRecord,
   type DocumentSyncStatus,
 } from '@/services/documentFiles';
+import { logQuoteActivity } from '@/services/quoteActivity';
 
 interface DriveSyncResult {
   success: boolean;
@@ -181,6 +183,7 @@ const QuoteAttachments = ({
   onQuotePdfChange,
   showQuotePdfSection = false
 }: QuoteAttachmentsProps) => {
+  const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
 
@@ -396,6 +399,21 @@ const QuoteAttachments = ({
           throw persistError;
         }
         onAttachmentsChange(nextAttachments);
+        if (quoteId) {
+          await Promise.allSettled(newAttachments.map((attachment) => logQuoteActivity({
+            quoteId,
+            actionType: 'file_uploaded',
+            actorId: user.id,
+            actorName: user.email || '알 수 없음',
+            metadata: {
+              quoteNumber: quoteNumber || null,
+              fileName: attachment.name,
+              documentFileId: attachment.documentFileId || null,
+              syncStatus: attachment.syncStatus || null,
+            },
+          })));
+          queryClient.invalidateQueries({ queryKey: ['quote-activity-history', quoteId] });
+        }
       }
 
       // 결과 메시지
@@ -637,6 +655,22 @@ const QuoteAttachments = ({
       }
 
       onQuotePdfChange?.(pdfData);
+      if (quoteId) {
+        await logQuoteActivity({
+          quoteId,
+          actionType: 'file_uploaded',
+          actorId: user.id,
+          actorName: user.email || '알 수 없음',
+          metadata: {
+            quoteNumber: safeQuoteNumber,
+            fileName: pdfData.name,
+            documentFileId: pdfData.documentFileId || null,
+            syncStatus: pdfData.syncStatus || null,
+            documentType: 'quote_pdf',
+          },
+        });
+        queryClient.invalidateQueries({ queryKey: ['quote-activity-history', quoteId] });
+      }
       toast.success(quoteId ? '견적서 PDF가 업로드되고 파일 원장에 기록되었습니다.' : '견적서 PDF가 업로드되었습니다. 저장 버튼을 눌러 변경사항을 저장하세요.');
     } catch (error) {
       console.error('Error uploading PDF:', error);

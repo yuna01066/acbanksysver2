@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +26,8 @@ import QuoteContactSection from "@/components/quote-detail/QuoteContactSection";
 import QuoteClientRequestSection from "@/components/quote-detail/QuoteClientRequestSection";
 import QuoteDocumentsSection from "@/components/quote-detail/QuoteDocumentsSection";
 import QuoteVersionHistory from "@/components/quote-detail/QuoteVersionHistory";
-import QuoteStageTimeline from "@/components/quote-detail/QuoteStageTimeline";
+import QuoteActivityTimeline from "@/components/quote-detail/QuoteActivityTimeline";
+import QuoteWorkflowPanel from "@/components/quote-detail/QuoteWorkflowPanel";
 import { useQuoteVersions } from "@/hooks/useQuoteVersions";
 import QuoteStyleBanner from "@/components/quote-detail/QuoteStyleBanner";
 import { detectQuoteStyleFromItems, getQuoteStyleProfile } from "@/utils/quoteStyle";
@@ -36,6 +38,10 @@ import {
 } from "@/services/documentFiles";
 import { formatPricingVersionDisplayName } from "@/utils/pricingVersionDisplay";
 import { formatQuoteProjectTitle } from "@/utils/quoteNaming";
+import { convertQuoteToProject } from "@/services/quoteProjectConversion";
+import { logQuoteActivity } from "@/services/quoteActivity";
+import { normalizeQuoteStatus, type QuoteStatusValue } from "@/utils/quoteStatus";
+import type { QuoteAssigneeOption } from "@/components/QuoteAssigneeSelect";
 
 interface SavedQuote {
   id: string;
@@ -47,6 +53,13 @@ interface SavedQuote {
   delivery_period: string | null;
   payment_condition: string | null;
   project_id?: string | null;
+  project_stage?: string | null;
+  quote_status?: string | null;
+  assigned_to?: string | null;
+  assigned_to_name?: string | null;
+  status_updated_at?: string | null;
+  user_id: string;
+  issuer_id?: string | null;
   recipient_name: string | null;
   recipient_company: string | null;
   recipient_phone: string | null;
@@ -98,6 +111,8 @@ const SavedQuoteDetailPage = () => {
   const [editedItems, setEditedItems] = useState<any[]>([]);
   const [quotePdf, setQuotePdf] = useState<QuotePdfAttachment | null>(null);
   const [linkedProject, setLinkedProject] = useState<{ id: string; name: string; payment_status: string | null } | null>(null);
+  const [assigneeUsers, setAssigneeUsers] = useState<QuoteAssigneeOption[]>([]);
+  const [convertingProject, setConvertingProject] = useState(false);
   const [quoteDefaults, setQuoteDefaults] = useState({
     quote_bank_info: '신한은행 140-014-544315 (주)아크뱅크',
     quote_notes: '- 견적서의 유효기간은 발행일로부터 14일 입니다.\n- 운송비 및 부가세는 별도 입니다.',
@@ -118,7 +133,8 @@ const SavedQuoteDetailPage = () => {
     email: 'acbank@acbank.co.kr',
   });
   const printContainerRef = useRef<HTMLDivElement>(null);
-  const { user, isAdmin, isModerator } = useAuth();
+  const queryClient = useQueryClient();
+  const { user, profile, isAdmin, isModerator } = useAuth();
   const { saveVersion } = useQuoteVersions(id);
 
   useEffect(() => {
@@ -127,6 +143,7 @@ const SavedQuoteDetailPage = () => {
       fetchLinkedProject();
     }
     fetchQuoteDefaults();
+    fetchAssigneeUsers();
   }, [id]);
 
   useEffect(() => {
@@ -163,6 +180,21 @@ const SavedQuoteDetailPage = () => {
         phone: d.phone || prev.phone,
         email: d.email || prev.email,
       }));
+    }
+  };
+
+  const fetchAssigneeUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .order('full_name', { ascending: true });
+
+      if (error) throw error;
+      setAssigneeUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching quote assignees:', error);
+      setAssigneeUsers([]);
     }
   };
 
@@ -422,11 +454,43 @@ const SavedQuoteDetailPage = () => {
           },
           changeSummary: summary,
         });
+
+        if (user) {
+          await logQuoteActivity({
+            quoteId: id,
+            actionType: 'quote_updated',
+            actorId: user.id,
+            actorName: profile?.full_name || user.email || '알 수 없음',
+            memo: summary,
+            metadata: {
+              quoteNumber: quote.quote_number,
+              summary,
+              subtotal: roundedSubtotal,
+              tax: newTax,
+              total: newTotal,
+            },
+          });
+        }
+      }
+
+      if (user && pendingFiles.length > 0) {
+        await Promise.allSettled(pendingFiles.map((file) => logQuoteActivity({
+          quoteId: id,
+          actionType: 'file_deleted',
+          actorId: user.id,
+          actorName: profile?.full_name || user.email || '알 수 없음',
+          metadata: {
+            quoteNumber: quote.quote_number,
+            fileName: file.name || file.path || '파일',
+            documentFileId: file.documentFileId || file.document_file_id || null,
+          },
+        })));
       }
 
       toast.success('견적서가 수정되었습니다.');
       setIsEditing(false);
       setManualTotalOverride(null);
+      queryClient.invalidateQueries({ queryKey: ['quote-activity-history', id] });
       fetchQuote();
     } catch (error) {
       console.error('Error updating quote:', error);
@@ -451,6 +515,48 @@ const SavedQuoteDetailPage = () => {
 
   const handleAttachmentsChange = (newAttachments: any[]) => {
     setAttachments(newAttachments);
+  };
+
+  const handleStatusChanged = (newStatus: QuoteStatusValue) => {
+    setQuote(prev => prev ? { ...prev, quote_status: newStatus, status_updated_at: new Date().toISOString() } as SavedQuote : prev);
+  };
+
+  const handleAssigneeChanged = (assigneeId: string | null, assigneeName: string | null) => {
+    setQuote(prev => prev ? { ...prev, assigned_to: assigneeId, assigned_to_name: assigneeName } as SavedQuote : prev);
+  };
+
+  const handleConvertProject = async () => {
+    if (!quote || !user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    if (quote.project_id) {
+      navigate(`/project-management?id=${quote.project_id}`);
+      return;
+    }
+
+    setConvertingProject(true);
+    try {
+      const project = await convertQuoteToProject({
+        quote: {
+          ...quote,
+          quote_status: normalizeQuoteStatus(quote.quote_status, quote.project_stage),
+        },
+        actorId: user.id,
+        actorName: profile?.full_name || user.email || '알 수 없음',
+      });
+
+      setLinkedProject(project);
+      setQuote(prev => prev ? { ...prev, project_id: project.id, quote_status: 'won' } as SavedQuote : prev);
+      queryClient.invalidateQueries({ queryKey: ['quote-activity-history', quote.id] });
+      toast.success('견적서 기준 프로젝트가 생성되었습니다.');
+    } catch (error) {
+      console.error('Error converting quote to project:', error);
+      toast.error(error instanceof Error ? error.message : '프로젝트 전환에 실패했습니다.');
+    } finally {
+      setConvertingProject(false);
+    }
   };
 
   const handlePrintPDF = (mode: QuoteViewMode = viewMode) => {
@@ -733,42 +839,28 @@ const SavedQuoteDetailPage = () => {
             </CardContent>
           </Card>
         </div>
-        {/* 우측 메모 패널 */}
+        {/* 우측 업무 패널 */}
         <div className="w-[300px] shrink-0 print:hidden sticky top-4 self-start hidden lg:block space-y-4 print-side-panel">
-          {/* 연결된 프로젝트 */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <FolderOpen className="w-4 h-4" />
-                연결된 프로젝트
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {linkedProject ? (
-                <button
-                  onClick={() => navigate(`/project-management?id=${linkedProject.id}`)}
-                  className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors group"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium truncate">{linkedProject.name}</span>
-                    <ExternalLink className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                  </div>
-                  {linkedProject.payment_status && (
-                    <Badge variant="outline" className="mt-1.5 text-xs">
-                      {linkedProject.payment_status}
-                    </Badge>
-                  )}
-                </button>
-              ) : (
-                <p className="text-xs text-muted-foreground text-center py-2">연결된 프로젝트가 없습니다</p>
-              )}
-            </CardContent>
-          </Card>
+          <QuoteWorkflowPanel
+            quoteId={quote.id}
+            quoteNumber={quote.quote_number}
+            quoteStatus={quote.quote_status}
+            projectStage={quote.project_stage}
+            quoteUserId={quote.user_id}
+            assignedTo={quote.assigned_to}
+            assignedToName={quote.assigned_to_name || quote.issuer_name}
+            users={assigneeUsers}
+            linkedProject={linkedProject}
+            convertingProject={convertingProject}
+            onStatusChanged={handleStatusChanged}
+            onAssigneeChanged={handleAssigneeChanged}
+            onConvertProject={handleConvertProject}
+          />
           {/* 원판 발주 */}
           {id && <QuoteMaterialOrders quoteId={id} />}
           {id && <QuoteMemoPanel quoteId={id} />}
           {id && <QuoteVersionHistory quoteId={id} />}
-          {id && <QuoteStageTimeline quoteId={id} />}
+          {id && <QuoteActivityTimeline quoteId={id} />}
         </div>
         </div>
       </div>

@@ -12,9 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import ProjectStageSelect, { PROJECT_STAGES } from '@/components/ProjectStageSelect';
+import QuoteStatusSelect from '@/components/QuoteStatusSelect';
 import { getPaymentStatusInfo } from '@/components/project/PaymentStatusSelect';
 import { PageHeader, PageShell, SearchFilterBar } from '@/components/layout/PageLayout';
 import { formatQuoteProjectTitle } from '@/utils/quoteNaming';
+import { convertQuoteToProject } from '@/services/quoteProjectConversion';
+import { normalizeQuoteStatus, QUOTE_STATUSES, type QuoteStatusValue } from '@/utils/quoteStatus';
 
 interface LinkedProject {
   id: string;
@@ -42,11 +45,15 @@ interface SavedQuote {
   valid_until: string | null;
   delivery_period: string | null;
   payment_condition: string | null;
+  issuer_id?: string | null;
   issuer_name: string | null;
   issuer_phone: string | null;
   issuer_email: string | null;
   attachments: unknown;
   desired_delivery_date?: string | null;
+  quote_status?: string | null;
+  assigned_to?: string | null;
+  assigned_to_name?: string | null;
   project_stage?: string;
   project_id?: string | null;
   linked_project?: LinkedProject | null;
@@ -63,7 +70,7 @@ type SortOption = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'num
 
 const SavedQuotesPage = () => {
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const [quotes, setQuotes] = useState<SavedQuote[]>([]);
   const [filteredQuotes, setFilteredQuotes] = useState<SavedQuote[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -74,6 +81,7 @@ const SavedQuotesPage = () => {
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [userFilter, setUserFilter] = useState<string>('all');
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [quoteStatusFilter, setQuoteStatusFilter] = useState<string>('all');
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [creatingProjectQuoteId, setCreatingProjectQuoteId] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 50;
@@ -141,7 +149,7 @@ const SavedQuotesPage = () => {
     
     const expiredIds = quotesData
       .filter(q => {
-        if (q.project_stage !== 'quote_issued') return false;
+        if (normalizeQuoteStatus(q.quote_status, q.project_stage) !== 'sent') return false;
         const expDate = parseValidUntilDate(q.valid_until);
         if (!expDate) return false;
         return expDate < today;
@@ -150,7 +158,7 @@ const SavedQuotesPage = () => {
 
     // 만료 예정 견적서 알림 (3일 이내)
     const soonExpiring = quotesData.filter(q => {
-      if (q.project_stage !== 'quote_issued') return false;
+      if (normalizeQuoteStatus(q.quote_status, q.project_stage) !== 'sent') return false;
       const expDate = parseValidUntilDate(q.valid_until);
       if (!expDate) return false;
       return expDate >= today && expDate <= threeDaysLater;
@@ -183,7 +191,7 @@ const SavedQuotesPage = () => {
     try {
       const { error } = await supabase
         .from('saved_quotes')
-        .update({ project_stage: 'cancelled' })
+        .update({ quote_status: 'cancelled', status_updated_at: new Date().toISOString() } as never)
         .in('id', expiredIds);
       
       if (error) throw error;
@@ -208,15 +216,16 @@ const SavedQuotesPage = () => {
 
   useEffect(() => {
     filterQuotes();
-  }, [searchTerm, dateFilter, quotes, sortBy, stageFilter]);
+  }, [searchTerm, dateFilter, quotes, sortBy, quoteStatusFilter, stageFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, dateFilter, userFilter]);
+  }, [searchTerm, dateFilter, quoteStatusFilter, stageFilter, userFilter]);
 
   const activeFilterCount = [
     searchTerm.trim() ? 'search' : null,
     dateFilter ? 'date' : null,
+    quoteStatusFilter !== 'all' ? 'quoteStatus' : null,
     stageFilter !== 'all' ? 'stage' : null,
     isAdmin && userFilter !== 'all' ? 'user' : null,
   ].filter(Boolean).length;
@@ -236,6 +245,7 @@ const SavedQuotesPage = () => {
   const resetFilters = () => {
     setSearchTerm('');
     setDateFilter('');
+    setQuoteStatusFilter('all');
     setStageFilter('all');
     if (isAdmin) setUserFilter('all');
   };
@@ -276,8 +286,8 @@ const SavedQuotesPage = () => {
           .range(from, to);
 
         if (userFilter !== 'all') {
-          countQuery = countQuery.eq('user_id', userFilter);
-          dataQuery = dataQuery.eq('user_id', userFilter);
+          countQuery = countQuery.eq('assigned_to', userFilter);
+          dataQuery = dataQuery.eq('assigned_to', userFilter);
         }
 
         const { count, error: countError } = await countQuery;
@@ -287,7 +297,7 @@ const SavedQuotesPage = () => {
         const { data, error } = await dataQuery;
         if (error) throw error;
 
-        const formattedData = (data || []).map(q => ({
+        const formattedData = (data || []).map((q: any) => ({
           ...q,
           items: Array.isArray(q.items) ? q.items : []
         }));
@@ -321,6 +331,8 @@ const SavedQuotesPage = () => {
           ...q,
           linked_project: q.project_id ? projectMap[q.project_id] || null : null,
           creator_name: creatorMap[q.user_id] || null,
+          quote_status: normalizeQuoteStatus(q.quote_status, q.project_stage),
+          assigned_to_name: q.assigned_to_name || q.issuer_name || creatorMap[q.user_id] || null,
         }));
         
         // 만료된 견적서 자동 상태 변경 후 다시 로드
@@ -328,8 +340,8 @@ const SavedQuotesPage = () => {
         if (expiredCount) {
           // 상태 변경이 있었으면 다시 fetch하지 않고 로컬에서 업데이트
           setQuotes(finalQuotes.map(q => 
-            q.project_stage === 'quote_issued' && parseValidUntilDate(q.valid_until) && parseValidUntilDate(q.valid_until)! < new Date(new Date().setHours(0,0,0,0))
-              ? { ...q, project_stage: 'cancelled' }
+            normalizeQuoteStatus(q.quote_status, q.project_stage) === 'sent' && parseValidUntilDate(q.valid_until) && parseValidUntilDate(q.valid_until)! < new Date(new Date().setHours(0,0,0,0))
+              ? { ...q, quote_status: 'cancelled' }
               : q
           ));
         } else {
@@ -340,7 +352,7 @@ const SavedQuotesPage = () => {
         const { count, error: countError } = await supabase
           .from('saved_quotes')
           .select('*', { count: 'exact', head: true })
-          .or(`user_id.eq.${user.id},issuer_id.eq.${user.id}`);
+          .or(`user_id.eq.${user.id},issuer_id.eq.${user.id},assigned_to.eq.${user.id}`);
 
         if (countError) throw countError;
         setTotalCount(count || 0);
@@ -348,13 +360,13 @@ const SavedQuotesPage = () => {
         const { data, error } = await supabase
           .from('saved_quotes')
           .select('*')
-          .or(`user_id.eq.${user.id},issuer_id.eq.${user.id}`)
+          .or(`user_id.eq.${user.id},issuer_id.eq.${user.id},assigned_to.eq.${user.id}`)
           .order('quote_date', { ascending: false })
           .range(from, to);
 
         if (error) throw error;
 
-        const formattedData = (data || []).map(q => ({
+        const formattedData = (data || []).map((q: any) => ({
           ...q,
           items: Array.isArray(q.items) ? q.items : []
         }));
@@ -388,13 +400,15 @@ const SavedQuotesPage = () => {
           ...q,
           linked_project: q.project_id ? projectMap2[q.project_id] || null : null,
           creator_name: creatorMap2[q.user_id] || null,
+          quote_status: normalizeQuoteStatus(q.quote_status, q.project_stage),
+          assigned_to_name: q.assigned_to_name || q.issuer_name || creatorMap2[q.user_id] || null,
         }));
         
         const expiredCount2 = await autoExpireQuotes(finalQuotes2);
         if (expiredCount2) {
           setQuotes(finalQuotes2.map(q => 
-            q.project_stage === 'quote_issued' && parseValidUntilDate(q.valid_until) && parseValidUntilDate(q.valid_until)! < new Date(new Date().setHours(0,0,0,0))
-              ? { ...q, project_stage: 'cancelled' }
+            normalizeQuoteStatus(q.quote_status, q.project_stage) === 'sent' && parseValidUntilDate(q.valid_until) && parseValidUntilDate(q.valid_until)! < new Date(new Date().setHours(0,0,0,0))
+              ? { ...q, quote_status: 'cancelled' }
               : q
           ));
         } else {
@@ -427,6 +441,10 @@ const SavedQuotesPage = () => {
       filtered = filtered.filter(quote => 
         quote.quote_date.startsWith(dateFilter)
       );
+    }
+
+    if (quoteStatusFilter !== 'all') {
+      filtered = filtered.filter(quote => normalizeQuoteStatus(quote.quote_status, quote.project_stage) === quoteStatusFilter);
     }
 
     if (stageFilter !== 'all') {
@@ -547,6 +565,10 @@ const SavedQuotesPage = () => {
         issuer_phone: originalQuote.issuer_phone,
         issuer_department: originalQuote.issuer_department,
         issuer_position: originalQuote.issuer_position,
+        quote_status: 'sent',
+        assigned_to: originalQuote.issuer_id || user.id,
+        assigned_to_name: originalQuote.issuer_name || profile?.full_name || user.email,
+        status_updated_at: new Date().toISOString(),
         custom_color_name: originalQuote.custom_color_name,
         custom_opacity: originalQuote.custom_opacity,
         attachments: filteredAttachments,
@@ -555,7 +577,7 @@ const SavedQuotesPage = () => {
 
       const { data: newQuote, error: insertError } = await supabase
         .from('saved_quotes')
-        .insert(duplicateData)
+        .insert(duplicateData as never)
         .select()
         .single();
 
@@ -583,63 +605,18 @@ const SavedQuotesPage = () => {
     setCreatingProjectQuoteId(quote.id);
 
     try {
-      let recipientId: string | null = null;
-
-      if (quote.recipient_company?.trim()) {
-        const { data: recipient, error: recipientError } = await supabase
-          .from('recipients')
-          .select('id')
-          .eq('company_name', quote.recipient_company.trim())
-          .maybeSingle();
-
-        if (recipientError) throw recipientError;
-        recipientId = recipient?.id || null;
-      }
-
-      const projectName = quote.project_name?.trim()
-        || [quote.recipient_company, quote.quote_number].filter(Boolean).join(' · ')
-        || `견적 ${quote.quote_number}`;
-
-      const { data: project, error: projectError } = await supabase
-        .from('projects')
-        .insert({
-          name: projectName,
-          description: `견적서 ${quote.quote_number}에서 생성된 프로젝트입니다.`,
-          status: 'active',
-          project_type: 'client',
-          recipient_id: recipientId,
-          contact_name: quote.recipient_name || null,
-          contact_phone: quote.recipient_phone || null,
-          contact_email: quote.recipient_email || null,
-          specs: {
-            sourceQuoteId: quote.id,
-            sourceQuoteNumber: quote.quote_number,
-            quoteTotal: quote.total,
-            desiredDeliveryDate: quote.desired_delivery_date || null,
-          },
-          user_id: quote.user_id || user.id,
-        } as any)
-        .select('id, name, status, payment_status')
-        .single();
-
-      if (projectError) throw projectError;
-
-      const { error: quoteError } = await supabase
-        .from('saved_quotes')
-        .update({ project_id: project.id })
-        .eq('id', quote.id);
-
-      if (quoteError) throw quoteError;
-
-      await supabase
-        .from('document_files' as any)
-        .update({ project_id: project.id })
-        .eq('quote_id', quote.id)
-        .is('project_id', null);
+      const project = await convertQuoteToProject({
+        quote: {
+          ...quote,
+          quote_status: normalizeQuoteStatus(quote.quote_status, quote.project_stage),
+        },
+        actorId: user.id,
+        actorName: profile?.full_name || user.email || '알 수 없음',
+      });
 
       setQuotes((prev) => prev.map((item) => (
         item.id === quote.id
-          ? { ...item, project_id: project.id, linked_project: project as LinkedProject }
+          ? { ...item, project_id: project.id, quote_status: 'won', linked_project: project as LinkedProject }
           : item
       )));
 
@@ -772,7 +749,28 @@ const SavedQuotesPage = () => {
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">단계</span>
+            <span className="text-sm text-muted-foreground">견적 상태</span>
+            <Badge
+              variant={quoteStatusFilter === 'all' ? 'default' : 'outline'}
+              className="cursor-pointer rounded-full px-2.5 text-xs"
+              onClick={() => setQuoteStatusFilter('all')}
+            >
+              전체
+            </Badge>
+            {QUOTE_STATUSES.map((status) => (
+              <Badge
+                key={status.value}
+                variant="outline"
+                className={`cursor-pointer rounded-full border px-2.5 text-xs ${quoteStatusFilter === status.value ? status.color : ''}`}
+                onClick={() => setQuoteStatusFilter(status.value)}
+              >
+                {status.label}
+              </Badge>
+            ))}
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground">프로젝트 단계</span>
             <Badge
               variant={stageFilter === 'all' ? 'default' : 'outline'}
                 className="cursor-pointer rounded-full px-2.5 text-xs"
@@ -821,8 +819,9 @@ const SavedQuotesPage = () => {
                     <TableHead className="w-[118px]">발행일</TableHead>
                     <TableHead className="min-w-[320px]">견적 제목</TableHead>
                     <TableHead className="min-w-[210px]">거래처</TableHead>
+                    <TableHead className="w-[140px]">담당자</TableHead>
                     <TableHead className="min-w-[210px]">프로젝트</TableHead>
-                    <TableHead className="w-[150px]">단계</TableHead>
+                    <TableHead className="w-[170px]">상태/단계</TableHead>
                     <TableHead className="w-[140px] text-right">금액</TableHead>
                     <TableHead className="w-[132px] text-right">작업</TableHead>
                   </TableRow>
@@ -856,7 +855,7 @@ const SavedQuotesPage = () => {
                               <span className="rounded-full bg-muted/70 px-2 py-0.5 font-medium tabular-nums text-muted-foreground">
                                 No. {quote.quote_number}
                               </span>
-                              {quote.issuer_name && <span>담당 {quote.issuer_name}</span>}
+                              {quote.issuer_name && <span>발신 {quote.issuer_name}</span>}
                               {quote.creator_name && <span>작성 {quote.creator_name}</span>}
                             </div>
                           </div>
@@ -884,6 +883,14 @@ const SavedQuotesPage = () => {
                                 {quote.recipient_name}
                               </div>
                             )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 align-top">
+                          <div className="flex min-w-0 items-center gap-1.5 text-sm">
+                            <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <span className="truncate font-medium">
+                              {quote.assigned_to_name || quote.issuer_name || quote.creator_name || '미지정'}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell className="py-4 align-top">
@@ -935,7 +942,17 @@ const SavedQuotesPage = () => {
                           )}
                         </TableCell>
                         <TableCell className="py-4 align-top">
-                          <div onClick={(event) => event.stopPropagation()}>
+                          <div className="space-y-2" onClick={(event) => event.stopPropagation()}>
+                            <QuoteStatusSelect
+                              quoteId={quote.id}
+                              currentStatus={quote.quote_status}
+                              projectStage={quote.project_stage}
+                              quoteNumber={quote.quote_number}
+                              quoteUserId={quote.user_id}
+                              onStatusChanged={(newStatus: QuoteStatusValue) => {
+                                setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, quote_status: newStatus } : q));
+                              }}
+                            />
                             <ProjectStageSelect
                               quoteId={quote.id}
                               currentStage={quote.project_stage || 'quote_issued'}

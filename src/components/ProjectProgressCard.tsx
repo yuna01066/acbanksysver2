@@ -16,6 +16,7 @@ interface QuoteProject {
   id: string;
   project_name: string;
   project_stage: string;
+  quote_status?: string | null;
   quote_number: string;
 }
 
@@ -88,9 +89,10 @@ const ProjectProgressCard = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('saved_quotes')
-        .select('id, project_name, project_stage, quote_number, desired_delivery_date')
+        .select('id, project_name, project_stage, quote_status, quote_number, desired_delivery_date')
         .not('project_stage', 'eq', 'completed')
         .not('project_stage', 'eq', 'cancelled')
+        .not('quote_status', 'eq', 'cancelled')
         .not('desired_delivery_date', 'is', null)
         .order('created_at', { ascending: false })
         .limit(5);

@@ -2908,6 +2908,53 @@ export type Database = {
           },
         ]
       }
+      quote_activity_history: {
+        Row: {
+          action_type: string
+          actor_id: string
+          actor_name: string
+          created_at: string
+          id: string
+          memo: string | null
+          metadata: Json
+          new_value: string | null
+          old_value: string | null
+          quote_id: string
+        }
+        Insert: {
+          action_type: string
+          actor_id: string
+          actor_name: string
+          created_at?: string
+          id?: string
+          memo?: string | null
+          metadata?: Json
+          new_value?: string | null
+          old_value?: string | null
+          quote_id: string
+        }
+        Update: {
+          action_type?: string
+          actor_id?: string
+          actor_name?: string
+          created_at?: string
+          id?: string
+          memo?: string | null
+          metadata?: Json
+          new_value?: string | null
+          old_value?: string | null
+          quote_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_activity_history_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_drafts: {
         Row: {
           created_at: string
@@ -3467,6 +3514,8 @@ export type Database = {
       }
       saved_quotes: {
         Row: {
+          assigned_to: string | null
+          assigned_to_name: string | null
           attachments: Json | null
           calculation_snapshot: Json
           created_at: string
@@ -3493,6 +3542,7 @@ export type Database = {
           quote_date: string
           quote_date_display: string | null
           quote_number: string
+          quote_status: string
           recipient_address: string | null
           recipient_company: string | null
           recipient_email: string | null
@@ -3500,6 +3550,7 @@ export type Database = {
           recipient_name: string | null
           recipient_phone: string | null
           subtotal: number
+          status_updated_at: string
           tax: number
           total: number
           updated_at: string
@@ -3507,6 +3558,8 @@ export type Database = {
           valid_until: string | null
         }
         Insert: {
+          assigned_to?: string | null
+          assigned_to_name?: string | null
           attachments?: Json | null
           calculation_snapshot?: Json
           created_at?: string
@@ -3533,6 +3586,7 @@ export type Database = {
           quote_date?: string
           quote_date_display?: string | null
           quote_number: string
+          quote_status?: string
           recipient_address?: string | null
           recipient_company?: string | null
           recipient_email?: string | null
@@ -3540,6 +3594,7 @@ export type Database = {
           recipient_name?: string | null
           recipient_phone?: string | null
           subtotal: number
+          status_updated_at?: string
           tax: number
           total: number
           updated_at?: string
@@ -3547,6 +3602,8 @@ export type Database = {
           valid_until?: string | null
         }
         Update: {
+          assigned_to?: string | null
+          assigned_to_name?: string | null
           attachments?: Json | null
           calculation_snapshot?: Json
           created_at?: string
@@ -3573,6 +3630,7 @@ export type Database = {
           quote_date?: string
           quote_date_display?: string | null
           quote_number?: string
+          quote_status?: string
           recipient_address?: string | null
           recipient_company?: string | null
           recipient_email?: string | null
@@ -3580,6 +3638,7 @@ export type Database = {
           recipient_name?: string | null
           recipient_phone?: string | null
           subtotal?: number
+          status_updated_at?: string
           tax?: number
           total?: number
           updated_at?: string
