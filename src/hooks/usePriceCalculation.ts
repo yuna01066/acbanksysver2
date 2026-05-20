@@ -8,6 +8,7 @@ import {
   calculatePrice,
   classifyCalculationLineItem,
   DEFAULT_ADHESION_CONFIG,
+  DEFAULT_FORMULA_CONSTANTS,
   CalculatePriceResult,
   ProcessingOptionData,
   ProcessingProfile,
@@ -47,6 +48,7 @@ interface UsePriceCalculationProps {
   qty?: number;
   isComplex?: boolean;
   bevelLengthM?: number;
+  polishedEdgeLengthM?: number;
   laserHoles?: number;
   corners90?: number;
   useDetailedBond?: boolean;
@@ -59,7 +61,7 @@ interface UsePriceCalculationProps {
   mugwangPainting?: boolean;
 }
 
-type PriceInfo = Pick<CalculatePriceResult, 'totalPrice' | 'breakdown' | 'status' | 'lineItems' | 'warnings' | 'blockedReasons' | 'snapshotVersion'>;
+type PriceInfo = Pick<CalculatePriceResult, 'totalPrice' | 'breakdown' | 'status' | 'lineItems' | 'warnings' | 'blockedReasons' | 'snapshotVersion' | 'formulaDocVersion'>;
 
 const EMPTY_PRICE_INFO: PriceInfo = {
   totalPrice: 0,
@@ -68,7 +70,8 @@ const EMPTY_PRICE_INFO: PriceInfo = {
   lineItems: [],
   warnings: [],
   blockedReasons: [],
-  snapshotVersion: 'pricing-engine-v1',
+  snapshotVersion: 'pricing-engine-v2-core-260520',
+  formulaDocVersion: 260520,
 };
 
 export const usePriceCalculation = ({
@@ -88,6 +91,7 @@ export const usePriceCalculation = ({
   qty = 1,
   isComplex = false,
   bevelLengthM = 0,
+  polishedEdgeLengthM = 0,
   laserHoles = 0,
   corners90 = 0,
   useDetailedBond = false,
@@ -376,6 +380,27 @@ export const usePriceCalculation = ({
       const numericValue = Number(value);
       return Number.isFinite(numericValue) ? numericValue : fallback;
     };
+    const formulaConstants = {
+      ...DEFAULT_FORMULA_CONSTANTS,
+      rawOnlyMultiplier,
+      simpleCutThinMultiplier: getAdvancedSettingValue('simple_cut_thin_multiplier', DEFAULT_FORMULA_CONSTANTS.simpleCutThinMultiplier),
+      simpleCutThickMultiplier: getAdvancedSettingValue('simple_cut_thick_multiplier', DEFAULT_FORMULA_CONSTANTS.simpleCutThickMultiplier),
+      fabricationBaseMultiplier: getAdvancedSettingValue('fabrication_base_multiplier', DEFAULT_FORMULA_CONSTANTS.fabricationBaseMultiplier),
+      complexCutSetupFee: getAdvancedSettingValue('complex_cut_setup_fee', DEFAULT_FORMULA_CONSTANTS.complexCutSetupFee),
+      laserThinFee: getAdvancedSettingValue('laser_thin_fee', DEFAULT_FORMULA_CONSTANTS.laserThinFee),
+      laserThickFee: getAdvancedSettingValue('laser_thick_fee', DEFAULT_FORMULA_CONSTANTS.laserThickFee),
+      laserFullThinSheetFee: getAdvancedSettingValue('laser_full_thin_sheet_fee', DEFAULT_FORMULA_CONSTANTS.laserFullThinSheetFee),
+      cncGeneralFee: getAdvancedSettingValue('cnc_general_fee', DEFAULT_FORMULA_CONSTANTS.cncGeneralFee),
+      cncHeavyFee: getAdvancedSettingValue('cnc_heavy_fee', DEFAULT_FORMULA_CONSTANTS.cncHeavyFee),
+      complexShapeFee: getAdvancedSettingValue('complex_shape_fee', DEFAULT_FORMULA_CONSTANTS.complexShapeFee),
+      mugipoBoxSetupFee: getAdvancedSettingValue('mugipo_box_setup_fee', DEFAULT_FORMULA_CONSTANTS.mugipoBoxSetupFee),
+      mugipoBoxBondRatePerM: getAdvancedSettingValue('mugipo_box_bond_rate_per_m', DEFAULT_FORMULA_CONSTANTS.mugipoBoxBondRatePerM),
+      mugipoBoxMinSalePrice5T250Cube: getAdvancedSettingValue('mugipo_box_min_sale_price_5t_250_cube', DEFAULT_FORMULA_CONSTANTS.mugipoBoxMinSalePrice5T250Cube),
+      polishedEdgeRatePerM: getAdvancedSettingValue('polished_edge_rate_per_m', DEFAULT_FORMULA_CONSTANTS.polishedEdgeRatePerM),
+      bulgwangFinishMultiplier: getAdvancedSettingValue('bulgwang_finish_multiplier', DEFAULT_FORMULA_CONSTANTS.bulgwangFinishMultiplier),
+      mirrorHardCoating3x6: getAdvancedSettingValue('mirror_hard_coating_3x6', DEFAULT_FORMULA_CONSTANTS.mirrorHardCoating3x6),
+      mirrorHardCoating4x8: getAdvancedSettingValue('mirror_hard_coating_4x8', DEFAULT_FORMULA_CONSTANTS.mirrorHardCoating4x8),
+    };
     const bevelFeePerM = getAdvancedSettingValue('bevel_cost_per_m', 3000);
     const laserHoleFee = getAdvancedSettingValue('laser_hole_cost', 500);
     const adhesionConfig = {
@@ -435,6 +460,7 @@ export const usePriceCalculation = ({
               optionSurchargesData: optionSurcharges as any,
               processingOptionsData: [],
               rawOnlyMultiplier: 1.0, // 원장 계산시에는 할증 제외
+              formulaConstants: { ...formulaConstants, rawOnlyMultiplier: 1.0 },
             }
           );
 
@@ -473,21 +499,36 @@ export const usePriceCalculation = ({
         processing = 'auto';
       } else if (selectedProcessing === 'simple-cutting') {
         processing = 'simple-cutting';
+      } else if (selectedProcessing === 'complex-cutting') {
+        processing = 'complex-cutting';
+      } else if (selectedProcessing === 'bubble-free-adhesion') {
+        processing = 'none';
+        adhesion = 'bond-mugipo-45';
       } else if (selectedProcessing === 'edge-finishing') {
         processing = 'none';
         edgeRequested = true;
+      } else if (selectedProcessing === 'laser-cutting-simple') {
+        processing = 'laser-cutting-simple';
       } else if (selectedProcessing === 'laser-simple') {
         processing = 'laser-simple';
       } else if (selectedProcessing === 'laser-complex') {
         processing = 'laser-complex';
+      } else if (selectedProcessing === 'laser-cutting-full') {
+        processing = 'laser-cutting-full';
       } else if (selectedProcessing === 'laser-full') {
         processing = 'laser-full';
+      } else if (selectedProcessing === 'cnc-general') {
+        processing = 'cnc-general';
+      } else if (selectedProcessing === 'cnc-heavy') {
+        processing = 'cnc-heavy';
       } else if (selectedProcessing === 'cnc-simple') {
         processing = 'cnc-simple';
       } else if (selectedProcessing === 'cnc-complex') {
         processing = 'cnc-complex';
       } else if (selectedProcessing === 'cnc-full') {
         processing = 'cnc-full';
+      } else if (selectedProcessing === 'complex-shapes') {
+        processing = 'complex-shapes';
       } else if (selectedProcessing === 'none' || selectedProcessing === '') {
         processing = 'none';
       }
@@ -518,6 +559,7 @@ export const usePriceCalculation = ({
         Object.values(selectedAdditionalOptions).some(quantity => quantity > 0) ||
         edgeRequested ||
         bevelLengthM > 0 ||
+        polishedEdgeLengthM > 0 ||
         laserHoles > 0 ||
         corners90 > 0 ||
         edgeFinishing ||
@@ -555,6 +597,7 @@ export const usePriceCalculation = ({
             isComplex,
             edgeRequested,
             bevelLengthM,
+            polishedEdgeLengthM,
             bevelFeePerM: bevelLengthM > 0 ? bevelFeePerM : undefined,
             laserHoles,
             holeFee: laserHoles > 0 ? laserHoleFee : undefined,
@@ -585,7 +628,12 @@ export const usePriceCalculation = ({
             })),
             optionSurchargesData: optionSurcharges as any,
             rawOnlyMultiplier,
+            formulaConstants,
             selectedAdditionalOptions,
+            selectedPanelSizesForOptions: selectedSizes.map(sizeSelection => ({
+              size: sizeSelection.size,
+              quantity: sizeSelection.quantity,
+            })),
             // 총 원장을 기준가격으로 전달
             totalWonJangBase: totalWonJang,
           }
@@ -594,7 +642,13 @@ export const usePriceCalculation = ({
         // 가공 옵션 breakdown만 추출
         const optionsBreakdown = optionsResult.breakdown.filter(item => {
           const source = item.source || classifyCalculationLineItem(item);
-          return source === 'processing' || source === 'adhesion' || source === 'additional' || source === 'validation';
+          return source === 'processing'
+            || source === 'adhesion'
+            || source === 'additional'
+            || source === 'post_processing'
+            || source === 'mirror'
+            || source === 'outsourcing'
+            || source === 'validation';
         });
 
         allBreakdown.push(...optionsBreakdown);
@@ -621,7 +675,8 @@ export const usePriceCalculation = ({
         })),
         warnings: Array.from(new Set(aggregateWarnings)),
         blockedReasons: Array.from(new Set(aggregateBlockedReasons)),
-        snapshotVersion: 'pricing-engine-v1',
+        snapshotVersion: 'pricing-engine-v2-core-260520',
+        formulaDocVersion: 260520,
       });
     }
     // 단일 선택된 사이즈가 있는 경우 (하위 호환성)
@@ -633,12 +688,19 @@ export const usePriceCalculation = ({
 
       if (selectedProcessing === 'auto') singleProcessing = 'auto';
       else if (selectedProcessing === 'simple-cutting') singleProcessing = 'simple-cutting';
+      else if (selectedProcessing === 'complex-cutting') singleProcessing = 'complex-cutting';
+      else if (selectedProcessing === 'bubble-free-adhesion') singleAdhesion = 'bond-mugipo-45';
+      else if (selectedProcessing === 'laser-cutting-simple') singleProcessing = 'laser-cutting-simple';
       else if (selectedProcessing === 'laser-simple') singleProcessing = 'laser-simple';
       else if (selectedProcessing === 'laser-complex') singleProcessing = 'laser-complex';
+      else if (selectedProcessing === 'laser-cutting-full') singleProcessing = 'laser-cutting-full';
       else if (selectedProcessing === 'laser-full') singleProcessing = 'laser-full';
+      else if (selectedProcessing === 'cnc-general') singleProcessing = 'cnc-general';
+      else if (selectedProcessing === 'cnc-heavy') singleProcessing = 'cnc-heavy';
       else if (selectedProcessing === 'cnc-simple') singleProcessing = 'cnc-simple';
       else if (selectedProcessing === 'cnc-complex') singleProcessing = 'cnc-complex';
       else if (selectedProcessing === 'cnc-full') singleProcessing = 'cnc-full';
+      else if (selectedProcessing === 'complex-shapes') singleProcessing = 'complex-shapes';
 
       if (selectedAdhesion === 'bond-normal') singleAdhesion = 'bond-normal';
       else if (selectedAdhesion === 'bond-mugipo-auto') singleAdhesion = 'auto';
@@ -675,6 +737,7 @@ export const usePriceCalculation = ({
           })),
           optionSurchargesData: optionSurcharges as any,
           rawOnlyMultiplier,
+          formulaConstants,
           selectedAdditionalOptions,
           processing: singleProcessing,
           adhesion: singleAdhesion,
@@ -682,6 +745,7 @@ export const usePriceCalculation = ({
           isComplex,
           edgeRequested: singleEdgeRequested,
           bevelLengthM,
+          polishedEdgeLengthM,
           bevelFeePerM: bevelLengthM > 0 ? bevelFeePerM : undefined,
           laserHoles,
           holeFee: laserHoles > 0 ? laserHoleFee : undefined,
@@ -721,6 +785,7 @@ export const usePriceCalculation = ({
     qty,
     isComplex,
     bevelLengthM,
+    polishedEdgeLengthM,
     laserHoles,
     corners90,
     useDetailedBond,
