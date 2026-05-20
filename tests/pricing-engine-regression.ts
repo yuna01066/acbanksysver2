@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   calculatePrice,
+  DEFAULT_FORMULA_CONSTANTS,
   type AdhesionConfigData,
   type ProcessingOptionData,
 } from '../src/utils/priceCalculations';
@@ -129,6 +130,28 @@ const inRange = (value: number, min: number, max: number, message: string) => {
     result.breakdown.find(item => item.label.includes('전체 레이저 재단'))?.price,
     97_180,
     'known laser profiles must use formula v2: sheet cost x 1.3 + fixed labor'
+  );
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'glossy-color',
+    '5T',
+    '4*8',
+    '단면',
+    undefined,
+    'cnc-full',
+    0,
+    { processingOptionsData: [] }
+  );
+
+  assert.equal(result.status, 'calculable');
+  assert.equal(result.totalPrice, 417_780);
+  assert.equal(
+    result.breakdown.find(item => item.label.includes('CNC 전체 재단'))?.price,
+    327_180,
+    'CNC full cutting must use formula v2: sheet cost x 1.3 + 300,000'
   );
 }
 
@@ -349,6 +372,129 @@ const inRange = (value: number, min: number, max: number, message: string) => {
     '4*8',
     '단면',
     undefined,
+    undefined,
+    0,
+    {
+      basePanelSizesData: [{ size_name: '4*8', thickness: '5T', price: 100_000, is_active: true }],
+      formulaConstants: {
+        ...DEFAULT_FORMULA_CONSTANTS,
+        mirrorDeposition4x8: 120_000,
+      },
+    }
+  );
+
+  assert.equal(result.status, 'calculable');
+  assert.equal(result.totalPrice, 220_000);
+  assert.equal(
+    result.lineItems.find(item => item.code === 'mirror-deposition-material')?.amount,
+    120_000,
+    'mirror material must include deposition cost at panel calculation stage'
+  );
+  assert.equal(
+    result.lineItems.some(item => /하드코팅/.test(item.label)),
+    false,
+    'mirror hard coating must not be added unless selected as a post-processing option'
+  );
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'acrylic-mirror',
+    '5T',
+    '4*8',
+    '단면',
+    undefined,
+    undefined,
+    0,
+    {
+      basePanelSizesData: [{ size_name: '4*8', thickness: '5T', price: 100_000, is_active: true }],
+      panelSizesData: [{ size_name: '4*8', thickness: '5T', price: 140_000, is_active: true }],
+    }
+  );
+
+  assert.equal(result.status, 'calculable');
+  assert.equal(result.totalPrice, 140_000);
+  assert.equal(
+    result.lineItems.find(item => item.code === 'mirror-deposition-material')?.amount,
+    40_000,
+    'existing DB mirror panel price must be interpreted as mirror material surcharge when explicit setting is absent'
+  );
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'astel-mirror',
+    '5T',
+    '4*8',
+    '단면',
+    undefined,
+    undefined,
+    0,
+    {
+      basePanelSizesData: [{ size_name: '4*8', thickness: '5T', price: 100_000, is_active: true }],
+      optionSurchargesData: [{
+        quality_id: 'global',
+        surcharge_type: 'satin_astel',
+        size_name: '4*8',
+        cost: 20_000,
+        is_active: true,
+      }],
+      formulaConstants: {
+        ...DEFAULT_FORMULA_CONSTANTS,
+        mirrorDeposition4x8: 120_000,
+      },
+    }
+  );
+
+  assert.equal(result.status, 'calculable');
+  assert.equal(result.totalPrice, 240_000);
+  assert.equal(
+    result.lineItems.find(item => /사틴\/아스텔 추가금/.test(item.label))?.amount,
+    20_000,
+    'astel mirror must keep astel surcharge separate from mirror deposition'
+  );
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'satin-mirror',
+    '5T',
+    '4*8',
+    '단면',
+    undefined,
+    undefined,
+    0,
+    {
+      basePanelSizesData: [{ size_name: '4*8', thickness: '5T', price: 100_000, is_active: true }],
+      optionSurchargesData: [{
+        quality_id: 'global',
+        surcharge_type: 'satin_astel',
+        size_name: '4*8',
+        cost: 20_000,
+        is_active: true,
+      }],
+      formulaConstants: {
+        ...DEFAULT_FORMULA_CONSTANTS,
+        mirrorDeposition4x8: 120_000,
+      },
+    }
+  );
+
+  assert.equal(result.status, 'calculable');
+  assert.equal(result.totalPrice, 240_000);
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'acrylic-mirror',
+    '5T',
+    '4*8',
+    '단면',
+    undefined,
     'mirrorHardCoating',
     0,
     {
@@ -356,6 +502,7 @@ const inRange = (value: number, min: number, max: number, message: string) => {
       selectedPanelSizesForOptions: [{ size: '4*8', quantity: 2 }],
       processingOptionsData: [mirrorHardCoatingOption],
       panelSizesData: [{ size_name: '4*8', thickness: '5T', price: 100_000, is_active: true }],
+      basePanelSizesData: [{ size_name: '4*8', thickness: '5T', price: 100_000, is_active: true }],
     }
   );
 
@@ -383,6 +530,7 @@ const inRange = (value: number, min: number, max: number, message: string) => {
       selectedPanelSizesForOptions: [{ size: '5*6', quantity: 1 }],
       processingOptionsData: [mirrorHardCoatingOption],
       panelSizesData: [{ size_name: '5*6', thickness: '5T', price: 100_000, is_active: true }],
+      basePanelSizesData: [{ size_name: '5*6', thickness: '5T', price: 100_000, is_active: true }],
     }
   );
 
