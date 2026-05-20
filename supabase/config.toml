@@ -1,7 +1,7 @@
 project_id = "zwloyqcwyfkimwkohpnd"
 
 [functions.delete-user]
-verify_jwt = false
+verify_jwt = true
 
 [functions.pluuug-api]
 verify_jwt = false
@@ -19,31 +19,31 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.admin-update-user]
-verify_jwt = false
+verify_jwt = true
 
 [functions.password-reset]
 verify_jwt = false
 
 [functions.notion-projects]
-verify_jwt = false
+verify_jwt = true
 
 [functions.leave-promotion-check]
 verify_jwt = false
 
 [functions.calculate-salary]
-verify_jwt = false
+verify_jwt = true
 
 [functions.popbill-api]
-verify_jwt = false
+verify_jwt = true
 
 [functions.gcs-storage]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ocr-document]
-verify_jwt = false
+verify_jwt = true
 
 [functions.google-drive]
-verify_jwt = false
+verify_jwt = true
 
 [functions.imweb-api]
 verify_jwt = false
@@ -52,7 +52,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.generate-response-draft]
-verify_jwt = false
+verify_jwt = true
 
 [functions.auto-expire-quotes]
 verify_jwt = false

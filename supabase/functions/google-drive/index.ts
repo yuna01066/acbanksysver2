@@ -1,5 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.58.0";
+import {
+  getSupabaseAdminClient,
+  isAuthResponse,
+  requireFunctionAuth,
+  withCors,
+} from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -238,15 +243,6 @@ function getConfig() {
   return { serviceAccount: parsed, sharedDriveId: driveId };
 }
 
-function getSupabaseAdminClient() {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
-  }
-  return createClient(supabaseUrl, serviceRoleKey);
-}
-
 function drivePathSegments(path: string): string[] {
   return path
     .split('/')
@@ -453,6 +449,19 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { action } = body;
+
+    const adminActions = new Set([
+      'copy-document-file-to-drive',
+      'sync-pending-document-files',
+      'list-drive-usage',
+      'delete-file',
+    ]);
+
+    await requireFunctionAuth(
+      req,
+      adminActions.has(action) ? { allowedRoles: ['admin', 'moderator'] } : {},
+    );
+
     const { serviceAccount, sharedDriveId } = getConfig();
     const accessToken = await getAccessToken(serviceAccount);
 
@@ -701,11 +710,11 @@ serve(async (req) => {
         imageUrl: `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media&supportsAllDrives=true`,
       }));
 
-      // Also generate short-lived download URLs with access token for thumbnails
+      // Do not expose the Drive OAuth access token to the browser.
       const filesWithAuth = files.map((f: any) => ({
         ...f,
-        authImageUrl: `${f.imageUrl}&access_token=${accessToken}`,
-        authThumbnail: f.thumbnailLink ? `${f.thumbnailLink}` : null,
+        authImageUrl: f.thumbnailLink || f.viewLink,
+        authThumbnail: f.thumbnailLink || null,
       }));
 
       return new Response(JSON.stringify({ success: true, files: filesWithAuth }), {
@@ -737,6 +746,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
+    if (isAuthResponse(error)) return withCors(error, corsHeaders);
     console.error('Google Drive error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

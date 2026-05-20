@@ -526,13 +526,17 @@ serve(async (req) => {
 
   try {
     const expectedToken = getEnv("CHANNEL_TALK_WEBHOOK_TOKEN", false);
+    if (!expectedToken) {
+      console.error("Missing CHANNEL_TALK_WEBHOOK_TOKEN");
+      return ok({ error: "Webhook token is not configured" }, 500);
+    }
     const url = new URL(req.url);
     const providedToken =
       req.headers.get("x-channel-talk-token") ||
       req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
       url.searchParams.get("token");
 
-    if (expectedToken && providedToken !== expectedToken) {
+    if (providedToken !== expectedToken) {
       return ok({ error: "Unauthorized" }, 401);
     }
 

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { isAuthResponse, requireFunctionAuth, withCors } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -72,6 +73,11 @@ serve(async (req) => {
   }
 
   try {
+    await requireFunctionAuth(req, {
+      allowedRoles: ['admin', 'moderator'],
+      allowInternalSecret: true,
+    });
+
     const accessKey = Deno.env.get('GCS_HMAC_ACCESS_KEY')!;
     const secretKey = Deno.env.get('GCS_HMAC_SECRET_KEY')!;
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -235,6 +241,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
+    if (isAuthResponse(error)) return withCors(error, corsHeaders);
     console.error('Migration error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
