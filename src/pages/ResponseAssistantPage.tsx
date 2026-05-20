@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clipboard,
-  Home,
   Loader2,
   MessageSquareText,
   RefreshCw,
@@ -31,6 +30,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import ResponseAssistantWidget from '@/components/ResponseAssistantWidget';
+import HomeLogoButton from '@/components/HomeLogoButton';
 
 type SourceChannel = 'email' | 'channel_talk' | 'kakao' | 'sms' | 'phone' | 'other';
 type ToneKey = 'firm' | 'soft' | 'concise';
@@ -301,10 +301,7 @@ const ResponseAssistantPage = () => {
           icon={<MessageSquareText className="h-5 w-5" />}
           actions={(
             <>
-              <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-2">
-                <Home className="h-4 w-4" />
-                홈
-              </Button>
+              <HomeLogoButton />
               <Button size="sm" onClick={() => navigate('/auth')}>
                 로그인
               </Button>

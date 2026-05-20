@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Calculator, ShoppingCart, Home } from "lucide-react";
+import { Calculator, ShoppingCart } from "lucide-react";
 import { useQuotes } from "@/contexts/QuoteContext";
 import QuoteSummaryHeader from "@/components/QuoteSummaryHeader";
 import CustomerQuoteCard from "@/components/CustomerQuoteCard";
@@ -76,18 +76,6 @@ const CustomerQuotesSummaryPage = () => {
       <PrintStyles quoteNumber={quoteNumber} projectName={quoteProjectTitle} companyName={recipient?.companyName} />
       <div className="min-h-screen bg-gray-50 p-4">
         <div className="w-full max-w-4xl mx-auto print-container">
-          <div className="mb-6 print:hidden">
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/')}
-              className="flex items-center gap-2"
-              size="sm"
-            >
-              <Home className="w-4 h-4" />
-              홈으로 돌아가기
-            </Button>
-          </div>
-          
           <QuoteSummaryHeader 
             onClearQuotes={clearQuotes}
             onPrintPDF={handlePrintPDF}
