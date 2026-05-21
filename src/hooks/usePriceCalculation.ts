@@ -16,6 +16,7 @@ import {
 } from "@/utils/priceCalculations";
 import { 
   glossyColorSinglePrices, 
+  brightColorSinglePrices,
   glossyStandardSinglePrices, 
   astelColorSinglePrices,
   satinColorSinglePrices
@@ -104,17 +105,20 @@ export const usePriceCalculation = ({
   mugwangPainting = false
 }: UsePriceCalculationProps) => {
   const [priceInfo, setPriceInfo] = useState<PriceInfo>(EMPTY_PRICE_INFO);
+  const panelMasterLookupQualityId = selectedQuality?.id === 'bright-color'
+    ? 'glossy-color'
+    : selectedQuality?.id;
 
   // Fetch panel master for the selected quality
   const { data: panelMaster } = useQuery({
-    queryKey: ['panel-master-for-calc', selectedQuality?.id],
+    queryKey: ['panel-master-for-calc', panelMasterLookupQualityId],
     queryFn: async () => {
-      if (!selectedQuality?.id) return null;
+      if (!panelMasterLookupQualityId) return null;
       
       const { data, error } = await supabase
         .from('panel_masters')
         .select('*')
-        .eq('quality', selectedQuality.id as PanelQuality)
+        .eq('quality', panelMasterLookupQualityId as PanelQuality)
         .maybeSingle();
 
       if (error) {
@@ -262,6 +266,9 @@ export const usePriceCalculation = ({
       case 'glossy-color':
         priceData = glossyColorSinglePrices;
         break;
+      case 'bright-color':
+        priceData = brightColorSinglePrices;
+        break;
       case 'glossy-standard':
         priceData = glossyStandardSinglePrices;
         break;
@@ -339,7 +346,7 @@ export const usePriceCalculation = ({
   }
     
     // 15T 두께에 대한 특별한 사이즈 배열 (두께별 실제 치수 적용)
-    if (selectedThickness === '15T' && (selectedQuality.id === 'glossy-color' || selectedQuality.id === 'satin-color')) {
+    if (selectedThickness === '15T' && (selectedQuality.id === 'glossy-color' || selectedQuality.id === 'bright-color' || selectedQuality.id === 'satin-color')) {
       const specialSizes = [
         '3*6', '대3*6', '4*5', '대4*5', '1*2', '4*6', '4*8', '4*10', '5*6', '5*8'
       ];

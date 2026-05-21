@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 
 interface PriceManagerHeaderProps {
   onLoadGlossyColorPrices: () => void;
+  onLoadBrightColorPrices: () => void;
   onLoadAstelColorPrices: () => void;
   onLoadGlossyStandardPrices: () => void;
   onLoadSatinColorPrices: () => void;
@@ -13,6 +14,7 @@ interface PriceManagerHeaderProps {
 
 const PriceManagerHeader: React.FC<PriceManagerHeaderProps> = ({
   onLoadGlossyColorPrices,
+  onLoadBrightColorPrices,
   onLoadAstelColorPrices,
   onLoadGlossyStandardPrices,
   onLoadSatinColorPrices,
@@ -25,6 +27,9 @@ const PriceManagerHeader: React.FC<PriceManagerHeaderProps> = ({
         <div className="flex gap-2 flex-wrap">
           <Button onClick={onLoadGlossyColorPrices} variant="secondary">
             유광 색상판 가격 로드
+          </Button>
+          <Button onClick={onLoadBrightColorPrices} variant="secondary">
+            브라이트 색상판 가격 로드
           </Button>
           <Button onClick={onLoadAstelColorPrices} variant="secondary">
             아스텔 색상판 가격 로드
