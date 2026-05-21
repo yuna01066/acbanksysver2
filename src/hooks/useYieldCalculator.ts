@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { glossyColorSinglePrices, glossyStandardSinglePrices, astelColorSinglePrices, satinColorSinglePrices } from '@/data/glossyColorPricing';
+import { glossyColorSinglePrices, brightColorSinglePrices, glossyStandardSinglePrices, astelColorSinglePrices, satinColorSinglePrices } from '@/data/glossyColorPricing';
 import { toast } from 'sonner';
 
 export interface CutItem {
@@ -43,6 +43,7 @@ interface PanelSize {
 export const getPriceDataByQuality = (qualityId: string) => {
   switch (qualityId) {
     case 'glossy-color': return glossyColorSinglePrices;
+    case 'bright-color': return brightColorSinglePrices;
     case 'glossy-standard': return glossyStandardSinglePrices;
     case 'astel-color': return astelColorSinglePrices;
     case 'satin-color': return satinColorSinglePrices;

@@ -78,23 +78,6 @@ export const astelColorSinglePrices = {
   }
 };
 
-export const satinColorSinglePrices = {
-  "1.3T": { "대3*6": 32200 }, // 25200 + 7000
-  "1.5T": { "대3*6": 32200 }, // 25200 + 7000
-  "2T": { "대3*6": 32200 }, // 25200 + 7000
-  "3T": { "대3*6": 39600, "1*2": 48700, "4*8": 67100 }, // base + satin surcharge
-  "4T": { "대3*6": 50100, "1*2": 61500, "4*8": 85600 },
-  "5T": { "대3*6": 60600, "1*2": 73700, "4*8": 102600, "4*10": 190000 },
-  "6T": { "대3*6": 71100, "1*2": 86200, "4*8": 121600, "4*10": 223800 },
-  "8T": { "대3*6": 91600, "1*2": 111200, "4*8": 157100, "4*10": 290500 },
-  "10T": { "대3*6": 110600, "1*2": 135700, "4*8": 191600, "4*10": 356500 },
-  "12T": { "대3*6": 142700, "1*2": 173400, "4*8": 246600, "4*10": 458100 },
-  "15T": { "대3*6": 175400, "1*2": 214700, "4*8": 305100, "4*10": 566200 },
-  "20T": { "대3*6": 236500, "1*2": 289900, "4*8": 413600, "4*10": 770200 },
-  "25T": { "대3*6": 305300, "1*2": 375200, "4*8": 538300, "4*10": 1004700 },
-  "30T": { "대3*6": 372700, "1*2": 459500, "4*8": 662900, "4*10": 1240800 }
-};
-
 export const tapePrices = {
   "3*6": 2000,
   "대3*6": 2600,
@@ -111,6 +94,15 @@ export const tapePrices = {
   "소1*2": 2900
 };
 
+export const satinMaterialSurcharges = {
+  "대3*6": 5000,
+  "1*2": 7000,
+  "4*6": 7000,
+  "4*8": 10000,
+  "4*10": 20000,
+  "5*8": 20000
+};
+
 export const astelDoubleSideSurcharge = {
   "소3*6": 5000,
   "대3*6": 5000,
@@ -123,14 +115,23 @@ export const astelDoubleSideSurcharge = {
   "5*8": 20000
 };
 
-export const satinDoubleSideSurcharge = {
-  "대3*6": 5000,
-  "1*2": 7000,
-  "4*6": 7000,
-  "4*8": 10000,
-  "4*10": 20000,
-  "5*8": 20000
-};
+// Backward-compatible alias. The values are satin material surcharges, not double-side charges.
+export const satinDoubleSideSurcharge = satinMaterialSurcharges;
+
+export const satinColorSinglePrices = Object.fromEntries(
+  Object.entries(glossyColorSinglePrices).map(([thickness, sizeData]) => [
+    thickness,
+    Object.fromEntries(
+      Object.entries(satinMaterialSurcharges)
+        .map(([size, surcharge]) => [
+          size,
+          (sizeData[size as keyof typeof sizeData] || 0) + surcharge,
+        ])
+        .filter(([, price]) => price > 0)
+    ),
+  ])
+) as Record<string, Record<string, number>>;
+
 
 export const jinbaekPrices = {
   "3*6": 5000,
@@ -144,3 +145,15 @@ export const jinbaekPrices = {
   "5*6": 11500,
   "5*8": 12500
 };
+
+export const brightColorSinglePrices = Object.fromEntries(
+  Object.entries(glossyColorSinglePrices).map(([thickness, sizeData]) => [
+    thickness,
+    Object.fromEntries(
+      Object.entries(sizeData).map(([size, price]) => [
+        size,
+        price + (jinbaekPrices[size as keyof typeof jinbaekPrices] || 0),
+      ])
+    ),
+  ])
+) as typeof glossyColorSinglePrices;

@@ -54,8 +54,9 @@
 | --- | --- |
 | 원판 기본 단가 | `P = DB panel_sizes.price` 우선, 없으면 정적 단가표 fallback |
 | 단가 미등록 | `P <= 0`이면 `blocked` |
-| 사틴/아스텔 DB 추가금 있음 | `W = CLEAR 유광 기본가 + satin_astel 추가금` |
-| 사틴/아스텔 DB 추가금 없음 | `W = 해당 품질 정적 단가 + 정적 추가금` |
+| 사틴 | `W = CLEAR 유광 기본가 + 조색비 + satin_astel 또는 정적 사틴 재질 추가금 + 양단면 추가금` |
+| 아스텔 DB 추가금 있음 | `W = CLEAR 유광 기본가 + satin_astel 추가금` |
+| 아스텔 DB 추가금 없음 | `W = 해당 품질 정적 단가 + 정적 추가금` |
 | 양단면 DB 추가금 있음 | `W = W + double_surface 추가금` |
 | 양단면 DB 추가금 없음 | `W = W + 정적 양단면 추가금` |
 | 브라이트/진백/스리 | `W = W + bright_pigment 추가금` |

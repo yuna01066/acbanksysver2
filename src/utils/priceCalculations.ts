@@ -3,12 +3,12 @@ import { CASTING_QUALITIES } from "@/types/calculator";
 import { PricingData, createPriceKey } from "@/types/pricing";
 import { 
   glossyColorSinglePrices, 
+  brightColorSinglePrices,
   glossyStandardSinglePrices, 
   astelColorSinglePrices,
-  satinColorSinglePrices,
   tapePrices,
   astelDoubleSideSurcharge,
-  satinDoubleSideSurcharge,
+  satinMaterialSurcharges,
   jinbaekPrices 
 } from "@/data/glossyColorPricing";
 
@@ -192,24 +192,52 @@ export const initializeAstelColorPrices = (): PricingData => {
   return initialPrices;
 };
 
+export const initializeBrightColorPrices = (): PricingData => {
+  const initialPrices: PricingData = {};
+  const brightColorQuality = CASTING_QUALITIES.find(q => q.id === 'bright-color');
+
+  if (brightColorQuality) {
+    Object.entries(brightColorSinglePrices).forEach(([thickness, sizeData]) => {
+      if (brightColorQuality.thicknesses.includes(thickness)) {
+        Object.entries(sizeData).forEach(([size, price]) => {
+          if (brightColorQuality.sizes.includes(size)) {
+            const singleKey = createPriceKey('casting', 'bright-color', thickness, size, '단면');
+            initialPrices[singleKey] = price;
+
+            const tapePrice = tapePrices[size as keyof typeof tapePrices] || 0;
+            if (tapePrice > 0) {
+              const doubleKey = createPriceKey('casting', 'bright-color', thickness, size, '양면');
+              initialPrices[doubleKey] = price + tapePrice;
+            }
+          }
+        });
+      }
+    });
+  }
+
+  return initialPrices;
+};
+
 export const initializeSatinColorPrices = (): PricingData => {
   const initialPrices: PricingData = {};
   const satinColorQuality = CASTING_QUALITIES.find(q => q.id === 'satin-color');
   
   if (satinColorQuality) {
-    Object.entries(satinColorSinglePrices).forEach(([thickness, sizeData]) => {
+    Object.entries(glossyColorSinglePrices).forEach(([thickness, sizeData]) => {
       if (satinColorQuality.thicknesses.includes(thickness)) {
-        Object.entries(sizeData).forEach(([size, price]) => {
+        Object.entries(sizeData).forEach(([size, clearPrice]) => {
           if (satinColorQuality.sizes.includes(size)) {
-            // 단면 가격 설정
+            const satinSurcharge = satinMaterialSurcharges[size as keyof typeof satinMaterialSurcharges] || 0;
+            if (satinSurcharge <= 0) return;
+
+            const singlePrice = clearPrice + satinSurcharge;
             const singleKey = createPriceKey('casting', 'satin-color', thickness, size, '단면');
-            initialPrices[singleKey] = price;
+            initialPrices[singleKey] = singlePrice;
             
-            // 양면 가격 설정 (단면 가격 + 사틴 양면 추가금액)
-            const doubleSideSurcharge = satinDoubleSideSurcharge[size as keyof typeof satinDoubleSideSurcharge] || 0;
+            const doubleSideSurcharge = tapePrices[size as keyof typeof tapePrices] || 0;
             if (doubleSideSurcharge > 0) {
               const doubleKey = createPriceKey('casting', 'satin-color', thickness, size, '양면');
-              initialPrices[doubleKey] = price + doubleSideSurcharge;
+              initialPrices[doubleKey] = singlePrice + doubleSideSurcharge;
             }
           }
         });
@@ -1229,6 +1257,8 @@ const isMirrorQuality = (qualityId: string) => /mirror/i.test(qualityId);
 const isMirrorFinishQuality = (qualityId: string) =>
   qualityId === 'astel-mirror' || qualityId === 'satin-mirror';
 
+const isBrightQuality = (qualityId: string) => qualityId === 'bright-color';
+
 const getMirrorDepositionUnitCost = (
   sizeKey: string,
   constants: FormulaConstantsData
@@ -1550,7 +1580,30 @@ export const calculatePrice = (
     ? findOptionSurcharge('satin_astel')
     : undefined;
 
-  if (mirrorQualitySelected || (finishSurcharge && finishSurcharge.cost > 0)) {
+  if (qualityId === 'satin-color') {
+    const clearDbPanelSize = options?.basePanelSizesData?.find(
+      ps => ps.size_name === sizeKey && ps.thickness === thickness && ps.is_active
+    );
+    const clearPrices = glossyColorSinglePrices[thickness as keyof typeof glossyColorSinglePrices];
+    const clearBasePrice = clearDbPanelSize?.price && clearDbPanelSize.price > 0
+      ? clearDbPanelSize.price
+      : clearPrices?.[sizeKey as keyof typeof clearPrices] || 0;
+    const satinSurcharge = finishSurcharge?.cost && finishSurcharge.cost > 0
+      ? finishSurcharge.cost
+      : satinMaterialSurcharges[sizeKey as keyof typeof satinMaterialSurcharges] || 0;
+
+    if (clearBasePrice > 0) {
+      basePrice = clearBasePrice;
+      breakdown.push({ label: 'CLEAR 유광 색상판 기본가', price: basePrice });
+      if (satinSurcharge > 0) {
+        breakdown.push({
+          label: finishSurcharge?.cost && finishSurcharge.cost > 0 ? '사틴 재질 추가금 (DB)' : '사틴 재질 추가금',
+          price: satinSurcharge
+        });
+        basePrice += satinSurcharge;
+      }
+    }
+  } else if (mirrorQualitySelected || (finishSurcharge && finishSurcharge.cost > 0)) {
     const clearDbPanelSize = options?.basePanelSizesData?.find(
       ps => ps.size_name === sizeKey && ps.thickness === thickness && ps.is_active
     );
@@ -1572,7 +1625,10 @@ export const calculatePrice = (
   // DB에 가격이 있으면 우선 사용
   if (basePrice === 0 && dbPanelSize?.price && dbPanelSize.price > 0) {
     basePrice = dbPanelSize.price;
-    breakdown.push({ label: `${qualityId} 기본가 (DB)`, price: basePrice });
+    breakdown.push({
+      label: qualityId === 'bright-color' ? 'CLEAR 유광 색상판 기본가 (DB)' : `${qualityId} 기본가 (DB)`,
+      price: basePrice
+    });
   } else if (basePrice === 0) {
     // DB에 없으면 하드코딩된 값 사용 (fallback)
     if (qualityId === 'glossy-color') {
@@ -1590,10 +1646,10 @@ export const calculatePrice = (
         breakdown.push({ label: '아스텔 추가금액', price: astelSurcharge });
         basePrice += astelSurcharge;
       }
-    } else if (qualityId === 'satin-color') {
-      const prices = satinColorSinglePrices[thickness as keyof typeof satinColorSinglePrices];
+    } else if (qualityId === 'bright-color') {
+      const prices = glossyColorSinglePrices[thickness as keyof typeof glossyColorSinglePrices];
       basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
-      breakdown.push({ label: '사틴 색상판 기본가', price: basePrice });
+      breakdown.push({ label: 'CLEAR 유광 색상판 기본가', price: basePrice });
     } else if (qualityId === 'glossy-standard') {
       const prices = glossyStandardSinglePrices[thickness as keyof typeof glossyStandardSinglePrices];
       basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
@@ -1647,14 +1703,16 @@ export const calculatePrice = (
   }
 
   const dbBrightPigmentSurcharge = findOptionSurcharge('bright_pigment');
-  if (isBrightPigmentColor(colorType)) {
+  if (isBrightQuality(qualityId) || isBrightPigmentColor(colorType)) {
     const brightPigmentCost = dbBrightPigmentSurcharge?.cost && dbBrightPigmentSurcharge.cost > 0
       ? dbBrightPigmentSurcharge.cost
       : jinbaekPrices[sizeKey as keyof typeof jinbaekPrices] || 0;
 
     if (brightPigmentCost > 0) {
       breakdown.push({
-        label: dbBrightPigmentSurcharge ? '브라이트/진백/스리 조색비 (DB)' : '브라이트/진백/스리 조색비',
+        label: isBrightQuality(qualityId)
+          ? (dbBrightPigmentSurcharge ? '브라이트 재질 조색비 (DB)' : '브라이트 재질 조색비')
+          : (dbBrightPigmentSurcharge ? '브라이트/진백/스리 조색비 (DB)' : '브라이트/진백/스리 조색비'),
         price: brightPigmentCost
       });
       basePrice += brightPigmentCost;
@@ -1673,9 +1731,6 @@ export const calculatePrice = (
       if (qualityId === 'astel-color') {
         doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
         breakdown.push({ label: '양단면 추가금', price: doubleSidePrice });
-      } else if (qualityId === 'satin-color') {
-        doubleSidePrice = satinDoubleSideSurcharge[sizeKey as keyof typeof satinDoubleSideSurcharge] || 0;
-        breakdown.push({ label: '사틴 양단면 추가금', price: doubleSidePrice });
       } else {
         doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
         breakdown.push({ label: '양단면 추가금', price: doubleSidePrice });

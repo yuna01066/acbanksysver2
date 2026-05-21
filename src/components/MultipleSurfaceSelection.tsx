@@ -8,8 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { 
   tapePrices, 
-  astelDoubleSideSurcharge, 
-  satinDoubleSideSurcharge 
+  astelDoubleSideSurcharge
 } from "@/data/glossyColorPricing";
 
 interface MultipleSurfaceSelectionProps {
@@ -52,7 +51,7 @@ const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
         return astelTape + astelSurcharge;
       
       case 'satin-color':
-        return satinDoubleSideSurcharge[baseName as keyof typeof satinDoubleSideSurcharge] || 0;
+        return tapePrices[baseName as keyof typeof tapePrices] || 0;
       
       default:
         return 0;

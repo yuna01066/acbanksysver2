@@ -5,6 +5,7 @@ import { PricingData } from "@/types/pricing";
 import { generateAllCombinations } from "@/utils/priceCombinations";
 import { 
   initializeGlossyColorPrices, 
+  initializeBrightColorPrices,
   initializeAstelColorPrices, 
   initializeGlossyStandardPrices,
   initializeSatinColorPrices,
@@ -30,6 +31,11 @@ const PriceManager = () => {
   const handleLoadAstelColorPrices = () => {
     const astelPrices = initializeAstelColorPrices();
     setPricingData(prev => ({ ...prev, ...astelPrices }));
+  };
+
+  const handleLoadBrightColorPrices = () => {
+    const brightPrices = initializeBrightColorPrices();
+    setPricingData(prev => ({ ...prev, ...brightPrices }));
   };
 
   const handleLoadGlossyStandardPrices = () => {
@@ -73,6 +79,7 @@ const PriceManager = () => {
   useEffect(() => {
     // 컴포넌트 마운트 시 모든 가격 데이터 자동 로드
     handleLoadGlossyColorPrices();
+    handleLoadBrightColorPrices();
     handleLoadAstelColorPrices();
     handleLoadGlossyStandardPrices();
     handleLoadSatinColorPrices();
@@ -82,6 +89,7 @@ const PriceManager = () => {
     <Card className="w-full max-w-6xl mx-auto">
       <PriceManagerHeader
         onLoadGlossyColorPrices={handleLoadGlossyColorPrices}
+        onLoadBrightColorPrices={handleLoadBrightColorPrices}
         onLoadAstelColorPrices={handleLoadAstelColorPrices}
         onLoadGlossyStandardPrices={handleLoadGlossyStandardPrices}
         onLoadSatinColorPrices={handleLoadSatinColorPrices}
