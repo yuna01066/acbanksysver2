@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Search, Palette } from "lucide-react";
+import { getColorSeriesLabel, getColorSeriesTab, hasExplicitSeriesTabs } from '@/utils/colorSeries';
 
 interface ColorOption {
   id: string;
@@ -16,6 +17,9 @@ interface ColorOption {
   is_bright_pigment?: boolean;
   unavailable_reason?: string | null;
   color_attribute_note?: string | null;
+  series_key?: string | null;
+  pantone?: string | null;
+  source_url?: string | null;
 }
 
 interface ColorSelectionProps {
@@ -97,19 +101,12 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
   // 검색 필터링 및 카테고리 분리
   const [activeTab, setActiveTab] = React.useState<'A' | 'B'>('A');
   
-  const categoryAColors = colors?.filter(color => {
-    const acCode = color.color_name.split(' ')[0];
-    const lastDigit = acCode.charAt(acCode.length - 1);
-    return ['1', '2', '3', '4'].includes(lastDigit);
-  }) || [];
-
-  const categoryBColors = colors?.filter(color => {
-    const acCode = color.color_name.split(' ')[0];
-    const lastDigit = acCode.charAt(acCode.length - 1);
-    return ['6', '7', '8', '9'].includes(lastDigit);
-  }) || [];
-
-  const displayColors = activeTab === 'A' ? categoryAColors : categoryBColors;
+  const hasSeriesTabs = hasExplicitSeriesTabs(colors || []);
+  const categoryAColors = colors?.filter(color => getColorSeriesTab(color) === 'A') || [];
+  const categoryBColors = colors?.filter(color => getColorSeriesTab(color) === 'B') || [];
+  const displayColors = hasSeriesTabs
+    ? activeTab === 'A' ? categoryAColors : categoryBColors
+    : colors || [];
   
   const filteredColors = displayColors.filter(color => {
     if (!searchTerm) return true;
@@ -265,29 +262,30 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
         </Dialog>
       </div>
 
-      {/* A/B 카테고리 탭 */}
-      <div className="flex gap-2 border-b mb-4">
-        <button
-          onClick={() => setActiveTab('A')}
-          className={`px-4 py-2 font-medium transition-colors ${
-            activeTab === 'A'
-              ? 'border-b-2 border-primary text-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          카테고리 A ({categoryAColors.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('B')}
-          className={`px-4 py-2 font-medium transition-colors ${
-            activeTab === 'B'
-              ? 'border-b-2 border-primary text-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          카테고리 B ({categoryBColors.length})
-        </button>
-      </div>
+      {hasSeriesTabs && (
+        <div className="flex gap-2 border-b mb-4">
+          <button
+            onClick={() => setActiveTab('A')}
+            className={`px-4 py-2 font-medium transition-colors ${
+              activeTab === 'A'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            카테고리 A ({categoryAColors.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('B')}
+            className={`px-4 py-2 font-medium transition-colors ${
+              activeTab === 'B'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            카테고리 B ({categoryBColors.length})
+          </button>
+        </div>
+      )}
 
       {/* 색상 그리드 */}
       <div className="space-y-4">
@@ -327,6 +325,11 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                     {color.is_bright_pigment && (
                       <div className="text-[10px] text-rose-600 truncate">조색비 대상</div>
                     )}
+                    {color.series_key && (
+                      <div className="text-[10px] text-muted-foreground truncate">
+                        {getColorSeriesLabel(color.series_key)}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -335,7 +338,11 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
         ) : (
           <div className="text-center py-12 bg-muted/50 rounded-lg">
             <p className="text-muted-foreground">
-              {searchTerm ? '검색 결과가 없습니다.' : `카테고리 ${activeTab}에 등록된 컬러가 없습니다.`}
+              {searchTerm
+                ? '검색 결과가 없습니다.'
+                : hasSeriesTabs
+                  ? `카테고리 ${activeTab}에 등록된 컬러가 없습니다.`
+                  : '등록된 컬러가 없습니다.'}
             </p>
           </div>
         )}
