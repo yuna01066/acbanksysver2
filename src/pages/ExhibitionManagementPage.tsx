@@ -14,12 +14,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, Trash2, ExternalLink, CheckSquare, Users, Link as LinkIcon, Calendar, MapPin, Building2, Edit2, StickyNote, CalendarCheck, FileText, FolderOpen, Presentation, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ExternalLink, CheckSquare, Users, Link as LinkIcon, Calendar, MapPin, Building2, Edit2, StickyNote, CalendarCheck, FileText, FolderOpen, LayoutGrid } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import PortfolioGallery from '@/components/exhibition/PortfolioGallery';
 
-type DashboardView = 'dashboard' | 'meetings' | 'consult-form' | 'documents' | 'portfolio' | 'exhibitions';
+type DashboardView = 'dashboard' | 'meetings' | 'consult-form' | 'documents' | 'exhibitions';
 
 const statusLabels: Record<string, string> = {
   upcoming: '예정',
@@ -113,7 +112,6 @@ const ExhibitionManagementPage = () => {
     { key: 'meetings' as DashboardView, title: '현장 미팅 예약', description: '박람회 현장 미팅 일정 관리', icon: CalendarCheck, color: 'text-blue-500', bg: 'bg-blue-500/10', externalLink: 'https://preview--meeting-minute-maker-29.lovable.app/' },
     { key: 'consult-form' as DashboardView, title: '상담폼', description: '고객 상담 기록 및 관리', icon: FileText, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
     { key: 'documents' as DashboardView, title: '자료', description: '박람회 관련 자료 관리', icon: FolderOpen, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-    { key: 'portfolio' as DashboardView, title: '포트폴리오', description: '포트폴리오 관리', icon: Presentation, color: 'text-purple-500', bg: 'bg-purple-500/10' },
     { key: 'exhibitions' as DashboardView, title: '등록된 박람회', description: '박람회 등록 및 상세 관리', icon: Building2, color: 'text-rose-500', bg: 'bg-rose-500/10' },
     { key: null, title: '준비중', description: '추후 업데이트 예정', icon: LayoutGrid, color: 'text-muted-foreground', bg: 'bg-muted/50', disabled: true },
   ];
@@ -247,12 +245,6 @@ const ExhibitionManagementPage = () => {
         {currentView === 'meetings' && renderPlaceholder('현장 미팅 예약')}
         {currentView === 'consult-form' && renderPlaceholder('상담폼')}
         {currentView === 'documents' && renderPlaceholder('자료')}
-        {currentView === 'portfolio' && (
-          <div>
-            {renderSubPageHeader('포트폴리오')}
-            <PortfolioGallery />
-          </div>
-        )}
 
       </div>
     </div>

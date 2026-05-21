@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Megaphone, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette, Images } from "lucide-react";
 import LoginScreen from '@/components/LoginScreen';
 import DashboardCalendar from '@/components/DashboardCalendar';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
@@ -312,6 +312,7 @@ const Home = () => {
           {(() => {
             const secondaryLinks: DashboardLink[] = [
               { title: "샘플칩 관리", icon: Palette, description: "샘플칩 재고 관리", requiresAuth: true, action: () => navigate("/sample-chip-inventory") },
+              { title: "포트폴리오", icon: Images, description: "인테리어·제작가공 사진 열람", requiresAuth: true, action: () => navigate("/portfolio") },
               { title: "박람회 관리", icon: Landmark, description: "박람회 일정·준비·상담 관리", requiresAuth: true, action: () => navigate("/exhibition-management") },
               { title: "세금계산서 관리", icon: Receipt, description: "세금계산서 발행·조회", requiresAuth: true, action: () => navigate("/tax-invoices") },
             ];
@@ -325,7 +326,7 @@ const Home = () => {
             const linkGroups = [
               { title: "업무", items: pickLinks(["공지사항", "근태 관리", "연차 관리", "업무 평가"]) },
               { title: "견적 · 프로젝트", items: pickLinks(["고객사 관리", "프로젝트 관리", "원판 발주 관리", "수율 계산기", "견적 계산기", "발행 견적서 확인"]) },
-              { title: "관리", items: pickLinks(["채널톡 문의 분석함", "샘플칩 관리", "박람회 관리", "세금계산서 관리", "관리자 설정"]) },
+              { title: "관리", items: pickLinks(["채널톡 문의 분석함", "샘플칩 관리", "포트폴리오", "박람회 관리", "세금계산서 관리", "관리자 설정"]) },
               { title: "외부", items: pickLinks(["클라이언트 상담폼"]) },
             ].filter((group) => group.items.length > 0);
 

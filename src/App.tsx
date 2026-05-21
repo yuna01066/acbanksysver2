@@ -54,6 +54,7 @@ const TaxInvoicesPage = lazy(() => import("./pages/TaxInvoicesPage"));
 const SampleChipInventoryPage = lazy(() => import("./pages/SampleChipInventoryPage"));
 const ImwebManagementPage = lazy(() => import("./pages/ImwebManagementPage"));
 const ExhibitionManagementPage = lazy(() => import("./pages/ExhibitionManagementPage"));
+const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
 const BusinessDashboardPage = lazy(() => import("./pages/BusinessDashboardPage"));
 const SpaceProjectFormPage = lazy(() => import("./pages/SpaceProjectFormPage"));
 const SpaceProjectsListPage = lazy(() => import("./pages/SpaceProjectsListPage"));
@@ -128,6 +129,7 @@ const App = () => (
               <Route path="/sample-chip-inventory" element={<SampleChipInventoryPage />} />
               <Route path="/imweb-management" element={<G><ImwebManagementPage /></G>} />
               <Route path="/exhibition-management" element={<G><ExhibitionManagementPage /></G>} />
+              <Route path="/portfolio" element={<G><PortfolioPage /></G>} />
               <Route path="/business-dashboard" element={<G><BusinessDashboardPage /></G>} />
               <Route path="/review-hub" element={<G><ReviewHubPage /></G>} />
               <Route path="/channel-talk-leads" element={<G><ChannelTalkLeadsPage /></G>} />
