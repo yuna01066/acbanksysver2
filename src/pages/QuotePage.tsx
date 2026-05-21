@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, FileText, Calendar, Calculator } from "lucide-react";
+import { Download, FileText, Calendar, Calculator } from "lucide-react";
 import { formatPrice } from "@/utils/priceCalculations";
+import HomeLogoButton from "@/components/HomeLogoButton";
 
 interface QuoteData {
   factory?: string;
@@ -126,15 +127,7 @@ const QuotePage = () => {
       <div className="w-full max-w-4xl mx-auto print-container">
         {/* 상단 액션 버튼들 */}
         <div className="flex flex-wrap justify-between items-center gap-2 mb-6 print:hidden">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            홈으로
-          </Button>
+          <HomeLogoButton />
           <Button 
             size="sm"
             onClick={handlePrintPDF}
