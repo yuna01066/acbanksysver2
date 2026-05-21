@@ -29,15 +29,24 @@ interface PortfolioImage {
   id: string;
   post_id: string;
   drive_file_id: string;
+  drive_folder_id: string | null;
+  drive_path: string | null;
   file_name: string;
   thumbnail_url: string | null;
   image_url: string | null;
+  thumbnail_bucket: string | null;
+  thumbnail_path: string | null;
+  thumbnail_width: number | null;
+  thumbnail_height: number | null;
   display_order: number;
   is_main: boolean;
   file_size: number | null;
   mime_type: string | null;
   storage_provider: string | null;
   uploaded_by: string | null;
+  access_level: string;
+  delete_status: string;
+  delete_error: string | null;
 }
 
 interface PortfolioSearchRow {
@@ -59,13 +68,24 @@ interface PortfolioQueryResult {
 interface PortfolioUploadResult {
   fileId: string;
   fileName: string;
+  folderId: string | null;
+  drivePath: string | null;
   thumbnailUrl: string;
   imageUrl: string;
   mimeType: string;
   fileSize: number;
 }
 
-const PORTFOLIO_FOLDER = ['포트폴리오'];
+interface PortfolioThumbnailResult {
+  file: File;
+  width: number;
+  height: number;
+  bucket: string;
+  path: string;
+}
+
+const LEGACY_PORTFOLIO_FOLDER = ['포트폴리오'];
+const PORTFOLIO_THUMBNAIL_BUCKET = 'portfolio-thumbnails';
 const RECENT_KEYWORDS_KEY = 'portfolio-recent-keywords';
 const MAX_RECENT = 10;
 const PAGE_SIZE = 24;
@@ -73,7 +93,11 @@ const MAX_UPLOAD_FILES = 20;
 const MAX_UPLOAD_IMAGE_BYTES = 25 * 1024 * 1024;
 const MAX_OPTIMIZED_EDGE = 3200;
 const OPTIMIZED_JPEG_QUALITY = 0.88;
+const THUMBNAIL_EDGE = 600;
+const THUMBNAIL_WEBP_QUALITY = 0.82;
 const EMPTY_PORTFOLIO_RESULT: PortfolioQueryResult = { posts: [], hasMore: false, totalMatches: 0 };
+const DEFAULT_PORTFOLIO_CATEGORY = '제작가공';
+const PORTFOLIO_UPLOAD_CATEGORIES = ['인테리어', '제작가공', '디테일', '사인/디스플레이', '기타'] as const;
 const PORTFOLIO_CATEGORY_FILTERS = [
   { key: 'all', label: '전체', keywords: [] },
   { key: 'interior', label: '인테리어', keywords: ['인테리어', '공간', '로비', '매장', '쇼룸', '오피스', '팝업'] },
@@ -125,6 +149,14 @@ function makeDriveFileName(file: File): string {
   return `${Date.now()}-${crypto.randomUUID()}-${safeBase}.${ext}`;
 }
 
+function makeStorageSafeName(fileName: string): string {
+  return fileName
+    .replace(/\.[^.]+$/, '')
+    .replace(/[^\w.-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'portfolio';
+}
+
 async function optimizePortfolioImage(file: File): Promise<File> {
   if (file.type === 'image/gif' || file.type === 'image/svg+xml') return file;
   if (!('createImageBitmap' in window)) return file;
@@ -161,6 +193,64 @@ async function optimizePortfolioImage(file: File): Promise<File> {
   }
 }
 
+async function createPortfolioThumbnail(
+  file: File,
+  postId: string,
+  displayOrder: number,
+): Promise<PortfolioThumbnailResult> {
+  if (!('createImageBitmap' in window)) {
+    throw new Error('이 브라우저에서는 썸네일 생성이 지원되지 않습니다.');
+  }
+
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, THUMBNAIL_EDGE / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('썸네일 캔버스를 생성할 수 없습니다.');
+
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, 'image/webp', THUMBNAIL_WEBP_QUALITY);
+    });
+    if (!blob) throw new Error('썸네일 파일을 생성할 수 없습니다.');
+
+    const safeName = makeStorageSafeName(file.name);
+    const path = `${postId}/${displayOrder}-${crypto.randomUUID()}-${safeName}.webp`;
+    return {
+      file: new File([blob], `${safeName}.webp`, { type: 'image/webp', lastModified: Date.now() }),
+      width,
+      height,
+      bucket: PORTFOLIO_THUMBNAIL_BUCKET,
+      path,
+    };
+  } finally {
+    bitmap.close();
+  }
+}
+
+async function createPortfolioThumbnailSignedUrl(image: PortfolioImage): Promise<string | null> {
+  if (!image.thumbnail_path) return image.thumbnail_url || null;
+
+  const bucket = image.thumbnail_bucket || PORTFOLIO_THUMBNAIL_BUCKET;
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(image.thumbnail_path, 60 * 60);
+  if (error) return image.thumbnail_url || null;
+  return data?.signedUrl || image.thumbnail_url || null;
+}
+
+async function hydratePortfolioImages(data: PortfolioImage[]): Promise<PortfolioImage[]> {
+  return await Promise.all(data.map(async (image) => ({
+    ...image,
+    thumbnail_url: await createPortfolioThumbnailSignedUrl(image),
+  })));
+}
+
 async function fetchImagesForPosts(postIds: string[]): Promise<Map<string, PortfolioImage[]>> {
   if (postIds.length === 0) return new Map();
 
@@ -172,7 +262,8 @@ async function fetchImagesForPosts(postIds: string[]): Promise<Map<string, Portf
   if (error) throw error;
 
   const imagesByPostId = new Map<string, PortfolioImage[]>();
-  (data || []).forEach((image) => {
+  const hydratedImages = await hydratePortfolioImages((data || []) as PortfolioImage[]);
+  hydratedImages.forEach((image) => {
     const images = imagesByPostId.get(image.post_id) || [];
     images.push(image);
     imagesByPostId.set(image.post_id, images);
@@ -217,14 +308,27 @@ async function fetchPortfolioPosts(params: {
   };
 }
 
-async function deletePortfolioDriveFile(fileId: string): Promise<void> {
+async function deletePortfolioDriveFile(fileId: string, folderId?: string | null): Promise<void> {
   const { data, error } = await supabase.functions.invoke('google-drive', {
-    body: { action: 'delete-portfolio-file', fileId, folderPath: PORTFOLIO_FOLDER },
+    body: {
+      action: 'delete-portfolio-file',
+      fileId,
+      folderId: folderId || undefined,
+      folderPath: folderId ? undefined : LEGACY_PORTFOLIO_FOLDER,
+    },
   });
 
   if (error || !data?.success) {
     throw new Error(error?.message || data?.error || 'Drive 파일 삭제에 실패했습니다.');
   }
+}
+
+async function deletePortfolioThumbnail(bucket: string | null | undefined, path: string | null | undefined): Promise<void> {
+  if (!path) return;
+  const { error } = await supabase.storage
+    .from(bucket || PORTFOLIO_THUMBNAIL_BUCKET)
+    .remove([path]);
+  if (error) throw error;
 }
 
 async function readFileAsBase64(file: File): Promise<string> {
@@ -239,13 +343,17 @@ async function readFileAsBase64(file: File): Promise<string> {
   });
 }
 
-async function uploadPortfolioFile(file: File): Promise<PortfolioUploadResult> {
+async function uploadPortfolioFile(
+  file: File,
+  params: { category: string; postTitle: string },
+): Promise<PortfolioUploadResult> {
   const uploadFileName = makeDriveFileName(file);
   const fileBase64 = await readFileAsBase64(file);
   const { data, error } = await supabase.functions.invoke('google-drive', {
     body: {
       action: 'upload-portfolio-image',
-      folderPath: PORTFOLIO_FOLDER,
+      category: params.category,
+      postTitle: params.postTitle,
       fileName: uploadFileName,
       fileBase64,
       contentType: file.type || 'application/octet-stream',
@@ -259,11 +367,43 @@ async function uploadPortfolioFile(file: File): Promise<PortfolioUploadResult> {
   return {
     fileId: data.fileId,
     fileName: data.fileName || uploadFileName,
-    thumbnailUrl: `https://drive.google.com/thumbnail?id=${data.fileId}&sz=w400`,
-    imageUrl: `https://drive.google.com/thumbnail?id=${data.fileId}&sz=w2400`,
+    folderId: data.folderId || null,
+    drivePath: data.drivePath || null,
+    thumbnailUrl: '',
+    imageUrl: '',
     mimeType: file.type || 'application/octet-stream',
     fileSize: file.size,
   };
+}
+
+async function uploadPortfolioThumbnail(thumbnail: PortfolioThumbnailResult): Promise<void> {
+  const { error } = await supabase.storage
+    .from(thumbnail.bucket)
+    .upload(thumbnail.path, thumbnail.file, {
+      contentType: thumbnail.file.type,
+      upsert: false,
+    });
+  if (error) throw error;
+}
+
+async function fetchPortfolioOriginalImage(image: PortfolioImage): Promise<string> {
+  if (image.image_url) return image.image_url;
+
+  const { data, error, response } = await supabase.functions.invoke('google-drive', {
+    body: {
+      action: 'get-portfolio-image',
+      fileId: image.drive_file_id,
+      folderId: image.drive_folder_id || undefined,
+    },
+  });
+
+  if (error || !(data instanceof Blob)) {
+    throw new Error(error?.message || '원본 이미지를 불러오지 못했습니다.');
+  }
+
+  const contentType = response?.headers.get('X-Image-Mime-Type') || image.mime_type || data.type || 'image/jpeg';
+  const blob = new Blob([data], { type: contentType });
+  return URL.createObjectURL(blob);
 }
 
 function PendingImagePreview({
@@ -329,11 +469,14 @@ const PortfolioGallery = () => {
 
   // Create form state
   const [newTitle, setNewTitle] = useState('');
+  const [newCategory, setNewCategory] = useState<string>(DEFAULT_PORTFOLIO_CATEGORY);
   const [newKeywords, setNewKeywords] = useState<string[]>([]);
   const [keywordInput, setKeywordInput] = useState('');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [creating, setCreating] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [currentOriginalImageUrl, setCurrentOriginalImageUrl] = useState<string | null>(null);
+  const [loadingOriginalImage, setLoadingOriginalImage] = useState(false);
 
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const normalizedSearchQuery = deferredSearchQuery.trim();
@@ -342,6 +485,46 @@ const PortfolioGallery = () => {
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [normalizedSearchQuery, activeKeywordFilter, activeCategoryFilter]);
+
+  useEffect(() => {
+    const currentImage = selectedPost?.images[currentImageIndex];
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
+    setCurrentOriginalImageUrl(null);
+    if (!currentImage) {
+      setLoadingOriginalImage(false);
+      return;
+    }
+
+    if (currentImage.image_url) {
+      setCurrentOriginalImageUrl(currentImage.image_url);
+      setLoadingOriginalImage(false);
+      return;
+    }
+
+    setLoadingOriginalImage(true);
+    fetchPortfolioOriginalImage(currentImage)
+      .then((url) => {
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        objectUrl = url;
+        setCurrentOriginalImageUrl(url);
+      })
+      .catch((error) => {
+        if (!cancelled) toast.error('원본 이미지 로딩 실패: ' + getErrorMessage(error));
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingOriginalImage(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [selectedPost, currentImageIndex]);
 
   // Fetch posts with images
   const { data: portfolioData = EMPTY_PORTFOLIO_RESULT, isLoading, isFetching, refetch } = useQuery({
@@ -493,14 +676,16 @@ const PortfolioGallery = () => {
 
     setCreating(true);
     setUploadStatus('등록 정보를 생성하는 중...');
-    const uploadedDriveFileIds: string[] = [];
+    const uploadedDriveFiles: Array<{ fileId: string; folderId: string | null }> = [];
+    const uploadedThumbnails: Array<{ bucket: string; path: string }> = [];
     let createdPostId: string | null = null;
     try {
+      const postTitle = newTitle.trim();
       const { data: post, error: postError } = await supabase
         .from('portfolio_posts')
         .insert({
-          title: newTitle.trim(),
-          keywords: newKeywords,
+          title: postTitle,
+          keywords: Array.from(new Set([newCategory, ...newKeywords])),
           created_by: user?.email || 'unknown',
         })
         .select()
@@ -513,21 +698,35 @@ const PortfolioGallery = () => {
         setUploadStatus(`${i + 1}/${pendingFiles.length} 이미지 최적화 중...`);
         const uploadFile = await optimizePortfolioImage(originalFile);
         setUploadStatus(`${i + 1}/${pendingFiles.length} Drive 업로드 중...`);
-        const uploadData = await uploadPortfolioFile(uploadFile);
-        uploadedDriveFileIds.push(uploadData.fileId);
+        const uploadData = await uploadPortfolioFile(uploadFile, { category: newCategory, postTitle });
+        uploadedDriveFiles.push({ fileId: uploadData.fileId, folderId: uploadData.folderId });
+
+        setUploadStatus(`${i + 1}/${pendingFiles.length} 썸네일 생성 중...`);
+        const thumbnail = await createPortfolioThumbnail(originalFile, post.id, i);
+        setUploadStatus(`${i + 1}/${pendingFiles.length} 썸네일 저장 중...`);
+        await uploadPortfolioThumbnail(thumbnail);
+        uploadedThumbnails.push({ bucket: thumbnail.bucket, path: thumbnail.path });
 
         const { error: imageError } = await supabase.from('portfolio_images').insert({
           post_id: post.id,
           drive_file_id: uploadData.fileId,
+          drive_folder_id: uploadData.folderId,
+          drive_path: uploadData.drivePath,
           file_name: originalFile.name,
-          thumbnail_url: uploadData.thumbnailUrl,
-          image_url: uploadData.imageUrl,
+          thumbnail_url: null,
+          image_url: null,
+          thumbnail_bucket: thumbnail.bucket,
+          thumbnail_path: thumbnail.path,
+          thumbnail_width: thumbnail.width,
+          thumbnail_height: thumbnail.height,
           display_order: i,
           is_main: i === 0,
           file_size: uploadData.fileSize,
           mime_type: uploadData.mimeType,
           storage_provider: 'google_drive',
           uploaded_by: user?.email || user?.id || null,
+          access_level: 'internal',
+          delete_status: 'active',
         });
         if (imageError) throw imageError;
       }
@@ -535,6 +734,7 @@ const PortfolioGallery = () => {
       toast.success('포트폴리오가 등록되었습니다.');
       setShowCreateDialog(false);
       setNewTitle('');
+      setNewCategory(DEFAULT_PORTFOLIO_CATEGORY);
       setNewKeywords([]);
       setPendingFiles([]);
       setVisibleCount(PAGE_SIZE);
@@ -542,7 +742,8 @@ const PortfolioGallery = () => {
       qc.invalidateQueries({ queryKey: ['portfolio-popular-keywords'] });
     } catch (err) {
       setUploadStatus('실패 항목을 정리하는 중...');
-      await Promise.allSettled(uploadedDriveFileIds.map(fileId => deletePortfolioDriveFile(fileId)));
+      await Promise.allSettled(uploadedDriveFiles.map(file => deletePortfolioDriveFile(file.fileId, file.folderId)));
+      await Promise.allSettled(uploadedThumbnails.map(file => deletePortfolioThumbnail(file.bucket, file.path)));
       if (createdPostId) {
         await supabase.from('portfolio_posts').delete().eq('id', createdPostId);
       }
@@ -551,14 +752,34 @@ const PortfolioGallery = () => {
       setCreating(false);
       setUploadStatus(null);
     }
-  }, [newTitle, newKeywords, pendingFiles, user, qc]);
+  }, [newTitle, newCategory, newKeywords, pendingFiles, user, qc]);
 
   const deleteMutation = useMutation({
     mutationFn: async (postId: string) => {
       const post = posts.find(p => p.id === postId);
       if (post) {
+        await supabase
+          .from('portfolio_images')
+          .update({ delete_status: 'pending', delete_error: null })
+          .eq('post_id', postId);
+
+        const deleteFailures: string[] = [];
         for (const img of post.images) {
-          await deletePortfolioDriveFile(img.drive_file_id);
+          try {
+            await deletePortfolioDriveFile(img.drive_file_id, img.drive_folder_id);
+            await deletePortfolioThumbnail(img.thumbnail_bucket, img.thumbnail_path);
+          } catch (error) {
+            const message = getErrorMessage(error);
+            deleteFailures.push(`${img.file_name}: ${message}`);
+            await supabase
+              .from('portfolio_images')
+              .update({ delete_status: 'failed', delete_error: message })
+              .eq('id', img.id);
+          }
+        }
+
+        if (deleteFailures.length > 0) {
+          throw new Error(deleteFailures.join('\n'));
         }
       }
       const { error } = await supabase.from('portfolio_posts').delete().eq('id', postId);
@@ -850,6 +1071,28 @@ const PortfolioGallery = () => {
               <Input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="포트폴리오 제목" />
             </div>
             <div>
+              <Label>저장 카테고리 *</Label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                원본 이미지는 Drive의 ACBANK_SYS/04_포트폴리오/{`{카테고리}`}/{`{제목}`} 폴더에 비공개 저장됩니다.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {PORTFOLIO_UPLOAD_CATEGORIES.map(category => (
+                  <button
+                    key={category}
+                    type="button"
+                    className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
+                      newCategory === category
+                        ? 'border-[#111111] bg-[#111111] text-white'
+                        : 'border-[#e5e5e5] bg-white text-[#39393b] hover:border-[#111111]'
+                    }`}
+                    onClick={() => setNewCategory(category)}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
               <Label>키워드</Label>
               <p className="text-xs text-muted-foreground mb-2">Enter 또는 콤마(,)로 키워드를 추가하세요</p>
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -958,7 +1201,7 @@ const PortfolioGallery = () => {
               >
                 {selectedPost.images.length > 0 ? (
                   <img
-                    src={selectedPost.images[currentImageIndex]?.image_url?.replace('sz=w1600', 'sz=w2400') || selectedPost.images[currentImageIndex]?.thumbnail_url || ''}
+                    src={currentOriginalImageUrl || selectedPost.images[currentImageIndex]?.thumbnail_url || ''}
                     alt={selectedPost.images[currentImageIndex]?.file_name}
                     className={`absolute left-1/2 top-1/2 block max-h-full max-w-full select-none object-contain ${imageZoom > 1 ? isImageDragging ? 'cursor-grabbing' : 'cursor-grab' : 'cursor-zoom-in'}`}
                     draggable={false}
@@ -971,6 +1214,14 @@ const PortfolioGallery = () => {
                 ) : (
                   <div className="grid h-full min-h-[360px] place-items-center text-white/60">
                     <ImageIcon className="h-12 w-12" />
+                  </div>
+                )}
+                {loadingOriginalImage && (
+                  <div className="absolute inset-x-0 top-16 z-10 flex justify-center">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-xs font-bold text-white">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      원본 로딩 중
+                    </span>
                   </div>
                 )}
 
