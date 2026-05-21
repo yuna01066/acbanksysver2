@@ -697,7 +697,7 @@ const StorageStatusPage = () => {
           <TabsContent value="database">
             <Card>
               <CardHeader>
-                <BrandedCardHeader icon={Database} title="데이터베이스 테이블" />
+                <BrandedCardHeader icon={DatabaseIcon} title="데이터베이스 테이블" />
                 <CardDescription>테이블별 레코드 수 (총 {dbSize})</CardDescription>
               </CardHeader>
               <CardContent>
