@@ -552,7 +552,7 @@ const StorageStatusPage = () => {
           <Card>
             <CardContent className="pt-5 pb-4">
               <div className="flex items-center gap-2 mb-2">
-                <Database className="w-4 h-4 text-primary" />
+                <DatabaseIcon className="w-4 h-4 text-primary" />
                 <span className="text-xs font-medium text-muted-foreground">Database</span>
               </div>
               {dbLoading ? (
@@ -634,7 +634,7 @@ const StorageStatusPage = () => {
                       {item.locations.map((loc) => (
                         <Badge key={loc} variant="secondary" className="text-[10px] h-5">
                           {loc === 'Lovable Cloud' && <Cloud className="w-3 h-3 mr-1" />}
-                          {loc === 'Database' && <Database className="w-3 h-3 mr-1" />}
+                          {loc === 'Database' && <DatabaseIcon className="w-3 h-3 mr-1" />}
                           {loc === 'GCS' && <Server className="w-3 h-3 mr-1" />}
                           {loc === 'Google Drive' && <FolderOpen className="w-3 h-3 mr-1" />}
                           {loc}
@@ -709,7 +709,7 @@ const StorageStatusPage = () => {
                   <div className="space-y-2">
                     {tableSizes.map((table) => (
                       <div key={table.name} className="flex items-center gap-3 p-3 rounded-lg border">
-                        <Database className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <DatabaseIcon className="w-4 h-4 text-muted-foreground shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">
                             {tableLabels[table.name] || table.name}
