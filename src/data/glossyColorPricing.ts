@@ -127,7 +127,7 @@ export const satinColorSinglePrices = Object.fromEntries(
           size,
           (sizeData[size as keyof typeof sizeData] || 0) + surcharge,
         ])
-        .filter(([, price]) => price > 0)
+        .filter(([, price]) => Number(price) > 0)
     ),
   ])
 ) as Record<string, Record<string, number>>;
