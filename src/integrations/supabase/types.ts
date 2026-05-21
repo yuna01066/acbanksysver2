@@ -2386,34 +2386,46 @@ export type Database = {
           created_at: string
           display_order: number
           drive_file_id: string
+          file_size: number | null
           file_name: string
           id: string
           image_url: string | null
           is_main: boolean
+          mime_type: string | null
           post_id: string
+          storage_provider: string
           thumbnail_url: string | null
+          uploaded_by: string | null
         }
         Insert: {
           created_at?: string
           display_order?: number
           drive_file_id: string
+          file_size?: number | null
           file_name: string
           id?: string
           image_url?: string | null
           is_main?: boolean
+          mime_type?: string | null
           post_id: string
+          storage_provider?: string
           thumbnail_url?: string | null
+          uploaded_by?: string | null
         }
         Update: {
           created_at?: string
           display_order?: number
           drive_file_id?: string
+          file_size?: number | null
           file_name?: string
           id?: string
           image_url?: string | null
           is_main?: boolean
+          mime_type?: string | null
           post_id?: string
+          storage_provider?: string
           thumbnail_url?: string | null
+          uploaded_by?: string | null
         }
         Relationships: [
           {
@@ -4490,6 +4502,24 @@ export type Database = {
       is_project_owner: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
+      }
+      search_portfolio_posts: {
+        Args: {
+          p_category_keywords?: string[] | null
+          p_exact_keyword?: string | null
+          p_limit?: number | null
+          p_offset?: number | null
+          p_search_text?: string | null
+        }
+        Returns: {
+          created_at: string
+          created_by: string
+          id: string
+          keywords: string[] | null
+          title: string
+          total_count: number
+          updated_at: string
+        }[]
       }
     }
     Enums: {
