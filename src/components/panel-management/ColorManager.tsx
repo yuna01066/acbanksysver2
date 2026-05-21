@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getColorSeriesLabel, getColorSeriesTab, hasExplicitSeriesTabs } from '@/utils/colorSeries';
 
 interface ColorOption {
   id: string;
@@ -20,6 +21,9 @@ interface ColorOption {
   is_bright_pigment?: boolean;
   unavailable_reason?: string | null;
   color_attribute_note?: string | null;
+  series_key?: string | null;
+  pantone?: string | null;
+  source_url?: string | null;
   display_order: number;
 }
 
@@ -41,6 +45,9 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
     is_producible: true,
     unavailable_reason: '',
     color_attribute_note: '',
+    series_key: '',
+    pantone: '',
+    source_url: '',
   });
 
   // panel_master_id 조회 (qualityId가 주어진 경우)
@@ -82,21 +89,12 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
   // A와 B 카테고리 분리
   const [activeTab, setActiveTab] = useState<'A' | 'B'>('A');
   
-  const categoryAColors = colors?.filter(color => {
-    const acCode = color.color_name.split(' ')[0];
-    const lastDigit = acCode.charAt(acCode.length - 1);
-    // 1, 2, 3, 4로 끝나는 경우
-    return ['1', '2', '3', '4'].includes(lastDigit);
-  }) || [];
-
-  const categoryBColors = colors?.filter(color => {
-    const acCode = color.color_name.split(' ')[0];
-    const lastDigit = acCode.charAt(acCode.length - 1);
-    // 6, 7, 8, 9로 끝나는 경우
-    return ['6', '7', '8', '9'].includes(lastDigit);
-  }) || [];
-
-  const displayColors = activeTab === 'A' ? categoryAColors : categoryBColors;
+  const hasSeriesTabs = hasExplicitSeriesTabs(colors || []);
+  const categoryAColors = colors?.filter(color => getColorSeriesTab(color) === 'A') || [];
+  const categoryBColors = colors?.filter(color => getColorSeriesTab(color) === 'B') || [];
+  const displayColors = hasSeriesTabs
+    ? activeTab === 'A' ? categoryAColors : categoryBColors
+    : colors || [];
   const activeCount = colors?.filter(color => color.is_active).length || 0;
   const blockedCount = colors?.filter(color => color.is_producible === false).length || 0;
   const pigmentCount = colors?.filter(color => color.is_bright_pigment).length || 0;
@@ -140,6 +138,9 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
         is_producible: true,
         unavailable_reason: '',
         color_attribute_note: '',
+        series_key: '',
+        pantone: '',
+        source_url: '',
       });
     },
     onError: (error: Error) => {
@@ -199,6 +200,9 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
       is_bright_pigment: newColor.is_bright_pigment,
       unavailable_reason: newColor.unavailable_reason || null,
       color_attribute_note: newColor.color_attribute_note || null,
+      series_key: newColor.series_key || null,
+      pantone: newColor.pantone || null,
+      source_url: newColor.source_url || null,
       display_order: maxOrder + 1,
     });
   };
@@ -296,6 +300,22 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
                   onChange={(e) => setNewColor({ ...newColor, color_attribute_note: e.target.value })}
                 />
               </div>
+              <div>
+                <Label className="text-xs">시리즈 키</Label>
+                <Input
+                  placeholder="예: CLEAR_A, CLEAR_B, SATIN"
+                  value={newColor.series_key}
+                  onChange={(e) => setNewColor({ ...newColor, series_key: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Pantone</Label>
+                <Input
+                  placeholder="예: PT 286 C"
+                  value={newColor.pantone}
+                  onChange={(e) => setNewColor({ ...newColor, pantone: e.target.value })}
+                />
+              </div>
             </div>
             <Button size="sm" onClick={handleAdd} className="mt-3">
               추가
@@ -303,29 +323,30 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
           </div>
         )}
 
-        {/* A/B 카테고리 탭 */}
-        <div className="flex gap-2 border-b mb-4">
-          <button
-            onClick={() => setActiveTab('A')}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === 'A'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            카테고리 A ({categoryAColors.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('B')}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === 'B'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            카테고리 B ({categoryBColors.length})
-          </button>
-        </div>
+        {hasSeriesTabs && (
+          <div className="flex gap-2 border-b mb-4">
+            <button
+              onClick={() => setActiveTab('A')}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === 'A'
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              카테고리 A ({categoryAColors.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('B')}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === 'B'
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              카테고리 B ({categoryBColors.length})
+            </button>
+          </div>
+        )}
 
         {displayColors && displayColors.length > 0 ? (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -358,6 +379,17 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
                             placeholder="#FFFFFF"
                             className="font-mono"
                           />
+                          <Input
+                            value={editForm.series_key || ''}
+                            onChange={(e) => setEditForm({ ...editForm, series_key: e.target.value })}
+                            placeholder="시리즈 키"
+                            className="font-mono"
+                          />
+                          <Input
+                            value={editForm.pantone || ''}
+                            onChange={(e) => setEditForm({ ...editForm, pantone: e.target.value })}
+                            placeholder="Pantone"
+                          />
                         </div>
                       ) : (
                         <>
@@ -365,6 +397,12 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
                           <div className="mt-0.5 text-xs font-mono text-muted-foreground">
                             {color.color_code || '컬러 코드 없음'}
                           </div>
+                          {(color.series_key || color.pantone) && (
+                            <div className="mt-1 flex flex-wrap gap-1 text-[11px] text-muted-foreground">
+                              {color.series_key && <span>{getColorSeriesLabel(color.series_key)}</span>}
+                              {color.pantone && <span>{color.pantone}</span>}
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -468,7 +506,7 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
           </div>
         ) : (
           <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            {activeTab === 'A' ? '카테고리 A' : '카테고리 B'}에 등록된 컬러가 없습니다
+            {hasSeriesTabs ? `${activeTab === 'A' ? '카테고리 A' : '카테고리 B'}에 등록된 컬러가 없습니다` : '등록된 컬러가 없습니다'}
           </div>
         )}
       </CardContent>

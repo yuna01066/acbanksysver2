@@ -404,7 +404,10 @@ export type Database = {
           is_active: boolean | null
           is_bright_pigment: boolean
           is_producible: boolean
+          pantone: string | null
           panel_master_id: string
+          series_key: string | null
+          source_url: string | null
           unavailable_reason: string | null
           updated_at: string | null
         }
@@ -418,7 +421,10 @@ export type Database = {
           is_active?: boolean | null
           is_bright_pigment?: boolean
           is_producible?: boolean
+          pantone?: string | null
           panel_master_id: string
+          series_key?: string | null
+          source_url?: string | null
           unavailable_reason?: string | null
           updated_at?: string | null
         }
@@ -432,7 +438,10 @@ export type Database = {
           is_active?: boolean | null
           is_bright_pigment?: boolean
           is_producible?: boolean
+          pantone?: string | null
           panel_master_id?: string
+          series_key?: string | null
+          source_url?: string | null
           unavailable_reason?: string | null
           updated_at?: string | null
         }
