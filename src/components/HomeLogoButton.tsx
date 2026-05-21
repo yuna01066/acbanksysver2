@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import acbankLogoText from '@/assets/acbank-logo-text.png';
+import acbankLogoOrange from '@/assets/acbank-logo-orange.png';
 
 type HomeLogoButtonProps = {
   className?: string;
@@ -20,12 +20,19 @@ const HomeLogoButton = ({ className, size = 'sm' }: HomeLogoButtonProps) => {
       aria-label="홈으로 이동"
       title="홈으로 이동"
       className={cn(
-        'h-10 rounded-2xl border border-blue-100 bg-white/90 px-3 shadow-sm transition-all hover:border-blue-200 hover:bg-white hover:shadow-md',
-        size === 'default' && 'h-11 px-4',
+        'h-10 rounded-lg bg-transparent px-0 shadow-none transition-opacity hover:bg-transparent hover:opacity-80 active:opacity-70',
+        size === 'default' && 'h-11',
         className
       )}
     >
-      <img src={acbankLogoText} alt="ACBANK" className="h-4 w-auto object-contain" />
+      <img
+        src={acbankLogoOrange}
+        alt="ACBANK"
+        className={cn(
+          'h-5 w-auto object-contain drop-shadow-[0_2px_6px_rgba(255,102,24,0.16)]',
+          size === 'default' && 'h-6'
+        )}
+      />
     </Button>
   );
 };

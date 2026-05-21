@@ -25,6 +25,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import acbankLogoOrange from '@/assets/acbank-logo-orange.png';
 import {
   CommandDialog,
   CommandEmpty,
@@ -91,6 +92,7 @@ const GlobalQuickNav = () => {
     () => QUICK_NAV_ITEMS.filter(item => !item.adminOnly || isAdmin || isModerator),
     [isAdmin, isModerator]
   );
+  const keepDashboardLogo = location.pathname === '/business-dashboard';
 
   const groupedItems = useMemo(() => {
     return visibleItems.reduce<Record<QuickNavItem['group'], QuickNavItem[]>>((acc, item) => {
@@ -128,18 +130,33 @@ const GlobalQuickNav = () => {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => navigate('/')}
-        className="fixed left-4 top-3 z-40 h-10 rounded-[18px] border border-border/70 bg-background/90 p-[3px] shadow-smooth backdrop-blur transition-transform hover:scale-[1.02] active:scale-[0.98] print:hidden sm:left-6 sm:top-4"
-        aria-label="홈으로 이동"
-      >
-        <span className="logo-metal flex h-full items-center justify-center rounded-[14px] px-5 sm:px-7">
-          <span className="bg-gradient-to-b from-slate-600 to-slate-900 bg-clip-text text-base font-black leading-none tracking-[0.18em] text-transparent dark:from-slate-200 dark:to-slate-500 sm:text-lg">
-            ACBANK
+      {keepDashboardLogo ? (
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="fixed left-4 top-3 z-40 h-10 rounded-[18px] border border-border/70 bg-background/90 p-[3px] shadow-smooth backdrop-blur transition-transform hover:scale-[1.02] active:scale-[0.98] print:hidden sm:left-6 sm:top-4"
+          aria-label="홈으로 이동"
+        >
+          <span className="logo-metal flex h-full items-center justify-center rounded-[14px] px-5 sm:px-7">
+            <span className="bg-gradient-to-b from-slate-600 to-slate-900 bg-clip-text text-base font-black leading-none tracking-[0.18em] text-transparent dark:from-slate-200 dark:to-slate-500 sm:text-lg">
+              ACBANK
+            </span>
           </span>
-        </span>
-      </button>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="fixed left-4 top-3 z-40 flex h-10 items-center rounded-lg bg-transparent px-0 py-0 transition-opacity hover:opacity-80 active:opacity-70 print:hidden sm:left-6 sm:top-4"
+          aria-label="홈으로 이동"
+        >
+          <img
+            src={acbankLogoOrange}
+            alt="ACBANK"
+            className="h-6 w-auto object-contain drop-shadow-[0_2px_6px_rgba(255,102,24,0.16)]"
+          />
+        </button>
+      )}
 
       <Button
         type="button"
