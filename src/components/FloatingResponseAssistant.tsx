@@ -244,20 +244,20 @@ const FloatingResponseAssistant: React.FC = () => {
             aria-live="polite"
           >
             <div className={cn(
-              'relative flex items-center gap-3 rounded-[24px] border px-3 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.14)] backdrop-blur-md',
+              'hamzzi-reaction-card relative flex items-center gap-3 rounded-[24px] border px-3 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.14)] backdrop-blur-md',
               hamzziReactionConfig.toneClass,
             )}>
               <span className="relative flex h-16 w-16 shrink-0 items-end justify-center overflow-visible rounded-2xl bg-gradient-to-b from-white to-slate-50/70">
                 <img
                   src={hamzziReactionConfig.image}
                   alt=""
-                  className="h-[70px] w-[70px] object-contain drop-shadow-[0_8px_14px_rgba(15,23,42,0.13)]"
+                  className="hamzzi-reaction-image h-[70px] w-[70px] object-contain drop-shadow-[0_8px_14px_rgba(15,23,42,0.13)]"
                 />
                 {hamzziReactionConfig.badge && (
                   <img
                     src={hamzziReactionConfig.badge}
                     alt=""
-                    className="absolute -right-2 -top-2 h-7 w-7 object-contain"
+                    className="hamzzi-reaction-badge absolute -right-2 -top-2 h-7 w-7 object-contain"
                   />
                 )}
               </span>
