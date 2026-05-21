@@ -639,7 +639,7 @@ const SavedQuotesPage = () => {
   }
 
   return (
-    <PageShell maxWidth="7xl">
+    <PageShell maxWidth="full" contentClassName="max-w-none">
       <PageHeader
         eyebrow="Issued Quotes"
         title="발행 견적서"
@@ -813,17 +813,17 @@ const SavedQuotesPage = () => {
         ) : (
           <>
             <Card className="overflow-hidden border-border/70">
-              <Table>
+              <Table className="min-w-[1880px]">
                 <TableHeader>
                   <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableHead className="w-[118px]">발행일</TableHead>
-                    <TableHead className="min-w-[320px]">견적 제목</TableHead>
-                    <TableHead className="min-w-[210px]">거래처</TableHead>
-                    <TableHead className="w-[140px]">담당자</TableHead>
-                    <TableHead className="min-w-[210px]">프로젝트</TableHead>
-                    <TableHead className="w-[170px]">상태/단계</TableHead>
-                    <TableHead className="w-[140px] text-right">금액</TableHead>
-                    <TableHead className="w-[132px] text-right">작업</TableHead>
+                    <TableHead className="w-[96px] px-3">발행일</TableHead>
+                    <TableHead className="min-w-[560px] px-3">견적 제목</TableHead>
+                    <TableHead className="w-[250px] px-3">거래처</TableHead>
+                    <TableHead className="w-[130px] px-3">담당자</TableHead>
+                    <TableHead className="w-[260px] px-3">프로젝트</TableHead>
+                    <TableHead className="w-[260px] px-3">상태/단계</TableHead>
+                    <TableHead className="w-[150px] px-3 text-right">금액</TableHead>
+                    <TableHead className="w-[130px] px-3 text-right">작업</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -838,41 +838,36 @@ const SavedQuotesPage = () => {
                         className="cursor-pointer hover:bg-muted/35"
                         onClick={() => navigate(`/saved-quotes/${quote.id}`)}
                       >
-                        <TableCell className="py-4 align-top">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-sm font-semibold tabular-nums text-foreground">
-                              {formatCompactDate(quote.quote_date)}
-                            </span>
-                            <span className="text-[11px] font-medium text-muted-foreground">발행</span>
-                          </div>
+                        <TableCell className="px-3 py-3 align-middle">
+                          <span className="whitespace-nowrap text-sm font-semibold tabular-nums text-foreground">
+                            {formatCompactDate(quote.quote_date)}
+                          </span>
                         </TableCell>
-                        <TableCell className="py-4 align-top">
-                          <div className="flex min-w-0 flex-col gap-1.5">
-                            <div className="max-w-[380px] truncate text-[15px] font-semibold leading-5 text-foreground">
+                        <TableCell className="px-3 py-3 align-middle">
+                          <div className="flex min-w-0 items-center gap-2 whitespace-nowrap">
+                            <span className="text-[15px] font-semibold leading-5 text-foreground">
                               {getQuoteTitle(quote)}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-                              <span className="rounded-full bg-muted/70 px-2 py-0.5 font-medium tabular-nums text-muted-foreground">
-                                No. {quote.quote_number}
-                              </span>
-                              {quote.issuer_name && <span>발신 {quote.issuer_name}</span>}
-                              {quote.creator_name && <span>작성 {quote.creator_name}</span>}
-                            </div>
+                            </span>
+                            <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
+                              No. {quote.quote_number}
+                            </span>
+                            {quote.issuer_name && <span className="text-[11px] text-muted-foreground">발신 {quote.issuer_name}</span>}
+                            {quote.creator_name && <span className="text-[11px] text-muted-foreground">작성 {quote.creator_name}</span>}
                           </div>
                         </TableCell>
-                        <TableCell className="py-4 align-top">
-                          <div className="flex min-w-0 flex-col gap-1">
+                        <TableCell className="px-3 py-3 align-middle">
+                          <div className="flex min-w-0 items-center gap-2 whitespace-nowrap">
                             {quote.recipient_company ? (
                               <button
                                 type="button"
-                                className="flex max-w-[240px] items-center gap-1.5 truncate text-left text-sm font-medium text-primary hover:underline"
+                                className="flex items-center gap-1.5 text-left text-sm font-medium text-primary hover:underline"
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   navigate(`/recipients?company=${encodeURIComponent(quote.recipient_company!)}`);
                                 }}
                               >
                                 <Building2 className="h-3.5 w-3.5 shrink-0" />
-                                <span className="truncate">{quote.recipient_company}</span>
+                                <span>{quote.recipient_company}</span>
                               </button>
                             ) : (
                               <span className="text-sm text-muted-foreground">거래처 없음</span>
@@ -885,7 +880,7 @@ const SavedQuotesPage = () => {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="py-4 align-top">
+                        <TableCell className="px-3 py-3 align-middle">
                           <div className="flex min-w-0 items-center gap-1.5 text-sm">
                             <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                             <span className="truncate font-medium">
@@ -893,19 +888,19 @@ const SavedQuotesPage = () => {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="py-4 align-top">
+                        <TableCell className="px-3 py-3 align-middle">
                           {quote.linked_project ? (
-                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <div className="flex min-w-0 items-center gap-2 whitespace-nowrap">
                               <button
                                 type="button"
-                                className="flex h-8 max-w-[240px] items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-primary/10"
+                                className="flex h-8 items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-primary/10"
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   navigate(`/project-management?id=${quote.linked_project!.id}`);
                                 }}
                               >
                                 <FolderOpen className="h-3.5 w-3.5 shrink-0 text-primary" />
-                                <span className="truncate">{quote.linked_project.name}</span>
+                                <span>{quote.linked_project.name}</span>
                               </button>
                               {paymentInfo && (
                                 <Badge className={`text-[10px] ${paymentInfo.color}`}>
@@ -914,7 +909,7 @@ const SavedQuotesPage = () => {
                               )}
                             </div>
                           ) : (
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-2 whitespace-nowrap">
                               <Badge variant="outline" className="text-xs text-muted-foreground">
                                 미연결
                               </Badge>
@@ -941,8 +936,8 @@ const SavedQuotesPage = () => {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="py-4 align-top">
-                          <div className="space-y-2" onClick={(event) => event.stopPropagation()}>
+                        <TableCell className="px-3 py-3 align-middle">
+                          <div className="flex items-center gap-2 whitespace-nowrap" onClick={(event) => event.stopPropagation()}>
                             <QuoteStatusSelect
                               quoteId={quote.id}
                               currentStatus={quote.quote_status}
@@ -964,10 +959,10 @@ const SavedQuotesPage = () => {
                             />
                           </div>
                         </TableCell>
-                        <TableCell className="py-4 text-right align-top font-semibold tabular-nums">
+                        <TableCell className="px-3 py-3 text-right align-middle font-semibold tabular-nums whitespace-nowrap">
                           {formatPrice(quote.total)}
                         </TableCell>
-                        <TableCell className="py-4 align-top">
+                        <TableCell className="px-3 py-3 align-middle">
                           <div className="flex justify-end gap-1.5">
                             <Button
                               variant="outline"
