@@ -5,6 +5,7 @@ import {
   type AdhesionConfigData,
   type ProcessingOptionData,
 } from '../src/utils/priceCalculations';
+import { CASTING_QUALITIES } from '../src/types/calculator';
 
 const originalLog = console.log;
 console.log = () => {};
@@ -454,6 +455,48 @@ const inRange = (value: number, min: number, max: number, message: string) => {
     result.lineItems.find(item => /사틴\/아스텔 추가금/.test(item.label))?.amount,
     20_000,
     'astel mirror must keep astel surcharge separate from mirror deposition'
+  );
+}
+
+{
+  const qualityNames = CASTING_QUALITIES.map(quality => quality.name);
+  assert.ok(qualityNames.includes('Bright (브라이트)'), 'Bright must be a separate material option');
+  assert.ok(qualityNames.includes('Satin (사틴)'), 'Satin must be a separate material option');
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'bright-color',
+    '5T',
+    '4*8',
+    '단면'
+  );
+
+  assert.equal(result.status, 'calculable');
+  assert.equal(result.totalPrice, 100_600);
+  assert.equal(
+    result.lineItems.find(item => item.code.includes('브라이트-재질-조색비'))?.amount,
+    10_000,
+    'bright material must apply pigment surcharge separately from satin surcharge'
+  );
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'satin-color',
+    '5T',
+    '4*8',
+    '단면'
+  );
+
+  assert.equal(result.status, 'calculable');
+  assert.equal(result.totalPrice, 102_600);
+  assert.equal(
+    result.lineItems.find(item => /사틴 색상판 기본가/.test(item.label))?.amount,
+    102_600,
+    'satin material must keep satin pricing separate from bright pigment pricing'
   );
 }
 

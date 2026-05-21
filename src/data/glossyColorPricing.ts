@@ -144,3 +144,15 @@ export const jinbaekPrices = {
   "5*6": 11500,
   "5*8": 12500
 };
+
+export const brightColorSinglePrices = Object.fromEntries(
+  Object.entries(glossyColorSinglePrices).map(([thickness, sizeData]) => [
+    thickness,
+    Object.fromEntries(
+      Object.entries(sizeData).map(([size, price]) => [
+        size,
+        price + (jinbaekPrices[size as keyof typeof jinbaekPrices] || 0),
+      ])
+    ),
+  ])
+) as typeof glossyColorSinglePrices;

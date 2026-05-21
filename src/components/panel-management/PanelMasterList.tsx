@@ -12,7 +12,7 @@ import { Plus, Edit, Trash2, Check } from "lucide-react";
 interface PanelMaster {
   id: string;
   material: 'acrylic' | 'pet';
-  quality: 'glossy-color' | 'glossy-standard' | 'astel-color' | 'satin-color';
+  quality: 'glossy-color' | 'bright-color' | 'glossy-standard' | 'astel-color' | 'satin-color';
   name: string;
   description: string | null;
 }
@@ -29,6 +29,7 @@ const materialLabels: Record<string, string> = {
 
 const qualityLabels: Record<string, string> = {
   'glossy-color': '유광 컬러',
+  'bright-color': '브라이트 컬러',
   'glossy-standard': '유광 스탠다드',
   'astel-color': '아스텔 컬러',
   'satin-color': '사틴 컬러'
@@ -40,7 +41,7 @@ export const PanelMasterList = ({ onSelectMaster, selectedMasterId }: PanelMaste
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<{
     material: 'acrylic' | 'pet';
-    quality: 'glossy-color' | 'glossy-standard' | 'astel-color' | 'satin-color';
+    quality: 'glossy-color' | 'bright-color' | 'glossy-standard' | 'astel-color' | 'satin-color';
     name: string;
     description: string;
   }>({
@@ -214,6 +215,7 @@ export const PanelMasterList = ({ onSelectMaster, selectedMasterId }: PanelMaste
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="glossy-color">유광 컬러</SelectItem>
+                      <SelectItem value="bright-color">브라이트 컬러</SelectItem>
                       <SelectItem value="glossy-standard">유광 스탠다드</SelectItem>
                       <SelectItem value="astel-color">아스텔 컬러</SelectItem>
                       <SelectItem value="satin-color">사틴 컬러</SelectItem>

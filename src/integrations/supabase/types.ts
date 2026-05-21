@@ -4429,11 +4429,13 @@ export type Database = {
       panel_material: "acrylic" | "pet"
       panel_quality:
         | "glossy-color"
+        | "bright-color"
         | "glossy-standard"
         | "astel-color"
         | "satin-color"
         | "acrylic-mirror"
         | "astel-mirror"
+        | "satin-mirror"
       processing_option_category:
         | "raw"
         | "simple"
@@ -4588,11 +4590,13 @@ export const Constants = {
       panel_material: ["acrylic", "pet"],
       panel_quality: [
         "glossy-color",
+        "bright-color",
         "glossy-standard",
         "astel-color",
         "satin-color",
         "acrylic-mirror",
         "astel-mirror",
+        "satin-mirror",
       ],
       processing_option_category: [
         "raw",

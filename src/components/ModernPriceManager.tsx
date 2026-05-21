@@ -9,6 +9,7 @@ import { PageHeader, SearchFilterBar } from "@/components/layout/PageLayout";
 import { PricingData } from "@/types/pricing";
 import { 
   initializeGlossyColorPrices, 
+  initializeBrightColorPrices,
   initializeAstelColorPrices, 
   initializeGlossyStandardPrices,
   initializeSatinColorPrices,
@@ -17,6 +18,7 @@ import {
 } from "@/utils/priceCalculations";
 import {
   glossyColorSinglePrices,
+  brightColorSinglePrices,
   astelColorSinglePrices,
   glossyStandardSinglePrices,
   satinColorSinglePrices
@@ -211,6 +213,7 @@ const ModernPriceManager = ({ navigationActions }: ModernPriceManagerProps) => {
 
   const qualities = [
     { id: 'glossy-color', name: '유광 색상판 (Clear)', data: convertToSurfaceStructure(glossyColorSinglePrices) },
+    { id: 'bright-color', name: '브라이트 색상판 (Bright)', data: convertToSurfaceStructure(brightColorSinglePrices) },
     { id: 'astel-color', name: '아스텔 색상판 (Astel)', data: convertToSurfaceStructure(astelColorSinglePrices) },
     { id: 'glossy-standard', name: '유광 보급판 (Standard)', data: convertToSurfaceStructure(glossyStandardSinglePrices) },
     { id: 'satin-color', name: '사틴 색상판 (Satin)', data: convertToSurfaceStructure(satinColorSinglePrices) }
@@ -226,6 +229,9 @@ const ModernPriceManager = ({ navigationActions }: ModernPriceManagerProps) => {
     switch (qualityId) {
       case 'glossy-color':
         newPrices = initializeGlossyColorPrices();
+        break;
+      case 'bright-color':
+        newPrices = initializeBrightColorPrices();
         break;
       case 'astel-color':
         newPrices = initializeAstelColorPrices();
@@ -243,6 +249,7 @@ const ModernPriceManager = ({ navigationActions }: ModernPriceManagerProps) => {
   const loadAllPrices = () => {
     const allPrices = {
       ...initializeGlossyColorPrices(),
+      ...initializeBrightColorPrices(),
       ...initializeAstelColorPrices(),
       ...initializeGlossyStandardPrices(),
       ...initializeSatinColorPrices()
