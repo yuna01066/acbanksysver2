@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect, useDeferredValue } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,6 +21,7 @@ interface PortfolioPost {
   keywords: string[];
   created_by: string;
   created_at: string;
+  updated_at: string;
   images: PortfolioImage[];
 }
 
@@ -33,11 +34,46 @@ interface PortfolioImage {
   image_url: string | null;
   display_order: number;
   is_main: boolean;
+  file_size: number | null;
+  mime_type: string | null;
+  storage_provider: string | null;
+  uploaded_by: string | null;
+}
+
+interface PortfolioSearchRow {
+  id: string;
+  title: string;
+  keywords: string[] | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  total_count?: number | string | null;
+}
+
+interface PortfolioQueryResult {
+  posts: PortfolioPost[];
+  hasMore: boolean;
+  totalMatches: number;
+}
+
+interface PortfolioUploadResult {
+  fileId: string;
+  fileName: string;
+  thumbnailUrl: string;
+  imageUrl: string;
+  mimeType: string;
+  fileSize: number;
 }
 
 const PORTFOLIO_FOLDER = ['포트폴리오'];
 const RECENT_KEYWORDS_KEY = 'portfolio-recent-keywords';
 const MAX_RECENT = 10;
+const PAGE_SIZE = 24;
+const MAX_UPLOAD_FILES = 20;
+const MAX_UPLOAD_IMAGE_BYTES = 25 * 1024 * 1024;
+const MAX_OPTIMIZED_EDGE = 3200;
+const OPTIMIZED_JPEG_QUALITY = 0.88;
+const EMPTY_PORTFOLIO_RESULT: PortfolioQueryResult = { posts: [], hasMore: false, totalMatches: 0 };
 const PORTFOLIO_CATEGORY_FILTERS = [
   { key: 'all', label: '전체', keywords: [] },
   { key: 'interior', label: '인테리어', keywords: ['인테리어', '공간', '로비', '매장', '쇼룸', '오피스', '팝업'] },
@@ -58,6 +94,214 @@ function saveRecentKeyword(keyword: string) {
   localStorage.setItem(RECENT_KEYWORDS_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)));
 }
 
+function formatBytes(bytes: number | null | undefined): string {
+  if (!bytes) return '-';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return '알 수 없는 오류가 발생했습니다.';
+}
+
+function getCategoryKeywords(categoryKey: string): string[] {
+  return PORTFOLIO_CATEGORY_FILTERS.find(filter => filter.key === categoryKey)?.keywords || [];
+}
+
+function makeDriveFileName(file: File): string {
+  const dotIndex = file.name.lastIndexOf('.');
+  const rawBase = dotIndex > 0 ? file.name.slice(0, dotIndex) : file.name;
+  const rawExt = dotIndex > 0 ? file.name.slice(dotIndex + 1) : '';
+  const safeBase = rawBase.replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'portfolio';
+  const ext = rawExt || (file.type === 'image/png' ? 'png' : 'jpg');
+  return `${Date.now()}-${crypto.randomUUID()}-${safeBase}.${ext}`;
+}
+
+async function optimizePortfolioImage(file: File): Promise<File> {
+  if (file.type === 'image/gif' || file.type === 'image/svg+xml') return file;
+  if (!('createImageBitmap' in window)) return file;
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_OPTIMIZED_EDGE / Math.max(bitmap.width, bitmap.height));
+    if (scale === 1 && file.size <= 2 * 1024 * 1024) {
+      bitmap.close();
+      return file;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      bitmap.close();
+      return file;
+    }
+
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, 'image/jpeg', OPTIMIZED_JPEG_QUALITY);
+    });
+
+    if (!blob || blob.size >= file.size) return file;
+    const baseName = file.name.replace(/\.[^.]+$/, '');
+    return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg', lastModified: file.lastModified });
+  } catch {
+    return file;
+  }
+}
+
+async function fetchImagesForPosts(postIds: string[]): Promise<Map<string, PortfolioImage[]>> {
+  if (postIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from('portfolio_images')
+    .select('*')
+    .in('post_id', postIds)
+    .order('display_order', { ascending: true });
+  if (error) throw error;
+
+  const imagesByPostId = new Map<string, PortfolioImage[]>();
+  (data || []).forEach((image) => {
+    const images = imagesByPostId.get(image.post_id) || [];
+    images.push(image);
+    imagesByPostId.set(image.post_id, images);
+  });
+  return imagesByPostId;
+}
+
+async function fetchPortfolioPosts(params: {
+  searchText: string;
+  categoryKeywords: string[];
+  exactKeyword: string | null;
+  limit: number;
+}): Promise<PortfolioQueryResult> {
+  const rpc = await supabase.rpc('search_portfolio_posts', {
+    p_search_text: params.searchText || null,
+    p_category_keywords: params.categoryKeywords.length > 0 ? params.categoryKeywords : null,
+    p_exact_keyword: params.exactKeyword,
+    p_limit: params.limit + 1,
+    p_offset: 0,
+  });
+
+  if (rpc.error) throw rpc.error;
+
+  const rows = (rpc.data || []) as PortfolioSearchRow[];
+  const visibleRows = rows.slice(0, params.limit);
+  const imagesByPostId = await fetchImagesForPosts(visibleRows.map(row => row.id));
+  const posts = visibleRows.map(row => ({
+    id: row.id,
+    title: row.title,
+    keywords: row.keywords || [],
+    created_by: row.created_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    images: imagesByPostId.get(row.id) || [],
+  }));
+  const totalMatches = Number(rows[0]?.total_count || rows.length || 0);
+
+  return {
+    posts,
+    hasMore: rows.length > params.limit || totalMatches > params.limit,
+    totalMatches,
+  };
+}
+
+async function deletePortfolioDriveFile(fileId: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('google-drive', {
+    body: { action: 'delete-portfolio-file', fileId, folderPath: PORTFOLIO_FOLDER },
+  });
+
+  if (error || !data?.success) {
+    throw new Error(error?.message || data?.error || 'Drive 파일 삭제에 실패했습니다.');
+  }
+}
+
+async function readFileAsBase64(file: File): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(',')[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadPortfolioFile(file: File): Promise<PortfolioUploadResult> {
+  const uploadFileName = makeDriveFileName(file);
+  const fileBase64 = await readFileAsBase64(file);
+  const { data, error } = await supabase.functions.invoke('google-drive', {
+    body: {
+      action: 'upload-portfolio-image',
+      folderPath: PORTFOLIO_FOLDER,
+      fileName: uploadFileName,
+      fileBase64,
+      contentType: file.type || 'application/octet-stream',
+    },
+  });
+
+  if (error || !data?.success || !data?.fileId) {
+    throw new Error(error?.message || data?.error || 'Drive 업로드에 실패했습니다.');
+  }
+
+  return {
+    fileId: data.fileId,
+    fileName: data.fileName || uploadFileName,
+    thumbnailUrl: `https://drive.google.com/thumbnail?id=${data.fileId}&sz=w400`,
+    imageUrl: `https://drive.google.com/thumbnail?id=${data.fileId}&sz=w2400`,
+    mimeType: file.type || 'application/octet-stream',
+    fileSize: file.size,
+  };
+}
+
+function PendingImagePreview({
+  file,
+  isMain,
+  onRemove,
+}: {
+  file: File;
+  isMain: boolean;
+  onRemove: () => void;
+}) {
+  const [previewUrl, setPreviewUrl] = useState('');
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  return (
+    <div className="relative aspect-square overflow-hidden rounded-lg border bg-muted/30">
+      {previewUrl && <img src={previewUrl} alt="" className="h-full w-full object-cover" />}
+      {isMain && <Badge className="absolute left-1 top-1 px-1 py-0 text-[10px]">대표</Badge>}
+      <button
+        type="button"
+        className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white transition-colors hover:bg-destructive"
+        onClick={onRemove}
+        aria-label={`${file.name} 제거`}
+      >
+        <Trash2 className="h-3 w-3" />
+      </button>
+      <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white">
+        {formatBytes(file.size)}
+      </span>
+    </div>
+  );
+}
+
 const PortfolioGallery = () => {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -71,6 +315,7 @@ const PortfolioGallery = () => {
   const [activeKeywordFilter, setActiveKeywordFilter] = useState<string | null>(null);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState('all');
   const [showKeywordSuggestions, setShowKeywordSuggestions] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [imageZoom, setImageZoom] = useState(1);
   const [imageOffset, setImageOffset] = useState({ x: 0, y: 0 });
   const [isImageDragging, setIsImageDragging] = useState(false);
@@ -88,39 +333,51 @@ const PortfolioGallery = () => {
   const [keywordInput, setKeywordInput] = useState('');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [creating, setCreating] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const normalizedSearchQuery = deferredSearchQuery.trim();
+  const activeCategoryKeywords = useMemo(() => getCategoryKeywords(activeCategoryFilter), [activeCategoryFilter]);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [normalizedSearchQuery, activeKeywordFilter, activeCategoryFilter]);
 
   // Fetch posts with images
-  const { data: posts = [], isLoading, refetch } = useQuery({
-    queryKey: ['portfolio-posts'],
-    queryFn: async () => {
-      const { data: postsData, error: postsError } = await supabase
-        .from('portfolio_posts')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (postsError) throw postsError;
-
-      const { data: imagesData, error: imagesError } = await supabase
-        .from('portfolio_images')
-        .select('*')
-        .order('display_order', { ascending: true });
-      if (imagesError) throw imagesError;
-
-      return (postsData || []).map((post: any) => ({
-        ...post,
-        keywords: post.keywords || [],
-        images: (imagesData || []).filter((img: any) => img.post_id === post.id),
-      })) as PortfolioPost[];
-    },
+  const { data: portfolioData = EMPTY_PORTFOLIO_RESULT, isLoading, isFetching, refetch } = useQuery({
+    queryKey: ['portfolio-posts', normalizedSearchQuery, activeKeywordFilter, activeCategoryFilter, visibleCount],
+    queryFn: () => fetchPortfolioPosts({
+      searchText: normalizedSearchQuery,
+      categoryKeywords: activeCategoryKeywords,
+      exactKeyword: activeKeywordFilter,
+      limit: visibleCount,
+    }),
   });
+  const posts = portfolioData.posts;
 
   // Compute popular keywords (sorted by frequency)
-  const popularKeywords = useMemo(() => {
-    const freq: Record<string, number> = {};
-    posts.forEach(p => p.keywords.forEach(k => { freq[k] = (freq[k] || 0) + 1; }));
-    return Object.entries(freq).sort((a, b) => b[1] - a[1]).map(([k]) => k);
-  }, [posts]);
+  const { data: popularKeywords = [] } = useQuery({
+    queryKey: ['portfolio-popular-keywords'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('portfolio_posts')
+        .select('keywords')
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
 
-  const recentKeywords = useMemo(() => getRecentKeywords(), [activeKeywordFilter, searchQuery]);
+      const freq: Record<string, number> = {};
+      (data || []).forEach((post) => {
+        (post.keywords || []).forEach((keyword: string) => {
+          freq[keyword] = (freq[keyword] || 0) + 1;
+        });
+      });
+      return Object.entries(freq).sort((a, b) => b[1] - a[1]).map(([keyword]) => keyword);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const recentKeywords = getRecentKeywords();
 
   const resetImageView = useCallback(() => {
     setImageZoom(1);
@@ -205,7 +462,24 @@ const PortfolioGallery = () => {
     if (!files) return;
     const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
     if (imageFiles.length === 0) { toast.error('이미지 파일만 업로드 가능합니다.'); return; }
-    setPendingFiles(prev => [...prev, ...imageFiles]);
+    const validFiles = imageFiles.filter(file => {
+      if (file.size === 0) {
+        toast.error(`${file.name} 파일이 비어 있습니다.`);
+        return false;
+      }
+      if (file.size > MAX_UPLOAD_IMAGE_BYTES) {
+        toast.error(`${file.name}은 ${formatBytes(MAX_UPLOAD_IMAGE_BYTES)}를 초과합니다.`);
+        return false;
+      }
+      return true;
+    });
+    setPendingFiles(prev => {
+      const availableSlots = Math.max(0, MAX_UPLOAD_FILES - prev.length);
+      if (validFiles.length > availableSlots) {
+        toast.error(`한 번에 최대 ${MAX_UPLOAD_FILES}장까지 등록할 수 있습니다.`);
+      }
+      return [...prev, ...validFiles.slice(0, availableSlots)];
+    });
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -218,6 +492,9 @@ const PortfolioGallery = () => {
     if (pendingFiles.length === 0) { toast.error('이미지를 최소 1개 추가해주세요.'); return; }
 
     setCreating(true);
+    setUploadStatus('등록 정보를 생성하는 중...');
+    const uploadedDriveFileIds: string[] = [];
+    let createdPostId: string | null = null;
     try {
       const { data: post, error: postError } = await supabase
         .from('portfolio_posts')
@@ -229,41 +506,30 @@ const PortfolioGallery = () => {
         .select()
         .single();
       if (postError) throw postError;
+      createdPostId = post.id;
 
       for (let i = 0; i < pendingFiles.length; i++) {
-        const file = pendingFiles[i];
-        // Convert file to base64
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            resolve(result.split(',')[1]); // Remove data:...;base64, prefix
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
+        const originalFile = pendingFiles[i];
+        setUploadStatus(`${i + 1}/${pendingFiles.length} 이미지 최적화 중...`);
+        const uploadFile = await optimizePortfolioImage(originalFile);
+        setUploadStatus(`${i + 1}/${pendingFiles.length} Drive 업로드 중...`);
+        const uploadData = await uploadPortfolioFile(uploadFile);
+        uploadedDriveFileIds.push(uploadData.fileId);
 
-        const { data: uploadData, error: uploadError } = await supabase.functions.invoke('google-drive', {
-          body: {
-            action: 'upload-portfolio-image',
-            folderPath: PORTFOLIO_FOLDER,
-            fileName: file.name,
-            fileBase64: base64,
-            contentType: file.type,
-          },
-        });
-        if (uploadError || !uploadData?.success) continue;
-
-        const driveFileId = uploadData.fileId;
-        await supabase.from('portfolio_images').insert({
+        const { error: imageError } = await supabase.from('portfolio_images').insert({
           post_id: post.id,
-          drive_file_id: driveFileId,
-          file_name: file.name,
-          thumbnail_url: `https://drive.google.com/thumbnail?id=${driveFileId}&sz=w400`,
-          image_url: `https://drive.google.com/thumbnail?id=${driveFileId}&sz=w2400`,
+          drive_file_id: uploadData.fileId,
+          file_name: originalFile.name,
+          thumbnail_url: uploadData.thumbnailUrl,
+          image_url: uploadData.imageUrl,
           display_order: i,
           is_main: i === 0,
+          file_size: uploadData.fileSize,
+          mime_type: uploadData.mimeType,
+          storage_provider: 'google_drive',
+          uploaded_by: user?.email || user?.id || null,
         });
+        if (imageError) throw imageError;
       }
 
       toast.success('포트폴리오가 등록되었습니다.');
@@ -271,11 +537,19 @@ const PortfolioGallery = () => {
       setNewTitle('');
       setNewKeywords([]);
       setPendingFiles([]);
+      setVisibleCount(PAGE_SIZE);
       qc.invalidateQueries({ queryKey: ['portfolio-posts'] });
-    } catch (err: any) {
-      toast.error('등록 실패: ' + err.message);
+      qc.invalidateQueries({ queryKey: ['portfolio-popular-keywords'] });
+    } catch (err) {
+      setUploadStatus('실패 항목을 정리하는 중...');
+      await Promise.allSettled(uploadedDriveFileIds.map(fileId => deletePortfolioDriveFile(fileId)));
+      if (createdPostId) {
+        await supabase.from('portfolio_posts').delete().eq('id', createdPostId);
+      }
+      toast.error('등록 실패: ' + getErrorMessage(err));
     } finally {
       setCreating(false);
+      setUploadStatus(null);
     }
   }, [newTitle, newKeywords, pendingFiles, user, qc]);
 
@@ -284,9 +558,7 @@ const PortfolioGallery = () => {
       const post = posts.find(p => p.id === postId);
       if (post) {
         for (const img of post.images) {
-          await supabase.functions.invoke('google-drive', {
-            body: { action: 'delete-file', fileId: img.drive_file_id },
-          });
+          await deletePortfolioDriveFile(img.drive_file_id);
         }
       }
       const { error } = await supabase.from('portfolio_posts').delete().eq('id', postId);
@@ -294,10 +566,11 @@ const PortfolioGallery = () => {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['portfolio-posts'] });
+      qc.invalidateQueries({ queryKey: ['portfolio-popular-keywords'] });
       setSelectedPost(null);
       toast.success('삭제되었습니다.');
     },
-    onError: () => toast.error('삭제 실패'),
+    onError: (error) => toast.error('삭제 실패: ' + getErrorMessage(error)),
   });
 
   // Edit handlers
@@ -337,8 +610,8 @@ const PortfolioGallery = () => {
       setShowEditDialog(false);
       setSelectedPost({ ...selectedPost, title: editTitle.trim(), keywords: editKeywords });
       qc.invalidateQueries({ queryKey: ['portfolio-posts'] });
-    } catch (err: any) {
-      toast.error('수정 실패: ' + err.message);
+    } catch (err) {
+      toast.error('수정 실패: ' + getErrorMessage(err));
     } finally {
       setEditing(false);
     }
@@ -349,35 +622,6 @@ const PortfolioGallery = () => {
     const q = editKeywordInput.toLowerCase().replace(/^#/, '');
     return popularKeywords.filter(k => k.toLowerCase().includes(q) && !editKeywords.includes(k)).slice(0, 5);
   }, [editKeywordInput, popularKeywords, editKeywords]);
-
-  // Filter posts by keyword or search
-  const filteredPosts = useMemo(() => {
-    let result = posts;
-    if (activeCategoryFilter !== 'all') {
-      const category = PORTFOLIO_CATEGORY_FILTERS.find(filter => filter.key === activeCategoryFilter);
-      const categoryKeywords = category?.keywords || [];
-      result = result.filter(p => {
-        const searchable = [
-          p.title,
-          ...p.keywords,
-          ...p.images.map(img => img.file_name),
-        ].join(' ').toLowerCase();
-        return categoryKeywords.some(keyword => searchable.includes(keyword.toLowerCase()));
-      });
-    }
-    if (activeKeywordFilter) {
-      result = result.filter(p => p.keywords.includes(activeKeywordFilter));
-    }
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(p =>
-        p.title.toLowerCase().includes(q) ||
-        p.keywords.some(k => k.toLowerCase().includes(q)) ||
-        p.images.some(img => img.file_name.toLowerCase().includes(q))
-      );
-    }
-    return result;
-  }, [posts, activeCategoryFilter, activeKeywordFilter, searchQuery]);
 
   const handleKeywordFilterClick = (keyword: string) => {
     saveRecentKeyword(keyword);
@@ -405,7 +649,7 @@ const PortfolioGallery = () => {
             ACBANK PORTFOLIO
           </h2>
           <Badge variant="outline" className="absolute right-4 top-1/2 hidden -translate-y-1/2 font-mono text-[11px] font-black sm:inline-flex">
-            {filteredPosts.length} PROJECTS
+            {portfolioData.totalMatches} PROJECTS
           </Badge>
         </div>
 
@@ -464,8 +708,8 @@ const PortfolioGallery = () => {
                 )}
               </div>
               <div className="flex shrink-0 gap-2">
-                <Button variant="outline" size="sm" className="h-10 rounded-full border-[#cacacb]" onClick={() => refetch()} disabled={isLoading}>
-                  <RefreshCw className={`mr-1 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <Button variant="outline" size="sm" className="h-10 rounded-full border-[#cacacb]" onClick={() => refetch()} disabled={isFetching}>
+                  <RefreshCw className={`mr-1 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
                   새로고침
                 </Button>
                 <Button size="sm" className="h-10 rounded-full bg-[#111111] px-4 text-white hover:bg-[#39393b]" onClick={() => setShowCreateDialog(true)}>
@@ -522,7 +766,7 @@ const PortfolioGallery = () => {
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-[#707072]" />
             </div>
-          ) : filteredPosts.length === 0 ? (
+          ) : posts.length === 0 ? (
             <div className="grid min-h-[180px] place-items-center rounded-lg border border-[#e5e5e5] bg-[#fafafa] px-4 py-12 text-center">
               <div>
                 <ImageIcon className="mx-auto mb-3 h-12 w-12 text-[#9e9ea0]" />
@@ -538,42 +782,57 @@ const PortfolioGallery = () => {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredPosts.map(post => {
-                const mainImg = getMainImage(post);
-                return (
-                  <button
-                    key={post.id}
-                    type="button"
-                    className="group overflow-hidden rounded-lg border border-[#e5e5e5] bg-white text-left transition-colors hover:border-[#111111] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111]"
-                    onClick={() => openPostDetail(post)}
-                  >
-                    <span className="relative block aspect-[4/3] overflow-hidden border-b border-black/5 bg-[#f5f5f5]">
-                      {mainImg ? (
-                        <img src={mainImg.thumbnail_url || mainImg.image_url || ''} alt={post.title} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.025]" loading="lazy" />
-                      ) : (
-                        <span className="flex h-full w-full items-center justify-center"><ImageIcon className="h-8 w-8 text-[#9e9ea0]" /></span>
-                      )}
-                      <span className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100">
-                        <Eye className="h-4 w-4" />
-                      </span>
-                    </span>
-                    <span className="grid gap-1.5 p-3">
-                      <span className="line-clamp-2 text-sm font-black leading-snug text-[#111111]">{post.title}</span>
-                      <span className="flex items-center gap-1 text-xs font-bold text-[#707072]">
-                        <ImageIcon className="h-3.5 w-3.5" /> {post.images.length}장
-                      </span>
-                      {post.keywords.length > 0 && (
-                        <span className="flex gap-1 overflow-x-auto pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                          {post.keywords.slice(0, 4).map(k => (
-                            <span key={k} className="shrink-0 rounded-full bg-[#1111110f] px-2 py-1 text-[11px] font-black text-[#39393b]">#{k}</span>
-                          ))}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {posts.map(post => {
+                  const mainImg = getMainImage(post);
+                  return (
+                    <button
+                      key={post.id}
+                      type="button"
+                      className="group overflow-hidden rounded-lg border border-[#e5e5e5] bg-white text-left transition-colors hover:border-[#111111] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111]"
+                      onClick={() => openPostDetail(post)}
+                    >
+                      <span className="relative block aspect-[4/3] overflow-hidden border-b border-black/5 bg-[#f5f5f5]">
+                        {mainImg ? (
+                          <img src={mainImg.thumbnail_url || mainImg.image_url || ''} alt={post.title} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.025]" loading="lazy" decoding="async" />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center"><ImageIcon className="h-8 w-8 text-[#9e9ea0]" /></span>
+                        )}
+                        <span className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100">
+                          <Eye className="h-4 w-4" />
                         </span>
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
+                      </span>
+                      <span className="grid gap-1.5 p-3">
+                        <span className="line-clamp-2 text-sm font-black leading-snug text-[#111111]">{post.title}</span>
+                        <span className="flex items-center gap-1 text-xs font-bold text-[#707072]">
+                          <ImageIcon className="h-3.5 w-3.5" /> {post.images.length}장
+                        </span>
+                        {post.keywords.length > 0 && (
+                          <span className="flex gap-1 overflow-x-auto pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            {post.keywords.slice(0, 4).map(k => (
+                              <span key={k} className="shrink-0 rounded-full bg-[#1111110f] px-2 py-1 text-[11px] font-black text-[#39393b]">#{k}</span>
+                            ))}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {portfolioData.hasMore && (
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => setVisibleCount(count => count + PAGE_SIZE)}
+                    disabled={isFetching}
+                  >
+                    {isFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    더 보기
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -644,32 +903,35 @@ const PortfolioGallery = () => {
             </div>
             <div>
               <Label>이미지 ({pendingFiles.length}개) *</Label>
-              <p className="text-xs text-muted-foreground mb-2">첫 번째 이미지가 대표 이미지로 표시됩니다.</p>
+              <p className="mb-2 text-xs text-muted-foreground">
+                첫 번째 이미지가 대표 이미지로 표시됩니다. 최대 {MAX_UPLOAD_FILES}장, 파일당 {formatBytes(MAX_UPLOAD_IMAGE_BYTES)}까지 등록됩니다.
+              </p>
               <div className="grid grid-cols-4 gap-2 mb-2">
                 {pendingFiles.map((file, i) => (
-                  <div key={i} className="relative aspect-square rounded-lg overflow-hidden border bg-muted/30">
-                    <img src={URL.createObjectURL(file)} alt="" className="w-full h-full object-cover" />
-                    {i === 0 && <Badge className="absolute top-1 left-1 text-[10px] px-1 py-0">대표</Badge>}
-                    <button
-                      className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 text-white hover:bg-destructive transition-colors"
-                      onClick={() => removePendingFile(i)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
+                  <PendingImagePreview
+                    key={`${file.name}-${file.lastModified}-${i}`}
+                    file={file}
+                    isMain={i === 0}
+                    onRemove={() => removePendingFile(i)}
+                  />
                 ))}
                 <button
+                  type="button"
                   className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary/50 transition-colors"
                   onClick={() => fileInputRef.current?.click()}
+                  disabled={pendingFiles.length >= MAX_UPLOAD_FILES}
                 >
                   <Plus className="h-5 w-5 text-muted-foreground" />
                 </button>
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFilesSelected} />
+              {uploadStatus && (
+                <p className="text-xs font-bold text-muted-foreground">{uploadStatus}</p>
+              )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>취소</Button>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={creating}>취소</Button>
             <Button onClick={handleCreate} disabled={creating}>
               {creating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
               {creating ? '등록 중...' : '등록'}
@@ -790,6 +1052,12 @@ const PortfolioGallery = () => {
                       </dd>
                     </div>
                     <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
+                      <dt className="text-[11px] font-black text-[#707072]">파일 용량</dt>
+                      <dd className="mt-1 break-all text-sm font-bold text-[#111111]">
+                        {formatBytes(selectedPost.images[currentImageIndex]?.file_size)}
+                      </dd>
+                    </div>
+                    <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
                       <dt className="text-[11px] font-black text-[#707072]">등록자</dt>
                       <dd className="mt-1 break-all text-sm font-bold text-[#111111]">{selectedPost.created_by}</dd>
                     </div>
@@ -819,7 +1087,7 @@ const PortfolioGallery = () => {
                           }`}
                           onClick={() => showImageAt(i)}
                         >
-                          <img src={img.thumbnail_url || img.image_url || ''} alt="" className="h-full w-full object-cover" />
+                          <img src={img.thumbnail_url || img.image_url || ''} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
                         </button>
                       ))}
                     </div>

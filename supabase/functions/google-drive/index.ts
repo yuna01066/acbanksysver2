@@ -142,7 +142,7 @@ async function uploadFile(
   const body = metaPart + filePart + closeDelimiter;
 
   const res = await fetch(
-    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,mimeType,size',
     {
       method: 'POST',
       headers: {
@@ -277,6 +277,109 @@ async function findDriveFilesByName(
 
   const data = await res.json();
   return data.files || [];
+}
+
+async function getDriveFileMetadata(
+  accessToken: string,
+  fileId: string,
+): Promise<any | null> {
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true&fields=id,name,mimeType,size,parents,trashed`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Drive file lookup failed: ${errText}`);
+  }
+
+  return await res.json();
+}
+
+async function assertFileInFolder(
+  accessToken: string,
+  fileId: string,
+  folderId: string,
+): Promise<any | null> {
+  const file = await getDriveFileMetadata(accessToken, fileId);
+  if (!file) return null;
+  if (file.trashed) throw new Error('Drive 파일이 이미 휴지통에 있습니다.');
+  if (!Array.isArray(file.parents) || !file.parents.includes(folderId)) {
+    throw new Error('포트폴리오 폴더에 있는 파일만 처리할 수 있습니다.');
+  }
+  return file;
+}
+
+async function deleteDriveFile(accessToken: string, fileId: string): Promise<void> {
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+
+  if (!res.ok && res.status !== 204 && res.status !== 404) {
+    const errText = await res.text();
+    throw new Error(`Delete failed: ${errText}`);
+  }
+}
+
+async function listDriveChildren(
+  accessToken: string,
+  driveId: string,
+  parentId: string,
+): Promise<any[]> {
+  const files: any[] = [];
+  let pageToken = '';
+
+  do {
+    const q = `'${parentId}' in parents and trashed=false`;
+    const url = new URL('https://www.googleapis.com/drive/v3/files');
+    url.searchParams.set('q', q);
+    url.searchParams.set('supportsAllDrives', 'true');
+    url.searchParams.set('includeItemsFromAllDrives', 'true');
+    url.searchParams.set('corpora', 'drive');
+    url.searchParams.set('driveId', driveId);
+    url.searchParams.set('fields', 'nextPageToken,files(id,name,size,mimeType)');
+    url.searchParams.set('pageSize', '1000');
+    if (pageToken) url.searchParams.set('pageToken', pageToken);
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Drive children list failed: ${errText}`);
+    }
+
+    const data = await res.json();
+    files.push(...(data.files || []));
+    pageToken = data.nextPageToken || '';
+  } while (pageToken);
+
+  return files;
+}
+
+async function calculateFolderUsage(
+  accessToken: string,
+  driveId: string,
+  folderId: string,
+): Promise<{ fileCount: number; totalSize: number }> {
+  const children = await listDriveChildren(accessToken, driveId, folderId);
+  let fileCount = 0;
+  let totalSize = 0;
+
+  for (const child of children) {
+    if (child.mimeType === 'application/vnd.google-apps.folder') {
+      const nested = await calculateFolderUsage(accessToken, driveId, child.id);
+      fileCount += nested.fileCount;
+      totalSize += nested.totalSize;
+    } else {
+      fileCount++;
+      totalSize += Number(child.size || 0);
+    }
+  }
+
+  return { fileCount, totalSize };
 }
 
 async function markDocumentFileSynced(
@@ -570,56 +673,27 @@ serve(async (req) => {
     }
 
     if (action === 'list-drive-usage') {
-      // List all folders and files in shared drive for usage stats
       const folders: { name: string; fileCount: number; totalSize: number }[] = [];
-      
-      // List top-level folders
-      const topQ = `'${sharedDriveId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-      const topRes = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(topQ)}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=drive&driveId=${sharedDriveId}&fields=files(id,name)&pageSize=100`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      const topData = await topRes.json();
-      
+      const topLevelItems = await listDriveChildren(accessToken, sharedDriveId, sharedDriveId);
+      const topFolders = topLevelItems.filter((item) => item.mimeType === 'application/vnd.google-apps.folder');
       let totalFiles = 0;
       let totalSize = 0;
-      
-      for (const folder of (topData.files || [])) {
-        // Count files in each top-level folder (recursive via q)
-        const filesQ = `'${folder.id}' in parents and trashed=false`;
-        const filesRes = await fetch(
-          `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(filesQ)}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=drive&driveId=${sharedDriveId}&fields=files(id,name,size,mimeType)&pageSize=1000`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        const filesData = await filesRes.json();
-        
-        let folderFileCount = 0;
-        let folderSize = 0;
-        
-        for (const f of (filesData.files || [])) {
-          if (f.mimeType === 'application/vnd.google-apps.folder') {
-            // Sub-folder: count its contents too
-            const subQ = `'${f.id}' in parents and trashed=false`;
-            const subRes = await fetch(
-              `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(subQ)}&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=drive&driveId=${sharedDriveId}&fields=files(size)&pageSize=1000`,
-              { headers: { Authorization: `Bearer ${accessToken}` } }
-            );
-            const subData = await subRes.json();
-            for (const sf of (subData.files || [])) {
-              folderFileCount++;
-              folderSize += parseInt(sf.size || '0');
-            }
-          } else {
-            folderFileCount++;
-            folderSize += parseInt(f.size || '0');
-          }
-        }
-        
-        folders.push({ name: folder.name, fileCount: folderFileCount, totalSize: folderSize });
-        totalFiles += folderFileCount;
-        totalSize += folderSize;
+
+      for (const folder of topFolders) {
+        const usage = await calculateFolderUsage(accessToken, sharedDriveId, folder.id);
+        folders.push({ name: folder.name, fileCount: usage.fileCount, totalSize: usage.totalSize });
+        totalFiles += usage.fileCount;
+        totalSize += usage.totalSize;
       }
-      
+
+      const rootFiles = topLevelItems.filter((item) => item.mimeType !== 'application/vnd.google-apps.folder');
+      if (rootFiles.length > 0) {
+        const rootSize = rootFiles.reduce((sum, file) => sum + Number(file.size || 0), 0);
+        folders.push({ name: '(공유 드라이브 루트)', fileCount: rootFiles.length, totalSize: rootSize });
+        totalFiles += rootFiles.length;
+        totalSize += rootSize;
+      }
+
       return new Response(JSON.stringify({ 
         success: true, 
         folders: folders.sort((a, b) => b.totalSize - a.totalSize),
@@ -669,6 +743,19 @@ serve(async (req) => {
         fileId: result.id,
         fileName: result.name,
       }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (action === 'delete-portfolio-file') {
+      const { fileId, folderPath } = body;
+      if (!fileId) throw new Error('Missing fileId');
+      const targetFolderPath = Array.isArray(folderPath) ? folderPath : ['포트폴리오'];
+      const folderId = await ensureFolderPath(accessToken, targetFolderPath, sharedDriveId, sharedDriveId);
+      const file = await assertFileInFolder(accessToken, fileId, folderId);
+      if (file) await deleteDriveFile(accessToken, fileId);
+
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -725,16 +812,7 @@ serve(async (req) => {
     if (action === 'delete-file') {
       const { fileId } = body;
       if (!fileId) throw new Error('Missing fileId');
-
-      const res = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`,
-        { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-
-      if (!res.ok && res.status !== 204 && res.status !== 404) {
-        const errText = await res.text();
-        throw new Error(`Delete failed: ${errText}`);
-      }
+      await deleteDriveFile(accessToken, fileId);
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

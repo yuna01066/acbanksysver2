@@ -10,6 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { BrandedCardHeader } from "@/components/ui/branded-card-header";
+import type { Database } from "@/integrations/supabase/types";
+
+type PublicTableName = keyof Database['public']['Tables'];
+
 interface BucketUsage {
   name: string;
   fileCount: number;
@@ -58,6 +62,17 @@ interface DocumentSyncIssue {
 }
 
 const LOVABLE_FREE_STORAGE = 1 * 1024 * 1024 * 1024; // 1GB
+const BUCKET_LABELS: Record<string, string> = {
+  'quote-attachments': '견적서 첨부',
+  'quote-pdfs': '견적서 PDF',
+  'recipient-documents': '거래처 문서',
+  'avatars': '프로필 사진',
+  'employee-documents': '직원 문서',
+  'incident-attachments': '사건 첨부',
+  'project-update-attachments': '프로젝트 업데이트',
+  'team-chat-attachments': '팀 채팅 첨부',
+  'tax-documents': '연말정산 문서',
+};
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -140,22 +155,10 @@ const StorageStatusPage = () => {
   const [documentSyncIssues, setDocumentSyncIssues] = useState<DocumentSyncIssue[]>([]);
   const [singleSyncingId, setSingleSyncingId] = useState<string | null>(null);
 
-  const bucketLabels: Record<string, string> = {
-    'quote-attachments': '견적서 첨부',
-    'quote-pdfs': '견적서 PDF',
-    'recipient-documents': '거래처 문서',
-    'avatars': '프로필 사진',
-    'employee-documents': '직원 문서',
-    'incident-attachments': '사건 첨부',
-    'project-update-attachments': '프로젝트 업데이트',
-    'team-chat-attachments': '팀 채팅 첨부',
-    'tax-documents': '연말정산 문서',
-  };
-
   const fetchLovableStorage = useCallback(async () => {
     setLovableLoading(true);
     try {
-      const bucketNames = Object.keys(bucketLabels);
+      const bucketNames = Object.keys(BUCKET_LABELS);
       const promises = bucketNames.map(async (bucket) => {
         const result = await listAllFiles(bucket);
         return { name: bucket, fileCount: result.count, totalSize: result.size };
@@ -172,7 +175,7 @@ const StorageStatusPage = () => {
   const fetchDbSize = useCallback(async () => {
     setDbLoading(true);
     try {
-      const tables = [
+      const tables: PublicTableName[] = [
         'profiles', 'saved_quotes', 'recipients', 'projects', 'attendance_records',
         'leave_requests', 'announcements', 'direct_messages', 'material_orders',
         'employment_contracts', 'performance_reviews', 'incident_reports',
@@ -183,6 +186,7 @@ const StorageStatusPage = () => {
         'processing_options', 'processing_categories', 'panel_masters',
         'panel_sizes', 'color_options', 'color_mixing_costs', 'panel_option_surcharges',
         'panel_pricing_versions',
+        'portfolio_posts', 'portfolio_images',
         'company_holidays', 'company_info', 'contract_templates',
         'custom_leave_types', 'document_categories', 'employee_documents',
         'leave_policy_settings', 'leave_general_settings', 'labor_law_settings',
@@ -194,7 +198,7 @@ const StorageStatusPage = () => {
       
       const promises = tables.map(async (table) => {
         try {
-          const { count } = await supabase.from(table as any).select('*', { count: 'exact', head: true });
+          const { count } = await supabase.from(table).select('*', { count: 'exact', head: true });
           return { name: table, rows: count || 0 };
         } catch {
           return { name: table, rows: 0 };
@@ -273,7 +277,7 @@ const StorageStatusPage = () => {
       const results = await Promise.all(
         statuses.map(async (status) => {
           const { count, error } = await supabase
-            .from('document_files' as any)
+            .from('document_files')
             .select('*', { count: 'exact', head: true })
             .eq('sync_status', status);
           if (error) throw error;
@@ -303,7 +307,7 @@ const StorageStatusPage = () => {
   const fetchDocumentSyncIssues = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('document_files' as any)
+        .from('document_files')
         .select(`
           id,
           file_name,
@@ -428,7 +432,7 @@ const StorageStatusPage = () => {
     if (!authLoading) {
       refreshAll();
     }
-  }, [authLoading, userRole]);
+  }, [authLoading, userRole, navigate, refreshAll]);
 
   const lovableTotalUsed = bucketUsages.reduce((sum, b) => sum + b.totalSize, 0);
   const lovablePercent = Math.min((lovableTotalUsed / LOVABLE_FREE_STORAGE) * 100, 100);
@@ -450,6 +454,7 @@ const StorageStatusPage = () => {
     panel_sizes: '판넬 사이즈', color_options: '색상 옵션',
     color_mixing_costs: '조색 비용', panel_option_surcharges: '판재 옵션 추가금',
     panel_pricing_versions: '단가표 버전',
+    portfolio_posts: '포트폴리오 게시물', portfolio_images: '포트폴리오 이미지',
     company_holidays: '회사 휴일', company_info: '회사 정보',
     contract_templates: '계약서 템플릿', custom_leave_types: '휴가 유형',
     document_categories: '문서 카테고리', employee_documents: '직원 문서',
@@ -612,6 +617,7 @@ const StorageStatusPage = () => {
             <div className="space-y-3">
               {[
                 { data: '견적서 첨부 / PDF', locations: ['Lovable Cloud', 'Google Drive'], badges: ['quote-attachments', 'quote-pdfs', 'document_files'] },
+                { data: '포트폴리오 사진', locations: ['Google Drive', 'Database'], badges: ['포트폴리오', 'portfolio_images'] },
                 { data: '프로젝트 업데이트 첨부파일', locations: ['Lovable Cloud', 'GCS', 'Google Drive'], badges: ['project-update-attachments', '프로젝트업데이트'] },
                 { data: '내부 프로젝트 증빙 (견적서/영수증)', locations: ['GCS', 'Google Drive'], badges: ['프로젝트명 > 문서유형 > 년 > 월'] },
                 { data: '직원 문서 / 프로필 사진', locations: ['Lovable Cloud'], badges: ['employee-documents', 'avatars'] },
@@ -673,7 +679,7 @@ const StorageStatusPage = () => {
                           <FolderOpen className="w-4 h-4 text-muted-foreground shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">
-                              {bucketLabels[bucket.name] || bucket.name}
+                              {BUCKET_LABELS[bucket.name] || bucket.name}
                             </p>
                             <p className="text-xs text-muted-foreground">파일 {bucket.fileCount}개</p>
                           </div>
