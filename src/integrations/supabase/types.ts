@@ -404,8 +404,8 @@ export type Database = {
           is_active: boolean | null
           is_bright_pigment: boolean
           is_producible: boolean
-          pantone: string | null
           panel_master_id: string
+          pantone: string | null
           series_key: string | null
           source_url: string | null
           unavailable_reason: string | null
@@ -421,8 +421,8 @@ export type Database = {
           is_active?: boolean | null
           is_bright_pigment?: boolean
           is_producible?: boolean
-          pantone?: string | null
           panel_master_id: string
+          pantone?: string | null
           series_key?: string | null
           source_url?: string | null
           unavailable_reason?: string | null
@@ -438,8 +438,8 @@ export type Database = {
           is_active?: boolean | null
           is_bright_pigment?: boolean
           is_producible?: boolean
-          pantone?: string | null
           panel_master_id?: string
+          pantone?: string | null
           series_key?: string | null
           source_url?: string | null
           unavailable_reason?: string | null
@@ -2383,6 +2383,7 @@ export type Database = {
       }
       portfolio_images: {
         Row: {
+          access_level: string
           created_at: string
           delete_error: string | null
           delete_status: string
@@ -2390,14 +2391,13 @@ export type Database = {
           drive_file_id: string
           drive_folder_id: string | null
           drive_path: string | null
-          file_size: number | null
           file_name: string
+          file_size: number | null
           id: string
           image_url: string | null
           is_main: boolean
           mime_type: string | null
           post_id: string
-          access_level: string
           storage_provider: string
           thumbnail_bucket: string | null
           thumbnail_height: number | null
@@ -2407,6 +2407,7 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          access_level?: string
           created_at?: string
           delete_error?: string | null
           delete_status?: string
@@ -2414,14 +2415,13 @@ export type Database = {
           drive_file_id: string
           drive_folder_id?: string | null
           drive_path?: string | null
-          file_size?: number | null
           file_name: string
+          file_size?: number | null
           id?: string
           image_url?: string | null
           is_main?: boolean
           mime_type?: string | null
           post_id: string
-          access_level?: string
           storage_provider?: string
           thumbnail_bucket?: string | null
           thumbnail_height?: number | null
@@ -2431,6 +2431,7 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          access_level?: string
           created_at?: string
           delete_error?: string | null
           delete_status?: string
@@ -2438,14 +2439,13 @@ export type Database = {
           drive_file_id?: string
           drive_folder_id?: string | null
           drive_path?: string | null
-          file_size?: number | null
           file_name?: string
+          file_size?: number | null
           id?: string
           image_url?: string | null
           is_main?: boolean
           mime_type?: string | null
           post_id?: string
-          access_level?: string
           storage_provider?: string
           thumbnail_bucket?: string | null
           thumbnail_height?: number | null
@@ -3597,8 +3597,8 @@ export type Database = {
           recipient_memo: string | null
           recipient_name: string | null
           recipient_phone: string | null
-          subtotal: number
           status_updated_at: string
+          subtotal: number
           tax: number
           total: number
           updated_at: string
@@ -3641,8 +3641,8 @@ export type Database = {
           recipient_memo?: string | null
           recipient_name?: string | null
           recipient_phone?: string | null
-          subtotal: number
           status_updated_at?: string
+          subtotal: number
           tax: number
           total: number
           updated_at?: string
@@ -3685,8 +3685,8 @@ export type Database = {
           recipient_memo?: string | null
           recipient_name?: string | null
           recipient_phone?: string | null
-          subtotal?: number
           status_updated_at?: string
+          subtotal?: number
           tax?: number
           total?: number
           updated_at?: string
@@ -3694,6 +3694,13 @@ export type Database = {
           valid_until?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "saved_quotes_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "saved_quotes_pricing_version_id_fkey"
             columns: ["pricing_version_id"]
@@ -4532,17 +4539,17 @@ export type Database = {
       }
       search_portfolio_posts: {
         Args: {
-          p_category_keywords?: string[] | null
-          p_exact_keyword?: string | null
-          p_limit?: number | null
-          p_offset?: number | null
-          p_search_text?: string | null
+          p_category_keywords?: string[]
+          p_exact_keyword?: string
+          p_limit?: number
+          p_offset?: number
+          p_search_text?: string
         }
         Returns: {
           created_at: string
           created_by: string
           id: string
-          keywords: string[] | null
+          keywords: string[]
           title: string
           total_count: number
           updated_at: string
@@ -4554,12 +4561,12 @@ export type Database = {
       panel_material: "acrylic" | "pet"
       panel_quality:
         | "glossy-color"
-        | "bright-color"
         | "glossy-standard"
         | "astel-color"
         | "satin-color"
         | "acrylic-mirror"
         | "astel-mirror"
+        | "bright-color"
         | "satin-mirror"
       processing_option_category:
         | "raw"
@@ -4715,12 +4722,12 @@ export const Constants = {
       panel_material: ["acrylic", "pet"],
       panel_quality: [
         "glossy-color",
-        "bright-color",
         "glossy-standard",
         "astel-color",
         "satin-color",
         "acrylic-mirror",
         "astel-mirror",
+        "bright-color",
         "satin-mirror",
       ],
       processing_option_category: [
