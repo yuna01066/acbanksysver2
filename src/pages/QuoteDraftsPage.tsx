@@ -19,6 +19,7 @@ import {
   type QuoteDraftRecord,
   type QuoteDraftStatus,
 } from '@/services/quoteDrafts';
+import { triggerQuoteIssuedHamzzi } from '@/lib/hamzziEvents';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Archive, CheckCircle2, Copy, FileText, Loader2, Plus, Search, Send, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
@@ -171,7 +172,10 @@ const QuoteDraftsPage = () => {
         return acc;
       }, {});
       setIssueErrors(errors);
-      if (successCount > 0) toast.success(`${successCount}건의 견적서를 발행했습니다.`);
+      if (successCount > 0) {
+        toast.success(`${successCount}건의 견적서를 발행했습니다.`);
+        triggerQuoteIssuedHamzzi(successCount);
+      }
       if (Object.keys(errors).length > 0) toast.error(`${Object.keys(errors).length}건은 확인이 필요합니다.`);
       setSelectedIds(new Set());
       await fetchDrafts();

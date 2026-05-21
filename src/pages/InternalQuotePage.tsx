@@ -18,6 +18,7 @@ import { useActivityLog } from "@/hooks/useActivityLog";
 import QuoteStyleBanner from "@/components/quote-detail/QuoteStyleBanner";
 import { detectQuoteStyleFromItems, getQuoteStyleProfile } from "@/utils/quoteStyle";
 import { getQuoteCelebrationCopy, getTodayQuoteCount } from "@/utils/engagement";
+import { triggerQuoteIssuedHamzzi } from "@/lib/hamzziEvents";
 import { saveIssuedQuote } from "@/services/issuedQuoteSaver";
 import { formatQuoteProjectTitle } from "@/utils/quoteNaming";
 
@@ -105,9 +106,11 @@ const InternalQuotePage = () => {
             const todayQuoteCount = await getTodayQuoteCount(user.id);
             const celebration = getQuoteCelebrationCopy(todayQuoteCount);
             toast.success(celebration.title, { description: celebration.description });
+            triggerQuoteIssuedHamzzi(1, todayQuoteCount);
           } catch (celebrationError) {
             console.warn('Quote celebration count failed:', celebrationError);
             toast.success('견적서 발행 완료. 오늘도 한 건 처리했습니다.');
+            triggerQuoteIssuedHamzzi();
           }
         } else {
           toast.success('견적서 변경사항이 저장되었습니다.');
