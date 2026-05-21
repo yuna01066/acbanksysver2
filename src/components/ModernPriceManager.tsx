@@ -213,7 +213,7 @@ const ModernPriceManager = ({ navigationActions }: ModernPriceManagerProps) => {
     { id: 'glossy-color', name: '유광 색상판 (Clear)', data: convertToSurfaceStructure(glossyColorSinglePrices) },
     { id: 'astel-color', name: '아스텔 색상판 (Astel)', data: convertToSurfaceStructure(astelColorSinglePrices) },
     { id: 'glossy-standard', name: '유광 보급판 (Standard)', data: convertToSurfaceStructure(glossyStandardSinglePrices) },
-    { id: 'satin-color', name: '사틴 색상판 (Bright)', data: convertToSurfaceStructure(satinColorSinglePrices) }
+    { id: 'satin-color', name: '사틴 색상판 (Satin)', data: convertToSurfaceStructure(satinColorSinglePrices) }
   ];
 
   const handlePriceEdit = (qualityId: string, thickness: string, size: string, surface: string, price: number) => {

@@ -146,7 +146,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   const [qty, setQty] = useState<number>(1);
   const [isComplex, setIsComplex] = useState<boolean>(false);
   const [bevelLengthM, setBevelLengthM] = useState<number>(0);
-  const [polishedEdgeLengthM, setPolishedEdgeLengthM] = useState<number>(0);
+  const [polishedEdgeLengthMm, setPolishedEdgeLengthMm] = useState<number>(0);
   const [laserHoles, setLaserHoles] = useState<number>(0);
   const [edgeFinishing, setEdgeFinishing] = useState<boolean>(false);
   const [bulgwang, setBulgwang] = useState<boolean>(false);
@@ -488,6 +488,8 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     return allOptionIds.length > 0 ? allOptionIds.join('|') : selectedProcessing;
   };
   
+  const polishedEdgeLengthM = Math.max(0, polishedEdgeLengthMm || 0) / 1000;
+
   const {
     priceInfo,
     getAvailableSizes
@@ -884,6 +886,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         isComplex,
         bevelLengthM: 0,
         polishedEdgeLengthM,
+        polishedEdgeLengthMm,
         laserHoles: 0,
         edgeFinishing,
         bulgwang,
@@ -1639,8 +1642,8 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
                 onTapungChange={setTapung}
                 mugwangPainting={mugwangPainting}
                 onMugwangPaintingChange={setMugwangPainting}
-                polishedEdgeLengthM={polishedEdgeLengthM}
-                onPolishedEdgeLengthChange={setPolishedEdgeLengthM}
+                polishedEdgeLengthMm={polishedEdgeLengthMm}
+                onPolishedEdgeLengthMmChange={setPolishedEdgeLengthMm}
                 selectedAdditionalOptions={selectedAdditionalOptions}
                 onAdditionalOptionsChange={setSelectedAdditionalOptions}
               />
