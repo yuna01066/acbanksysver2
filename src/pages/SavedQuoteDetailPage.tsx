@@ -128,6 +128,7 @@ const SavedQuoteDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [editedItems, setEditedItems] = useState<any[]>([]);
+  const [editedItemsTouched, setEditedItemsTouched] = useState(false);
   const [quotePdf, setQuotePdf] = useState<QuotePdfAttachment | null>(null);
   const [linkedProject, setLinkedProject] = useState<{ id: string; name: string; payment_status: string | null } | null>(null);
   const [assigneeUsers, setAssigneeUsers] = useState<QuoteAssigneeOption[]>([]);
@@ -275,6 +276,7 @@ const SavedQuoteDetailPage = () => {
       const attachmentsArray = Array.isArray(formattedData.attachments) ? formattedData.attachments : [];
       setAttachments(attachmentsArray.filter((a: any) => a?.type !== 'quote_pdf'));
       setEditedItems(Array.isArray(formattedData.items) ? formattedData.items : []);
+      setEditedItemsTouched(false);
       
       // 견적서 PDF 정보 로드 (attachments 배열에서 quote_pdf 타입 찾기)
       const savedQuotePdf = attachmentsArray.find((a: any) => 
@@ -405,11 +407,17 @@ const SavedQuoteDetailPage = () => {
     if (!id) return;
 
     try {
-      const autoCalculatedSubtotal = Math.round(
+      const itemCalculatedSubtotal = Math.round(
         editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0) / 100
       ) * 100;
-      const autoCalculatedTax = Math.round(autoCalculatedSubtotal * 0.1);
-      const autoCalculatedTotal = autoCalculatedSubtotal + autoCalculatedTax;
+      const itemCalculatedTax = Math.round(itemCalculatedSubtotal * 0.1);
+      const itemCalculatedTotal = itemCalculatedSubtotal + itemCalculatedTax;
+
+      // 품목을 건드리지 않은 재수정에서는 저장된 금액을 기준으로 유지한다.
+      // 수동 조정 견적은 품목 합계와 저장 총액이 다를 수 있으므로 자동 재계산하면 최초 산식 금액으로 되돌아간다.
+      const autoCalculatedSubtotal = editedItemsTouched ? itemCalculatedSubtotal : Math.round(quote.subtotal);
+      const autoCalculatedTax = editedItemsTouched ? itemCalculatedTax : Math.round(quote.tax);
+      const autoCalculatedTotal = editedItemsTouched ? itemCalculatedTotal : Math.round(quote.total);
 
       // 수동 오버라이드가 있으면 VAT 포함 최종금액 기준으로 역산한 값을 저장한다.
       let roundedSubtotal = autoCalculatedSubtotal;
@@ -490,7 +498,8 @@ const SavedQuoteDetailPage = () => {
             autoCalculatedSubtotal,
             autoCalculatedTax,
             autoCalculatedTotal,
-            manualTotalAdjustment,
+            manualTotalAdjustment: manualTotalAdjustment
+              ?? (!editedItemsTouched ? (quote.calculation_snapshot?.manualTotalAdjustment || null) : null),
             items: editedItems.map(item => ({
               id: item.id,
               totalPrice: item.totalPrice,
@@ -570,6 +579,7 @@ const SavedQuoteDetailPage = () => {
       toast.success('견적서가 수정되었습니다.');
       setIsEditing(false);
       setManualTotalOverride(null);
+      setEditedItemsTouched(false);
       queryClient.invalidateQueries({ queryKey: ['quote-activity-history', id] });
       fetchQuote();
     } catch (error) {
@@ -582,6 +592,7 @@ const SavedQuoteDetailPage = () => {
     const newItems = [...editedItems];
     newItems[index] = updatedItem;
     setEditedItems(newItems);
+    setEditedItemsTouched(true);
   };
 
   const handleItemRemove = (index: number) => {
@@ -591,6 +602,7 @@ const SavedQuoteDetailPage = () => {
     }
     const newItems = editedItems.filter((_, i) => i !== index);
     setEditedItems(newItems);
+    setEditedItemsTouched(true);
   };
 
   const handleAttachmentsChange = (newAttachments: any[]) => {
@@ -673,15 +685,20 @@ const SavedQuoteDetailPage = () => {
   const quoteStyleProfile = getQuoteStyleProfile(quoteStyle);
   const activeMode = printModeOverride ?? viewMode;
   
-  // 편집 모드일 때는 editedItems 기반으로 계산, 아닐 때는 저장된 값 사용
+  // 편집 모드에서도 품목을 실제로 수정하기 전까지는 저장된 금액을 유지한다.
+  const itemAutoSubtotal = Math.round(
+    editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0) / 100
+  ) * 100;
+  const itemAutoTax = Math.round(itemAutoSubtotal * 0.1);
+  const itemAutoTotal = itemAutoSubtotal + itemAutoTax;
   const autoSubtotal = isEditing 
-    ? Math.round(editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0) / 100) * 100
+    ? (editedItemsTouched ? itemAutoSubtotal : Math.round(quote.subtotal))
     : Math.round(quote.subtotal);
   const autoTax = isEditing 
-    ? Math.round(autoSubtotal * 0.1)
+    ? (editedItemsTouched ? itemAutoTax : Math.round(quote.tax))
     : Math.round(quote.tax);
   const autoTotal = isEditing 
-    ? autoSubtotal + autoTax
+    ? (editedItemsTouched ? itemAutoTotal : Math.round(quote.total))
     : Math.round(quote.total);
   
   const subtotal = (isEditing && manualTotalOverride) ? manualTotalOverride.subtotal : autoSubtotal;
@@ -715,9 +732,13 @@ const SavedQuoteDetailPage = () => {
             quoteNumber={quote.quote_number}
             validUntil={quote.valid_until}
             isEditMode={isEditing}
-            onEdit={() => setIsEditing(true)}
+            onEdit={() => {
+              setEditedItemsTouched(false);
+              setManualTotalOverride(null);
+              setIsEditing(true);
+            }}
             onSaveEdit={handleSaveEdit}
-            onCancelEdit={() => { setIsEditing(false); setManualTotalOverride(null); fetchQuote(); }}
+            onCancelEdit={() => { setIsEditing(false); setManualTotalOverride(null); setEditedItemsTouched(false); fetchQuote(); }}
             onToggleViewMode={toggleViewMode}
             viewMode={activeMode}
             showSavedQuoteActions={true}
