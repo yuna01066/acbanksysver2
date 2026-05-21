@@ -1,30 +1,31 @@
 import { useNavigate } from 'react-router-dom';
-
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import acbankLogoText from '@/assets/acbank-logo-text.png';
 
-interface HomeLogoButtonProps {
-  size?: 'sm' | 'default';
+type HomeLogoButtonProps = {
   className?: string;
-}
+  size?: 'sm' | 'default';
+};
 
-const HomeLogoButton = ({ size = 'default', className }: HomeLogoButtonProps) => {
+const HomeLogoButton = ({ className, size = 'sm' }: HomeLogoButtonProps) => {
   const navigate = useNavigate();
-  const isSmall = size === 'sm';
 
   return (
     <Button
       type="button"
       variant="ghost"
+      size={size}
       onClick={() => navigate('/')}
-      className={cn(
-        'rounded-[22px] border border-slate-300 bg-white/70 px-4 font-black tracking-[0.18em] text-slate-800 shadow-sm backdrop-blur transition hover:bg-white',
-        isSmall ? 'h-10 text-sm' : 'h-14 text-2xl',
-        className,
-      )}
       aria-label="홈으로 이동"
+      title="홈으로 이동"
+      className={cn(
+        'h-10 rounded-2xl border border-blue-100 bg-white/90 px-3 shadow-sm transition-all hover:border-blue-200 hover:bg-white hover:shadow-md',
+        size === 'default' && 'h-11 px-4',
+        className
+      )}
     >
-      ACBANK
+      <img src={acbankLogoText} alt="ACBANK" className="h-4 w-auto object-contain" />
     </Button>
   );
 };

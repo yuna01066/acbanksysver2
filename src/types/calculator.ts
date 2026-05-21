@@ -32,7 +32,7 @@ export const CASTING_QUALITIES: Quality[] = [
   },
   {
     id: 'satin-color',
-    name: 'Bright (브라이트)',
+    name: 'Satin (사틴)',
     thicknesses: ['1.3T', '1.5T', '2T', '3T', '4T', '5T', '6T', '8T', '10T', '12T', '15T', '20T', '25T', '30T'],
     sizes: ['대3*6', '1*2', '4*8', '4*10']
   },
@@ -51,6 +51,12 @@ export const CASTING_QUALITIES: Quality[] = [
   {
     id: 'astel-mirror',
     name: 'Astel Mirror (아스텔 미러)',
+    thicknesses: ['1.3T', '1.5T', '2T', '3T', '4T', '5T', '6T', '8T', '10T', '12T', '20T', '25T', '30T'],
+    sizes: ['3*6', '대3*6', '4*5', '대4*5', '1*2', '4*6', '4*8', '5*5', '5*6', '5*8']
+  },
+  {
+    id: 'satin-mirror',
+    name: 'Satin Mirror (사틴 미러)',
     thicknesses: ['1.3T', '1.5T', '2T', '3T', '4T', '5T', '6T', '8T', '10T', '12T', '20T', '25T', '30T'],
     sizes: ['3*6', '대3*6', '4*5', '대4*5', '1*2', '4*6', '4*8', '5*5', '5*6', '5*8']
   }

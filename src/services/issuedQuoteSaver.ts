@@ -160,8 +160,10 @@ export async function saveIssuedQuote({
     items: quotes.map(q => ({ ...q })),
     pricing_version_id: primaryPricingVersionId,
     calculation_snapshot: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       capturedAt,
+      snapshotVersion: 'issued-quote-snapshot-v2',
+      formulaDocVersion: 260520,
       pricingVersionId: primaryPricingVersionId,
       pricingVersionName: primaryPricingVersionName,
       quoteStyle,
@@ -174,6 +176,11 @@ export async function saveIssuedQuote({
         quantity: q.quantity,
         calculationSnapshot: q.calculationSnapshot || null,
       })),
+      engineVersions: Array.from(new Set(
+        quotes
+          .map(q => q.calculationSnapshot?.snapshotVersion || q.calculationSnapshot?.calculationEngineVersion)
+          .filter(Boolean)
+      )),
       note: '견적 저장 당시 계산 근거입니다. 이후 단가표 변경은 저장 견적 금액에 자동 반영되지 않습니다.',
     },
     subtotal: Math.round(subtotal),

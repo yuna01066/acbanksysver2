@@ -31,7 +31,7 @@ const qualityLabels: Record<string, string> = {
   'glossy-color': '유광 컬러',
   'glossy-standard': '유광 스탠다드',
   'astel-color': '아스텔 컬러',
-  'satin-color': '무광 컬러'
+  'satin-color': '사틴 컬러'
 };
 
 export const PanelMasterList = ({ onSelectMaster, selectedMasterId }: PanelMasterListProps) => {
@@ -216,7 +216,7 @@ export const PanelMasterList = ({ onSelectMaster, selectedMasterId }: PanelMaste
                       <SelectItem value="glossy-color">유광 컬러</SelectItem>
                       <SelectItem value="glossy-standard">유광 스탠다드</SelectItem>
                       <SelectItem value="astel-color">아스텔 컬러</SelectItem>
-                      <SelectItem value="satin-color">무광 컬러</SelectItem>
+                      <SelectItem value="satin-color">사틴 컬러</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

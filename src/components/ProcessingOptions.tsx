@@ -10,6 +10,7 @@ import { useProcessingOptions, type ProcessingOption } from "@/hooks/useProcessi
 import { useSlotTypes } from "@/hooks/useSlotTypes";
 import { useCategoryLogic } from "@/hooks/useCategoryLogic";
 import { useProcessingCategories } from "@/hooks/useProcessingCategories";
+import { useAdvancedProcessingSettings } from "@/hooks/useAdvancedProcessingSettings";
 
 interface ProcessingOptionsProps {
   selectedProcessing: string;
@@ -32,6 +33,8 @@ interface ProcessingOptionsProps {
   onTapungChange?: (value: boolean) => void;
   mugwangPainting?: boolean;
   onMugwangPaintingChange?: (value: boolean) => void;
+  polishedEdgeLengthMm?: number;
+  onPolishedEdgeLengthMmChange?: (length: number) => void;
   // 다중 선택된 옵션과 수량
   selectedAdditionalOptions?: Record<string, number>; // { option_id: quantity }
   onAdditionalOptionsChange?: (options: Record<string, number>) => void;
@@ -73,6 +76,8 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   onTapungChange,
   mugwangPainting,
   onMugwangPaintingChange,
+  polishedEdgeLengthMm = 0,
+  onPolishedEdgeLengthMmChange,
   selectedAdditionalOptions = {},
   onAdditionalOptionsChange,
 }) => {
@@ -89,6 +94,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   const { slotTypes, isLoading: isLoadingSlots } = useSlotTypes();
   const { getCategorySlots: getCategoryLogicSlots, isLoading: isLoadingLogic } = useCategoryLogic();
   const { categories, isLoading: isLoadingCategories } = useProcessingCategories();
+  const { getSettingValue } = useAdvancedProcessingSettings();
+  const polishedEdgeRatePerM = getSettingValue('polished_edge_rate_per_m') || 14200;
+  const isPolishedEdgeOption = (optionId: string) =>
+    ['edgeFinishing', 'polishedEdge', 'polished-edge'].includes(optionId);
 
   // selectedProcessing에서 기존 선택값 복원
   React.useEffect(() => {
@@ -153,6 +162,8 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   const slots: Record<string, ProcessingOption[]> = {};
   processingOptions
     .filter(opt => {
+      if (['mirrorDeposition', 'mirror-deposition'].includes(opt.option_id)) return false;
+
       // option_type이 허용된 슬롯 키에 포함되어야 함
       if (!allowedSlotKeys.includes(opt.option_type)) return false;
       
@@ -176,6 +187,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
 
   // 옵션이 선택된 두께에 적용 가능한지 확인
   const isOptionApplicable = (option: ProcessingOption): boolean => {
+    if (['mirrorDeposition', 'mirror-deposition'].includes(option.option_id)) {
+      return false;
+    }
+
     if (['mirrorHardCoating', 'mirror-hard-coating'].includes(option.option_id)) {
       return /mirror/i.test(selectedQualityId || '');
     }
@@ -363,6 +378,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                   <CardContent>
                     <div className="space-y-3">
                       {options
+                        .filter(option => !['mirrorDeposition', 'mirror-deposition'].includes(option.option_id))
                         .filter(option => !['mirrorHardCoating', 'mirror-hard-coating'].includes(option.option_id) || /mirror/i.test(selectedQualityId || ''))
                         .map((option) => {
                         const isApplicable = isOptionApplicable(option);
@@ -498,6 +514,32 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                                 </Button>
                               )}
                             </div>
+                            {isApplicable && isSelected && isPolishedEdgeOption(option.option_id) && (
+                              <div className="mt-4 rounded-lg border border-primary/15 bg-primary/5 p-3">
+                                <Label
+                                  htmlFor={`polished-edge-length-${option.option_id}`}
+                                  className="mb-2 flex items-center gap-2 text-sm font-semibold"
+                                >
+                                  경면 마감 길이 (mm)
+                                  <Badge variant="outline" className="bg-background text-xs">
+                                    {polishedEdgeRatePerM.toLocaleString()}원/m
+                                  </Badge>
+                                </Label>
+                                <Input
+                                  id={`polished-edge-length-${option.option_id}`}
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={polishedEdgeLengthMm || ''}
+                                  onChange={(event) => onPolishedEdgeLengthMmChange?.(parseFloat(event.target.value) || 0)}
+                                  placeholder="예: 2400"
+                                  className="bg-background font-medium"
+                                />
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                  경면 마감 옵션에만 적용됩니다. 불광은 별도 검수 흐름을 유지합니다.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         );
                       })}

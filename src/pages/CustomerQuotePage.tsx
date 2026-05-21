@@ -30,6 +30,7 @@ interface QuoteData {
 
 const toCustomerSafeBreakdownLabel = (label: string) => {
   if (/미러.*하드코팅|하드코팅/.test(label)) return '미러 하드코팅 포함';
+  if (/미러증착|미러 재질|미러.*원판/.test(label)) return '미러 재질 포함';
   if (/불광/.test(label)) return '불광 마감 포함';
   if (/경면|유광 엣지|엣지/.test(label)) return '엣지 마감 포함';
   if (/UV|배면인쇄/.test(label)) return 'UV 배면인쇄 포함';
