@@ -10,7 +10,6 @@ import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import ProjectStageSelect, { PROJECT_STAGES } from '@/components/ProjectStageSelect';
 import QuoteStatusSelect from '@/components/QuoteStatusSelect';
 import { getPaymentStatusInfo } from '@/components/project/PaymentStatusSelect';
@@ -813,200 +812,196 @@ const SavedQuotesPage = () => {
         ) : (
           <>
             <Card className="overflow-hidden border-border/70">
-              <Table className="min-w-[1880px]">
-                <TableHeader>
-                  <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableHead className="w-[96px] px-3">발행일</TableHead>
-                    <TableHead className="min-w-[560px] px-3">견적 제목</TableHead>
-                    <TableHead className="w-[250px] px-3">거래처</TableHead>
-                    <TableHead className="w-[130px] px-3">담당자</TableHead>
-                    <TableHead className="w-[260px] px-3">프로젝트</TableHead>
-                    <TableHead className="w-[260px] px-3">상태/단계</TableHead>
-                    <TableHead className="w-[150px] px-3 text-right">금액</TableHead>
-                    <TableHead className="w-[130px] px-3 text-right">작업</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredQuotes.map((quote) => {
-                    const paymentInfo = quote.linked_project?.payment_status
-                      ? getPaymentStatusInfo(quote.linked_project.payment_status)
-                      : null;
+              <div className="hidden border-b bg-muted/35 px-4 py-3 text-xs font-semibold text-muted-foreground lg:grid lg:grid-cols-[88px_minmax(0,1.5fr)_minmax(180px,0.6fr)_112px_132px_136px] lg:items-center lg:gap-4">
+                <span>발행일</span>
+                <span>견적 제목</span>
+                <span>거래처</span>
+                <span>담당자</span>
+                <span className="text-right">금액</span>
+                <span className="text-right">견적 상태</span>
+              </div>
 
-                    return (
-                      <TableRow
-                        key={quote.id}
-                        className="cursor-pointer hover:bg-muted/35"
-                        onClick={() => navigate(`/saved-quotes/${quote.id}`)}
-                      >
-                        <TableCell className="px-3 py-3 align-middle">
-                          <span className="whitespace-nowrap text-sm font-semibold tabular-nums text-foreground">
-                            {formatCompactDate(quote.quote_date)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-3 py-3 align-middle">
-                          <div className="flex min-w-0 items-center gap-2 whitespace-nowrap">
-                            <span className="text-[15px] font-semibold leading-5 text-foreground">
-                              {getQuoteTitle(quote)}
-                            </span>
-                            <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
-                              No. {quote.quote_number}
-                            </span>
-                            {quote.issuer_name && <span className="text-[11px] text-muted-foreground">발신 {quote.issuer_name}</span>}
-                            {quote.creator_name && <span className="text-[11px] text-muted-foreground">작성 {quote.creator_name}</span>}
+              <div className="divide-y divide-border/70">
+                {filteredQuotes.map((quote) => {
+                  const paymentInfo = quote.linked_project?.payment_status
+                    ? getPaymentStatusInfo(quote.linked_project.payment_status)
+                    : null;
+                  const quoteTitle = getQuoteTitle(quote);
+
+                  return (
+                    <div
+                      key={quote.id}
+                      className="cursor-pointer px-4 py-4 transition-colors hover:bg-muted/35"
+                      onClick={() => navigate(`/saved-quotes/${quote.id}`)}
+                    >
+                      <div className="grid gap-3 lg:grid-cols-[88px_minmax(0,1.5fr)_minmax(180px,0.6fr)_112px_132px_136px] lg:items-center lg:gap-4">
+                        <div className="whitespace-nowrap text-sm font-semibold tabular-nums text-foreground">
+                          {formatCompactDate(quote.quote_date)}
+                        </div>
+
+                        <div className="min-w-0">
+                          <div
+                            className="truncate text-[15px] font-semibold leading-5 text-foreground"
+                            title={quoteTitle}
+                          >
+                            {quoteTitle}
                           </div>
-                        </TableCell>
-                        <TableCell className="px-3 py-3 align-middle">
-                          <div className="flex min-w-0 items-center gap-2 whitespace-nowrap">
-                            {quote.recipient_company ? (
-                              <button
-                                type="button"
-                                className="flex items-center gap-1.5 text-left text-sm font-medium text-primary hover:underline"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  navigate(`/recipients?company=${encodeURIComponent(quote.recipient_company!)}`);
-                                }}
-                              >
-                                <Building2 className="h-3.5 w-3.5 shrink-0" />
-                                <span>{quote.recipient_company}</span>
-                              </button>
-                            ) : (
-                              <span className="text-sm text-muted-foreground">거래처 없음</span>
-                            )}
-                            {quote.recipient_name && (
-                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <User className="h-3.5 w-3.5" />
-                                {quote.recipient_name}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-3 py-3 align-middle">
-                          <div className="flex min-w-0 items-center gap-1.5 text-sm">
-                            <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            <span className="truncate font-medium">
-                              {quote.assigned_to_name || quote.issuer_name || quote.creator_name || '미지정'}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-3 py-3 align-middle">
-                          {quote.linked_project ? (
-                            <div className="flex min-w-0 items-center gap-2 whitespace-nowrap">
-                              <button
-                                type="button"
-                                className="flex h-8 items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-primary/10"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  navigate(`/project-management?id=${quote.linked_project!.id}`);
-                                }}
-                              >
-                                <FolderOpen className="h-3.5 w-3.5 shrink-0 text-primary" />
-                                <span>{quote.linked_project.name}</span>
-                              </button>
-                              {paymentInfo && (
-                                <Badge className={`text-[10px] ${paymentInfo.color}`}>
-                                  {paymentInfo.label}
-                                </Badge>
-                              )}
-                            </div>
+                        </div>
+
+                        <div className="min-w-0">
+                          {quote.recipient_company ? (
+                            <button
+                              type="button"
+                              className="flex max-w-full items-center gap-1.5 text-left text-sm font-medium text-primary hover:underline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                navigate(`/recipients?company=${encodeURIComponent(quote.recipient_company!)}`);
+                              }}
+                            >
+                              <Building2 className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">{quote.recipient_company}</span>
+                            </button>
                           ) : (
-                            <div className="flex items-center gap-2 whitespace-nowrap">
-                              <Badge variant="outline" className="text-xs text-muted-foreground">
-                                미연결
-                              </Badge>
-                              {quote.project_stage !== 'cancelled' && (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 gap-1.5 px-2 text-xs"
-                                  disabled={creatingProjectQuoteId === quote.id}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    handleCreateProjectFromQuote(quote);
-                                  }}
-                                >
-                                  {creatingProjectQuoteId === quote.id ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <PlusCircle className="h-3.5 w-3.5" />
-                                  )}
-                                  프로젝트 생성
-                                </Button>
-                              )}
-                            </div>
+                            <span className="text-sm text-muted-foreground">거래처 없음</span>
                           )}
-                        </TableCell>
-                        <TableCell className="px-3 py-3 align-middle">
-                          <div className="flex items-center gap-2 whitespace-nowrap" onClick={(event) => event.stopPropagation()}>
-                            <QuoteStatusSelect
-                              quoteId={quote.id}
-                              currentStatus={quote.quote_status}
-                              projectStage={quote.project_stage}
-                              quoteNumber={quote.quote_number}
-                              quoteUserId={quote.user_id}
-                              onStatusChanged={(newStatus: QuoteStatusValue) => {
-                                setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, quote_status: newStatus } : q));
-                              }}
-                            />
-                            <ProjectStageSelect
-                              quoteId={quote.id}
-                              currentStage={quote.project_stage || 'quote_issued'}
-                              quoteNumber={quote.quote_number}
-                              quoteUserId={quote.user_id}
-                              onStageChanged={(newStage) => {
-                                setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, project_stage: newStage } : q));
-                              }}
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-3 py-3 text-right align-middle font-semibold tabular-nums whitespace-nowrap">
+                        </div>
+
+                        <div className="flex min-w-0 items-center gap-1.5 text-sm">
+                          <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate font-medium">
+                            {quote.assigned_to_name || quote.issuer_name || quote.creator_name || '미지정'}
+                          </span>
+                        </div>
+
+                        <div className="whitespace-nowrap text-left text-base font-semibold tabular-nums text-foreground lg:text-right">
                           {formatPrice(quote.total)}
-                        </TableCell>
-                        <TableCell className="px-3 py-3 align-middle">
-                          <div className="flex justify-end gap-1.5">
+                        </div>
+
+                        <div className="flex justify-start lg:justify-end" onClick={(event) => event.stopPropagation()}>
+                          <QuoteStatusSelect
+                            quoteId={quote.id}
+                            currentStatus={quote.quote_status}
+                            projectStage={quote.project_stage}
+                            quoteNumber={quote.quote_number}
+                            quoteUserId={quote.user_id}
+                            onStatusChanged={(newStatus: QuoteStatusValue) => {
+                              setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, quote_status: newStatus } : q));
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground lg:ml-[104px] lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+                          <span className="rounded-full bg-muted/70 px-2 py-0.5 font-medium tabular-nums text-muted-foreground">
+                            No. {quote.quote_number}
+                          </span>
+                          {quote.issuer_name && <span>발신 {quote.issuer_name}</span>}
+                          {quote.creator_name && <span>작성 {quote.creator_name}</span>}
+                          {quote.recipient_name && (
+                            <span className="inline-flex items-center gap-1.5">
+                              <User className="h-3.5 w-3.5" />
+                              {quote.recipient_name}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2" onClick={(event) => event.stopPropagation()}>
+                          {quote.linked_project ? (
+                            <button
+                              type="button"
+                              className="flex h-7 max-w-[280px] items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-primary/10"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                navigate(`/project-management?id=${quote.linked_project!.id}`);
+                              }}
+                            >
+                              <FolderOpen className="h-3.5 w-3.5 shrink-0 text-primary" />
+                              <span className="truncate">{quote.linked_project.name}</span>
+                            </button>
+                          ) : (
+                            <Badge variant="outline" className="text-xs text-muted-foreground">
+                              미연결
+                            </Badge>
+                          )}
+                          {paymentInfo && (
+                            <Badge className={`text-[10px] ${paymentInfo.color}`}>
+                              {paymentInfo.label}
+                            </Badge>
+                          )}
+                          {!quote.linked_project && quote.project_stage !== 'cancelled' && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 gap-1.5 px-2 text-xs"
+                              disabled={creatingProjectQuoteId === quote.id}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleCreateProjectFromQuote(quote);
+                              }}
+                            >
+                              {creatingProjectQuoteId === quote.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <PlusCircle className="h-3.5 w-3.5" />
+                              )}
+                              프로젝트 생성
+                            </Button>
+                          )}
+                          <ProjectStageSelect
+                            quoteId={quote.id}
+                            currentStage={quote.project_stage || 'quote_issued'}
+                            quoteNumber={quote.quote_number}
+                            quoteUserId={quote.user_id}
+                            onStageChanged={(newStage) => {
+                              setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, project_stage: newStage } : q));
+                            }}
+                          />
+                          <div className="flex items-center gap-1.5">
                             <Button
                               variant="outline"
                               size="icon"
-                              className="h-8 w-8"
+                              className="h-7 w-7"
                               title="상세보기"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 navigate(`/saved-quotes/${quote.id}`);
                               }}
                             >
-                              <Eye className="h-4 w-4" />
+                              <Eye className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               variant="outline"
                               size="icon"
-                              className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                              className="h-7 w-7 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                               title="견적서 복제"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 handleDuplicateQuote(quote.id);
                               }}
                             >
-                              <Copy className="h-4 w-4" />
+                              <Copy className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               variant="outline"
                               size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
                               title="견적서 삭제"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 handleDeleteQuote(quote.id);
                               }}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </Card>
 
             {!searchTerm && !dateFilter && totalCount > ITEMS_PER_PAGE && (
