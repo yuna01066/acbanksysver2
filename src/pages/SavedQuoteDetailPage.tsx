@@ -83,12 +83,30 @@ interface SavedQuote {
 
 type QuoteViewMode = 'internal' | 'customer';
 
+type ManualTotalOverride = {
+  subtotal: number;
+  tax: number;
+  total: number;
+};
+
+type ManualTotalAdjustmentSnapshot = {
+  mode: 'vat_included_total_override';
+  adjustedAt: string;
+  previousSubtotal: number;
+  previousTax: number;
+  previousTotal: number;
+  adjustedSubtotal: number;
+  adjustedTax: number;
+  adjustedTotal: number;
+  difference: number;
+};
+
 const SavedQuoteDetailPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [quote, setQuote] = useState<SavedQuote | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [manualTotalOverride, setManualTotalOverride] = useState<{ subtotal: number; tax: number; total: number } | null>(null);
+  const [manualTotalOverride, setManualTotalOverride] = useState<ManualTotalOverride | null>(null);
   const [recipientData, setRecipientData] = useState<QuoteRecipient>({
     projectName: '',
     quoteNumber: '',
@@ -387,20 +405,34 @@ const SavedQuoteDetailPage = () => {
     if (!id) return;
 
     try {
-      // 수동 오버라이드가 있으면 그 값 사용, 없으면 자동 계산
-      let roundedSubtotal: number;
-      let newTax: number;
-      let newTotal: number;
-      
+      const autoCalculatedSubtotal = Math.round(
+        editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0) / 100
+      ) * 100;
+      const autoCalculatedTax = Math.round(autoCalculatedSubtotal * 0.1);
+      const autoCalculatedTotal = autoCalculatedSubtotal + autoCalculatedTax;
+
+      // 수동 오버라이드가 있으면 VAT 포함 최종금액 기준으로 역산한 값을 저장한다.
+      let roundedSubtotal = autoCalculatedSubtotal;
+      let newTax = autoCalculatedTax;
+      let newTotal = autoCalculatedTotal;
+      let manualTotalAdjustment: ManualTotalAdjustmentSnapshot | null = null;
+
       if (manualTotalOverride) {
         roundedSubtotal = manualTotalOverride.subtotal;
         newTax = manualTotalOverride.tax;
         newTotal = manualTotalOverride.total;
-      } else {
-        const newSubtotal = editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
-        roundedSubtotal = Math.round(newSubtotal / 100) * 100;
-        newTax = Math.round(roundedSubtotal * 0.1);
-        newTotal = roundedSubtotal + newTax;
+
+        manualTotalAdjustment = {
+          mode: 'vat_included_total_override',
+          adjustedAt: new Date().toISOString(),
+          previousSubtotal: autoCalculatedSubtotal,
+          previousTax: autoCalculatedTax,
+          previousTotal: autoCalculatedTotal,
+          adjustedSubtotal: roundedSubtotal,
+          adjustedTax: newTax,
+          adjustedTotal: newTotal,
+          difference: newTotal - autoCalculatedTotal,
+        };
       }
 
       // 첨부 파일 목록 구성 (PDF 정보 + 기존 첨부 파일)
@@ -450,18 +482,24 @@ const SavedQuoteDetailPage = () => {
           items: editedItems,
           calculation_snapshot: {
             ...(quote.calculation_snapshot && typeof quote.calculation_snapshot === 'object' ? quote.calculation_snapshot : {}),
-            schemaVersion: 1,
+            schemaVersion: Math.max(Number(quote.calculation_snapshot?.schemaVersion) || 1, 2),
             editedAt: new Date().toISOString(),
             subtotal: roundedSubtotal,
             tax: newTax,
             total: newTotal,
+            autoCalculatedSubtotal,
+            autoCalculatedTax,
+            autoCalculatedTotal,
+            manualTotalAdjustment,
             items: editedItems.map(item => ({
               id: item.id,
               totalPrice: item.totalPrice,
               quantity: item.quantity || 1,
               calculationSnapshot: item.calculationSnapshot || null,
             })),
-            note: '견적 저장 당시 계산 근거입니다. 수동 편집 시 품목 스냅샷은 기존 값을 유지합니다.',
+            note: manualTotalAdjustment
+              ? '견적 저장 당시 계산 근거입니다. VAT 포함 최종금액이 수동 조정되었습니다.'
+              : '견적 저장 당시 계산 근거입니다. 수동 편집 시 품목 스냅샷은 기존 값을 유지합니다.',
           },
           subtotal: roundedSubtotal,
           tax: newTax,
@@ -478,7 +516,8 @@ const SavedQuoteDetailPage = () => {
         if (recipientData.projectName !== (quote.project_name || '')) changes.push('프로젝트명');
         if (recipientData.companyName !== (quote.recipient_company || '')) changes.push('거래처');
         if (editedItems.length !== items.length) changes.push('품목 수');
-        if (roundedSubtotal !== Math.round(quote.subtotal)) changes.push('금액');
+        if (roundedSubtotal !== Math.round(quote.subtotal) || newTotal !== Math.round(quote.total)) changes.push('금액');
+        if (manualTotalAdjustment) changes.push('VAT 포함 최종금액 수동 조정');
         const summary = changes.length > 0 ? `${changes.join(', ')} 변경` : '수정됨';
         
         saveVersion.mutate({
@@ -508,6 +547,7 @@ const SavedQuoteDetailPage = () => {
               subtotal: roundedSubtotal,
               tax: newTax,
               total: newTotal,
+              manualTotalAdjustment,
             },
           });
         }
@@ -650,6 +690,7 @@ const SavedQuoteDetailPage = () => {
   const calculationSnapshot = quote.calculation_snapshot && typeof quote.calculation_snapshot === 'object'
     ? quote.calculation_snapshot
     : null;
+  const savedManualTotalAdjustment = calculationSnapshot?.manualTotalAdjustment || null;
   const rawSnapshotVersionName = calculationSnapshot?.pricingVersionName
     || items.find((item: any) => item?.pricingVersionName)?.pricingVersionName
     || items.find((item: any) => item?.calculationSnapshot?.pricingVersion?.versionName)?.calculationSnapshot?.pricingVersion?.versionName;
@@ -841,7 +882,9 @@ const SavedQuoteDetailPage = () => {
                 subtotal={subtotal}
                 tax={tax}
                 totalWithTax={totalWithTax}
+                autoTotalWithTax={autoTotal}
                 isEditing={isEditing}
+                manualAdjustment={activeMode === 'internal' ? savedManualTotalAdjustment : null}
                 onTotalOverride={(s, t, total) => {
                   if (total === 0) {
                     setManualTotalOverride(null);
