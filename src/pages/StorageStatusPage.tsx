@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Clock3, FileText, HardDrive, RefreshCw, FolderOpen, Cloud, Database, Server, MapPin } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock3, FileText, HardDrive, RefreshCw, FolderOpen, Cloud, Database as DatabaseIcon, Server, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { BrandedCardHeader } from "@/components/ui/branded-card-header";
 import type { Database } from "@/integrations/supabase/types";
 
-type PublicTableName = keyof Database['public']['Tables'];
+type PublicTableName = Extract<keyof Database['public']['Tables'], string>;
 
 interface BucketUsage {
   name: string;
