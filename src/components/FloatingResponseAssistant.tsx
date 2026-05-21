@@ -1,13 +1,29 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { HelpCircle, X } from 'lucide-react';
+import hamzziCelebration from '@/assets/hamzzi/hamzzi_celebration.png';
+import hamzziCheck from '@/assets/hamzzi/hamzzi_check.png';
+import hamzziCoffee from '@/assets/hamzzi/hamzzi_coffee.png';
+import hamzziQuoteStreak from '@/assets/hamzzi/hamzzi_quote_streak.png';
+import hamzziSleepy from '@/assets/hamzzi/hamzzi_sleepy.png';
+import hamzziThinking from '@/assets/hamzzi/hamzzi_thinking.png';
+import iconLunch from '@/assets/hamzzi/icon_lunch.png';
+import iconNight from '@/assets/hamzzi/icon_night.png';
+import iconParty from '@/assets/hamzzi/icon_party.png';
 import defaultResponseAssistantIcon from '@/assets/response-assistant-default-icon.png';
 import responseAssistantSpeechBubble from '@/assets/response-assistant-speech-bubble.png';
 import { Button } from '@/components/ui/button';
 import ResponseAssistantWidget from '@/components/ResponseAssistantWidget';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  HAMZZI_EVENT_NAME,
+  registerHamzziLauncherClick,
+  triggerTimedHamzziIfNeeded,
+  type HamzziEventDetail,
+  type HamzziEventType,
+} from '@/lib/hamzziEvents';
 import { RESPONSE_ASSISTANT_ICON_SETTING_KEY } from '@/lib/responseAssistantDefaults';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +37,55 @@ const HIDDEN_PATHS = [
 ];
 
 const FLOATING_RESPONSE_ASSISTANT_OPEN_KEY = 'acbank:floating-response-assistant-open';
+
+type HamzziReactionConfig = {
+  image: string;
+  badge?: string;
+  fallbackMessage: string;
+  toneClass: string;
+};
+
+const HAMZZI_REACTION_CONFIG: Record<HamzziEventType, HamzziReactionConfig> = {
+  quote_issued: {
+    image: hamzziCelebration,
+    badge: iconParty,
+    fallbackMessage: '견적서 발행 완료. 오늘도 한 건 처리했습니다.',
+    toneClass: 'border-blue-100 bg-white/95',
+  },
+  quote_streak_5: {
+    image: hamzziQuoteStreak,
+    badge: iconParty,
+    fallbackMessage: '오늘 견적 페이스 좋습니다.',
+    toneClass: 'border-amber-100 bg-white/95',
+  },
+  attendance_check_in: {
+    image: hamzziCheck,
+    fallbackMessage: '출근 기록 완료. 오늘 업무 시작합니다.',
+    toneClass: 'border-emerald-100 bg-white/95',
+  },
+  attendance_check_out: {
+    image: hamzziSleepy,
+    fallbackMessage: '퇴근 기록 완료. 오늘 기록 저장됐습니다.',
+    toneClass: 'border-slate-100 bg-white/95',
+  },
+  lunch_time: {
+    image: hamzziCoffee,
+    badge: iconLunch,
+    fallbackMessage: '점심시간입니다. 잠깐 쉬어가세요.',
+    toneClass: 'border-orange-100 bg-white/95',
+  },
+  late_night: {
+    image: hamzziSleepy,
+    badge: iconNight,
+    fallbackMessage: '늦은 시간입니다. 마무리할 업무만 확인하세요.',
+    toneClass: 'border-indigo-100 bg-white/95',
+  },
+  hidden_click: {
+    image: hamzziThinking,
+    fallbackMessage: '숨겨진 햄찌 반응을 찾았습니다.',
+    toneClass: 'border-violet-100 bg-white/95',
+  },
+};
 
 const isHiddenPath = (pathname: string) => (
   HIDDEN_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
@@ -47,9 +112,13 @@ const FloatingResponseAssistant: React.FC = () => {
   const [open, setOpen] = useState(readStoredOpenState);
   const [guideOpenSignal, setGuideOpenSignal] = useState(0);
   const [launcherHintVisible, setLauncherHintVisible] = useState(false);
+  const [hamzziReaction, setHamzziReaction] = useState<(HamzziEventDetail & { id: number }) | null>(null);
+  const hamzziTimerRef = useRef<number | null>(null);
 
   const isHidden = isHiddenPath(location.pathname);
-  const showLauncherHint = launcherHintVisible && !open;
+  const hamzziReactionConfig = hamzziReaction ? HAMZZI_REACTION_CONFIG[hamzziReaction.type] : null;
+  const showHamzziReaction = Boolean(hamzziReaction && hamzziReactionConfig);
+  const showLauncherHint = launcherHintVisible && !open && !showHamzziReaction;
   const { data: iconSetting } = useQuery({
     queryKey: ['response-assistant-launcher-icon'],
     queryFn: async () => {
@@ -73,6 +142,35 @@ const FloatingResponseAssistant: React.FC = () => {
       // Storage can be unavailable in restricted browser modes.
     }
   }, [open]);
+
+  useEffect(() => {
+    const handleHamzziEvent = (event: Event) => {
+      const detail = (event as CustomEvent<HamzziEventDetail>).detail;
+      if (!detail?.type || !HAMZZI_REACTION_CONFIG[detail.type]) return;
+
+      if (hamzziTimerRef.current) {
+        window.clearTimeout(hamzziTimerRef.current);
+      }
+
+      setHamzziReaction({ ...detail, id: Date.now() });
+      hamzziTimerRef.current = window.setTimeout(() => {
+        setHamzziReaction(null);
+        hamzziTimerRef.current = null;
+      }, detail.durationMs ?? 4800);
+    };
+
+    window.addEventListener(HAMZZI_EVENT_NAME, handleHamzziEvent);
+    return () => {
+      window.removeEventListener(HAMZZI_EVENT_NAME, handleHamzziEvent);
+      if (hamzziTimerRef.current) window.clearTimeout(hamzziTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user || isHidden) return;
+    const timeout = window.setTimeout(() => triggerTimedHamzziIfNeeded(), 1200);
+    return () => window.clearTimeout(timeout);
+  }, [isHidden, location.pathname, user]);
 
   if (isHidden) return null;
 
@@ -139,6 +237,44 @@ const FloatingResponseAssistant: React.FC = () => {
         onFocus={() => setLauncherHintVisible(true)}
         onBlur={() => setLauncherHintVisible(false)}
       >
+        {showHamzziReaction && hamzziReaction && hamzziReactionConfig && (
+          <div
+            key={hamzziReaction.id}
+            className="pointer-events-none absolute bottom-[76px] right-0 z-30 w-[min(300px,calc(100vw-24px))] translate-y-0 opacity-100 transition-all duration-200"
+            aria-live="polite"
+          >
+            <div className={cn(
+              'relative flex items-center gap-3 rounded-[24px] border px-3 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.14)] backdrop-blur-md',
+              hamzziReactionConfig.toneClass,
+            )}>
+              <span className="relative flex h-16 w-16 shrink-0 items-end justify-center overflow-visible rounded-2xl bg-gradient-to-b from-white to-slate-50/70">
+                <img
+                  src={hamzziReactionConfig.image}
+                  alt=""
+                  className="h-[70px] w-[70px] object-contain drop-shadow-[0_8px_14px_rgba(15,23,42,0.13)]"
+                />
+                {hamzziReactionConfig.badge && (
+                  <img
+                    src={hamzziReactionConfig.badge}
+                    alt=""
+                    className="absolute -right-2 -top-2 h-7 w-7 object-contain"
+                  />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-bold leading-snug text-slate-900">
+                  {hamzziReaction.message || hamzziReactionConfig.fallbackMessage}
+                </span>
+                {hamzziReaction.description && (
+                  <span className="mt-1 block text-[11px] font-medium leading-snug text-slate-500">
+                    {hamzziReaction.description}
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
+        )}
+
         <div
           className={cn(
             'pointer-events-none absolute bottom-[42px] right-[44px] z-10 h-[120px] w-[150px] origin-bottom-right transition-all duration-300 ease-out group-hover:translate-x-0 group-hover:scale-100 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:scale-100 group-focus-within:opacity-100',
@@ -164,7 +300,10 @@ const FloatingResponseAssistant: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setOpen((current) => !current)}
+          onClick={() => {
+            registerHamzziLauncherClick();
+            setOpen((current) => !current);
+          }}
           className={cn(
             'relative z-20 flex h-[88px] w-[88px] items-center justify-center bg-transparent p-0 transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-0 active:scale-95',
             open && 'scale-95',

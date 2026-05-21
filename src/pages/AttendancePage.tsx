@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { triggerHamzzi } from '@/lib/hamzziEvents';
 import AttendanceEditDialog from '@/components/attendance/AttendanceEditDialog';
 import AttendanceCalendarView from '@/components/attendance/AttendanceCalendarView';
 import ScrollTimePicker from '@/components/ui/scroll-time-picker';
@@ -164,6 +165,7 @@ const AttendancePage = () => {
     },
     onSuccess: () => {
       toast.success('출근이 기록되었습니다.');
+      triggerHamzzi('attendance_check_in');
       queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
       queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
     },
@@ -185,6 +187,7 @@ const AttendancePage = () => {
     },
     onSuccess: () => {
       toast.success('퇴근이 기록되었습니다.');
+      triggerHamzzi('attendance_check_out');
       queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
       queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
     },
