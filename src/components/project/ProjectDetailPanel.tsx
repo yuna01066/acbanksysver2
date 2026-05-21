@@ -524,7 +524,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
               {linkedQuotes.length === 0 ? (
                 <div className="flex flex-col items-center gap-1.5 py-2">
                   <p className="text-[10px] text-muted-foreground">없음</p>
-                  <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={() => navigate('/calculator')}>
+                  <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={() => navigate('/calculator?type=quote')}>
                     <FileText className="h-2.5 w-2.5" /> 새 견적서
                   </Button>
                 </div>

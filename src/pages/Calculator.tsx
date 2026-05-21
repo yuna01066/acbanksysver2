@@ -3,14 +3,15 @@ import CalculatorWidget from "@/components/CalculatorWidget";
 import QuoteDraftToolbar from "@/components/QuoteDraftToolbar";
 import { PageHeader, PageShell } from '@/components/layout/PageLayout';
 import { Button } from '@/components/ui/button';
-import { Calculator as CalculatorIcon, FileText, Settings } from 'lucide-react';
+import { Calculator as CalculatorIcon, FileText, List, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Calculator = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const type = searchParams.get('type') as 'quote' | 'yield' | null;
-  const title = type === 'yield' ? '수율 계산기' : type === 'quote' ? '견적 계산기' : '계산기';
+  const calculatorType: 'quote' | 'yield' = type === 'yield' ? 'yield' : 'quote';
+  const title = calculatorType === 'yield' ? '수율 계산기' : '견적 계산기';
 
   return (
     <PageShell maxWidth="6xl">
@@ -25,6 +26,10 @@ const Calculator = () => {
               <FileText className="h-4 w-4" />
               초안함
             </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate('/saved-quotes')}>
+              <List className="h-4 w-4" />
+              발행 견적서
+            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate('/admin-settings')}>
               <Settings className="h-4 w-4" />
               관리자 설정
@@ -32,8 +37,8 @@ const Calculator = () => {
           </>
         )}
       />
-      {type !== 'yield' && <QuoteDraftToolbar />}
-      <CalculatorWidget initialType={type} />
+      {calculatorType !== 'yield' && <QuoteDraftToolbar />}
+      <CalculatorWidget initialType={calculatorType} />
     </PageShell>
   );
 };

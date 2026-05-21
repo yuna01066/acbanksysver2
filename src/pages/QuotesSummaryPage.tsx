@@ -111,7 +111,7 @@ const QuotesSummaryPage = () => {
   };
 
   const handleAddQuote = () => {
-    navigate('/calculator');
+    navigate('/calculator?type=quote');
   };
 
   const handleRecipientChange = (field: keyof QuoteRecipient, value: QuoteRecipient[keyof QuoteRecipient]) => {

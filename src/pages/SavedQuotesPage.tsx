@@ -646,7 +646,7 @@ const SavedQuotesPage = () => {
         icon={<FileText className="h-5 w-5" />}
         actions={(
           <>
-            <Button onClick={() => navigate('/calculator')} size="sm" className="gap-2">
+            <Button onClick={() => navigate('/calculator?type=quote')} size="sm" className="gap-2">
               <PlusCircle className="h-4 w-4" />
               견적서 작성
             </Button>
@@ -804,7 +804,7 @@ const SavedQuotesPage = () => {
               <p className="mb-4 text-sm text-muted-foreground">
                 {quotes.length === 0 ? '저장된 견적서가 없습니다.' : '검색 결과가 없습니다.'}
               </p>
-              <Button onClick={() => navigate('/calculator')} variant="outline">
+              <Button onClick={() => navigate('/calculator?type=quote')} variant="outline">
                 견적서 작성하기
               </Button>
             </CardContent>

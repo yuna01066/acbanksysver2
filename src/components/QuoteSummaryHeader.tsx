@@ -56,7 +56,7 @@ const QuoteSummaryHeader = ({
       {/* 상단 액션 버튼들 */}
       <div className="flex flex-wrap justify-between items-center gap-2 mb-6 print:hidden">
         <div className="flex flex-wrap items-center gap-2">
-          <HomeLogoButton />
+          {!showSavedQuoteActions && <HomeLogoButton />}
           <Button variant="outline" size="sm" onClick={() => navigate('/saved-quotes')} className="flex h-10 items-center gap-2 rounded-2xl bg-white/90 shadow-sm">
             <List className="w-4 h-4" />
             <span className="hidden sm:inline">발행 견적서 목록</span>

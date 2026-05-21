@@ -9,7 +9,6 @@ import { ArrowLeft, ArrowRight, Calculator, Plus, ShoppingCart } from "lucide-re
 import { MATERIALS, CASTING_QUALITIES, OTHER_ACRYLIC_QUALITIES, Material, Quality } from "@/types/calculator";
 import ProcessingOptions from "./ProcessingOptions";
 import ColorMixingStep from "./ColorMixingStep";
-import CalculatorTypeSelection from "./CalculatorTypeSelection";
 import StepIndicator from "./StepIndicator";
 import SelectionSummary from "./SelectionSummary";
 import MaterialSelection from "./MaterialSelection";
@@ -106,16 +105,17 @@ interface PanelCalculatorProps {
   initialType?: 'quote' | 'yield' | null;
 }
 
-const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
+const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const resolvedInitialType: 'quote' | 'yield' = initialType === 'yield' ? 'yield' : 'quote';
   const {
     addQuote,
     updateQuote,
     quotes
   } = useQuotes();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [calculatorType, setCalculatorType] = useState<'quote' | 'yield' | null>(initialType);
+  const [currentStep, setCurrentStep] = useState(resolvedInitialType === 'yield' ? -1 : 1);
+  const [calculatorType, setCalculatorType] = useState<'quote' | 'yield'>(resolvedInitialType);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [selectedQuality, setSelectedQuality] = useState<Quality | null>(null);
   const [selectedThickness, setSelectedThickness] = useState<string>('');
@@ -461,11 +461,11 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
   // 단, 편집 모드와 수율 추천 적용 중에는 기존 복원/전환 흐름을 유지한다.
   useEffect(() => {
     const editModeParam = searchParams.get('editMode');
-    if (editModeParam === 'saved' || editModeParam === 'draft' || !initialType || yieldAppliedSelection) return;
+    if (editModeParam === 'saved' || editModeParam === 'draft' || yieldAppliedSelection) return;
 
-    setCalculatorType(initialType);
-    setCurrentStep(initialType === 'yield' ? -1 : 1);
-  }, [initialType, searchParams, yieldAppliedSelection]);
+    setCalculatorType(resolvedInitialType);
+    setCurrentStep(resolvedInitialType === 'yield' ? -1 : 1);
+  }, [resolvedInitialType, searchParams, yieldAppliedSelection]);
   
   // Convert all selected options (main slots + additional options) to processingType format
   const getProcessingTypeFromOptions = () => {
@@ -537,7 +537,7 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       setSelectedProcessing('');
       setSelectedProcessingName('');
       setSelectedAdhesion('');
-      setCurrentStep(0);
+      setCurrentStep(1);
     } else if (step <= 1) {
       setSelectedMaterial(null);
       setSelectedQuality(null);
@@ -620,14 +620,6 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       setSelectedProcessingName('');
       setSelectedAdhesion('');
       setCurrentStep(8);
-    }
-  };
-  const handleCalculatorTypeSelect = (type: 'quote' | 'yield') => {
-    setCalculatorType(type);
-    if (type === 'quote') {
-      setCurrentStep(1);
-    } else {
-      setCurrentStep(-1); // 수율 계산기는 특별한 step
     }
   };
   const handleMaterialSelect = (material: Material) => {
@@ -1121,8 +1113,8 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     addQuote(quoteData);
 
     // Reset form for new quote - 모든 상태 초기화
-    setCurrentStep(0);
-    setCalculatorType(null);
+    setCurrentStep(1);
+    setCalculatorType('quote');
     setSelectedMaterial(null);
     setSelectedQuality(null);
     setSelectedColor('');
@@ -1238,8 +1230,8 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
       setDraftQuoteId(null);
       setManualProductItems([]);
       setSelectedMaterial(null);
-      setCurrentStep(0);
-      setCalculatorType(null);
+      setCurrentStep(1);
+      setCalculatorType('quote');
       navigate('/internal-quote');
       return;
     }
@@ -1302,8 +1294,8 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
         setDraftQuoteId(null);
         setManualProductItems([]);
         setSelectedMaterial(null);
-        setCurrentStep(0);
-        setCalculatorType(null);
+        setCurrentStep(1);
+        setCalculatorType('quote');
         navigate(`/saved-quotes/${savedQuoteId}`);
         return;
       } catch (error) {
@@ -1319,8 +1311,8 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     // 리셋
     setManualProductItems([]);
     setSelectedMaterial(null);
-    setCurrentStep(0);
-    setCalculatorType(null);
+    setCurrentStep(1);
+    setCalculatorType('quote');
     
     alert(`${validItems.length}개의 제품 제작 견적이 추가되었습니다!`);
   };
@@ -1387,8 +1379,9 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
     setCurrentStep(3);
   };
   const handleBackToCalculatorSelection = () => {
-    setCurrentStep(0);
-    setCalculatorType(null);
+    setCurrentStep(1);
+    setCalculatorType('quote');
+    navigate('/calculator?type=quote', { replace: true });
   };
   // 필름 아크릴의 경우 maxSteps를 10으로 설정 (필름 선택 단계 추가)
   const maxSteps = selectedQuality?.id === 'film-acrylic' ? 10 : 9;
@@ -1428,10 +1421,10 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
           {currentStep === -1 && <YieldCalculator onBack={handleBackToCalculatorSelection} onPanelSelect={panelData => handlePanelSelectFromYield(panelData)} />}
           
           {/* 견적 계산기 단계들 */}
-          {currentStep >= 0 && <>
+          {currentStep >= 1 && <>
               <StepIndicator currentStep={currentStep} maxSteps={maxSteps} />
           
-          {/* 선택된 옵션 요약 및 가격 계산 결과 - Step 0에서는 숨김 */}
+          {/* 선택된 옵션 요약 및 가격 계산 결과 */}
           {currentStep > 0 && <SelectionSummary 
             selectedFactory="jangwon" 
             selectedMaterial={selectedMaterial} 
@@ -1458,17 +1451,6 @@ const PanelCalculator = ({ initialType = null }: PanelCalculatorProps) => {
             priceInfo={priceInfo}
           />}
           
-          {/* Step 0: 계산기 유형 선택 */}
-          {currentStep === 0 && <>
-              <CalculatorTypeSelection onTypeSelect={handleCalculatorTypeSelect} />
-              <div className="mt-8 p-4 bg-muted/50 rounded-lg border border-border/50">
-                <p className="text-sm text-muted-foreground text-center leading-relaxed">
-                  이 프로그램은 아크뱅크 사내용 프로그램으로 무단 복제 및 배포를 금지하고 있습니다.<br />
-                  또한, 본 시스템의 회사 관련 내용을 무단으로 유출 시 법적인 제재를 받으실 수 있습니다.
-                </p>
-              </div>
-            </>}
-
           {/* Step 1: 소재 선택 */}
           {currentStep === 1 && <MaterialSelection materials={MATERIALS} selectedMaterial={selectedMaterial} selectedFactory="jangwon" factories={[{
             id: 'jangwon',
