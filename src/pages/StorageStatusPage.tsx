@@ -617,7 +617,7 @@ const StorageStatusPage = () => {
             <div className="space-y-3">
               {[
                 { data: '견적서 첨부 / PDF', locations: ['Lovable Cloud', 'Google Drive'], badges: ['quote-attachments', 'quote-pdfs', 'document_files'] },
-                { data: '포트폴리오 사진', locations: ['Google Drive', 'Database'], badges: ['포트폴리오', 'portfolio_images'] },
+                { data: '포트폴리오 사진', locations: ['Google Drive', 'Supabase Storage', 'Database'], badges: ['ACBANK_SYS/04_포트폴리오', 'portfolio-thumbnails', 'portfolio_images'] },
                 { data: '프로젝트 업데이트 첨부파일', locations: ['Lovable Cloud', 'GCS', 'Google Drive'], badges: ['project-update-attachments', '프로젝트업데이트'] },
                 { data: '내부 프로젝트 증빙 (견적서/영수증)', locations: ['GCS', 'Google Drive'], badges: ['프로젝트명 > 문서유형 > 년 > 월'] },
                 { data: '직원 문서 / 프로필 사진', locations: ['Lovable Cloud'], badges: ['employee-documents', 'avatars'] },

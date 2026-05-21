@@ -2384,8 +2384,12 @@ export type Database = {
       portfolio_images: {
         Row: {
           created_at: string
+          delete_error: string | null
+          delete_status: string
           display_order: number
           drive_file_id: string
+          drive_folder_id: string | null
+          drive_path: string | null
           file_size: number | null
           file_name: string
           id: string
@@ -2393,14 +2397,23 @@ export type Database = {
           is_main: boolean
           mime_type: string | null
           post_id: string
+          access_level: string
           storage_provider: string
+          thumbnail_bucket: string | null
+          thumbnail_height: number | null
+          thumbnail_path: string | null
           thumbnail_url: string | null
+          thumbnail_width: number | null
           uploaded_by: string | null
         }
         Insert: {
           created_at?: string
+          delete_error?: string | null
+          delete_status?: string
           display_order?: number
           drive_file_id: string
+          drive_folder_id?: string | null
+          drive_path?: string | null
           file_size?: number | null
           file_name: string
           id?: string
@@ -2408,14 +2421,23 @@ export type Database = {
           is_main?: boolean
           mime_type?: string | null
           post_id: string
+          access_level?: string
           storage_provider?: string
+          thumbnail_bucket?: string | null
+          thumbnail_height?: number | null
+          thumbnail_path?: string | null
           thumbnail_url?: string | null
+          thumbnail_width?: number | null
           uploaded_by?: string | null
         }
         Update: {
           created_at?: string
+          delete_error?: string | null
+          delete_status?: string
           display_order?: number
           drive_file_id?: string
+          drive_folder_id?: string | null
+          drive_path?: string | null
           file_size?: number | null
           file_name?: string
           id?: string
@@ -2423,8 +2445,13 @@ export type Database = {
           is_main?: boolean
           mime_type?: string | null
           post_id?: string
+          access_level?: string
           storage_provider?: string
+          thumbnail_bucket?: string | null
+          thumbnail_height?: number | null
+          thumbnail_path?: string | null
           thumbnail_url?: string | null
+          thumbnail_width?: number | null
           uploaded_by?: string | null
         }
         Relationships: [

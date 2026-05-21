@@ -258,6 +258,40 @@ function getMetadataRecord(value: any): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+const PORTFOLIO_DRIVE_ROOT = ['ACBANK_SYS', '04_포트폴리오'];
+const PORTFOLIO_CATEGORY_FALLBACK = '기타';
+const PORTFOLIO_CATEGORIES = new Set([
+  '인테리어',
+  '제작가공',
+  '디테일',
+  '사인/디스플레이',
+  PORTFOLIO_CATEGORY_FALLBACK,
+]);
+
+function sanitizeDriveFolderName(value: string): string {
+  const cleaned = value
+    .replace(/[\\/:*?"<>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+  return cleaned || '미분류';
+}
+
+function normalizePortfolioCategory(value: string | null | undefined): string {
+  const trimmed = (value || '').trim();
+  return PORTFOLIO_CATEGORIES.has(trimmed) ? trimmed : PORTFOLIO_CATEGORY_FALLBACK;
+}
+
+function getPortfolioFolderPath(body: any): string[] {
+  if (Array.isArray(body.folderPath) && body.folderPath.length > 0) {
+    return body.folderPath.map((part: string) => sanitizeDriveFolderName(String(part)));
+  }
+
+  const category = normalizePortfolioCategory(body.category);
+  const postTitle = sanitizeDriveFolderName(String(body.postTitle || body.title || '무제 포트폴리오'));
+  return [...PORTFOLIO_DRIVE_ROOT, category, postTitle];
+}
+
 async function findDriveFilesByName(
   accessToken: string,
   folderId: string,
@@ -321,6 +355,30 @@ async function deleteDriveFile(accessToken: string, fileId: string): Promise<voi
     const errText = await res.text();
     throw new Error(`Delete failed: ${errText}`);
   }
+}
+
+async function getDriveFileMedia(
+  accessToken: string,
+  fileId: string,
+): Promise<{ file: any; body: ReadableStream<Uint8Array> | null; contentType: string }> {
+  const file = await getDriveFileMetadata(accessToken, fileId);
+  if (!file || file.trashed) throw new Error('Drive 파일을 찾을 수 없습니다.');
+
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Drive file download failed: ${errText}`);
+  }
+
+  return {
+    file,
+    body: res.body,
+    contentType: file.mimeType || res.headers.get('Content-Type') || 'application/octet-stream',
+  };
 }
 
 async function listDriveChildren(
@@ -721,38 +779,55 @@ serve(async (req) => {
     }
 
     if (action === 'upload-portfolio-image') {
-      const { folderPath, fileName, fileBase64, contentType } = body;
-      if (!folderPath || !Array.isArray(folderPath) || !fileName || !fileBase64) {
-        throw new Error('Missing folderPath, fileName, or fileBase64');
+      const { fileName, fileBase64, contentType } = body;
+      if (!fileName || !fileBase64) {
+        throw new Error('Missing fileName or fileBase64');
       }
+      const folderPath = getPortfolioFolderPath(body);
       const folderId = await ensureFolderPath(accessToken, folderPath, sharedDriveId, sharedDriveId);
       const result = await uploadFile(accessToken, folderId, fileName, fileBase64, contentType || 'image/png');
-
-      // Make file publicly readable so thumbnail URLs work
-      await fetch(`https://www.googleapis.com/drive/v3/files/${result.id}/permissions?supportsAllDrives=true`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ role: 'reader', type: 'anyone' }),
-      });
 
       return new Response(JSON.stringify({
         success: true,
         fileId: result.id,
         fileName: result.name,
+        folderId,
+        drivePath: folderPath.join('/'),
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    if (action === 'delete-portfolio-file') {
-      const { fileId, folderPath } = body;
+    if (action === 'get-portfolio-image') {
+      const { fileId, folderId } = body;
       if (!fileId) throw new Error('Missing fileId');
-      const targetFolderPath = Array.isArray(folderPath) ? folderPath : ['포트폴리오'];
-      const folderId = await ensureFolderPath(accessToken, targetFolderPath, sharedDriveId, sharedDriveId);
-      const file = await assertFileInFolder(accessToken, fileId, folderId);
+
+      if (folderId) {
+        await assertFileInFolder(accessToken, fileId, folderId);
+      }
+
+      const media = await getDriveFileMedia(accessToken, fileId);
+      return new Response(media.body, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/octet-stream',
+          'X-Image-Mime-Type': media.contentType,
+          'Cache-Control': 'private, max-age=300',
+          'X-Drive-File-Name': encodeURIComponent(media.file.name || 'portfolio-image'),
+        },
+      });
+    }
+
+    if (action === 'delete-portfolio-file') {
+      const { fileId, folderId, folderPath } = body;
+      if (!fileId) throw new Error('Missing fileId');
+      const targetFolderId = folderId || await ensureFolderPath(
+        accessToken,
+        Array.isArray(folderPath) ? folderPath : ['포트폴리오'],
+        sharedDriveId,
+        sharedDriveId,
+      );
+      const file = await assertFileInFolder(accessToken, fileId, targetFolderId);
       if (file) await deleteDriveFile(accessToken, fileId);
 
       return new Response(JSON.stringify({ success: true }), {
