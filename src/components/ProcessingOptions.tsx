@@ -33,8 +33,8 @@ interface ProcessingOptionsProps {
   onTapungChange?: (value: boolean) => void;
   mugwangPainting?: boolean;
   onMugwangPaintingChange?: (value: boolean) => void;
-  polishedEdgeLengthM?: number;
-  onPolishedEdgeLengthChange?: (length: number) => void;
+  polishedEdgeLengthMm?: number;
+  onPolishedEdgeLengthMmChange?: (length: number) => void;
   // 다중 선택된 옵션과 수량
   selectedAdditionalOptions?: Record<string, number>; // { option_id: quantity }
   onAdditionalOptionsChange?: (options: Record<string, number>) => void;
@@ -76,8 +76,8 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   onTapungChange,
   mugwangPainting,
   onMugwangPaintingChange,
-  polishedEdgeLengthM = 0,
-  onPolishedEdgeLengthChange,
+  polishedEdgeLengthMm = 0,
+  onPolishedEdgeLengthMmChange,
   selectedAdditionalOptions = {},
   onAdditionalOptionsChange,
 }) => {
@@ -520,7 +520,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                                   htmlFor={`polished-edge-length-${option.option_id}`}
                                   className="mb-2 flex items-center gap-2 text-sm font-semibold"
                                 >
-                                  경면 마감 길이 (m)
+                                  경면 마감 길이 (mm)
                                   <Badge variant="outline" className="bg-background text-xs">
                                     {polishedEdgeRatePerM.toLocaleString()}원/m
                                   </Badge>
@@ -529,10 +529,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                                   id={`polished-edge-length-${option.option_id}`}
                                   type="number"
                                   min="0"
-                                  step="0.1"
-                                  value={polishedEdgeLengthM || ''}
-                                  onChange={(event) => onPolishedEdgeLengthChange?.(parseFloat(event.target.value) || 0)}
-                                  placeholder="예: 2.4"
+                                  step="1"
+                                  value={polishedEdgeLengthMm || ''}
+                                  onChange={(event) => onPolishedEdgeLengthMmChange?.(parseFloat(event.target.value) || 0)}
+                                  placeholder="예: 2400"
                                   className="bg-background font-medium"
                                 />
                                 <p className="mt-2 text-xs text-muted-foreground">

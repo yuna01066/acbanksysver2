@@ -189,7 +189,7 @@ const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
       {forceSingle && (
         <div className="p-4 bg-amber-500/10 border-2 border-amber-500/30 rounded-lg">
           <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">
-            ⚠️ 브라이트 및 아스텔 아크릴은 양면 가공이 불가능합니다
+            ⚠️ 선택한 컬러/재질은 양면 가공이 불가능합니다
           </p>
         </div>
       )}

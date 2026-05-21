@@ -31,7 +31,7 @@ const SurfaceSelection: React.FC<SurfaceSelectionProps> = ({
         </h3>
         <p className="text-gray-600">판재의 면수를 선택해주세요</p>
         {forceSingle && (
-          <p className="text-sm text-blue-600 mt-2">브라이트/아스텔은 단면만 가능합니다</p>
+          <p className="text-sm text-blue-600 mt-2">선택한 컬러/재질은 단면만 가능합니다</p>
         )}
       </div>
       <div className="grid grid-cols-2 gap-6">
