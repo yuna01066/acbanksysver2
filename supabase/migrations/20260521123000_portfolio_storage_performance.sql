@@ -110,10 +110,10 @@ AS $$
     matched.created_at,
     matched.updated_at,
     COUNT(*) OVER() AS total_count
-  FROM matched, normalized
+  FROM matched
   ORDER BY matched.created_at DESC
-  LIMIT normalized.page_limit
-  OFFSET normalized.page_offset;
+  LIMIT (SELECT page_limit FROM normalized)
+  OFFSET (SELECT page_offset FROM normalized);
 $$;
 
 GRANT EXECUTE ON FUNCTION public.search_portfolio_posts(TEXT, TEXT[], TEXT, INTEGER, INTEGER) TO authenticated;
