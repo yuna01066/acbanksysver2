@@ -198,7 +198,7 @@ const StorageStatusPage = () => {
       
       const promises = tables.map(async (table) => {
         try {
-          const { count } = await supabase.from(table).select('*', { count: 'exact', head: true });
+          const { count } = await (supabase as any).from(table).select('*', { count: 'exact', head: true });
           return { name: table, rows: count || 0 };
         } catch {
           return { name: table, rows: 0 };
