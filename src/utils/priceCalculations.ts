@@ -6,10 +6,9 @@ import {
   brightColorSinglePrices,
   glossyStandardSinglePrices, 
   astelColorSinglePrices,
-  satinColorSinglePrices,
   tapePrices,
   astelDoubleSideSurcharge,
-  satinDoubleSideSurcharge,
+  satinMaterialSurcharges,
   jinbaekPrices 
 } from "@/data/glossyColorPricing";
 
@@ -224,19 +223,21 @@ export const initializeSatinColorPrices = (): PricingData => {
   const satinColorQuality = CASTING_QUALITIES.find(q => q.id === 'satin-color');
   
   if (satinColorQuality) {
-    Object.entries(satinColorSinglePrices).forEach(([thickness, sizeData]) => {
+    Object.entries(glossyColorSinglePrices).forEach(([thickness, sizeData]) => {
       if (satinColorQuality.thicknesses.includes(thickness)) {
-        Object.entries(sizeData).forEach(([size, price]) => {
+        Object.entries(sizeData).forEach(([size, clearPrice]) => {
           if (satinColorQuality.sizes.includes(size)) {
-            // 단면 가격 설정
+            const satinSurcharge = satinMaterialSurcharges[size as keyof typeof satinMaterialSurcharges] || 0;
+            if (satinSurcharge <= 0) return;
+
+            const singlePrice = clearPrice + satinSurcharge;
             const singleKey = createPriceKey('casting', 'satin-color', thickness, size, '단면');
-            initialPrices[singleKey] = price;
+            initialPrices[singleKey] = singlePrice;
             
-            // 양면 가격 설정 (단면 가격 + 사틴 양면 추가금액)
-            const doubleSideSurcharge = satinDoubleSideSurcharge[size as keyof typeof satinDoubleSideSurcharge] || 0;
+            const doubleSideSurcharge = tapePrices[size as keyof typeof tapePrices] || 0;
             if (doubleSideSurcharge > 0) {
               const doubleKey = createPriceKey('casting', 'satin-color', thickness, size, '양면');
-              initialPrices[doubleKey] = price + doubleSideSurcharge;
+              initialPrices[doubleKey] = singlePrice + doubleSideSurcharge;
             }
           }
         });
@@ -1579,7 +1580,30 @@ export const calculatePrice = (
     ? findOptionSurcharge('satin_astel')
     : undefined;
 
-  if (mirrorQualitySelected || (finishSurcharge && finishSurcharge.cost > 0)) {
+  if (qualityId === 'satin-color') {
+    const clearDbPanelSize = options?.basePanelSizesData?.find(
+      ps => ps.size_name === sizeKey && ps.thickness === thickness && ps.is_active
+    );
+    const clearPrices = glossyColorSinglePrices[thickness as keyof typeof glossyColorSinglePrices];
+    const clearBasePrice = clearDbPanelSize?.price && clearDbPanelSize.price > 0
+      ? clearDbPanelSize.price
+      : clearPrices?.[sizeKey as keyof typeof clearPrices] || 0;
+    const satinSurcharge = finishSurcharge?.cost && finishSurcharge.cost > 0
+      ? finishSurcharge.cost
+      : satinMaterialSurcharges[sizeKey as keyof typeof satinMaterialSurcharges] || 0;
+
+    if (clearBasePrice > 0) {
+      basePrice = clearBasePrice;
+      breakdown.push({ label: 'CLEAR 유광 색상판 기본가', price: basePrice });
+      if (satinSurcharge > 0) {
+        breakdown.push({
+          label: finishSurcharge?.cost && finishSurcharge.cost > 0 ? '사틴 재질 추가금 (DB)' : '사틴 재질 추가금',
+          price: satinSurcharge
+        });
+        basePrice += satinSurcharge;
+      }
+    }
+  } else if (mirrorQualitySelected || (finishSurcharge && finishSurcharge.cost > 0)) {
     const clearDbPanelSize = options?.basePanelSizesData?.find(
       ps => ps.size_name === sizeKey && ps.thickness === thickness && ps.is_active
     );
@@ -1626,10 +1650,6 @@ export const calculatePrice = (
       const prices = glossyColorSinglePrices[thickness as keyof typeof glossyColorSinglePrices];
       basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
       breakdown.push({ label: 'CLEAR 유광 색상판 기본가', price: basePrice });
-    } else if (qualityId === 'satin-color') {
-      const prices = satinColorSinglePrices[thickness as keyof typeof satinColorSinglePrices];
-      basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
-      breakdown.push({ label: '사틴 색상판 기본가', price: basePrice });
     } else if (qualityId === 'glossy-standard') {
       const prices = glossyStandardSinglePrices[thickness as keyof typeof glossyStandardSinglePrices];
       basePrice = prices?.[sizeKey as keyof typeof prices] || 0;
@@ -1711,9 +1731,6 @@ export const calculatePrice = (
       if (qualityId === 'astel-color') {
         doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
         breakdown.push({ label: '양단면 추가금', price: doubleSidePrice });
-      } else if (qualityId === 'satin-color') {
-        doubleSidePrice = satinDoubleSideSurcharge[sizeKey as keyof typeof satinDoubleSideSurcharge] || 0;
-        breakdown.push({ label: '사틴 양단면 추가금', price: doubleSidePrice });
       } else {
         doubleSidePrice = tapePrices[sizeKey as keyof typeof tapePrices] || 0;
         breakdown.push({ label: '양단면 추가금', price: doubleSidePrice });

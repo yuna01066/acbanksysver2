@@ -492,11 +492,42 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 102_600);
+  assert.equal(result.totalPrice, 100_600);
   assert.equal(
-    result.lineItems.find(item => /사틴 색상판 기본가/.test(item.label))?.amount,
-    102_600,
-    'satin material must keep satin pricing separate from bright pigment pricing'
+    result.lineItems.find(item => /CLEAR 유광 색상판 기본가/.test(item.label))?.amount,
+    90_600,
+    'satin material must start from clear base pricing'
+  );
+  assert.equal(
+    result.lineItems.find(item => /사틴 재질 추가금/.test(item.label))?.amount,
+    10_000,
+    'satin material must apply satin surcharge separately'
+  );
+}
+
+{
+  const result = calculatePrice(
+    'casting',
+    'satin-color',
+    '5T',
+    '4*8',
+    '양면',
+    undefined,
+    undefined,
+    40_000
+  );
+
+  assert.equal(result.status, 'calculable');
+  assert.equal(result.totalPrice, 144_200);
+  assert.equal(
+    result.lineItems.find(item => /조색비/.test(item.label))?.amount,
+    40_000,
+    'satin material must include color mixing cost'
+  );
+  assert.equal(
+    result.lineItems.find(item => /양단면 추가금/.test(item.label))?.amount,
+    3_600,
+    'satin double surface must use the normal double-side surcharge'
   );
 }
 
