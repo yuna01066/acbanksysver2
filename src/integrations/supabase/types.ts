@@ -3428,6 +3428,200 @@ export type Database = {
         }
         Relationships: []
       }
+      response_assistant_settings: {
+        Row: {
+          created_at: string
+          description: string | null
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
+      response_cases: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          created_by: string | null
+          customer_company: string | null
+          customer_contact: string | null
+          customer_message: string
+          customer_name: string | null
+          external_message_id: string | null
+          external_thread_id: string | null
+          final_response: string | null
+          id: string
+          inquiry_type: string | null
+          internal_context: string | null
+          related_project_id: string | null
+          related_quote_id: string | null
+          review_required: boolean
+          risk_level: string
+          source_channel: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_company?: string | null
+          customer_contact?: string | null
+          customer_message: string
+          customer_name?: string | null
+          external_message_id?: string | null
+          external_thread_id?: string | null
+          final_response?: string | null
+          id?: string
+          inquiry_type?: string | null
+          internal_context?: string | null
+          related_project_id?: string | null
+          related_quote_id?: string | null
+          review_required?: boolean
+          risk_level?: string
+          source_channel?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_company?: string | null
+          customer_contact?: string | null
+          customer_message?: string
+          customer_name?: string | null
+          external_message_id?: string | null
+          external_thread_id?: string | null
+          final_response?: string | null
+          id?: string
+          inquiry_type?: string | null
+          internal_context?: string | null
+          related_project_id?: string | null
+          related_quote_id?: string | null
+          review_required?: boolean
+          risk_level?: string
+          source_channel?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      response_drafts: {
+        Row: {
+          ai_risk_level: string
+          avoid_phrases: Json
+          case_id: string
+          created_at: string
+          created_by: string | null
+          drafts_by_tone: Json
+          empathy_points: Json
+          final_text: string | null
+          id: string
+          is_used: boolean
+          persuasion_points: Json
+          review_required: boolean
+          selected_tone: string
+          summary: string | null
+          updated_at: string
+          used_knowledge_item_ids: Json
+        }
+        Insert: {
+          ai_risk_level?: string
+          avoid_phrases?: Json
+          case_id: string
+          created_at?: string
+          created_by?: string | null
+          drafts_by_tone?: Json
+          empathy_points?: Json
+          final_text?: string | null
+          id?: string
+          is_used?: boolean
+          persuasion_points?: Json
+          review_required?: boolean
+          selected_tone?: string
+          summary?: string | null
+          updated_at?: string
+          used_knowledge_item_ids?: Json
+        }
+        Update: {
+          ai_risk_level?: string
+          avoid_phrases?: Json
+          case_id?: string
+          created_at?: string
+          created_by?: string | null
+          drafts_by_tone?: Json
+          empathy_points?: Json
+          final_text?: string | null
+          id?: string
+          is_used?: boolean
+          persuasion_points?: Json
+          review_required?: boolean
+          selected_tone?: string
+          summary?: string | null
+          updated_at?: string
+          used_knowledge_item_ids?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "response_drafts_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "response_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      response_knowledge_items: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       review_cycle_targets: {
         Row: {
           created_at: string

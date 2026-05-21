@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Star, Search, Loader2, User, Shield, AlertTriangle, CalendarDays } from 'lucide-react';
+import { Star, Search, Loader2, User, Shield, AlertTriangle, CalendarDays, ArrowLeft } from 'lucide-react';
 import PerformanceReviewPanel from '@/components/employee/PerformanceReviewPanel';
 import AdminReviewDashboard from '@/components/performance/AdminReviewDashboard';
 import IncidentReportPanel from '@/components/performance/IncidentReportPanel';

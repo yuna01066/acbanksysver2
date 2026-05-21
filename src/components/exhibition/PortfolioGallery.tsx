@@ -137,7 +137,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 function getCategoryKeywords(categoryKey: string): string[] {
-  return PORTFOLIO_CATEGORY_FILTERS.find(filter => filter.key === categoryKey)?.keywords || [];
+  return [...(PORTFOLIO_CATEGORY_FILTERS.find(filter => filter.key === categoryKey)?.keywords || [])];
 }
 
 function makeDriveFileName(file: File): string {

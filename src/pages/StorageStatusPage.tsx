@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Clock3, FileText, HardDrive, RefreshCw, FolderOpen, Cloud, Database, Server, MapPin } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock3, FileText, HardDrive, RefreshCw, FolderOpen, Cloud, Database as DatabaseIcon, Server, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { BrandedCardHeader } from "@/components/ui/branded-card-header";
 import type { Database } from "@/integrations/supabase/types";
 
-type PublicTableName = keyof Database['public']['Tables'];
+type PublicTableName = Extract<keyof Database['public']['Tables'], string>;
 
 interface BucketUsage {
   name: string;
@@ -198,7 +198,7 @@ const StorageStatusPage = () => {
       
       const promises = tables.map(async (table) => {
         try {
-          const { count } = await supabase.from(table).select('*', { count: 'exact', head: true });
+          const { count } = await (supabase as any).from(table).select('*', { count: 'exact', head: true });
           return { name: table, rows: count || 0 };
         } catch {
           return { name: table, rows: 0 };
@@ -552,7 +552,7 @@ const StorageStatusPage = () => {
           <Card>
             <CardContent className="pt-5 pb-4">
               <div className="flex items-center gap-2 mb-2">
-                <Database className="w-4 h-4 text-primary" />
+                <DatabaseIcon className="w-4 h-4 text-primary" />
                 <span className="text-xs font-medium text-muted-foreground">Database</span>
               </div>
               {dbLoading ? (
@@ -634,7 +634,7 @@ const StorageStatusPage = () => {
                       {item.locations.map((loc) => (
                         <Badge key={loc} variant="secondary" className="text-[10px] h-5">
                           {loc === 'Lovable Cloud' && <Cloud className="w-3 h-3 mr-1" />}
-                          {loc === 'Database' && <Database className="w-3 h-3 mr-1" />}
+                          {loc === 'Database' && <DatabaseIcon className="w-3 h-3 mr-1" />}
                           {loc === 'GCS' && <Server className="w-3 h-3 mr-1" />}
                           {loc === 'Google Drive' && <FolderOpen className="w-3 h-3 mr-1" />}
                           {loc}
@@ -697,7 +697,7 @@ const StorageStatusPage = () => {
           <TabsContent value="database">
             <Card>
               <CardHeader>
-                <BrandedCardHeader icon={Database} title="데이터베이스 테이블" />
+                <BrandedCardHeader icon={DatabaseIcon} title="데이터베이스 테이블" />
                 <CardDescription>테이블별 레코드 수 (총 {dbSize})</CardDescription>
               </CardHeader>
               <CardContent>
@@ -709,7 +709,7 @@ const StorageStatusPage = () => {
                   <div className="space-y-2">
                     {tableSizes.map((table) => (
                       <div key={table.name} className="flex items-center gap-3 p-3 rounded-lg border">
-                        <Database className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <DatabaseIcon className="w-4 h-4 text-muted-foreground shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">
                             {tableLabels[table.name] || table.name}
