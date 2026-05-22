@@ -67,6 +67,8 @@ const formatSize = (value: number) => {
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
 };
 
+const inferredText = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
+
 const stepIndex = (step: WizardStep) => {
   if (step === 'failed') return 2;
   return Math.max(0, STEP_META.findIndex(item => item.key === step));
@@ -88,6 +90,12 @@ const QuoteWizardPanel = ({ embedded = false, compact = false, onOpenFullPage, c
   const analysis = result?.analysis;
   const yieldSnapshot = result?.yield;
   const formula = result?.formula;
+  const inferred = analysis?.inferred || {};
+  const engineStatus = inferredText(inferred.engine_status);
+  const extractionMode = inferredText(inferred.extraction_mode);
+  const workerStatus = inferredText(inferred.worker_status);
+  const engineNote = inferredText(inferred.note);
+  const hasFormulaAmount = Boolean((formula?.line_items?.length || 0) > 0 && Number(formula?.total) > 0);
   const isBusy = step === 'uploading' || step === 'analyzing';
   const currentStepIndex = stepIndex(step);
   const progressValue = step === 'failed' ? 68 : Math.round((currentStepIndex / (STEP_META.length - 1)) * 100);
@@ -319,6 +327,15 @@ const QuoteWizardPanel = ({ embedded = false, compact = false, onOpenFullPage, c
       </section>
 
       {result && (
+        <>
+        <EngineStatusNotice
+          status={engineStatus}
+          mode={extractionMode}
+          workerStatus={workerStatus}
+          note={engineNote}
+          compact={compact}
+        />
+
         <section className={cn('grid gap-4', !compact && 'lg:grid-cols-[minmax(0,1fr)_380px]', compact && 'gap-3')}>
           <div className="space-y-3">
             <Card className={cardClassName}>
@@ -385,9 +402,13 @@ const QuoteWizardPanel = ({ embedded = false, compact = false, onOpenFullPage, c
               <CardContent className={cn('space-y-4', compact ? 'px-3 pb-3' : undefined)}>
                 <div className={cn('rounded-xl border bg-muted/30', compact ? 'p-3' : 'p-4')}>
                   <div className={cn('text-muted-foreground', compact ? 'text-xs' : 'text-sm')}>VAT 포함 예상</div>
-                  <div className={cn('mt-1 font-bold tabular-nums', compact ? 'text-2xl' : 'text-3xl')}>{formatMoney(formula?.total)}</div>
+                  <div className={cn('mt-1 font-bold tabular-nums', compact ? 'text-2xl' : 'text-3xl')}>
+                    {hasFormulaAmount ? formatMoney(formula?.total) : '산출 보류'}
+                  </div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    공급가 {formatMoney(formula?.subtotal)} · VAT {formatMoney(formula?.tax)}
+                    {hasFormulaAmount
+                      ? `공급가 ${formatMoney(formula?.subtotal)} · VAT ${formatMoney(formula?.tax)}`
+                      : '샘플 금액 없이 상담원 검수 후 산출합니다.'}
                   </div>
                 </div>
                 <div className="grid gap-2">
@@ -435,7 +456,55 @@ const QuoteWizardPanel = ({ embedded = false, compact = false, onOpenFullPage, c
             </Card>
           </div>
         </section>
+        </>
       )}
+    </div>
+  );
+};
+
+const EngineStatusNotice = ({
+  status,
+  mode,
+  workerStatus,
+  note,
+  compact,
+}: {
+  status: string | null;
+  mode: string | null;
+  workerStatus: string | null;
+  note: string | null;
+  compact: boolean;
+}) => {
+  const unavailable = status === 'unavailable' || status === 'needs_review';
+  const limited = status === 'limited' || mode?.includes('builtin') || mode?.includes('text');
+  const toneClass = unavailable
+    ? 'border-amber-200 bg-amber-50 text-amber-900'
+    : limited
+      ? 'border-blue-200 bg-blue-50 text-blue-900'
+      : 'border-emerald-200 bg-emerald-50 text-emerald-900';
+  const title = unavailable
+    ? '분석 엔진 연결 확인 필요'
+    : limited
+      ? '제한 분석 결과'
+      : '분석 엔진 결과';
+  const description = note || (limited
+    ? '파일에서 관찰 가능한 값만 추출했습니다. 없는 치수/수량/금액은 만들지 않습니다.'
+    : '연결된 분석 엔진이 반환한 결과입니다.');
+
+  return (
+    <div className={cn('flex gap-2 rounded-lg border', toneClass, compact ? 'p-2.5 text-xs leading-5' : 'p-3 text-sm leading-6')}>
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+      <div className="min-w-0">
+        <div className="font-semibold">{title}</div>
+        <div className="break-words">{description}</div>
+        {(mode || workerStatus) && (
+          <div className="mt-1 text-[11px] opacity-80">
+            {mode && `mode: ${mode}`}
+            {mode && workerStatus && ' · '}
+            {workerStatus && `worker: ${workerStatus}`}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

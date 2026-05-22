@@ -8,6 +8,8 @@ import hamzziCoffee from '@/assets/hamzzi/hamzzi_coffee.png';
 import hamzziQuoteStreak from '@/assets/hamzzi/hamzzi_quote_streak.png';
 import hamzziSleepy from '@/assets/hamzzi/hamzzi_sleepy.png';
 import hamzziThinking from '@/assets/hamzzi/hamzzi_thinking.png';
+import acriHeadsetBubbleSpritesheet from '@/assets/hamzzi/acri-headset-bubble-loop-spritesheet.webp';
+import acriWizardMagicSpritesheet from '@/assets/hamzzi/acri-wizard-magic-loop-spritesheet.webp';
 import iconLunch from '@/assets/hamzzi/icon_lunch.png';
 import iconNight from '@/assets/hamzzi/icon_night.png';
 import iconParty from '@/assets/hamzzi/icon_party.png';
@@ -40,12 +42,23 @@ const HIDDEN_PATHS = [
 const FLOATING_RESPONSE_ASSISTANT_OPEN_KEY = 'acbank:floating-response-assistant-open';
 
 type AssistantTool = 'menu' | 'responseAssistant' | 'quoteWizard';
+type SpecialistTool = Exclude<AssistantTool, 'menu'>;
 
 type HamzziReactionConfig = {
   image: string;
   badge?: string;
   fallbackMessage: string;
   toneClass: string;
+};
+
+type HamzziSpriteConfig = {
+  image: string;
+  frameWidth: number;
+  frameHeight: number;
+  displayWidth: number;
+  displayHeight: number;
+  className: string;
+  label: string;
 };
 
 const TOOL_META: Record<AssistantTool, { title: string; description: string }> = {
@@ -105,6 +118,29 @@ const HAMZZI_REACTION_CONFIG: Record<HamzziEventType, HamzziReactionConfig> = {
   },
 };
 
+const HAMZZI_TOOL_SPRITES: Record<SpecialistTool, HamzziSpriteConfig> = {
+  responseAssistant: {
+    image: acriHeadsetBubbleSpritesheet,
+    frameWidth: 320,
+    frameHeight: 256,
+    displayWidth: 136,
+    displayHeight: 109,
+    className: '-bottom-3 -right-2',
+    label: '헤드셋 햄찌',
+  },
+  quoteWizard: {
+    image: acriWizardMagicSpritesheet,
+    frameWidth: 256,
+    frameHeight: 256,
+    displayWidth: 96,
+    displayHeight: 96,
+    className: '-bottom-1 -right-1',
+    label: '마법사 햄찌',
+  },
+};
+
+const TOOL_TRANSITION_MS = 620;
+
 const isHiddenPath = (pathname: string) => (
   HIDDEN_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
 );
@@ -132,8 +168,10 @@ const FloatingResponseAssistant: React.FC = () => {
   const [activeTool, setActiveTool] = useState<AssistantTool>('menu');
   const [guideOpenSignal, setGuideOpenSignal] = useState(0);
   const [launcherHintVisible, setLauncherHintVisible] = useState(false);
+  const [transitionTool, setTransitionTool] = useState<SpecialistTool | null>(null);
   const [hamzziReaction, setHamzziReaction] = useState<(HamzziEventDetail & { id: number }) | null>(null);
   const hamzziTimerRef = useRef<number | null>(null);
+  const toolTransitionTimerRef = useRef<number | null>(null);
 
   const isHidden = isHiddenPath(location.pathname);
   const hamzziReactionConfig = hamzziReaction ? HAMZZI_REACTION_CONFIG[hamzziReaction.type] : null;
@@ -155,10 +193,39 @@ const FloatingResponseAssistant: React.FC = () => {
   });
   const responseAssistantIcon = isSupportedIconValue(iconSetting) ? iconSetting : defaultResponseAssistantIcon;
   const toolMeta = TOOL_META[activeTool];
+  const activeSpriteTool = transitionTool ?? (activeTool === 'menu' ? null : activeTool);
 
   const closeAssistant = () => {
+    if (toolTransitionTimerRef.current) {
+      window.clearTimeout(toolTransitionTimerRef.current);
+      toolTransitionTimerRef.current = null;
+    }
     setOpen(false);
     setActiveTool('menu');
+    setTransitionTool(null);
+  };
+
+  const returnToToolMenu = () => {
+    if (toolTransitionTimerRef.current) {
+      window.clearTimeout(toolTransitionTimerRef.current);
+      toolTransitionTimerRef.current = null;
+    }
+    setTransitionTool(null);
+    setActiveTool('menu');
+  };
+
+  const handleToolSelect = (tool: SpecialistTool) => {
+    if (toolTransitionTimerRef.current) {
+      window.clearTimeout(toolTransitionTimerRef.current);
+    }
+    setLauncherHintVisible(false);
+    setTransitionTool(tool);
+    setActiveTool('menu');
+    toolTransitionTimerRef.current = window.setTimeout(() => {
+      setActiveTool(tool);
+      setTransitionTool(null);
+      toolTransitionTimerRef.current = null;
+    }, TOOL_TRANSITION_MS);
   };
 
   const handleLauncherClick = () => {
@@ -204,6 +271,7 @@ const FloatingResponseAssistant: React.FC = () => {
     return () => {
       window.removeEventListener(HAMZZI_EVENT_NAME, handleHamzziEvent);
       if (hamzziTimerRef.current) window.clearTimeout(hamzziTimerRef.current);
+      if (toolTransitionTimerRef.current) window.clearTimeout(toolTransitionTimerRef.current);
     };
   }, []);
 
@@ -227,7 +295,7 @@ const FloatingResponseAssistant: React.FC = () => {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    onClick={() => setActiveTool('menu')}
+                    onClick={returnToToolMenu}
                     className="h-8 w-8 shrink-0 rounded-full text-[#707072] hover:bg-[#f5f5f5]"
                     aria-label="도구 선택으로 돌아가기"
                   >
@@ -274,7 +342,7 @@ const FloatingResponseAssistant: React.FC = () => {
 
             <div className="min-h-0 flex-1 overflow-y-auto bg-[#f5f5f5] p-3">
               {activeTool === 'menu' && (
-                <AssistantToolMenu onSelect={setActiveTool} />
+                <AssistantToolMenu onSelect={handleToolSelect} isTransitioning={Boolean(transitionTool)} />
               )}
               {activeTool === 'responseAssistant' && (
                 <ResponseAssistantWidget
@@ -370,26 +438,81 @@ const FloatingResponseAssistant: React.FC = () => {
           type="button"
           onClick={handleLauncherClick}
           className={cn(
-            'relative z-20 flex h-[88px] w-[88px] items-center justify-center bg-transparent p-0 transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-0 active:scale-95',
+            'relative z-20 flex h-[88px] w-[88px] items-center justify-center overflow-visible bg-transparent p-0 transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-0 active:scale-95',
             open && 'scale-95',
           )}
           aria-label={open ? '햄찌 도우미 닫기' : '햄찌 도우미 열기'}
         >
-          <img
-            src={responseAssistantIcon}
-            alt=""
+          <span
             className={cn(
-              'h-[82px] w-[74px] object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.24)] transition-transform',
-              showLauncherHint && 'scale-105',
+              'absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out',
+              activeSpriteTool ? 'translate-x-10 scale-90 opacity-0' : 'translate-x-0 scale-100 opacity-100',
+              transitionTool && 'hamzzi-helper-default-exit',
             )}
-          />
+          >
+            <img
+              src={responseAssistantIcon}
+              alt=""
+              className={cn(
+                'h-[82px] w-[74px] object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.24)] transition-transform',
+                showLauncherHint && 'scale-105',
+              )}
+            />
+          </span>
+          {activeSpriteTool && (
+            <HamzziToolSprite
+              key={`${activeSpriteTool}-${transitionTool ? 'enter' : 'active'}`}
+              tool={activeSpriteTool}
+              entering={Boolean(transitionTool)}
+            />
+          )}
         </button>
       </div>
     </div>
   );
 };
 
-const AssistantToolMenu = ({ onSelect }: { onSelect: (tool: AssistantTool) => void }) => (
+const HamzziToolSprite = ({ tool, entering }: { tool: SpecialistTool; entering: boolean }) => {
+  const config = HAMZZI_TOOL_SPRITES[tool];
+  const spriteStyle = {
+    '--hamzzi-helper-frame-width': `${config.displayWidth}px`,
+    '--hamzzi-helper-frame-height': `${config.displayHeight}px`,
+    '--hamzzi-helper-sheet-width': `${config.displayWidth * 8}px`,
+    '--hamzzi-helper-end-x': `${-config.displayWidth * 8}px`,
+    backgroundImage: `url(${config.image})`,
+  } as React.CSSProperties;
+
+  return (
+    <span
+      className={cn(
+        'pointer-events-none absolute z-10 flex items-center justify-center',
+        config.className,
+        entering ? 'hamzzi-helper-specialist-enter' : 'opacity-100',
+      )}
+      aria-label={config.label}
+      role="img"
+    >
+      {entering && (
+        <span
+          className={cn(
+            'hamzzi-helper-transition-glow',
+            tool === 'quoteWizard' ? 'hamzzi-helper-transition-glow--magic' : 'hamzzi-helper-transition-glow--cs',
+          )}
+          aria-hidden="true"
+        />
+      )}
+      <span className="hamzzi-helper-sprite-frame" style={spriteStyle} />
+    </span>
+  );
+};
+
+const AssistantToolMenu = ({
+  onSelect,
+  isTransitioning,
+}: {
+  onSelect: (tool: SpecialistTool) => void;
+  isTransitioning: boolean;
+}) => (
   <div className="space-y-3 rounded-[24px] bg-white p-3 shadow-none">
     <div className="rounded-[20px] border border-[#ececec] bg-[#fafafa] p-4">
       <p className="text-sm font-black text-[#111111]">필요한 도구를 선택하세요.</p>
@@ -401,6 +524,7 @@ const AssistantToolMenu = ({ onSelect }: { onSelect: (tool: AssistantTool) => vo
     <button
       type="button"
       onClick={() => onSelect('responseAssistant')}
+      disabled={isTransitioning}
       className="flex w-full items-center gap-3 rounded-[20px] border border-[#dedede] bg-white p-4 text-left shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-[#cfcfcf] hover:shadow-[0_14px_30px_rgba(15,23,42,0.09)]"
     >
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-800">
@@ -415,6 +539,7 @@ const AssistantToolMenu = ({ onSelect }: { onSelect: (tool: AssistantTool) => vo
     <button
       type="button"
       onClick={() => onSelect('quoteWizard')}
+      disabled={isTransitioning}
       className="flex w-full items-center gap-3 rounded-[20px] border border-[#dedede] bg-white p-4 text-left shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-[#cfcfcf] hover:shadow-[0_14px_30px_rgba(15,23,42,0.09)]"
     >
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">

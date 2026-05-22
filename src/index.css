@@ -819,6 +819,105 @@
   }
 }
 
+/* Hamzzi helper tool transition */
+@keyframes hamzzi-helper-default-exit {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(42px) scale(0.88);
+  }
+}
+
+@keyframes hamzzi-helper-specialist-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(48px) scale(0.9);
+  }
+  68% {
+    opacity: 1;
+    transform: translateX(-5px) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes hamzzi-helper-sprite-steps {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: var(--hamzzi-helper-end-x) 0;
+  }
+}
+
+@keyframes hamzzi-helper-glow-pop {
+  0% {
+    opacity: 0;
+    transform: translate(18px, 12px) scale(0.68);
+  }
+  45% {
+    opacity: 0.88;
+    transform: translate(0, 0) scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-6px, -2px) scale(1.24);
+  }
+}
+
+.hamzzi-helper-default-exit {
+  animation: hamzzi-helper-default-exit 0.38s ease-in both;
+}
+
+.hamzzi-helper-specialist-enter {
+  animation: hamzzi-helper-specialist-enter 0.62s cubic-bezier(0.22, 0.9, 0.24, 1.16) both;
+}
+
+.hamzzi-helper-sprite-frame {
+  width: var(--hamzzi-helper-frame-width);
+  height: var(--hamzzi-helper-frame-height);
+  background-repeat: no-repeat;
+  background-size: var(--hamzzi-helper-sheet-width) var(--hamzzi-helper-frame-height);
+  background-position: 0 0;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.22));
+  animation: hamzzi-helper-sprite-steps 0.88s steps(8) infinite;
+}
+
+.hamzzi-helper-transition-glow {
+  position: absolute;
+  inset: 18px 12px 8px 18px;
+  z-index: -1;
+  border-radius: 9999px;
+  filter: blur(0.5px);
+  animation: hamzzi-helper-glow-pop 0.68s ease-out both;
+}
+
+.hamzzi-helper-transition-glow--cs {
+  background:
+    radial-gradient(circle at 30% 40%, rgba(59, 130, 246, 0.35), transparent 46%),
+    radial-gradient(circle at 70% 60%, rgba(14, 165, 233, 0.28), transparent 50%);
+}
+
+.hamzzi-helper-transition-glow--magic {
+  background:
+    radial-gradient(circle at 30% 40%, rgba(249, 115, 22, 0.35), transparent 46%),
+    radial-gradient(circle at 68% 58%, rgba(168, 85, 247, 0.28), transparent 52%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hamzzi-helper-default-exit,
+  .hamzzi-helper-specialist-enter,
+  .hamzzi-helper-sprite-frame,
+  .hamzzi-helper-transition-glow {
+    animation: none;
+  }
+}
+
 /* Login button neon border animation */
 @property --neon-angle {
   syntax: '<angle>';

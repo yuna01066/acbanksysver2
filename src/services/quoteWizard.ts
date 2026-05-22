@@ -29,7 +29,7 @@ const quoteWizardConnectionError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
   return new Error(
     message.includes('Failed to send a request')
-      ? '견적 마법사 Edge Function에 연결하지 못했습니다. Supabase에 quote-wizard 함수를 배포하거나 로컬 functions 서버를 연결해야 합니다.'
+      ? '견적 마법사 함수에 연결하지 못했습니다. Lovable Cloud에 quote-wizard 함수를 배포하거나 로컬 functions 서버를 연결해야 합니다.'
       : message
   );
 };
@@ -98,73 +98,60 @@ const createLocalPayload = (customerNote: string): QuoteWizardPayload => {
 const buildLocalResult = (files: QuoteWizardFileRecord[]): QuoteWizardResultSnapshot => {
   const hasFastPreview = files.some((file) => ['pdf', 'image', 'dxf'].includes(file.kind));
   const sourceOnly = !hasFastPreview;
-  const parts = sourceOnly ? [] : [
-    { id: 'local-top-bottom', name: '상/하판', shape: 'rect' as const, width_mm: 600, height_mm: 380, quantity: 24, material: '아크릴', thickness: '5T', basis: '로컬 개발 fallback 샘플', confidence: 'medium' as const, risk_notes: ['회전 가능 여부 확인'] },
-    { id: 'local-front-back', name: '전/후면판', shape: 'rect' as const, width_mm: 600, height_mm: 240, quantity: 24, material: '아크릴', thickness: '5T', basis: '로컬 개발 fallback 샘플', confidence: 'medium' as const, risk_notes: ['접착 여유 확인'] },
-    { id: 'local-side', name: '좌/우 측판', shape: 'rect' as const, width_mm: 380, height_mm: 240, quantity: 24, material: '아크릴', thickness: '5T', basis: '로컬 개발 fallback 샘플', confidence: 'medium' as const, risk_notes: ['두께 차감 검수'] },
+  const risks = [
+    '로컬 개발 fallback 상태입니다. Lovable Cloud quote-wizard 함수 또는 분석 워커가 연결되지 않아 파일 내용 기반 분석을 수행하지 않았습니다.',
+    sourceOnly
+      ? '원본 파일만으로는 자동 분석이 제한됩니다. PDF/DXF 또는 이미지 미리보기가 필요합니다.'
+      : '첨부 파일은 접수했지만 로컬 fallback에서는 PDF/CAD 내용을 파싱하지 않습니다.',
   ];
-  const totalPartArea = parts.reduce((sum, part) => sum + (part.width_mm || 0) * (part.height_mm || 0) * (part.quantity || 0), 0);
-  const sheetArea = 1220 * 2440;
-  const estimatedSheetCount = totalPartArea ? Math.max(1, Math.ceil(totalPartArea / (sheetArea * 0.82))) : null;
-  const yieldPercent = totalPartArea && estimatedSheetCount ? Math.round((totalPartArea / (sheetArea * estimatedSheetCount)) * 1000) / 10 : null;
-  const subtotal = sourceOnly ? 0 : 1_348_200;
-  const tax = Math.round(subtotal * 0.1);
 
   return {
     analysis: {
-      item_name: sourceOnly ? null : '투명 아크릴 박스형 진열 커버',
-      dimensions: sourceOnly ? null : '600 x 380 x 240mm',
-      quantity: sourceOnly ? null : 12,
-      material: sourceOnly ? null : '아크릴',
-      thickness: sourceOnly ? null : '5T',
-      color: sourceOnly ? null : '투명',
-      finish: sourceOnly ? null : '불광/광택',
-      processing: sourceOnly ? [] : ['재단', '타공', '인쇄', '접착', '조립'],
+      item_name: null,
+      dimensions: null,
+      quantity: null,
+      material: null,
+      thickness: null,
+      color: null,
+      finish: null,
+      processing: [],
       observed: { files: files.map((file) => `${file.file_name}(${file.kind})`) },
-      inferred: { worker_mode: 'frontend_dev_fallback' },
-      parts,
-      missing_fields: sourceOnly
-        ? ['PDF/JPG/PNG 미리보기', '제작 품목', '사이즈', '수량', '희망 납기']
-        : ['원장 규격', '회전 가능 여부', '커프/재단 여유', '로고 원본'],
-      production_risks: [
-        sourceOnly ? '원본 파일만으로는 빠른 견적 분석이 제한됩니다.' : '도면 스케일 확인 필요',
-        '현재 결과는 로컬 개발 fallback입니다. 운영 반영 전 Edge Function 배포가 필요합니다.',
-      ],
-      recommended_reply: sourceOnly
-        ? '빠른 견적 확인을 위해 PDF, JPG 또는 PNG 미리보기 파일과 제작 품목, 사이즈, 수량, 희망 납기를 함께 알려주세요.'
-        : '첨부파일 기준으로 임시 분석했습니다. 원장 규격, 로고 원본, 회전 가능 여부를 확인하면 견적 정확도를 높일 수 있습니다.',
-      confidence: sourceOnly ? 'low' : 'medium',
+      inferred: {
+        engine_status: 'unavailable',
+        extraction_mode: 'frontend_dev_fallback',
+        worker_status: 'not_connected',
+        note: '로컬 fallback은 UI 확인용이며 샘플 치수/수량/금액을 생성하지 않습니다.',
+      },
+      parts: [],
+      missing_fields: ['분석 엔진 연결', '제작 품목', '파트별 치수', '수량', '소재/두께', '원장 규격'],
+      production_risks: risks,
+      recommended_reply: '첨부파일은 접수했지만 현재 분석 엔진이 연결되지 않아 도면 내용 기반 추출을 진행하지 못했습니다. Lovable Cloud quote-wizard 함수 배포 또는 로컬 워커 연결 후 다시 분석해주세요.',
+      confidence: 'low',
     },
     yield: {
-      status: sourceOnly ? 'insufficient_data' : 'estimated',
-      candidate_basis: sourceOnly ? null : 'frontend_dev_fallback',
+      status: 'insufficient_data',
+      candidate_basis: null,
       stock_sheet: {
-        name: sourceOnly ? null : '4*8 후보',
-        width_mm: sourceOnly ? null : 1220,
-        height_mm: sourceOnly ? null : 2440,
-        basis: sourceOnly ? null : 'fallback_candidate',
+        name: null,
+        width_mm: null,
+        height_mm: null,
+        basis: null,
       },
-      total_part_area_mm2: totalPartArea || null,
-      estimated_sheet_count: estimatedSheetCount,
-      yield_percent: yieldPercent,
-      scrap_percent: yieldPercent === null ? null : Math.round((100 - yieldPercent) * 10) / 10,
-      notes: sourceOnly
-        ? ['원장/수율 계산에 필요한 치수와 수량이 부족합니다.']
-        : ['로컬 개발 fallback 참고값입니다.', '운영에서는 quote-wizard Edge Function과 worker 결과를 사용합니다.'],
+      total_part_area_mm2: null,
+      estimated_sheet_count: null,
+      yield_percent: null,
+      scrap_percent: null,
+      notes: ['원장/수율 계산에 필요한 파트 치수와 수량이 부족합니다.'],
     },
     formula: {
-      status: sourceOnly ? 'blocked' : 'needs_review',
-      subtotal,
-      tax,
-      total: subtotal + tax,
+      status: 'blocked',
+      subtotal: 0,
+      tax: 0,
+      total: 0,
       version: 'pricing-engine-v2-core-260520',
-      line_items: sourceOnly ? [] : [
-        { label: '원장/재단 기준', amount: 624_000, source: 'dev_fallback', reason: '아크릴 5T 후보 원장' },
-        { label: '타공/가공', amount: 312_000, source: 'dev_fallback', reason: '상단 타공 및 재단 공임' },
-        { label: '인쇄/조립', amount: 412_200, source: 'dev_fallback', reason: 'UV 인쇄 및 접착 조립' },
-      ],
-      warnings: sourceOnly ? ['PDF/JPG/PNG 미리보기 없이 자동 견적 산출 불가'] : ['상담원 검수 전 확정 금액으로 사용하지 않습니다.'],
-      blocked_reasons: sourceOnly ? ['PDF/JPG/PNG 미리보기 없이 자동 견적 산출 불가'] : [],
+      line_items: [],
+      warnings: risks,
+      blocked_reasons: ['분석 엔진이 연결되지 않아 견적 산출을 보류했습니다.'],
     },
   };
 };

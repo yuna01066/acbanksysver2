@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -8,6 +9,7 @@ const corsHeaders = {
 
 const BUCKET = "quote-wizard-temp";
 const FORMULA_VERSION = "pricing-engine-v2-core-260520";
+const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 type Json = Record<string, unknown>;
 
@@ -20,6 +22,30 @@ type QuoteWizardFile = {
   mime_type?: string | null;
   file_size?: number | null;
   kind: "pdf" | "image" | "dxf" | "dwg" | "source" | "unknown";
+};
+
+type ExtractedPart = {
+  id: string;
+  name: string;
+  shape: "rect" | "trapezoid" | "irregular" | "unknown";
+  width_mm: number | null;
+  height_mm: number | null;
+  quantity: number | null;
+  material: string | null;
+  thickness: string | null;
+  basis: string;
+  confidence: "low" | "medium" | "high";
+  risk_notes: string[];
+};
+
+type FileObservation = {
+  file: string;
+  kind: QuoteWizardFile["kind"];
+  text?: string;
+  text_excerpt?: string;
+  parts?: ExtractedPart[];
+  error?: string;
+  note?: string;
 };
 
 function ok(body: Json, status = 200) {
@@ -87,141 +113,469 @@ async function loadPayload(supabase: ReturnType<typeof createClient>, jobId: str
   };
 }
 
-function hasFastPreview(files: QuoteWizardFile[]) {
-  return files.some((file) => file.kind === "pdf" || file.kind === "image" || file.kind === "dxf");
+function toText(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function buildFallbackAnalysis(job: any, files: QuoteWizardFile[]) {
-  const sourceOnly = !hasFastPreview(files);
-  const hasCadSource = files.some((file) => file.kind === "dwg" || file.kind === "source");
-  const fileSummary = files.map((file) => `${file.file_name}(${file.kind})`).join(", ");
+function toNumber(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(String(value || "").replace(/,/g, ""));
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 10) / 10 : null;
+}
 
-  const analysis = {
-    item_name: sourceOnly ? null : "투명 아크릴 박스형 진열 커버",
-    dimensions: sourceOnly ? null : "600 x 380 x 240mm",
-    quantity: sourceOnly ? null : 12,
-    material: sourceOnly ? null : "아크릴",
-    thickness: sourceOnly ? null : "5T",
-    color: sourceOnly ? null : "투명",
-    finish: sourceOnly ? null : "불광/광택",
-    processing: sourceOnly ? [] : ["재단", "타공", "인쇄", "접착", "조립"],
-    observed: {
-      files: fileSummary,
-      customer_note: job.customer_note || null,
+function normalizeUnit(value: number, unit?: string | null) {
+  const normalized = (unit || "mm").toLowerCase();
+  if (normalized === "m" || normalized === "meter" || normalized === "meters") return value * 1000;
+  if (normalized === "cm" || normalized === "센티") return value * 10;
+  return value;
+}
+
+function compactText(text: string, limit = 7000) {
+  return text.replace(/\s+/g, " ").trim().slice(0, limit);
+}
+
+function decodePdfLiteral(raw: string) {
+  return raw
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\r")
+    .replace(/\\t/g, "\t")
+    .replace(/\\\(/g, "(")
+    .replace(/\\\)/g, ")")
+    .replace(/\\\\/g, "\\");
+}
+
+function extractPdfText(bytes: Uint8Array) {
+  const raw = new TextDecoder("latin1").decode(bytes);
+  const fragments: string[] = [];
+
+  for (const match of raw.matchAll(/\((?:\\.|[^\\)]){1,500}\)\s*Tj/g)) {
+    fragments.push(decodePdfLiteral(match[0].replace(/\)\s*Tj$/, "").slice(1)));
+  }
+
+  for (const match of raw.matchAll(/\[((?:\((?:\\.|[^\\)]){1,500}\)\s*)+)\]\s*TJ/g)) {
+    const inner = match[1];
+    for (const stringMatch of inner.matchAll(/\((?:\\.|[^\\)]){1,500}\)/g)) {
+      fragments.push(decodePdfLiteral(stringMatch[0].slice(1, -1)));
+    }
+  }
+
+  const fallback = raw
+    .replace(/[^\x20-\x7E가-힣ㄱ-ㅎㅏ-ㅣ]/g, " ")
+    .match(/[A-Za-z가-힣0-9][A-Za-z가-힣0-9\s.,:;()xX*×/+-]{3,}/g);
+
+  return compactText([...fragments, ...(fallback || [])].join(" "), 10000);
+}
+
+function inferQuantity(text: string, matchIndex: number) {
+  const windowText = text.slice(Math.max(0, matchIndex - 80), matchIndex + 120);
+  const quantityMatch = windowText.match(/(?:수량|qty|quantity|ea|set|세트|개수)?\s*[:：]?\s*(\d{1,5})\s*(?:개|ea|EA|set|SET|세트)/);
+  return quantityMatch ? Number(quantityMatch[1]) : null;
+}
+
+function inferLabel(text: string, matchIndex: number, index: number) {
+  const before = text.slice(Math.max(0, matchIndex - 48), matchIndex).replace(/\s+/g, " ").trim();
+  const labelMatch = before.match(/([가-힣A-Za-z0-9_/-]{2,24})\s*[:：-]?\s*$/);
+  return labelMatch ? labelMatch[1] : `추출 파트 ${index + 1}`;
+}
+
+function extractThickness(text: string) {
+  const match = text.match(/(\d+(?:\.\d+)?)\s*T\b/i);
+  return match ? `${match[1].replace(/\.0$/, "")}T` : null;
+}
+
+function extractMaterial(text: string) {
+  if (/아크릴|acrylic|pmma/i.test(text)) return "아크릴";
+  if (/포맥스|폼보드|foam/i.test(text)) return "포맥스";
+  if (/알루미늄|aluminum|aluminium/i.test(text)) return "알루미늄";
+  if (/스테인리스|스텐|sus|stainless/i.test(text)) return "스테인리스";
+  return null;
+}
+
+function extractProcessing(text: string) {
+  const candidates = [
+    ["재단", /재단|cut/i],
+    ["CNC", /cnc/i],
+    ["레이저", /레이저|laser/i],
+    ["타공", /타공|홀|hole|drill/i],
+    ["인쇄", /인쇄|출력|uv|print/i],
+    ["접착", /접착|본딩|bond/i],
+    ["조립", /조립|assembly/i],
+    ["절곡", /절곡|bending/i],
+  ];
+  return candidates.filter(([, pattern]) => pattern.test(text)).map(([label]) => label as string);
+}
+
+function extractDimensionParts(text: string, sourceLabel: string) {
+  const parts: ExtractedPart[] = [];
+  const dimensionPattern = /(\d{2,5}(?:\.\d+)?)\s*(?:mm|㎜|미리|cm|m)?\s*(?:x|X|×|\*)\s*(\d{2,5}(?:\.\d+)?)\s*(?:mm|㎜|미리|cm|m)?(?:\s*(?:x|X|×|\*)\s*(\d{1,4}(?:\.\d+)?)\s*(?:T|t|mm|㎜|미리)?)?/g;
+  const material = extractMaterial(text);
+  const thickness = extractThickness(text);
+  let index = 0;
+
+  for (const match of text.matchAll(dimensionPattern)) {
+    const unitMatch = match[0].match(/\b(mm|cm|m|㎜|미리)\b/i)?.[1] || "mm";
+    const width = normalizeUnit(Number(match[1]), unitMatch);
+    const height = normalizeUnit(Number(match[2]), unitMatch);
+    if (!Number.isFinite(width) || !Number.isFinite(height)) continue;
+    if (width < 10 || height < 10 || width > 20000 || height > 20000) continue;
+
+    const quantity = inferQuantity(text, match.index || 0);
+    parts.push({
+      id: `${sourceLabel}-${index + 1}`,
+      name: inferLabel(text, match.index || 0, index),
+      shape: "rect",
+      width_mm: Math.round(width * 10) / 10,
+      height_mm: Math.round(height * 10) / 10,
+      quantity,
+      material,
+      thickness: match[3] ? `${match[3].replace(/\.0$/, "")}T` : thickness,
+      basis: `${sourceLabel} 텍스트에서 치수 패턴 직접 추출`,
+      confidence: quantity ? "medium" : "low",
+      risk_notes: [
+        "텍스트 기반 자동 추출값입니다. 도면 스케일과 실제 수량 검수가 필요합니다.",
+        ...(quantity ? [] : ["수량 표기가 명확하지 않습니다."]),
+      ],
+    });
+    index += 1;
+    if (parts.length >= 24) break;
+  }
+
+  return dedupeParts(parts);
+}
+
+function parseDxfParts(text: string, sourceLabel: string) {
+  const lines = text.split(/\r?\n/).map((line) => line.trim());
+  const parts: ExtractedPart[] = [];
+  let index = 0;
+
+  for (let i = 0; i < lines.length - 1; i += 2) {
+    if (lines[i] !== "0" || lines[i + 1] !== "LWPOLYLINE") continue;
+    const entity: Array<[string, string]> = [];
+    i += 2;
+    while (i < lines.length - 1 && !(lines[i] === "0" && lines[i + 1])) {
+      entity.push([lines[i], lines[i + 1]]);
+      i += 2;
+    }
+    i -= 2;
+
+    const closed = entity.some(([code, value]) => code === "70" && (Number(value) & 1) === 1);
+    const xs = entity.filter(([code]) => code === "10").map(([, value]) => Number(value)).filter(Number.isFinite);
+    const ys = entity.filter(([code]) => code === "20").map(([, value]) => Number(value)).filter(Number.isFinite);
+    if (!closed || xs.length < 4 || ys.length < 4) continue;
+    const width = Math.max(...xs) - Math.min(...xs);
+    const height = Math.max(...ys) - Math.min(...ys);
+    if (width < 10 || height < 10 || width > 20000 || height > 20000) continue;
+    parts.push({
+      id: `${sourceLabel}-polyline-${index + 1}`,
+      name: `DXF 폐합 외곽 ${index + 1}`,
+      shape: "rect",
+      width_mm: Math.round(width * 10) / 10,
+      height_mm: Math.round(height * 10) / 10,
+      quantity: 1,
+      material: null,
+      thickness: null,
+      basis: "DXF LWPOLYLINE 폐합 외곽 bounding box 기준",
+      confidence: "low",
+      risk_notes: ["DXF 단위와 스케일 확인이 필요합니다.", "폐합 외곽의 실제 파트 여부는 상담원 검수가 필요합니다."],
+    });
+    index += 1;
+    if (parts.length >= 24) break;
+  }
+
+  return dedupeParts(parts);
+}
+
+function dedupeParts(parts: ExtractedPart[]) {
+  const seen = new Set<string>();
+  return parts.filter((part) => {
+    const key = [part.name, part.width_mm, part.height_mm, part.quantity].join("|");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function normalizeAiParts(value: unknown): ExtractedPart[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item, index) => {
+    const record = item && typeof item === "object" ? item as Record<string, unknown> : {};
+    return {
+      id: toText(record.id) || `ai-part-${index + 1}`,
+      name: toText(record.name) || `AI 추출 파트 ${index + 1}`,
+      shape: ["rect", "trapezoid", "irregular", "unknown"].includes(String(record.shape)) ? record.shape as ExtractedPart["shape"] : "unknown",
+      width_mm: toNumber(record.width_mm),
+      height_mm: toNumber(record.height_mm),
+      quantity: toNumber(record.quantity),
+      material: toText(record.material),
+      thickness: toText(record.thickness),
+      basis: toText(record.basis) || "AI Gateway 파일 분석 결과",
+      confidence: ["low", "medium", "high"].includes(String(record.confidence)) ? record.confidence as ExtractedPart["confidence"] : "low",
+      risk_notes: Array.isArray(record.risk_notes) ? record.risk_notes.map(String).filter(Boolean) : ["AI 추출값은 상담원 검수가 필요합니다."],
+    };
+  }).filter((part) => part.width_mm && part.height_mm);
+}
+
+function parseAiJson(content: string) {
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+  try {
+    return JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+async function downloadFileBytes(supabase: ReturnType<typeof createClient>, file: QuoteWizardFile) {
+  const { data, error } = await supabase.storage.from(BUCKET).download(file.file_path);
+  if (error) throw error;
+  return new Uint8Array(await data.arrayBuffer());
+}
+
+async function runAiAnalysis(input: {
+  job: any;
+  files: QuoteWizardFile[];
+  observations: FileObservation[];
+  imagePayloads: Array<{ mimeType: string; base64: string; fileName: string }>;
+}) {
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey) return null;
+
+  const content: unknown[] = [
+    {
+      type: "text",
+      text: `ACBANK 견적 마법사 파일 분석입니다. 첨부 파일에서 실제로 보이는 내용만 근거로 JSON을 반환하세요.
+
+절대 샘플 치수나 일반적인 박스 파트를 invent 하지 마세요. 치수/수량이 안 보이면 null 또는 빈 배열로 두세요.
+파트는 실제로 관찰되거나 텍스트에서 직접 추출 가능한 조각만 작성하세요.
+
+응답 JSON 스키마:
+{
+  "item_name": string | null,
+  "dimensions": string | null,
+  "quantity": number | null,
+  "material": string | null,
+  "thickness": string | null,
+  "color": string | null,
+  "finish": string | null,
+  "processing": string[],
+  "parts": [
+    {"name": string, "shape": "rect"|"trapezoid"|"irregular"|"unknown", "width_mm": number|null, "height_mm": number|null, "quantity": number|null, "material": string|null, "thickness": string|null, "basis": string, "confidence": "low"|"medium"|"high", "risk_notes": string[]}
+  ],
+  "missing_fields": string[],
+  "production_risks": string[],
+  "recommended_reply": string,
+  "confidence": "low"|"medium"|"high"
+}
+
+고객 메모: ${input.job.customer_note || "없음"}
+파일 관찰값:
+${JSON.stringify(input.observations.map((item) => ({
+  file: item.file,
+  kind: item.kind,
+  text_excerpt: item.text_excerpt,
+  extracted_parts: item.parts,
+  error: item.error,
+  note: item.note,
+})), null, 2)}`,
     },
-    inferred: sourceOnly
-      ? {}
-      : {
-          extraction_mode: "fallback_sample",
-          note: "분석 워커 URL이 없어 샘플 구조로 임시 결과를 생성했습니다.",
-        },
-    parts: sourceOnly
-      ? []
-      : [
-          {
-            id: "top-bottom",
-            name: "상/하판",
-            shape: "rect",
-            width_mm: 600,
-            height_mm: 380,
-            quantity: 24,
-            material: "아크릴",
-            thickness: "5T",
-            basis: "외곽 치수 기준",
-            confidence: "medium",
-            risk_notes: ["회전 가능 여부 확인"],
-          },
-          {
-            id: "front-back",
-            name: "전/후면판",
-            shape: "rect",
-            width_mm: 600,
-            height_mm: 240,
-            quantity: 24,
-            material: "아크릴",
-            thickness: "5T",
-            basis: "높이 치수 기준",
-            confidence: "medium",
-            risk_notes: ["접착 여유 확인"],
-          },
-          {
-            id: "side",
-            name: "좌/우 측판",
-            shape: "rect",
-            width_mm: 380,
-            height_mm: 240,
-            quantity: 24,
-            material: "아크릴",
-            thickness: "5T",
-            basis: "깊이/높이 기준",
-            confidence: "medium",
-            risk_notes: ["두께 차감 검수"],
-          },
-        ],
-    missing_fields: sourceOnly
-      ? ["PDF/JPG/PNG 미리보기", "제작 품목", "사이즈", "수량", "희망 납기"]
-      : ["원장 규격", "회전 가능 여부", "커프/재단 여유", "로고 원본"],
-    production_risks: [
-      ...(sourceOnly ? ["원본 파일만으로는 빠른 견적 분석이 제한됩니다."] : ["도면 스케일 확인 필요"]),
-      ...(hasCadSource ? ["DWG/CAD 원본은 변환기 또는 PDF 미리보기와 대조해야 합니다."] : []),
-      "상담원 검수 전 확정 금액으로 사용하지 않습니다.",
-    ],
-    recommended_reply: sourceOnly
-      ? "원본 파일은 확인했습니다. 빠른 견적 확인을 위해 PDF, JPG 또는 PNG 미리보기 파일과 제작 품목, 사이즈, 수량, 희망 납기를 함께 알려주세요."
-      : "첨부파일 기준으로 임시 분석했습니다. 원장 규격, 로고 원본, 회전 가능 여부를 확인하면 견적 정확도를 높일 수 있습니다.",
-    confidence: sourceOnly ? "low" : "medium",
-  };
+  ];
 
-  const totalAreaMm2 = analysis.parts.reduce((sum, part: any) => (
-    sum + (Number(part.width_mm) || 0) * (Number(part.height_mm) || 0) * (Number(part.quantity) || 0)
+  for (const image of input.imagePayloads.slice(0, 4)) {
+    content.push({
+      type: "image_url",
+      image_url: { url: `data:${image.mimeType};base64,${image.base64}` },
+    });
+  }
+
+  const response = await fetch(AI_GATEWAY_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [{ role: "user", content }],
+      max_tokens: 2500,
+    }),
+  });
+
+  if (!response.ok) {
+    console.error("quote-wizard AI gateway error:", response.status, await response.text());
+    return null;
+  }
+
+  const result = await response.json();
+  return parseAiJson(result.choices?.[0]?.message?.content || "");
+}
+
+function buildYieldSnapshot(parts: ExtractedPart[]) {
+  const totalArea = parts.reduce((sum, part) => (
+    sum + (Number(part.width_mm) || 0) * (Number(part.height_mm) || 0) * (Number(part.quantity) || 1)
   ), 0);
-  const stockAreaMm2 = 1220 * 2440;
-  const sheetCount = totalAreaMm2 ? Math.max(1, Math.ceil(totalAreaMm2 / (stockAreaMm2 * 0.82))) : null;
-  const yieldPercent = totalAreaMm2 && sheetCount ? Math.round((totalAreaMm2 / (stockAreaMm2 * sheetCount)) * 1000) / 10 : null;
-
-  const yieldSnapshot = {
-    status: sourceOnly ? "insufficient_data" : "estimated",
-    candidate_basis: sourceOnly ? null : "fallback_worker_sample",
-    stock_sheet: {
-      name: sourceOnly ? null : "4*8 후보",
-      width_mm: sourceOnly ? null : 1220,
-      height_mm: sourceOnly ? null : 2440,
-      basis: sourceOnly ? null : "logic_auto_candidate",
-    },
-    total_part_area_mm2: totalAreaMm2 || null,
-    estimated_sheet_count: sheetCount,
-    yield_percent: yieldPercent,
-    scrap_percent: yieldPercent === null ? null : Math.round((100 - yieldPercent) * 10) / 10,
-    notes: sourceOnly
-      ? ["원장/수율 계산에 필요한 치수와 수량이 부족합니다."]
-      : ["워커 미설정 상태의 참고값입니다.", "실제 DB 원장 후보와 생산 방향성 검수가 필요합니다."],
-  };
-
-  const subtotal = sourceOnly ? 0 : 1_348_200;
-  const tax = Math.round(subtotal * 0.1);
-  const formula = {
-    status: sourceOnly ? "blocked" : "needs_review",
-    subtotal,
-    tax,
-    total: subtotal + tax,
-    version: FORMULA_VERSION,
-    line_items: sourceOnly
-      ? []
-      : [
-          { label: "원장/재단 기준", amount: 624_000, source: "panel", reason: "아크릴 5T 후보 원장" },
-          { label: "타공/가공", amount: 312_000, source: "processing", reason: "상단 타공 및 재단 공임" },
-          { label: "인쇄/조립", amount: 412_200, source: "fabrication", reason: "UV 인쇄 및 접착 조립" },
-        ],
-    warnings: analysis.production_risks,
-    blocked_reasons: sourceOnly ? ["PDF/JPG/PNG 미리보기 없이 자동 견적 산출 불가"] : [],
-  };
 
   return {
-    analysis,
-    yield: yieldSnapshot,
-    formula,
-    status: formula.status,
+    status: totalArea ? "insufficient_data" : "insufficient_data",
+    candidate_basis: null,
+    stock_sheet: { name: null, width_mm: null, height_mm: null, basis: null },
+    total_part_area_mm2: totalArea || null,
+    estimated_sheet_count: null,
+    yield_percent: null,
+    scrap_percent: null,
+    notes: totalArea
+      ? ["파일에서 파트 면적은 추출했지만 원장 규격/방향/커프 정보가 없어 수율은 계산하지 않았습니다."]
+      : ["원장/수율 계산에 필요한 파트 치수와 수량이 부족합니다."],
   };
+}
+
+function buildFormulaSnapshot(parts: ExtractedPart[], risks: string[]) {
+  const blockedReasons = [
+    ...(parts.length ? [] : ["파일에서 견적 산출 가능한 파트 치수를 추출하지 못했습니다."]),
+    "원장 규격, 소재 단가, 가공 조건 검수 전에는 임시 금액을 산출하지 않습니다.",
+  ];
+
+  return {
+    status: "blocked",
+    subtotal: 0,
+    tax: 0,
+    total: 0,
+    version: FORMULA_VERSION,
+    line_items: [],
+    warnings: risks,
+    blocked_reasons: blockedReasons,
+  };
+}
+
+function buildEngineUnavailableResult(job: any, files: QuoteWizardFile[], reason: string) {
+  const risks = [
+    reason,
+    "파일 내용 기반 파트 추출이 실행되지 않았으므로 치수/수량을 상담원이 확인해야 합니다.",
+  ];
+  return {
+    analysis: {
+      item_name: null,
+      dimensions: null,
+      quantity: null,
+      material: null,
+      thickness: null,
+      color: null,
+      finish: null,
+      processing: [],
+      observed: {
+        files: files.map((file) => `${file.file_name}(${file.kind})`),
+        customer_note: job.customer_note || null,
+      },
+      inferred: {
+        engine_status: "unavailable",
+        extraction_mode: "none",
+        note: reason,
+      },
+      parts: [],
+      missing_fields: ["분석 엔진 연결", "제작 품목", "파트별 치수", "수량", "소재/두께", "원장 규격"],
+      production_risks: risks,
+      recommended_reply: "첨부파일은 접수했지만 자동 분석 엔진이 연결되지 않아 도면 내용 기반 추출을 진행하지 못했습니다. 상담원이 도면 치수, 수량, 소재/두께를 확인해야 합니다.",
+      confidence: "low",
+    },
+    yield: buildYieldSnapshot([]),
+    formula: buildFormulaSnapshot([], risks),
+    status: "blocked",
+  };
+}
+
+async function buildBuiltInAnalysis(supabase: ReturnType<typeof createClient>, job: any, files: QuoteWizardFile[]) {
+  const observations: FileObservation[] = [];
+  const imagePayloads: Array<{ mimeType: string; base64: string; fileName: string }> = [];
+  const extractedParts: ExtractedPart[] = [];
+  let combinedText = "";
+
+  for (const file of files) {
+    try {
+      const bytes = await downloadFileBytes(supabase, file);
+      if (file.kind === "pdf") {
+        const text = extractPdfText(bytes);
+        const parts = extractDimensionParts(text, `${file.file_name} PDF`);
+        observations.push({ file: file.file_name, kind: file.kind, text, text_excerpt: compactText(text, 1200), parts });
+        combinedText += `\n${text}`;
+        extractedParts.push(...parts);
+      } else if (file.kind === "dxf") {
+        const text = new TextDecoder().decode(bytes);
+        const parts = dedupeParts([...parseDxfParts(text, file.file_name), ...extractDimensionParts(text, `${file.file_name} DXF`)]);
+        observations.push({ file: file.file_name, kind: file.kind, text_excerpt: compactText(text, 1200), parts });
+        combinedText += `\n${text.slice(0, 12000)}`;
+        extractedParts.push(...parts);
+      } else if (file.kind === "image") {
+        imagePayloads.push({
+          fileName: file.file_name,
+          mimeType: file.mime_type || "image/png",
+          base64: base64Encode(bytes),
+        });
+        observations.push({ file: file.file_name, kind: file.kind, note: "AI Gateway vision 분석 대상으로 전달했습니다." });
+      } else if (file.kind === "dwg") {
+        observations.push({ file: file.file_name, kind: file.kind, note: "DWG는 Edge Function 내장 분석에서 직접 파싱할 수 없어 DXF/PDF 미리보기가 필요합니다." });
+      } else {
+        observations.push({ file: file.file_name, kind: file.kind, note: "내장 분석기가 지원하지 않는 원본 형식입니다." });
+      }
+    } catch (error) {
+      observations.push({ file: file.file_name, kind: file.kind, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  const ai = await runAiAnalysis({ job, files, observations, imagePayloads });
+  const aiParts = normalizeAiParts(ai?.parts);
+  const parts = dedupeParts([...aiParts, ...extractedParts]);
+  const material = toText(ai?.material) || extractMaterial(combinedText);
+  const thickness = toText(ai?.thickness) || extractThickness(combinedText);
+  const processing = Array.isArray(ai?.processing) ? ai.processing.map(String).filter(Boolean) : extractProcessing(combinedText);
+  const risks = [
+    ...new Set([
+      ...((Array.isArray(ai?.production_risks) ? ai.production_risks.map(String) : []) || []),
+      ...(observations.some((item) => item.error) ? ["일부 파일을 분석하지 못했습니다."] : []),
+      ...(files.some((file) => file.kind === "dwg") ? ["DWG 원본은 DXF/PDF 미리보기와 대조해야 합니다."] : []),
+      "자동 추출값은 상담원 검수 전 확정 견적으로 사용할 수 없습니다.",
+    ]),
+  ];
+  const missing = [
+    ...new Set([
+      ...((Array.isArray(ai?.missing_fields) ? ai.missing_fields.map(String) : []) || []),
+      ...(parts.length ? [] : ["파트별 치수", "수량"]),
+      ...(material ? [] : ["소재"]),
+      ...(thickness ? [] : ["두께"]),
+      "원장 규격",
+      "커프/재단 여유",
+    ]),
+  ];
+
+  const analysis = {
+    item_name: toText(ai?.item_name),
+    dimensions: toText(ai?.dimensions),
+    quantity: toNumber(ai?.quantity),
+    material,
+    thickness,
+    color: toText(ai?.color),
+    finish: toText(ai?.finish),
+    processing,
+    observed: {
+      files: files.map((file) => `${file.file_name}(${file.kind})`),
+      customer_note: job.customer_note || null,
+      observations,
+    },
+    inferred: {
+      engine_status: parts.length || ai ? "limited" : "needs_review",
+      extraction_mode: ai ? "edge_builtin_ai" : "edge_builtin_text",
+      worker_status: Deno.env.get("QUOTE_WIZARD_WORKER_URL") ? "configured_but_fallback_used" : "not_configured",
+      ai_gateway_status: Deno.env.get("LOVABLE_API_KEY") ? "available" : "missing",
+      note: "Edge Function 내장 분석기가 파일 텍스트/이미지에서 관찰 가능한 값만 추출했습니다.",
+    },
+    parts,
+    missing_fields: missing,
+    production_risks: risks,
+    recommended_reply: toText(ai?.recommended_reply) || "첨부파일 기준으로 자동 추출 가능한 값만 정리했습니다. 파트별 치수, 수량, 소재/두께, 원장 규격을 확인하면 견적 산출이 가능합니다.",
+    confidence: (["low", "medium", "high"].includes(String(ai?.confidence)) ? ai?.confidence : (parts.length ? "medium" : "low")) as "low" | "medium" | "high",
+  };
+
+  const yieldSnapshot = buildYieldSnapshot(parts);
+  const formula = buildFormulaSnapshot(parts, risks);
+
+  return { analysis, yield: yieldSnapshot, formula, status: formula.status };
 }
 
 async function requestWorker(job: any, files: QuoteWizardFile[]) {
@@ -338,11 +692,16 @@ async function analyzeJob(supabase: ReturnType<typeof createClient>, userId: str
 
   try {
     const workerResult = await requestWorker(payload.job, payload.files as QuoteWizardFile[]);
+    const analysisResult = workerResult || await buildBuiltInAnalysis(
+      supabase,
+      payload.job,
+      payload.files as QuoteWizardFile[],
+    );
     await saveResult(
       supabase,
       payload.job,
-      workerResult || buildFallbackAnalysis(payload.job, payload.files as QuoteWizardFile[]),
-      workerResult ? "worker" : "edge_fallback",
+      analysisResult || buildEngineUnavailableResult(payload.job, payload.files as QuoteWizardFile[], "분석 엔진이 결과를 반환하지 않았습니다."),
+      workerResult ? "worker" : "edge_builtin",
     );
     return loadPayload(supabase, jobId, userId);
   } catch (error) {

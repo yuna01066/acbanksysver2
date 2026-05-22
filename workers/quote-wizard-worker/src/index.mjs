@@ -78,23 +78,191 @@ const inspectCad = async (filePath) => {
   }
 };
 
-const totalPartArea = (parts) => parts.reduce((sum, part) => sum + part.width_mm * part.height_mm * part.quantity, 0);
+const compactText = (text, limit = 7000) => text.replace(/\s+/g, ' ').trim().slice(0, limit);
+
+const decodePdfLiteral = (raw) => raw
+  .replace(/\\n/g, '\n')
+  .replace(/\\r/g, '\r')
+  .replace(/\\t/g, '\t')
+  .replace(/\\\(/g, '(')
+  .replace(/\\\)/g, ')')
+  .replace(/\\\\/g, '\\');
+
+const extractPdfText = async (filePath) => {
+  const buffer = await readFile(filePath);
+  const raw = buffer.toString('latin1');
+  const fragments = [];
+
+  for (const match of raw.matchAll(/\((?:\\.|[^\\)]){1,500}\)\s*Tj/g)) {
+    fragments.push(decodePdfLiteral(match[0].replace(/\)\s*Tj$/, '').slice(1)));
+  }
+
+  for (const match of raw.matchAll(/\[((?:\((?:\\.|[^\\)]){1,500}\)\s*)+)\]\s*TJ/g)) {
+    for (const stringMatch of match[1].matchAll(/\((?:\\.|[^\\)]){1,500}\)/g)) {
+      fragments.push(decodePdfLiteral(stringMatch[0].slice(1, -1)));
+    }
+  }
+
+  const fallback = raw
+    .replace(/[^\x20-\x7E가-힣ㄱ-ㅎㅏ-ㅣ]/g, ' ')
+    .match(/[A-Za-z가-힣0-9][A-Za-z가-힣0-9\s.,:;()xX*×/+-]{3,}/g);
+
+  return compactText([...fragments, ...(fallback || [])].join(' '), 10000);
+};
+
+const normalizeUnit = (value, unit = 'mm') => {
+  const normalized = String(unit || 'mm').toLowerCase();
+  if (normalized === 'm') return value * 1000;
+  if (normalized === 'cm' || normalized === '센티') return value * 10;
+  return value;
+};
+
+const inferQuantity = (text, matchIndex) => {
+  const windowText = text.slice(Math.max(0, matchIndex - 80), matchIndex + 120);
+  const quantityMatch = windowText.match(/(?:수량|qty|quantity|ea|set|세트|개수)?\s*[:：]?\s*(\d{1,5})\s*(?:개|ea|EA|set|SET|세트)/);
+  return quantityMatch ? Number(quantityMatch[1]) : null;
+};
+
+const inferLabel = (text, matchIndex, index) => {
+  const before = text.slice(Math.max(0, matchIndex - 48), matchIndex).replace(/\s+/g, ' ').trim();
+  const labelMatch = before.match(/([가-힣A-Za-z0-9_/-]{2,24})\s*[:：-]?\s*$/);
+  return labelMatch ? labelMatch[1] : `추출 파트 ${index + 1}`;
+};
+
+const extractThickness = (text) => {
+  const match = text.match(/(\d+(?:\.\d+)?)\s*T\b/i);
+  return match ? `${match[1].replace(/\.0$/, '')}T` : null;
+};
+
+const extractMaterial = (text) => {
+  if (/아크릴|acrylic|pmma/i.test(text)) return '아크릴';
+  if (/포맥스|폼보드|foam/i.test(text)) return '포맥스';
+  if (/알루미늄|aluminum|aluminium/i.test(text)) return '알루미늄';
+  if (/스테인리스|스텐|sus|stainless/i.test(text)) return '스테인리스';
+  return null;
+};
+
+const extractProcessing = (text) => {
+  const candidates = [
+    ['재단', /재단|cut/i],
+    ['CNC', /cnc/i],
+    ['레이저', /레이저|laser/i],
+    ['타공', /타공|홀|hole|drill/i],
+    ['인쇄', /인쇄|출력|uv|print/i],
+    ['접착', /접착|본딩|bond/i],
+    ['조립', /조립|assembly/i],
+    ['절곡', /절곡|bending/i],
+  ];
+  return candidates.filter(([, pattern]) => pattern.test(text)).map(([label]) => label);
+};
+
+const dedupeParts = (parts) => {
+  const seen = new Set();
+  return parts.filter((part) => {
+    const key = [part.name, part.width_mm, part.height_mm, part.quantity].join('|');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const extractDimensionParts = (text, sourceLabel) => {
+  const parts = [];
+  const dimensionPattern = /(\d{2,5}(?:\.\d+)?)\s*(?:mm|㎜|미리|cm|m)?\s*(?:x|X|×|\*)\s*(\d{2,5}(?:\.\d+)?)\s*(?:mm|㎜|미리|cm|m)?(?:\s*(?:x|X|×|\*)\s*(\d{1,4}(?:\.\d+)?)\s*(?:T|t|mm|㎜|미리)?)?/g;
+  const material = extractMaterial(text);
+  const thickness = extractThickness(text);
+  let index = 0;
+
+  for (const match of text.matchAll(dimensionPattern)) {
+    const unitMatch = match[0].match(/\b(mm|cm|m|㎜|미리)\b/i)?.[1] || 'mm';
+    const width = normalizeUnit(Number(match[1]), unitMatch);
+    const height = normalizeUnit(Number(match[2]), unitMatch);
+    if (!Number.isFinite(width) || !Number.isFinite(height)) continue;
+    if (width < 10 || height < 10 || width > 20000 || height > 20000) continue;
+    const quantity = inferQuantity(text, match.index || 0);
+    parts.push({
+      id: `${sourceLabel}-${index + 1}`,
+      name: inferLabel(text, match.index || 0, index),
+      shape: 'rect',
+      width_mm: Math.round(width * 10) / 10,
+      height_mm: Math.round(height * 10) / 10,
+      quantity,
+      material,
+      thickness: match[3] ? `${match[3].replace(/\.0$/, '')}T` : thickness,
+      basis: `${sourceLabel} 텍스트에서 치수 패턴 직접 추출`,
+      confidence: quantity ? 'medium' : 'low',
+      risk_notes: [
+        '텍스트 기반 자동 추출값입니다. 도면 스케일과 실제 수량 검수가 필요합니다.',
+        ...(quantity ? [] : ['수량 표기가 명확하지 않습니다.']),
+      ],
+    });
+    index += 1;
+    if (parts.length >= 24) break;
+  }
+
+  return dedupeParts(parts);
+};
+
+const parseDxfTextParts = (text, sourceLabel) => {
+  const lines = text.split(/\r?\n/).map((line) => line.trim());
+  const parts = [];
+  let index = 0;
+
+  for (let i = 0; i < lines.length - 1; i += 2) {
+    if (lines[i] !== '0' || lines[i + 1] !== 'LWPOLYLINE') continue;
+    const entity = [];
+    i += 2;
+    while (i < lines.length - 1 && !(lines[i] === '0' && lines[i + 1])) {
+      entity.push([lines[i], lines[i + 1]]);
+      i += 2;
+    }
+    i -= 2;
+
+    const closed = entity.some(([code, value]) => code === '70' && (Number(value) & 1) === 1);
+    const xs = entity.filter(([code]) => code === '10').map(([, value]) => Number(value)).filter(Number.isFinite);
+    const ys = entity.filter(([code]) => code === '20').map(([, value]) => Number(value)).filter(Number.isFinite);
+    if (!closed || xs.length < 4 || ys.length < 4) continue;
+    const width = Math.max(...xs) - Math.min(...xs);
+    const height = Math.max(...ys) - Math.min(...ys);
+    if (width < 10 || height < 10 || width > 20000 || height > 20000) continue;
+    parts.push({
+      id: `${sourceLabel}-polyline-${index + 1}`,
+      name: `DXF 폐합 외곽 ${index + 1}`,
+      shape: 'rect',
+      width_mm: Math.round(width * 10) / 10,
+      height_mm: Math.round(height * 10) / 10,
+      quantity: 1,
+      material: null,
+      thickness: null,
+      basis: 'DXF LWPOLYLINE 폐합 외곽 bounding box 기준',
+      confidence: 'low',
+      risk_notes: ['DXF 단위와 스케일 확인이 필요합니다.', '폐합 외곽의 실제 파트 여부는 상담원 검수가 필요합니다.'],
+    });
+    index += 1;
+    if (parts.length >= 24) break;
+  }
+
+  return dedupeParts(parts);
+};
+
+const totalPartArea = (parts) => parts.reduce((sum, part) => (
+  sum + (Number(part.width_mm) || 0) * (Number(part.height_mm) || 0) * (Number(part.quantity) || 1)
+), 0);
 
 const fallbackYieldSnapshot = (parts, sourceOnly) => {
   const totalArea = totalPartArea(parts);
-  const sheetArea = 1220 * 2440;
-  const sheetCount = totalArea ? Math.max(1, Math.ceil(totalArea / (sheetArea * 0.82))) : null;
-  const efficiency = totalArea && sheetCount ? Math.round((totalArea / (sheetArea * sheetCount)) * 1000) / 10 : null;
 
   return {
-    status: sourceOnly ? 'insufficient_data' : 'estimated',
-    candidate_basis: sourceOnly ? null : 'worker_fallback_candidate',
-    stock_sheet: { name: sourceOnly ? null : '4*8 후보', width_mm: sourceOnly ? null : 1220, height_mm: sourceOnly ? null : 2440, basis: sourceOnly ? null : 'fallback_candidate' },
+    status: 'insufficient_data',
+    candidate_basis: null,
+    stock_sheet: { name: null, width_mm: null, height_mm: null, basis: null },
     total_part_area_mm2: totalArea || null,
-    estimated_sheet_count: sheetCount,
-    yield_percent: efficiency,
-    scrap_percent: efficiency === null ? null : Math.round((100 - efficiency) * 10) / 10,
-    notes: sourceOnly ? ['원장/수율 계산에 필요한 치수와 수량이 부족합니다.'] : ['워커 fallback 참고값입니다.', '실제 DB 원장 후보와 생산 방향성 검수가 필요합니다.'],
+    estimated_sheet_count: null,
+    yield_percent: null,
+    scrap_percent: null,
+    notes: totalArea && !sourceOnly
+      ? ['파일에서 파트 면적은 추출했지만 원장 규격/방향/커프 정보가 없어 수율은 계산하지 않았습니다.']
+      : ['원장/수율 계산에 필요한 파트 치수와 수량이 부족합니다.'],
   };
 };
 
@@ -134,6 +302,15 @@ const compactYieldResult = (result, parts) => {
 
 const runYieldCalculator = async (parts, thickness, fallback) => {
   if (!parts.length) return fallback;
+  if (!thickness) {
+    return {
+      ...fallback,
+      notes: [
+        ...(fallback.notes || []),
+        '두께 정보가 없어 원장 후보 계산은 보류했습니다.',
+      ],
+    };
+  }
 
   const args = [
     optionalScript.yieldCalculator,
@@ -141,12 +318,13 @@ const runYieldCalculator = async (parts, thickness, fallback) => {
     '--allow-rotate',
     'yes',
     '--thickness',
-    thickness || '5T',
+    thickness,
   ];
 
   for (const part of parts) {
     const name = String(part.name || 'part').replace(/[:\r\n]/g, ' ').trim() || 'part';
-    args.push('--part', `${name}:${part.width_mm}x${part.height_mm}x${part.quantity}`);
+    const quantity = Number(part.quantity) || 1;
+    args.push('--part', `${name}:${part.width_mm}x${part.height_mm}x${quantity}`);
   }
 
   try {
@@ -163,32 +341,32 @@ const runYieldCalculator = async (parts, thickness, fallback) => {
   }
 };
 
-const fallbackFormulaSnapshot = (sourceOnly, productionRisks) => {
-  const subtotal = sourceOnly ? 0 : 1_348_200;
-  const tax = Math.round(subtotal * 0.1);
-
+const fallbackFormulaSnapshot = (sourceOnly, productionRisks, parts = []) => {
   return {
-    status: sourceOnly ? 'blocked' : 'needs_review',
-    subtotal,
-    tax,
-    total: subtotal + tax,
+    status: 'blocked',
+    subtotal: 0,
+    tax: 0,
+    total: 0,
     version: FORMULA_VERSION,
-    line_items: sourceOnly ? [] : [
-      { label: '원장/재단 기준', amount: 624_000, source: 'panel', reason: '아크릴 5T 후보 원장' },
-      { label: '타공/가공', amount: 312_000, source: 'processing', reason: '상단 타공 및 재단 공임' },
-      { label: '인쇄/조립', amount: 412_200, source: 'fabrication', reason: 'UV 인쇄 및 접착 조립' },
-    ],
+    line_items: [],
     warnings: productionRisks,
-    blocked_reasons: sourceOnly ? ['PDF/JPG/PNG 미리보기 없이 자동 견적 산출 불가'] : [],
+    blocked_reasons: [
+      ...(sourceOnly || !parts.length ? ['파일에서 견적 산출 가능한 파트 치수를 추출하지 못했습니다.'] : []),
+      '원장 규격, 소재 단가, 가공 조건 검수 전에는 임시 금액을 산출하지 않습니다.',
+    ],
   };
 };
 
 const runFormulaCalculator = async ({ analysis, parts, yieldSnapshot, tempDir, sourceOnly }) => {
-  const fallback = fallbackFormulaSnapshot(sourceOnly, analysis.production_risks);
+  const fallback = fallbackFormulaSnapshot(sourceOnly, analysis.production_risks, parts);
   if (sourceOnly || !parts.length) return fallback;
+  if (process.env.QUOTE_WIZARD_ENABLE_FORMULA_MVP !== 'true') return fallback;
+  if (!analysis.material || !analysis.thickness || !yieldSnapshot.estimated_sheet_count) return fallback;
 
   const sheetCount = yieldSnapshot.estimated_sheet_count || 1;
-  const edgeLengthM = parts.reduce((sum, part) => sum + ((part.width_mm + part.height_mm) * 2 * part.quantity), 0) / 1000;
+  const edgeLengthM = parts.reduce((sum, part) => (
+    sum + ((Number(part.width_mm) || 0) + (Number(part.height_mm) || 0)) * 2 * (Number(part.quantity) || 1)
+  ), 0) / 1000;
   const formulaInput = {
     sheetCost: sheetCount * 156_000,
     productQty: analysis.quantity || 1,
@@ -240,45 +418,55 @@ const runFormulaCalculator = async ({ analysis, parts, yieldSnapshot, tempDir, s
   }
 };
 
-const buildParts = (files) => {
-  const hasFastPreview = files.some((file) => ['pdf', 'image', 'dxf'].includes(file.kind));
-  if (!hasFastPreview) return [];
-  return [
-    { id: 'top-bottom', name: '상/하판', shape: 'rect', width_mm: 600, height_mm: 380, quantity: 24, material: '아크릴', thickness: '5T', basis: '도면/미리보기 치수 추정', confidence: 'medium', risk_notes: ['회전 가능 여부 확인'] },
-    { id: 'front-back', name: '전/후면판', shape: 'rect', width_mm: 600, height_mm: 240, quantity: 24, material: '아크릴', thickness: '5T', basis: '도면/미리보기 치수 추정', confidence: 'medium', risk_notes: ['접착 여유 확인'] },
-    { id: 'side', name: '좌/우 측판', shape: 'rect', width_mm: 380, height_mm: 240, quantity: 24, material: '아크릴', thickness: '5T', basis: '도면/미리보기 치수 추정', confidence: 'medium', risk_notes: ['두께 차감 검수'] },
-  ];
-};
+const buildParts = (parserNotes) => dedupeParts(
+  parserNotes.flatMap((note) => Array.isArray(note.parts) ? note.parts : []),
+);
 
 const buildAnalysis = async ({ job, files, parserNotes, tempDir }) => {
   const hasFastPreview = files.some((file) => ['pdf', 'image', 'dxf'].includes(file.kind));
   const sourceOnly = !hasFastPreview;
-  const parts = buildParts(files);
+  const parts = buildParts(parserNotes);
+  const combinedText = compactText(parserNotes.map((note) => note.text || note.text_excerpt || '').join('\n'), 16000);
+  const material = extractMaterial(combinedText);
+  const thickness = extractThickness(combinedText);
+  const processing = extractProcessing(combinedText);
+  const risks = [
+    ...(sourceOnly ? ['원본 파일만으로는 자동 분석이 제한됩니다. PDF/DXF 또는 이미지 미리보기가 필요합니다.'] : []),
+    ...(parts.length ? ['자동 추출 치수는 도면 스케일과 실제 파트 여부 검수가 필요합니다.'] : ['파일에서 명확한 파트 치수와 수량을 추출하지 못했습니다.']),
+    ...(files.some((file) => file.kind === 'dwg') ? ['DWG는 변환 결과와 PDF/DXF 미리보기를 대조해야 합니다.'] : []),
+    '상담원 검수 전 확정 금액으로 사용하지 않습니다.',
+  ];
 
   const analysis = {
-    item_name: sourceOnly ? null : '투명 아크릴 박스형 진열 커버',
-    dimensions: sourceOnly ? null : '600 x 380 x 240mm',
-    quantity: sourceOnly ? null : 12,
-    material: sourceOnly ? null : '아크릴',
-    thickness: sourceOnly ? null : '5T',
-    color: sourceOnly ? null : '투명',
-    finish: sourceOnly ? null : '불광/광택',
-    processing: sourceOnly ? [] : ['재단', '타공', '인쇄', '접착', '조립'],
+    item_name: null,
+    dimensions: null,
+    quantity: null,
+    material,
+    thickness,
+    color: null,
+    finish: null,
+    processing,
     observed: { files: files.map((file) => `${file.file_name}(${file.kind})`), parser_notes: parserNotes },
-    inferred: sourceOnly ? {} : { worker_mode: 'quote-wizard-worker-mvp' },
+    inferred: {
+      engine_status: parts.length ? 'limited' : 'needs_review',
+      extraction_mode: 'quote_wizard_worker_text',
+      worker_mode: 'quote-wizard-worker-mvp',
+      note: '워커가 PDF 텍스트/DXF 엔티티에서 관찰 가능한 치수만 추출했습니다. 샘플 파트나 샘플 금액은 생성하지 않습니다.',
+    },
     parts,
-    missing_fields: sourceOnly
-      ? ['PDF/JPG/PNG 미리보기', '제작 품목', '사이즈', '수량', '희망 납기']
-      : ['원장 규격', '회전 가능 여부', '커프/재단 여유', '로고 원본'],
-    production_risks: [
-      ...(sourceOnly ? ['원본 파일만으로는 빠른 견적 분석이 제한됩니다.'] : ['도면 스케일 확인 필요']),
-      ...(files.some((file) => file.kind === 'dwg') ? ['DWG는 변환 결과와 PDF 미리보기를 대조해야 합니다.'] : []),
-      '상담원 검수 전 확정 금액으로 사용하지 않습니다.',
+    missing_fields: [
+      ...(parts.length ? [] : ['파트별 치수', '수량']),
+      ...(material ? [] : ['소재']),
+      ...(thickness ? [] : ['두께']),
+      '제작 품목',
+      '원장 규격',
+      '커프/재단 여유',
     ],
-    recommended_reply: sourceOnly
-      ? '원본 파일은 확인했습니다. 빠른 견적 확인을 위해 PDF, JPG 또는 PNG 미리보기 파일과 제작 품목, 사이즈, 수량, 희망 납기를 함께 알려주세요.'
-      : '첨부파일 기준으로 임시 분석했습니다. 원장 규격, 로고 원본, 회전 가능 여부를 확인하면 견적 정확도를 높일 수 있습니다.',
-    confidence: sourceOnly ? 'low' : 'medium',
+    production_risks: risks,
+    recommended_reply: parts.length
+      ? '첨부파일에서 자동 추출 가능한 파트 치수만 정리했습니다. 제작 품목, 수량, 소재/두께, 원장 규격을 확인하면 견적 산출을 진행할 수 있습니다.'
+      : '첨부파일은 접수했지만 자동으로 확정 가능한 파트 치수를 찾지 못했습니다. PDF/DXF 미리보기, 제작 품목, 파트별 치수, 수량, 소재/두께를 확인해주세요.',
+    confidence: parts.length ? 'medium' : 'low',
   };
 
   const yieldSnapshot = await runYieldCalculator(parts, analysis.thickness, fallbackYieldSnapshot(parts, sourceOnly));
@@ -301,8 +489,47 @@ const handleAnalyze = async (body) => {
       });
       if (!localPath) continue;
 
-      if (file.kind === 'dxf') parserNotes.push({ file: file.file_name, dxf: await inspectDxf(localPath) });
-      if (file.kind === 'dwg') parserNotes.push({ file: file.file_name, cad: await inspectCad(localPath) });
+      if (file.kind === 'pdf') {
+        const text = await extractPdfText(localPath);
+        parserNotes.push({
+          file: file.file_name,
+          kind: 'pdf',
+          text,
+          text_excerpt: compactText(text, 1200),
+          parts: extractDimensionParts(text, `${file.file_name} PDF`),
+        });
+      } else if (file.kind === 'dxf') {
+        const text = await readFile(localPath, 'utf8').catch(() => '');
+        parserNotes.push({
+          file: file.file_name,
+          kind: 'dxf',
+          text_excerpt: compactText(text, 1200),
+          parts: dedupeParts([
+            ...parseDxfTextParts(text, file.file_name),
+            ...extractDimensionParts(text, `${file.file_name} DXF`),
+          ]),
+          dxf: await inspectDxf(localPath),
+        });
+      } else if (file.kind === 'dwg') {
+        parserNotes.push({
+          file: file.file_name,
+          kind: 'dwg',
+          note: 'DWG는 워커에서 직접 분석을 시도했지만 변환기 또는 미리보기와 대조가 필요합니다.',
+          cad: await inspectCad(localPath),
+        });
+      } else if (file.kind === 'image') {
+        parserNotes.push({
+          file: file.file_name,
+          kind: 'image',
+          note: '현재 독립 워커는 이미지 OCR/비전 분석을 수행하지 않습니다. Lovable AI Gateway 또는 PDF/DXF 미리보기가 필요합니다.',
+        });
+      } else {
+        parserNotes.push({
+          file: file.file_name,
+          kind: file.kind || 'unknown',
+          note: '현재 독립 워커가 지원하지 않는 파일 형식입니다.',
+        });
+      }
     }
 
     return buildAnalysis({ job: body.job, files, parserNotes, tempDir });
