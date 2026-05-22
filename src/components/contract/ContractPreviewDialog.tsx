@@ -14,7 +14,7 @@ import { Download, Loader2 } from 'lucide-react';
 import { getDownloadUrl } from '@/services/documentFiles';
 import { contractDocumentCss, injectCompanySealIntoRenderedHtml, injectSignatureIntoRenderedHtml } from '@/utils/contractRenderer';
 
-interface ContractData {
+export interface ContractData {
   user_name: string;
   birth_date?: string | null;
   contract_date?: string;
@@ -40,6 +40,7 @@ interface ContractData {
   probation_end_date?: string | null;
   probation_salary_rate?: number | null;
   rendered_html?: string | null;
+  signed_rendered_html?: string | null;
   signature_storage_path?: string | null;
   company_seal_storage_path?: string | null;
   signed_pdf_storage_path?: string | null;
@@ -121,12 +122,13 @@ const ContractPreviewDialog: React.FC<ContractPreviewDialogProps> = ({
   }, [contract?.company_seal_storage_path]);
 
   const renderedContractHtml = useMemo(() => {
-    if (!contract?.rendered_html) return null;
+    const html = contract?.signed_rendered_html || contract?.rendered_html;
+    if (!html) return null;
     return injectSignatureIntoRenderedHtml(
-      injectCompanySealIntoRenderedHtml(contract.rendered_html, companySealUrl),
+      injectCompanySealIntoRenderedHtml(html, companySealUrl),
       signatureUrl,
     );
-  }, [contract?.rendered_html, companySealUrl, signatureUrl]);
+  }, [contract?.rendered_html, contract?.signed_rendered_html, companySealUrl, signatureUrl]);
 
   if (!contract) return null;
 
