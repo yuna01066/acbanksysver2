@@ -163,7 +163,7 @@ const calculatePlacementScore = (
   existingPositions: PlacedItem[]
 ): number => {
   // 기본 점수: 왼쪽 아래 우선 (y가 클수록, x가 작을수록 좋음)
-  let score = y * 1000 + x;
+  const score = y * 1000 + x;
   
   // 기존 도형과의 접촉 보너스 (재료 효율성 향상)
   let contactBonus = 0;

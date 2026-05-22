@@ -288,7 +288,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId, projectName }) => {
     const ext = name.lastIndexOf('.') > 0 ? name.substring(name.lastIndexOf('.')) : '';
     const base = name.lastIndexOf('.') > 0 ? name.substring(0, name.lastIndexOf('.')) : name;
     const sanitized = base
-      .replace(/[^a-zA-Z0-9가-힣ㄱ-ㅎㅏ-ㅣ_\-]/g, '_')
+      .replace(/[^a-zA-Z0-9가-힣ㄱ-ㅎㅏ-ㅣ_-]/g, '_')
       .replace(/_+/g, '_')
       .replace(/^_|_$/g, '');
     return (sanitized || 'file') + ext;

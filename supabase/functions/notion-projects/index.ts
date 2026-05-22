@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
       const properties = page.properties || {};
 
       let title = '';
-      let createdDate = page.created_time;
+      const createdDate = page.created_time;
       let startDate = '';
       let endDate = '';
       let assignee = '';
