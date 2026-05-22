@@ -5,6 +5,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function generateTemporaryPassword(length = 16): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  const randomPart = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
+  return `Acb!${randomPart}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -28,8 +36,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      console.log('Password reset request for:', email);
-
       // Verify against profiles table using service role (bypasses RLS)
       const { data: profile, error: profileError } = await supabaseAdmin
         .from('profiles')
@@ -38,27 +44,24 @@ Deno.serve(async (req) => {
         .single();
 
       if (profileError || !profile) {
-        console.log('Profile not found for email:', email);
         return new Response(
-          JSON.stringify({ error: '일치하는 사용자 정보를 찾을 수 없습니다.' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: true, message: '비밀번호 초기화 요청이 접수되었습니다.' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       // Verify name and phone match
       if (profile.full_name !== full_name.trim()) {
-        console.log('Name mismatch:', profile.full_name, 'vs', full_name);
         return new Response(
-          JSON.stringify({ error: '일치하는 사용자 정보를 찾을 수 없습니다.' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: true, message: '비밀번호 초기화 요청이 접수되었습니다.' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       if (profile.phone !== phone.trim()) {
-        console.log('Phone mismatch:', profile.phone, 'vs', phone);
         return new Response(
-          JSON.stringify({ error: '일치하는 사용자 정보를 찾을 수 없습니다.' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: true, message: '비밀번호 초기화 요청이 접수되었습니다.' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -71,8 +74,8 @@ Deno.serve(async (req) => {
 
       if (existing && existing.length > 0) {
         return new Response(
-          JSON.stringify({ error: '이미 비밀번호 초기화 요청이 진행 중입니다. 관리자의 승인을 기다려주세요.' }),
-          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: true, message: '비밀번호 초기화 요청이 접수되었습니다.' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -95,7 +98,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      console.log('Reset request created for user:', profile.id);
       return new Response(
         JSON.stringify({ success: true, message: '비밀번호 초기화 요청이 접수되었습니다.' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -150,10 +152,12 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Reset password to 1234
+      const temporaryPassword = generateTemporaryPassword();
+
+      // Reset password to a one-time temporary value shown only to the admin.
       const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
         resetReq.user_id,
-        { password: '1234' }
+        { password: temporaryPassword }
       );
 
       if (updateError) {
@@ -174,9 +178,8 @@ Deno.serve(async (req) => {
         })
         .eq('id', requestId);
 
-      console.log('Password reset approved for user:', resetReq.user_id);
       return new Response(
-        JSON.stringify({ success: true }),
+        JSON.stringify({ success: true, temporaryPassword }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

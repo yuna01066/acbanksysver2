@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { isAuthResponse, requireFunctionAuth, withCors } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +13,8 @@ serve(async (req) => {
   }
 
   try {
+    await requireFunctionAuth(req);
+
     const { imageBase64, mimeType } = await req.json();
 
     if (!imageBase64) {
@@ -124,6 +127,7 @@ IMPORTANT:
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
+    if (isAuthResponse(e)) return withCors(e, corsHeaders);
     console.error("extract-business-info error:", e);
     return new Response(
       JSON.stringify({ error: e instanceof Error ? e.message : "알 수 없는 오류" }),

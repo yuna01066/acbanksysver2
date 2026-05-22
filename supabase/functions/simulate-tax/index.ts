@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { isAuthResponse, requireFunctionAuth, withCors } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +13,8 @@ serve(async (req: Request) => {
   }
 
   try {
+    await requireFunctionAuth(req);
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -178,6 +181,7 @@ ${deductionSummary || "없음"}
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
+    if (isAuthResponse(error)) return withCors(error, corsHeaders);
     console.error("Error in simulate-tax:", error);
     return new Response(
       JSON.stringify({ error: error.message }),

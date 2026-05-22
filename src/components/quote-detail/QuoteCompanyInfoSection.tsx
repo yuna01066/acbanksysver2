@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { QuoteRecipient } from "@/contexts/QuoteContext";
 import { formatQuoteProjectTitle } from '@/utils/quoteNaming';
 
@@ -35,6 +35,21 @@ interface QuoteCompanyInfoSectionProps {
   bankInfo: string;
 }
 
+interface InfoRowProps {
+  label: string;
+  children: ReactNode;
+  relaxed?: boolean;
+}
+
+const InfoRow = ({ label, children, relaxed = false }: InfoRowProps) => (
+  <div className="flex gap-3">
+    <span className="w-20 shrink-0 font-semibold text-slate-500">{label}</span>
+    <span className={`font-normal text-slate-800 ${relaxed ? 'leading-relaxed' : ''}`}>
+      {children}
+    </span>
+  </div>
+);
+
 const QuoteCompanyInfoSection: React.FC<QuoteCompanyInfoSectionProps> = ({
   quote,
   currentDate,
@@ -56,24 +71,24 @@ const QuoteCompanyInfoSection: React.FC<QuoteCompanyInfoSectionProps> = ({
         <div>
           <h4 className="font-bold text-slate-950 mb-2 text-[14px]">프로젝트 정보</h4>
           <div className="space-y-1.5 text-[13px]">
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">프로젝트명</span><span className="font-semibold text-slate-950">{quoteProjectTitle || '-'}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">견적번호</span><span className="font-semibold text-slate-950">{quote.quote_number}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">견적일자</span><span className="font-semibold text-slate-950">{quote.quote_date_display ? new Date(quote.quote_date_display).toLocaleDateString('ko-KR') : currentDate}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">유효기간</span><span className="font-semibold text-slate-950">{quote.valid_until || '-'}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">납기</span><span className="font-semibold text-slate-950">{quote.delivery_period || '-'}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">지불 조건</span><span className="font-semibold text-slate-950">{quote.payment_condition || '-'}</span></div>
+            <InfoRow label="프로젝트명" relaxed>{quoteProjectTitle || '-'}</InfoRow>
+            <InfoRow label="견적번호">{quote.quote_number}</InfoRow>
+            <InfoRow label="견적일자">{quote.quote_date_display ? new Date(quote.quote_date_display).toLocaleDateString('ko-KR') : currentDate}</InfoRow>
+            <InfoRow label="유효기간">{quote.valid_until || '-'}</InfoRow>
+            <InfoRow label="납기">{quote.delivery_period || '-'}</InfoRow>
+            <InfoRow label="지불 조건">{quote.payment_condition || '-'}</InfoRow>
           </div>
         </div>
 
         <div className="pt-2 border-t border-slate-200">
           <h4 className="font-bold text-slate-950 mb-2 text-[14px]">담당자 및 납기 정보</h4>
           <div className="space-y-1.5 text-[13px]">
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">회사명</span><span className="font-semibold text-slate-950">{quote.recipient_company || '-'}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">담당자</span><span className="font-semibold text-slate-950">{quote.recipient_name || '-'}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">연락처</span><span className="font-semibold text-slate-950">{quote.recipient_phone || '-'}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">이메일</span><span className="font-semibold text-slate-950">{quote.recipient_email || '-'}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">납기 희망일</span><span className="font-semibold text-slate-950">{quote.desired_delivery_date ? new Date(quote.desired_delivery_date).toLocaleDateString('ko-KR') : '미정'}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">현장 주소</span><span className="font-semibold text-slate-950">{quote.recipient_address || '-'}</span></div>
+            <InfoRow label="회사명">{quote.recipient_company || '-'}</InfoRow>
+            <InfoRow label="담당자">{quote.recipient_name || '-'}</InfoRow>
+            <InfoRow label="연락처">{quote.recipient_phone || '-'}</InfoRow>
+            <InfoRow label="이메일">{quote.recipient_email || '-'}</InfoRow>
+            <InfoRow label="납기 희망일">{quote.desired_delivery_date ? new Date(quote.desired_delivery_date).toLocaleDateString('ko-KR') : '미정'}</InfoRow>
+            <InfoRow label="현장 주소" relaxed>{quote.recipient_address || '-'}</InfoRow>
           </div>
         </div>
       </div>
@@ -85,29 +100,29 @@ const QuoteCompanyInfoSection: React.FC<QuoteCompanyInfoSectionProps> = ({
         <div>
           <h4 className="font-bold text-slate-950 mb-2 text-[14px]">회사 정보</h4>
           <div className="space-y-1.5 text-[13px]">
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">상호</span><span className="font-semibold text-slate-950">{companyInfo.company_name}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">사업자번호</span><span className="font-semibold text-slate-950">{companyInfo.business_number}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">웹사이트</span><span className="font-semibold text-slate-950">{companyInfo.website}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">주소</span><span className="font-semibold text-slate-950 leading-relaxed">{companyInfo.address}{companyInfo.detail_address ? `, ${companyInfo.detail_address}` : ''}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">업태</span><span className="font-semibold text-slate-950">{companyInfo.business_type}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">종목</span><span className="font-semibold text-slate-950">{companyInfo.industry}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">연락처</span><span className="font-semibold text-slate-950">{companyInfo.phone}</span></div>
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">이메일</span><span className="font-semibold text-slate-950">{companyInfo.email}</span></div>
+            <InfoRow label="상호">{companyInfo.company_name}</InfoRow>
+            <InfoRow label="사업자번호">{companyInfo.business_number}</InfoRow>
+            <InfoRow label="웹사이트">{companyInfo.website}</InfoRow>
+            <InfoRow label="주소" relaxed>{companyInfo.address}{companyInfo.detail_address ? `, ${companyInfo.detail_address}` : ''}</InfoRow>
+            <InfoRow label="업태">{companyInfo.business_type}</InfoRow>
+            <InfoRow label="종목">{companyInfo.industry}</InfoRow>
+            <InfoRow label="연락처">{companyInfo.phone}</InfoRow>
+            <InfoRow label="이메일">{companyInfo.email}</InfoRow>
           </div>
         </div>
 
         <div className="pt-2 border-t border-slate-200">
           <h4 className="font-bold text-slate-950 mb-2 text-[14px]">담당자 정보</h4>
           <div className="space-y-1.5 text-[13px]">
-            <div className="flex"><span className="text-slate-500 w-20 shrink-0">담당자</span><span className="font-semibold text-slate-950">{recipientData.issuerName || '작성'}</span></div>
-            {recipientData.issuerEmail && <div className="flex"><span className="text-slate-500 w-20 shrink-0">이메일</span><span className="font-semibold text-slate-950">{recipientData.issuerEmail}</span></div>}
-            {recipientData.issuerPhone && <div className="flex"><span className="text-slate-500 w-20 shrink-0">연락처</span><span className="font-semibold text-slate-950">{recipientData.issuerPhone}</span></div>}
+            <InfoRow label="담당자">{recipientData.issuerName || '작성'}</InfoRow>
+            {recipientData.issuerEmail && <InfoRow label="이메일">{recipientData.issuerEmail}</InfoRow>}
+            {recipientData.issuerPhone && <InfoRow label="연락처">{recipientData.issuerPhone}</InfoRow>}
           </div>
         </div>
         
         <div className="mt-3 p-3 rounded-lg border border-blue-200 bg-blue-50/50">
           <h4 className="font-bold text-blue-700 mb-1 text-[13px]">입금 계좌</h4>
-          <div className="text-[14px] font-bold text-slate-950">
+          <div className="text-[14px] font-normal text-slate-800">
             {bankInfo}
           </div>
         </div>

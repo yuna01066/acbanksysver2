@@ -55,7 +55,7 @@ const PasswordResetRequests = () => {
       if (data?.error) throw new Error(data.error);
 
       if (action === 'approve') {
-        toast.success('비밀번호가 1234로 초기화되었습니다.');
+        toast.success(`임시 비밀번호가 발급되었습니다: ${data?.temporaryPassword || '관리자 화면에서 확인 필요'}`);
       } else {
         toast.success('요청이 거부되었습니다.');
       }

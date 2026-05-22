@@ -518,7 +518,7 @@ const QuoteAttachments = ({
         }
       }
 
-      // quote-pdfs 버킷에 업로드 (public bucket)
+      // quote-pdfs 버킷에 업로드. 다운로드는 public URL이 아니라 signed URL로 처리합니다.
       const { data, error: uploadError } = await supabase.storage
         .from('quote-pdfs')
         .upload(filePath, file, {
@@ -531,11 +531,6 @@ const QuoteAttachments = ({
         toast.error(`업로드 실패: ${uploadError.message}`);
         return;
       }
-
-      // Public URL 생성
-      const { data: urlData } = supabase.storage
-        .from('quote-pdfs')
-        .getPublicUrl(filePath);
 
       const driveFolderPath = quoteNumber ? buildIssuedQuoteDrivePath({
         quoteNumber: safeQuoteNumber,
@@ -583,7 +578,7 @@ const QuoteAttachments = ({
         name: file.name,
         path: filePath,
         size: file.size,
-        url: urlData.publicUrl,
+        url: '',
         uploadedAt: new Date().toISOString(),
         type: 'quote_pdf',
         documentFileId,
