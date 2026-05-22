@@ -9,9 +9,18 @@
 ## 주요 파일
 
 - 위젯: `src/components/MeetingBookingWidget.tsx`
+- 대시보드 간편 조작: `src/components/TodayWorkCard.tsx`
 - 페이지 래퍼: `src/pages/MeetingReservationsPage.tsx`
 - 유형/상태 상수: `src/types/meetingReservations.ts`
 - 데이터베이스: `supabase/migrations/20260521143000_meeting_reservations.sql`
+
+## 주요 기능
+
+- 월간 캘린더에서 날짜별 예약 유무를 확인하고 날짜를 선택해 목록을 필터링한다.
+- 예약 목록에서 항목을 선택하면 상세 패널을 열어 제목, 날짜, 시간, 상태, 장소, 참석자, 내용 등을 수정한다.
+- 예약 등록, 예약 수정, 상태 변경 시 참석자와 관련 담당자에게 `notifications` 알림을 발송한다.
+- 전체 회의에 참석자를 명시하지 않으면 승인된 직원 전체를 알림 대상으로 본다.
+- 홈 대시보드의 `오늘 처리할 일` 카드에서 예정 미팅을 확인하고, 권한이 있으면 `예약 -> 확정`, `확정 -> 완료` 상태를 빠르게 변경한다.
 
 ## 분류
 

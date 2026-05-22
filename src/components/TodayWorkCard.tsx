@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
   AlertTriangle,
   Bell,
+  CalendarCheck,
   CalendarClock,
   CheckCircle2,
   ChevronRight,
@@ -15,6 +16,7 @@ import {
   HardDrive,
   Loader2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,6 +27,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import type { AppNotification } from '@/hooks/useNotifications';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
+import {
+  MEETING_STATUS_LABELS,
+  getMeetingTypeLabel,
+  type ClientMeetingType,
+  type EmployeeMeetingType,
+  type MeetingAudienceType,
+  type MeetingReservationStatus,
+} from '@/types/meetingReservations';
 
 interface TodayWorkCardProps {
   notifications: AppNotification[];
@@ -41,6 +51,7 @@ interface WorkItem {
   icon: React.ReactNode;
   actionLabel: string;
   onClick: () => void;
+  disabled?: boolean;
 }
 
 interface UpcomingQuote {
@@ -76,8 +87,31 @@ interface DocumentSyncSummary {
   failed: number;
 }
 
+interface DashboardMeetingReservation {
+  id: string;
+  audience_type: MeetingAudienceType | string;
+  employee_meeting_type: EmployeeMeetingType | string | null;
+  client_meeting_type: ClientMeetingType | string | null;
+  title: string;
+  meeting_date: string;
+  start_time: string;
+  end_time: string | null;
+  location: string | null;
+  status: MeetingReservationStatus | string;
+  participant_ids: string[];
+  participant_names: string[];
+  created_by: string;
+  created_by_name: string;
+  client_name: string | null;
+}
+
+interface MeetingEmployee {
+  id: string;
+}
+
 const todayString = () => format(new Date(), 'yyyy-MM-dd');
 const plusDaysString = (days: number) => format(addDays(new Date(), days), 'yyyy-MM-dd');
+const supabaseAny = supabase as any;
 
 function getNotificationPath(notification: AppNotification): string {
   if (notification.type === 'project_mention' && notification.data?.projectId) {
@@ -89,12 +123,25 @@ function getNotificationPath(notification: AppNotification): string {
   if (notification.type === 'channel_talk_quote_lead' && notification.data?.lead_id) {
     return `/channel-talk-leads?id=${notification.data.lead_id}`;
   }
+  if (notification.type === 'meeting_reservation' || notification.type === 'meeting_reservation_status') {
+    return '/meeting-reservations';
+  }
   if (notification.type === 'leave_request' || notification.type === 'leave_approved' || notification.type === 'leave_rejected') {
     return '/leave-management';
   }
   if (notification.type === 'peer_feedback') return '/my-page';
   if (notification.type === 'performance_review_summary') return '/my-page?tab=business';
   return '/announcements';
+}
+
+function formatMeetingDateLabel(value: string) {
+  const date = parseISO(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return format(date, 'M월 d일 (EEE)', { locale: ko });
+}
+
+function formatMeetingTime(startTime: string, endTime: string | null) {
+  return endTime ? `${startTime}~${endTime}` : startTime;
 }
 
 function formatDueLabel(dateString: string | null): { label: string; tone: WorkItemTone } {
@@ -107,6 +154,25 @@ function formatDueLabel(dateString: string | null): { label: string; tone: WorkI
   if (diff === 0) return { label: '오늘 납기', tone: 'danger' };
   if (diff <= 2) return { label: `${diff}일 남음`, tone: 'warning' };
   return { label: format(target, 'M월 d일', { locale: ko }), tone: 'primary' };
+}
+
+function formatMeetingWorkLabel(reservation: DashboardMeetingReservation): { label: string; tone: WorkItemTone } {
+  const status = reservation.status as MeetingReservationStatus;
+  const target = parseISO(reservation.meeting_date);
+  const diff = Number.isNaN(target.getTime()) ? 0 : differenceInCalendarDays(target, new Date());
+
+  if (status === 'scheduled') {
+    if (diff <= 0) return { label: '오늘 확정 필요', tone: 'warning' };
+    if (diff <= 2) return { label: `${diff}일 뒤 확인`, tone: 'primary' };
+    return { label: '예약 확인', tone: 'neutral' };
+  }
+
+  if (status === 'confirmed') {
+    if (diff <= 0) return { label: '오늘 진행', tone: 'primary' };
+    return { label: MEETING_STATUS_LABELS.confirmed, tone: 'success' };
+  }
+
+  return { label: MEETING_STATUS_LABELS[status] || status, tone: 'neutral' };
 }
 
 function toneClasses(tone: WorkItemTone): string {
@@ -126,8 +192,10 @@ function toneClasses(tone: WorkItemTone): string {
 
 const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
   const navigate = useNavigate();
-  const { user, isAdmin, isModerator } = useAuth();
+  const queryClient = useQueryClient();
+  const { user, isAdmin, isModerator, isManager } = useAuth();
   const canReview = isAdmin || isModerator;
+  const canManageMeetings = isAdmin || isModerator || isManager;
 
   const { data: upcomingQuotes = [], isLoading: quotesLoading } = useQuery({
     queryKey: ['today-work-upcoming-quotes', user?.id, canReview],
@@ -214,6 +282,122 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
     staleTime: 60 * 1000,
   });
 
+  const { data: meetingEmployees = [] } = useQuery<MeetingEmployee[]>({
+    queryKey: ['today-work-meeting-employees'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('is_approved', true);
+      if (error) throw error;
+      return (data || []) as MeetingEmployee[];
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: upcomingMeetings = [], isLoading: meetingsLoading } = useQuery<DashboardMeetingReservation[]>({
+    queryKey: ['today-work-meetings', user?.id, canManageMeetings],
+    queryFn: async () => {
+      let query = supabaseAny
+        .from('meeting_reservations')
+        .select('id, audience_type, employee_meeting_type, client_meeting_type, title, meeting_date, start_time, end_time, location, status, participant_ids, participant_names, created_by, created_by_name, client_name')
+        .gte('meeting_date', todayString())
+        .lte('meeting_date', plusDaysString(7))
+        .in('status', ['scheduled', 'confirmed'])
+        .order('meeting_date', { ascending: true })
+        .order('start_time', { ascending: true })
+        .limit(8);
+
+      if (!canManageMeetings && user?.id) {
+        query = query.or(`created_by.eq.${user.id},participant_ids.cs.{${user.id}},employee_meeting_type.eq.all_hands`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return ((data || []) as unknown) as DashboardMeetingReservation[];
+    },
+    enabled: !!user,
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
+  });
+
+  const sendMeetingStatusNotifications = async (reservation: DashboardMeetingReservation) => {
+    if (!user) return;
+
+    const targetIds = new Set<string>();
+    const notifyAllEmployees =
+      reservation.audience_type === 'employee'
+      && reservation.employee_meeting_type === 'all_hands'
+      && (!reservation.participant_ids || reservation.participant_ids.length === 0);
+
+    if (notifyAllEmployees) {
+      let employeesForNotification = meetingEmployees;
+
+      if (employeesForNotification.length === 0) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('is_approved', true);
+
+        if (error) {
+          toast.warning('미팅 상태는 변경됐지만 전체 직원 알림 대상을 불러오지 못했습니다.');
+        } else {
+          employeesForNotification = (data || []) as MeetingEmployee[];
+        }
+      }
+
+      employeesForNotification.forEach((employee) => targetIds.add(employee.id));
+    } else {
+      (reservation.participant_ids || []).forEach((id) => targetIds.add(id));
+    }
+
+    targetIds.add(reservation.created_by);
+    targetIds.delete(user.id);
+
+    const notificationsToSend = [...targetIds].map((userId) => ({
+      user_id: userId,
+      type: 'meeting_reservation_status',
+      title: '미팅 예약 상태가 변경되었습니다',
+      description: `${reservation.title} / ${formatMeetingDateLabel(reservation.meeting_date)} ${reservation.start_time} · ${MEETING_STATUS_LABELS[reservation.status as MeetingReservationStatus] || reservation.status}`,
+      data: { meetingReservationId: reservation.id, status: reservation.status },
+    }));
+
+    if (notificationsToSend.length === 0) return;
+
+    const { error } = await supabase.from('notifications').insert(notificationsToSend);
+    if (error) {
+      toast.warning('미팅 상태는 변경됐지만 일부 알림 발송에 실패했습니다.');
+    }
+  };
+
+  const meetingStatusMutation = useMutation({
+    mutationFn: async ({ reservation, status }: { reservation: DashboardMeetingReservation; status: MeetingReservationStatus }) => {
+      if (!user) throw new Error('로그인 후 미팅 상태를 변경할 수 있습니다.');
+
+      const { data, error } = await supabaseAny
+        .from('meeting_reservations')
+        .update({ status })
+        .eq('id', reservation.id)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      await sendMeetingStatusNotifications(data as DashboardMeetingReservation);
+      return data as DashboardMeetingReservation;
+    },
+    onSuccess: (reservation) => {
+      const statusLabel = MEETING_STATUS_LABELS[reservation.status as MeetingReservationStatus] || reservation.status;
+      toast.success(`미팅 상태를 ${statusLabel}(으)로 변경했습니다.`);
+      queryClient.invalidateQueries({ queryKey: ['today-work-meetings'] });
+      queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || '미팅 상태 변경에 실패했습니다.');
+    },
+  });
+  const { mutate: updateMeetingStatus, isPending: isMeetingStatusPending } = meetingStatusMutation;
+
   const unreadNotifications = useMemo(
     () => notifications.filter((notification) => !notification.is_read).slice(0, 4),
     [notifications],
@@ -232,6 +416,41 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
         icon: <Bell className="h-4 w-4" />,
         actionLabel: '확인',
         onClick: () => navigate(getNotificationPath(notification)),
+      });
+    });
+
+    upcomingMeetings.forEach((meeting) => {
+      const status = meeting.status as MeetingReservationStatus;
+      const meetingDate = parseISO(meeting.meeting_date);
+      const dayDiff = Number.isNaN(meetingDate.getTime()) ? 0 : differenceInCalendarDays(meetingDate, new Date());
+      const canUpdateMeeting = canManageMeetings || meeting.created_by === user?.id;
+      const nextStatus =
+        canUpdateMeeting && status === 'scheduled'
+          ? 'confirmed'
+          : canUpdateMeeting && status === 'confirmed' && dayDiff <= 0
+          ? 'completed'
+          : null;
+      const workLabel = formatMeetingWorkLabel(meeting);
+      const typeLabel = getMeetingTypeLabel(
+        meeting.audience_type as MeetingAudienceType,
+        meeting.employee_meeting_type as EmployeeMeetingType | null,
+        meeting.client_meeting_type as ClientMeetingType | null,
+      );
+      const location = meeting.location ? ` · ${meeting.location}` : '';
+      const client = meeting.audience_type === 'client' && meeting.client_name ? ` · ${meeting.client_name}` : '';
+
+      items.push({
+        id: `meeting-${meeting.id}`,
+        title: meeting.title,
+        description: `${typeLabel} · ${formatMeetingDateLabel(meeting.meeting_date)} ${formatMeetingTime(meeting.start_time, meeting.end_time)}${client}${location}`,
+        label: workLabel.label,
+        tone: workLabel.tone,
+        icon: <CalendarCheck className="h-4 w-4" />,
+        actionLabel: nextStatus ? MEETING_STATUS_LABELS[nextStatus] : '보기',
+        onClick: nextStatus
+          ? () => updateMeetingStatus({ reservation: meeting, status: nextStatus })
+          : () => navigate('/meeting-reservations'),
+        disabled: isMeetingStatusPending,
       });
     });
 
@@ -302,9 +521,9 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
     });
 
     return items.slice(0, 12);
-  }, [activeProjects, canReview, navigate, pendingLeaves, syncSummary, unreadNotifications, upcomingQuotes]);
+  }, [activeProjects, canManageMeetings, canReview, isMeetingStatusPending, navigate, pendingLeaves, syncSummary, unreadNotifications, upcomingMeetings, upcomingQuotes, updateMeetingStatus, user?.id]);
 
-  const isLoading = quotesLoading || projectsLoading || leavesLoading || syncLoading;
+  const isLoading = quotesLoading || projectsLoading || leavesLoading || syncLoading || meetingsLoading;
   const urgentCount = workItems.filter((item) => item.tone === 'danger' || item.tone === 'warning').length;
   const shouldScrollWorkItems = workItems.length > 4;
 
@@ -314,7 +533,7 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
         <BrandedCardHeader
           icon={CheckCircle2}
           title="오늘 처리할 일"
-          subtitle="알림, 승인, 납기, 프로젝트 상태를 우선순위 기준으로 모았습니다."
+          subtitle="알림, 미팅, 승인, 납기, 프로젝트 상태를 우선순위 기준으로 모았습니다."
           actions={
             <div className="flex flex-wrap justify-end gap-2">
             <Badge variant="secondary" className="rounded-full px-2.5 py-1">
@@ -349,7 +568,8 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
                   <button
                     type="button"
                     onClick={item.onClick}
-                    className="group grid w-full grid-cols-[auto,1fr,auto] items-center gap-3 rounded-xl border bg-card/80 p-3 text-left transition-colors hover:bg-accent/40"
+                    disabled={item.disabled}
+                    className="group grid w-full grid-cols-[auto,1fr,auto] items-center gap-3 rounded-xl border bg-card/80 p-3 text-left transition-colors hover:bg-accent/40 disabled:cursor-wait disabled:opacity-70"
                   >
                     <div className={cn('flex h-9 w-9 items-center justify-center rounded-full border', toneClasses(item.tone))}>
                       {item.icon}
@@ -365,7 +585,7 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
                     </div>
                     <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground group-hover:text-foreground">
                       <span className="hidden sm:inline">{item.actionLabel}</span>
-                      <ChevronRight className="h-4 w-4" />
+                      {item.disabled ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
                     </div>
                   </button>
                   {index < workItems.length - 1 && <Separator className="opacity-40" />}
@@ -375,10 +595,14 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
           </ScrollArea>
         )}
 
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
           <Button variant="outline" size="sm" className="justify-start gap-2" onClick={() => navigate('/announcements')}>
             <Bell className="h-3.5 w-3.5" />
             공지
+          </Button>
+          <Button variant="outline" size="sm" className="justify-start gap-2" onClick={() => navigate('/meeting-reservations')}>
+            <CalendarCheck className="h-3.5 w-3.5" />
+            미팅
           </Button>
           <Button variant="outline" size="sm" className="justify-start gap-2" onClick={() => navigate('/saved-quotes')}>
             <FileText className="h-3.5 w-3.5" />
