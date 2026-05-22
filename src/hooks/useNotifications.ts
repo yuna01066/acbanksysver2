@@ -4,14 +4,39 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export interface AppNotification {
   id: string;
-  type: 'password_reset' | 'pending_approval' | 'system' | 'quote_update' | 'approval_complete' | 'quote_modified' | 'leave_request' | 'leave_approved' | 'leave_rejected' | 'leave_expiry_warning' | 'leave_promotion_summary' | 'peer_feedback' | 'performance_review_summary' | 'project_mention' | 'channel_talk_quote_lead' | 'contract_request' | 'contract_signed' | 'contract_rejected';
+  type: 'password_reset' | 'pending_approval' | 'system' | 'quote_update' | 'approval_complete' | 'quote_modified' | 'leave_request' | 'leave_approved' | 'leave_rejected' | 'leave_expiry_warning' | 'leave_promotion_summary' | 'peer_feedback' | 'performance_review_summary' | 'project_mention' | 'channel_talk_quote_lead' | 'contract_request' | 'contract_signed' | 'contract_rejected' | 'profile_change_request' | 'profile_change_approved' | 'profile_change_rejected' | 'hr_request' | 'hr_request_update' | 'hr_task';
   title: string;
   description: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   created_at: string;
   is_read?: boolean;
   source: 'admin_generated' | 'db_stored';
 }
+
+type PasswordResetRequestRow = {
+  id: string;
+  email: string;
+  full_name: string;
+  phone?: string | null;
+  created_at: string;
+};
+
+type PendingProfileRow = {
+  id: string;
+  email: string;
+  full_name: string;
+  created_at: string;
+};
+
+type StoredNotificationRow = {
+  id: string;
+  type: AppNotification['type'];
+  title: string;
+  description: string;
+  data?: Record<string, unknown> | null;
+  created_at: string;
+  is_read?: boolean;
+};
 
 export const useNotifications = () => {
   const { user, userRole } = useAuth();
@@ -37,7 +62,7 @@ export const useNotifications = () => {
         .order('created_at', { ascending: false });
 
       if (resetRequests) {
-        resetRequests.forEach((req: any) => {
+        (resetRequests as PasswordResetRequestRow[]).forEach((req) => {
           items.push({
             id: `reset-${req.id}`,
             type: 'password_reset',
@@ -60,7 +85,7 @@ export const useNotifications = () => {
         .order('created_at', { ascending: false });
 
       if (pendingUsers) {
-        pendingUsers.forEach((profile: any) => {
+        (pendingUsers as PendingProfileRow[]).forEach((profile) => {
           items.push({
             id: `approval-${profile.id}`,
             type: 'pending_approval',
@@ -83,7 +108,7 @@ export const useNotifications = () => {
       .limit(50);
 
     if (storedNotifications) {
-      storedNotifications.forEach((n: any) => {
+      (storedNotifications as StoredNotificationRow[]).forEach((n) => {
         items.push({
           id: `notif-${n.id}`,
           type: n.type,

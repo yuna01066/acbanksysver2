@@ -33,8 +33,12 @@ const MANAGED_FEATURES: FeatureDef[] = [
 
   // 견적·프로젝트
   { key: '/saved-quotes', label: '담은 견적서 페이지', description: '담은 견적서 목록 및 상세 페이지 접근', icon: <Eye className="h-3.5 w-3.5" />, group: 'quote' },
+  { key: '/quote-drafts', label: '견적서 초안함', description: '개인 견적서 초안 저장 및 선택 발행', icon: <FileText className="h-3.5 w-3.5" />, group: 'quote' },
+  { key: '/quote-wizard', label: '견적 마법사', description: '도면 파일 분석 및 견적 초안 생성', icon: <FileText className="h-3.5 w-3.5" />, group: 'quote' },
   { key: '/quotes-summary', label: '견적 요약 페이지', description: '견적 요약 페이지 접근', icon: <Eye className="h-3.5 w-3.5" />, group: 'quote' },
   { key: '/customer-quotes-summary', label: '고객 견적 요약 페이지', description: '고객용 견적 요약 페이지 접근', icon: <Eye className="h-3.5 w-3.5" />, group: 'quote' },
+  { key: '/project-management', label: '프로젝트 관리 페이지', description: '프로젝트 생성, 수정, 진행 관리 페이지 접근', icon: <Pencil className="h-3.5 w-3.5" />, group: 'quote' },
+  { key: '/space-quotes', label: '공간 견적 목록', description: '공간 견적 목록과 상세 페이지 접근', icon: <Eye className="h-3.5 w-3.5" />, group: 'quote' },
   { key: 'quote.view_all', label: '전체 견적 열람', description: '다른 직원이 작성한 견적서 조회', icon: <Eye className="h-3.5 w-3.5" />, group: 'quote' },
   { key: 'quote.edit_others', label: '타인 견적 수정', description: '다른 직원이 작성한 견적서 편집', icon: <Pencil className="h-3.5 w-3.5" />, group: 'quote' },
   { key: 'quote.delete', label: '견적 삭제', description: '저장된 견적서 삭제 권한', icon: <Trash2 className="h-3.5 w-3.5" />, group: 'quote' },
@@ -54,6 +58,9 @@ const MANAGED_FEATURES: FeatureDef[] = [
   // 시스템 관리
   { key: 'system.manage_announcements', label: '공지사항 관리', description: '공지사항 작성, 수정, 삭제', icon: <Pencil className="h-3.5 w-3.5" />, group: 'system' },
   { key: 'system.manage_prices', label: '단가 관리', description: '패널 단가 및 가공비 설정', icon: <DollarSign className="h-3.5 w-3.5" />, group: 'system' },
+  { key: 'system.manage_response_assistant', label: '상담 응대 보조 관리', description: 'AI instruction, 런처 아이콘, 응대 근거 관리', icon: <Pencil className="h-3.5 w-3.5" />, group: 'system' },
+  { key: '/channel-talk-leads', label: '채널톡 문의 분석함', description: '도면 분석 리드 검토 및 전환 관리', icon: <Eye className="h-3.5 w-3.5" />, group: 'system' },
+  { key: '/meeting-reservations', label: '미팅 예약 관리', description: '직원/클라이언트 미팅 예약 관리', icon: <ClipboardList className="h-3.5 w-3.5" />, group: 'system' },
   { key: 'system.manage_users', label: '사용자 권한 관리', description: '사용자 승인, 역할 변경, 비밀번호 초기화', icon: <Shield className="h-3.5 w-3.5" />, group: 'system' },
 ];
 

@@ -27,6 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
+import { isCompanyMasterEmail } from '@/lib/companyMaster';
 
 type DashboardLink = {
   title: string;
@@ -35,12 +36,14 @@ type DashboardLink = {
   url?: string;
   requiresAuth?: boolean;
   requiresAdmin?: boolean;
+  requiresMaster?: boolean;
   action: () => void;
 };
 
 const Home = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, isAdmin, isModerator } = useAuth();
+  const isMaster = isCompanyMasterEmail(user?.email || profile?.email);
   const { theme, setTheme } = useTheme();
   const [logoSpinning, setLogoSpinning] = useState(false);
   const { notifications, unviewedCount, markAsViewed, removeNotification, refresh: refreshNotifications } = useNotifications();
@@ -311,6 +314,7 @@ const Home = () => {
           {/* Links Grid */}
           {(() => {
             const secondaryLinks: DashboardLink[] = [
+              { title: "회사 설정", icon: Building2, description: "마스터 전용 민감정보 관리", requiresAuth: true, requiresMaster: true, action: () => navigate("/company-settings") },
               { title: "샘플칩 관리", icon: Palette, description: "샘플칩 재고 관리", requiresAuth: true, action: () => navigate("/sample-chip-inventory") },
               { title: "박람회 관리", icon: Landmark, description: "박람회 일정·준비·상담 관리", requiresAuth: true, action: () => navigate("/exhibition-management") },
               { title: "세금계산서 관리", icon: Receipt, description: "세금계산서 발행·조회", requiresAuth: true, action: () => navigate("/tax-invoices") },
@@ -325,7 +329,7 @@ const Home = () => {
             const linkGroups = [
               { title: "업무", items: pickLinks(["공지사항", "근태 관리", "연차 관리", "업무 평가"]) },
               { title: "견적 · 프로젝트", items: pickLinks(["고객사 관리", "프로젝트 관리", "원판 발주 관리", "수율 계산기", "견적 계산기", "발행 견적서 확인"]) },
-              { title: "관리", items: pickLinks(["채널톡 문의 분석함", "샘플칩 관리", "박람회 관리", "세금계산서 관리", "관리자 설정"]) },
+              { title: "관리", items: pickLinks(["채널톡 문의 분석함", "샘플칩 관리", "박람회 관리", "세금계산서 관리", "관리자 설정", "회사 설정"]) },
               { title: "외부", items: pickLinks(["클라이언트 상담폼"]) },
             ].filter((group) => group.items.length > 0);
 
@@ -333,17 +337,19 @@ const Home = () => {
               const Icon = item.icon;
               const isLocked = item.requiresAuth && !user;
               const isAdminOnly = item.requiresAdmin && !isAdmin && !isModerator;
+              const isMasterOnly = item.requiresMaster && !isMaster;
 
               return (
                 <div
                   key={key}
                   className={cn(
                     "group relative flex min-h-[92px] cursor-pointer items-center gap-3 rounded-2xl border border-border/70 bg-background/75 p-3 text-left shadow-sm backdrop-blur transition-colors hover:bg-accent/35 sm:p-4",
-                    (isLocked || isAdminOnly) ? "opacity-50 cursor-not-allowed" : ""
+                    (isLocked || isAdminOnly || isMasterOnly) ? "opacity-50 cursor-not-allowed" : ""
                   )}
                   onClick={() => {
                     if (isLocked) { toast.error('로그인이 필요한 서비스입니다.'); navigate('/auth'); return; }
                     if (isAdminOnly) { toast.error('관리자 또는 중간관리자만 접근할 수 있습니다.'); return; }
+                    if (isMasterOnly) { toast.error('마스터 계정만 접근할 수 있습니다.'); return; }
                     item.action();
                   }}
                 >
@@ -357,9 +363,14 @@ const Home = () => {
                       <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px]">관리자 전용</Badge>
                     </div>
                   )}
+                  {isMasterOnly && (
+                    <div className="absolute right-3 top-3">
+                      <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px]">마스터 전용</Badge>
+                    </div>
+                  )}
                   <div className={cn(
                     "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-primary transition-colors",
-                    (isLocked || isAdminOnly) && "border-border bg-muted/50 text-muted-foreground"
+                    (isLocked || isAdminOnly || isMasterOnly) && "border-border bg-muted/50 text-muted-foreground"
                   )}>
                     {Icon && <Icon className="h-5 w-5" />}
                   </div>

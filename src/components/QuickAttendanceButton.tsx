@@ -14,6 +14,7 @@ import {
   getAttendanceStreakCopy,
   getWeekdayKeysThroughToday,
 } from '@/utils/engagement';
+import { triggerHamzzi } from '@/lib/hamzziEvents';
 
 interface WorkplaceInfo {
   workplace_lat: number | null;
@@ -176,6 +177,10 @@ const QuickAttendanceButton = () => {
       toast.success('출근이 기록되었습니다.', {
         description: streakCopy || undefined,
       });
+      triggerHamzzi('attendance_check_in', {
+        message: '출근 기록 완료. 오늘 업무 시작합니다.',
+        description: streakCopy || undefined,
+      });
     } catch (e: any) {
       toast.error('출근 기록 실패: ' + (e.message || ''));
     } finally {
@@ -202,6 +207,7 @@ const QuickAttendanceButton = () => {
         .eq('id', todayRecord.id);
       if (error) throw error;
       toast.success('퇴근이 기록되었습니다.');
+      triggerHamzzi('attendance_check_out');
       fetchTodayRecord();
     } catch (e: any) {
       toast.error('퇴근 기록 실패: ' + (e.message || ''));

@@ -1,6 +1,6 @@
 import type { JSONContent } from '@tiptap/react';
 
-const text = (t: string, marks?: any[]): JSONContent => ({
+const text = (t: string, marks?: Array<Record<string, unknown>>): JSONContent => ({
   type: 'text',
   text: t,
   ...(marks ? { marks } : {}),
@@ -159,8 +159,8 @@ export const PREBUILT_TEMPLATES: PrebuiltTemplate[] = [
         // 서명란
         { type: 'paragraph', attrs: { textAlign: 'center' }, content: [ph('계약일')] },
         p(),
-        p(text('(사업주) '), ph('회사명'), text('  대표이사 '), ph('대표자명'), text('  (인)')),
-        p(text('(근로자) '), ph('구성원이름'), text('  (생년월일: '), ph('생년월일'), text(')  (인)')),
+        p(text('(사업주) '), ph('회사명'), text('  대표이사 '), ph('대표자명'), text('  '), ph('회사직인')),
+        p(text('(근로자) '), ph('구성원이름'), text('  (생년월일: '), ph('생년월일'), text(')  '), ph('구성원직인')),
       ],
     },
   },
@@ -224,8 +224,8 @@ export const PREBUILT_TEMPLATES: PrebuiltTemplate[] = [
 
         { type: 'paragraph', attrs: { textAlign: 'center' }, content: [ph('계약일')] },
         p(),
-        p(text('(사업주) '), ph('회사명'), text('  대표이사 '), ph('대표자명'), text('  (인)')),
-        p(text('(근로자) '), ph('구성원이름'), text('  (생년월일: '), ph('생년월일'), text(')  (인)')),
+        p(text('(사업주) '), ph('회사명'), text('  대표이사 '), ph('대표자명'), text('  '), ph('회사직인')),
+        p(text('(근로자) '), ph('구성원이름'), text('  (생년월일: '), ph('생년월일'), text(')  '), ph('구성원직인')),
       ],
     },
   },
@@ -270,8 +270,8 @@ export const PREBUILT_TEMPLATES: PrebuiltTemplate[] = [
 
         { type: 'paragraph', attrs: { textAlign: 'center' }, content: [ph('계약일')] },
         p(),
-        p(text('(사업주) '), ph('회사명'), text('  대표이사 '), ph('대표자명'), text('  (인)')),
-        p(text('(근로자) '), ph('구성원이름'), text('  (인)')),
+        p(text('(사업주) '), ph('회사명'), text('  대표이사 '), ph('대표자명'), text('  '), ph('회사직인')),
+        p(text('(근로자) '), ph('구성원이름'), text('  '), ph('구성원직인')),
       ],
     },
   },
@@ -317,8 +317,8 @@ export const PREBUILT_TEMPLATES: PrebuiltTemplate[] = [
 
         { type: 'paragraph', attrs: { textAlign: 'center' }, content: [ph('계약일')] },
         p(),
-        p(text('(회사) '), ph('회사명'), text('  대표이사 '), ph('대표자명'), text('  (인)')),
-        p(text('(직원) '), ph('구성원이름'), text('  (인)')),
+        p(text('(회사) '), ph('회사명'), text('  대표이사 '), ph('대표자명'), text('  '), ph('회사직인')),
+        p(text('(직원) '), ph('구성원이름'), text('  '), ph('구성원직인')),
       ],
     },
   },
@@ -345,7 +345,7 @@ export const PREBUILT_TEMPLATES: PrebuiltTemplate[] = [
         p(),
         { type: 'paragraph', attrs: { textAlign: 'center' }, content: [ph('계약일')] },
         p(),
-        p(text('서약인: '), ph('구성원이름'), text('  (인)')),
+        p(text('서약인: '), ph('구성원이름'), text('  '), ph('구성원직인')),
         p(text('소속: '), ph('부서')),
         p(text('직위: '), ph('직위')),
       ],
@@ -371,7 +371,7 @@ export const PREBUILT_TEMPLATES: PrebuiltTemplate[] = [
         p(),
         { type: 'paragraph', attrs: { textAlign: 'center' }, content: [ph('계약일')] },
         p(),
-        p(text('서약인: '), ph('구성원이름'), text('  (인)')),
+        p(text('서약인: '), ph('구성원이름'), text('  '), ph('구성원직인')),
       ],
     },
   },
@@ -399,7 +399,7 @@ export const PREBUILT_TEMPLATES: PrebuiltTemplate[] = [
         p(),
         { type: 'paragraph', attrs: { textAlign: 'center' }, content: [ph('계약일')] },
         p(),
-        p(text('동의인: '), ph('구성원이름'), text('  (인)')),
+        p(text('동의인: '), ph('구성원이름'), text('  '), ph('구성원직인')),
       ],
     },
   },

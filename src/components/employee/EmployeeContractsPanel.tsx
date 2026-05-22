@@ -24,6 +24,7 @@ interface Contract {
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   draft: { label: '임시저장', className: 'bg-muted text-muted-foreground' },
   requested: { label: '계약 요청됨', className: 'bg-primary/10 text-primary' },
+  opened: { label: '열람됨', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
   signed: { label: '서명 완료', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
   rejected: { label: '거절', className: 'bg-destructive/10 text-destructive' },
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -39,6 +39,7 @@ const mapProfileData = (d: any): EmployeeProfile => ({
 
 const EmployeeProfileManagementPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, isAdmin, userRole, loading: authLoading } = useAuth();
   const isModerator = userRole === 'moderator';
   const hasAccess = isAdmin || isModerator;
@@ -47,7 +48,7 @@ const EmployeeProfileManagementPage = () => {
   const [search, setSearch] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('employees');
+  const [activeTab, setActiveTab] = useState<string>(searchParams.get('tab') || 'employees');
   const [employeeRoles, setEmployeeRoles] = useState<Record<string, AppRoleType>>({});
   const [sortMode, setSortMode] = useState<'name' | 'role'>('role');
 
@@ -91,6 +92,11 @@ const EmployeeProfileManagementPage = () => {
       fetchRoles();
     }
   }, [user, hasAccess]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
 
   const departments = useMemo(() => {
     const depts = new Set(employees.map(e => e.department).filter(Boolean));

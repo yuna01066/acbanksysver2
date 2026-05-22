@@ -1,0 +1,9 @@
+{
+  "name": "quote-wizard-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node src/index.mjs",
+    "start": "node src/index.mjs"
+  }
+}

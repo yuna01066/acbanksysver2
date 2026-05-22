@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { FileText, CheckCircle2, XCircle, Loader2, Clock, PenLine, Download, ShieldCheck } from 'lucide-react';
+import { FileText, CheckCircle2, XCircle, Loader2, Clock, PenLine, Download, ShieldCheck, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -33,6 +33,7 @@ const CONTRACT_TYPES: Record<string, string> = {
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
   draft: { label: '임시저장', icon: <Clock className="h-3.5 w-3.5" />, className: 'bg-muted text-muted-foreground' },
   requested: { label: '서명 대기', icon: <PenLine className="h-3.5 w-3.5" />, className: 'bg-primary/10 text-primary' },
+  opened: { label: '검토 완료', icon: <Eye className="h-3.5 w-3.5" />, className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
   signed: { label: '서명 완료', icon: <CheckCircle2 className="h-3.5 w-3.5" />, className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
   rejected: { label: '거절됨', icon: <XCircle className="h-3.5 w-3.5" />, className: 'bg-destructive/10 text-destructive' },
 };
@@ -49,7 +50,7 @@ function dataUrlToBlob(dataUrl: string) {
 async function uploadContractFile(path: string, blob: Blob, contentType: string) {
   const { error } = await supabase.storage
     .from('employee-contracts')
-    .upload(path, blob, { upsert: true, contentType });
+    .upload(path, blob, { upsert: false, contentType });
   if (error) throw error;
 }
 
@@ -98,7 +99,7 @@ const MyContractsList: React.FC = () => {
     openedEventsRef.current.add(contract.id);
     try {
       await invokeAction({ action: 'opened', contractId: contract.id });
-      setContracts(prev => prev.map(c => c.id === contract.id ? { ...c, opened_at: c.opened_at || new Date().toISOString() } : c));
+      setContracts(prev => prev.map(c => c.id === contract.id ? { ...c, status: c.status === 'requested' ? 'opened' : c.status, opened_at: c.opened_at || new Date().toISOString() } : c));
     } catch {
       // Opening the preview should not block reading the contract.
     }
@@ -113,6 +114,10 @@ const MyContractsList: React.FC = () => {
 
   const handleSign = async () => {
     if (!signingContract || !user || !profile) return;
+    if (!signingContract.opened_at && signingContract.status !== 'opened') {
+      toast.error('계약서를 먼저 검토한 뒤 서명할 수 있습니다.');
+      return;
+    }
     if (!agreed) { toast.error('계약 내용 확인 및 전자서명 동의가 필요합니다.'); return; }
     if (confirmName.trim() !== (profile.full_name || '').trim()) {
       toast.error('성명이 프로필 이름과 일치하지 않습니다.');
@@ -161,6 +166,7 @@ const MyContractsList: React.FC = () => {
         signedByName: confirmName.trim(),
         signatureStoragePath: signaturePath,
         signedPdfStoragePath: pdfPath,
+        signedRenderedHtml: signedHtml,
       }, signInData.session?.access_token || session?.access_token);
 
       toast.success('계약서에 서명했습니다.');
@@ -176,6 +182,10 @@ const MyContractsList: React.FC = () => {
 
   const handleReject = async () => {
     if (!rejectingContract || !user) return;
+    if (rejectReason.trim().length < 5) {
+      toast.error('거절 사유를 5자 이상 입력해주세요.');
+      return;
+    }
     setProcessing(true);
     try {
       await invokeAction({
@@ -209,8 +219,8 @@ const MyContractsList: React.FC = () => {
     }
   };
 
-  const pendingContracts = useMemo(() => contracts.filter(c => c.status === 'requested'), [contracts]);
-  const otherContracts = useMemo(() => contracts.filter(c => c.status !== 'requested'), [contracts]);
+  const pendingContracts = useMemo(() => contracts.filter(c => ['requested', 'opened'].includes(c.status)), [contracts]);
+  const otherContracts = useMemo(() => contracts.filter(c => !['requested', 'opened'].includes(c.status)), [contracts]);
 
   if (loading) {
     return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>;
@@ -259,6 +269,7 @@ const MyContractsList: React.FC = () => {
                       <Button
                         size="sm"
                         className="bg-green-600 hover:bg-green-700 text-white gap-1"
+                        disabled={!contract.opened_at && contract.status !== 'opened'}
                         onClick={() => { setSigningContract(contract); resetSignForm(); }}
                       >
                         <CheckCircle2 className="h-3.5 w-3.5" />
@@ -341,8 +352,18 @@ const MyContractsList: React.FC = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {signingContract && (
+              <div className="rounded-md border bg-muted/20 p-3 text-sm">
+                <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                  <p><span className="font-medium text-foreground">문서명</span> {signingContract.template_snapshot?.name || `${CONTRACT_TYPES[signingContract.contract_type] || signingContract.contract_type} 계약서`}</p>
+                  <p><span className="font-medium text-foreground">발송일</span> {signingContract.requested_at ? format(new Date(signingContract.requested_at), 'yyyy.MM.dd') : '-'}</p>
+                  <p><span className="font-medium text-foreground">계약기간</span> {signingContract.contract_start_date || '-'} ~ {signingContract.contract_end_date || '무기한'}</p>
+                  <p><span className="font-medium text-foreground">회사 직인</span> {signingContract.company_seal_included ? '포함' : '미포함'}</p>
+                </div>
+              </div>
+            )}
             <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-              서명하면 현재 표시된 계약 내용에 동의한 것으로 기록되며, 서명 시각·IP·브라우저 정보가 감사기록에 저장됩니다.
+              서명하면 최종 PDF가 생성되어 보관되며, 서명 시각·IP·브라우저 정보가 감사기록에 저장됩니다.
             </div>
             <div className="flex items-start gap-2">
               <Checkbox checked={agreed} onCheckedChange={(v) => setAgreed(Boolean(v))} id="contract-agree" />
@@ -391,7 +412,7 @@ const MyContractsList: React.FC = () => {
             <AlertDialogCancel disabled={processing}>취소</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleReject}
-              disabled={processing}
+              disabled={processing || rejectReason.trim().length < 5}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}

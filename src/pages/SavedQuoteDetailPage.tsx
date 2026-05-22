@@ -91,11 +91,13 @@ const SavedQuoteDetailPage = () => {
     deliveryAddress: '',
     clientMemo: ''
   });
+  const [touchedRecipientFields, setTouchedRecipientFields] = useState<Set<keyof QuoteRecipient>>(new Set());
   const [viewMode, setViewMode] = useState<QuoteViewMode>('internal');
   const [printModeOverride, setPrintModeOverride] = useState<QuoteViewMode | null>(null);
   const [loading, setLoading] = useState(true);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [editedItems, setEditedItems] = useState<any[]>([]);
+  const [editedItemsTouched, setEditedItemsTouched] = useState(false);
   const [quotePdf, setQuotePdf] = useState<QuotePdfAttachment | null>(null);
   const [linkedProject, setLinkedProject] = useState<{ id: string; name: string; payment_status: string | null } | null>(null);
   const [quoteDefaults, setQuoteDefaults] = useState({
@@ -224,6 +226,7 @@ const SavedQuoteDetailPage = () => {
       const attachmentsArray = Array.isArray(formattedData.attachments) ? formattedData.attachments : [];
       setAttachments(attachmentsArray.filter((a: any) => a?.type !== 'quote_pdf'));
       setEditedItems(Array.isArray(formattedData.items) ? formattedData.items : []);
+      setEditedItemsTouched(false);
       
       // 견적서 PDF 정보 로드 (attachments 배열에서 quote_pdf 타입 찾기)
       const savedQuotePdf = attachmentsArray.find((a: any) => 
@@ -269,6 +272,7 @@ const SavedQuoteDetailPage = () => {
         issuerEmail: formattedData.issuer_email || profileData?.email || '',
         issuerPhone: formattedData.issuer_phone || profileData?.phone || ''
       });
+      setTouchedRecipientFields(new Set());
     } catch (error) {
       console.error('Error fetching quote:', error);
       toast.error('견적서를 불러오는데 실패했습니다.');
@@ -279,6 +283,12 @@ const SavedQuoteDetailPage = () => {
   };
 
   const handleRecipientChange = (field: keyof QuoteRecipient, value: any) => {
+    setTouchedRecipientFields(prev => {
+      const next = new Set(prev);
+      next.add(field);
+      if (field === 'quoteDate') next.add('validUntil');
+      return next;
+    });
     setRecipientData(prev => {
       const updated = { ...prev, [field]: value };
       // 견적일자 변경 시 유효기간 자동 재계산
@@ -292,6 +302,11 @@ const SavedQuoteDetailPage = () => {
   };
 
   const handleBulkRecipientChange = (updates: Partial<QuoteRecipient>) => {
+    setTouchedRecipientFields(prev => {
+      const next = new Set(prev);
+      (Object.keys(updates) as Array<keyof QuoteRecipient>).forEach(field => next.add(field));
+      return next;
+    });
     setRecipientData(prev => ({ ...prev, ...updates }));
   };
 
@@ -313,6 +328,31 @@ const SavedQuoteDetailPage = () => {
     }
   };
 
+  const getTextForSave = (field: keyof QuoteRecipient, fallback?: string | null) => {
+    const value = recipientData[field];
+    const text = typeof value === 'string' ? value.trim() : '';
+
+    if (touchedRecipientFields.has(field)) {
+      return typeof value === 'string' ? value : '';
+    }
+
+    return text || fallback || '';
+  };
+
+  const getDateForSave = (field: keyof QuoteRecipient, fallback?: string | null) => {
+    const value = recipientData[field];
+
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value.toISOString();
+    }
+
+    if (touchedRecipientFields.has(field)) {
+      return null;
+    }
+
+    return fallback || null;
+  };
+
   const handleSaveEdit = async () => {
     if (!id) return;
 
@@ -326,6 +366,10 @@ const SavedQuoteDetailPage = () => {
         roundedSubtotal = manualTotalOverride.subtotal;
         newTax = manualTotalOverride.tax;
         newTotal = manualTotalOverride.total;
+      } else if (!editedItemsTouched && quote) {
+        roundedSubtotal = Math.round(quote.subtotal);
+        newTax = Math.round(quote.tax);
+        newTotal = Math.round(quote.total);
       } else {
         const newSubtotal = editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
         roundedSubtotal = Math.round(newSubtotal / 100) * 100;
@@ -351,29 +395,31 @@ const SavedQuoteDetailPage = () => {
         // 기존 첨부 파일 (quote_pdf가 아닌 것들만)
         ...activeAttachments
       ];
+      const projectNameForSave = getTextForSave('projectName', quote.project_name);
+      const companyNameForSave = getTextForSave('companyName', quote.recipient_company);
 
       const { error } = await supabase
         .from('saved_quotes')
         .update({
           project_name: formatQuoteProjectTitle({
-            projectName: recipientData.projectName,
-            companyName: recipientData.companyName,
+            projectName: projectNameForSave,
+            companyName: companyNameForSave,
           }),
-          quote_date_display: recipientData.quoteDate?.toISOString(),
-          valid_until: recipientData.validUntil,
-          delivery_period: recipientData.deliveryPeriod,
-          payment_condition: recipientData.paymentCondition,
-          recipient_name: recipientData.contactPerson,
-          recipient_company: recipientData.companyName,
-          recipient_phone: recipientData.phoneNumber,
-          recipient_email: recipientData.email,
-          recipient_address: recipientData.deliveryAddress,
-          recipient_memo: recipientData.clientMemo,
-          desired_delivery_date: recipientData.desiredDeliveryDate?.toISOString(),
-          issuer_id: recipientData.issuerId || null,
-          issuer_name: recipientData.issuerName,
-          issuer_email: recipientData.issuerEmail,
-          issuer_phone: recipientData.issuerPhone,
+          quote_date_display: getDateForSave('quoteDate', quote.quote_date_display),
+          valid_until: getTextForSave('validUntil', quote.valid_until),
+          delivery_period: getTextForSave('deliveryPeriod', quote.delivery_period),
+          payment_condition: getTextForSave('paymentCondition', quote.payment_condition),
+          recipient_name: getTextForSave('contactPerson', quote.recipient_name),
+          recipient_company: companyNameForSave,
+          recipient_phone: getTextForSave('phoneNumber', quote.recipient_phone),
+          recipient_email: getTextForSave('email', quote.recipient_email),
+          recipient_address: getTextForSave('deliveryAddress', quote.recipient_address),
+          recipient_memo: getTextForSave('clientMemo', quote.recipient_memo),
+          desired_delivery_date: getDateForSave('desiredDeliveryDate', quote.desired_delivery_date),
+          issuer_id: getTextForSave('issuerId', null) || null,
+          issuer_name: getTextForSave('issuerName', quote.issuer_name),
+          issuer_email: getTextForSave('issuerEmail', quote.issuer_email),
+          issuer_phone: getTextForSave('issuerPhone', quote.issuer_phone),
           attachments: allAttachments,
           items: editedItems,
           calculation_snapshot: {
@@ -427,6 +473,7 @@ const SavedQuoteDetailPage = () => {
       toast.success('견적서가 수정되었습니다.');
       setIsEditing(false);
       setManualTotalOverride(null);
+      setEditedItemsTouched(false);
       fetchQuote();
     } catch (error) {
       console.error('Error updating quote:', error);
@@ -438,6 +485,7 @@ const SavedQuoteDetailPage = () => {
     const newItems = [...editedItems];
     newItems[index] = updatedItem;
     setEditedItems(newItems);
+    setEditedItemsTouched(true);
   };
 
   const handleItemRemove = (index: number) => {
@@ -447,6 +495,7 @@ const SavedQuoteDetailPage = () => {
     }
     const newItems = editedItems.filter((_, i) => i !== index);
     setEditedItems(newItems);
+    setEditedItemsTouched(true);
   };
 
   const handleAttachmentsChange = (newAttachments: any[]) => {
@@ -487,15 +536,22 @@ const SavedQuoteDetailPage = () => {
   const quoteStyleProfile = getQuoteStyleProfile(quoteStyle);
   const activeMode = printModeOverride ?? viewMode;
   
-  // 편집 모드일 때는 editedItems 기반으로 계산, 아닐 때는 저장된 값 사용
+  // 수정 모드에서 항목을 실제로 바꾸기 전까지는 저장된 금액을 유지한다.
+  // 수동 총액 저장 견적은 items 합산액과 저장 총액이 다를 수 있다.
   const autoSubtotal = isEditing 
-    ? Math.round(editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0) / 100) * 100
+    ? editedItemsTouched
+      ? Math.round(editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0) / 100) * 100
+      : Math.round(quote.subtotal)
     : Math.round(quote.subtotal);
   const autoTax = isEditing 
-    ? Math.round(autoSubtotal * 0.1)
+    ? editedItemsTouched
+      ? Math.round(autoSubtotal * 0.1)
+      : Math.round(quote.tax)
     : Math.round(quote.tax);
   const autoTotal = isEditing 
-    ? autoSubtotal + autoTax
+    ? editedItemsTouched
+      ? autoSubtotal + autoTax
+      : Math.round(quote.total)
     : Math.round(quote.total);
   
   const subtotal = (isEditing && manualTotalOverride) ? manualTotalOverride.subtotal : autoSubtotal;
@@ -528,9 +584,13 @@ const SavedQuoteDetailPage = () => {
             quoteNumber={quote.quote_number}
             validUntil={quote.valid_until}
             isEditMode={isEditing}
-            onEdit={() => setIsEditing(true)}
+            onEdit={() => {
+              setEditedItemsTouched(false);
+              setManualTotalOverride(null);
+              setIsEditing(true);
+            }}
             onSaveEdit={handleSaveEdit}
-            onCancelEdit={() => { setIsEditing(false); setManualTotalOverride(null); fetchQuote(); }}
+            onCancelEdit={() => { setIsEditing(false); setManualTotalOverride(null); setEditedItemsTouched(false); fetchQuote(); }}
             onToggleViewMode={toggleViewMode}
             viewMode={activeMode}
             showSavedQuoteActions={true}

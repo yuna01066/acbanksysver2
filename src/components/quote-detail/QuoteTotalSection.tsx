@@ -35,6 +35,7 @@ const QuoteTotalSection: React.FC<QuoteTotalSectionProps> = ({ subtotal, tax, to
     if (editMode === 'auto') {
       setEditMode('manual');
       setManualTotal(String(totalWithTax));
+      onTotalOverride?.(subtotal, tax, totalWithTax);
     } else {
       setEditMode('auto');
       setManualTotal('');

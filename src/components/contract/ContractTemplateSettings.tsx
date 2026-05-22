@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Plus, FileText, Pencil, Trash2, Loader2, FileSignature, DollarSign, ShieldCheck, FilePenLine } from 'lucide-react';
 import { type ContractTemplate } from '@/hooks/useContracts';
 import TemplateEditorDialog from './template-editor/TemplateEditorDialog';
+import { evaluateContractTemplateQuality } from '@/utils/contractTemplateQuality';
 
 const TEMPLATE_TYPES: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   labor: {
@@ -99,9 +100,9 @@ const ContractTemplateSettings: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-lg">계약서 양식 관리</h3>
-          <p className="text-sm text-muted-foreground">근로계약서 및 연봉계약서 양식을 생성하고 관리합니다.</p>
+          <p className="text-sm text-muted-foreground">전자계약 양식을 생성하고 관리합니다. 기존 발송 계약은 수정된 양식의 영향을 받지 않습니다.</p>
         </div>
-        <Button onClick={openCreate} className="gap-1.5">
+        <Button onClick={openCreate} className="gap-1.5 rounded-full bg-[#111111] text-white hover:bg-[#2a2a2a]">
           <Plus className="h-4 w-4" /> 새 양식 만들기
         </Button>
       </div>
@@ -118,8 +119,9 @@ const ContractTemplateSettings: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {templates.map(t => {
             const typeInfo = TEMPLATE_TYPES[t.template_type] || TEMPLATE_TYPES.labor;
+            const quality = evaluateContractTemplateQuality((t as any).content || null);
             return (
-              <Card key={t.id} className={`transition-all ${!t.is_active ? 'opacity-50' : ''}`}>
+              <Card key={t.id} className={`transition-all border-[#cacacb] shadow-none ${!t.is_active ? 'opacity-50' : ''}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
@@ -131,6 +133,12 @@ const ContractTemplateSettings: React.FC = () => {
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="outline" className="text-[11px]">{typeInfo.label}</Badge>
                           <Badge variant="outline" className="text-[11px]">급여일 {t.pay_day}일</Badge>
+                          <Badge
+                            variant="outline"
+                            className={`text-[11px] ${quality.ok ? 'border-emerald-200 text-emerald-700' : 'border-red-200 text-red-700'}`}
+                          >
+                            {quality.ok ? '필수필드 충족' : '필수필드 부족'}
+                          </Badge>
                           {!t.is_active && (
                             <Badge variant="secondary" className="text-[11px]">비활성</Badge>
                           )}
@@ -148,6 +156,11 @@ const ContractTemplateSettings: React.FC = () => {
                   </div>
                   {t.description && (
                     <p className="text-xs text-muted-foreground mb-3">{t.description}</p>
+                  )}
+                  {!quality.ok && (
+                    <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                      누락: {quality.missing.join(', ')}
+                    </p>
                   )}
                   <div className="flex items-center justify-between pt-2 border-t">
                     <span className="text-xs text-muted-foreground">활성 상태</span>

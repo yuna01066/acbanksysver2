@@ -1808,6 +1808,83 @@ export type Database = {
           },
         ]
       }
+      meeting_reservations: {
+        Row: {
+          audience_type: string
+          client_contact: string | null
+          client_meeting_type: string | null
+          client_name: string | null
+          created_at: string
+          created_by: string
+          created_by_name: string
+          description: string | null
+          employee_meeting_type: string | null
+          end_time: string | null
+          id: string
+          location: string | null
+          meeting_date: string
+          participant_ids: string[]
+          participant_names: string[]
+          recipient_id: string | null
+          start_time: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audience_type: string
+          client_contact?: string | null
+          client_meeting_type?: string | null
+          client_name?: string | null
+          created_at?: string
+          created_by: string
+          created_by_name: string
+          description?: string | null
+          employee_meeting_type?: string | null
+          end_time?: string | null
+          id?: string
+          location?: string | null
+          meeting_date: string
+          participant_ids?: string[]
+          participant_names?: string[]
+          recipient_id?: string | null
+          start_time: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audience_type?: string
+          client_contact?: string | null
+          client_meeting_type?: string | null
+          client_name?: string | null
+          created_at?: string
+          created_by?: string
+          created_by_name?: string
+          description?: string | null
+          employee_meeting_type?: string | null
+          end_time?: string | null
+          id?: string
+          location?: string | null
+          meeting_date?: string
+          participant_ids?: string[]
+          participant_names?: string[]
+          recipient_id?: string | null
+          start_time?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_reservations_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
@@ -1844,20 +1921,26 @@ export type Database = {
       page_access_permissions: {
         Row: {
           created_at: string
+          effect: string
           id: string
           page_key: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          effect?: string
           id?: string
           page_key: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          effect?: string
           id?: string
           page_key?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -3400,6 +3483,84 @@ export type Database = {
           },
         ]
       }
+      settings_change_requests: {
+        Row: {
+          action: string
+          after_value: Json | null
+          applied_at: string | null
+          before_value: Json | null
+          change_summary: string
+          created_at: string
+          id: string
+          requested_by: string
+          requested_by_name: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          risk_level: string
+          status: string
+          target_area: string
+          target_key: string
+          target_table: string
+          updated_at: string
+        }
+        Insert: {
+          action?: string
+          after_value?: Json | null
+          applied_at?: string | null
+          before_value?: Json | null
+          change_summary: string
+          created_at?: string
+          id?: string
+          requested_by?: string
+          requested_by_name?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_level?: string
+          status?: string
+          target_area?: string
+          target_key: string
+          target_table: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          after_value?: Json | null
+          applied_at?: string | null
+          before_value?: Json | null
+          change_summary?: string
+          created_at?: string
+          id?: string
+          requested_by?: string
+          requested_by_name?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_level?: string
+          status?: string
+          target_area?: string
+          target_key?: string
+          target_table?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settings_change_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_change_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       response_cases: {
         Row: {
           assigned_to: string | null
@@ -4654,11 +4815,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_settings_change_request: {
+        Args: { _request_id: string; _review_note?: string | null }
+        Returns: string
+      }
+      can_access_feature: {
+        Args: { _feature_key: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_company_master: {
+        Args: Record<PropertyKey, never>
         Returns: boolean
       }
       is_project_assigned: {
@@ -4668,6 +4841,10 @@ export type Database = {
       is_project_owner: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
+      }
+      reject_settings_change_request: {
+        Args: { _request_id: string; _review_note?: string | null }
+        Returns: string
       }
     }
     Enums: {

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart, Star, FolderOpen, MessageSquareText, PenLine } from 'lucide-react';
+import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart, Star, FolderOpen, MessageSquareText, PenLine, ShieldCheck, GraduationCap } from 'lucide-react';
 import { AppNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,6 +33,8 @@ const NotificationPanel = ({
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>('all');
 
+  const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : '알 수 없는 오류';
+
   const handleOpen = () => {
     setOpen(true);
   };
@@ -54,8 +56,8 @@ const NotificationPanel = ({
       toast.success('비밀번호가 1234로 초기화되었습니다.');
       onRemove(notification.id);
       onRefresh();
-    } catch (err: any) {
-      toast.error('처리 실패: ' + (err.message || '알 수 없는 오류'));
+    } catch (err: unknown) {
+      toast.error('처리 실패: ' + getErrorMessage(err));
     } finally {
       setProcessingId(null);
     }
@@ -73,26 +75,31 @@ const NotificationPanel = ({
       toast.success('요청이 거부되었습니다.');
       onRemove(notification.id);
       onRefresh();
-    } catch (err: any) {
-      toast.error('처리 실패: ' + (err.message || '알 수 없는 오류'));
+    } catch (err: unknown) {
+      toast.error('처리 실패: ' + getErrorMessage(err));
     } finally {
       setProcessingId(null);
     }
   };
 
   const handleApproveUser = async (notification: AppNotification) => {
+    const targetUserId = typeof notification.data?.userId === 'string' ? notification.data.userId : '';
+    if (!targetUserId) {
+      toast.error('승인할 사용자 정보를 찾을 수 없습니다.');
+      return;
+    }
     setProcessingId(notification.id);
     try {
       const { error } = await supabase
         .from('profiles')
         .update({ is_approved: true })
-        .eq('id', notification.data?.userId);
+        .eq('id', targetUserId);
       if (error) throw error;
       toast.success('사용자가 승인되었습니다.');
       onRemove(notification.id);
       onRefresh();
-    } catch (err: any) {
-      toast.error('승인 실패: ' + (err.message || '알 수 없는 오류'));
+    } catch (err: unknown) {
+      toast.error('승인 실패: ' + getErrorMessage(err));
     } finally {
       setProcessingId(null);
     }
@@ -110,8 +117,8 @@ const NotificationPanel = ({
       toast.success('사용자가 거부(삭제)되었습니다.');
       onRemove(notification.id);
       onRefresh();
-    } catch (err: any) {
-      toast.error('처리 실패: ' + (err.message || '알 수 없는 오류'));
+    } catch (err: unknown) {
+      toast.error('처리 실패: ' + getErrorMessage(err));
     } finally {
       setProcessingId(null);
     }
@@ -149,6 +156,15 @@ const NotificationPanel = ({
       case 'contract_signed':
       case 'contract_rejected':
         return <PenLine className="h-4 w-4 text-green-600" />;
+      case 'profile_change_request':
+      case 'profile_change_approved':
+      case 'profile_change_rejected':
+        return <ShieldCheck className="h-4 w-4 text-blue-600" />;
+      case 'hr_request':
+      case 'hr_request_update':
+        return <MessageSquareText className="h-4 w-4 text-violet-600" />;
+      case 'hr_task':
+        return <GraduationCap className="h-4 w-4 text-emerald-600" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
@@ -173,6 +189,12 @@ const NotificationPanel = ({
       || notification.type === 'contract_request'
       || notification.type === 'contract_signed'
       || notification.type === 'contract_rejected'
+      || notification.type === 'profile_change_request'
+      || notification.type === 'profile_change_approved'
+      || notification.type === 'profile_change_rejected'
+      || notification.type === 'hr_request'
+      || notification.type === 'hr_request_update'
+      || notification.type === 'hr_task'
     ) return 'hr';
     return 'system';
   };
@@ -195,6 +217,12 @@ const NotificationPanel = ({
       case 'contract_request':
       case 'contract_signed':
       case 'contract_rejected': return '계약';
+      case 'profile_change_request':
+      case 'profile_change_approved':
+      case 'profile_change_rejected': return '인사정보';
+      case 'hr_request':
+      case 'hr_request_update': return 'HR 요청';
+      case 'hr_task': return '교육';
       case 'system':
       default: return '공지';
     }

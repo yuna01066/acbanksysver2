@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Clock, CheckCircle2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import HomeLogoButton from '@/components/HomeLogoButton';
@@ -30,6 +30,8 @@ const signupSchema = z.object({
 const AuthPage = () => {
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirectTo') || '/';
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
   const [pendingApproval, setPendingApproval] = useState(false);
   const [signupComplete, setSignupComplete] = useState(false);
@@ -71,7 +73,7 @@ const AuthPage = () => {
         toast.error('로그인에 실패했습니다. 다시 시도해주세요.');
       }
     } else {
-      navigate('/');
+      navigate(redirectTo);
     }
     
     setLoading(false);
