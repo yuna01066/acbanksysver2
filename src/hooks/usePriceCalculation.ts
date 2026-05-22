@@ -64,6 +64,8 @@ interface UsePriceCalculationProps {
 
 type PriceInfo = Pick<CalculatePriceResult, 'totalPrice' | 'breakdown' | 'status' | 'lineItems' | 'warnings' | 'blockedReasons' | 'snapshotVersion' | 'formulaDocVersion'>;
 
+type LocalPanelPriceTable = typeof glossyColorSinglePrices;
+
 const EMPTY_PRICE_INFO: PriceInfo = {
   totalPrice: 0,
   breakdown: [],
@@ -73,6 +75,27 @@ const EMPTY_PRICE_INFO: PriceInfo = {
   blockedReasons: [],
   snapshotVersion: 'pricing-engine-v2-core-260520',
   formulaDocVersion: 260520,
+};
+
+const getLocalPriceTable = (qualityId: string): LocalPanelPriceTable | null => {
+  switch (qualityId) {
+    case 'glossy-color':
+      return glossyColorSinglePrices;
+    case 'bright-color':
+      return brightColorSinglePrices;
+    case 'glossy-standard':
+      return glossyStandardSinglePrices;
+    case 'astel-color':
+      return astelColorSinglePrices;
+    case 'satin-color':
+      return satinColorSinglePrices;
+    case 'acrylic-mirror':
+    case 'astel-mirror':
+    case 'satin-mirror':
+      return glossyColorSinglePrices;
+    default:
+      return null;
+  }
 };
 
 export const usePriceCalculation = ({
@@ -259,28 +282,9 @@ export const usePriceCalculation = ({
   // 특정 두께와 사이즈 조합에 가격 데이터가 있는지 확인하는 함수
   const hasPriceData = (qualityId: string, thickness: string, size: string): boolean => {
     if (selectedFactory !== 'jangwon') return false;
-    
-    let priceData;
-    
-    switch (qualityId) {
-      case 'glossy-color':
-        priceData = glossyColorSinglePrices;
-        break;
-      case 'bright-color':
-        priceData = brightColorSinglePrices;
-        break;
-      case 'glossy-standard':
-        priceData = glossyStandardSinglePrices;
-        break;
-      case 'astel-color':
-        priceData = astelColorSinglePrices;
-        break;
-      case 'satin-color':
-        priceData = satinColorSinglePrices;
-        break;
-      default:
-        return false;
-    }
+
+    const priceData = getLocalPriceTable(qualityId);
+    if (!priceData) return false;
 
     const thicknessData = priceData[thickness as keyof typeof priceData];
     if (!thicknessData) return false;
@@ -476,7 +480,7 @@ export const usePriceCalculation = ({
 
           // 원장 비용만 추출 (원판 + 양단면 + 조색비)
           const wonJangPrice = result.lineItems
-            .filter(item => item.source === 'panel' || item.source === 'surcharge')
+            .filter(item => item.source === 'panel' || item.source === 'surcharge' || item.source === 'mirror')
             .reduce((sum, item) => sum + item.amount, 0);
 
           totalWonJang += wonJangPrice;

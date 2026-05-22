@@ -592,6 +592,33 @@ const inRange = (value: number, min: number, max: number, message: string) => {
 {
   const result = calculatePrice(
     'casting',
+    'astel-mirror',
+    '5T',
+    '대3*6',
+    '단면',
+    undefined,
+    undefined,
+    0,
+    {
+      formulaConstants: {
+        ...DEFAULT_FORMULA_CONSTANTS,
+        mirrorDeposition3x6: 50_000,
+      },
+    }
+  );
+
+  assert.equal(result.status, 'calculable');
+  assert.equal(result.totalPrice, 108_600);
+  assert.equal(
+    result.lineItems.find(item => item.code === 'mirror-deposition-material')?.amount,
+    50_000,
+    'astel mirror 5T must use CLEAR base + astel surcharge + mirror deposition fallback'
+  );
+}
+
+{
+  const result = calculatePrice(
+    'casting',
     'acrylic-mirror',
     '5T',
     '5*6',

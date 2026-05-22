@@ -1615,9 +1615,25 @@ export const calculatePrice = (
     if (clearBasePrice > 0) {
       basePrice = clearBasePrice;
       breakdown.push({ label: 'CLEAR 유광 색상판 기본가', price: basePrice });
-      if (finishSurcharge && finishSurcharge.cost > 0) {
-        breakdown.push({ label: '사틴/아스텔 추가금 (DB)', price: finishSurcharge.cost });
-        basePrice += finishSurcharge.cost;
+      const fallbackFinishSurcharge = qualityId === 'astel-mirror'
+        ? astelDoubleSideSurcharge[sizeKey as keyof typeof astelDoubleSideSurcharge] || 0
+        : qualityId === 'satin-mirror'
+          ? satinMaterialSurcharges[sizeKey as keyof typeof satinMaterialSurcharges] || 0
+          : 0;
+      const finishSurchargeCost = finishSurcharge?.cost && finishSurcharge.cost > 0
+        ? finishSurcharge.cost
+        : fallbackFinishSurcharge;
+
+      if (finishSurchargeCost > 0) {
+        breakdown.push({
+          label: finishSurcharge?.cost && finishSurcharge.cost > 0
+            ? '사틴/아스텔 추가금 (DB)'
+            : qualityId === 'astel-mirror'
+              ? '아스텔 미러 재질 추가금'
+              : '사틴 미러 재질 추가금',
+          price: finishSurchargeCost
+        });
+        basePrice += finishSurchargeCost;
       }
     }
   }

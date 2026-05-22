@@ -37,6 +37,39 @@ interface ColorSelectionProps {
   initialCustomOpacity?: string;
 }
 
+const MIRROR_FALLBACK_COLORS: Record<string, ColorOption> = {
+  'acrylic-mirror': {
+    id: 'fallback-acrylic-mirror',
+    color_name: 'MIRROR 미러',
+    color_code: '#d8dde6',
+    is_active: true,
+    is_producible: true,
+    color_attribute_note: '미러 기본 색상'
+  },
+  'astel-mirror': {
+    id: 'fallback-astel-mirror',
+    color_name: 'ASTEL-MIRROR 아스텔 미러',
+    color_code: '#e4e7ec',
+    is_active: true,
+    is_producible: true,
+    color_attribute_note: '아스텔 미러 기본 색상'
+  },
+  'satin-mirror': {
+    id: 'fallback-satin-mirror',
+    color_name: 'SATIN-MIRROR 사틴 미러',
+    color_code: '#eef0f3',
+    is_active: true,
+    is_producible: true,
+    color_attribute_note: '사틴 미러 기본 색상'
+  },
+};
+
+const getMirrorFallbackColors = (qualityId?: string | null): ColorOption[] => {
+  if (!qualityId) return [];
+  const fallbackColor = MIRROR_FALLBACK_COLORS[qualityId];
+  return fallbackColor ? [fallbackColor] : [];
+};
+
 const ColorSelection: React.FC<ColorSelectionProps> = ({ 
   selectedColor, 
   onColorSelect, 
@@ -100,13 +133,16 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
 
   // 검색 필터링 및 카테고리 분리
   const [activeTab, setActiveTab] = React.useState<'A' | 'B'>('A');
+  const colorOptions = colors && colors.length > 0
+    ? colors
+    : getMirrorFallbackColors(selectedQuality?.id);
   
-  const hasSeriesTabs = hasExplicitSeriesTabs(colors || []);
-  const categoryAColors = colors?.filter(color => getColorSeriesTab(color) === 'A') || [];
-  const categoryBColors = colors?.filter(color => getColorSeriesTab(color) === 'B') || [];
+  const hasSeriesTabs = hasExplicitSeriesTabs(colorOptions);
+  const categoryAColors = colorOptions.filter(color => getColorSeriesTab(color) === 'A');
+  const categoryBColors = colorOptions.filter(color => getColorSeriesTab(color) === 'B');
   const displayColors = hasSeriesTabs
     ? activeTab === 'A' ? categoryAColors : categoryBColors
-    : colors || [];
+    : colorOptions;
   
   const filteredColors = displayColors.filter(color => {
     if (!searchTerm) return true;
