@@ -1,16 +1,20 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { Download, Loader2 } from 'lucide-react';
+import { getDownloadUrl } from '@/services/documentFiles';
+import { contractDocumentCss, injectCompanySealIntoRenderedHtml, injectSignatureIntoRenderedHtml } from '@/utils/contractRenderer';
 
-interface ContractData {
+export interface ContractData {
   user_name: string;
   birth_date?: string | null;
   contract_date?: string;
@@ -35,6 +39,11 @@ interface ContractData {
   probation_start_date?: string | null;
   probation_end_date?: string | null;
   probation_salary_rate?: number | null;
+  rendered_html?: string | null;
+  signed_rendered_html?: string | null;
+  signature_storage_path?: string | null;
+  company_seal_storage_path?: string | null;
+  signed_pdf_storage_path?: string | null;
 }
 
 interface ContractPreviewDialogProps {
@@ -76,7 +85,91 @@ const ContractPreviewDialog: React.FC<ContractPreviewDialogProps> = ({
   ceoName = '대표',
   templateType = '자동 근로계약서',
 }) => {
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
+  const [companySealUrl, setCompanySealUrl] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!contract?.signature_storage_path) {
+      setSignatureUrl(null);
+      return;
+    }
+    getDownloadUrl({
+      storageProvider: 'supabase_storage',
+      storageBucket: 'employee-contracts',
+      storagePath: contract.signature_storage_path,
+    })
+      .then((url) => { if (mounted) setSignatureUrl(url); })
+      .catch(() => { if (mounted) setSignatureUrl(null); });
+    return () => { mounted = false; };
+  }, [contract?.signature_storage_path]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!contract?.company_seal_storage_path) {
+      setCompanySealUrl(null);
+      return;
+    }
+    getDownloadUrl({
+      storageProvider: 'supabase_storage',
+      storageBucket: 'employee-contracts',
+      storagePath: contract.company_seal_storage_path,
+    })
+      .then((url) => { if (mounted) setCompanySealUrl(url); })
+      .catch(() => { if (mounted) setCompanySealUrl(null); });
+    return () => { mounted = false; };
+  }, [contract?.company_seal_storage_path]);
+
+  const renderedContractHtml = useMemo(() => {
+    const html = contract?.signed_rendered_html || contract?.rendered_html;
+    if (!html) return null;
+    return injectSignatureIntoRenderedHtml(
+      injectCompanySealIntoRenderedHtml(html, companySealUrl),
+      signatureUrl,
+    );
+  }, [contract?.rendered_html, contract?.signed_rendered_html, companySealUrl, signatureUrl]);
+
   if (!contract) return null;
+
+  const handleDownloadPdf = async () => {
+    if (!contract.signed_pdf_storage_path) return;
+    setDownloading(true);
+    try {
+      const url = await getDownloadUrl({
+        storageProvider: 'supabase_storage',
+        storageBucket: 'employee-contracts',
+        storagePath: contract.signed_pdf_storage_path,
+      });
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  if (renderedContractHtml) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[92vh] p-0">
+          <DialogHeader className="px-6 pt-6 pb-0 flex flex-row items-center justify-between">
+            <DialogTitle>계약서 미리보기</DialogTitle>
+            {contract.signed_pdf_storage_path && (
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadPdf} disabled={downloading}>
+                {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                PDF
+              </Button>
+            )}
+          </DialogHeader>
+          <ScrollArea className="max-h-[80vh]">
+            <style>{contractDocumentCss()}</style>
+            <div className="bg-muted/40 py-6">
+              <div dangerouslySetInnerHTML={{ __html: renderedContractHtml }} />
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   const contractStartFormatted = formatDate(contract.contract_start_date);
   const contractEndFormatted = formatDate(contract.contract_end_date);

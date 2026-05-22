@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +21,9 @@ import { Badge } from '@/components/ui/badge';
 
 const MyPageHRSection: React.FC = () => {
   const { user, profile } = useAuth();
+  const [searchParams] = useSearchParams();
   const tax = useYearEndTax(TAX_YEAR);
+  const defaultHrTab = searchParams.get('hrTab') || 'profile';
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -48,7 +51,7 @@ const MyPageHRSection: React.FC = () => {
   };
 
   return (
-    <Tabs defaultValue="profile" className="space-y-6">
+    <Tabs defaultValue={defaultHrTab} className="space-y-6">
       <TabsList className="grid w-full grid-cols-5 max-w-2xl">
         <TabsTrigger value="profile">프로필</TabsTrigger>
         <TabsTrigger value="contracts" className="gap-1">

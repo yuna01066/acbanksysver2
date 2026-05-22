@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { JSONContent } from '@tiptap/react';
 
 export interface ContractTemplate {
   id: string;
@@ -8,6 +9,9 @@ export interface ContractTemplate {
   description: string | null;
   is_active: boolean;
   pay_day: number;
+  content?: JSONContent | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface EmploymentContract {
@@ -43,7 +47,20 @@ export interface EmploymentContract {
   comprehensive_wage_hours: number | null;
   requested_by: string | null;
   requested_at: string | null;
+  opened_at?: string | null;
   signed_at: string | null;
+  rejected_at?: string | null;
+  rejected_reason?: string | null;
+  signed_by_name?: string | null;
+  template_snapshot?: any | null;
+  rendered_html?: string | null;
+  signed_rendered_html?: string | null;
+  signature_storage_path?: string | null;
+  company_seal_included?: boolean;
+  company_seal_storage_path?: string | null;
+  signed_pdf_storage_path?: string | null;
+  signed_pdf_document_file_id?: string | null;
+  content_sha256?: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -84,9 +101,10 @@ export const useEmploymentContracts = () => {
   useEffect(() => { fetchContracts(); }, [fetchContracts]);
 
   const createContract = async (contract: Partial<EmploymentContract>) => {
-    const { error } = await supabase.from('employment_contracts').insert(contract as any);
+    const { data, error } = await supabase.from('employment_contracts').insert(contract as any).select('*').single();
     if (error) throw error;
     await fetchContracts();
+    return data as EmploymentContract;
   };
 
   const updateContract = async (id: string, updates: Partial<EmploymentContract>) => {
@@ -102,9 +120,10 @@ export const useEmploymentContracts = () => {
   };
 
   const bulkCreate = async (contracts: Partial<EmploymentContract>[]) => {
-    const { error } = await supabase.from('employment_contracts').insert(contracts as any[]);
+    const { data, error } = await supabase.from('employment_contracts').insert(contracts as any[]).select('*');
     if (error) throw error;
     await fetchContracts();
+    return (data || []) as EmploymentContract[];
   };
 
   return { contracts, loading, createContract, updateContract, deleteContract, bulkCreate, refresh: fetchContracts };

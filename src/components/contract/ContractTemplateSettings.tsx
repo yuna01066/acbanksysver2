@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import type { JSONContent } from '@tiptap/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -9,9 +10,16 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, FileText, Pencil, Trash2, Loader2, FileSignature, DollarSign } from 'lucide-react';
+import { Plus, FileText, Pencil, Trash2, Loader2, FileSignature, DollarSign, ShieldCheck, FilePenLine } from 'lucide-react';
 import { type ContractTemplate } from '@/hooks/useContracts';
 import TemplateEditorDialog from './template-editor/TemplateEditorDialog';
+import { evaluateContractTemplateQuality } from '@/utils/contractTemplateQuality';
+
+type ContractTemplateWithContent = ContractTemplate & { content?: JSONContent | null };
+
+const getErrorMessage = (error: unknown) => (
+  error instanceof Error ? error.message : String(error || '')
+);
 
 const TEMPLATE_TYPES: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   labor: {
@@ -24,12 +32,27 @@ const TEMPLATE_TYPES: Record<string, { label: string; icon: React.ReactNode; col
     icon: <DollarSign className="h-5 w-5" />,
     color: 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30',
   },
+  oath: {
+    label: '서약서',
+    icon: <ShieldCheck className="h-5 w-5" />,
+    color: 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30',
+  },
+  privacy: {
+    label: '동의서',
+    icon: <FileSignature className="h-5 w-5" />,
+    color: 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30',
+  },
+  custom: {
+    label: '자유양식',
+    icon: <FilePenLine className="h-5 w-5" />,
+    color: 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800',
+  },
 };
 
 const ContractTemplateSettings: React.FC = () => {
   const { templates, loading, refresh } = useContractTemplatesWithRefresh();
   const [editorOpen, setEditorOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<any>(null);
+  const [editingTemplate, setEditingTemplate] = useState<ContractTemplateWithContent | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<ContractTemplate | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -38,7 +61,7 @@ const ContractTemplateSettings: React.FC = () => {
     setEditorOpen(true);
   };
 
-  const openEdit = (t: ContractTemplate & { content?: any }) => {
+  const openEdit = (t: ContractTemplateWithContent) => {
     setEditingTemplate(t);
     setEditorOpen(true);
   };
@@ -55,8 +78,8 @@ const ContractTemplateSettings: React.FC = () => {
       toast.success('양식이 삭제되었습니다.');
       setDeleteTarget(null);
       refresh();
-    } catch (e: any) {
-      toast.error('삭제 실패: ' + e.message);
+    } catch (error: unknown) {
+      toast.error('삭제 실패: ' + getErrorMessage(error));
     } finally {
       setDeleting(false);
     }
@@ -84,9 +107,9 @@ const ContractTemplateSettings: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-lg">계약서 양식 관리</h3>
-          <p className="text-sm text-muted-foreground">근로계약서 및 연봉계약서 양식을 생성하고 관리합니다.</p>
+          <p className="text-sm text-muted-foreground">전자계약 양식을 생성하고 관리합니다. 기존 발송 계약은 수정된 양식의 영향을 받지 않습니다.</p>
         </div>
-        <Button onClick={openCreate} className="gap-1.5">
+        <Button onClick={openCreate} className="gap-1.5 rounded-full bg-[#111111] text-white hover:bg-[#2a2a2a]">
           <Plus className="h-4 w-4" /> 새 양식 만들기
         </Button>
       </div>
@@ -103,8 +126,9 @@ const ContractTemplateSettings: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {templates.map(t => {
             const typeInfo = TEMPLATE_TYPES[t.template_type] || TEMPLATE_TYPES.labor;
+            const quality = evaluateContractTemplateQuality(t.content || null);
             return (
-              <Card key={t.id} className={`transition-all ${!t.is_active ? 'opacity-50' : ''}`}>
+              <Card key={t.id} className={`transition-all border-[#cacacb] shadow-none ${!t.is_active ? 'opacity-50' : ''}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
@@ -116,6 +140,12 @@ const ContractTemplateSettings: React.FC = () => {
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="outline" className="text-[11px]">{typeInfo.label}</Badge>
                           <Badge variant="outline" className="text-[11px]">급여일 {t.pay_day}일</Badge>
+                          <Badge
+                            variant="outline"
+                            className={`text-[11px] ${quality.ok ? 'border-emerald-200 text-emerald-700' : 'border-red-200 text-red-700'}`}
+                          >
+                            {quality.ok ? '필수필드 충족' : '필수필드 부족'}
+                          </Badge>
                           {!t.is_active && (
                             <Badge variant="secondary" className="text-[11px]">비활성</Badge>
                           )}
@@ -123,7 +153,7 @@ const ContractTemplateSettings: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t as any)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteTarget(t)}>
@@ -133,6 +163,11 @@ const ContractTemplateSettings: React.FC = () => {
                   </div>
                   {t.description && (
                     <p className="text-xs text-muted-foreground mb-3">{t.description}</p>
+                  )}
+                  {!quality.ok && (
+                    <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                      누락: {quality.missing.join(', ')}
+                    </p>
                   )}
                   <div className="flex items-center justify-between pt-2 border-t">
                     <span className="text-xs text-muted-foreground">활성 상태</span>
@@ -177,7 +212,7 @@ const ContractTemplateSettings: React.FC = () => {
 
 // Extended hook that includes refresh and returns all templates (not just active)
 function useContractTemplatesWithRefresh() {
-  const [templates, setTemplates] = React.useState<(ContractTemplate & { content?: any })[]>([]);
+  const [templates, setTemplates] = React.useState<ContractTemplateWithContent[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   const fetch = React.useCallback(async () => {
@@ -186,7 +221,7 @@ function useContractTemplatesWithRefresh() {
       .from('contract_templates')
       .select('*')
       .order('created_at');
-    if (data) setTemplates(data as any[]);
+    if (data) setTemplates(data as ContractTemplateWithContent[]);
     setLoading(false);
   }, []);
 

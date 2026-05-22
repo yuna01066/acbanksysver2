@@ -24,12 +24,13 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { X, Save, Loader2, FileText, Eye, Pencil, FileSignature, DollarSign, ChevronDown, AlertTriangle } from 'lucide-react';
+import { X, Save, Loader2, FileText, Eye, Pencil, FileSignature, DollarSign, ChevronDown, AlertTriangle, ShieldCheck, FilePenLine } from 'lucide-react';
 import EditorToolbar from './EditorToolbar';
 import PlaceholderSidebar from './PlaceholderSidebar';
 import { PREBUILT_TEMPLATES } from './prebuiltTemplates';
 import { SAMPLE_DATA } from './placeholderFields';
 import type { ContractTemplate } from '@/hooks/useContracts';
+import { evaluateContractTemplateQuality } from '@/utils/contractTemplateQuality';
 
 interface TemplateEditorDialogProps {
   open: boolean;
@@ -37,6 +38,10 @@ interface TemplateEditorDialogProps {
   editingTemplate?: ContractTemplate & { content?: JSONContent | null };
   onSaved: () => void;
 }
+
+const getErrorMessage = (error: unknown) => (
+  error instanceof Error ? error.message : String(error || '')
+);
 
 // Custom TextStyle extension to support fontSize
 const CustomTextStyle = TextStyle.extend({
@@ -139,9 +144,14 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
 
   const handleSave = async () => {
     if (!name.trim()) { toast.error('양식 이름을 입력해주세요.'); return; }
+    const content = editor?.getJSON() || null;
+    const quality = evaluateContractTemplateQuality(content);
+    if (!quality.ok) {
+      toast.error(`필수 필드를 추가해주세요: ${quality.missing.join(', ')}`);
+      return;
+    }
     setSaving(true);
     try {
-      const content = editor?.getJSON() || null;
       const payload = {
         name: name.trim(),
         template_type: templateType,
@@ -154,21 +164,21 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
       if (editingTemplate) {
         const { error } = await supabase
           .from('contract_templates')
-          .update(payload as any)
+          .update(payload as never)
           .eq('id', editingTemplate.id);
         if (error) throw error;
         toast.success('양식이 수정되었습니다.');
       } else {
         const { error } = await supabase
           .from('contract_templates')
-          .insert(payload as any);
+          .insert(payload as never);
         if (error) throw error;
         toast.success('양식이 생성되었습니다.');
       }
       onSaved();
       onClose();
-    } catch (e: any) {
-      toast.error('저장 실패: ' + e.message);
+    } catch (error: unknown) {
+      toast.error('저장 실패: ' + getErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -196,19 +206,10 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
     return html;
   };
 
-  // Check if required fields are present
-  const hasRequiredFields = () => {
-    if (!editor) return { hasDate: false, hasSignature: false };
-    const html = editor.getHTML();
-    const hasDate = html.includes('data-id="계약일"') || html.includes('{{계약일}}');
-    const hasSignature = html.includes('data-id="구성원직인"') || html.includes('{{구성원직인}}') || html.includes('구성원 직인');
-    return { hasDate, hasSignature };
-  };
-
   if (!open) return null;
 
-  const { hasDate, hasSignature } = hasRequiredFields();
-  const showWarning = activeTab === 'edit' && (!hasDate || !hasSignature);
+  const quality = evaluateContractTemplateQuality(editor?.getJSON() || null);
+  const showWarning = activeTab === 'edit' && !quality.ok;
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
@@ -250,7 +251,7 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
               {showWarning && (
                 <div className="mx-6 mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-2.5 text-sm text-amber-800 dark:text-amber-300">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
-                  <span>법적 효력을 위해 {!hasDate && "'계약일'"}{!hasDate && !hasSignature && '과 '}{!hasSignature && "'구성원 직인'"} 필드를 추가하세요.</span>
+                  <span>발송 가능한 양식으로 저장하려면 필수 필드를 추가하세요: {quality.missing.join(', ')}</span>
                   <button onClick={() => {}} className="ml-auto text-amber-600 hover:text-amber-800">
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -269,7 +270,7 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
                     />
                   </div>
                   <Select value={templateType} onValueChange={setTemplateType}>
-                    <SelectTrigger className="w-[140px] h-8 text-xs">
+                    <SelectTrigger className="w-[150px] h-8 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -281,6 +282,21 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
                       <SelectItem value="salary">
                         <span className="flex items-center gap-1.5">
                           <DollarSign className="h-3.5 w-3.5 text-green-600" /> 연봉계약서
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="oath">
+                        <span className="flex items-center gap-1.5">
+                          <ShieldCheck className="h-3.5 w-3.5 text-amber-600" /> 서약서
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="privacy">
+                        <span className="flex items-center gap-1.5">
+                          <FileSignature className="h-3.5 w-3.5 text-purple-600" /> 동의서
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="custom">
+                        <span className="flex items-center gap-1.5">
+                          <FilePenLine className="h-3.5 w-3.5 text-slate-600" /> 자유양식
                         </span>
                       </SelectItem>
                     </SelectContent>
@@ -333,7 +349,7 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
                         <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                         {tpl.name}
                         <Badge variant="outline" className="ml-auto text-[10px]">
-                          {tpl.type === 'labor' ? '근로' : '연봉'}
+                          {tpl.type === 'labor' ? '근로' : tpl.type === 'salary' ? '연봉' : tpl.type === 'privacy' ? '동의' : '서약'}
                         </Badge>
                       </button>
                     ))}

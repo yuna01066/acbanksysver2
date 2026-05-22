@@ -1,31 +1,67 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
+import React, { useEffect, useMemo, useState } from 'react';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
+import {
+  AlertTriangle, Bell, CheckCircle2, Clock, DollarSign, Download,
+  Eye, FilePenLine, FileText, Filter, History, Loader2, RotateCw, Save, Search,
+  Send, Settings2, ShieldCheck, Sparkles, Stamp, Users, X, XCircle,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import {
-  X, Sparkles, Settings2, Save, Send, Loader2, CheckCircle2,
-  FileText, DollarSign, Eye, ChevronDown
-} from 'lucide-react';
 import { useContractTemplates, useEmploymentContracts, type EmploymentContract } from '@/hooks/useContracts';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ContractTemplateSettings from './ContractTemplateSettings';
+import ContractPreviewDialog, { type ContractData } from './ContractPreviewDialog';
+import { PREBUILT_TEMPLATES } from './template-editor/prebuiltTemplates';
+import { renderContractHtml } from '@/utils/contractRenderer';
+import { evaluateContractTemplateQuality } from '@/utils/contractTemplateQuality';
+import { getDownloadUrl } from '@/services/documentFiles';
 
 interface EmployeeForContract {
   id: string;
   full_name: string;
+  email: string;
+  phone: string;
+  address: string;
+  detail_address: string;
   department: string;
   position: string;
   birthday: string;
   join_date: string;
+  job_title: string;
+  rank_title: string;
   salary_info: string;
   avatar_url: string;
+}
+
+interface ContractEvent {
+  id: string;
+  contract_id: string;
+  actor_id: string | null;
+  actor_role: string | null;
+  event_type: 'requested' | 'opened' | 'signed' | 'rejected' | 'downloaded';
+  ip_address: string | null;
+  user_agent: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+interface CompanyInfoForContracts extends Record<string, unknown> {
+  company_seal_storage_path?: string | null;
 }
 
 const CONTRACT_TYPES: Record<string, string> = {
@@ -34,33 +70,88 @@ const CONTRACT_TYPES: Record<string, string> = {
   part_time: '파트타임',
 };
 
-const PROBATION_OPTIONS = ['수습 없음', '1개월', '2개월', '3개월', '6개월'];
-
-const STATUS_LABELS: Record<string, { label: string; className: string }> = {
-  draft: { label: '임시저장', className: 'bg-muted text-muted-foreground' },
-  requested: { label: '계약 요청됨', className: 'bg-primary/10 text-primary' },
-  signed: { label: '서명 완료', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-  rejected: { label: '거절', className: 'bg-destructive/10 text-destructive' },
+const TEMPLATE_TYPE_INFO: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
+  labor: { label: '근로계약서', icon: <FileText className="h-5 w-5" />, className: 'bg-[#f5f5f5] text-[#111111]' },
+  salary: { label: '연봉계약서', icon: <DollarSign className="h-5 w-5" />, className: 'bg-[#f5f5f5] text-[#111111]' },
+  oath: { label: '서약서', icon: <ShieldCheck className="h-5 w-5" />, className: 'bg-[#f5f5f5] text-[#111111]' },
+  privacy: { label: '개인정보 동의서', icon: <FileText className="h-5 w-5" />, className: 'bg-[#f5f5f5] text-[#111111]' },
+  custom: { label: '자유양식', icon: <FilePenLine className="h-5 w-5" />, className: 'bg-[#f5f5f5] text-[#111111]' },
 };
 
+const STATUS_LABELS: Record<string, { label: string; className: string; icon: React.ReactNode }> = {
+  draft: { label: '임시저장', className: 'bg-[#f5f5f5] text-[#707072]', icon: <Clock className="h-3 w-3" /> },
+  requested: { label: '발송됨', className: 'bg-blue-50 text-blue-700', icon: <Send className="h-3 w-3" /> },
+  opened: { label: '열람됨', className: 'bg-amber-50 text-amber-700', icon: <Eye className="h-3 w-3" /> },
+  signed: { label: '서명 완료', className: 'bg-emerald-50 text-emerald-700', icon: <CheckCircle2 className="h-3 w-3" /> },
+  rejected: { label: '거절', className: 'bg-red-50 text-red-700', icon: <XCircle className="h-3 w-3" /> },
+};
+
+const EVENT_LABELS: Record<string, string> = {
+  requested: '계약 요청',
+  opened: '계약 열람',
+  signed: '서명 완료',
+  rejected: '거절',
+  downloaded: 'PDF 다운로드',
+};
+
+const PROBATION_OPTIONS = ['수습 없음', '1개월', '2개월', '3개월', '6개월'];
+
+const formatNumber = (n: number | null | undefined) => {
+  if (!n) return '';
+  return n.toLocaleString('ko-KR');
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '-';
+  return format(new Date(value), 'yyyy.MM.dd HH:mm', { locale: ko });
+};
+
+const getDisplayStatus = (contract: EmploymentContract) => {
+  if (contract.status === 'requested' && contract.opened_at) return 'opened';
+  return contract.status || 'draft';
+};
+
+const getContractTitle = (contract: EmploymentContract) => (
+  contract.template_snapshot?.name || `${CONTRACT_TYPES[contract.contract_type] || contract.contract_type} 계약서`
+);
+
+const contractEventsTable = 'contract_events' as never;
+
+const getErrorMessage = (error: unknown) => (
+  error instanceof Error ? error.message : String(error || '')
+);
+
 const ContractManagement: React.FC = () => {
-  const { user, profile } = useAuth();
+  const { user, session, isAdmin, isModerator } = useAuth();
   const { templates, loading: templatesLoading } = useContractTemplates();
-  const { contracts, loading: contractsLoading, bulkCreate, updateContract } = useEmploymentContracts();
+  const { contracts, loading: contractsLoading, bulkCreate } = useEmploymentContracts();
+  const [activeTab, setActiveTab] = useState('compose');
   const [showContractEditor, setShowContractEditor] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [employees, setEmployees] = useState<EmployeeForContract[]>([]);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfoForContracts | null>(null);
+  const [companySealUrl, setCompanySealUrl] = useState<string | null>(null);
+  const [includeCompanySeal, setIncludeCompanySeal] = useState(true);
+  const [previewContract, setPreviewContract] = useState<Partial<EmploymentContract> | null>(null);
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
   const [draftContracts, setDraftContracts] = useState<Map<string, Partial<EmploymentContract>>>(new Map());
   const [salaryModalOpen, setSalaryModalOpen] = useState(false);
+  const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('request');
+  const [historySearch, setHistorySearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [contractEvents, setContractEvents] = useState<ContractEvent[]>([]);
+  const [auditContract, setAuditContract] = useState<EmploymentContract | null>(null);
+  const [eventsLoading, setEventsLoading] = useState(false);
 
   useEffect(() => {
     supabase
       .from('profiles')
-      .select('id, full_name, department, position, birthday, join_date, salary_info, avatar_url')
+      .select('id, full_name, email, phone, address, detail_address, department, position, birthday, join_date, job_title, rank_title, salary_info, avatar_url')
       .eq('is_approved', true)
       .order('full_name')
       .then(({ data }) => {
@@ -68,75 +159,369 @@ const ContractManagement: React.FC = () => {
       });
   }, []);
 
-  const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
+  useEffect(() => {
+    supabase
+      .from('company_info')
+      .select('*')
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setCompanyInfo(data || null));
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const path = companyInfo?.company_seal_storage_path;
+    if (!path) {
+      setCompanySealUrl(null);
+      return;
+    }
+    getDownloadUrl({
+      storageProvider: 'supabase_storage',
+      storageBucket: 'employee-contracts',
+      storagePath: path,
+    })
+      .then((url) => { if (mounted) setCompanySealUrl(url); })
+      .catch(() => { if (mounted) setCompanySealUrl(null); });
+    return () => { mounted = false; };
+  }, [companyInfo]);
+
+  useEffect(() => {
+    if (contracts.length === 0) {
+      setContractEvents([]);
+      return;
+    }
+
+    let mounted = true;
+    setEventsLoading(true);
+    supabase
+      .from(contractEventsTable)
+      .select('*')
+      .in('contract_id', contracts.map((contract) => contract.id))
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (mounted) setContractEvents((data || []) as ContractEvent[]);
+      })
+      .finally(() => {
+        if (mounted) setEventsLoading(false);
+      });
+
+    return () => { mounted = false; };
+  }, [contracts]);
+
+  const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
+  const selectedTemplateContent = useMemo(() => {
+    if (selectedTemplate?.content) return selectedTemplate.content;
+    return PREBUILT_TEMPLATES.find((template) => template.type === selectedTemplate?.template_type)?.content
+      || PREBUILT_TEMPLATES[0]?.content
+      || null;
+  }, [selectedTemplate]);
+
+  const selectedTemplateQuality = useMemo(
+    () => evaluateContractTemplateQuality(selectedTemplateContent),
+    [selectedTemplateContent],
+  );
+
+  const filteredEmployees = useMemo(() => {
+    const query = employeeSearch.trim().toLowerCase();
+    if (!query) return employees;
+    return employees.filter((employee) => [
+      employee.full_name,
+      employee.email,
+      employee.phone,
+      employee.department,
+      employee.position,
+    ].some((value) => String(value || '').toLowerCase().includes(query)));
+  }, [employees, employeeSearch]);
+
+  const visibleAllSelected = filteredEmployees.length > 0
+    && filteredEmployees.every((employee) => selectedEmployees.has(employee.id));
+
+  const createDefaultDraft = (employee: EmployeeForContract): Partial<EmploymentContract> => ({
+    template_id: selectedTemplateId,
+    user_id: employee.id,
+    user_name: employee.full_name,
+    contract_type: 'regular',
+    contract_date: new Date().toISOString().split('T')[0],
+    birth_date: employee.birthday || null,
+    contract_start_date: employee.join_date || new Date().toISOString().split('T')[0],
+    contract_end_date: null,
+    position: employee.position || '',
+    department: employee.department || '',
+    probation_period: '수습 없음',
+    probation_start_date: null,
+    probation_end_date: null,
+    probation_salary_rate: 100,
+    work_type: '고정 근무제',
+    work_days: '월,화,수,목,금요일',
+    pay_day: selectedTemplate?.pay_day || 25,
+    other_allowances: [],
+  });
 
   const toggleEmployee = (id: string) => {
-    setSelectedEmployees(prev => {
+    const employee = employees.find((item) => item.id === id);
+    if (!employee) return;
+
+    setSelectedEmployees((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-        setDraftContracts(prev => { const n = new Map(prev); n.delete(id); return n; });
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setDraftContracts((prev) => {
+      const next = new Map(prev);
+      if (next.has(id)) next.delete(id);
+      else next.set(id, createDefaultDraft(employee));
+      return next;
+    });
+  };
+
+  const toggleVisibleEmployees = () => {
+    setSelectedEmployees((prev) => {
+      const next = new Set(prev);
+      if (visibleAllSelected) {
+        filteredEmployees.forEach((employee) => next.delete(employee.id));
       } else {
-        next.add(id);
-        const emp = employees.find(e => e.id === id);
-        if (emp) {
-          setDraftContracts(prev => new Map(prev).set(id, {
-            template_id: selectedTemplateId,
-            user_id: id,
-            user_name: emp.full_name,
-            contract_type: 'regular',
-            contract_date: new Date().toISOString().split('T')[0],
-            birth_date: emp.birthday || null,
-            contract_start_date: emp.join_date || new Date().toISOString().split('T')[0],
-            position: emp.position || '',
-            department: emp.department || '',
-            probation_period: '수습 없음',
-            work_type: '고정 근무제',
-            work_days: '월,화,수,목,금요일',
-            pay_day: selectedTemplate?.pay_day || 25,
-          }));
-        }
+        filteredEmployees.forEach((employee) => next.add(employee.id));
+      }
+      return next;
+    });
+
+    setDraftContracts((prev) => {
+      const next = new Map(prev);
+      if (visibleAllSelected) {
+        filteredEmployees.forEach((employee) => next.delete(employee.id));
+      } else {
+        filteredEmployees.forEach((employee) => {
+          if (!next.has(employee.id)) next.set(employee.id, createDefaultDraft(employee));
+        });
       }
       return next;
     });
   };
 
-  const toggleAll = () => {
-    if (selectedEmployees.size === employees.length) {
+  const updateDraft = (userId: string, field: string, value: string | number | null) => {
+    setDraftContracts((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(userId) || {};
+      next.set(userId, { ...existing, [field]: value });
+      return next;
+    });
+  };
+
+  const validationIssues = useMemo(() => {
+    const issues: string[] = [];
+    if (!selectedTemplate) issues.push('계약 양식을 선택하세요.');
+    if (selectedTemplate && !selectedTemplateQuality.ok) {
+      issues.push(`양식 필수필드 부족: ${selectedTemplateQuality.missing.join(', ')}`);
+    }
+    if (selectedEmployees.size === 0) issues.push('발송할 구성원을 선택하세요.');
+    if (includeCompanySeal && !companyInfo?.company_seal_storage_path) {
+      issues.push('회사 직인 포함을 선택했습니다. 회사 설정에서 직인 파일을 먼저 등록하세요.');
+    }
+
+    for (const employeeId of selectedEmployees) {
+      const draft = draftContracts.get(employeeId);
+      const employeeName = employees.find((employee) => employee.id === employeeId)?.full_name || '선택 구성원';
+      if (!draft) {
+        issues.push(`${employeeName}: 입력값을 다시 확인하세요.`);
+        continue;
+      }
+      if (!draft.contract_date) issues.push(`${employeeName}: 계약일이 필요합니다.`);
+      if (!draft.birth_date) issues.push(`${employeeName}: 생년월일이 필요합니다.`);
+      if (['labor', 'salary'].includes(selectedTemplate?.template_type || '') && !draft.contract_start_date) {
+        issues.push(`${employeeName}: 계약 시작일이 필요합니다.`);
+      }
+      if (draft.contract_start_date && draft.contract_end_date && draft.contract_end_date < draft.contract_start_date) {
+        issues.push(`${employeeName}: 계약 종료일이 시작일보다 빠릅니다.`);
+      }
+    }
+    return issues;
+  }, [companyInfo, draftContracts, employees, includeCompanySeal, selectedEmployees, selectedTemplate, selectedTemplateQuality]);
+
+  const selectedDrafts = useMemo(() => (
+    Array.from(selectedEmployees)
+      .map((id) => draftContracts.get(id))
+      .filter(Boolean) as Partial<EmploymentContract>[]
+  ), [draftContracts, selectedEmployees]);
+
+  const buildContractPayload = (draft: Partial<EmploymentContract>, status: 'draft' | 'requested') => {
+    const employee = employees.find((item) => item.id === draft.user_id);
+    const rendered_html = renderContractHtml({
+      templateContent: selectedTemplateContent,
+      contract: draft,
+      companyInfo,
+      employee,
+      companySealUrl: null,
+      includeCompanySeal,
+    });
+
+    return {
+      ...draft,
+      status,
+      template_id: selectedTemplateId,
+      template_snapshot: selectedTemplate ? {
+        id: selectedTemplate.id,
+        name: selectedTemplate.name,
+        template_type: selectedTemplate.template_type,
+        description: selectedTemplate.description,
+        pay_day: selectedTemplate.pay_day,
+        content: selectedTemplateContent,
+      } : null,
+      rendered_html,
+      company_seal_included: includeCompanySeal,
+      company_seal_storage_path: includeCompanySeal ? (companyInfo?.company_seal_storage_path || null) : null,
+    };
+  };
+
+  const openDraftPreview = (employeeId: string) => {
+    const draft = draftContracts.get(employeeId);
+    if (!draft) return;
+    setPreviewContract(buildContractPayload(draft, 'draft') as Partial<EmploymentContract>);
+  };
+
+  const handleSaveDraft = async () => {
+    if (!selectedTemplate) { toast.error('계약 양식을 선택하세요.'); return; }
+    if (selectedDrafts.length === 0) { toast.error('대상을 선택해주세요.'); return; }
+    setSaving(true);
+    try {
+      await bulkCreate(selectedDrafts.map((draft) => buildContractPayload(draft, 'draft')));
+      toast.success('임시저장되었습니다.');
+      setShowContractEditor(false);
       setSelectedEmployees(new Set());
       setDraftContracts(new Map());
-    } else {
-      const allIds = new Set(employees.map(e => e.id));
-      setSelectedEmployees(allIds);
-      const drafts = new Map<string, Partial<EmploymentContract>>();
-      employees.forEach(emp => {
-        drafts.set(emp.id, {
-          template_id: selectedTemplateId,
-          user_id: emp.id,
-          user_name: emp.full_name,
-          contract_type: 'regular',
-          contract_date: new Date().toISOString().split('T')[0],
-          birth_date: emp.birthday || null,
-          contract_start_date: emp.join_date || new Date().toISOString().split('T')[0],
-          position: emp.position || '',
-          department: emp.department || '',
-          probation_period: '수습 없음',
-          work_type: '고정 근무제',
-          work_days: '월,화,수,목,금요일',
-          pay_day: selectedTemplate?.pay_day || 25,
-        });
-      });
-      setDraftContracts(drafts);
+    } catch (error: unknown) {
+      toast.error('저장 실패: ' + getErrorMessage(error));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const updateDraft = (userId: string, field: string, value: any) => {
-    setDraftContracts(prev => {
-      const n = new Map(prev);
-      const existing = n.get(userId) || {};
-      n.set(userId, { ...existing, [field]: value });
-      return n;
+  const handleOpenSendConfirm = () => {
+    if (validationIssues.length > 0) {
+      toast.error(validationIssues[0]);
+      return;
+    }
+    setSendConfirmOpen(true);
+  };
+
+  const handleRequest = async () => {
+    if (!user || validationIssues.length > 0) return;
+    setSaving(true);
+    try {
+      const contractsToSave = selectedDrafts.map((draft) => ({
+        ...buildContractPayload(draft, 'requested'),
+        requested_by: user.id,
+        requested_at: new Date().toISOString(),
+      }));
+      const createdContracts = await bulkCreate(contractsToSave);
+
+      const notifications = createdContracts.map((contract) => ({
+        user_id: contract.user_id!,
+        type: 'contract_request',
+        title: '새 계약서가 도착했습니다',
+        description: `${contract.user_name}님 앞으로 전자계약서가 발송되었습니다. 마이페이지에서 검토 후 서명해주세요.`,
+        data: { contract_id: contract.id, contract_user_name: contract.user_name },
+      }));
+      if (notifications.length > 0) await supabase.from('notifications').insert(notifications as never);
+
+      const events = createdContracts.map((contract) => ({
+        contract_id: contract.id,
+        actor_id: user.id,
+        actor_role: isAdmin ? 'admin' : isModerator ? 'moderator' : 'admin',
+        event_type: 'requested',
+        metadata: {
+          template_id: contract.template_id,
+          template_name: selectedTemplate?.name,
+          selected_count: createdContracts.length,
+          company_seal_included: includeCompanySeal,
+        },
+      }));
+      if (events.length > 0) await supabase.from(contractEventsTable).insert(events as never);
+
+      toast.success(`${createdContracts.length}명에게 계약을 요청했습니다.`);
+      setSendConfirmOpen(false);
+      setShowContractEditor(false);
+      setSelectedEmployees(new Set());
+      setDraftContracts(new Map());
+    } catch (error: unknown) {
+      toast.error('요청 실패: ' + getErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const invokeContractAction = async (body: Record<string, unknown>) => {
+    const { data, error } = await supabase.functions.invoke('contract-actions', {
+      body,
+      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
     });
+    if (error || data?.error) throw new Error(error?.message || data?.error || '계약 처리에 실패했습니다.');
+    return data;
+  };
+
+  const handleAdminDownload = async (contract: EmploymentContract) => {
+    if (!contract.signed_pdf_storage_path) return;
+    try {
+      const url = await getDownloadUrl({
+        storageProvider: 'supabase_storage',
+        storageBucket: 'employee-contracts',
+        storagePath: contract.signed_pdf_storage_path,
+      });
+      window.open(url, '_blank', 'noopener,noreferrer');
+      await invokeContractAction({ action: 'downloaded', contractId: contract.id });
+    } catch (error: unknown) {
+      toast.error('PDF 열기 실패: ' + getErrorMessage(error));
+    }
+  };
+
+  const handleReminder = async (contract: EmploymentContract) => {
+    if (!user || !['requested', 'opened'].includes(contract.status)) return;
+    try {
+      await supabase.from('notifications').insert({
+        user_id: contract.user_id,
+        type: 'contract_request',
+        title: '전자계약 서명 재알림',
+        description: `${getContractTitle(contract)} 검토 및 서명이 필요합니다.`,
+        data: { contract_id: contract.id, reminder: true },
+      } as never);
+      await supabase.from(contractEventsTable).insert({
+        contract_id: contract.id,
+        actor_id: user.id,
+        actor_role: isAdmin ? 'admin' : isModerator ? 'moderator' : 'admin',
+        event_type: 'requested',
+        metadata: { reminder: true },
+      } as never);
+      toast.success('앱 내부 알림을 다시 발송했습니다.');
+    } catch (error: unknown) {
+      toast.error('재알림 실패: ' + getErrorMessage(error));
+    }
+  };
+
+  const handlePrepareResend = (contract: EmploymentContract) => {
+    if (!contract.template_id || !templates.some((template) => template.id === contract.template_id)) {
+      toast.error('원본 양식이 비활성화 또는 삭제되어 템플릿 관리에서 새 양식을 선택해주세요.');
+      return;
+    }
+    setSelectedTemplateId(contract.template_id);
+    setIncludeCompanySeal(Boolean(contract.company_seal_included));
+    setSelectedEmployees(new Set([contract.user_id]));
+    setDraftContracts(new Map([[contract.user_id, {
+      ...contract,
+      id: undefined,
+      status: 'draft',
+      requested_at: null,
+      signed_at: null,
+      rejected_at: null,
+      rejected_reason: null,
+      opened_at: null,
+      signed_by_name: null,
+      signature_storage_path: null,
+      signed_pdf_storage_path: null,
+      signed_pdf_document_file_id: null,
+      content_sha256: null,
+    } as Partial<EmploymentContract>]]));
+    setActiveTab('compose');
+    setShowContractEditor(true);
   };
 
   const handleAICalculate = async () => {
@@ -154,343 +539,212 @@ const ContractManagement: React.FC = () => {
           updateDraft(userId, 'base_pay', data.base_pay);
           updateDraft(userId, 'fixed_overtime_pay', data.fixed_overtime_pay);
           updateDraft(userId, 'fixed_overtime_hours', data.fixed_overtime_hours);
-          calculated++;
+          calculated += 1;
         }
-      } catch (e: any) {
-        console.error('Salary calc error for', userId, e);
+      } catch (error) {
+        console.error('Salary calc error for', userId, error);
       }
     }
     setCalculating(false);
-    if (calculated > 0) {
-      toast.success(`${calculated}명의 급여가 자동 계산되었습니다.`);
-    } else {
-      toast.info('연봉이 입력된 구성원이 없습니다.');
-    }
+    if (calculated > 0) toast.success(`${calculated}명의 급여가 자동 계산되었습니다.`);
+    else toast.info('연봉이 입력된 구성원이 없습니다.');
     setSalaryModalOpen(false);
   };
 
-  const handleSaveDraft = async () => {
-    if (draftContracts.size === 0) { toast.error('대상을 선택해주세요.'); return; }
-    setSaving(true);
-    try {
-      const contractsToSave = Array.from(draftContracts.values()).map(d => ({ ...d, status: 'draft' }));
-      await bulkCreate(contractsToSave);
-      toast.success('임시저장되었습니다.');
-      setShowContractEditor(false);
-      setSelectedEmployees(new Set());
-      setDraftContracts(new Map());
-    } catch (e: any) {
-      toast.error('저장 실패: ' + e.message);
-    } finally {
-      setSaving(false);
+  const filteredContracts = useMemo(() => {
+    const query = historySearch.trim().toLowerCase();
+    return contracts.filter((contract) => {
+      const status = getDisplayStatus(contract);
+      if (statusFilter !== 'all' && status !== statusFilter) return false;
+      const date = (contract.requested_at || contract.created_at || '').slice(0, 10);
+      if (fromDate && date < fromDate) return false;
+      if (toDate && date > toDate) return false;
+      if (!query) return true;
+      return [
+        contract.user_name,
+        contract.department,
+        contract.position,
+        contract.template_snapshot?.name,
+        contract.contract_type,
+      ].some((value) => String(value || '').toLowerCase().includes(query));
+    });
+  }, [contracts, fromDate, historySearch, statusFilter, toDate]);
+
+  const eventsByContract = useMemo(() => {
+    const grouped = new Map<string, ContractEvent[]>();
+    for (const event of contractEvents) {
+      const items = grouped.get(event.contract_id) || [];
+      items.push(event);
+      grouped.set(event.contract_id, items);
     }
-  };
+    return grouped;
+  }, [contractEvents]);
 
-  const handleRequest = async () => {
-    if (draftContracts.size === 0) { toast.error('대상을 선택해주세요.'); return; }
+  const auditEvents = useMemo(() => {
+    if (!auditContract) return contractEvents;
+    return contractEvents.filter((event) => event.contract_id === auditContract.id);
+  }, [auditContract, contractEvents]);
 
-    // Validate required fields
-    for (const [, draft] of draftContracts) {
-      if (!draft.contract_start_date) {
-        toast.error('근로계약 시작일을 입력해주세요.');
-        return;
-      }
-      if (!draft.birth_date) {
-        toast.error('생년월일을 입력해주세요.');
-        return;
-      }
-    }
-
-    setSaving(true);
-    try {
-      const contractsToSave = Array.from(draftContracts.values()).map(d => ({
-        ...d,
-        status: 'requested',
-        requested_by: user?.id,
-        requested_at: new Date().toISOString(),
-      }));
-      await bulkCreate(contractsToSave);
-
-      // Send notifications to each employee
-      const notifications = contractsToSave.map(c => ({
-        user_id: c.user_id!,
-        type: 'system',
-        title: '새 계약서가 도착했습니다',
-        description: `근로계약서가 발송되었습니다. 마이페이지에서 검토 후 서명해주세요.`,
-        data: { contract_user_name: c.user_name },
-      }));
-      await supabase.from('notifications').insert(notifications);
-
-      toast.success(`${contractsToSave.length}명에게 계약을 요청했습니다.`);
-      setShowContractEditor(false);
-      setSelectedEmployees(new Set());
-      setDraftContracts(new Map());
-    } catch (e: any) {
-      toast.error('요청 실패: ' + e.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const formatNumber = (n: number | null | undefined) => {
-    if (!n) return '';
-    return n.toLocaleString();
-  };
+  const unreadCount = contracts.filter((contract) => contract.status === 'requested' && !contract.opened_at).length;
+  const pendingCount = contracts.filter((contract) => ['requested', 'opened'].includes(contract.status)).length;
+  const signedCount = contracts.filter((contract) => contract.status === 'signed').length;
 
   if (templatesLoading || contractsLoading) {
     return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>;
   }
 
-  // Contract Editor (full-screen overlay)
   if (showContractEditor && selectedTemplate) {
-    const selectedList = employees.filter(e => selectedEmployees.has(e.id));
+    const typeInfo = TEMPLATE_TYPE_INFO[selectedTemplate.template_type] || TEMPLATE_TYPE_INFO.custom;
 
     return (
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <div className="border-b px-4 py-2.5 flex items-center justify-between bg-card shrink-0">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => setShowContractEditor(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-            <h2 className="text-base font-semibold">자동 근로계약서</h2>
-            <Badge variant="outline" className="text-xs gap-1 text-primary border-primary">
-              <Sparkles className="h-3 w-3" /> AI 금액 자동 계산
+      <div className="fixed inset-0 z-40 flex flex-col bg-white text-[#111111]">
+        <div className="shrink-0 border-b border-[#e5e5e5] bg-white px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" onClick={() => setShowContractEditor(false)} className="h-8 w-8 rounded-full">
+                <X className="h-4 w-4" />
+              </Button>
+              <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${typeInfo.className}`}>
+                {typeInfo.icon}
+              </div>
+              <div>
+                <h2 className="text-base font-semibold">{selectedTemplate.name}</h2>
+                <p className="text-xs text-[#707072]">템플릿 선택 → 직원 선택 → 필수값 입력 → 미리보기 → 발송 확인</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 rounded-full border border-[#cacacb] px-3 py-1.5">
+                <Stamp className="h-3.5 w-3.5 text-[#707072]" />
+                <Label htmlFor="include-company-seal-editor" className="text-xs">회사 직인</Label>
+                <Switch id="include-company-seal-editor" checked={includeCompanySeal} onCheckedChange={setIncludeCompanySeal} />
+              </div>
+              <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={saving} className="gap-1 rounded-full">
+                <Save className="h-3.5 w-3.5" /> 임시저장
+              </Button>
+              <Button size="sm" onClick={handleOpenSendConfirm} disabled={saving || selectedEmployees.size === 0} className="gap-1 rounded-full bg-[#111111] text-white hover:bg-[#2a2a2a]">
+                <Send className="h-3.5 w-3.5" /> 발송 검토
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid shrink-0 gap-3 border-b border-[#e5e5e5] bg-[#fafafa] px-4 py-3 lg:grid-cols-[1fr_auto]">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Badge variant="outline" className="rounded-full">선택 {selectedEmployees.size}명</Badge>
+            <Badge variant="outline" className="rounded-full">{typeInfo.label}</Badge>
+            <Badge variant="outline" className={`rounded-full ${selectedTemplateQuality.ok ? 'border-emerald-200 text-emerald-700' : 'border-red-200 text-red-700'}`}>
+              {selectedTemplateQuality.ok ? '필수필드 충족' : `필수필드 부족 ${selectedTemplateQuality.missing.length}`}
             </Badge>
+            {includeCompanySeal && !companySealUrl && (
+              <Badge variant="outline" className="rounded-full border-amber-200 text-amber-700">직인 파일 필요</Badge>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="sm"><Settings2 className="h-4 w-4" /></Button>
-            <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={saving} className="gap-1">
-              <Save className="h-3.5 w-3.5" /> 임시저장
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleRequest}
-              disabled={saving || selectedEmployees.size === 0}
-              className="gap-1 bg-green-600 hover:bg-green-700 text-white"
-            >
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-              계약 요청하기
-            </Button>
+          <div className="relative w-full lg:w-72">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#707072]" />
+            <Input
+              value={employeeSearch}
+              onChange={(event) => setEmployeeSearch(event.target.value)}
+              placeholder="직원명, 부서, 이메일 검색"
+              className="h-9 rounded-full border-[#cacacb] pl-9"
+            />
           </div>
+          {validationIssues.length > 0 && (
+            <div className="lg:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{validationIssues.slice(0, 3).join(' / ')}{validationIssues.length > 3 ? ` 외 ${validationIssues.length - 3}건` : ''}</span>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Tab header */}
-        <div className="border-b px-4 py-1.5 flex items-center gap-6 bg-card text-sm shrink-0">
-          <span className="text-muted-foreground">필수 입력 정보</span>
-          <span className="font-medium border-b-2 border-primary pb-1.5">필수 입력 정보</span>
-        </div>
-
-        {/* Spreadsheet-like table */}
-        <div className="flex-1 overflow-auto">
-          <table className="w-full text-sm border-collapse min-w-[1800px]">
-            <thead className="sticky top-0 z-10">
-              <tr className="border-b bg-muted/50">
-                <th className="w-10 px-3 py-2.5 text-center">
-                  <Checkbox
-                    checked={selectedEmployees.size === employees.length && employees.length > 0}
-                    onCheckedChange={toggleAll}
-                  />
+        <div className="min-h-0 flex-1 overflow-auto">
+          <table className="w-full min-w-[1500px] border-collapse text-sm">
+            <thead className="sticky top-0 z-10 bg-white">
+              <tr className="border-b border-[#cacacb]">
+                <th className="w-10 px-3 py-2 text-center">
+                  <Checkbox checked={visibleAllSelected} onCheckedChange={toggleVisibleEmployees} />
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[100px]">이름</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[80px]">상태</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[80px]">미리보기</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[100px]">구성원 이름</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[130px]">계약일</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[130px]">생년월일</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[120px]">계약유형</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[130px]">근로계약 시작일</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[130px]">근로계약 종료일</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[110px]">수습기간 여부</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[130px]">수습기간 시작일</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[130px]">수습기간 종료일</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[130px]">수습기간 급여지급률</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[80px]">직무</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[200px]">근무유형 외</th>
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground min-w-[120px]">급여일</th>
-              </tr>
-              {/* Filter row */}
-              <tr className="border-b bg-card">
-                <th className="px-3 py-1.5 text-center text-xs text-muted-foreground">구분</th>
-                {Array(16).fill(null).map((_, i) => (
-                  <th key={i} className="px-3 py-1.5">
-                    <span className="text-xs text-muted-foreground">검색</span>
-                  </th>
-                ))}
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">구성원</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">미리보기</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">계약일</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">생년월일</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">계약유형</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">시작일</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">종료일</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">수습</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">부서</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">직위</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">연봉</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">급여일</th>
               </tr>
             </thead>
             <tbody>
-              {employees.map(emp => {
-                const isSelected = selectedEmployees.has(emp.id);
-                const draft = draftContracts.get(emp.id);
-
+              {filteredEmployees.map((employee) => {
+                const isSelected = selectedEmployees.has(employee.id);
+                const draft = draftContracts.get(employee.id);
                 return (
-                  <tr
-                    key={emp.id}
-                    className={`border-b hover:bg-muted/30 ${isSelected ? 'bg-muted/10' : ''}`}
-                  >
+                  <tr key={employee.id} className={`border-b border-[#e5e5e5] hover:bg-[#fafafa] ${isSelected ? 'bg-[#fafafa]' : 'bg-white'}`}>
                     <td className="px-3 py-2 text-center">
-                      <Checkbox checked={isSelected} onCheckedChange={() => toggleEmployee(emp.id)} />
+                      <Checkbox checked={isSelected} onCheckedChange={() => toggleEmployee(employee.id)} />
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
-                          {emp.full_name[0]}
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#111111] text-xs font-semibold text-white">
+                          {employee.full_name[0]}
                         </div>
-                        <span className="font-medium">{emp.full_name}</span>
+                        <div>
+                          <p className="font-medium">{employee.full_name}</p>
+                          <p className="text-xs text-[#707072]">{employee.department || '-'} · {employee.position || '-'}</p>
+                        </div>
                       </div>
                     </td>
                     <td className="px-3 py-2">
                       {isSelected ? (
-                        <Badge className="text-xs bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-0">미발송</Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
-                      )}
+                        <Button variant="link" size="sm" className="h-auto p-0 text-xs text-[#111111]" onClick={() => openDraftPreview(employee.id)}>
+                          미리보기
+                        </Button>
+                      ) : <span className="text-xs text-[#9e9ea0]">-</span>}
                     </td>
                     <td className="px-3 py-2">
-                      {isSelected && (
-                        <Button variant="link" size="sm" className="text-xs text-primary p-0 h-auto">미리보기</Button>
-                      )}
+                      {isSelected ? <Input type="date" value={draft?.contract_date || ''} onChange={(event) => updateDraft(employee.id, 'contract_date', event.target.value)} className="h-8 w-[130px] text-xs" /> : '-'}
                     </td>
-                    <td className="px-3 py-2 text-muted-foreground">{emp.full_name}</td>
                     <td className="px-3 py-2">
-                      {isSelected ? (
-                        <Input
-                          type="date"
-                          value={draft?.contract_date || ''}
-                          onChange={e => updateDraft(emp.id, 'contract_date', e.target.value)}
-                          className="h-8 text-xs w-[130px]"
-                        />
-                      ) : <span className="text-muted-foreground text-xs">-</span>}
+                      {isSelected ? <Input type="date" value={draft?.birth_date || ''} onChange={(event) => updateDraft(employee.id, 'birth_date', event.target.value)} className={`h-8 w-[130px] text-xs ${!draft?.birth_date ? 'border-red-300' : ''}`} /> : '-'}
                     </td>
                     <td className="px-3 py-2">
                       {isSelected ? (
-                        draft?.birth_date ? (
-                          <Input
-                            type="date"
-                            value={draft.birth_date}
-                            onChange={e => updateDraft(emp.id, 'birth_date', e.target.value)}
-                            className="h-8 text-xs w-[130px]"
-                          />
-                        ) : (
-                          <Input
-                            type="date"
-                            placeholder="날짜 입력"
-                            onChange={e => updateDraft(emp.id, 'birth_date', e.target.value)}
-                            className="h-8 text-xs w-[130px] text-red-500 placeholder:text-red-400"
-                          />
-                        )
-                      ) : <span className="text-muted-foreground text-xs">-</span>}
-                    </td>
-                    <td className="px-3 py-2">
-                      {isSelected ? (
-                        <Select
-                          value={draft?.contract_type || 'regular'}
-                          onValueChange={v => updateDraft(emp.id, 'contract_type', v)}
-                        >
-                          <SelectTrigger className="h-8 text-xs w-[100px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(CONTRACT_TYPES).map(([k, v]) => (
-                              <SelectItem key={k} value={k}>{v}</SelectItem>
-                            ))}
-                          </SelectContent>
+                        <Select value={draft?.contract_type || 'regular'} onValueChange={(value) => updateDraft(employee.id, 'contract_type', value)}>
+                          <SelectTrigger className="h-8 w-[100px] text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>{Object.entries(CONTRACT_TYPES).map(([key, value]) => <SelectItem key={key} value={key}>{value}</SelectItem>)}</SelectContent>
                         </Select>
-                      ) : <span className="text-muted-foreground text-xs">-</span>}
+                      ) : '-'}
+                    </td>
+                    <td className="px-3 py-2">
+                      {isSelected ? <Input type="date" value={draft?.contract_start_date || ''} onChange={(event) => updateDraft(employee.id, 'contract_start_date', event.target.value)} className="h-8 w-[130px] text-xs" /> : '-'}
+                    </td>
+                    <td className="px-3 py-2">
+                      {isSelected ? <Input type="date" value={draft?.contract_end_date || ''} onChange={(event) => updateDraft(employee.id, 'contract_end_date', event.target.value || null)} className="h-8 w-[130px] text-xs" /> : '-'}
                     </td>
                     <td className="px-3 py-2">
                       {isSelected ? (
-                        draft?.contract_start_date ? (
-                          <Input
-                            type="date"
-                            value={draft.contract_start_date}
-                            onChange={e => updateDraft(emp.id, 'contract_start_date', e.target.value)}
-                            className="h-8 text-xs w-[130px]"
-                          />
-                        ) : (
-                          <Input
-                            type="date"
-                            onChange={e => updateDraft(emp.id, 'contract_start_date', e.target.value)}
-                            className="h-8 text-xs w-[130px] text-red-500"
-                          />
-                        )
-                      ) : <span className="text-muted-foreground text-xs">-</span>}
-                    </td>
-                    <td className="px-3 py-2">
-                      {isSelected ? (
-                        <Input
-                          type="date"
-                          value={draft?.contract_end_date || ''}
-                          onChange={e => updateDraft(emp.id, 'contract_end_date', e.target.value)}
-                          className="h-8 text-xs w-[130px]"
-                        />
-                      ) : <span className="text-muted-foreground text-xs">-</span>}
-                    </td>
-                    <td className="px-3 py-2">
-                      {isSelected ? (
-                        <Select
-                          value={draft?.probation_period || '수습 없음'}
-                          onValueChange={v => updateDraft(emp.id, 'probation_period', v)}
-                        >
-                          <SelectTrigger className="h-8 text-xs w-[100px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PROBATION_OPTIONS.map(opt => (
-                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                            ))}
-                          </SelectContent>
+                        <Select value={draft?.probation_period || '수습 없음'} onValueChange={(value) => updateDraft(employee.id, 'probation_period', value)}>
+                          <SelectTrigger className="h-8 w-[100px] text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>{PROBATION_OPTIONS.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent>
                         </Select>
-                      ) : <span className="text-muted-foreground text-xs">-</span>}
+                      ) : '-'}
                     </td>
                     <td className="px-3 py-2">
-                      {isSelected && draft?.probation_period !== '수습 없음' ? (
-                        <Input
-                          type="date"
-                          value={draft?.probation_start_date || ''}
-                          onChange={e => updateDraft(emp.id, 'probation_start_date', e.target.value)}
-                          className="h-8 text-xs w-[130px]"
-                        />
-                      ) : <span className="text-muted-foreground text-xs">날짜 없음</span>}
+                      {isSelected ? <Input value={draft?.department || ''} onChange={(event) => updateDraft(employee.id, 'department', event.target.value)} className="h-8 w-[120px] text-xs" /> : '-'}
                     </td>
                     <td className="px-3 py-2">
-                      {isSelected && draft?.probation_period !== '수습 없음' ? (
-                        <Input
-                          type="date"
-                          value={draft?.probation_end_date || ''}
-                          onChange={e => updateDraft(emp.id, 'probation_end_date', e.target.value)}
-                          className="h-8 text-xs w-[130px]"
-                        />
-                      ) : <span className="text-muted-foreground text-xs">날짜 없음</span>}
+                      {isSelected ? <Input value={draft?.position || ''} onChange={(event) => updateDraft(employee.id, 'position', event.target.value)} className="h-8 w-[110px] text-xs" /> : '-'}
                     </td>
                     <td className="px-3 py-2">
-                      {isSelected && draft?.probation_period !== '수습 없음' ? (
-                        <span className="text-xs">{draft?.probation_salary_rate || 100}%</span>
-                      ) : <span className="text-muted-foreground text-xs">-</span>}
+                      {isSelected ? <Input type="number" value={draft?.annual_salary || ''} onChange={(event) => updateDraft(employee.id, 'annual_salary', Number(event.target.value) || null)} className="h-8 w-[130px] text-xs" placeholder="원" /> : '-'}
                     </td>
                     <td className="px-3 py-2">
-                      {isSelected ? (
-                        <Input
-                          value={draft?.position || ''}
-                          onChange={e => updateDraft(emp.id, 'position', e.target.value)}
-                          className="h-8 text-xs w-[80px]"
-                          placeholder="입력"
-                        />
-                      ) : <span className="text-muted-foreground text-xs">-</span>}
-                    </td>
-                    <td className="px-3 py-2">
-                      {isSelected ? (
-                        <span className="text-xs text-muted-foreground">
-                          {draft?.work_type}, {draft?.work_days}
-                        </span>
-                      ) : <span className="text-muted-foreground text-xs">-</span>}
-                    </td>
-                    <td className="px-3 py-2">
-                      {isSelected ? (
-                        <span className="text-xs">매월 {draft?.pay_day || 25}일</span>
-                      ) : <span className="text-muted-foreground text-xs">-</span>}
+                      {isSelected ? <Input type="number" value={draft?.pay_day || 25} onChange={(event) => updateDraft(employee.id, 'pay_day', Number(event.target.value) || 25)} className="h-8 w-[80px] text-xs" /> : '-'}
                     </td>
                   </tr>
                 );
@@ -499,221 +753,309 @@ const ContractManagement: React.FC = () => {
           </table>
         </div>
 
-        {/* Bottom bar */}
-        <div className="border-t px-4 py-2.5 flex items-center justify-between bg-card text-sm shrink-0">
-          <div className="flex items-center gap-4">
-            <span>선택 {selectedEmployees.size} / {employees.length}명</span>
-            <Button variant="link" size="sm" className="text-xs p-0 h-auto">선택한 대상만 보기</Button>
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#e5e5e5] bg-white px-4 py-3 text-sm">
+          <div className="flex items-center gap-3 text-[#707072]">
+            <span>선택 {selectedEmployees.size} / 표시 {filteredEmployees.length} / 전체 {employees.length}명</span>
+            <Button variant="outline" size="sm" className="h-8 rounded-full gap-1" onClick={() => setSalaryModalOpen(true)} disabled={selectedEmployees.size === 0}>
+              <Sparkles className="h-3.5 w-3.5" /> 급여 자동계산
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1"
-            onClick={() => setSalaryModalOpen(true)}
-            disabled={selectedEmployees.size === 0}
-          >
-            <Sparkles className="h-3.5 w-3.5" /> 선택한 대상 자동계산하기
+          <Button size="sm" onClick={handleOpenSendConfirm} disabled={saving || selectedEmployees.size === 0} className="rounded-full bg-[#111111] text-white hover:bg-[#2a2a2a]">
+            {saving ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-2 h-3.5 w-3.5" />}
+            발송 검토
           </Button>
         </div>
 
-        {/* Salary Modal */}
         <Dialog open={salaryModalOpen} onOpenChange={setSalaryModalOpen}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                AI 급여 자동 계산
-              </DialogTitle>
+              <DialogTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> 급여 자동 계산</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 mt-2">
-              <p className="text-sm text-muted-foreground">
-                선택한 구성원의 연봉을 입력하면 통상시급, 기본급, 고정초과근무수당을 자동으로 계산합니다.
-              </p>
-
+            <div className="space-y-4">
+              <p className="text-sm text-[#707072]">선택한 구성원의 연봉을 입력하면 월급, 기본급, 고정초과근무수당을 자동으로 계산합니다.</p>
               <ScrollArea className="max-h-[300px]">
                 <div className="space-y-2">
-                  {employees.filter(e => selectedEmployees.has(e.id)).map(emp => {
-                    const draft = draftContracts.get(emp.id);
+                  {employees.filter((employee) => selectedEmployees.has(employee.id)).map((employee) => {
+                    const draft = draftContracts.get(employee.id);
                     return (
-                      <div key={emp.id} className="flex items-center gap-3 py-2 border-b last:border-0">
-                        <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                        <div className="flex items-center gap-2 min-w-[100px]">
-                          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
-                            {emp.full_name[0]}
-                          </div>
-                          <span className="text-sm font-medium">{emp.full_name}</span>
-                        </div>
-                        <Input
-                          type="number"
-                          placeholder="연봉 입력"
-                          value={draft?.annual_salary || ''}
-                          onChange={e => updateDraft(emp.id, 'annual_salary', Number(e.target.value))}
-                          className="h-8 text-sm flex-1"
-                        />
-                        <span className="text-xs text-muted-foreground shrink-0">원</span>
-                        <span className="text-xs text-muted-foreground shrink-0">입력</span>
+                      <div key={employee.id} className="flex items-center gap-2 border-b py-2 last:border-0">
+                        <span className="min-w-[90px] text-sm font-medium">{employee.full_name}</span>
+                        <Input type="number" placeholder="연봉 입력" value={draft?.annual_salary || ''} onChange={(event) => updateDraft(employee.id, 'annual_salary', Number(event.target.value) || null)} className="h-8 flex-1 text-sm" />
+                        <span className="text-xs text-[#707072]">원</span>
                       </div>
                     );
                   })}
                 </div>
               </ScrollArea>
-
-              <div className="text-center space-y-2">
-                <p className="text-sm font-medium">
-                  입력한 금액을 이용하여 통상시급, 기본급<br />
-                  고정초과근무수당을 자동으로 입력해요.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  *자동 입력을 원하지 않는다면, 우측 삼단의<br />
-                  설정에서 '금액 자동 입력'을 꺼주세요.
-                </p>
-              </div>
-
-              <Button
-                onClick={handleAICalculate}
-                disabled={calculating}
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
-              >
-                {calculating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                확인했어요
-              </Button>
-              <Button variant="ghost" className="w-full text-muted-foreground" onClick={() => setSalaryModalOpen(false)}>
-                다시 보지 않기
+              <Button onClick={handleAICalculate} disabled={calculating} className="w-full rounded-full bg-[#111111] text-white hover:bg-[#2a2a2a]">
+                {calculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                계산 적용
               </Button>
             </div>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={sendConfirmOpen} onOpenChange={setSendConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>전자계약을 발송하시겠습니까?</AlertDialogTitle>
+              <AlertDialogDescription>
+                선택 직원 {selectedEmployees.size}명에게 앱 내부 알림이 발송됩니다. 발송 후 계약 내용은 템플릿 스냅샷으로 보존됩니다.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="rounded-lg border bg-[#fafafa] p-3 text-sm">
+              <p><strong>양식</strong> {selectedTemplate.name}</p>
+              <p><strong>직인</strong> {includeCompanySeal ? '포함' : '미포함'}</p>
+              <p><strong>계약기간</strong> {selectedDrafts[0]?.contract_start_date || '-'} ~ {selectedDrafts[0]?.contract_end_date || '무기한'}</p>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={saving}>취소</AlertDialogCancel>
+              <AlertDialogAction onClick={(event) => { event.preventDefault(); handleRequest(); }} disabled={saving} className="bg-[#111111] text-white hover:bg-[#2a2a2a]">
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                발송하기
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <ContractPreviewDialog open={!!previewContract} onOpenChange={(open) => !open && setPreviewContract(null)} contract={previewContract as ContractData} />
       </div>
     );
   }
 
-  // Main view: Template selection + contract list
   return (
-    <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-muted">
-          <TabsTrigger value="request">계약 요청</TabsTrigger>
-          <TabsTrigger value="history">계약 내역</TabsTrigger>
-          <TabsTrigger value="employee">구성원 계약</TabsTrigger>
-          <TabsTrigger value="settings" className="gap-1">
-            <Settings2 className="h-3.5 w-3.5" /> 계약서 설정
-          </TabsTrigger>
+    <div className="space-y-5 text-[#111111]">
+      <div className="grid gap-3 md:grid-cols-4">
+        <div className="rounded-lg border border-[#e5e5e5] bg-white p-4">
+          <p className="text-xs font-medium text-[#707072]">미열람 계약</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{unreadCount}</p>
+        </div>
+        <div className="rounded-lg border border-[#e5e5e5] bg-white p-4">
+          <p className="text-xs font-medium text-[#707072]">서명 대기</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{pendingCount}</p>
+        </div>
+        <div className="rounded-lg border border-[#e5e5e5] bg-white p-4">
+          <p className="text-xs font-medium text-[#707072]">서명 완료</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{signedCount}</p>
+        </div>
+        <div className="rounded-lg border border-[#e5e5e5] bg-white p-4">
+          <p className="text-xs font-medium text-[#707072]">활성 양식</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{templates.length}</p>
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="rounded-full bg-[#f5f5f5] p-1">
+          <TabsTrigger value="compose" className="rounded-full gap-1.5"><Send className="h-3.5 w-3.5" /> 계약 작성</TabsTrigger>
+          <TabsTrigger value="history" className="rounded-full gap-1.5"><History className="h-3.5 w-3.5" /> 발송 내역</TabsTrigger>
+          <TabsTrigger value="templates" className="rounded-full gap-1.5"><Settings2 className="h-3.5 w-3.5" /> 템플릿 관리</TabsTrigger>
+          <TabsTrigger value="audit" className="rounded-full gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> 감사 기록</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="request" className="mt-4 space-y-6">
-          {/* 전자계약서 선택 */}
-          <div>
-            <h3 className="font-semibold mb-3">전자계약서 선택</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {templates.map(t => (
-                <div
-                  key={t.id}
-                  className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                    selectedTemplateId === t.id
-                      ? 'border-primary ring-2 ring-primary/20 bg-primary/5'
-                      : 'hover:border-muted-foreground/30'
-                  }`}
-                  onClick={() => setSelectedTemplateId(t.id)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        t.template_type === 'labor'
-                          ? 'bg-blue-100 dark:bg-blue-900/30'
-                          : 'bg-green-100 dark:bg-green-900/30'
-                      }`}>
-                        <FileText className={`h-5 w-5 ${
-                          t.template_type === 'labor'
-                            ? 'text-blue-600 dark:text-blue-400'
-                            : 'text-green-600 dark:text-green-400'
-                        }`} />
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{t.name}</p>
-                        <Badge variant="outline" className="text-xs mt-1">급여일 {t.pay_day}일</Badge>
-                      </div>
-                    </div>
-                    <Checkbox checked={selectedTemplateId === t.id} />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">{t.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {selectedTemplateId && (
-            <div className="flex justify-end">
-              <Button
-                onClick={() => setShowContractEditor(true)}
-                className="gap-1 bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Send className="h-4 w-4" /> 1건 계약 생성
+        <TabsContent value="compose" className="space-y-5">
+          <div className="rounded-lg border border-[#e5e5e5] bg-white p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="font-semibold">계약 양식 선택</h3>
+                <p className="text-sm text-[#707072]">필수필드가 충족된 양식만 안전하게 발송할 수 있습니다.</p>
+              </div>
+              <Button variant="outline" size="sm" className="rounded-full gap-1" onClick={() => setActiveTab('templates')}>
+                <Settings2 className="h-3.5 w-3.5" /> 양식 관리
               </Button>
             </div>
+            {templates.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-[#cacacb] bg-[#fafafa] py-12 text-center text-sm text-[#707072]">
+                등록된 활성 계약 양식이 없습니다.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {templates.map((template) => {
+                  const typeInfo = TEMPLATE_TYPE_INFO[template.template_type] || TEMPLATE_TYPE_INFO.custom;
+                  const templateContent = template.content
+                    || PREBUILT_TEMPLATES.find((item) => item.type === template.template_type)?.content
+                    || null;
+                  const quality = evaluateContractTemplateQuality(templateContent);
+                  return (
+                    <button
+                      key={template.id}
+                      type="button"
+                      className={`rounded-lg border p-4 text-left transition-all ${selectedTemplateId === template.id ? 'border-[#111111] bg-[#fafafa] ring-1 ring-[#111111]' : 'border-[#cacacb] bg-white hover:bg-[#fafafa]'}`}
+                      onClick={() => {
+                        setSelectedTemplateId(template.id);
+                        setSelectedEmployees(new Set());
+                        setDraftContracts(new Map());
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${typeInfo.className}`}>{typeInfo.icon}</div>
+                          <div>
+                            <p className="text-sm font-semibold">{template.name}</p>
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <Badge variant="outline" className="rounded-full text-[11px]">{typeInfo.label}</Badge>
+                              <Badge variant="outline" className={`rounded-full text-[11px] ${quality.ok ? 'border-emerald-200 text-emerald-700' : 'border-red-200 text-red-700'}`}>{quality.ok ? '필수필드 충족' : '필수필드 부족'}</Badge>
+                            </div>
+                          </div>
+                        </div>
+                        <Checkbox checked={selectedTemplateId === template.id} />
+                      </div>
+                      {template.description && <p className="mt-2 text-xs text-[#707072]">{template.description}</p>}
+                      {!quality.ok && <p className="mt-2 text-xs text-red-700">누락: {quality.missing.join(', ')}</p>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {selectedTemplate && (
+            <div className="rounded-lg border border-[#e5e5e5] bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <div className="flex items-center gap-2 rounded-full border border-[#cacacb] px-3 py-1.5">
+                    <Stamp className="h-4 w-4 text-[#707072]" />
+                    <span>회사 직인 포함</span>
+                    <Switch checked={includeCompanySeal} onCheckedChange={setIncludeCompanySeal} />
+                  </div>
+                  {includeCompanySeal && !companySealUrl && <span className="text-xs text-amber-700">회사 설정에 직인 파일을 등록해야 발송할 수 있습니다.</span>}
+                </div>
+                <Button onClick={() => setShowContractEditor(true)} className="rounded-full bg-[#111111] text-white hover:bg-[#2a2a2a] gap-1">
+                  <Users className="h-4 w-4" /> 직원 선택 및 작성
+                </Button>
+              </div>
+            </div>
           )}
         </TabsContent>
 
-        <TabsContent value="history" className="mt-4">
-          {contracts.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <FileText className="h-10 w-10 mx-auto mb-3 opacity-20" />
-              <p className="text-sm">계약 내역이 없습니다.</p>
+        <TabsContent value="history" className="space-y-4">
+          <div className="grid gap-2 rounded-lg border border-[#e5e5e5] bg-white p-3 lg:grid-cols-[1fr_150px_150px_150px_auto]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#707072]" />
+              <Input value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="직원, 부서, 템플릿 검색" className="h-9 rounded-full pl-9" />
             </div>
-          ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">이름</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">부서</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">계약유형</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">계약일</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">계약기간</th>
-                    <th className="text-center px-4 py-2.5 font-medium text-muted-foreground">상태</th>
-                    <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">연봉</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {contracts.map(c => {
-                    const statusInfo = STATUS_LABELS[c.status] || STATUS_LABELS.draft;
-                    return (
-                      <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30">
-                        <td className="px-4 py-2.5 font-medium">{c.user_name}</td>
-                        <td className="px-4 py-2.5 text-muted-foreground">{c.department || '-'}</td>
-                        <td className="px-4 py-2.5">{CONTRACT_TYPES[c.contract_type] || c.contract_type}</td>
-                        <td className="px-4 py-2.5">{c.contract_date}</td>
-                        <td className="px-4 py-2.5">
-                          {c.contract_start_date || '-'} ~ {c.contract_end_date || '무기한'}
-                        </td>
-                        <td className="px-4 py-2.5 text-center">
-                          <Badge className={`text-xs ${statusInfo.className} border-0`}>
-                            {statusInfo.label}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          {c.annual_salary ? `${formatNumber(c.annual_salary)}원` : '-'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </TabsContent>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-9 rounded-full"><Filter className="mr-2 h-3.5 w-3.5" /><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 상태</SelectItem>
+                {Object.entries(STATUS_LABELS).map(([key, value]) => <SelectItem key={key} value={key}>{value.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="h-9 rounded-full" />
+            <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="h-9 rounded-full" />
+            <Button variant="outline" size="sm" className="h-9 rounded-full" onClick={() => { setHistorySearch(''); setStatusFilter('all'); setFromDate(''); setToDate(''); }}>
+              초기화
+            </Button>
+          </div>
 
-        <TabsContent value="employee" className="mt-4">
-          <div className="text-center py-12 text-muted-foreground">
-            <FileText className="h-10 w-10 mx-auto mb-3 opacity-20" />
-            <p className="text-sm">구성원별 계약 현황을 확인할 수 있습니다.</p>
-            <p className="text-xs mt-1">계약을 요청하면 여기에 표시됩니다.</p>
+          <div className="overflow-hidden rounded-lg border border-[#cacacb] bg-white">
+            <table className="w-full min-w-[980px] text-sm">
+              <thead className="bg-[#fafafa]">
+                <tr className="border-b border-[#cacacb]">
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#707072]">계약</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#707072]">직원</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#707072]">기간</th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-[#707072]">상태</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#707072]">마지막 다운로드</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-[#707072]">작업</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredContracts.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-[#707072]">계약 내역이 없습니다.</td></tr>
+                ) : filteredContracts.map((contract) => {
+                  const statusKey = getDisplayStatus(contract);
+                  const statusInfo = STATUS_LABELS[statusKey] || STATUS_LABELS.draft;
+                  const lastDownload = eventsByContract.get(contract.id)?.find((event) => event.event_type === 'downloaded');
+                  return (
+                    <tr key={contract.id} className="border-b border-[#e5e5e5] last:border-0 hover:bg-[#fafafa]">
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{getContractTitle(contract)}</p>
+                        <p className="text-xs text-[#707072]">발송 {formatDateTime(contract.requested_at || contract.created_at)}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{contract.user_name}</p>
+                        <p className="text-xs text-[#707072]">{contract.department || '-'} · {contract.position || '-'}</p>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-[#707072]">{contract.contract_start_date || '-'} ~ {contract.contract_end_date || '무기한'}</td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge className={`border-0 gap-1 ${statusInfo.className}`}>{statusInfo.icon}{statusInfo.label}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-[#707072]">{lastDownload ? formatDateTime(lastDownload.created_at) : '-'}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-1.5">
+                          <Button variant="ghost" size="sm" className="h-8 rounded-full" onClick={() => setPreviewContract(contract)}>보기</Button>
+                          <Button variant="outline" size="sm" className="h-8 rounded-full" onClick={() => { setAuditContract(contract); setActiveTab('audit'); }}>감사</Button>
+                          {contract.signed_pdf_storage_path && (
+                            <Button variant="outline" size="sm" className="h-8 rounded-full gap-1" onClick={() => handleAdminDownload(contract)}>
+                              <Download className="h-3.5 w-3.5" /> PDF
+                            </Button>
+                          )}
+                          {['requested', 'opened'].includes(contract.status) && (
+                            <Button variant="outline" size="sm" className="h-8 rounded-full gap-1" onClick={() => handleReminder(contract)}>
+                              <Bell className="h-3.5 w-3.5" /> 재알림
+                            </Button>
+                          )}
+                          {contract.status === 'rejected' && (
+                            <Button variant="outline" size="sm" className="h-8 rounded-full gap-1" onClick={() => handlePrepareResend(contract)}>
+                              <RotateCw className="h-3.5 w-3.5" /> 재발송
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </TabsContent>
 
-        <TabsContent value="settings" className="mt-4">
+        <TabsContent value="templates">
           <ContractTemplateSettings />
         </TabsContent>
+
+        <TabsContent value="audit" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#e5e5e5] bg-white p-3">
+            <div>
+              <h3 className="font-semibold">감사 기록</h3>
+              <p className="text-sm text-[#707072]">{auditContract ? `${auditContract.user_name} · ${getContractTitle(auditContract)}` : '전체 계약 이벤트'}</p>
+            </div>
+            {auditContract && <Button variant="outline" size="sm" className="rounded-full" onClick={() => setAuditContract(null)}>전체 보기</Button>}
+          </div>
+          <div className="rounded-lg border border-[#cacacb] bg-white">
+            {eventsLoading ? (
+              <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>
+            ) : auditEvents.length === 0 ? (
+              <div className="py-12 text-center text-sm text-[#707072]">감사 기록이 없습니다.</div>
+            ) : (
+              <div className="divide-y divide-[#e5e5e5]">
+                {auditEvents.map((event) => {
+                  const contract = contracts.find((item) => item.id === event.contract_id);
+                  return (
+                    <div key={event.id} className="grid gap-2 p-4 md:grid-cols-[180px_1fr_180px]">
+                      <div className="text-xs text-[#707072]">{formatDateTime(event.created_at)}</div>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className="rounded-full">{EVENT_LABELS[event.event_type] || event.event_type}</Badge>
+                          <span className="text-sm font-medium">{contract ? `${contract.user_name} · ${getContractTitle(contract)}` : event.contract_id}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-[#707072]">
+                          actor: {event.actor_role || '-'} · IP: {event.ip_address || '-'} · UA: {event.user_agent || '-'}
+                        </p>
+                      </div>
+                      <div className="text-xs text-[#707072]">
+                        {Object.keys(event.metadata || {}).length > 0 ? JSON.stringify(event.metadata) : '-'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
+
+      <ContractPreviewDialog open={!!previewContract} onOpenChange={(open) => !open && setPreviewContract(null)} contract={previewContract as ContractData} />
     </div>
   );
 };
