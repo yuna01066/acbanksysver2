@@ -35,7 +35,7 @@ import {
   CommandList,
   CommandShortcut,
 } from '@/components/ui/command';
-import { useAuth } from '@/contexts/AuthContext';
+import { ROLE_HIERARCHY, useAuth, type AppRole } from '@/contexts/AuthContext';
 import { isCompanyMasterEmail } from '@/lib/companyMaster';
 
 type QuickNavItem = {
@@ -45,6 +45,7 @@ type QuickNavItem = {
   group: '업무' | '영업' | '관리' | '직원';
   keywords: string;
   icon: React.ComponentType<{ className?: string }>;
+  minRole?: AppRole;
   adminOnly?: boolean;
   masterOnly?: boolean;
 };
@@ -52,7 +53,7 @@ type QuickNavItem = {
 const QUICK_NAV_ITEMS: QuickNavItem[] = [
   { title: '견적 계산기', description: '판재 견적 계산', path: '/calculator?type=quote', group: '영업', keywords: '견적 계산 단가 판재 quote calculator', icon: Calculator },
   { title: '수율 계산기', description: '원판 배치와 수율 확인', path: '/calculator?type=yield', group: '영업', keywords: '수율 네스팅 원판 yield nesting', icon: BarChart3 },
-  { title: '견적 마법사', description: '도면 파일 분석과 임시 견적 초안', path: '/quote-wizard', group: '영업', keywords: '견적 마법사 도면 분석 파일 quote wizard drawing analyzer', icon: Sparkles },
+  { title: '견적 마법사', description: '도면 파일 분석과 임시 견적 초안', path: '/quote-wizard', group: '영업', keywords: '견적 마법사 도면 분석 파일 quote wizard drawing analyzer', icon: Sparkles, minRole: 'admin' },
   { title: '견적서 초안함', description: '여러 견적 초안 저장/발행', path: '/quote-drafts', group: '영업', keywords: '견적 초안 임시저장 draft quote', icon: FileText },
   { title: '발행 견적서', description: '저장된 견적서 검색/관리', path: '/saved-quotes', group: '영업', keywords: '발행 견적서 저장 quote saved', icon: FileSpreadsheet },
   { title: '고객사 관리', description: '거래처와 담당자 정보', path: '/recipients', group: '영업', keywords: '거래처 고객사 담당자 client recipient', icon: Building2 },
@@ -85,7 +86,7 @@ const HIDDEN_PATHS = ['/auth', '/forgot-password', '/customer-quote', '/customer
 const GlobalQuickNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading, isAdmin, isModerator } = useAuth();
+  const { user, loading, isAdmin, isModerator, userRole } = useAuth();
   const [open, setOpen] = useState(false);
 
   const isHidden = !user
@@ -96,10 +97,15 @@ const GlobalQuickNav = () => {
   const visibleItems = useMemo(
     () => QUICK_NAV_ITEMS.filter(item => {
       if (item.masterOnly) return isCompanyMasterEmail(user?.email);
+      if (item.minRole) {
+        const minIdx = ROLE_HIERARCHY.indexOf(item.minRole);
+        const userIdx = userRole ? ROLE_HIERARCHY.indexOf(userRole) : -1;
+        return minIdx >= 0 && userIdx >= 0 && userIdx <= minIdx;
+      }
       if (item.adminOnly) return isAdmin || isModerator;
       return true;
     }),
-    [isAdmin, isModerator, user?.email]
+    [isAdmin, isModerator, user?.email, userRole]
   );
   const keepDashboardLogo = location.pathname === '/business-dashboard';
 

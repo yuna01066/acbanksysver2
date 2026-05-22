@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { HelpCircle, X } from 'lucide-react';
+import { ArrowLeft, HelpCircle, MessageSquareText, Sparkles, X } from 'lucide-react';
 import hamzziCelebration from '@/assets/hamzzi/hamzzi_celebration.png';
 import hamzziCheck from '@/assets/hamzzi/hamzzi_check.png';
 import hamzziCoffee from '@/assets/hamzzi/hamzzi_coffee.png';
@@ -14,6 +14,7 @@ import iconParty from '@/assets/hamzzi/icon_party.png';
 import defaultResponseAssistantIcon from '@/assets/response-assistant-default-icon.png';
 import responseAssistantSpeechBubble from '@/assets/response-assistant-speech-bubble.png';
 import { Button } from '@/components/ui/button';
+import QuoteWizardPanel from '@/components/QuoteWizardPanel';
 import ResponseAssistantWidget from '@/components/ResponseAssistantWidget';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,11 +39,28 @@ const HIDDEN_PATHS = [
 
 const FLOATING_RESPONSE_ASSISTANT_OPEN_KEY = 'acbank:floating-response-assistant-open';
 
+type AssistantTool = 'menu' | 'responseAssistant' | 'quoteWizard';
+
 type HamzziReactionConfig = {
   image: string;
   badge?: string;
   fallbackMessage: string;
   toneClass: string;
+};
+
+const TOOL_META: Record<AssistantTool, { title: string; description: string }> = {
+  menu: {
+    title: '햄찌 도우미',
+    description: '상담 CS · 견적 마법사',
+  },
+  responseAssistant: {
+    title: '상담 CS',
+    description: '답변 작성 · 문안 검수 · 견적 메일',
+  },
+  quoteWizard: {
+    title: '견적 마법사',
+    description: '파일 분석 · 수율 참고 · 임시 초안',
+  },
 };
 
 const HAMZZI_REACTION_CONFIG: Record<HamzziEventType, HamzziReactionConfig> = {
@@ -108,8 +126,10 @@ const isSupportedIconValue = (value?: string | null) => (
 
 const FloatingResponseAssistant: React.FC = () => {
   const location = useLocation();
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, loading, isAdmin } = useAuth();
   const [open, setOpen] = useState(readStoredOpenState);
+  const [activeTool, setActiveTool] = useState<AssistantTool>('menu');
   const [guideOpenSignal, setGuideOpenSignal] = useState(0);
   const [launcherHintVisible, setLauncherHintVisible] = useState(false);
   const [hamzziReaction, setHamzziReaction] = useState<(HamzziEventDetail & { id: number }) | null>(null);
@@ -134,6 +154,27 @@ const FloatingResponseAssistant: React.FC = () => {
     staleTime: 1000 * 60 * 5,
   });
   const responseAssistantIcon = isSupportedIconValue(iconSetting) ? iconSetting : defaultResponseAssistantIcon;
+  const toolMeta = TOOL_META[activeTool];
+
+  const closeAssistant = () => {
+    setOpen(false);
+    setActiveTool('menu');
+  };
+
+  const handleLauncherClick = () => {
+    registerHamzziLauncherClick();
+    if (open) {
+      closeAssistant();
+      return;
+    }
+    setActiveTool('menu');
+    setOpen(true);
+  };
+
+  const openQuoteWizardFullPage = isAdmin ? () => {
+    closeAssistant();
+    navigate('/quote-wizard');
+  } : undefined;
 
   useEffect(() => {
     try {
@@ -172,7 +213,7 @@ const FloatingResponseAssistant: React.FC = () => {
     return () => window.clearTimeout(timeout);
   }, [isHidden, location.pathname, user]);
 
-  if (isHidden) return null;
+  if (loading || !user || isHidden) return null;
 
   return (
     <div className="pointer-events-none fixed bottom-4 right-4 z-40 print:hidden sm:bottom-6 sm:right-6">
@@ -181,36 +222,50 @@ const FloatingResponseAssistant: React.FC = () => {
           <section className="flex h-[min(720px,calc(100vh-118px))] w-[min(460px,calc(100vw-24px))] flex-col overflow-hidden rounded-[28px] border border-[#dedede] bg-white shadow-[0_18px_58px_rgba(0,0,0,0.22)]">
             <header className="flex items-center justify-between gap-3 border-b border-[#e5e5e5] bg-white px-4 py-3">
               <div className="flex min-w-0 items-center gap-2.5">
+                {activeTool !== 'menu' && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setActiveTool('menu')}
+                    className="h-8 w-8 shrink-0 rounded-full text-[#707072] hover:bg-[#f5f5f5]"
+                    aria-label="도구 선택으로 돌아가기"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                )}
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center">
                   <img src={responseAssistantIcon} alt="" className="h-10 w-10 object-contain drop-shadow-sm" />
                 </span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-black leading-tight text-[#111111]">
-                    상담 응대 보조
+                    {toolMeta.title}
                   </p>
                   <p className="truncate text-[11px] font-semibold text-[#9e9ea0]">
-                    답변 작성 · 문안 검수 · 견적 메일
+                    {toolMeta.description}
                   </p>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">
+                {activeTool === 'responseAssistant' && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setGuideOpenSignal((signal) => signal + 1)}
+                    className="h-8 w-8 rounded-full text-[#707072] hover:bg-[#f5f5f5]"
+                    aria-label="상담 CS 사용 방법"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => setGuideOpenSignal((signal) => signal + 1)}
+                  onClick={closeAssistant}
                   className="h-8 w-8 rounded-full text-[#707072] hover:bg-[#f5f5f5]"
-                  aria-label="상담 응대 보조 사용 방법"
-                >
-                  <HelpCircle className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setOpen(false)}
-                  className="h-8 w-8 rounded-full text-[#707072] hover:bg-[#f5f5f5]"
-                  aria-label="상담 응대 보조 닫기"
+                  aria-label="햄찌 도우미 닫기"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -218,13 +273,26 @@ const FloatingResponseAssistant: React.FC = () => {
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto bg-[#f5f5f5] p-3">
-              <ResponseAssistantWidget
-                embedded
-                autoGuide={false}
-                compact
-                guideOpenSignal={guideOpenSignal}
-                className="rounded-[24px] shadow-none"
-              />
+              {activeTool === 'menu' && (
+                <AssistantToolMenu onSelect={setActiveTool} />
+              )}
+              {activeTool === 'responseAssistant' && (
+                <ResponseAssistantWidget
+                  embedded
+                  autoGuide={false}
+                  compact
+                  guideOpenSignal={guideOpenSignal}
+                  className="rounded-[24px] shadow-none"
+                />
+              )}
+              {activeTool === 'quoteWizard' && (
+                <QuoteWizardPanel
+                  embedded
+                  compact
+                  onOpenFullPage={openQuoteWizardFullPage}
+                  className="pb-1"
+                />
+              )}
             </div>
           </section>
         </div>
@@ -294,21 +362,18 @@ const FloatingResponseAssistant: React.FC = () => {
               showLauncherHint ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
             )}
           >
-            상담CS를 도와드릴까요?
+            어떤 업무를 도와드릴까요?
           </span>
         </div>
 
         <button
           type="button"
-          onClick={() => {
-            registerHamzziLauncherClick();
-            setOpen((current) => !current);
-          }}
+          onClick={handleLauncherClick}
           className={cn(
             'relative z-20 flex h-[88px] w-[88px] items-center justify-center bg-transparent p-0 transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-0 active:scale-95',
             open && 'scale-95',
           )}
-          aria-label={open ? '상담 응대 보조 닫기' : '상담 응대 보조 열기'}
+          aria-label={open ? '햄찌 도우미 닫기' : '햄찌 도우미 열기'}
         >
           <img
             src={responseAssistantIcon}
@@ -323,5 +388,44 @@ const FloatingResponseAssistant: React.FC = () => {
     </div>
   );
 };
+
+const AssistantToolMenu = ({ onSelect }: { onSelect: (tool: AssistantTool) => void }) => (
+  <div className="space-y-3 rounded-[24px] bg-white p-3 shadow-none">
+    <div className="rounded-[20px] border border-[#ececec] bg-[#fafafa] p-4">
+      <p className="text-sm font-black text-[#111111]">필요한 도구를 선택하세요.</p>
+      <p className="mt-1 text-xs font-medium leading-5 text-[#707072]">
+        고객 응대 문안을 만들거나, 도면 파일로 임시 견적 분석을 시작할 수 있습니다.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onClick={() => onSelect('responseAssistant')}
+      className="flex w-full items-center gap-3 rounded-[20px] border border-[#dedede] bg-white p-4 text-left shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-[#cfcfcf] hover:shadow-[0_14px_30px_rgba(15,23,42,0.09)]"
+    >
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-800">
+        <MessageSquareText className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-black text-[#111111]">상담 CS</span>
+        <span className="mt-1 block text-xs font-semibold leading-5 text-[#707072]">답변 작성 · 문안 검수 · 견적 메일</span>
+      </span>
+    </button>
+
+    <button
+      type="button"
+      onClick={() => onSelect('quoteWizard')}
+      className="flex w-full items-center gap-3 rounded-[20px] border border-[#dedede] bg-white p-4 text-left shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-[#cfcfcf] hover:shadow-[0_14px_30px_rgba(15,23,42,0.09)]"
+    >
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
+        <Sparkles className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-black text-[#111111]">견적 마법사</span>
+        <span className="mt-1 block text-xs font-semibold leading-5 text-[#707072]">파일 업로드 · 제작물 판별 · 임시 견적 초안</span>
+      </span>
+    </button>
+  </div>
+);
 
 export default FloatingResponseAssistant;
