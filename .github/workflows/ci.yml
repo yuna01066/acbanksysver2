@@ -1,8 +1,5 @@
 name: CI
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 on:
   pull_request:
     branches:
@@ -17,12 +14,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -31,8 +28,8 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
-      - name: Strict lint baseline
-        run: npm run lint:strict
+      - name: Lint
+        run: npm run lint
 
       - name: Pricing regression tests
         run: node scripts/test-price-calculations.mjs

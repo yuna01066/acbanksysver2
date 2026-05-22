@@ -10,7 +10,6 @@
     "docs:dry-run": "node scripts/document-migration-dry-run.mjs",
     "test:pricing": "node scripts/test-price-calculations.mjs",
     "lint": "eslint .",
-    "lint:strict": "eslint eslint.config.js tailwind.config.ts src/main.tsx src/components/MultipleSurfaceSelection.tsx src/components/RecipientDocumentUpload.tsx src/components/admin/SecretEventManager.tsx src/components/chat/MessageContent.tsx src/components/project/InternalDocumentUploadCard.tsx src/components/project/ProjectUpdatesFeed.tsx src/components/ui/command.tsx src/components/ui/textarea.tsx src/hooks/useDirectMessages.ts src/hooks/useGcsStorage.ts src/hooks/usePriceCalculation.ts src/utils/optimizedNesting.ts supabase/functions/notion-projects/index.ts src/lib/companyMaster.ts src/components/company/CompanySettingsGuard.tsx src/components/admin/SettingsChangeRequestsPanel.tsx src/services/settingsChangeRequests.ts src/pages/CompanySettingsPage.tsx src/pages/AdminSettingsPage.tsx src/pages/ResponseAssistantManagementPage.tsx src/hooks/usePageAccess.ts src/components/GlobalQuickNav.tsx src/App.tsx src/pages/Home.tsx --rule \"@typescript-eslint/no-explicit-any: off\" --rule \"react-hooks/exhaustive-deps: off\" --rule \"react-refresh/only-export-components: off\"",
     "preview": "vite preview",
     "worker:quote-wizard": "node workers/quote-wizard-worker/src/index.mjs"
   },
