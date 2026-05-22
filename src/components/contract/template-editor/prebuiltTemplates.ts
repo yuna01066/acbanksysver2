@@ -50,7 +50,7 @@ const ph = (label: string): JSONContent => boldColored(`{{${label}}}`, '#16a34a'
 export interface PrebuiltTemplate {
   id: string;
   name: string;
-  type: 'labor' | 'salary';
+  type: 'labor' | 'salary' | 'oath' | 'privacy' | 'custom';
   content: JSONContent;
 }
 
@@ -325,7 +325,7 @@ export const PREBUILT_TEMPLATES: PrebuiltTemplate[] = [
   {
     id: 'nda',
     name: '비밀 유지 서약서',
-    type: 'labor',
+    type: 'oath',
     content: {
       type: 'doc',
       content: [
@@ -354,7 +354,7 @@ export const PREBUILT_TEMPLATES: PrebuiltTemplate[] = [
   {
     id: 'non-compete',
     name: '경업 금지 서약서',
-    type: 'labor',
+    type: 'oath',
     content: {
       type: 'doc',
       content: [
@@ -378,7 +378,7 @@ export const PREBUILT_TEMPLATES: PrebuiltTemplate[] = [
   {
     id: 'privacy-consent',
     name: '개인 정보 이용 동의서',
-    type: 'labor',
+    type: 'privacy',
     content: {
       type: 'doc',
       content: [

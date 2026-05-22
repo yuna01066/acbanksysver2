@@ -24,7 +24,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { X, Save, Loader2, FileText, Eye, Pencil, FileSignature, DollarSign, ChevronDown, AlertTriangle } from 'lucide-react';
+import { X, Save, Loader2, FileText, Eye, Pencil, FileSignature, DollarSign, ChevronDown, AlertTriangle, ShieldCheck, FilePenLine } from 'lucide-react';
 import EditorToolbar from './EditorToolbar';
 import PlaceholderSidebar from './PlaceholderSidebar';
 import { PREBUILT_TEMPLATES } from './prebuiltTemplates';
@@ -269,7 +269,7 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
                     />
                   </div>
                   <Select value={templateType} onValueChange={setTemplateType}>
-                    <SelectTrigger className="w-[140px] h-8 text-xs">
+                    <SelectTrigger className="w-[150px] h-8 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -281,6 +281,21 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
                       <SelectItem value="salary">
                         <span className="flex items-center gap-1.5">
                           <DollarSign className="h-3.5 w-3.5 text-green-600" /> 연봉계약서
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="oath">
+                        <span className="flex items-center gap-1.5">
+                          <ShieldCheck className="h-3.5 w-3.5 text-amber-600" /> 서약서
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="privacy">
+                        <span className="flex items-center gap-1.5">
+                          <FileSignature className="h-3.5 w-3.5 text-purple-600" /> 동의서
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="custom">
+                        <span className="flex items-center gap-1.5">
+                          <FilePenLine className="h-3.5 w-3.5 text-slate-600" /> 자유양식
                         </span>
                       </SelectItem>
                     </SelectContent>
@@ -333,7 +348,7 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
                         <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                         {tpl.name}
                         <Badge variant="outline" className="ml-auto text-[10px]">
-                          {tpl.type === 'labor' ? '근로' : '연봉'}
+                          {tpl.type === 'labor' ? '근로' : tpl.type === 'salary' ? '연봉' : tpl.type === 'privacy' ? '동의' : '서약'}
                         </Badge>
                       </button>
                     ))}
