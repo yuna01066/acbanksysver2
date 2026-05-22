@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,6 +6,7 @@ import { Loader2, FileSignature, Calendar, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import ContractPreviewDialog from '@/components/contract/ContractPreviewDialog';
+import type { ContractData } from '@/components/contract/ContractPreviewDialog';
 
 interface Contract {
   id: string;
@@ -43,13 +44,9 @@ interface EmployeeContractsPanelProps {
 const EmployeeContractsPanel: React.FC<EmployeeContractsPanelProps> = ({ userId }) => {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
-  const [previewContract, setPreviewContract] = useState<any>(null);
+  const [previewContract, setPreviewContract] = useState<Contract | null>(null);
 
-  useEffect(() => {
-    fetchContracts();
-  }, [userId]);
-
-  const fetchContracts = async () => {
+  const fetchContracts = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('employment_contracts')
@@ -61,7 +58,11 @@ const EmployeeContractsPanel: React.FC<EmployeeContractsPanelProps> = ({ userId 
       setContracts(data);
     }
     setLoading(false);
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    fetchContracts();
+  }, [fetchContracts]);
 
   if (loading) {
     return (
@@ -133,7 +134,7 @@ const EmployeeContractsPanel: React.FC<EmployeeContractsPanelProps> = ({ userId 
 
       {previewContract && (
         <ContractPreviewDialog
-          contract={previewContract}
+          contract={previewContract as ContractData}
           open={!!previewContract}
           onOpenChange={(open) => !open && setPreviewContract(null)}
         />

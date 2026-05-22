@@ -39,6 +39,10 @@ interface TemplateEditorDialogProps {
   onSaved: () => void;
 }
 
+const getErrorMessage = (error: unknown) => (
+  error instanceof Error ? error.message : String(error || '')
+);
+
 // Custom TextStyle extension to support fontSize
 const CustomTextStyle = TextStyle.extend({
   addAttributes() {
@@ -160,21 +164,21 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
       if (editingTemplate) {
         const { error } = await supabase
           .from('contract_templates')
-          .update(payload as any)
+          .update(payload as never)
           .eq('id', editingTemplate.id);
         if (error) throw error;
         toast.success('양식이 수정되었습니다.');
       } else {
         const { error } = await supabase
           .from('contract_templates')
-          .insert(payload as any);
+          .insert(payload as never);
         if (error) throw error;
         toast.success('양식이 생성되었습니다.');
       }
       onSaved();
       onClose();
-    } catch (e: any) {
-      toast.error('저장 실패: ' + e.message);
+    } catch (error: unknown) {
+      toast.error('저장 실패: ' + getErrorMessage(error));
     } finally {
       setSaving(false);
     }

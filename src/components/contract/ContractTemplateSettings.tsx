@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import type { JSONContent } from '@tiptap/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -13,6 +14,12 @@ import { Plus, FileText, Pencil, Trash2, Loader2, FileSignature, DollarSign, Shi
 import { type ContractTemplate } from '@/hooks/useContracts';
 import TemplateEditorDialog from './template-editor/TemplateEditorDialog';
 import { evaluateContractTemplateQuality } from '@/utils/contractTemplateQuality';
+
+type ContractTemplateWithContent = ContractTemplate & { content?: JSONContent | null };
+
+const getErrorMessage = (error: unknown) => (
+  error instanceof Error ? error.message : String(error || '')
+);
 
 const TEMPLATE_TYPES: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   labor: {
@@ -45,7 +52,7 @@ const TEMPLATE_TYPES: Record<string, { label: string; icon: React.ReactNode; col
 const ContractTemplateSettings: React.FC = () => {
   const { templates, loading, refresh } = useContractTemplatesWithRefresh();
   const [editorOpen, setEditorOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<any>(null);
+  const [editingTemplate, setEditingTemplate] = useState<ContractTemplateWithContent | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<ContractTemplate | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -54,7 +61,7 @@ const ContractTemplateSettings: React.FC = () => {
     setEditorOpen(true);
   };
 
-  const openEdit = (t: ContractTemplate & { content?: any }) => {
+  const openEdit = (t: ContractTemplateWithContent) => {
     setEditingTemplate(t);
     setEditorOpen(true);
   };
@@ -71,8 +78,8 @@ const ContractTemplateSettings: React.FC = () => {
       toast.success('양식이 삭제되었습니다.');
       setDeleteTarget(null);
       refresh();
-    } catch (e: any) {
-      toast.error('삭제 실패: ' + e.message);
+    } catch (error: unknown) {
+      toast.error('삭제 실패: ' + getErrorMessage(error));
     } finally {
       setDeleting(false);
     }
@@ -119,7 +126,7 @@ const ContractTemplateSettings: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {templates.map(t => {
             const typeInfo = TEMPLATE_TYPES[t.template_type] || TEMPLATE_TYPES.labor;
-            const quality = evaluateContractTemplateQuality((t as any).content || null);
+            const quality = evaluateContractTemplateQuality(t.content || null);
             return (
               <Card key={t.id} className={`transition-all border-[#cacacb] shadow-none ${!t.is_active ? 'opacity-50' : ''}`}>
                 <CardContent className="p-5">
@@ -146,7 +153,7 @@ const ContractTemplateSettings: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t as any)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteTarget(t)}>
@@ -205,7 +212,7 @@ const ContractTemplateSettings: React.FC = () => {
 
 // Extended hook that includes refresh and returns all templates (not just active)
 function useContractTemplatesWithRefresh() {
-  const [templates, setTemplates] = React.useState<(ContractTemplate & { content?: any })[]>([]);
+  const [templates, setTemplates] = React.useState<ContractTemplateWithContent[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   const fetch = React.useCallback(async () => {
@@ -214,7 +221,7 @@ function useContractTemplatesWithRefresh() {
       .from('contract_templates')
       .select('*')
       .order('created_at');
-    if (data) setTemplates(data as any[]);
+    if (data) setTemplates(data as ContractTemplateWithContent[]);
     setLoading(false);
   }, []);
 

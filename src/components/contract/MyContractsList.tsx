@@ -38,6 +38,10 @@ const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; clas
   rejected: { label: '거절됨', icon: <XCircle className="h-3.5 w-3.5" />, className: 'bg-destructive/10 text-destructive' },
 };
 
+const getErrorMessage = (error: unknown) => (
+  error instanceof Error ? error.message : String(error || '')
+);
+
 function dataUrlToBlob(dataUrl: string) {
   const [meta, base64] = dataUrl.split(',');
   const mime = meta.match(/data:(.*);base64/)?.[1] || 'application/octet-stream';
@@ -173,8 +177,8 @@ const MyContractsList: React.FC = () => {
       setSigningContract(null);
       resetSignForm();
       await fetchMyContracts();
-    } catch (e: any) {
-      toast.error('서명 실패: ' + (e.message || ''));
+    } catch (error: unknown) {
+      toast.error('서명 실패: ' + getErrorMessage(error));
     } finally {
       setProcessing(false);
     }
@@ -197,8 +201,8 @@ const MyContractsList: React.FC = () => {
       setRejectingContract(null);
       setRejectReason('');
       await fetchMyContracts();
-    } catch (e: any) {
-      toast.error('거절 실패: ' + (e.message || ''));
+    } catch (error: unknown) {
+      toast.error('거절 실패: ' + getErrorMessage(error));
     } finally {
       setProcessing(false);
     }
@@ -214,8 +218,8 @@ const MyContractsList: React.FC = () => {
       });
       window.open(url, '_blank', 'noopener,noreferrer');
       await invokeAction({ action: 'downloaded', contractId: contract.id });
-    } catch (e: any) {
-      toast.error('PDF 열기 실패: ' + (e.message || ''));
+    } catch (error: unknown) {
+      toast.error('PDF 열기 실패: ' + getErrorMessage(error));
     }
   };
 
