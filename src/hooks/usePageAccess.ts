@@ -36,7 +36,7 @@ export const usePageAccess = () => {
         pathsToCheck.push('/' + segments[0]);
       }
 
-      const { data: userOverrides } = await supabase
+      const { data: userOverrides } = await (supabase as any)
         .from('page_access_permissions')
         .select('page_key, effect')
         .eq('user_id', user.id)

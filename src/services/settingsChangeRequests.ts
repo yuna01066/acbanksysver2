@@ -47,7 +47,7 @@ export async function createSettingsChangeRequest({
   beforeValue = null,
   afterValue = null,
 }: SettingsChangeRequestInput) {
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('settings_change_requests')
     .insert({
       target_area: targetArea,
@@ -64,7 +64,7 @@ export async function createSettingsChangeRequest({
 }
 
 export async function listSettingsChangeRequests() {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('settings_change_requests')
     .select('*')
     .order('created_at', { ascending: false })
@@ -75,7 +75,7 @@ export async function listSettingsChangeRequests() {
 }
 
 export async function approveSettingsChangeRequest(id: string, reviewNote?: string) {
-  const { data, error } = await supabase.rpc('approve_settings_change_request', {
+  const { data, error } = await (supabase as any).rpc('approve_settings_change_request', {
     _request_id: id,
     _review_note: reviewNote || null,
   });
@@ -84,7 +84,7 @@ export async function approveSettingsChangeRequest(id: string, reviewNote?: stri
 }
 
 export async function rejectSettingsChangeRequest(id: string, reviewNote?: string) {
-  const { data, error } = await supabase.rpc('reject_settings_change_request', {
+  const { data, error } = await (supabase as any).rpc('reject_settings_change_request', {
     _request_id: id,
     _review_note: reviewNote || null,
   });
