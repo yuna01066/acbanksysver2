@@ -10,7 +10,8 @@
     "docs:dry-run": "node scripts/document-migration-dry-run.mjs",
     "test:pricing": "node scripts/test-price-calculations.mjs",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "worker:quote-wizard": "node workers/quote-wizard-worker/src/index.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

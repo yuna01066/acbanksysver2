@@ -36,22 +36,48 @@ export const usePageAccess = () => {
         pathsToCheck.push('/' + segments[0]);
       }
 
+      const { data: userOverrides } = await supabase
+        .from('page_access_permissions')
+        .select('page_key, effect')
+        .eq('user_id', user.id)
+        .in('page_key', pathsToCheck);
+
+      const matchedOverride = pathsToCheck
+        .map(path => userOverrides?.find((row) => row.page_key === path))
+        .find(Boolean) as { effect?: string } | undefined;
+
+      if (matchedOverride?.effect === 'deny') {
+        setAllowed(false);
+        setChecking(false);
+        return;
+      }
+
+      if (matchedOverride?.effect === 'allow') {
+        setAllowed(true);
+        setChecking(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('page_role_access')
-        .select('min_role')
+        .select('page_key, min_role')
         .in('page_key', pathsToCheck)
-        .order('min_role', { ascending: true })
-        .limit(1);
+        .limit(pathsToCheck.length);
 
       if (error || !data || data.length === 0) {
         // No restriction — open to all
         setAllowed(true);
       } else {
-        const minRole = data[0].min_role as AppRole;
+        const matchedRole = pathsToCheck
+          .map(path => data.find((row) => row.page_key === path))
+          .find(Boolean);
+        const minRole = matchedRole?.min_role as AppRole;
         const minIdx = ROLE_HIERARCHY.indexOf(minRole);
         const userIdx = userRole ? ROLE_HIERARCHY.indexOf(userRole) : ROLE_HIERARCHY.length;
 
-        if (userIdx <= minIdx) {
+        if (minIdx < 0) {
+          setAllowed(true);
+        } else if (userIdx <= minIdx) {
           // Role is sufficient
           setAllowed(true);
         } else {

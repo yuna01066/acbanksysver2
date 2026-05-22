@@ -8,6 +8,7 @@ import { QuoteProvider } from "@/contexts/QuoteContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "next-themes";
 import PageAccessGuard from "@/components/PageAccessGuard";
+import CompanySettingsGuard from "@/components/company/CompanySettingsGuard";
 import GlobalQuickNav from "@/components/GlobalQuickNav";
 import FloatingResponseAssistant from "@/components/FloatingResponseAssistant";
 
@@ -31,6 +32,7 @@ const ProcessingPriceManagement = lazy(() => import("./pages/ProcessingPriceMana
 const SavedQuotesPage = lazy(() => import("./pages/SavedQuotesPage"));
 const SavedQuoteDetailPage = lazy(() => import("./pages/SavedQuoteDetailPage"));
 const QuoteDraftsPage = lazy(() => import("./pages/QuoteDraftsPage"));
+const QuoteWizardPage = lazy(() => import("./pages/QuoteWizardPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 const MyPage = lazy(() => import("./pages/MyPage"));
 const UserStatisticsPage = lazy(() => import("./pages/UserStatisticsPage"));
@@ -46,6 +48,7 @@ const ProjectManagementPage = lazy(() => import("./pages/ProjectManagementPage")
 const ReviewSettingsPage = lazy(() => import("./pages/ReviewSettingsPage"));
 const PerformanceReviewPage = lazy(() => import("./pages/PerformanceReviewPage"));
 const MaterialOrdersPage = lazy(() => import("./pages/MaterialOrdersPage"));
+const MeetingReservationsPage = lazy(() => import("./pages/MeetingReservationsPage"));
 const YearEndTaxPage = lazy(() => import("./pages/YearEndTaxPage"));
 const YearEndTaxAdminPage = lazy(() => import("./pages/YearEndTaxAdminPage"));
 const StorageStatusPage = lazy(() => import("./pages/StorageStatusPage"));
@@ -67,6 +70,10 @@ const queryClient = new QueryClient();
 
 const G: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <PageAccessGuard>{children}</PageAccessGuard>
+);
+
+const S: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <CompanySettingsGuard>{children}</CompanySettingsGuard>
 );
 
 const ProjectRouteRedirect = () => {
@@ -102,16 +109,17 @@ const App = () => (
               <Route path="/saved-quotes" element={<G><SavedQuotesPage /></G>} />
               <Route path="/saved-quotes/:id" element={<G><SavedQuoteDetailPage /></G>} />
               <Route path="/quote-drafts" element={<G><QuoteDraftsPage /></G>} />
+              <Route path="/quote-wizard" element={<G><QuoteWizardPage /></G>} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/my-page" element={<MyPage />} />
               <Route path="/user-management" element={<Navigate to="/employee-profiles" replace />} />
-              <Route path="/user-statistics" element={<UserStatisticsPage />} />
+              <Route path="/user-statistics" element={<S><UserStatisticsPage /></S>} />
               <Route path="/announcements" element={<G><AnnouncementsPage /></G>} />
               <Route path="/recipients" element={<G><RecipientManagementPage /></G>} />
               <Route path="/recipient-management" element={<Navigate to="/recipients" replace />} />
               <Route path="/attendance" element={<G><AttendancePage /></G>} />
-              <Route path="/employee-profiles" element={<EmployeeProfileManagementPage />} />
+              <Route path="/employee-profiles" element={<S><EmployeeProfileManagementPage /></S>} />
               <Route path="/employee-work" element={<Navigate to="/employee-profiles" replace />} />
               <Route path="/leave-management" element={<G><LeaveManagementPage /></G>} />
               <Route path="/team-chat" element={<G><TeamChatPage /></G>} />
@@ -121,16 +129,17 @@ const App = () => (
               <Route path="/review-settings" element={<ReviewSettingsPage />} />
               <Route path="/performance-review" element={<G><PerformanceReviewPage /></G>} />
               <Route path="/material-orders" element={<G><MaterialOrdersPage /></G>} />
+              <Route path="/meeting-reservations" element={<G><MeetingReservationsPage /></G>} />
               <Route path="/year-end-tax" element={<YearEndTaxPage />} />
-              <Route path="/year-end-tax-admin" element={<YearEndTaxAdminPage />} />
+              <Route path="/year-end-tax-admin" element={<S><YearEndTaxAdminPage /></S>} />
               <Route path="/storage-status" element={<StorageStatusPage />} />
               <Route path="/quote-template-management" element={<QuoteTemplateManagementPage />} />
-              <Route path="/tax-invoices" element={<G><TaxInvoicesPage /></G>} />
+              <Route path="/tax-invoices" element={<S><TaxInvoicesPage /></S>} />
               <Route path="/sample-chip-inventory" element={<SampleChipInventoryPage />} />
               <Route path="/imweb-management" element={<G><ImwebManagementPage /></G>} />
               <Route path="/exhibition-management" element={<G><ExhibitionManagementPage /></G>} />
               <Route path="/portfolio" element={<G><PortfolioPage /></G>} />
-              <Route path="/business-dashboard" element={<G><BusinessDashboardPage /></G>} />
+              <Route path="/business-dashboard" element={<S><BusinessDashboardPage /></S>} />
               <Route path="/review-hub" element={<G><ReviewHubPage /></G>} />
               <Route path="/channel-talk-leads" element={<G><ChannelTalkLeadsPage /></G>} />
               <Route path="/response-assistant" element={<ResponseAssistantPage />} />

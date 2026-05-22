@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { usePageAccess } from '@/hooks/usePageAccess';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -14,6 +14,7 @@ const PageAccessGuard: React.FC<PageAccessGuardProps> = ({ children }) => {
   const { allowed, checking } = usePageAccess();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (authLoading || checking) {
     return (
@@ -24,7 +25,8 @@ const PageAccessGuard: React.FC<PageAccessGuardProps> = ({ children }) => {
   }
 
   if (!user) {
-    return null; // Auth will handle redirect
+    const redirectTo = `${location.pathname}${location.search}`;
+    return <Navigate to={`/auth?redirectTo=${encodeURIComponent(redirectTo)}`} replace />;
   }
 
   if (!allowed) {
