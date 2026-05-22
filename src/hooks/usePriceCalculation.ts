@@ -694,7 +694,7 @@ export const usePriceCalculation = ({
       const surface = selectedSurface || '단면';
       let singleProcessing: ProcessingProfile = 'none';
       let singleAdhesion: AdhesionProfile = 'none';
-      let singleEdgeRequested = selectedProcessing === 'edge-finishing';
+      const singleEdgeRequested = selectedProcessing === 'edge-finishing';
 
       if (selectedProcessing === 'auto') singleProcessing = 'auto';
       else if (selectedProcessing === 'simple-cutting') singleProcessing = 'simple-cutting';

@@ -30,7 +30,7 @@ const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
 }) => {
   // 사이즈에서 기본 이름 추출 (예: "3*6 (860*1750)" -> "3*6")
   const extractBaseName = (sizeString: string): string => {
-    const match = sizeString.match(/^([^\(]+)/);
+    const match = sizeString.match(/^([^(]+)/);
     return match ? match[1].trim() : sizeString;
   };
 
@@ -45,10 +45,11 @@ const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
       case 'glossy-standard':
         return tapePrices[baseName as keyof typeof tapePrices] || 0;
       
-      case 'astel-color':
+      case 'astel-color': {
         const astelTape = tapePrices[baseName as keyof typeof tapePrices] || 0;
         const astelSurcharge = astelDoubleSideSurcharge[baseName as keyof typeof astelDoubleSideSurcharge] || 0;
         return astelTape + astelSurcharge;
+      }
       
       case 'satin-color':
         return tapePrices[baseName as keyof typeof tapePrices] || 0;

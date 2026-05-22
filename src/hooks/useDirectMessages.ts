@@ -102,8 +102,6 @@ export const useDirectMessages = (partnerId: string | null) => {
         message: text.trim(),
       });
       if (error) throw error;
-    } catch (e: any) {
-      throw e;
     } finally {
       setSending(false);
     }

@@ -158,7 +158,9 @@ const SecretEventManager: React.FC = () => {
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
         osc.start(audioCtx.currentTime);
         osc.stop(audioCtx.currentTime + 0.5);
-      } catch (e) {}
+      } catch (error) {
+        console.warn('시크릿 이벤트 미리보기 사운드 재생 실패:', error);
+      }
     }
     setTimeout(() => setShowPreview(false), (ev.display_duration || 10) * 1000);
   };
