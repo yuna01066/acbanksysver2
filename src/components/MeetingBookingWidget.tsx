@@ -362,12 +362,12 @@ const MeetingBookingWidget = ({
     if (!user) return;
 
     const targetIds = new Set<string>();
-    const isAllHandsWithoutExplicitParticipants =
+    const notifyAllEmployees =
       reservation.audience_type === 'employee'
       && reservation.employee_meeting_type === 'all_hands'
       && (!reservation.participant_ids || reservation.participant_ids.length === 0);
 
-    if (isAllHandsWithoutExplicitParticipants) {
+    if (notifyAllEmployees) {
       employees.forEach((employee) => targetIds.add(employee.id));
     } else {
       (reservation.participant_ids || []).forEach((id) => targetIds.add(id));
