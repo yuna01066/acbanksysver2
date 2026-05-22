@@ -1,20 +1,33 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
+  Bell,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Loader2,
   MapPin,
   Plus,
+  Save,
   Search,
   UsersRound,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -36,9 +49,45 @@ import {
   type MeetingReservationStatus,
 } from '@/types/meetingReservations';
 
-type MeetingReservationRow = any;
-type MeetingReservationInsert = any;
-const supabaseAny = supabase as any;
+type MeetingReservationRow = {
+  id: string;
+  audience_type: MeetingAudienceType | string;
+  employee_meeting_type: EmployeeMeetingType | string | null;
+  client_meeting_type: ClientMeetingType | string | null;
+  title: string;
+  description: string | null;
+  meeting_date: string;
+  start_time: string;
+  end_time: string | null;
+  location: string | null;
+  status: MeetingReservationStatus | string;
+  recipient_id: string | null;
+  client_name: string | null;
+  client_contact: string | null;
+  participant_ids: string[];
+  participant_names: string[];
+  created_by: string;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type MeetingDraft = {
+  audience_type: MeetingAudienceType;
+  employee_meeting_type: EmployeeMeetingType;
+  client_meeting_type: ClientMeetingType;
+  title: string;
+  meeting_date: string;
+  start_time: string;
+  duration_minutes: string;
+  location: string;
+  description: string;
+  recipient_id: string;
+  client_name: string;
+  client_contact: string;
+  participant_ids: string[];
+  status: MeetingReservationStatus;
+};
 
 type EmployeeOption = {
   id: string;
@@ -65,6 +114,7 @@ interface MeetingBookingWidgetProps {
 
 const DURATION_OPTIONS = [30, 60, 90, 120];
 const STATUS_OPTIONS: MeetingReservationStatus[] = ['scheduled', 'confirmed', 'completed', 'canceled'];
+const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
 const TIME_OPTIONS = Array.from({ length: 21 }, (_, index) => {
   const totalMinutes = 9 * 60 + index * 30;
@@ -73,7 +123,26 @@ const TIME_OPTIONS = Array.from({ length: 21 }, (_, index) => {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 });
 
+const supabaseAny = supabase as any;
+
 const todayString = () => format(new Date(), 'yyyy-MM-dd');
+
+const createEmptyDraft = (audienceType: MeetingAudienceType): MeetingDraft => ({
+  audience_type: audienceType,
+  employee_meeting_type: 'one_on_one',
+  client_meeting_type: 'showroom_visit',
+  title: '',
+  meeting_date: todayString(),
+  start_time: '10:00',
+  duration_minutes: '60',
+  location: '',
+  description: '',
+  recipient_id: 'none',
+  client_name: '',
+  client_contact: '',
+  participant_ids: [],
+  status: 'scheduled',
+});
 
 const addMinutesToTime = (time: string, minutes: number) => {
   const [hour, minute] = time.split(':').map(Number);
@@ -82,12 +151,39 @@ const addMinutesToTime = (time: string, minutes: number) => {
   return format(date, 'HH:mm');
 };
 
+const getDurationMinutes = (startTime: string, endTime: string | null) => {
+  if (!startTime || !endTime) return '60';
+  const [startHour, startMinute] = startTime.split(':').map(Number);
+  const [endHour, endMinute] = endTime.split(':').map(Number);
+  const diff = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+  return String(DURATION_OPTIONS.includes(diff) ? diff : 60);
+};
+
 const formatMeetingDate = (value: string) => {
   const date = new Date(`${value}T00:00:00`);
   return Number.isNaN(date.getTime()) ? value : format(date, 'M월 d일 (EEE)', { locale: ko });
 };
 
 const isTodayValue = (value: string) => value === todayString();
+
+const getDateKey = (date: Date) => format(date, 'yyyy-MM-dd');
+
+const draftFromReservation = (reservation: MeetingReservationRow): MeetingDraft => ({
+  audience_type: reservation.audience_type as MeetingAudienceType,
+  employee_meeting_type: (reservation.employee_meeting_type || 'one_on_one') as EmployeeMeetingType,
+  client_meeting_type: (reservation.client_meeting_type || 'showroom_visit') as ClientMeetingType,
+  title: reservation.title,
+  meeting_date: reservation.meeting_date,
+  start_time: reservation.start_time,
+  duration_minutes: getDurationMinutes(reservation.start_time, reservation.end_time),
+  location: reservation.location || '',
+  description: reservation.description || '',
+  recipient_id: reservation.recipient_id || 'none',
+  client_name: reservation.client_name || '',
+  client_contact: reservation.client_contact || '',
+  participant_ids: reservation.participant_ids || [],
+  status: (reservation.status || 'scheduled') as MeetingReservationStatus,
+});
 
 const MeetingBookingWidget = ({
   className,
@@ -100,20 +196,13 @@ const MeetingBookingWidget = ({
   const { user, profile, isAdmin, isModerator, isManager } = useAuth();
   const queryClient = useQueryClient();
   const canManageAll = isAdmin || isModerator || isManager;
-  const [audienceType, setAudienceType] = useState<MeetingAudienceType>(defaultAudienceType);
-  const [employeeMeetingType, setEmployeeMeetingType] = useState<EmployeeMeetingType>('one_on_one');
-  const [clientMeetingType, setClientMeetingType] = useState<ClientMeetingType>('showroom_visit');
-  const [meetingTitle, setMeetingTitle] = useState('');
-  const [meetingDate, setMeetingDate] = useState(todayString());
-  const [startTime, setStartTime] = useState('10:00');
-  const [durationMinutes, setDurationMinutes] = useState('60');
-  const [location, setLocation] = useState('');
-  const [descriptionText, setDescriptionText] = useState('');
-  const [recipientId, setRecipientId] = useState('none');
-  const [clientName, setClientName] = useState('');
-  const [clientContact, setClientContact] = useState('');
+  const [draft, setDraft] = useState<MeetingDraft>(() => createEmptyDraft(defaultAudienceType));
   const [participantSearch, setParticipantSearch] = useState('');
-  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(todayString());
+  const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null);
+  const [detailDraft, setDetailDraft] = useState<MeetingDraft | null>(null);
+  const [detailParticipantSearch, setDetailParticipantSearch] = useState('');
 
   const { data: employees = [], isLoading: isEmployeesLoading } = useQuery({
     queryKey: ['meeting-reservation-employees'],
@@ -146,7 +235,7 @@ const MeetingBookingWidget = ({
     data: reservations = [],
     isLoading: isReservationsLoading,
   } = useQuery({
-    queryKey: ['meeting-reservations', maxItems],
+    queryKey: ['meeting-reservations'],
     queryFn: async () => {
       const { data, error } = await supabaseAny
         .from('meeting_reservations')
@@ -154,7 +243,7 @@ const MeetingBookingWidget = ({
         .gte('meeting_date', todayString())
         .order('meeting_date', { ascending: true })
         .order('start_time', { ascending: true })
-        .limit(maxItems);
+        .limit(100);
       if (error) throw error;
       return (data || []) as MeetingReservationRow[];
     },
@@ -162,17 +251,42 @@ const MeetingBookingWidget = ({
   });
 
   const selectedRecipient = useMemo(
-    () => recipients.find((recipient) => recipient.id === recipientId),
-    [recipientId, recipients],
+    () => recipients.find((recipient) => recipient.id === draft.recipient_id),
+    [draft.recipient_id, recipients],
   );
 
-  const selectedParticipantNames = useMemo(
-    () =>
-      selectedParticipantIds
-        .map((id) => employees.find((employee) => employee.id === id)?.full_name)
-        .filter(Boolean) as string[],
-    [employees, selectedParticipantIds],
+  const selectedReservation = useMemo(
+    () => reservations.find((reservation) => reservation.id === selectedReservationId) || null,
+    [reservations, selectedReservationId],
   );
+
+  const detailRecipient = useMemo(
+    () => (detailDraft ? recipients.find((recipient) => recipient.id === detailDraft.recipient_id) : undefined),
+    [detailDraft, recipients],
+  );
+
+  const reservationsByDate = useMemo(() => {
+    return reservations.reduce<Record<string, MeetingReservationRow[]>>((acc, reservation) => {
+      acc[reservation.meeting_date] = [...(acc[reservation.meeting_date] || []), reservation];
+      return acc;
+    }, {});
+  }, [reservations]);
+
+  const calendarDays = useMemo(() => {
+    const start = startOfWeek(startOfMonth(calendarMonth));
+    const end = endOfWeek(endOfMonth(calendarMonth));
+    return eachDayOfInterval({ start, end });
+  }, [calendarMonth]);
+
+  const listReservations = useMemo(() => {
+    const filtered = selectedCalendarDate
+      ? reservations.filter((reservation) => reservation.meeting_date === selectedCalendarDate)
+      : reservations;
+    return filtered.slice(0, maxItems);
+  }, [maxItems, reservations, selectedCalendarDate]);
+
+  const getParticipantNames = (ids: string[]) =>
+    ids.map((id) => employees.find((employee) => employee.id === id)?.full_name).filter(Boolean) as string[];
 
   const visibleEmployees = useMemo(() => {
     const keyword = participantSearch.trim().toLowerCase();
@@ -186,40 +300,111 @@ const MeetingBookingWidget = ({
       .slice(0, 8);
   }, [employees, participantSearch]);
 
-  const formError = useMemo(() => {
+  const visibleDetailEmployees = useMemo(() => {
+    const keyword = detailParticipantSearch.trim().toLowerCase();
+    if (!keyword) return employees.slice(0, 8);
+    return employees
+      .filter((employee) =>
+        [employee.full_name, employee.department, employee.position]
+          .filter(Boolean)
+          .some((value) => value!.toLowerCase().includes(keyword)),
+      )
+      .slice(0, 8);
+  }, [detailParticipantSearch, employees]);
+
+  const validateDraft = (target: MeetingDraft, targetRecipient?: RecipientOption) => {
     if (!user || !profile) return '로그인 후 예약할 수 있습니다.';
-    if (!meetingTitle.trim()) return '미팅 제목을 입력해주세요.';
-    if (!meetingDate) return '미팅 날짜를 선택해주세요.';
-    if (!startTime) return '시작 시간을 선택해주세요.';
-    if (audienceType === 'employee' && employeeMeetingType === 'one_on_one' && selectedParticipantIds.length === 0) {
+    if (!target.title.trim()) return '미팅 제목을 입력해주세요.';
+    if (!target.meeting_date) return '미팅 날짜를 선택해주세요.';
+    if (!target.start_time) return '시작 시간을 선택해주세요.';
+    if (
+      target.audience_type === 'employee'
+      && target.employee_meeting_type === 'one_on_one'
+      && target.participant_ids.length === 0
+    ) {
       return '1:1 미팅은 참석 직원을 1명 이상 선택해주세요.';
     }
-    if (audienceType === 'client' && !selectedRecipient && !clientName.trim()) {
+    if (target.audience_type === 'client' && !targetRecipient && !target.client_name.trim()) {
       return '클라이언트명 또는 거래처를 입력해주세요.';
     }
     return '';
-  }, [
-    audienceType,
-    clientName,
-    employeeMeetingType,
-    meetingDate,
-    meetingTitle,
-    profile,
-    selectedParticipantIds.length,
-    selectedRecipient,
-    startTime,
-    user,
-  ]);
+  };
+
+  const formError = validateDraft(draft, selectedRecipient);
+  const detailError = detailDraft ? validateDraft(detailDraft, detailRecipient) : '';
+
+  const buildPayload = (target: MeetingDraft, targetRecipient?: RecipientOption) => {
+    const isEmployeeMeeting = target.audience_type === 'employee';
+    return {
+      audience_type: target.audience_type,
+      employee_meeting_type: isEmployeeMeeting ? target.employee_meeting_type : null,
+      client_meeting_type: isEmployeeMeeting ? null : target.client_meeting_type,
+      title: target.title.trim(),
+      description: target.description.trim() || null,
+      meeting_date: target.meeting_date,
+      start_time: target.start_time,
+      end_time: addMinutesToTime(target.start_time, Number(target.duration_minutes)),
+      location: target.location.trim() || null,
+      status: target.status,
+      recipient_id: !isEmployeeMeeting && targetRecipient ? targetRecipient.id : null,
+      client_name: !isEmployeeMeeting ? targetRecipient?.company_name || target.client_name.trim() || null : null,
+      client_contact: !isEmployeeMeeting ? target.client_contact.trim() || targetRecipient?.contact_person || null : null,
+      participant_ids: target.participant_ids,
+      participant_names: getParticipantNames(target.participant_ids),
+    };
+  };
+
+  const sendReservationNotifications = async (
+    reservation: MeetingReservationRow,
+    action: 'created' | 'updated' | 'status',
+    includeCreator = false,
+  ) => {
+    if (!user) return;
+
+    const targetIds = new Set<string>();
+    const isAllHandsWithoutExplicitParticipants =
+      reservation.audience_type === 'employee'
+      && reservation.employee_meeting_type === 'all_hands'
+      && (!reservation.participant_ids || reservation.participant_ids.length === 0);
+
+    if (isAllHandsWithoutExplicitParticipants) {
+      employees.forEach((employee) => targetIds.add(employee.id));
+    } else {
+      (reservation.participant_ids || []).forEach((id) => targetIds.add(id));
+    }
+
+    if (includeCreator) targetIds.add(reservation.created_by);
+    targetIds.delete(user.id);
+
+    const notifications = [...targetIds].map((userId) => ({
+      user_id: userId,
+      type: action === 'status' ? 'meeting_reservation_status' : 'meeting_reservation',
+      title:
+        action === 'created'
+          ? '미팅 예약이 등록되었습니다'
+          : action === 'updated'
+          ? '미팅 예약이 변경되었습니다'
+          : '미팅 예약 상태가 변경되었습니다',
+      description: `${reservation.title} / ${formatMeetingDate(reservation.meeting_date)} ${reservation.start_time}`,
+      data: { meetingReservationId: reservation.id, status: reservation.status },
+    }));
+
+    if (notifications.length === 0) return;
+
+    const { error } = await supabase.from('notifications').insert(notifications);
+    if (error) {
+      toast.warning('예약은 저장됐지만 일부 알림 발송에 실패했습니다.');
+    }
+  };
 
   const resetForm = () => {
-    setMeetingTitle('');
-    setLocation('');
-    setDescriptionText('');
-    setRecipientId('none');
-    setClientName('');
-    setClientContact('');
+    setDraft((prev) => ({
+      ...createEmptyDraft(prev.audience_type),
+      meeting_date: prev.meeting_date,
+      start_time: prev.start_time,
+      duration_minutes: prev.duration_minutes,
+    }));
     setParticipantSearch('');
-    setSelectedParticipantIds([]);
   };
 
   const createMutation = useMutation({
@@ -227,33 +412,23 @@ const MeetingBookingWidget = ({
       if (!user || !profile) throw new Error('로그인 후 예약할 수 있습니다.');
       if (formError) throw new Error(formError);
 
-      const isEmployeeMeeting = audienceType === 'employee';
-      const payload: MeetingReservationInsert = {
-        audience_type: audienceType,
-        employee_meeting_type: isEmployeeMeeting ? employeeMeetingType : null,
-        client_meeting_type: isEmployeeMeeting ? null : clientMeetingType,
-        title: meetingTitle.trim(),
-        description: descriptionText.trim() || null,
-        meeting_date: meetingDate,
-        start_time: startTime,
-        end_time: addMinutesToTime(startTime, Number(durationMinutes)),
-        location: location.trim() || null,
-        status: 'scheduled',
-        recipient_id: !isEmployeeMeeting && selectedRecipient ? selectedRecipient.id : null,
-        client_name: !isEmployeeMeeting ? selectedRecipient?.company_name || clientName.trim() || null : null,
-        client_contact: !isEmployeeMeeting ? clientContact.trim() || selectedRecipient?.contact_person || null : null,
-        participant_ids: isEmployeeMeeting ? selectedParticipantIds : [],
-        participant_names: isEmployeeMeeting ? selectedParticipantNames : [],
+      const payload = {
+        ...buildPayload(draft, selectedRecipient),
         created_by: user.id,
         created_by_name: profile.full_name || user.email || '담당자',
       };
 
-      const { error } = await supabaseAny.from('meeting_reservations').insert(payload);
+      const { data, error } = await supabaseAny.from('meeting_reservations').insert(payload).select('*').single();
       if (error) throw error;
+      await sendReservationNotifications(data as MeetingReservationRow, 'created');
+      return data as MeetingReservationRow;
     },
-    onSuccess: () => {
+    onSuccess: (reservation) => {
       toast.success('미팅 예약이 등록되었습니다.');
       resetForm();
+      setSelectedCalendarDate(reservation.meeting_date);
+      setSelectedReservationId(reservation.id);
+      setDetailDraft(draftFromReservation(reservation));
       queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
     },
     onError: (error: Error) => {
@@ -261,12 +436,49 @@ const MeetingBookingWidget = ({
     },
   });
 
-  const statusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: MeetingReservationStatus }) => {
-      const { error } = await supabaseAny.from('meeting_reservations').update({ status }).eq('id', id);
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedReservation || !detailDraft) throw new Error('수정할 예약을 선택해주세요.');
+      if (detailError) throw new Error(detailError);
+
+      const { data, error } = await supabaseAny
+        .from('meeting_reservations')
+        .update(buildPayload(detailDraft, detailRecipient))
+        .eq('id', selectedReservation.id)
+        .select('*')
+        .single();
       if (error) throw error;
+      await sendReservationNotifications(data as MeetingReservationRow, 'updated', true);
+      return data as MeetingReservationRow;
     },
-    onSuccess: () => {
+    onSuccess: (reservation) => {
+      toast.success('미팅 예약이 수정되었습니다.');
+      setSelectedCalendarDate(reservation.meeting_date);
+      setSelectedReservationId(reservation.id);
+      setDetailDraft(draftFromReservation(reservation));
+      queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || '미팅 예약 수정에 실패했습니다.');
+    },
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: async ({ reservation, status }: { reservation: MeetingReservationRow; status: MeetingReservationStatus }) => {
+      const { data, error } = await supabaseAny
+        .from('meeting_reservations')
+        .update({ status })
+        .eq('id', reservation.id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      await sendReservationNotifications(data as MeetingReservationRow, 'status', true);
+      return data as MeetingReservationRow;
+    },
+    onSuccess: (reservation) => {
+      if (selectedReservationId === reservation.id) {
+        setDetailDraft(draftFromReservation(reservation));
+      }
       queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
     },
     onError: (error: Error) => {
@@ -274,31 +486,141 @@ const MeetingBookingWidget = ({
     },
   });
 
-  const toggleParticipant = (employeeId: string) => {
-    setSelectedParticipantIds((prev) =>
-      prev.includes(employeeId) ? prev.filter((id) => id !== employeeId) : [...prev, employeeId],
+  const setDraftField = <K extends keyof MeetingDraft>(key: K, value: MeetingDraft[K]) => {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const setDetailDraftField = <K extends keyof MeetingDraft>(key: K, value: MeetingDraft[K]) => {
+    setDetailDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
+  };
+
+  const toggleDraftParticipant = (employeeId: string) => {
+    setDraft((prev) => ({
+      ...prev,
+      participant_ids: prev.participant_ids.includes(employeeId)
+        ? prev.participant_ids.filter((id) => id !== employeeId)
+        : [...prev.participant_ids, employeeId],
+    }));
+  };
+
+  const toggleDetailParticipant = (employeeId: string) => {
+    setDetailDraft((prev) =>
+      prev
+        ? {
+            ...prev,
+            participant_ids: prev.participant_ids.includes(employeeId)
+              ? prev.participant_ids.filter((id) => id !== employeeId)
+              : [...prev.participant_ids, employeeId],
+          }
+        : prev,
     );
   };
 
   const handleAudienceChange = (value: MeetingAudienceType) => {
-    setAudienceType(value);
-    setRecipientId('none');
-    setClientName('');
-    setClientContact('');
-    setSelectedParticipantIds([]);
+    setDraft((prev) => ({
+      ...prev,
+      audience_type: value,
+      recipient_id: 'none',
+      client_name: '',
+      client_contact: '',
+      participant_ids: [],
+    }));
     setParticipantSearch('');
   };
+
+  const openDetail = (reservation: MeetingReservationRow) => {
+    setSelectedReservationId(reservation.id);
+    setDetailDraft(draftFromReservation(reservation));
+    setDetailParticipantSearch('');
+  };
+
+  const closeDetail = () => {
+    setSelectedReservationId(null);
+    setDetailDraft(null);
+    setDetailParticipantSearch('');
+  };
+
+  const renderParticipantPicker = ({
+    label,
+    selectedIds,
+    searchValue,
+    onSearchChange,
+    onToggle,
+    visibleOptions,
+    disabled = false,
+  }: {
+    label: string;
+    selectedIds: string[];
+    searchValue: string;
+    onSearchChange: (value: string) => void;
+    onToggle: (employeeId: string) => void;
+    visibleOptions: EmployeeOption[];
+    disabled?: boolean;
+  }) => (
+    <div className="space-y-2 rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-xs font-semibold text-[#39393b]">{label}</Label>
+        <span className="text-xs text-[#707072]">{selectedIds.length}명 선택</span>
+      </div>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9e9ea0]" />
+        <Input
+          value={searchValue}
+          onChange={(event) => onSearchChange(event.target.value)}
+          disabled={disabled}
+          placeholder="이름, 부서, 직책 검색"
+          className="h-9 rounded-full border-[#cacacb] bg-white pl-8 text-sm"
+        />
+      </div>
+      <div className="grid max-h-40 gap-1.5 overflow-auto pr-1 sm:grid-cols-2">
+        {isEmployeesLoading ? (
+          <div className="col-span-full flex items-center gap-2 rounded-lg border border-[#e5e5e5] bg-white p-3 text-sm text-[#707072]">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            직원 목록을 불러오는 중
+          </div>
+        ) : visibleOptions.length > 0 ? (
+          visibleOptions.map((employee) => {
+            const selected = selectedIds.includes(employee.id);
+            return (
+              <button
+                key={employee.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => onToggle(employee.id)}
+                className={cn(
+                  'rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                  selected
+                    ? 'border-[#111111] bg-[#111111] text-white'
+                    : 'border-[#e5e5e5] bg-white text-[#111111] hover:border-[#cacacb]',
+                )}
+              >
+                <span className="block truncate text-sm font-semibold">{employee.full_name}</span>
+                <span className={cn('block truncate text-xs', selected ? 'text-white/70' : 'text-[#707072]')}>
+                  {[employee.department, employee.position].filter(Boolean).join(' / ') || '부서 미설정'}
+                </span>
+              </button>
+            );
+          })
+        ) : (
+          <div className="col-span-full rounded-lg border border-[#e5e5e5] bg-white p-3 text-sm text-[#707072]">
+            검색 결과가 없습니다.
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   const upcomingCount = reservations.filter((reservation) => reservation.status !== 'canceled').length;
   const todayCount = reservations.filter(
     (reservation) => reservation.status !== 'canceled' && isTodayValue(reservation.meeting_date),
   ).length;
   const confirmedCount = reservations.filter((reservation) => reservation.status === 'confirmed').length;
+  const canEditSelected = selectedReservation ? canManageAll || selectedReservation.created_by === user?.id : false;
 
   return (
     <section
       className={cn(
-        'w-full max-w-[720px] rounded-xl border border-[#e5e5e5] bg-white text-[#111111] shadow-[0_2px_10px_rgba(0,0,0,0.04)]',
+        'w-full max-w-[960px] rounded-xl border border-[#e5e5e5] bg-white text-[#111111] shadow-[0_2px_10px_rgba(0,0,0,0.04)]',
         className,
       )}
     >
@@ -319,7 +641,7 @@ const MeetingBookingWidget = ({
         </header>
       )}
 
-      <div className="grid gap-5 p-4 sm:p-5 lg:grid-cols-[1.06fr_0.94fr]">
+      <div className="grid gap-5 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_370px]">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-2">
             {MEETING_AUDIENCE_OPTIONS.map((option) => {
@@ -331,7 +653,7 @@ const MeetingBookingWidget = ({
                   onClick={() => handleAudienceChange(option.value)}
                   className={cn(
                     'flex min-h-[74px] items-start gap-3 rounded-lg border p-3 text-left transition-colors',
-                    audienceType === option.value
+                    draft.audience_type === option.value
                       ? 'border-[#111111] bg-[#111111] text-white'
                       : 'border-[#cacacb] bg-white text-[#111111] hover:border-[#111111]',
                   )}
@@ -339,7 +661,7 @@ const MeetingBookingWidget = ({
                   <span
                     className={cn(
                       'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border',
-                      audienceType === option.value ? 'border-white/20 bg-white/10' : 'border-[#e5e5e5] bg-[#f5f5f5]',
+                      draft.audience_type === option.value ? 'border-white/20 bg-white/10' : 'border-[#e5e5e5] bg-[#f5f5f5]',
                     )}
                   >
                     <AudienceIcon className="h-4 w-4" />
@@ -349,7 +671,7 @@ const MeetingBookingWidget = ({
                     <span
                       className={cn(
                         'mt-0.5 block text-xs leading-4',
-                        audienceType === option.value ? 'text-white/70' : 'text-[#707072]',
+                        draft.audience_type === option.value ? 'text-white/70' : 'text-[#707072]',
                       )}
                     >
                       {option.description}
@@ -362,22 +684,22 @@ const MeetingBookingWidget = ({
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold text-[#39393b]">미팅 유형</Label>
-            <div className={cn('grid gap-2', audienceType === 'client' ? 'sm:grid-cols-2' : 'sm:grid-cols-3')}>
-              {(audienceType === 'employee' ? EMPLOYEE_MEETING_OPTIONS : CLIENT_MEETING_OPTIONS).map((option) => {
+            <div className={cn('grid gap-2', draft.audience_type === 'client' ? 'sm:grid-cols-2' : 'sm:grid-cols-3')}>
+              {(draft.audience_type === 'employee' ? EMPLOYEE_MEETING_OPTIONS : CLIENT_MEETING_OPTIONS).map((option) => {
                 const active =
-                  audienceType === 'employee'
-                    ? option.value === employeeMeetingType
-                    : option.value === clientMeetingType;
+                  draft.audience_type === 'employee'
+                    ? option.value === draft.employee_meeting_type
+                    : option.value === draft.client_meeting_type;
                 const Icon = option.icon;
                 return (
                   <button
                     key={option.value}
                     type="button"
                     onClick={() => {
-                      if (audienceType === 'employee') {
-                        setEmployeeMeetingType(option.value as EmployeeMeetingType);
+                      if (draft.audience_type === 'employee') {
+                        setDraftField('employee_meeting_type', option.value as EmployeeMeetingType);
                       } else {
-                        setClientMeetingType(option.value as ClientMeetingType);
+                        setDraftField('client_meeting_type', option.value as ClientMeetingType);
                       }
                     }}
                     className={cn(
@@ -405,9 +727,9 @@ const MeetingBookingWidget = ({
               </Label>
               <Input
                 id="meeting-title"
-                value={meetingTitle}
-                onChange={(event) => setMeetingTitle(event.target.value)}
-                placeholder={audienceType === 'employee' ? '예: 제작팀 주간 회의' : '예: 쇼룸 방문 제작 상담'}
+                value={draft.title}
+                onChange={(event) => setDraftField('title', event.target.value)}
+                placeholder={draft.audience_type === 'employee' ? '예: 제작팀 주간 회의' : '예: 쇼룸 방문 제작 상담'}
                 className="h-10 rounded-lg border-[#cacacb] bg-white text-sm"
               />
             </div>
@@ -419,9 +741,9 @@ const MeetingBookingWidget = ({
               <Input
                 id="meeting-date"
                 type="date"
-                value={meetingDate}
+                value={draft.meeting_date}
                 min={todayString()}
-                onChange={(event) => setMeetingDate(event.target.value)}
+                onChange={(event) => setDraftField('meeting_date', event.target.value)}
                 className="h-10 rounded-lg border-[#cacacb] bg-white text-sm"
               />
             </div>
@@ -429,7 +751,7 @@ const MeetingBookingWidget = ({
             <div className="grid grid-cols-[1fr_92px] gap-2">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-[#39393b]">시작</Label>
-                <Select value={startTime} onValueChange={setStartTime}>
+                <Select value={draft.start_time} onValueChange={(value) => setDraftField('start_time', value)}>
                   <SelectTrigger className="h-10 rounded-lg border-[#cacacb] bg-white text-sm">
                     <SelectValue />
                   </SelectTrigger>
@@ -444,7 +766,7 @@ const MeetingBookingWidget = ({
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-[#39393b]">길이</Label>
-                <Select value={durationMinutes} onValueChange={setDurationMinutes}>
+                <Select value={draft.duration_minutes} onValueChange={(value) => setDraftField('duration_minutes', value)}>
                   <SelectTrigger className="h-10 rounded-lg border-[#cacacb] bg-white text-sm">
                     <SelectValue />
                   </SelectTrigger>
@@ -465,69 +787,19 @@ const MeetingBookingWidget = ({
               </Label>
               <Input
                 id="meeting-location"
-                value={location}
-                onChange={(event) => setLocation(event.target.value)}
-                placeholder={audienceType === 'employee' ? '예: 2층 회의실' : '예: ACBANK 쇼룸, 클라이언트 현장'}
+                value={draft.location}
+                onChange={(event) => setDraftField('location', event.target.value)}
+                placeholder={draft.audience_type === 'employee' ? '예: 2층 회의실' : '예: ACBANK 쇼룸, 클라이언트 현장'}
                 className="h-10 rounded-lg border-[#cacacb] bg-white text-sm"
               />
             </div>
           </div>
 
-          {audienceType === 'employee' ? (
-            <div className="space-y-2 rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
-              <div className="flex items-center justify-between gap-2">
-                <Label className="text-xs font-semibold text-[#39393b]">참석 직원</Label>
-                <span className="text-xs text-[#707072]">{selectedParticipantIds.length}명 선택</span>
-              </div>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9e9ea0]" />
-                <Input
-                  value={participantSearch}
-                  onChange={(event) => setParticipantSearch(event.target.value)}
-                  placeholder="이름, 부서, 직책 검색"
-                  className="h-9 rounded-full border-[#cacacb] bg-white pl-8 text-sm"
-                />
-              </div>
-              <div className="grid max-h-40 gap-1.5 overflow-auto pr-1 sm:grid-cols-2">
-                {isEmployeesLoading ? (
-                  <div className="col-span-full flex items-center gap-2 rounded-lg border border-[#e5e5e5] bg-white p-3 text-sm text-[#707072]">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    직원 목록을 불러오는 중
-                  </div>
-                ) : visibleEmployees.length > 0 ? (
-                  visibleEmployees.map((employee) => {
-                    const selected = selectedParticipantIds.includes(employee.id);
-                    return (
-                      <button
-                        key={employee.id}
-                        type="button"
-                        onClick={() => toggleParticipant(employee.id)}
-                        className={cn(
-                          'rounded-lg border px-3 py-2 text-left transition-colors',
-                          selected
-                            ? 'border-[#111111] bg-[#111111] text-white'
-                            : 'border-[#e5e5e5] bg-white text-[#111111] hover:border-[#cacacb]',
-                        )}
-                      >
-                        <span className="block truncate text-sm font-semibold">{employee.full_name}</span>
-                        <span className={cn('block truncate text-xs', selected ? 'text-white/70' : 'text-[#707072]')}>
-                          {[employee.department, employee.position].filter(Boolean).join(' / ') || '부서 미설정'}
-                        </span>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="col-span-full rounded-lg border border-[#e5e5e5] bg-white p-3 text-sm text-[#707072]">
-                    검색 결과가 없습니다.
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
+          {draft.audience_type === 'client' && (
             <div className="space-y-3 rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-[#39393b]">거래처 선택</Label>
-                <Select value={recipientId} onValueChange={setRecipientId}>
+                <Select value={draft.recipient_id} onValueChange={(value) => setDraftField('recipient_id', value)}>
                   <SelectTrigger className="h-10 rounded-lg border-[#cacacb] bg-white text-sm">
                     <SelectValue placeholder="거래처 선택 또는 직접 입력" />
                   </SelectTrigger>
@@ -555,9 +827,9 @@ const MeetingBookingWidget = ({
                     </Label>
                     <Input
                       id="client-name"
-                      value={selectedRecipient?.company_name || clientName}
+                      value={selectedRecipient?.company_name || draft.client_name}
                       disabled={!!selectedRecipient}
-                      onChange={(event) => setClientName(event.target.value)}
+                      onChange={(event) => setDraftField('client_name', event.target.value)}
                       placeholder="회사명 또는 고객명"
                       className="h-10 rounded-lg border-[#cacacb] bg-white text-sm"
                     />
@@ -568,8 +840,8 @@ const MeetingBookingWidget = ({
                     </Label>
                     <Input
                       id="client-contact"
-                      value={clientContact}
-                      onChange={(event) => setClientContact(event.target.value)}
+                      value={draft.client_contact}
+                      onChange={(event) => setDraftField('client_contact', event.target.value)}
                       placeholder={selectedRecipient ? `${selectedRecipient.contact_person} / ${selectedRecipient.phone}` : '담당자 또는 연락처'}
                       className="h-10 rounded-lg border-[#cacacb] bg-white text-sm"
                     />
@@ -579,14 +851,23 @@ const MeetingBookingWidget = ({
             </div>
           )}
 
+          {renderParticipantPicker({
+            label: draft.audience_type === 'employee' ? '참석 직원' : '내부 담당 직원',
+            selectedIds: draft.participant_ids,
+            searchValue: participantSearch,
+            onSearchChange: setParticipantSearch,
+            onToggle: toggleDraftParticipant,
+            visibleOptions: visibleEmployees,
+          })}
+
           <div className="space-y-1.5">
             <Label htmlFor="meeting-description" className="text-xs font-semibold text-[#39393b]">
               미팅 내용
             </Label>
             <Textarea
               id="meeting-description"
-              value={descriptionText}
-              onChange={(event) => setDescriptionText(event.target.value)}
+              value={draft.description}
+              onChange={(event) => setDraftField('description', event.target.value)}
               placeholder="안건, 준비물, 상담 목적 등을 기록하세요."
               className="min-h-24 rounded-lg border-[#cacacb] bg-white text-sm"
             />
@@ -626,11 +907,238 @@ const MeetingBookingWidget = ({
             })}
           </div>
 
+          <div className="rounded-lg border border-[#e5e5e5] bg-white p-3">
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-full border-[#cacacb]"
+                onClick={() => setCalendarMonth((current) => subMonths(current, 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="text-center">
+                <h3 className="text-sm font-bold text-[#111111]">{format(calendarMonth, 'yyyy년 M월', { locale: ko })}</h3>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCalendarDate(null)}
+                  className="mt-0.5 text-xs font-medium text-[#707072] underline-offset-4 hover:underline"
+                >
+                  전체 예약 보기
+                </button>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-full border-[#cacacb]"
+                onClick={() => setCalendarMonth((current) => addMonths(current, 1))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-[#707072]">
+              {WEEKDAY_LABELS.map((weekday) => (
+                <div key={weekday}>{weekday}</div>
+              ))}
+            </div>
+            <div className="mt-1 grid grid-cols-7 gap-1">
+              {calendarDays.map((day) => {
+                const dateKey = getDateKey(day);
+                const dayReservations = reservationsByDate[dateKey] || [];
+                const selected = selectedCalendarDate === dateKey;
+                const isMuted = format(day, 'M') !== format(calendarMonth, 'M');
+                return (
+                  <button
+                    key={dateKey}
+                    type="button"
+                    onClick={() => setSelectedCalendarDate(dateKey)}
+                    className={cn(
+                      'relative flex aspect-square min-h-10 flex-col items-center justify-center rounded-lg border text-xs transition-colors',
+                      selected
+                        ? 'border-[#111111] bg-[#111111] text-white'
+                        : 'border-[#e5e5e5] bg-white text-[#111111] hover:border-[#cacacb]',
+                      isMuted && !selected && 'text-[#9e9ea0]',
+                    )}
+                  >
+                    <span className="font-semibold">{format(day, 'd')}</span>
+                    {dayReservations.length > 0 && (
+                      <span
+                        className={cn(
+                          'mt-0.5 h-1.5 w-1.5 rounded-full',
+                          selected ? 'bg-white' : 'bg-[#111111]',
+                        )}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {selectedReservation && detailDraft && (
+            <div className="rounded-lg border border-[#111111] bg-white">
+              <div className="flex items-start justify-between gap-3 border-b border-[#e5e5e5] px-3 py-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Bell className="h-4 w-4 text-[#707072]" />
+                    <h3 className="truncate text-sm font-bold text-[#111111]">예약 상세</h3>
+                  </div>
+                  <p className="mt-1 text-xs text-[#707072]">
+                    {canEditSelected ? '수정 후 저장하면 참석자에게 알림이 전송됩니다.' : '읽기 전용 예약입니다.'}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  onClick={closeDetail}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="space-y-3 p-3">
+                <Input
+                  value={detailDraft.title}
+                  disabled={!canEditSelected}
+                  onChange={(event) => setDetailDraftField('title', event.target.value)}
+                  className="h-10 rounded-lg border-[#cacacb] bg-white text-sm font-semibold"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    type="date"
+                    value={detailDraft.meeting_date}
+                    disabled={!canEditSelected}
+                    onChange={(event) => setDetailDraftField('meeting_date', event.target.value)}
+                    className="h-10 rounded-lg border-[#cacacb] bg-white text-sm"
+                  />
+                  <Select
+                    value={detailDraft.status}
+                    disabled={!canEditSelected}
+                    onValueChange={(value) => setDetailDraftField('status', value as MeetingReservationStatus)}
+                  >
+                    <SelectTrigger className="h-10 rounded-lg border-[#cacacb] bg-white text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_OPTIONS.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {MEETING_STATUS_LABELS[status]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-[1fr_92px] gap-2">
+                  <Select
+                    value={detailDraft.start_time}
+                    disabled={!canEditSelected}
+                    onValueChange={(value) => setDetailDraftField('start_time', value)}
+                  >
+                    <SelectTrigger className="h-10 rounded-lg border-[#cacacb] bg-white text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIME_OPTIONS.map((time) => (
+                        <SelectItem key={time} value={time}>
+                          {time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={detailDraft.duration_minutes}
+                    disabled={!canEditSelected}
+                    onValueChange={(value) => setDetailDraftField('duration_minutes', value)}
+                  >
+                    <SelectTrigger className="h-10 rounded-lg border-[#cacacb] bg-white text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DURATION_OPTIONS.map((duration) => (
+                        <SelectItem key={duration} value={String(duration)}>
+                          {duration}분
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Input
+                  value={detailDraft.location}
+                  disabled={!canEditSelected}
+                  onChange={(event) => setDetailDraftField('location', event.target.value)}
+                  placeholder="장소"
+                  className="h-10 rounded-lg border-[#cacacb] bg-white text-sm"
+                />
+
+                {detailDraft.audience_type === 'client' && (
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                    <Input
+                      value={detailRecipient?.company_name || detailDraft.client_name}
+                      disabled={!canEditSelected || !!detailRecipient}
+                      onChange={(event) => setDetailDraftField('client_name', event.target.value)}
+                      placeholder="클라이언트명"
+                      className="h-10 rounded-lg border-[#cacacb] bg-white text-sm"
+                    />
+                    <Input
+                      value={detailDraft.client_contact}
+                      disabled={!canEditSelected}
+                      onChange={(event) => setDetailDraftField('client_contact', event.target.value)}
+                      placeholder="담당자 / 연락처"
+                      className="h-10 rounded-lg border-[#cacacb] bg-white text-sm"
+                    />
+                  </div>
+                )}
+
+                {renderParticipantPicker({
+                  label: detailDraft.audience_type === 'employee' ? '참석 직원' : '내부 담당 직원',
+                  selectedIds: detailDraft.participant_ids,
+                  searchValue: detailParticipantSearch,
+                  onSearchChange: setDetailParticipantSearch,
+                  onToggle: toggleDetailParticipant,
+                  visibleOptions: visibleDetailEmployees,
+                  disabled: !canEditSelected,
+                })}
+
+                <Textarea
+                  value={detailDraft.description}
+                  disabled={!canEditSelected}
+                  onChange={(event) => setDetailDraftField('description', event.target.value)}
+                  placeholder="미팅 내용"
+                  className="min-h-20 rounded-lg border-[#cacacb] bg-white text-sm"
+                />
+
+                {canEditSelected && (
+                  <Button
+                    type="button"
+                    onClick={() => updateMutation.mutate()}
+                    disabled={!!detailError || updateMutation.isPending}
+                    className="h-10 w-full rounded-full bg-[#111111] text-sm font-semibold text-white hover:bg-[#39393b]"
+                  >
+                    {updateMutation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    변경 저장
+                  </Button>
+                )}
+                {detailError && <p className="text-center text-xs font-medium text-[#707072]">{detailError}</p>}
+              </div>
+            </div>
+          )}
+
           <div className="rounded-lg border border-[#e5e5e5] bg-white">
             <div className="flex items-center justify-between gap-3 border-b border-[#e5e5e5] px-3 py-3">
               <div>
-                <h3 className="text-sm font-bold text-[#111111]">다가오는 예약</h3>
-                <p className="text-xs text-[#707072]">공지사항과 분리된 미팅 예약 목록</p>
+                <h3 className="text-sm font-bold text-[#111111]">
+                  {selectedCalendarDate ? formatMeetingDate(selectedCalendarDate) : '다가오는 예약'}
+                </h3>
+                <p className="text-xs text-[#707072]">목록에서 상세 편집 패널을 열 수 있습니다.</p>
               </div>
               <UsersRound className="h-4 w-4 text-[#707072]" />
             </div>
@@ -641,8 +1149,8 @@ const MeetingBookingWidget = ({
                   <Loader2 className="h-4 w-4 animate-spin" />
                   예약 목록을 불러오는 중
                 </div>
-              ) : reservations.length > 0 ? (
-                reservations.map((reservation) => {
+              ) : listReservations.length > 0 ? (
+                listReservations.map((reservation) => {
                   const editable = canManageAll || reservation.created_by === user?.id;
                   const status = reservation.status as MeetingReservationStatus;
                   const displayPeople =
@@ -655,7 +1163,7 @@ const MeetingBookingWidget = ({
                   return (
                     <article key={reservation.id} className="space-y-3 p-3">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
+                        <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openDetail(reservation)}>
                           <div className="flex flex-wrap items-center gap-1.5">
                             <Badge
                               variant="outline"
@@ -672,14 +1180,14 @@ const MeetingBookingWidget = ({
                             </span>
                           </div>
                           <h4 className="mt-1 truncate text-sm font-bold leading-5 text-[#111111]">{reservation.title}</h4>
-                        </div>
+                        </button>
 
                         {editable && (
                           <Select
                             value={status}
                             onValueChange={(nextStatus) =>
                               statusMutation.mutate({
-                                id: reservation.id,
+                                reservation,
                                 status: nextStatus as MeetingReservationStatus,
                               })
                             }
@@ -698,7 +1206,7 @@ const MeetingBookingWidget = ({
                         )}
                       </div>
 
-                      <div className="grid gap-1.5 text-xs leading-4 text-[#707072]">
+                      <button type="button" className="grid w-full gap-1.5 text-left text-xs leading-4 text-[#707072]" onClick={() => openDetail(reservation)}>
                         <div className="flex items-center gap-1.5">
                           <CalendarDays className="h-3.5 w-3.5 shrink-0" />
                           <span className="truncate">
@@ -720,12 +1228,12 @@ const MeetingBookingWidget = ({
                           </div>
                         )}
                         <div className="truncate font-medium text-[#39393b]">{displayPeople}</div>
-                      </div>
+                      </button>
                     </article>
                   );
                 })
               ) : (
-                <div className="p-4 text-sm text-[#707072]">예정된 미팅 예약이 없습니다.</div>
+                <div className="p-4 text-sm text-[#707072]">선택한 범위에 예정된 미팅 예약이 없습니다.</div>
               )}
             </div>
           </div>
