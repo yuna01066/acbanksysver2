@@ -10,7 +10,7 @@ const bootChannelTalk = () => {
   type ChannelWindow = Window & {
     ChannelIO?: ((...args: unknown[]) => void) & {
       q?: unknown[];
-      c?: (args: IArguments) => void;
+      c?: (args: unknown[]) => void;
     };
     ChannelIOInitialized?: boolean;
   };
@@ -19,10 +19,10 @@ const bootChannelTalk = () => {
   if (channelWindow.ChannelIO) return;
 
   const channelIO = function (...args: unknown[]) {
-    channelIO.c?.(arguments);
+    channelIO.c?.(args);
   } as NonNullable<ChannelWindow['ChannelIO']>;
   channelIO.q = [];
-  channelIO.c = (args: IArguments) => channelIO.q?.push(args);
+  channelIO.c = (args: unknown[]) => channelIO.q?.push(args);
   channelWindow.ChannelIO = channelIO;
 
   const loadScript = () => {

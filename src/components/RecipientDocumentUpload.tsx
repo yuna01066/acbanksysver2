@@ -58,7 +58,11 @@ export function RecipientDocumentUpload({
     try {
       // Delete old file if exists
       if (documentUrl) {
-        try { await gcsDeleteFile(documentUrl); } catch {}
+        try {
+          await gcsDeleteFile(documentUrl);
+        } catch (deleteError) {
+          console.warn('기존 사업자 사본 삭제 실패:', deleteError);
+        }
       }
 
       const ext = file.name.split('.').pop();
@@ -140,7 +144,11 @@ export function RecipientDocumentUpload({
 
     setDeleting(true);
     try {
-      try { await gcsDeleteFile(documentUrl); } catch {}
+      try {
+        await gcsDeleteFile(documentUrl);
+      } catch (deleteError) {
+        console.warn('사업자 사본 파일 삭제 실패:', deleteError);
+      }
 
       const { error } = await supabase
         .from('recipients')

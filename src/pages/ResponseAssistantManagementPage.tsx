@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import defaultResponseAssistantIcon from '@/assets/response-assistant-default-icon.png';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { createSettingsChangeRequest } from '@/services/settingsChangeRequests';
 import { PageHeader, PageShell } from '@/components/layout/PageLayout';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -111,6 +112,7 @@ const ResponseAssistantManagementPage = () => {
   const iconInputRef = useRef<HTMLInputElement | null>(null);
   const { user, userRole, isAdmin, isModerator, loading } = useAuth();
   const canManage = userRole === 'admin' || userRole === 'moderator' || isAdmin || isModerator;
+  const requiresApproval = isModerator && !isAdmin;
   const [instructionDraft, setInstructionDraft] = useState(DEFAULT_RESPONSE_ASSISTANT_INSTRUCTION);
   const [iconDraft, setIconDraft] = useState('');
   const [iconFileName, setIconFileName] = useState('');
@@ -199,9 +201,31 @@ const ResponseAssistantManagementPage = () => {
   );
 
   const saveInstruction = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<'requested' | 'saved'> => {
       const value = instructionDraft.trim();
       if (!value) throw new Error('instruction 프롬프트를 입력해주세요.');
+
+      if (requiresApproval) {
+        await createSettingsChangeRequest({
+          targetArea: 'admin',
+          targetTable: 'response_assistant_settings',
+          targetKey: RESPONSE_ASSISTANT_SETTING_KEY,
+          action: 'upsert',
+          riskLevel: 'high',
+          changeSummary: '상담 응대 보조 instruction 변경',
+          beforeValue: {
+            key: RESPONSE_ASSISTANT_SETTING_KEY,
+            value: currentInstruction,
+            description: setting?.description || null,
+          },
+          afterValue: {
+            key: RESPONSE_ASSISTANT_SETTING_KEY,
+            value,
+            description: '상담 응대 보조 AI 초안 생성 시 기본으로 적용되는 instruction 가이드라인',
+          },
+        });
+        return 'requested';
+      }
 
       const { error } = await supabase
         .from('response_assistant_settings')
@@ -215,10 +239,16 @@ const ResponseAssistantManagementPage = () => {
           { onConflict: 'key' },
         );
       if (error) throw error;
+      return 'saved';
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['response-assistant-setting', RESPONSE_ASSISTANT_SETTING_KEY] });
-      toast.success('응대 instruction이 저장되었습니다.');
+      queryClient.invalidateQueries({ queryKey: ['settings-change-requests'] });
+      toast.success(
+        result === 'requested'
+          ? '관리자 승인 요청으로 등록되었습니다.'
+          : '응대 instruction이 저장되었습니다.',
+      );
     },
     onError: (error: Error) => toast.error('저장 실패: ' + error.message),
   });
@@ -250,14 +280,40 @@ const ResponseAssistantManagementPage = () => {
   });
 
   const saveIcon = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<'requested' | 'saved'> => {
+      if (requiresApproval) {
+        await createSettingsChangeRequest({
+          targetArea: 'admin',
+          targetTable: 'response_assistant_settings',
+          targetKey: RESPONSE_ASSISTANT_ICON_SETTING_KEY,
+          action: iconDraft ? 'upsert' : 'delete',
+          riskLevel: 'high',
+          changeSummary: iconDraft ? '상담 응대 보조 런처 아이콘 변경' : '상담 응대 보조 런처 아이콘 기본값 복원',
+          beforeValue: currentIcon
+            ? {
+                key: RESPONSE_ASSISTANT_ICON_SETTING_KEY,
+                value: currentIcon,
+                description: iconSetting?.description || null,
+              }
+            : null,
+          afterValue: iconDraft
+            ? {
+                key: RESPONSE_ASSISTANT_ICON_SETTING_KEY,
+                value: iconDraft,
+                description: '상담 응대 보조 플로팅 런처 아이콘 이미지',
+              }
+            : null,
+        });
+        return 'requested';
+      }
+
       if (!iconDraft) {
         const { error } = await supabase
           .from('response_assistant_settings')
           .delete()
           .eq('key', RESPONSE_ASSISTANT_ICON_SETTING_KEY);
         if (error) throw error;
-        return;
+        return 'saved';
       }
 
       const { error } = await supabase
@@ -272,11 +328,19 @@ const ResponseAssistantManagementPage = () => {
           { onConflict: 'key' },
         );
       if (error) throw error;
+      return 'saved';
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['response-assistant-setting', RESPONSE_ASSISTANT_ICON_SETTING_KEY] });
       queryClient.invalidateQueries({ queryKey: ['response-assistant-launcher-icon'] });
-      toast.success(iconDraft ? '위젯 아이콘이 저장되었습니다.' : '기본 아이콘으로 복원되었습니다.');
+      queryClient.invalidateQueries({ queryKey: ['settings-change-requests'] });
+      toast.success(
+        result === 'requested'
+          ? '관리자 승인 요청으로 등록되었습니다.'
+          : iconDraft
+            ? '위젯 아이콘이 저장되었습니다.'
+            : '기본 아이콘으로 복원되었습니다.',
+      );
     },
     onError: (error: Error) => toast.error('아이콘 저장 실패: ' + error.message),
   });
@@ -380,7 +444,7 @@ const ResponseAssistantManagementPage = () => {
             <Alert className="border-amber-200 bg-amber-50 text-amber-900">
               <ShieldAlert className="h-4 w-4" />
               <AlertDescription className="text-xs leading-relaxed">
-                JSON 응답 형식과 위험도 판단 필드는 시스템에서 별도로 강제합니다. 이 영역에는 말투, 금지 표현, 설득 방식, 대괄호 표시 규칙처럼 응대 품질 지침을 작성하세요.
+                JSON 응답 형식과 위험도 판단 필드는 시스템에서 별도로 강제합니다. 중간관리자의 instruction 변경은 즉시 반영되지 않고 관리자 승인 요청으로 등록됩니다.
               </AlertDescription>
             </Alert>
 
@@ -419,7 +483,7 @@ const ResponseAssistantManagementPage = () => {
                 className="gap-2"
               >
                 {saveInstruction.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                instruction 저장
+                {requiresApproval ? '승인 요청' : 'instruction 저장'}
               </Button>
             </div>
           </CardContent>
@@ -491,7 +555,7 @@ const ResponseAssistantManagementPage = () => {
                 className="w-full gap-2"
               >
                 {saveIcon.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                아이콘 저장
+                {requiresApproval ? '승인 요청' : '아이콘 저장'}
               </Button>
             </CardContent>
           </Card>

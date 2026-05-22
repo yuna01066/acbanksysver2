@@ -4,13 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Save, Loader2, Building2, MapPin, Navigation } from 'lucide-react';
+import { Save, Loader2, Building2, MapPin, Navigation, Upload, Stamp } from 'lucide-react';
 import { toast } from 'sonner';
+import { getDownloadUrl } from '@/services/documentFiles';
 
 const CompanyInfoForm: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [uploadingSeal, setUploadingSeal] = useState(false);
+  const [sealPreviewUrl, setSealPreviewUrl] = useState<string | null>(null);
   const [id, setId] = useState<string | null>(null);
   const [form, setForm] = useState({
     company_name: '',
@@ -27,6 +30,7 @@ const CompanyInfoForm: React.FC = () => {
     workplace_lat: '',
     workplace_lng: '',
     workplace_radius: '500',
+    company_seal_storage_path: '',
   });
 
   useEffect(() => {
@@ -57,10 +61,27 @@ const CompanyInfoForm: React.FC = () => {
         workplace_lat: (data as any).workplace_lat?.toString() || '',
         workplace_lng: (data as any).workplace_lng?.toString() || '',
         workplace_radius: (data as any).workplace_radius?.toString() || '500',
+        company_seal_storage_path: (data as any).company_seal_storage_path || '',
       });
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    let mounted = true;
+    if (!form.company_seal_storage_path) {
+      setSealPreviewUrl(null);
+      return;
+    }
+    getDownloadUrl({
+      storageProvider: 'supabase_storage',
+      storageBucket: 'employee-contracts',
+      storagePath: form.company_seal_storage_path,
+    })
+      .then((url) => { if (mounted) setSealPreviewUrl(url); })
+      .catch(() => { if (mounted) setSealPreviewUrl(null); });
+    return () => { mounted = false; };
+  }, [form.company_seal_storage_path]);
 
   const handleGetCurrentLocation = async () => {
     if (!navigator.geolocation) {
@@ -141,6 +162,7 @@ const CompanyInfoForm: React.FC = () => {
         workplace_lat: form.workplace_lat ? parseFloat(form.workplace_lat) : null,
         workplace_lng: form.workplace_lng ? parseFloat(form.workplace_lng) : null,
         workplace_radius: form.workplace_radius ? parseFloat(form.workplace_radius) : 500,
+        company_seal_storage_path: form.company_seal_storage_path || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -162,6 +184,30 @@ const CompanyInfoForm: React.FC = () => {
       toast.error('저장 실패: ' + (e.message || ''));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSealUpload = async (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('직인은 이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+
+    setUploadingSeal(true);
+    try {
+      const ext = file.name.split('.').pop() || 'png';
+      const path = `company/seal-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from('employee-contracts')
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (error) throw error;
+      setForm(prev => ({ ...prev, company_seal_storage_path: path }));
+      toast.success('회사 직인이 업로드되었습니다. 저장하기를 눌러 반영하세요.');
+    } catch (e: any) {
+      toast.error('직인 업로드 실패: ' + (e.message || ''));
+    } finally {
+      setUploadingSeal(false);
     }
   };
 
@@ -210,6 +256,46 @@ const CompanyInfoForm: React.FC = () => {
                 />
               </div>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Stamp className="h-5 w-5" /> 전자계약 직인
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            계약 발송 시 “회사 직인 포함”을 선택하면 이 이미지가 계약서의 회사직인 필드에 삽입됩니다.
+          </p>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex h-24 w-36 items-center justify-center rounded-md border bg-muted/30">
+              {sealPreviewUrl ? (
+                <img src={sealPreviewUrl} alt="회사 직인" className="max-h-20 max-w-32 object-contain" />
+              ) : (
+                <span className="text-xs text-muted-foreground">등록된 직인 없음</span>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="company-seal">직인 이미지</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="company-seal"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleSealUpload(e.target.files?.[0])}
+                  disabled={uploadingSeal}
+                  className="max-w-xs"
+                />
+                {uploadingSeal && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Upload className="h-3 w-3" />
+                투명 배경 PNG를 권장합니다.
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

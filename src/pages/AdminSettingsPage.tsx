@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, FolderKanban, Star, Shield, Receipt, FileText, Sparkles, TrendingUp, ClipboardCheck, MessageSquareText } from "lucide-react";
+import { ArrowLeft, CalendarCheck2, Lock, Settings, Users, UserCog, Code, Wrench, HardDrive, Building2, FolderKanban, Star, Shield, Receipt, FileText, Sparkles, TrendingUp, ClipboardCheck, MessageSquareText, FileSignature } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import SecretEventManager from '@/components/admin/SecretEventManager';
+import SettingsChangeRequestsPanel from '@/components/admin/SettingsChangeRequestsPanel';
 import { PageHeader, PageShell } from '@/components/layout/PageLayout';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 
@@ -54,32 +55,66 @@ const AdminSettingsPage = () => {
       <PageHeader
         eyebrow="Admin"
         title="관리자 설정"
-        description="직원, 프로젝트, 원판, 가공, 시스템 연동 설정을 한 곳에서 관리합니다."
+        description="운영 설정은 관리자와 중간관리자가 관리하고, 고위험 변경은 관리자 승인 후 반영합니다."
         icon={<Settings className="h-5 w-5" />}
       />
+
+      <div className="mb-6">
+        <SettingsChangeRequestsPanel />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* 직원 관리 Card */}
         <Card className="border-white/60 bg-card/70">
           <CardHeader>
-            <BrandedCardHeader icon={Users} title="직원 관리" />
-            <CardDescription>직원 프로필, 근무 관리 및 회사 설정</CardDescription>
+            <BrandedCardHeader icon={Users} title="운영 검토 · 요청" />
+            <CardDescription>일상 운영 검토와 마스터 전용 회사 설정 이동</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
             <button
-              onClick={() => navigate('/employee-profiles')}
+              onClick={() => navigate('/review-hub')}
               className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
             >
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                <UserCog className="w-4 h-4 text-primary" />
+                <ClipboardCheck className="w-4 h-4 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-medium">구성원 관리</p>
+                <p className="text-sm font-medium">승인/검토 센터</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {isAdmin ? '인사 정보, 근태, 휴가, 평가, 계약, 문서함, 권한 통합 관리' : '근태기록, 연차·휴가, 업무평가 열람'}
+                  휴가 승인, 파일 동기화, 견적 연결, 설정 변경 요청 검토
                 </p>
               </div>
             </button>
+
+            {isAdmin && (
+              <button
+                onClick={() => navigate('/employee-profiles?tab=contracts')}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-slate-900/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <FileSignature className="w-4 h-4 text-slate-900" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">전자계약 작성</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">계약 양식 선택, 구성원 다중 발송, 서명 내역 확인</p>
+                </div>
+              </button>
+            )}
+
+            {isAdmin && (
+              <button
+                onClick={() => navigate('/company-settings')}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Building2 className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">회사 설정</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">마스터 계정 전용, 2차 비밀번호 확인 후 민감정보 관리</p>
+                </div>
+              </button>
+            )}
 
               <button
                 onClick={() => navigate('/review-settings')}
@@ -90,33 +125,33 @@ const AdminSettingsPage = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium">업무평가 설정</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">평가 주기, 평가 항목 및 가중치 관리</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">평가 주기와 항목 운영, 평가 결과 열람은 회사 설정에서 관리</p>
                 </div>
               </button>
 
               <button
-                onClick={() => navigate('/company-settings')}
+                onClick={() => navigate('/meeting-reservations')}
                 className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
               >
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <Building2 className="w-4 h-4 text-emerald-500" />
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <CalendarCheck2 className="w-4 h-4 text-indigo-500" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">회사 설정</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">회사 정보, 휴일, 계약서, 연차 설정</p>
+                  <p className="text-sm font-medium">미팅 예약 관리</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">직원/클라이언트 미팅 예약 운영</p>
                 </div>
               </button>
 
               <button
-                onClick={() => navigate('/year-end-tax-admin')}
+                onClick={() => navigate('/quote-wizard')}
                 className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
               >
                 <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <Receipt className="w-4 h-4 text-teal-500" />
+                  <Sparkles className="w-4 h-4 text-teal-500" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">연말정산 관리</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">직원 연말정산 현황 및 검토/확정</p>
+                  <p className="text-sm font-medium">견적 마법사</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">도면 파일 분석과 임시 견적 초안 생성</p>
                 </div>
               </button>
 
@@ -129,8 +164,8 @@ const AdminSettingsPage = () => {
                     <Shield className="w-4 h-4 text-red-500" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium">접근 권한</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">기능별 민감 정보 접근 권한 관리</p>
+                    <p className="text-sm font-medium">민감 권한 설정</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">마스터 계정 전용 회사 설정에서 기능별 접근 권한 관리</p>
                   </div>
                 </button>
               )}
@@ -145,15 +180,15 @@ const AdminSettingsPage = () => {
             </CardHeader>
             <CardContent className="grid gap-3">
               <button
-                onClick={() => navigate('/business-dashboard')}
+                onClick={() => navigate('/company-settings?tab=sensitive')}
                 className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
               >
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
                   <TrendingUp className="w-4 h-4 text-emerald-500" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">경영 대시보드</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">매출·비용·수익성 종합 분석 및 견적 통계</p>
+                  <p className="text-sm font-medium">민감정보 관리</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">매출·인사·급여·평가 정보는 회사 설정에서 2차 확인 후 접근</p>
                 </div>
               </button>
 

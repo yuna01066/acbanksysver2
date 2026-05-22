@@ -104,7 +104,7 @@ const fetchExistingSavedQuote = async (quoteId: string): Promise<ExistingSavedQu
     .maybeSingle();
 
   if (error) throw error;
-  return (data as ExistingSavedQuoteForUpdate | null) || null;
+  return (data as unknown as ExistingSavedQuoteForUpdate | null) || null;
 };
 
 const buildAttachmentLedgerRecords = async ({

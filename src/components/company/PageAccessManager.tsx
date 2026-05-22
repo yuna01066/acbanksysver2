@@ -16,6 +16,7 @@ interface PageDef {
 const MANAGED_PAGES: PageDef[] = [
   { key: '/saved-quotes', label: '견적 내역', description: '저장된 견적서 목록 조회' },
   { key: '/quote-drafts', label: '견적서 초안함', description: '개인 견적서 초안 저장 및 선택 발행' },
+  { key: '/quote-wizard', label: '견적 마법사', description: '관리자용 도면 분석 보조 화면' },
   { key: '/quotes-summary', label: '견적 현황', description: '전체 견적 현황 요약' },
   { key: '/customer-quotes-summary', label: '고객 견적 현황', description: '고객별 견적 요약' },
   { key: '/recipients', label: '수신처 관리', description: '수신처 목록 및 정보 관리' },
@@ -84,8 +85,8 @@ const PageAccessManager: React.FC = () => {
         setRoleMap(prev => ({ ...prev, [pageKey]: value }));
       }
       toast.success('권한이 변경되었습니다.');
-    } catch (e: any) {
-      toast.error('변경 실패: ' + (e.message || ''));
+    } catch (e: unknown) {
+      toast.error('변경 실패: ' + (e instanceof Error ? e.message : ''));
     } finally {
       setSaving(null);
     }

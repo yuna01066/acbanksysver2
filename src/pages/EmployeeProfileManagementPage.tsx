@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -14,31 +14,40 @@ import DocumentSubmissionDashboard from '@/components/employee/DocumentSubmissio
 import ContractManagement from '@/components/contract/ContractManagement';
 import UserAccountManagement from '@/components/employee/UserAccountManagement';
 
-const mapProfileData = (d: any): EmployeeProfile => ({
-  id: d.id, full_name: d.full_name || '', email: d.email || '', phone: d.phone || '',
-  department: d.department || '', position: d.position || '', is_approved: d.is_approved ?? false,
-  created_at: d.created_at || '', employee_number: d.employee_number || '',
-  birthday: d.birthday || '', address: d.address || '', detail_address: d.detail_address || '',
-  zipcode: d.zipcode || '', nationality: d.nationality || '', bank_name: d.bank_name || '',
-  bank_account: d.bank_account || '', join_date: d.join_date || '', job_title: d.job_title || '',
-  job_group: d.job_group || '', rank_title: d.rank_title || '', rank_level: d.rank_level || '',
-  nickname: d.nickname || '', personal_email: d.personal_email || '', work_type: d.work_type || '',
-  work_hours_per_week: d.work_hours_per_week ?? 40, overtime_policy: d.overtime_policy || '',
-  salary_info: d.salary_info || '', wage_contract: d.wage_contract || '',
-  leave_policy: d.leave_policy || '', holidays: d.holidays || '', leave_history: d.leave_history || '',
-  awards: d.awards || '', disciplinary: d.disciplinary || '', career_history: d.career_history || '',
-  education: d.education || '', special_notes: d.special_notes || '', family_info: d.family_info || '',
-  avatar_url: d.avatar_url || '',
-  resident_registration_number: d.resident_registration_number || '',
-  group_join_date: d.group_join_date || '',
-  join_type: d.join_type || '',
-  family_basic_deduction: d.family_basic_deduction ?? 1,
-  family_child_tax_credit: d.family_child_tax_credit ?? 0,
-  family_health_dependents: d.family_health_dependents ?? 0,
+type RawProfileData = Record<string, unknown>;
+
+const stringValue = (value: unknown) => (typeof value === 'string' ? value : '');
+const numberValue = (value: unknown, fallback: number) => (typeof value === 'number' ? value : fallback);
+const booleanValue = (value: unknown, fallback: boolean) => (typeof value === 'boolean' ? value : fallback);
+
+const mapProfileData = (d: RawProfileData): EmployeeProfile => ({
+  id: stringValue(d.id), full_name: stringValue(d.full_name), email: stringValue(d.email), phone: stringValue(d.phone),
+  department: stringValue(d.department), position: stringValue(d.position), is_approved: booleanValue(d.is_approved, false),
+  created_at: stringValue(d.created_at), employee_number: stringValue(d.employee_number),
+  birthday: stringValue(d.birthday), address: stringValue(d.address), detail_address: stringValue(d.detail_address),
+  zipcode: stringValue(d.zipcode), nationality: stringValue(d.nationality), bank_name: stringValue(d.bank_name),
+  bank_account: stringValue(d.bank_account), join_date: stringValue(d.join_date), job_title: stringValue(d.job_title),
+  job_group: stringValue(d.job_group), rank_title: stringValue(d.rank_title), rank_level: stringValue(d.rank_level),
+  nickname: stringValue(d.nickname), personal_email: stringValue(d.personal_email), work_type: stringValue(d.work_type),
+  work_hours_per_week: numberValue(d.work_hours_per_week, 40), overtime_policy: stringValue(d.overtime_policy),
+  salary_info: stringValue(d.salary_info), wage_contract: stringValue(d.wage_contract),
+  leave_policy: stringValue(d.leave_policy), holidays: stringValue(d.holidays), leave_history: stringValue(d.leave_history),
+  awards: stringValue(d.awards), disciplinary: stringValue(d.disciplinary), career_history: stringValue(d.career_history),
+  education: stringValue(d.education), special_notes: stringValue(d.special_notes), family_info: stringValue(d.family_info),
+  avatar_url: stringValue(d.avatar_url),
+  resident_registration_number: stringValue(d.resident_registration_number),
+  group_join_date: stringValue(d.group_join_date),
+  join_type: stringValue(d.join_type),
+  family_basic_deduction: numberValue(d.family_basic_deduction, 1),
+  family_child_tax_credit: numberValue(d.family_child_tax_credit, 0),
+  family_health_dependents: numberValue(d.family_health_dependents, 0),
 });
+
+const ROLE_PRIORITY: Record<string, number> = { admin: 0, moderator: 1, manager: 2, employee: 3 };
 
 const EmployeeProfileManagementPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, isAdmin, userRole, loading: authLoading } = useAuth();
   const isModerator = userRole === 'moderator';
   const hasAccess = isAdmin || isModerator;
@@ -47,7 +56,7 @@ const EmployeeProfileManagementPage = () => {
   const [search, setSearch] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('employees');
+  const [activeTab, setActiveTab] = useState<string>(searchParams.get('tab') || 'employees');
   const [employeeRoles, setEmployeeRoles] = useState<Record<string, AppRoleType>>({});
   const [sortMode, setSortMode] = useState<'name' | 'role'>('role');
 
@@ -92,12 +101,15 @@ const EmployeeProfileManagementPage = () => {
     }
   }, [user, hasAccess]);
 
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
+
   const departments = useMemo(() => {
     const depts = new Set(employees.map(e => e.department).filter(Boolean));
     return Array.from(depts).sort();
   }, [employees]);
-
-  const ROLE_PRIORITY: Record<string, number> = { admin: 0, moderator: 1, manager: 2, employee: 3 };
 
   const filteredEmployees = useMemo(() => {
     return employees

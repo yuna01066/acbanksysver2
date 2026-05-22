@@ -213,7 +213,11 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, d
     mutationFn: async (docId: string) => {
       const doc = documents.find((d: any) => d.id === docId);
       if (doc?.file_url) {
-        try { await gcsDeleteFile(doc.file_url); } catch {}
+        try {
+          await gcsDeleteFile(doc.file_url);
+        } catch (deleteError) {
+          console.warn('내부 문서 파일 삭제 실패:', deleteError);
+        }
       }
       const { error } = await supabase.from('internal_project_documents').delete().eq('id', docId);
       if (error) throw error;

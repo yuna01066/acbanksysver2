@@ -74,7 +74,9 @@ const MessageContent: React.FC<MessageContentProps> = ({ message, isMine }) => {
             const urlObj = new URL(cleanUrl);
             displayUrl = urlObj.hostname + (urlObj.pathname !== '/' ? urlObj.pathname : '');
             if (displayUrl.length > 35) displayUrl = displayUrl.substring(0, 35) + '…';
-          } catch {}
+          } catch {
+            displayUrl = cleanUrl;
+          }
           return (
             <React.Fragment key={i}>
               <a

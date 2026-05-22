@@ -35,7 +35,8 @@ import {
   CommandList,
   CommandShortcut,
 } from '@/components/ui/command';
-import { useAuth } from '@/contexts/AuthContext';
+import { ROLE_HIERARCHY, useAuth, type AppRole } from '@/contexts/AuthContext';
+import { isCompanyMasterEmail } from '@/lib/companyMaster';
 
 type QuickNavItem = {
   title: string;
@@ -44,17 +45,21 @@ type QuickNavItem = {
   group: '업무' | '영업' | '관리' | '직원';
   keywords: string;
   icon: React.ComponentType<{ className?: string }>;
+  minRole?: AppRole;
   adminOnly?: boolean;
+  masterOnly?: boolean;
 };
 
 const QUICK_NAV_ITEMS: QuickNavItem[] = [
   { title: '견적 계산기', description: '판재 견적 계산', path: '/calculator?type=quote', group: '영업', keywords: '견적 계산 단가 판재 quote calculator', icon: Calculator },
   { title: '수율 계산기', description: '원판 배치와 수율 확인', path: '/calculator?type=yield', group: '영업', keywords: '수율 네스팅 원판 yield nesting', icon: BarChart3 },
+  { title: '견적 마법사', description: '도면 파일 분석과 임시 견적 초안', path: '/quote-wizard', group: '영업', keywords: '견적 마법사 도면 분석 파일 quote wizard drawing analyzer', icon: Sparkles, minRole: 'admin' },
   { title: '견적서 초안함', description: '여러 견적 초안 저장/발행', path: '/quote-drafts', group: '영업', keywords: '견적 초안 임시저장 draft quote', icon: FileText },
   { title: '발행 견적서', description: '저장된 견적서 검색/관리', path: '/saved-quotes', group: '영업', keywords: '발행 견적서 저장 quote saved', icon: FileSpreadsheet },
   { title: '고객사 관리', description: '거래처와 담당자 정보', path: '/recipients', group: '영업', keywords: '거래처 고객사 담당자 client recipient', icon: Building2 },
   { title: '프로젝트 관리', description: '견적·거래처·발주 연결', path: '/project-management', group: '업무', keywords: '프로젝트 프로젝트관리 project', icon: FolderOpen },
   { title: '원판 발주 관리', description: '자재 발주 내역', path: '/material-orders', group: '업무', keywords: '원판 발주 자재 material order', icon: Package },
+  { title: '미팅 예약 관리', description: '직원/클라이언트 미팅 예약', path: '/meeting-reservations', group: '업무', keywords: '미팅 회의 예약 meeting reservation', icon: CalendarDays },
   { title: '팀 채팅', description: '내부 메시지와 업무 대화', path: '/team-chat', group: '업무', keywords: '채팅 메시지 소통 chat', icon: MessageCircle },
   { title: '상담 응대 보조', description: '고객 문의 답변 초안 생성', path: '/response-assistant', group: '영업', keywords: '상담 응대 메일 컴플레인 고객 답변 초안 ai response assistant', icon: MessageSquareText },
   { title: '공지사항', description: '사내 공지 확인', path: '/announcements', group: '업무', keywords: '공지 announcement notice', icon: ClipboardList },
@@ -65,6 +70,7 @@ const QUICK_NAV_ITEMS: QuickNavItem[] = [
   { title: '승인/검토 센터', description: '승인·동기화·견적 연결 확인', path: '/review-hub', group: '관리', keywords: '승인 검토 중간관리자 review approval moderator', icon: ClipboardCheck, adminOnly: true },
   { title: '채널톡 문의 분석함', description: 'AI 분석 문의 확인', path: '/channel-talk-leads', group: '관리', keywords: '채널톡 문의 도면 분석 channel talk lead drawing', icon: MessageSquareText },
   { title: '관리자 설정', description: '시스템 설정 허브', path: '/admin-settings', group: '관리', keywords: '관리자 설정 admin settings', icon: Settings, adminOnly: true },
+  { title: '회사 설정', description: '마스터 전용 민감정보 관리', path: '/company-settings', group: '관리', keywords: '회사 설정 마스터 민감정보 company settings master', icon: Building2, masterOnly: true },
   { title: '응대 보조 관리', description: 'AI 응대 지침과 근거 관리', path: '/response-assistant-management', group: '관리', keywords: '상담 응대 보조 관리 instruction prompt response assistant', icon: MessageSquareText, adminOnly: true },
   { title: '원판 관리', description: '원판/컬러/사이즈 단가', path: '/panel-management', group: '관리', keywords: '원판 컬러 사이즈 단가 panel color price', icon: Palette, adminOnly: true },
   { title: '가공 가격 관리', description: '가공 옵션과 배수 관리', path: '/processing-price-management', group: '관리', keywords: '가공 가격 옵션 processing price', icon: Wrench, adminOnly: true },
@@ -80,7 +86,7 @@ const HIDDEN_PATHS = ['/auth', '/forgot-password', '/customer-quote', '/customer
 const GlobalQuickNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading, isAdmin, isModerator } = useAuth();
+  const { user, loading, isAdmin, isModerator, userRole } = useAuth();
   const [open, setOpen] = useState(false);
 
   const isHidden = !user
@@ -89,8 +95,17 @@ const GlobalQuickNav = () => {
     || HIDDEN_PATHS.some(path => location.pathname.startsWith(path));
 
   const visibleItems = useMemo(
-    () => QUICK_NAV_ITEMS.filter(item => !item.adminOnly || isAdmin || isModerator),
-    [isAdmin, isModerator]
+    () => QUICK_NAV_ITEMS.filter(item => {
+      if (item.masterOnly) return isCompanyMasterEmail(user?.email);
+      if (item.minRole) {
+        const minIdx = ROLE_HIERARCHY.indexOf(item.minRole);
+        const userIdx = userRole ? ROLE_HIERARCHY.indexOf(userRole) : -1;
+        return minIdx >= 0 && userIdx >= 0 && userIdx <= minIdx;
+      }
+      if (item.adminOnly) return isAdmin || isModerator;
+      return true;
+    }),
+    [isAdmin, isModerator, user?.email, userRole]
   );
   const keepDashboardLogo = location.pathname === '/business-dashboard';
 

@@ -34,7 +34,7 @@ export async function gcsUploadFile(
   const token = await getAuthToken();
 
   const safeName = file.name
-    .replace(/[^a-zA-Z0-9가-힣ㄱ-ㅎㅏ-ㅣ._\-]/g, '_')
+    .replace(/[^a-zA-Z0-9가-힣ㄱ-ㅎㅏ-ㅣ._-]/g, '_')
     .replace(/_+/g, '_');
   const gcsPath = `${pathPrefix}/${Date.now()}_${safeName}`;
 

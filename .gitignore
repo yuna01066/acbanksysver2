@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 reports
+generated-assets/
+supabase/.temp/
 .env
 .env.*
 !.env.example
