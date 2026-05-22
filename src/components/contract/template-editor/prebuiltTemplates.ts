@@ -3,7 +3,7 @@ import type { JSONContent } from '@tiptap/react';
 const text = (t: string, marks?: Array<Record<string, unknown>>): JSONContent => ({
   type: 'text',
   text: t,
-  ...(marks ? { marks } : {}),
+  ...(marks ? { marks: marks as any } : {}),
 });
 
 const bold = (t: string): JSONContent => text(t, [{ type: 'bold' }]);

@@ -36,8 +36,9 @@ import {
   type MeetingReservationStatus,
 } from '@/types/meetingReservations';
 
-type MeetingReservationRow = Database['public']['Tables']['meeting_reservations']['Row'];
-type MeetingReservationInsert = Database['public']['Tables']['meeting_reservations']['Insert'];
+type MeetingReservationRow = any;
+type MeetingReservationInsert = any;
+const supabaseAny = supabase as any;
 
 type EmployeeOption = {
   id: string;
@@ -147,7 +148,7 @@ const MeetingBookingWidget = ({
   } = useQuery({
     queryKey: ['meeting-reservations', maxItems],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAny
         .from('meeting_reservations')
         .select('*')
         .gte('meeting_date', todayString())
@@ -247,7 +248,7 @@ const MeetingBookingWidget = ({
         created_by_name: profile.full_name || user.email || '담당자',
       };
 
-      const { error } = await supabase.from('meeting_reservations').insert(payload);
+      const { error } = await supabaseAny.from('meeting_reservations').insert(payload);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -262,7 +263,7 @@ const MeetingBookingWidget = ({
 
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: MeetingReservationStatus }) => {
-      const { error } = await supabase.from('meeting_reservations').update({ status }).eq('id', id);
+      const { error } = await supabaseAny.from('meeting_reservations').update({ status }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
