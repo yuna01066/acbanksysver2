@@ -3300,6 +3300,169 @@ export type Database = {
           },
         ]
       }
+      quote_wizard_files: {
+        Row: {
+          created_at: string
+          expires_at: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          job_id: string
+          kind: string
+          metadata: Json
+          mime_type: string | null
+          source: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          job_id: string
+          kind?: string
+          metadata?: Json
+          mime_type?: string | null
+          source?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          job_id?: string
+          kind?: string
+          metadata?: Json
+          mime_type?: string | null
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_wizard_files_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "quote_wizard_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_wizard_jobs: {
+        Row: {
+          converted_draft_id: string | null
+          created_at: string
+          customer_note: string | null
+          error_message: string | null
+          expires_at: string
+          id: string
+          result_id: string | null
+          review_status: string
+          source: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          converted_draft_id?: string | null
+          created_at?: string
+          customer_note?: string | null
+          error_message?: string | null
+          expires_at?: string
+          id?: string
+          result_id?: string | null
+          review_status?: string
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          converted_draft_id?: string | null
+          created_at?: string
+          customer_note?: string | null
+          error_message?: string | null
+          expires_at?: string
+          id?: string
+          result_id?: string | null
+          review_status?: string
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_wizard_jobs_converted_draft_id_fkey"
+            columns: ["converted_draft_id"]
+            isOneToOne: false
+            referencedRelation: "quote_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_wizard_jobs_result_id_fkey"
+            columns: ["result_id"]
+            isOneToOne: false
+            referencedRelation: "quote_wizard_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_wizard_results: {
+        Row: {
+          analysis_snapshot: Json
+          created_at: string
+          expires_at: string
+          formula_snapshot: Json
+          id: string
+          job_id: string
+          source: string
+          status: string
+          updated_at: string
+          user_id: string
+          yield_snapshot: Json
+        }
+        Insert: {
+          analysis_snapshot?: Json
+          created_at?: string
+          expires_at?: string
+          formula_snapshot?: Json
+          id?: string
+          job_id: string
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          yield_snapshot?: Json
+        }
+        Update: {
+          analysis_snapshot?: Json
+          created_at?: string
+          expires_at?: string
+          formula_snapshot?: Json
+          id?: string
+          job_id?: string
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          yield_snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_wizard_results_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "quote_wizard_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recipient_notes: {
         Row: {
           content: string
@@ -4716,6 +4879,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_quote_wizard_data: {
+        Args: never
+        Returns: {
+          deleted_jobs: number
+          deleted_storage_objects: number
+        }[]
+      }
+      cleanup_expired_quote_wizard_rows: { Args: never; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
