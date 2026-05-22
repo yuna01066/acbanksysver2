@@ -193,11 +193,13 @@ const ContractManagement: React.FC = () => {
 
     let mounted = true;
     setEventsLoading(true);
-    supabase
-      .from(contractEventsTable)
-      .select('*')
-      .in('contract_id', contracts.map((contract) => contract.id))
-      .order('created_at', { ascending: false })
+    Promise.resolve(
+      supabase
+        .from(contractEventsTable)
+        .select('*')
+        .in('contract_id', contracts.map((contract) => contract.id))
+        .order('created_at', { ascending: false })
+    )
       .then(({ data }) => {
         if (mounted) setContractEvents((data || []) as ContractEvent[]);
       })
