@@ -1957,20 +1957,26 @@ export type Database = {
       page_access_permissions: {
         Row: {
           created_at: string
+          effect: string
           id: string
           page_key: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          effect?: string
           id?: string
           page_key: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          effect?: string
           id?: string
           page_key?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -4251,6 +4257,98 @@ export type Database = {
         }
         Relationships: []
       }
+      settings_change_requests: {
+        Row: {
+          action: string
+          after_value: Json | null
+          applied_at: string | null
+          before_value: Json | null
+          change_summary: string
+          created_at: string
+          id: string
+          requested_by: string
+          requested_by_name: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          risk_level: string
+          status: string
+          target_area: string
+          target_key: string
+          target_table: string
+          updated_at: string
+        }
+        Insert: {
+          action?: string
+          after_value?: Json | null
+          applied_at?: string | null
+          before_value?: Json | null
+          change_summary: string
+          created_at?: string
+          id?: string
+          requested_by?: string
+          requested_by_name?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_level?: string
+          status?: string
+          target_area?: string
+          target_key: string
+          target_table: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          after_value?: Json | null
+          applied_at?: string | null
+          before_value?: Json | null
+          change_summary?: string
+          created_at?: string
+          id?: string
+          requested_by?: string
+          requested_by_name?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_level?: string
+          status?: string
+          target_area?: string
+          target_key?: string
+          target_table?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settings_change_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profile_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_change_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_change_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profile_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_change_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       slot_types: {
         Row: {
           allow_multiple_selection: boolean | null
@@ -5167,6 +5265,17 @@ export type Database = {
       }
     }
     Functions: {
+      apply_supported_settings_change: {
+        Args: {
+          _request: Database["public"]["Tables"]["settings_change_requests"]["Row"]
+        }
+        Returns: undefined
+      }
+      approve_settings_change_request: {
+        Args: { _request_id: string; _review_note?: string }
+        Returns: string
+      }
+      can_access_feature: { Args: { _feature_key: string }; Returns: boolean }
       check_workplace_distance: {
         Args: { input_lat: number; input_lng: number }
         Returns: {
@@ -5190,6 +5299,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_company_master: { Args: never; Returns: boolean }
       is_project_assigned: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
@@ -5197,6 +5307,10 @@ export type Database = {
       is_project_owner: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
+      }
+      reject_settings_change_request: {
+        Args: { _request_id: string; _review_note?: string }
+        Returns: string
       }
       search_portfolio_posts: {
         Args: {
