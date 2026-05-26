@@ -761,7 +761,9 @@ serve(async (req) => {
       'sync-pending-document-files',
       'list-drive-usage',
       'delete-file',
+      'bulk-import-portfolio-folder',
     ]);
+
 
     await requireFunctionAuth(
       req,
