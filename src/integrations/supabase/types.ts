@@ -181,17 +181,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "announcements_recipient_id_fkey"
-            columns: ["recipient_id"]
-            isOneToOne: false
-            referencedRelation: "recipients"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "announcements_meeting_reservation_id_fkey"
             columns: ["meeting_reservation_id"]
             isOneToOne: false
             referencedRelation: "meeting_reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcements_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
             referencedColumns: ["id"]
           },
         ]
@@ -1823,6 +1823,93 @@ export type Database = {
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_reservations: {
+        Row: {
+          audience_type: string
+          client_contact: string | null
+          client_meeting_type: string | null
+          client_name: string | null
+          created_at: string
+          created_by: string
+          created_by_name: string
+          description: string | null
+          employee_meeting_type: string | null
+          end_time: string | null
+          id: string
+          location: string | null
+          meeting_date: string
+          participant_ids: string[]
+          participant_names: string[]
+          recipient_id: string | null
+          source_announcement_id: string | null
+          start_time: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audience_type: string
+          client_contact?: string | null
+          client_meeting_type?: string | null
+          client_name?: string | null
+          created_at?: string
+          created_by: string
+          created_by_name: string
+          description?: string | null
+          employee_meeting_type?: string | null
+          end_time?: string | null
+          id?: string
+          location?: string | null
+          meeting_date: string
+          participant_ids?: string[]
+          participant_names?: string[]
+          recipient_id?: string | null
+          source_announcement_id?: string | null
+          start_time: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audience_type?: string
+          client_contact?: string | null
+          client_meeting_type?: string | null
+          client_name?: string | null
+          created_at?: string
+          created_by?: string
+          created_by_name?: string
+          description?: string | null
+          employee_meeting_type?: string | null
+          end_time?: string | null
+          id?: string
+          location?: string | null
+          meeting_date?: string
+          participant_ids?: string[]
+          participant_names?: string[]
+          recipient_id?: string | null
+          source_announcement_id?: string | null
+          start_time?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_reservations_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_reservations_source_announcement_id_fkey"
+            columns: ["source_announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
             referencedColumns: ["id"]
           },
         ]
