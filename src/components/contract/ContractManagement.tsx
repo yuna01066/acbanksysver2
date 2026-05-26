@@ -95,6 +95,8 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 const PROBATION_OPTIONS = ['수습 없음', '1개월', '2개월', '3개월', '6개월'];
+const MINIMUM_HOURLY_WAGE_2026 = 10320;
+const MINIMUM_MONTHLY_WAGE_2026 = 2156880;
 
 const formatNumber = (n: number | null | undefined) => {
   if (!n) return '';
@@ -219,8 +221,8 @@ const ContractManagement: React.FC = () => {
   }, [selectedTemplate]);
 
   const selectedTemplateQuality = useMemo(
-    () => evaluateContractTemplateQuality(selectedTemplateContent),
-    [selectedTemplateContent],
+    () => evaluateContractTemplateQuality(selectedTemplateContent, { templateType: selectedTemplate?.template_type }),
+    [selectedTemplate?.template_type, selectedTemplateContent],
   );
 
   const filteredEmployees = useMemo(() => {
@@ -332,6 +334,20 @@ const ContractManagement: React.FC = () => {
       if (!draft.birth_date) issues.push(`${employeeName}: 생년월일이 필요합니다.`);
       if (['labor', 'salary'].includes(selectedTemplate?.template_type || '') && !draft.contract_start_date) {
         issues.push(`${employeeName}: 계약 시작일이 필요합니다.`);
+      }
+      if (['labor', 'salary'].includes(selectedTemplate?.template_type || '')) {
+        const monthlyEquivalent = draft.monthly_salary
+          || (draft.annual_salary ? Math.floor(draft.annual_salary / 12) : null);
+        if (draft.contract_type !== 'part_time') {
+          if (!monthlyEquivalent) {
+            issues.push(`${employeeName}: 연봉 또는 월급이 필요합니다.`);
+          } else if (monthlyEquivalent < MINIMUM_MONTHLY_WAGE_2026) {
+            issues.push(`${employeeName}: 월 환산액이 2026년 최저임금 월환산액 ${formatNumber(MINIMUM_MONTHLY_WAGE_2026)}원보다 낮습니다.`);
+          }
+        }
+      }
+      if (draft.pay_day && (draft.pay_day < 1 || draft.pay_day > 31)) {
+        issues.push(`${employeeName}: 급여일은 1일부터 31일 사이여야 합니다.`);
       }
       if (draft.contract_start_date && draft.contract_end_date && draft.contract_end_date < draft.contract_start_date) {
         issues.push(`${employeeName}: 계약 종료일이 시작일보다 빠릅니다.`);
@@ -637,6 +653,9 @@ const ContractManagement: React.FC = () => {
             <Badge variant="outline" className={`rounded-full ${selectedTemplateQuality.ok ? 'border-emerald-200 text-emerald-700' : 'border-red-200 text-red-700'}`}>
               {selectedTemplateQuality.ok ? '필수필드 충족' : `필수필드 부족 ${selectedTemplateQuality.missing.length}`}
             </Badge>
+            {selectedTemplateQuality.warnings.length > 0 && (
+              <Badge variant="outline" className="rounded-full border-amber-200 text-amber-700">검토 필요</Badge>
+            )}
             {includeCompanySeal && !companySealUrl && (
               <Badge variant="outline" className="rounded-full border-amber-200 text-amber-700">직인 파일 필요</Badge>
             )}
@@ -655,6 +674,14 @@ const ContractManagement: React.FC = () => {
               <div className="flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>{validationIssues.slice(0, 3).join(' / ')}{validationIssues.length > 3 ? ` 외 ${validationIssues.length - 3}건` : ''}</span>
+              </div>
+            </div>
+          )}
+          {selectedTemplateQuality.warnings.length > 0 && (
+            <div className="lg:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{selectedTemplateQuality.warnings.join(' / ')}</span>
               </div>
             </div>
           )}
@@ -775,6 +802,9 @@ const ContractManagement: React.FC = () => {
             </DialogHeader>
             <div className="space-y-4">
               <p className="text-sm text-[#707072]">선택한 구성원의 연봉을 입력하면 월급, 기본급, 고정초과근무수당을 자동으로 계산합니다.</p>
+              <p className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] px-3 py-2 text-xs text-[#707072]">
+                2026년 최저임금 기준: 시급 {formatNumber(MINIMUM_HOURLY_WAGE_2026)}원, 월 환산액 {formatNumber(MINIMUM_MONTHLY_WAGE_2026)}원(주 40시간, 월 209시간 기준)
+              </p>
               <ScrollArea className="max-h-[300px]">
                 <div className="space-y-2">
                   {employees.filter((employee) => selectedEmployees.has(employee.id)).map((employee) => {
@@ -809,7 +839,13 @@ const ContractManagement: React.FC = () => {
               <p><strong>양식</strong> {selectedTemplate.name}</p>
               <p><strong>직인</strong> {includeCompanySeal ? '포함' : '미포함'}</p>
               <p><strong>계약기간</strong> {selectedDrafts[0]?.contract_start_date || '-'} ~ {selectedDrafts[0]?.contract_end_date || '무기한'}</p>
+              <p><strong>2026 최저임금</strong> 시급 {formatNumber(MINIMUM_HOURLY_WAGE_2026)}원 / 월환산 {formatNumber(MINIMUM_MONTHLY_WAGE_2026)}원</p>
             </div>
+            {selectedTemplateQuality.warnings.length > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                {selectedTemplateQuality.warnings.join(' / ')}
+              </div>
+            )}
             <AlertDialogFooter>
               <AlertDialogCancel disabled={saving}>취소</AlertDialogCancel>
               <AlertDialogAction onClick={(event) => { event.preventDefault(); handleRequest(); }} disabled={saving} className="bg-[#111111] text-white hover:bg-[#2a2a2a]">
@@ -876,7 +912,7 @@ const ContractManagement: React.FC = () => {
                   const templateContent = template.content
                     || PREBUILT_TEMPLATES.find((item) => item.type === template.template_type)?.content
                     || null;
-                  const quality = evaluateContractTemplateQuality(templateContent);
+                  const quality = evaluateContractTemplateQuality(templateContent, { templateType: template.template_type });
                   return (
                     <button
                       key={template.id}
@@ -896,6 +932,7 @@ const ContractManagement: React.FC = () => {
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <Badge variant="outline" className="rounded-full text-[11px]">{typeInfo.label}</Badge>
                               <Badge variant="outline" className={`rounded-full text-[11px] ${quality.ok ? 'border-emerald-200 text-emerald-700' : 'border-red-200 text-red-700'}`}>{quality.ok ? '필수필드 충족' : '필수필드 부족'}</Badge>
+                              {quality.warnings.length > 0 && <Badge variant="outline" className="rounded-full border-amber-200 text-[11px] text-amber-700">검토 필요</Badge>}
                             </div>
                           </div>
                         </div>
@@ -903,6 +940,7 @@ const ContractManagement: React.FC = () => {
                       </div>
                       {template.description && <p className="mt-2 text-xs text-[#707072]">{template.description}</p>}
                       {!quality.ok && <p className="mt-2 text-xs text-red-700">누락: {quality.missing.join(', ')}</p>}
+                      {quality.warnings.length > 0 && <p className="mt-2 text-xs text-amber-700">확인: {quality.warnings.join(' / ')}</p>}
                     </button>
                   );
                 })}

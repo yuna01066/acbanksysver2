@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Plus, FileText, Pencil, Trash2, Loader2, FileSignature, DollarSign, ShieldCheck, FilePenLine } from 'lucide-react';
 import { type ContractTemplate } from '@/hooks/useContracts';
 import TemplateEditorDialog from './template-editor/TemplateEditorDialog';
+import { PREBUILT_TEMPLATES } from './template-editor/prebuiltTemplates';
 import { evaluateContractTemplateQuality } from '@/utils/contractTemplateQuality';
 
 type ContractTemplateWithContent = ContractTemplate & { content?: JSONContent | null };
@@ -126,7 +127,10 @@ const ContractTemplateSettings: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {templates.map(t => {
             const typeInfo = TEMPLATE_TYPES[t.template_type] || TEMPLATE_TYPES.labor;
-            const quality = evaluateContractTemplateQuality(t.content || null);
+            const templateContent = t.content
+              || PREBUILT_TEMPLATES.find((template) => template.type === t.template_type)?.content
+              || null;
+            const quality = evaluateContractTemplateQuality(templateContent, { templateType: t.template_type });
             return (
               <Card key={t.id} className={`transition-all border-[#cacacb] shadow-none ${!t.is_active ? 'opacity-50' : ''}`}>
                 <CardContent className="p-5">
@@ -146,6 +150,11 @@ const ContractTemplateSettings: React.FC = () => {
                           >
                             {quality.ok ? '필수필드 충족' : '필수필드 부족'}
                           </Badge>
+                          {quality.warnings.length > 0 && (
+                            <Badge variant="outline" className="text-[11px] border-amber-200 text-amber-700">
+                              검토 필요
+                            </Badge>
+                          )}
                           {!t.is_active && (
                             <Badge variant="secondary" className="text-[11px]">비활성</Badge>
                           )}
@@ -167,6 +176,11 @@ const ContractTemplateSettings: React.FC = () => {
                   {!quality.ok && (
                     <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                       누락: {quality.missing.join(', ')}
+                    </p>
+                  )}
+                  {quality.warnings.length > 0 && (
+                    <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      확인: {quality.warnings.join(' / ')}
                     </p>
                   )}
                   <div className="flex items-center justify-between pt-2 border-t">
