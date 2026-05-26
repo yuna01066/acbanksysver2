@@ -452,6 +452,8 @@ const MeetingBookingWidget = ({
       setSelectedReservationId(reservation.id);
       setDetailDraft(draftFromReservation(reservation));
       queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-meeting-booking-card'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
     },
     onError: (error: Error) => {
       toast.error(error.message || '미팅 예약 등록에 실패했습니다.');
@@ -479,6 +481,8 @@ const MeetingBookingWidget = ({
       setSelectedReservationId(reservation.id);
       setDetailDraft(draftFromReservation(reservation));
       queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-meeting-booking-card'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
     },
     onError: (error: Error) => {
       toast.error(error.message || '미팅 예약 수정에 실패했습니다.');
@@ -502,6 +506,8 @@ const MeetingBookingWidget = ({
         setDetailDraft(draftFromReservation(reservation));
       }
       queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-meeting-booking-card'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
     },
     onError: (error: Error) => {
       toast.error(error.message || '상태 변경에 실패했습니다.');

@@ -192,8 +192,7 @@ const AnnouncementCard = () => {
       queryClient.invalidateQueries({ queryKey: ['announcement-events'] });
       queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['today-work-meetings'] });
-      queryClient.invalidateQueries({ queryKey: ['today-work-announcement-schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-meeting-booking-card'] });
     },
     onError: (err: any) => {
       toast.error('등록 실패: ' + (err.message || '알 수 없는 오류'));

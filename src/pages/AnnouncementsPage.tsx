@@ -355,8 +355,7 @@ const AnnouncementsPage = () => {
       queryClient.invalidateQueries({ queryKey: ['announcement-events'] });
       queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['today-work-meetings'] });
-      queryClient.invalidateQueries({ queryKey: ['today-work-announcement-schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-meeting-booking-card'] });
     },
     onError: (err: unknown) => {
       const message = err instanceof Error ? err.message : '알 수 없는 오류';
@@ -384,8 +383,7 @@ const AnnouncementsPage = () => {
       queryClient.invalidateQueries({ queryKey: ['announcement-meetings'] });
       queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['today-work-meetings'] });
-      queryClient.invalidateQueries({ queryKey: ['today-work-announcement-schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-meeting-booking-card'] });
     },
   });
 
