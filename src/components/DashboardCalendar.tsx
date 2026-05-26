@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper, Users, User, Cake, Calendar, FolderOpen, AlertCircle, Palmtree } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Truck, BookOpen, Coffee, PartyPopper, Users, User, Cake, Calendar, FolderOpen, AlertCircle, Palmtree, CalendarCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -18,7 +18,7 @@ import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 interface CalendarEvent {
   id: string;
   projectName: string;
-  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'holiday' | 'birthday' | 'announcement_meeting' | 'announcement_conference' | 'project' | 'announcement_event' | 'leave';
+  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'meeting_reservation' | 'holiday' | 'birthday' | 'announcement_meeting' | 'announcement_conference' | 'project' | 'announcement_event' | 'leave';
   date: Date;
   userId: string;
   url?: string;
@@ -26,12 +26,32 @@ interface CalendarEvent {
   assigneeIds?: string[];
 }
 
+interface MeetingReservationCalendarRow {
+  id: string;
+  audience_type: string;
+  employee_meeting_type: string | null;
+  client_meeting_type: string | null;
+  title: string;
+  meeting_date: string;
+  start_time: string;
+  end_time: string | null;
+  location: string | null;
+  status: string;
+  created_by: string;
+  client_name: string | null;
+  participant_ids: string[];
+}
+
+const supabaseAny = supabase as any;
+
 const DashboardCalendar = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, isModerator } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'all' | 'my'>('all');
+  const calendarMonthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+  const calendarMonthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
 
   const { data: quotes } = useQuery({
     queryKey: ['calendar-quotes'],
@@ -106,12 +126,30 @@ const DashboardCalendar = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('announcements')
-        .select('id, title, author_id, meeting_date, meeting_time, meeting_location, announcement_type, event_end_date, recipient_name, assignee_ids')
+        .select('id, title, author_id, meeting_date, meeting_time, meeting_location, meeting_reservation_id, announcement_type, event_end_date, recipient_name, assignee_ids')
         .in('announcement_type', ['meeting', 'conference', 'event'])
         .not('meeting_date', 'is', null);
       if (error) throw error;
       return data;
     },
+  });
+
+  const { data: meetingReservations } = useQuery<MeetingReservationCalendarRow[]>({
+    queryKey: ['calendar-meeting-reservations', calendarMonthStart, calendarMonthEnd],
+    queryFn: async () => {
+      const { data, error } = await supabaseAny
+        .from('meeting_reservations')
+        .select('id, audience_type, employee_meeting_type, client_meeting_type, title, meeting_date, start_time, end_time, location, status, created_by, client_name, participant_ids')
+        .gte('meeting_date', calendarMonthStart)
+        .lte('meeting_date', calendarMonthEnd)
+        .neq('status', 'canceled')
+        .order('meeting_date', { ascending: true })
+        .order('start_time', { ascending: true });
+      if (error) throw error;
+      return ((data || []) as unknown) as MeetingReservationCalendarRow[];
+    },
+    enabled: !!user,
+    staleTime: 60 * 1000,
   });
 
   const { data: managedProjects } = useQuery({
@@ -151,7 +189,7 @@ const DashboardCalendar = () => {
   });
 
   const events = useMemo(() => {
-    if (!quotes && !notionProjects && !meetings && !holidays && !birthdays && !announcementMeetings && !managedProjects && !leaveRequests) return [];
+    if (!quotes && !notionProjects && !meetings && !holidays && !birthdays && !announcementMeetings && !meetingReservations && !managedProjects && !leaveRequests) return [];
     const result: CalendarEvent[] = [];
 
     // 휴일 이벤트
@@ -258,6 +296,10 @@ const DashboardCalendar = () => {
     // 회의/미팅/이벤트 공지 이벤트
     announcementMeetings?.forEach((am) => {
       if (am.meeting_date) {
+        if ((am.announcement_type === 'conference' || am.announcement_type === 'meeting') && am.meeting_reservation_id) {
+          return;
+        }
+
         if (am.announcement_type === 'event' && am.event_end_date) {
           // Multi-day event
           const start = new Date(am.meeting_date);
@@ -315,6 +357,31 @@ const DashboardCalendar = () => {
       }
     });
 
+    // 독립 미팅 예약 이벤트
+    meetingReservations?.forEach((reservation) => {
+      if (!reservation.meeting_date) return;
+      const date = new Date(reservation.meeting_date);
+      if (isNaN(date.getTime())) return;
+
+      const targetNames = [
+        reservation.client_name,
+        reservation.location,
+      ].filter(Boolean);
+      const isAllHands =
+        reservation.audience_type === 'employee'
+        && reservation.employee_meeting_type === 'all_hands'
+        && (!reservation.participant_ids || reservation.participant_ids.length === 0);
+
+      result.push({
+        id: reservation.id,
+        projectName: `${reservation.title}${targetNames.length > 0 ? ` (${targetNames.join(' · ')})` : ''}${reservation.start_time ? ` ${reservation.start_time}` : ''}`,
+        type: 'meeting_reservation',
+        date,
+        userId: reservation.created_by,
+        assigneeIds: isAllHands ? [user?.id || ''] : reservation.participant_ids || [],
+      });
+    });
+
     // 프로젝트 관리 이벤트
     managedProjects?.forEach((p) => {
       if (p.created_at) {
@@ -350,7 +417,7 @@ const DashboardCalendar = () => {
     });
 
     return result;
-  }, [quotes, notionProjects, meetings, holidays, birthdays, announcementMeetings, managedProjects, leaveRequests, user, currentMonth]);
+  }, [quotes, notionProjects, meetings, holidays, birthdays, announcementMeetings, meetingReservations, managedProjects, leaveRequests, user, currentMonth]);
 
   // Filter events based on view mode
   const filteredEvents = useMemo(() => {
@@ -370,6 +437,7 @@ const DashboardCalendar = () => {
       if (e.type === 'announcement_event') return true;
       // Meetings are already filtered to current user
       if (e.type === 'meeting') return true;
+      if (e.type === 'meeting_reservation') return e.userId === user.id || (e.assigneeIds || []).includes(user.id);
       // Quotes/deliveries: only show mine
       if (e.type === 'quote' || e.type === 'delivery') return e.userId === user.id;
       // Notion: fuzzy match assignee with my name
@@ -394,6 +462,10 @@ const DashboardCalendar = () => {
     }
     if (event.type === 'announcement_meeting' || event.type === 'announcement_conference' || event.type === 'announcement_event') {
       navigate(`/announcements?focus=${event.id}`);
+      return;
+    }
+    if (event.type === 'meeting_reservation') {
+      navigate(`/meeting-reservations?id=${event.id}`);
       return;
     }
     if (event.type === 'project') {
@@ -425,10 +497,11 @@ const DashboardCalendar = () => {
           case 'delivery': return 4;
           case 'announcement_conference': return 5;
           case 'announcement_meeting': return 6;
-          case 'meeting': return 7;
-          case 'project': return 8;
-          case 'quote': return 9;
-          case 'notion': return 10;
+          case 'meeting_reservation': return 7;
+          case 'meeting': return 8;
+          case 'project': return 9;
+          case 'quote': return 10;
+          case 'notion': return 11;
           default: return 11;
         }
       };
@@ -485,6 +558,9 @@ const DashboardCalendar = () => {
           </span>
           <span className="flex items-center gap-1">
             <Coffee className="h-3 w-3 text-amber-600" /> 미팅
+          </span>
+          <span className="flex items-center gap-1">
+            <CalendarCheck className="h-3 w-3 text-sky-600" /> 미팅 예약
           </span>
           <span className="flex items-center gap-1">
             <AlertCircle className="h-3 w-3 text-emerald-500" /> 이벤트
@@ -559,8 +635,10 @@ const DashboardCalendar = () => {
                           ? "bg-primary/10 text-primary"
                           : event.type === 'delivery'
                           ? "bg-orange-500/10 text-orange-600"
-                      : event.type === 'meeting'
+                          : event.type === 'meeting'
                           ? "bg-amber-500/10 text-amber-700"
+                          : event.type === 'meeting_reservation'
+                          ? "bg-sky-500/10 text-sky-700 cursor-pointer"
                           : event.type === 'announcement_conference'
                           ? "bg-blue-500/10 text-blue-700 cursor-pointer"
                           : event.type === 'announcement_meeting'
@@ -585,6 +663,8 @@ const DashboardCalendar = () => {
                         <Truck className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'meeting' ? (
                         <Coffee className="h-2.5 w-2.5 shrink-0" />
+                      ) : event.type === 'meeting_reservation' ? (
+                        <CalendarCheck className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'announcement_conference' ? (
                         <Users className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'announcement_meeting' ? (

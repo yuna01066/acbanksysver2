@@ -16,6 +16,10 @@ import { toast } from 'sonner';
 import { endOfWeek, format, isBefore, isSameDay, isWithinInterval, startOfDay, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { PageHeader, PageShell, SearchFilterBar } from '@/components/layout/PageLayout';
+import {
+  buildMeetingReservationFromAnnouncement,
+  isAnnouncementMeetingType,
+} from '@/lib/announcementMeetingLink';
 
 type AnnouncementType = 'general' | 'event' | 'conference' | 'meeting';
 type SummaryFilter = 'all' | 'today' | 'week' | 'pinned';
@@ -33,6 +37,7 @@ interface Announcement {
   meeting_date: string | null;
   meeting_time: string | null;
   meeting_location: string | null;
+  meeting_reservation_id: string | null;
   event_end_date: string | null;
   recipient_id: string | null;
   recipient_name: string | null;
@@ -52,6 +57,8 @@ const TAB_CONFIG: { value: string; label: string; icon: React.ReactNode; types: 
 
 const isScheduledAnnouncement = (announcement: Announcement) =>
   SCHEDULED_TYPES.includes(announcement.announcement_type);
+
+const supabaseAny = supabase as any;
 
 const getAnnouncementDate = (announcement: Announcement) => {
   const dateValue = announcement.meeting_date || announcement.created_at;
@@ -152,6 +159,69 @@ const AnnouncementsPage = () => {
       const recipientName = selectedRecipientId 
         ? recipients?.find(r => r.id === selectedRecipientId)?.company_name || recipientNameInput 
         : recipientNameInput || null;
+      const currentAnnouncement = editingId ? announcements?.find(a => a.id === editingId) || null : null;
+      const authorId = currentAnnouncement?.author_id || user.id;
+      const authorName = currentAnnouncement?.author_name || profile.full_name || user.email || '관리자';
+
+      const syncLinkedMeetingReservation = async (announcementId: string, reservationId?: string | null) => {
+        if (!meetingDate || !isAnnouncementMeetingType(announcementType)) return null;
+
+        const payload = buildMeetingReservationFromAnnouncement({
+          announcementId,
+          announcementType,
+          title,
+          content,
+          meetingDate,
+          meetingTime,
+          meetingLocation,
+          authorId,
+          authorName,
+          recipientId: selectedRecipientId,
+          recipientName,
+          assigneeIds: selectedAssigneeIds,
+          assigneeNames,
+        });
+
+        if (reservationId) {
+          const updatePayload: Record<string, unknown> = { ...payload };
+          delete updatePayload.created_by;
+          delete updatePayload.created_by_name;
+          delete updatePayload.status;
+
+          const { data, error } = await supabaseAny
+            .from('meeting_reservations')
+            .update(updatePayload)
+            .eq('id', reservationId)
+            .select('id')
+            .single();
+          if (error) throw error;
+          return data.id as string;
+        }
+
+        const { data, error } = await supabaseAny
+          .from('meeting_reservations')
+          .insert(payload)
+          .select('id')
+          .single();
+        if (error) throw error;
+
+        const { error: linkError } = await supabase
+          .from('announcements')
+          .update({ meeting_reservation_id: data.id })
+          .eq('id', announcementId);
+        if (linkError) throw linkError;
+
+        return data.id as string;
+      };
+
+      const cancelLinkedMeetingReservation = async (reservationId?: string | null) => {
+        if (!reservationId) return;
+        const { error } = await supabaseAny
+          .from('meeting_reservations')
+          .update({ status: 'canceled', source_announcement_id: null })
+          .eq('id', reservationId);
+        if (error) throw error;
+      };
 
       if (editingId) {
         const { error } = await supabase
@@ -171,6 +241,17 @@ const AnnouncementsPage = () => {
           })
           .eq('id', editingId);
         if (error) throw error;
+
+        if (isAnnouncementMeetingType(announcementType) && meetingDate) {
+          await syncLinkedMeetingReservation(editingId, currentAnnouncement?.meeting_reservation_id);
+        } else if (currentAnnouncement?.meeting_reservation_id) {
+          await cancelLinkedMeetingReservation(currentAnnouncement.meeting_reservation_id);
+          const { error: unlinkError } = await supabase
+            .from('announcements')
+            .update({ meeting_reservation_id: null })
+            .eq('id', editingId);
+          if (unlinkError) throw unlinkError;
+        }
       } else {
         const insertData: Record<string, unknown> = {
           title,
@@ -202,6 +283,8 @@ const AnnouncementsPage = () => {
           .select()
           .single();
         if (error) throw error;
+
+        await syncLinkedMeetingReservation(announcement.id);
 
         // Post to team chat
         if (announcementType === 'conference') {
@@ -270,6 +353,10 @@ const AnnouncementsPage = () => {
       queryClient.invalidateQueries({ queryKey: ['latest-announcements'] });
       queryClient.invalidateQueries({ queryKey: ['announcement-meetings'] });
       queryClient.invalidateQueries({ queryKey: ['announcement-events'] });
+      queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['today-work-meetings'] });
+      queryClient.invalidateQueries({ queryKey: ['today-work-announcement-schedules'] });
     },
     onError: (err: unknown) => {
       const message = err instanceof Error ? err.message : '알 수 없는 오류';
@@ -278,7 +365,15 @@ const AnnouncementsPage = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, meetingReservationId }: { id: string; meetingReservationId?: string | null }) => {
+      if (meetingReservationId) {
+        const { error: reservationError } = await supabaseAny
+          .from('meeting_reservations')
+          .update({ status: 'canceled', source_announcement_id: null })
+          .eq('id', meetingReservationId);
+        if (reservationError) throw reservationError;
+      }
+
       const { error } = await supabase.from('announcements').delete().eq('id', id);
       if (error) throw error;
     },
@@ -286,6 +381,11 @@ const AnnouncementsPage = () => {
       toast.success('삭제되었습니다.');
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
       queryClient.invalidateQueries({ queryKey: ['latest-announcements'] });
+      queryClient.invalidateQueries({ queryKey: ['announcement-meetings'] });
+      queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['today-work-meetings'] });
+      queryClient.invalidateQueries({ queryKey: ['today-work-announcement-schedules'] });
     },
   });
 
@@ -499,6 +599,9 @@ const AnnouncementsPage = () => {
                 {a.is_pinned && <Pin className="h-3.5 w-3.5 text-primary shrink-0" />}
                 {getTypeBadge(a.announcement_type)}
                 {getScheduleBadge(a)}
+                {a.meeting_reservation_id && (
+                  <Badge variant="secondary" className="h-4 px-1.5 py-0 text-[10px]">예약 연동</Badge>
+                )}
                 <h3 className="font-semibold text-lg">{a.title}</h3>
               </div>
               {hasDateInfo && (a.meeting_date || a.meeting_time || a.meeting_location) && (
@@ -564,7 +667,7 @@ const AnnouncementsPage = () => {
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(a)}>
                   <Edit className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm('정말 삭제하시겠습니까?')) deleteMutation.mutate(a.id); }}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm('정말 삭제하시겠습니까?')) deleteMutation.mutate({ id: a.id, meetingReservationId: a.meeting_reservation_id }); }}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>

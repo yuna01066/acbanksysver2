@@ -8,6 +8,7 @@ import {
   Bell,
   CalendarCheck,
   CalendarClock,
+  CalendarDays,
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
@@ -15,6 +16,9 @@ import {
   FolderOpen,
   HardDrive,
   Loader2,
+  Megaphone,
+  PartyPopper,
+  Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -105,6 +109,18 @@ interface DashboardMeetingReservation {
   client_name: string | null;
 }
 
+interface DashboardAnnouncementSchedule {
+  id: string;
+  title: string;
+  announcement_type: string;
+  meeting_date: string | null;
+  meeting_time: string | null;
+  meeting_location: string | null;
+  event_end_date: string | null;
+  meeting_reservation_id: string | null;
+  recipient_name: string | null;
+}
+
 interface MeetingEmployee {
   id: string;
 }
@@ -142,6 +158,20 @@ function formatMeetingDateLabel(value: string) {
 
 function formatMeetingTime(startTime: string, endTime: string | null) {
   return endTime ? `${startTime}~${endTime}` : startTime;
+}
+
+function getAnnouncementScheduleLabel(type: string) {
+  if (type === 'event') return '이벤트';
+  if (type === 'conference') return '회의 공지';
+  if (type === 'meeting') return '미팅 공지';
+  return '공지 일정';
+}
+
+function getAnnouncementScheduleIcon(type: string) {
+  if (type === 'event') return <PartyPopper className="h-4 w-4" />;
+  if (type === 'conference') return <Users className="h-4 w-4" />;
+  if (type === 'meeting') return <CalendarCheck className="h-4 w-4" />;
+  return <CalendarDays className="h-4 w-4" />;
 }
 
 function formatDueLabel(dateString: string | null): { label: string; tone: WorkItemTone } {
@@ -337,6 +367,29 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
     refetchInterval: 60 * 1000,
   });
 
+  const { data: announcementSchedules = [], isLoading: announcementSchedulesLoading } = useQuery<DashboardAnnouncementSchedule[]>({
+    queryKey: ['today-work-announcement-schedules'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('id, title, announcement_type, meeting_date, meeting_time, meeting_location, event_end_date, meeting_reservation_id, recipient_name')
+        .in('announcement_type', ['event', 'conference', 'meeting'])
+        .gte('meeting_date', todayString())
+        .lte('meeting_date', plusDaysString(7))
+        .order('meeting_date', { ascending: true })
+        .order('meeting_time', { ascending: true })
+        .limit(10);
+      if (error) throw error;
+
+      return ((data || []) as DashboardAnnouncementSchedule[])
+        .filter((schedule) => schedule.announcement_type === 'event' || !schedule.meeting_reservation_id)
+        .slice(0, 6);
+    },
+    enabled: !!user,
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
+  });
+
   const sendMeetingStatusNotifications = async (reservation: DashboardMeetingReservation) => {
     if (!user) return;
 
@@ -431,6 +484,28 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
         icon: <Bell className="h-4 w-4" />,
         actionLabel: '확인',
         onClick: () => navigate(getNotificationPath(notification)),
+      });
+    });
+
+    announcementSchedules.forEach((schedule) => {
+      if (!schedule.meeting_date) return;
+      const target = parseISO(schedule.meeting_date);
+      const isTodaySchedule = !Number.isNaN(target.getTime()) && differenceInCalendarDays(target, new Date()) === 0;
+      const scheduleLabel = getAnnouncementScheduleLabel(schedule.announcement_type);
+      const dateLabel = formatMeetingDateLabel(schedule.meeting_date);
+      const timeLabel = schedule.meeting_time ? ` ${schedule.meeting_time}` : '';
+      const location = schedule.meeting_location ? ` · ${schedule.meeting_location}` : '';
+      const recipient = schedule.recipient_name ? ` · ${schedule.recipient_name}` : '';
+
+      items.push({
+        id: `announcement-schedule-${schedule.id}`,
+        title: schedule.title,
+        description: `${scheduleLabel} · ${dateLabel}${timeLabel}${recipient}${location}`,
+        label: isTodaySchedule ? '오늘 일정' : scheduleLabel,
+        tone: isTodaySchedule ? 'primary' : 'neutral',
+        icon: getAnnouncementScheduleIcon(schedule.announcement_type),
+        actionLabel: '공지',
+        onClick: () => navigate(`/announcements?focus=${schedule.id}`),
       });
     });
 
@@ -529,7 +604,18 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
     });
 
     return items.slice(0, 12);
-  }, [activeProjects, canManageMeetings, canReview, isMeetingStatusPending, navigate, pendingLeaves, syncSummary, unreadNotifications, upcomingMeetings, upcomingQuotes, updateMeetingStatus, user?.id]);
+  }, [activeProjects, announcementSchedules, canManageMeetings, canReview, isMeetingStatusPending, navigate, pendingLeaves, syncSummary, unreadNotifications, upcomingMeetings, upcomingQuotes, updateMeetingStatus, user?.id]);
+
+  const announcementScheduleSummary = useMemo(() => {
+    const today = todayString();
+
+    return {
+      todayCount: announcementSchedules.filter((schedule) => schedule.meeting_date === today).length,
+      weekCount: announcementSchedules.length,
+      eventCount: announcementSchedules.filter((schedule) => schedule.announcement_type === 'event').length,
+      nextSchedule: announcementSchedules[0],
+    };
+  }, [announcementSchedules]);
 
   const meetingSummary = useMemo(() => {
     const today = todayString();
@@ -551,7 +637,7 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
       canManageMeetings || meetingSummary.actionableMeeting.created_by === user?.id,
     )
     : null;
-  const isLoading = quotesLoading || projectsLoading || leavesLoading || syncLoading || meetingsLoading;
+  const isLoading = quotesLoading || projectsLoading || leavesLoading || syncLoading || meetingsLoading || announcementSchedulesLoading;
   const urgentCount = workItems.filter((item) => item.tone === 'danger' || item.tone === 'warning').length;
   const shouldScrollWorkItems = workItems.length > 4;
 
@@ -577,57 +663,101 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
         />
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="mb-3 rounded-xl border border-amber-200/70 bg-amber-50/70 p-3 text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-100">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-white/70 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                <CalendarCheck className="h-4 w-4" />
+        <div className="mb-3 grid gap-3 lg:grid-cols-2">
+          <div className="rounded-xl border border-sky-200/70 bg-sky-50/70 p-3 text-sky-950 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-100">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-white/70 text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300">
+                  <Megaphone className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold">공지 일정</p>
+                  <p className="truncate text-xs text-sky-700/80 dark:text-sky-200/75">
+                    {announcementSchedulesLoading
+                      ? '공지 일정을 불러오는 중입니다.'
+                      : announcementScheduleSummary.nextSchedule?.meeting_date
+                      ? `${formatMeetingDateLabel(announcementScheduleSummary.nextSchedule.meeting_date)}${announcementScheduleSummary.nextSchedule.meeting_time ? ` ${announcementScheduleSummary.nextSchedule.meeting_time}` : ''} · ${announcementScheduleSummary.nextSchedule.title}`
+                      : '오늘 또는 7일 내 공지 일정이 없습니다.'}
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold">미팅 예약</p>
-                <p className="truncate text-xs text-amber-700/80 dark:text-amber-200/75">
-                  {meetingsLoading
-                    ? '미팅 예약을 불러오는 중입니다.'
-                    : upcomingMeetings.length > 0
-                    ? `${formatMeetingDateLabel(upcomingMeetings[0].meeting_date)} ${upcomingMeetings[0].start_time} · ${upcomingMeetings[0].title}`
-                    : '오늘 또는 7일 내 예정된 미팅이 없습니다.'}
-                </p>
-              </div>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              {meetingSummary.actionableMeeting && summaryNextStatus && (
-                <Button
-                  size="sm"
-                  className="h-8 bg-amber-600 text-white hover:bg-amber-700"
-                  disabled={isMeetingStatusPending}
-                  onClick={() => updateMeetingStatus({ reservation: meetingSummary.actionableMeeting!, status: summaryNextStatus })}
-                >
-                  {isMeetingStatusPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-                  {MEETING_STATUS_LABELS[summaryNextStatus]}
-                </Button>
-              )}
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 border-amber-200 bg-white/70 text-amber-800 hover:bg-white dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
-                onClick={() => navigate('/meeting-reservations')}
+                className="h-8 border-sky-200 bg-white/70 text-sky-800 hover:bg-white dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200"
+                onClick={() => navigate('/announcements')}
               >
                 전체보기
               </Button>
             </div>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="rounded-lg border border-sky-200/70 bg-white/55 px-2 py-1.5 dark:border-sky-900/40 dark:bg-sky-950/20">
+                <p className="font-bold">{announcementScheduleSummary.todayCount}</p>
+                <p className="text-[10px] text-sky-700/75 dark:text-sky-200/70">오늘</p>
+              </div>
+              <div className="rounded-lg border border-sky-200/70 bg-white/55 px-2 py-1.5 dark:border-sky-900/40 dark:bg-sky-950/20">
+                <p className="font-bold">{announcementScheduleSummary.weekCount}</p>
+                <p className="text-[10px] text-sky-700/75 dark:text-sky-200/70">7일 내</p>
+              </div>
+              <div className="rounded-lg border border-sky-200/70 bg-white/55 px-2 py-1.5 dark:border-sky-900/40 dark:bg-sky-950/20">
+                <p className="font-bold">{announcementScheduleSummary.eventCount}</p>
+                <p className="text-[10px] text-sky-700/75 dark:text-sky-200/70">이벤트</p>
+              </div>
+            </div>
           </div>
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="rounded-lg border border-amber-200/70 bg-white/55 px-2 py-1.5 dark:border-amber-900/40 dark:bg-amber-950/20">
-              <p className="font-bold">{meetingSummary.todayCount}</p>
-              <p className="text-[10px] text-amber-700/75 dark:text-amber-200/70">오늘</p>
+
+          <div className="rounded-xl border border-amber-200/70 bg-amber-50/70 p-3 text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-100">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-white/70 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                  <CalendarCheck className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold">미팅 예약</p>
+                  <p className="truncate text-xs text-amber-700/80 dark:text-amber-200/75">
+                    {meetingsLoading
+                      ? '미팅 예약을 불러오는 중입니다.'
+                      : upcomingMeetings.length > 0
+                      ? `${formatMeetingDateLabel(upcomingMeetings[0].meeting_date)} ${upcomingMeetings[0].start_time} · ${upcomingMeetings[0].title}`
+                      : '오늘 또는 7일 내 예정된 미팅이 없습니다.'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                {meetingSummary.actionableMeeting && summaryNextStatus && (
+                  <Button
+                    size="sm"
+                    className="h-8 bg-amber-600 text-white hover:bg-amber-700"
+                    disabled={isMeetingStatusPending}
+                    onClick={() => updateMeetingStatus({ reservation: meetingSummary.actionableMeeting!, status: summaryNextStatus })}
+                  >
+                    {isMeetingStatusPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                    {MEETING_STATUS_LABELS[summaryNextStatus]}
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 border-amber-200 bg-white/70 text-amber-800 hover:bg-white dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                  onClick={() => navigate('/meeting-reservations')}
+                >
+                  전체보기
+                </Button>
+              </div>
             </div>
-            <div className="rounded-lg border border-amber-200/70 bg-white/55 px-2 py-1.5 dark:border-amber-900/40 dark:bg-amber-950/20">
-              <p className="font-bold">{meetingSummary.scheduledCount}</p>
-              <p className="text-[10px] text-amber-700/75 dark:text-amber-200/70">예약</p>
-            </div>
-            <div className="rounded-lg border border-amber-200/70 bg-white/55 px-2 py-1.5 dark:border-amber-900/40 dark:bg-amber-950/20">
-              <p className="font-bold">{meetingSummary.confirmedCount}</p>
-              <p className="text-[10px] text-amber-700/75 dark:text-amber-200/70">확정</p>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="rounded-lg border border-amber-200/70 bg-white/55 px-2 py-1.5 dark:border-amber-900/40 dark:bg-amber-950/20">
+                <p className="font-bold">{meetingSummary.todayCount}</p>
+                <p className="text-[10px] text-amber-700/75 dark:text-amber-200/70">오늘</p>
+              </div>
+              <div className="rounded-lg border border-amber-200/70 bg-white/55 px-2 py-1.5 dark:border-amber-900/40 dark:bg-amber-950/20">
+                <p className="font-bold">{meetingSummary.scheduledCount}</p>
+                <p className="text-[10px] text-amber-700/75 dark:text-amber-200/70">예약</p>
+              </div>
+              <div className="rounded-lg border border-amber-200/70 bg-white/55 px-2 py-1.5 dark:border-amber-900/40 dark:bg-amber-950/20">
+                <p className="font-bold">{meetingSummary.confirmedCount}</p>
+                <p className="text-[10px] text-amber-700/75 dark:text-amber-200/70">확정</p>
+              </div>
             </div>
           </div>
         </div>
