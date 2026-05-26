@@ -87,7 +87,7 @@ const DashboardCalendar = () => {
 
       const participantIds = [...new Set(data.flatMap(m => [m.sender_id, m.receiver_id]))];
       const { data: profiles } = await supabase
-        .from('profiles')
+        .from('profile_directory' as any)
         .select('id, full_name')
         .in('id', participantIds);
       const nameMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);

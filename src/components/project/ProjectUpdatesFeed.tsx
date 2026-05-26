@@ -142,9 +142,8 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId, projectName }) => {
     queryKey: ['employees-for-mention'],
     queryFn: async () => {
       const { data } = await supabase
-        .from('profiles')
+        .from('profile_directory' as any)
         .select('id, full_name, department, avatar_url')
-        .eq('is_approved', true)
         .order('full_name');
       return (data || []) as { id: string; full_name: string; department: string | null; avatar_url: string | null }[];
     },
@@ -192,7 +191,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId, projectName }) => {
   // Realtime subscription
   useEffect(() => {
     const channel = supabase
-      .channel(`project-updates-${projectId}`)
+      .channel(`project-updates-${projectId}`, { config: { private: true } })
       .on('postgres_changes', {
         event: '*',
         schema: 'public',

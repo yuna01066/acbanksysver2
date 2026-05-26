@@ -174,6 +174,7 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
   const [secretEvent, setSecretEvent] = useState<SecretEvent | null>(null);
   const [showSecretBanner, setShowSecretBanner] = useState(false);
   const secretSoundPlayed = useRef<string | null>(null);
+  const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // Fetch custom secret events from DB
   const { data: customSecretEvents } = useQuery({
@@ -317,8 +318,9 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
     if (!user) return;
 
     const channel = supabase.channel('employee-status', {
-      config: { presence: { key: user.id } },
+      config: { private: true, presence: { key: user.id } },
     });
+    presenceChannelRef.current = channel;
 
     channel
       .on('presence', { event: 'sync' }, () => {
@@ -336,6 +338,7 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
       });
 
     return () => {
+      presenceChannelRef.current = null;
       supabase.removeChannel(channel);
     };
   }, [user]);
@@ -344,8 +347,7 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
     setMyStatus(newStatus);
     setStatusPopoverOpen(false);
 
-    const channel = supabase.channel('employee-status');
-    await channel.track({ status: newStatus, online_at: new Date().toISOString() });
+    await presenceChannelRef.current?.track({ status: newStatus, online_at: new Date().toISOString() });
     toast.success(`상태가 "${STATUS_CONFIG[newStatus].label}"(으)로 변경되었습니다`);
   }, []);
 

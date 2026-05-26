@@ -90,7 +90,7 @@ const SpaceProjectDetailPage = () => {
     })();
 
     (async () => {
-      const { data: ci } = await supabase.from('company_info').select('*').limit(1).maybeSingle();
+      const { data: ci } = await supabase.from('company_quote_defaults' as any).select('*').limit(1).maybeSingle();
       if (ci) {
         const d = ci as any;
         setCompanyInfo(prev => ({

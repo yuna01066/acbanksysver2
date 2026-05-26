@@ -71,7 +71,7 @@ const BusinessDashboard: React.FC = () => {
   const { data: profiles } = useQuery({
     queryKey: ['biz-profiles'],
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name').eq('is_approved', true);
+      const { data } = await supabase.from('profile_directory' as any).select('id, full_name');
       return data || [];
     },
     enabled: !!user,

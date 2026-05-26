@@ -86,7 +86,7 @@ const TeamChatCard: React.FC = () => {
 
   useEffect(() => {
     const channel = supabase
-      .channel('team-chat')
+      .channel('team-chat', { config: { private: true } })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'team_messages' }, (payload) => {
         setMessages(prev => [...prev, payload.new as ChatMessage]);
         setTimeout(scrollToBottom, 50);

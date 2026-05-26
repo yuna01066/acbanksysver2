@@ -27,7 +27,7 @@ const QuotePreviewSheet: React.FC<Props> = ({ quoteId, open, onOpenChange }) => 
 
     Promise.all([
       supabase.from('saved_quotes').select('*').eq('id', quoteId).single(),
-      supabase.from('company_info').select('*').limit(1).single(),
+      supabase.from('company_quote_defaults' as any).select('*').limit(1).single(),
     ]).then(async ([quoteRes, companyRes]) => {
       const q = quoteRes.data;
       setQuote(q);

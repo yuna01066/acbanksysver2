@@ -79,7 +79,7 @@ const ChannelTalkInquiryCard = () => {
     if (!user) return;
 
     const channel = supabase
-      .channel('home-channel-talk-inquiries')
+      .channel('home-channel-talk-inquiries', { config: { private: true } })
       .on(
         'postgres_changes',
         {

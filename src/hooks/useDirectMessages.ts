@@ -65,7 +65,7 @@ export const useDirectMessages = (partnerId: string | null) => {
     if (!user || !partnerId) return;
 
     const channel = supabase
-      .channel(`dm-${[user.id, partnerId].sort().join('-')}`)
+      .channel(`dm-${[user.id, partnerId].sort().join('-')}`, { config: { private: true } })
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -147,7 +147,7 @@ export const useConversationList = () => {
 
     const partnerIds = Array.from(partnerMap.keys());
     const { data: profiles } = await supabase
-      .from('profiles')
+      .from('profile_directory' as any)
       .select('id, full_name, avatar_url, department, position')
       .in('id', partnerIds);
 
@@ -186,7 +186,7 @@ export const useConversationList = () => {
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel('dm-list-refresh')
+      .channel('dm-list-refresh', { config: { private: true } })
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',

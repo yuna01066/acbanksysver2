@@ -149,7 +149,7 @@ const ReviewEmployeeList: React.FC = () => {
       if (targets && targets.length > 0) {
         const userIds = targets.map(t => t.user_id);
         const { data: profiles } = await supabase
-          .from('profiles')
+          .from('profile_directory' as any)
           .select('id, full_name, department, position, avatar_url')
           .in('id', userIds)
           .order('full_name');

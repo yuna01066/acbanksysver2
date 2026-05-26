@@ -318,7 +318,7 @@ const SavedQuotesPage = () => {
         let creatorMap: Record<string, string> = {};
         if (creatorIds.length > 0) {
           const { data: profiles } = await supabase
-            .from('profiles')
+            .from('profile_directory' as any)
             .select('id, full_name')
             .in('id', creatorIds);
           if (profiles) {
@@ -387,7 +387,7 @@ const SavedQuotesPage = () => {
         let creatorMap2: Record<string, string> = {};
         if (creatorIds2.length > 0) {
           const { data: profiles } = await supabase
-            .from('profiles')
+            .from('profile_directory' as any)
             .select('id, full_name')
             .in('id', creatorIds2);
           if (profiles) {

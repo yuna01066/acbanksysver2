@@ -16,29 +16,12 @@ import {
 } from '@/utils/engagement';
 import { triggerHamzzi } from '@/lib/hamzziEvents';
 
-interface WorkplaceInfo {
-  workplace_lat: number | null;
-  workplace_lng: number | null;
-  workplace_radius: number | null;
-}
-
-function getDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371000;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 const QuickAttendanceButton = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const [todayRecord, setTodayRecord] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [workplace, setWorkplace] = useState<WorkplaceInfo | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'check_in' | 'check_out' | null>(null);
   const [pendingLocation, setPendingLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -88,25 +71,9 @@ const QuickAttendanceButton = () => {
     return streak;
   };
 
-  const fetchWorkplace = async () => {
-    const { data } = await supabase
-      .from('company_info')
-      .select('*')
-      .limit(1)
-      .maybeSingle();
-    if (data) {
-      setWorkplace({
-        workplace_lat: (data as any).workplace_lat,
-        workplace_lng: (data as any).workplace_lng,
-        workplace_radius: (data as any).workplace_radius,
-      });
-    }
-  };
-
   useEffect(() => {
     fetchTodayRecord();
     fetchAttendanceStreak();
-    fetchWorkplace();
   }, [user]);
 
   const getLocation = (): Promise<{ lat: number; lng: number } | null> => {
@@ -123,20 +90,28 @@ const QuickAttendanceButton = () => {
     });
   };
 
-  const isOutsideWorkplace = (location: { lat: number; lng: number } | null): boolean => {
-    if (!location || !workplace?.workplace_lat || !workplace?.workplace_lng) return false;
-    const distance = getDistanceMeters(
-      location.lat, location.lng,
-      workplace.workplace_lat, workplace.workplace_lng
-    );
-    return distance > (workplace.workplace_radius || 500);
+  const isOutsideWorkplace = async (location: { lat: number; lng: number } | null): Promise<boolean> => {
+    if (!location) return false;
+
+    const { data, error } = await supabase.rpc('check_workplace_distance' as any, {
+      input_lat: location.lat,
+      input_lng: location.lng,
+    } as any);
+
+    if (error) {
+      console.warn('Workplace distance check failed:', error);
+      return false;
+    }
+
+    const result = Array.isArray(data) ? data[0] : data;
+    return Boolean(result?.outside);
   };
 
   const handleInitiateAction = async (action: 'check_in' | 'check_out') => {
     setLoading(true);
     try {
       const location = await getLocation();
-      if (isOutsideWorkplace(location)) {
+      if (await isOutsideWorkplace(location)) {
         setPendingAction(action);
         setPendingLocation(location);
         setDialogOpen(true);

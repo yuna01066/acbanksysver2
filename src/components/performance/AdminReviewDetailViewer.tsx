@@ -117,7 +117,7 @@ const AdminReviewDetailViewer: React.FC<Props> = ({ initialEmployeeId }) => {
     const [cyclesRes, catsRes, empRes] = await Promise.all([
       supabase.from('performance_review_cycles').select('*').order('year', { ascending: false }).order('quarter', { ascending: false }),
       supabase.from('performance_review_categories').select('*').eq('is_active', true).order('display_order'),
-      supabase.from('profiles').select('id, full_name, department, position, avatar_url').eq('is_approved', true).order('full_name'),
+      supabase.from('profile_directory' as any).select('id, full_name, department, position, avatar_url').order('full_name'),
     ]);
     if (cyclesRes.data) {
       setCycles(cyclesRes.data as ReviewCycle[]);
