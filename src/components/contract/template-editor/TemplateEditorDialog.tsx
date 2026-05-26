@@ -145,7 +145,7 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
   const handleSave = async () => {
     if (!name.trim()) { toast.error('양식 이름을 입력해주세요.'); return; }
     const content = editor?.getJSON() || null;
-    const quality = evaluateContractTemplateQuality(content);
+    const quality = evaluateContractTemplateQuality(content, { templateType });
     if (!quality.ok) {
       toast.error(`필수 필드를 추가해주세요: ${quality.missing.join(', ')}`);
       return;
@@ -208,8 +208,9 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
 
   if (!open) return null;
 
-  const quality = evaluateContractTemplateQuality(editor?.getJSON() || null);
+  const quality = evaluateContractTemplateQuality(editor?.getJSON() || null, { templateType });
   const showWarning = activeTab === 'edit' && !quality.ok;
+  const showQualityNotes = activeTab === 'edit' && (quality.missing.length > 0 || quality.warnings.length > 0);
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
@@ -248,10 +249,14 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
           {activeTab === 'edit' ? (
             <>
               {/* Warning banner */}
-              {showWarning && (
+              {showQualityNotes && (
                 <div className="mx-6 mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-2.5 text-sm text-amber-800 dark:text-amber-300">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
-                  <span>발송 가능한 양식으로 저장하려면 필수 필드를 추가하세요: {quality.missing.join(', ')}</span>
+                  <span>
+                    {showWarning
+                      ? `발송 가능한 양식으로 저장하려면 필수 필드를 추가하세요: ${quality.missing.join(', ')}`
+                      : quality.warnings.join(' / ')}
+                  </span>
                   <button onClick={() => {}} className="ml-auto text-amber-600 hover:text-amber-800">
                     <X className="h-3.5 w-3.5" />
                   </button>
