@@ -175,6 +175,21 @@ function formatMeetingWorkLabel(reservation: DashboardMeetingReservation): { lab
   return { label: MEETING_STATUS_LABELS[status] || status, tone: 'neutral' };
 }
 
+function getMeetingQuickStatus(
+  reservation: DashboardMeetingReservation,
+  canUpdateMeeting: boolean,
+): MeetingReservationStatus | null {
+  if (!canUpdateMeeting) return null;
+
+  const status = reservation.status as MeetingReservationStatus;
+  const target = parseISO(reservation.meeting_date);
+  const diff = Number.isNaN(target.getTime()) ? 0 : differenceInCalendarDays(target, new Date());
+
+  if (status === 'scheduled') return 'confirmed';
+  if (status === 'confirmed' && diff <= 0) return 'completed';
+  return null;
+}
+
 function toneClasses(tone: WorkItemTone): string {
   switch (tone) {
     case 'danger':
@@ -421,15 +436,8 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
 
     upcomingMeetings.forEach((meeting) => {
       const status = meeting.status as MeetingReservationStatus;
-      const meetingDate = parseISO(meeting.meeting_date);
-      const dayDiff = Number.isNaN(meetingDate.getTime()) ? 0 : differenceInCalendarDays(meetingDate, new Date());
       const canUpdateMeeting = canManageMeetings || meeting.created_by === user?.id;
-      const nextStatus =
-        canUpdateMeeting && status === 'scheduled'
-          ? 'confirmed'
-          : canUpdateMeeting && status === 'confirmed' && dayDiff <= 0
-          ? 'completed'
-          : null;
+      const nextStatus = getMeetingQuickStatus(meeting, canUpdateMeeting);
       const workLabel = formatMeetingWorkLabel(meeting);
       const typeLabel = getMeetingTypeLabel(
         meeting.audience_type as MeetingAudienceType,
@@ -523,6 +531,26 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
     return items.slice(0, 12);
   }, [activeProjects, canManageMeetings, canReview, isMeetingStatusPending, navigate, pendingLeaves, syncSummary, unreadNotifications, upcomingMeetings, upcomingQuotes, updateMeetingStatus, user?.id]);
 
+  const meetingSummary = useMemo(() => {
+    const today = todayString();
+    const actionableMeeting = upcomingMeetings.find((meeting) => {
+      const canUpdateMeeting = canManageMeetings || meeting.created_by === user?.id;
+      return Boolean(getMeetingQuickStatus(meeting, canUpdateMeeting));
+    });
+
+    return {
+      todayCount: upcomingMeetings.filter((meeting) => meeting.meeting_date === today).length,
+      scheduledCount: upcomingMeetings.filter((meeting) => meeting.status === 'scheduled').length,
+      confirmedCount: upcomingMeetings.filter((meeting) => meeting.status === 'confirmed').length,
+      actionableMeeting,
+    };
+  }, [canManageMeetings, upcomingMeetings, user?.id]);
+  const summaryNextStatus = meetingSummary.actionableMeeting
+    ? getMeetingQuickStatus(
+      meetingSummary.actionableMeeting,
+      canManageMeetings || meetingSummary.actionableMeeting.created_by === user?.id,
+    )
+    : null;
   const isLoading = quotesLoading || projectsLoading || leavesLoading || syncLoading || meetingsLoading;
   const urgentCount = workItems.filter((item) => item.tone === 'danger' || item.tone === 'warning').length;
   const shouldScrollWorkItems = workItems.length > 4;
@@ -549,6 +577,61 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
         />
       </CardHeader>
       <CardContent className="pt-0">
+        <div className="mb-3 rounded-xl border border-amber-200/70 bg-amber-50/70 p-3 text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-100">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-white/70 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                <CalendarCheck className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold">미팅 예약</p>
+                <p className="truncate text-xs text-amber-700/80 dark:text-amber-200/75">
+                  {meetingsLoading
+                    ? '미팅 예약을 불러오는 중입니다.'
+                    : upcomingMeetings.length > 0
+                    ? `${formatMeetingDateLabel(upcomingMeetings[0].meeting_date)} ${upcomingMeetings[0].start_time} · ${upcomingMeetings[0].title}`
+                    : '오늘 또는 7일 내 예정된 미팅이 없습니다.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              {meetingSummary.actionableMeeting && summaryNextStatus && (
+                <Button
+                  size="sm"
+                  className="h-8 bg-amber-600 text-white hover:bg-amber-700"
+                  disabled={isMeetingStatusPending}
+                  onClick={() => updateMeetingStatus({ reservation: meetingSummary.actionableMeeting!, status: summaryNextStatus })}
+                >
+                  {isMeetingStatusPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                  {MEETING_STATUS_LABELS[summaryNextStatus]}
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 border-amber-200 bg-white/70 text-amber-800 hover:bg-white dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                onClick={() => navigate('/meeting-reservations')}
+              >
+                전체보기
+              </Button>
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="rounded-lg border border-amber-200/70 bg-white/55 px-2 py-1.5 dark:border-amber-900/40 dark:bg-amber-950/20">
+              <p className="font-bold">{meetingSummary.todayCount}</p>
+              <p className="text-[10px] text-amber-700/75 dark:text-amber-200/70">오늘</p>
+            </div>
+            <div className="rounded-lg border border-amber-200/70 bg-white/55 px-2 py-1.5 dark:border-amber-900/40 dark:bg-amber-950/20">
+              <p className="font-bold">{meetingSummary.scheduledCount}</p>
+              <p className="text-[10px] text-amber-700/75 dark:text-amber-200/70">예약</p>
+            </div>
+            <div className="rounded-lg border border-amber-200/70 bg-white/55 px-2 py-1.5 dark:border-amber-900/40 dark:bg-amber-950/20">
+              <p className="font-bold">{meetingSummary.confirmedCount}</p>
+              <p className="text-[10px] text-amber-700/75 dark:text-amber-200/70">확정</p>
+            </div>
+          </div>
+        </div>
+
         {isLoading ? (
           <div className="flex min-h-[160px] items-center justify-center text-sm text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
