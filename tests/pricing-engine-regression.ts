@@ -558,7 +558,12 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 240_000);
+  assert.equal(result.totalPrice, 280_000);
+  assert.equal(
+    result.lineItems.find(item => /사틴 미러 조색비/.test(item.label))?.amount,
+    40_000,
+    'satin mirror must include base color mixing cost'
+  );
 }
 
 {

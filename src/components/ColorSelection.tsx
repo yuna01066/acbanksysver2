@@ -84,17 +84,20 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
   const [customOpacity, setCustomOpacity] = useState(initialCustomOpacity || '');
   const isCustomSelected = selectedColor?.startsWith('CUSTOM');
   const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false);
+  const colorLookupQualityId = selectedQuality?.id === 'satin-mirror'
+    ? 'glossy-color'
+    : selectedQuality?.id;
 
   // panel_master 조회
   const { data: panelMaster } = useQuery({
-    queryKey: ['panel-master-for-colors', selectedQuality?.id],
+    queryKey: ['panel-master-for-colors', colorLookupQualityId],
     queryFn: async () => {
-      if (!selectedQuality?.id) return null;
+      if (!colorLookupQualityId) return null;
       
       const { data, error } = await supabase
         .from('panel_masters')
         .select('*')
-        .eq('quality', selectedQuality.id as any)
+        .eq('quality', colorLookupQualityId as any)
         .maybeSingle();
 
       if (error) {
@@ -103,7 +106,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
       }
       return data;
     },
-    enabled: !!selectedQuality?.id,
+    enabled: !!colorLookupQualityId,
   });
 
   // DB에서 컬러 옵션 조회

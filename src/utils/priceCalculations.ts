@@ -15,6 +15,7 @@ import {
 export type CalculationStatus = 'calculable' | 'needs_review' | 'blocked';
 export const PRICING_ENGINE_V2_VERSION = 'pricing-engine-v2-core-260520' as const;
 export const FORMULA_DOC_VERSION = 260520 as const;
+const DEFAULT_COLOR_MIXING_COST = 40_000;
 
 export type CalculationLineItemSource =
   | 'panel'
@@ -1766,9 +1767,15 @@ export const calculatePrice = (
   if (dbColorMixingCost && dbColorMixingCost.cost > 0 && colorMixingCost === 0) {
     finalColorMixingCost = dbColorMixingCost.cost;
   }
+
+  if (qualityId === 'satin-mirror' && finalColorMixingCost <= 0) {
+    finalColorMixingCost = DEFAULT_COLOR_MIXING_COST;
+  }
   
   if (finalColorMixingCost > 0) {
-    const label = dbColorMixingCost ? '조색비 (DB)' : '조색비';
+    const label = qualityId === 'satin-mirror'
+      ? dbColorMixingCost ? '사틴 미러 조색비 (DB)' : '사틴 미러 조색비'
+      : dbColorMixingCost ? '조색비 (DB)' : '조색비';
     breakdown.push({ label, price: finalColorMixingCost });
     basePrice += finalColorMixingCost;
   }
