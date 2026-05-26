@@ -101,14 +101,18 @@ async function loadPayload(supabase: ReturnType<typeof createClient>, jobId: str
   if (filesError) throw filesError;
   if (resultError) throw resultError;
 
+  const safeResult = normalizeStoredResult(job, files || [], result);
+
   return {
-    job,
+    job: safeResult?.legacyFallbackHidden
+      ? { ...job, review_status: "blocked" }
+      : job,
     files: files || [],
-    result: result
+    result: safeResult
       ? {
-          analysis: result.analysis_snapshot,
-          yield: result.yield_snapshot,
-          formula: result.formula_snapshot,
+          analysis: safeResult.analysis,
+          yield: safeResult.yield,
+          formula: safeResult.formula,
         }
       : null,
   };
@@ -496,6 +500,59 @@ function sanitizeResultPayload(resultPayload: any) {
     yield: buildYieldSnapshot(safeParts),
     formula: buildFormulaSnapshot(safeParts, risks),
     status: "blocked",
+  };
+}
+
+function isLegacyFallbackSnapshot(result: any) {
+  if (!result) return false;
+  const analysis = result.analysis_snapshot || {};
+  const inferred = analysis.inferred && typeof analysis.inferred === "object" ? analysis.inferred : {};
+  const mode = typeof inferred.extraction_mode === "string" ? inferred.extraction_mode : "";
+  const note = typeof inferred.note === "string" ? inferred.note : "";
+  const parts = Array.isArray(analysis.parts) ? analysis.parts : [];
+
+  return (
+    mode === "fallback_sample" ||
+    note.includes("샘플 구조") ||
+    parts.some(isKnownSamplePart)
+  );
+}
+
+function buildLegacyFallbackHiddenResult(job: any, files: QuoteWizardFile[]) {
+  const hidden = buildEngineUnavailableResult(
+    job,
+    files,
+    "이전 버전 함수가 생성한 샘플 분석 결과가 감지되어 화면에서 제거했습니다. 파일을 다시 업로드해 새 분석을 실행해주세요.",
+  );
+
+  return {
+    ...hidden,
+    analysis: {
+      ...hidden.analysis,
+      inferred: {
+        ...hidden.analysis.inferred,
+        extraction_mode: "legacy_fallback_hidden",
+        worker_status: "not_connected",
+      },
+      production_risks: [
+        ...hidden.analysis.production_risks,
+        "상담원 검수 전에는 임시 금액을 만들지 않습니다.",
+      ],
+      recommended_reply: "이전 샘플 분석 결과가 감지되어 자동 표시를 중단했습니다. 파일을 다시 업로드해 견적 마법사를 새로 실행해주세요.",
+    },
+    legacyFallbackHidden: true,
+  };
+}
+
+function normalizeStoredResult(job: any, files: QuoteWizardFile[], result: any) {
+  if (!result) return null;
+  if (isLegacyFallbackSnapshot(result)) return buildLegacyFallbackHiddenResult(job, files);
+
+  return {
+    analysis: result.analysis_snapshot,
+    yield: result.yield_snapshot,
+    formula: result.formula_snapshot,
+    legacyFallbackHidden: false,
   };
 }
 

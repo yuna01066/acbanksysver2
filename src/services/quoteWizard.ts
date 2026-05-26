@@ -156,12 +156,115 @@ const buildLocalResult = (files: QuoteWizardFileRecord[]): QuoteWizardResultSnap
   };
 };
 
+const isLegacySamplePart = (part: unknown) => {
+  if (!part || typeof part !== 'object') return false;
+  const candidate = part as Partial<QuoteWizardResultSnapshot['analysis']['parts'][number]>;
+  const name = String(candidate.name || '');
+  const width = Number(candidate.width_mm) || 0;
+  const height = Number(candidate.height_mm) || 0;
+  const quantity = Number(candidate.quantity) || 0;
+
+  return (
+    (name.includes('상/하판') && width === 600 && height === 380 && quantity === 24) ||
+    (name.includes('전/후면판') && width === 600 && height === 240 && quantity === 24) ||
+    (name.includes('좌/우') && width === 380 && height === 240 && quantity === 24)
+  );
+};
+
+const isLegacyFallbackResult = (result: QuoteWizardResultSnapshot | null | undefined) => {
+  if (!result) return false;
+  const inferred = result.analysis?.inferred || {};
+  const mode = typeof inferred.extraction_mode === 'string' ? inferred.extraction_mode : null;
+  const note = typeof inferred.note === 'string' ? inferred.note : '';
+  const parts = Array.isArray(result.analysis?.parts) ? result.analysis.parts : [];
+
+  return (
+    mode === 'fallback_sample' ||
+    note.includes('샘플 구조') ||
+    parts.some(isLegacySamplePart)
+  );
+};
+
+const buildLegacyFallbackResult = (payload: QuoteWizardPayload): QuoteWizardResultSnapshot => {
+  const risks = [
+    '이전 버전 함수가 생성한 샘플 분석 결과가 감지되어 화면에서 제거했습니다.',
+    '첨부 파일 기준으로 새 분석을 다시 실행해야 합니다.',
+    '상담원 검수 전에는 임시 금액을 만들지 않습니다.',
+  ];
+
+  return {
+    analysis: {
+      item_name: null,
+      dimensions: null,
+      quantity: null,
+      material: null,
+      thickness: null,
+      color: null,
+      finish: null,
+      processing: [],
+      observed: {
+        files: payload.files.map((file) => `${file.file_name}(${file.kind})`),
+        legacy_result_hidden: true,
+      },
+      inferred: {
+        engine_status: 'unavailable',
+        extraction_mode: 'legacy_fallback_hidden',
+        worker_status: 'not_connected',
+        note: '이전 샘플 결과를 숨겼습니다. 파일을 다시 업로드해 새 분석을 실행해주세요.',
+      },
+      parts: [],
+      missing_fields: ['새 분석 실행', '제작 품목', '파트별 치수', '수량', '소재/두께', '원장 규격'],
+      production_risks: risks,
+      recommended_reply: '이전 샘플 분석 결과가 감지되어 자동 표시를 중단했습니다. 파일을 다시 업로드해 견적 마법사를 새로 실행해주세요.',
+      confidence: 'low',
+    },
+    yield: {
+      status: 'insufficient_data',
+      candidate_basis: null,
+      stock_sheet: {
+        name: null,
+        width_mm: null,
+        height_mm: null,
+        basis: null,
+      },
+      total_part_area_mm2: null,
+      estimated_sheet_count: null,
+      yield_percent: null,
+      scrap_percent: null,
+      notes: ['이전 샘플 결과는 수율 참고값으로 사용하지 않습니다.'],
+    },
+    formula: {
+      status: 'blocked',
+      subtotal: 0,
+      tax: 0,
+      total: 0,
+      version: 'pricing-engine-v2-core-260520',
+      line_items: [],
+      warnings: risks,
+      blocked_reasons: ['이전 샘플 결과가 감지되어 견적 산출을 보류했습니다.'],
+    },
+  };
+};
+
+const sanitizeQuoteWizardPayload = (payload: QuoteWizardPayload): QuoteWizardPayload => {
+  if (!isLegacyFallbackResult(payload.result)) return payload;
+
+  return {
+    ...payload,
+    job: {
+      ...payload.job,
+      review_status: 'blocked',
+    },
+    result: buildLegacyFallbackResult(payload),
+  };
+};
+
 export async function createQuoteWizardJob(customerNote: string): Promise<QuoteWizardPayload> {
   try {
-    return await invokeQuoteWizard<QuoteWizardPayload>({
+    return sanitizeQuoteWizardPayload(await invokeQuoteWizard<QuoteWizardPayload>({
       action: 'createJob',
       customerNote,
-    });
+    }));
   } catch (error) {
     if (isDevFallbackEnabled()) return createLocalPayload(customerNote);
     throw error;
@@ -249,10 +352,10 @@ export async function analyzeQuoteWizardJob(jobId: string): Promise<QuoteWizardP
     return analyzed;
   }
 
-  return invokeQuoteWizard<QuoteWizardPayload>({
+  return sanitizeQuoteWizardPayload(await invokeQuoteWizard<QuoteWizardPayload>({
     action: 'analyzeJob',
     jobId,
-  });
+  }));
 }
 
 export async function getQuoteWizardJob(jobId: string): Promise<QuoteWizardPayload> {
@@ -262,10 +365,10 @@ export async function getQuoteWizardJob(jobId: string): Promise<QuoteWizardPaylo
     return payload;
   }
 
-  return invokeQuoteWizard<QuoteWizardPayload>({
+  return sanitizeQuoteWizardPayload(await invokeQuoteWizard<QuoteWizardPayload>({
     action: 'getJob',
     jobId,
-  });
+  }));
 }
 
 export async function convertQuoteWizardToDraft(jobId: string): Promise<QuoteWizardDraftConversion> {
