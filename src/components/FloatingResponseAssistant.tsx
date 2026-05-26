@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, HelpCircle, MessageSquareText, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, CalendarCheck2, HelpCircle, MessageSquareText, Sparkles, X } from 'lucide-react';
 import hamzziCelebration from '@/assets/hamzzi/hamzzi_celebration.png';
 import hamzziCheck from '@/assets/hamzzi/hamzzi_check.png';
 import hamzziCoffee from '@/assets/hamzzi/hamzzi_coffee.png';
@@ -9,6 +9,7 @@ import hamzziQuoteStreak from '@/assets/hamzzi/hamzzi_quote_streak.png';
 import hamzziSleepy from '@/assets/hamzzi/hamzzi_sleepy.png';
 import hamzziThinking from '@/assets/hamzzi/hamzzi_thinking.png';
 import acriHeadsetBubbleSpritesheet from '@/assets/hamzzi/acri-headset-bubble-loop-spritesheet.webp';
+import acriRedPencilCheckSpritesheet from '@/assets/hamzzi/acri-red-pencil-check-spritesheet.webp';
 import acriWizardMagicSpritesheet from '@/assets/hamzzi/acri-wizard-magic-loop-spritesheet.webp';
 import iconLunch from '@/assets/hamzzi/icon_lunch.png';
 import iconNight from '@/assets/hamzzi/icon_night.png';
@@ -16,6 +17,7 @@ import iconParty from '@/assets/hamzzi/icon_party.png';
 import defaultResponseAssistantIcon from '@/assets/response-assistant-default-icon.png';
 import responseAssistantSpeechBubble from '@/assets/response-assistant-speech-bubble.png';
 import { Button } from '@/components/ui/button';
+import MeetingBookingWidget from '@/components/MeetingBookingWidget';
 import QuoteWizardPanel from '@/components/QuoteWizardPanel';
 import ResponseAssistantWidget from '@/components/ResponseAssistantWidget';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,7 +43,7 @@ const HIDDEN_PATHS = [
 
 const FLOATING_RESPONSE_ASSISTANT_OPEN_KEY = 'acbank:floating-response-assistant-open';
 
-type AssistantTool = 'menu' | 'responseAssistant' | 'quoteWizard';
+type AssistantTool = 'menu' | 'responseAssistant' | 'quoteWizard' | 'meetingBooking';
 type SpecialistTool = Exclude<AssistantTool, 'menu'>;
 
 type HamzziReactionConfig = {
@@ -64,7 +66,7 @@ type HamzziSpriteConfig = {
 const TOOL_META: Record<AssistantTool, { title: string; description: string }> = {
   menu: {
     title: '햄찌 도우미',
-    description: '상담 CS · 견적 마법사',
+    description: '상담 CS · 견적 마법사 · 미팅 예약',
   },
   responseAssistant: {
     title: '상담 CS',
@@ -73,6 +75,10 @@ const TOOL_META: Record<AssistantTool, { title: string; description: string }> =
   quoteWizard: {
     title: '견적 마법사',
     description: '파일 분석 · 수율 참고 · 임시 초안',
+  },
+  meetingBooking: {
+    title: '상담/미팅 예약',
+    description: '직원 미팅 · 클라이언트 상담 일정',
   },
 };
 
@@ -136,6 +142,15 @@ const HAMZZI_TOOL_SPRITES: Record<SpecialistTool, HamzziSpriteConfig> = {
     displayHeight: 96,
     className: '-bottom-1 -right-1',
     label: '마법사 햄찌',
+  },
+  meetingBooking: {
+    image: acriRedPencilCheckSpritesheet,
+    frameWidth: 320,
+    frameHeight: 256,
+    displayWidth: 136,
+    displayHeight: 109,
+    className: '-bottom-3 -right-2',
+    label: '예약 체크 햄찌',
   },
 };
 
@@ -361,6 +376,16 @@ const FloatingResponseAssistant: React.FC = () => {
                   className="pb-1"
                 />
               )}
+              {activeTool === 'meetingBooking' && (
+                <MeetingBookingWidget
+                  showHeader={false}
+                  defaultAudienceType="client"
+                  maxItems={6}
+                  title="상담/미팅 예약"
+                  description="직원 미팅과 클라이언트 상담 일정을 빠르게 예약합니다."
+                  className="max-w-none rounded-[24px] border-0 shadow-none"
+                />
+              )}
             </div>
           </section>
         </div>
@@ -517,7 +542,7 @@ const AssistantToolMenu = ({
     <div className="rounded-[20px] border border-[#ececec] bg-[#fafafa] p-4">
       <p className="text-sm font-black text-[#111111]">필요한 도구를 선택하세요.</p>
       <p className="mt-1 text-xs font-medium leading-5 text-[#707072]">
-        고객 응대 문안을 만들거나, 도면 파일로 임시 견적 분석을 시작할 수 있습니다.
+        고객 응대 문안을 만들거나, 도면 파일 분석과 상담 일정을 빠르게 시작할 수 있습니다.
       </p>
     </div>
 
@@ -548,6 +573,21 @@ const AssistantToolMenu = ({
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-black text-[#111111]">견적 마법사</span>
         <span className="mt-1 block text-xs font-semibold leading-5 text-[#707072]">파일 업로드 · 제작물 판별 · 임시 견적 초안</span>
+      </span>
+    </button>
+
+    <button
+      type="button"
+      onClick={() => onSelect('meetingBooking')}
+      disabled={isTransitioning}
+      className="flex w-full items-center gap-3 rounded-[20px] border border-[#dedede] bg-white p-4 text-left shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-[#cfcfcf] hover:shadow-[0_14px_30px_rgba(15,23,42,0.09)]"
+    >
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
+        <CalendarCheck2 className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-black text-[#111111]">상담/미팅 예약</span>
+        <span className="mt-1 block text-xs font-semibold leading-5 text-[#707072]">직원 미팅 · 클라이언트 상담 일정 등록</span>
       </span>
     </button>
   </div>
