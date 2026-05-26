@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   addMonths,
@@ -194,8 +195,13 @@ const MeetingBookingWidget = ({
   description: widgetDescription = '직원 미팅과 클라이언트 상담 일정을 한 위젯에서 분리해 예약합니다.',
 }: MeetingBookingWidgetProps) => {
   const { user, profile, isAdmin, isModerator, isManager } = useAuth();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const canManageAll = isAdmin || isModerator || isManager;
+  const focusedReservationId = searchParams.get('id');
+  const safeFocusedReservationId = focusedReservationId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(focusedReservationId)
+    ? focusedReservationId
+    : null;
   const [draft, setDraft] = useState<MeetingDraft>(() => createEmptyDraft(defaultAudienceType));
   const [participantSearch, setParticipantSearch] = useState('');
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
@@ -235,15 +241,20 @@ const MeetingBookingWidget = ({
     data: reservations = [],
     isLoading: isReservationsLoading,
   } = useQuery({
-    queryKey: ['meeting-reservations'],
+    queryKey: ['meeting-reservations', safeFocusedReservationId],
     queryFn: async () => {
-      const { data, error } = await supabaseAny
+      let query = supabaseAny
         .from('meeting_reservations')
         .select('*')
-        .gte('meeting_date', todayString())
         .order('meeting_date', { ascending: true })
         .order('start_time', { ascending: true })
         .limit(100);
+
+      query = safeFocusedReservationId
+        ? query.or(`meeting_date.gte.${todayString()},id.eq.${safeFocusedReservationId}`)
+        : query.gte('meeting_date', todayString());
+
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []) as MeetingReservationRow[];
     },
@@ -259,6 +270,17 @@ const MeetingBookingWidget = ({
     () => reservations.find((reservation) => reservation.id === selectedReservationId) || null,
     [reservations, selectedReservationId],
   );
+
+  useEffect(() => {
+    if (!safeFocusedReservationId || reservations.length === 0 || selectedReservationId === safeFocusedReservationId) return;
+
+    const focusedReservation = reservations.find((reservation) => reservation.id === safeFocusedReservationId);
+    if (!focusedReservation) return;
+
+    setSelectedCalendarDate(focusedReservation.meeting_date);
+    setSelectedReservationId(focusedReservation.id);
+    setDetailDraft(draftFromReservation(focusedReservation));
+  }, [safeFocusedReservationId, reservations, selectedReservationId]);
 
   const detailRecipient = useMemo(
     () => (detailDraft ? recipients.find((recipient) => recipient.id === detailDraft.recipient_id) : undefined),
@@ -628,7 +650,7 @@ const MeetingBookingWidget = ({
         <header className="border-b border-[#e5e5e5] px-4 py-4 sm:px-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="font-['Horizon',sans-serif] text-[11px] uppercase leading-none tracking-[0.02em] text-[#707072]">
+              <p className="font-sans text-[11px] font-extrabold uppercase leading-none tracking-normal text-[#707072]">
                 Meeting Scheduler
               </p>
               <h2 className="mt-2 text-xl font-bold leading-tight tracking-normal text-[#111111]">{widgetTitle}</h2>

@@ -16,11 +16,16 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
+import {
+  buildMeetingReservationFromAnnouncement,
+  isAnnouncementMeetingType,
+} from '@/lib/announcementMeetingLink';
 
 type AnnouncementType = 'general' | 'event' | 'conference' | 'meeting';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = ['00', '10', '20', '30', '40', '50'];
+const supabaseAny = supabase as any;
 
 const AnnouncementCard = () => {
   const navigate = useNavigate();
@@ -85,6 +90,33 @@ const AnnouncementCard = () => {
         .select()
         .single();
       if (error) throw error;
+
+      if (meetingDate && isAnnouncementMeetingType(announcementType)) {
+        const reservationPayload = buildMeetingReservationFromAnnouncement({
+          announcementId: announcement.id,
+          announcementType,
+          title,
+          content,
+          meetingDate,
+          meetingTime: finalMeetingTime,
+          meetingLocation,
+          authorId: user.id,
+          authorName: profile.full_name || user.email || '관리자',
+        });
+
+        const { data: reservation, error: reservationError } = await supabaseAny
+          .from('meeting_reservations')
+          .insert(reservationPayload)
+          .select('id')
+          .single();
+        if (reservationError) throw reservationError;
+
+        const { error: linkError } = await supabase
+          .from('announcements')
+          .update({ meeting_reservation_id: reservation.id })
+          .eq('id', announcement.id);
+        if (linkError) throw linkError;
+      }
 
       // Post to team chat
       if (announcementType === 'conference') {
@@ -158,6 +190,10 @@ const AnnouncementCard = () => {
       queryClient.invalidateQueries({ queryKey: ['latest-announcements'] });
       queryClient.invalidateQueries({ queryKey: ['announcement-meetings'] });
       queryClient.invalidateQueries({ queryKey: ['announcement-events'] });
+      queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['today-work-meetings'] });
+      queryClient.invalidateQueries({ queryKey: ['today-work-announcement-schedules'] });
     },
     onError: (err: any) => {
       toast.error('등록 실패: ' + (err.message || '알 수 없는 오류'));
