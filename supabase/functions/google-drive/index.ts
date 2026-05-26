@@ -1219,6 +1219,8 @@ serve(async (req) => {
       const pilot = !!body.pilot;
       const createdBy = String(body.createdBy || 'bulk-import');
       const dryRun = !!body.dryRun;
+      const projectStart = Math.max(0, Number(body.projectStart || 0));
+      const projectLimit = Math.max(1, Math.min(Number(body.projectLimit || 999), 999));
 
       const supabaseAdmin = getSupabaseAdminClient();
       const driveIdForList = sharedDriveId;
@@ -1333,7 +1335,15 @@ serve(async (req) => {
 
       const targetDriveId = sharedDriveId;
 
-      for (const project of projects) {
+      const totalProjects = projects.length;
+      const sliceEnd = Math.min(projectStart + projectLimit, totalProjects);
+      const projectsSlice = projects.slice(projectStart, sliceEnd);
+      report.totalProjects = totalProjects;
+      report.projectStart = projectStart;
+      report.projectEnd = sliceEnd;
+      report.hasMore = sliceEnd < totalProjects;
+
+      for (const project of projectsSlice) {
         try {
           // Find existing post by title
           const { data: existing } = await supabaseAdmin
