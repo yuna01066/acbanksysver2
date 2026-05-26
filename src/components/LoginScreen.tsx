@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -13,16 +13,34 @@ const loginSchema = z.object({
   password: z.string().min(6, '비밀번호는 최소 6자 이상이어야 합니다.')
 });
 
-const LoginScreen = () => {
+interface LoginScreenProps {
+  redirectTo?: string | null;
+  initialEmail?: string;
+  onSignupClick?: () => void;
+}
+
+const normalizeRedirectPath = (redirectTo?: string | null) => {
+  if (!redirectTo || !redirectTo.startsWith('/') || redirectTo.startsWith('//')) {
+    return '/';
+  }
+
+  return redirectTo;
+};
+
+const LoginScreen = ({ redirectTo, initialEmail = '', onSignupClick }: LoginScreenProps) => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [pendingApproval, setPendingApproval] = useState(false);
   const [logoSpinning, setLogoSpinning] = useState(false);
   const [neonActive, setNeonActive] = useState(false);
+
+  useEffect(() => {
+    setEmail(initialEmail);
+  }, [initialEmail]);
 
   const handleLogoClick = useCallback(() => {
     if (logoSpinning) return;
@@ -58,6 +76,8 @@ const LoginScreen = () => {
       } else {
         toast.error('로그인에 실패했습니다. 다시 시도해주세요.');
       }
+    } else {
+      navigate(normalizeRedirectPath(redirectTo));
     }
 
     setLoading(false);
@@ -239,7 +259,7 @@ const LoginScreen = () => {
               <span className="text-[10px] font-medium tracking-[-0.01em] text-[hsl(220,8%,50%)] dark:text-[hsl(220,10%,55%)]">비밀번호 찾기</span>
             </button>
 
-            <button type="button" onClick={() => navigate('/auth')} className="flex flex-col items-center gap-2 group">
+            <button type="button" onClick={() => onSignupClick?.() ?? navigate('/auth?mode=signup')} className="flex flex-col items-center gap-2 group">
               <div
                 className="w-[52px] h-[52px] rounded-full flex items-center justify-center transition-transform duration-200 group-hover:scale-105 group-active:scale-95"
                 style={{
