@@ -125,18 +125,18 @@ const DashboardMeetingBookingCard = () => {
 
   return (
     <>
-      <Card className="h-full overflow-hidden border-amber-200/70 bg-background/85 shadow-sm backdrop-blur">
+      <Card className="h-full overflow-hidden border-[#e5e5e5] bg-white shadow-sm backdrop-blur">
         <CardHeader className="pb-3">
           <BrandedCardHeader
             icon={CalendarCheck}
             title="미팅 예약"
             subtitle="상담과 내부 회의를 대시보드에서 바로 등록합니다."
-            iconWrapClassName="border-amber-200 bg-amber-50 text-amber-700"
+            iconWrapClassName="border-[#cacacb] bg-white text-[#111111]"
             actions={
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 rounded-full px-2.5 text-xs"
+                className="h-8 rounded-full px-2.5 text-xs font-semibold text-[#111111] hover:bg-[#f5f5f5] hover:text-[#111111]"
                 onClick={() => navigate('/meeting-reservations')}
               >
                 전체보기
@@ -145,14 +145,14 @@ const DashboardMeetingBookingCard = () => {
           />
         </CardHeader>
         <CardContent className="space-y-3 pt-0">
-          <div className="rounded-xl border border-amber-200/70 bg-amber-50/70 p-3 text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-100">
+          <div className="rounded-xl border border-[#cacacb] bg-[#fafafa] p-3 text-[#111111]">
             <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-white/70 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#cacacb] bg-white text-[#111111]">
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock3 className="h-4 w-4" />}
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-bold">다음 미팅</p>
-                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-amber-700/80 dark:text-amber-200/75">
+                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[#707072]">
                   {isLoading
                     ? '미팅 예약을 불러오는 중입니다.'
                     : nextMeeting
@@ -182,9 +182,9 @@ const DashboardMeetingBookingCard = () => {
                 { label: '예약', value: summary.scheduledCount },
                 { label: '확정', value: summary.confirmedCount },
               ].map((item) => (
-                <div key={item.label} className="rounded-lg border border-amber-200/70 bg-white/55 px-2 py-1.5 dark:border-amber-900/40 dark:bg-amber-950/20">
+                <div key={item.label} className="rounded-lg border border-[#e5e5e5] bg-white px-2 py-1.5">
                   <p className="font-bold">{item.value}</p>
-                  <p className="text-[10px] text-amber-700/75 dark:text-amber-200/70">{item.label}</p>
+                  <p className="text-[10px] text-[#707072]">{item.label}</p>
                 </div>
               ))}
             </div>
