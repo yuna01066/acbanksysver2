@@ -349,6 +349,13 @@ export type Database = {
             foreignKeyName: "channel_talk_quote_leads_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
+            referencedRelation: "profile_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_talk_quote_leads_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -4152,6 +4159,13 @@ export type Database = {
             foreignKeyName: "saved_quotes_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
+            referencedRelation: "profile_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_quotes_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -4973,9 +4987,194 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      checked_in_employee_status: {
+        Row: {
+          avatar_url: string | null
+          check_in: string | null
+          date: string | null
+          department: string | null
+          position: string | null
+          status: string | null
+          user_id: string | null
+          user_name: string | null
+        }
+        Relationships: []
+      }
+      company_public_info: {
+        Row: {
+          address: string | null
+          business_number: string | null
+          business_type: string | null
+          ceo_name: string | null
+          company_name: string | null
+          detail_address: string | null
+          email: string | null
+          established_date: string | null
+          fax: string | null
+          id: string | null
+          industry: string | null
+          logo_url: string | null
+          phone: string | null
+          quote_consultation: string | null
+          quote_contact_email: string | null
+          quote_contact_message: string | null
+          quote_contact_phone: string | null
+          quote_notes: string | null
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          business_number?: string | null
+          business_type?: string | null
+          ceo_name?: string | null
+          company_name?: string | null
+          detail_address?: string | null
+          email?: string | null
+          established_date?: string | null
+          fax?: string | null
+          id?: string | null
+          industry?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          quote_consultation?: string | null
+          quote_contact_email?: string | null
+          quote_contact_message?: string | null
+          quote_contact_phone?: string | null
+          quote_notes?: string | null
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          business_number?: string | null
+          business_type?: string | null
+          ceo_name?: string | null
+          company_name?: string | null
+          detail_address?: string | null
+          email?: string | null
+          established_date?: string | null
+          fax?: string | null
+          id?: string | null
+          industry?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          quote_consultation?: string | null
+          quote_contact_email?: string | null
+          quote_contact_message?: string | null
+          quote_contact_phone?: string | null
+          quote_notes?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
+      company_quote_defaults: {
+        Row: {
+          address: string | null
+          business_number: string | null
+          business_type: string | null
+          ceo_name: string | null
+          company_name: string | null
+          detail_address: string | null
+          email: string | null
+          fax: string | null
+          id: string | null
+          industry: string | null
+          logo_url: string | null
+          phone: string | null
+          quote_bank_info: string | null
+          quote_consultation: string | null
+          quote_contact_email: string | null
+          quote_contact_message: string | null
+          quote_contact_phone: string | null
+          quote_notes: string | null
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          business_number?: string | null
+          business_type?: string | null
+          ceo_name?: string | null
+          company_name?: string | null
+          detail_address?: string | null
+          email?: string | null
+          fax?: string | null
+          id?: string | null
+          industry?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          quote_bank_info?: string | null
+          quote_consultation?: string | null
+          quote_contact_email?: string | null
+          quote_contact_message?: string | null
+          quote_contact_phone?: string | null
+          quote_notes?: string | null
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          business_number?: string | null
+          business_type?: string | null
+          ceo_name?: string | null
+          company_name?: string | null
+          detail_address?: string | null
+          email?: string | null
+          fax?: string | null
+          id?: string | null
+          industry?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          quote_bank_info?: string | null
+          quote_consultation?: string | null
+          quote_contact_email?: string | null
+          quote_contact_message?: string | null
+          quote_contact_phone?: string | null
+          quote_notes?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
+      profile_directory: {
+        Row: {
+          avatar_url: string | null
+          department: string | null
+          full_name: string | null
+          id: string | null
+          is_approved: boolean | null
+          job_title: string | null
+          position: string | null
+          rank_title: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          department?: string | null
+          full_name?: string | null
+          id?: string | null
+          is_approved?: boolean | null
+          job_title?: string | null
+          position?: string | null
+          rank_title?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          department?: string | null
+          full_name?: string | null
+          id?: string | null
+          is_approved?: boolean | null
+          job_title?: string | null
+          position?: string | null
+          rank_title?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      check_workplace_distance: {
+        Args: { input_lat: number; input_lng: number }
+        Returns: {
+          distance_meters: number
+          outside: boolean
+          radius_meters: number
+        }[]
+      }
       cleanup_expired_quote_wizard_data: {
         Args: never
         Returns: {
