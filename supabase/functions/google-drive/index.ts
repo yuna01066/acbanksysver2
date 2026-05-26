@@ -1219,6 +1219,8 @@ serve(async (req) => {
       const pilot = !!body.pilot;
       const createdBy = String(body.createdBy || 'bulk-import');
       const dryRun = !!body.dryRun;
+      const projectStart = Math.max(0, Number(body.projectStart || 0));
+      const projectLimit = Math.max(1, Math.min(Number(body.projectLimit || 999), 999));
 
       const supabaseAdmin = getSupabaseAdminClient();
       const driveIdForList = sharedDriveId;
