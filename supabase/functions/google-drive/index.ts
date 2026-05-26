@@ -765,15 +765,15 @@ serve(async (req) => {
     ]);
 
 
-    // Bulk import uses internal-secret bypass for one-off ops
-    const serviceRoleBypass = action === 'bulk-import-portfolio-folder'
-      && req.headers.get('x-service-role-key') === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!serviceRoleBypass) {
-      await requireFunctionAuth(
-        req,
-        adminActions.has(action) ? { allowedRoles: ['admin', 'moderator'] } : {},
-      );
-    }
+    const useInternalSecret = action === 'bulk-import-portfolio-folder';
+    await requireFunctionAuth(
+      req,
+      {
+        ...(adminActions.has(action) ? { allowedRoles: ['admin', 'moderator'] as ('admin' | 'moderator')[] } : {}),
+        ...(useInternalSecret ? { allowInternalSecret: true } : {}),
+      },
+    );
+
 
 
     const { serviceAccount, sharedDriveId } = getConfig();
