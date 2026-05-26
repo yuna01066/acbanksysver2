@@ -225,7 +225,7 @@ const DashboardMeetingBookingCard = () => {
       </Card>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="!w-full overflow-y-auto p-0 sm:!max-w-[980px]">
+        <SheetContent side="right" className="!w-full overflow-y-auto overflow-x-hidden p-0 sm:!max-w-[980px]">
           <div className="border-b px-5 py-4">
             <SheetHeader>
               <SheetTitle>미팅 예약</SheetTitle>
@@ -237,10 +237,11 @@ const DashboardMeetingBookingCard = () => {
           <div className="p-4 sm:p-5">
             <MeetingBookingWidget
               key={sheetAudience}
+              compactLayout
               showHeader={false}
               defaultAudienceType={sheetAudience}
               maxItems={6}
-              className="max-w-none rounded-[20px] border-[#e5e5e5] shadow-none"
+              className="max-w-full overflow-hidden rounded-[20px] border-[#e5e5e5] shadow-none"
             />
           </div>
         </SheetContent>

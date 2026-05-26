@@ -106,6 +106,7 @@ type RecipientOption = {
 
 interface MeetingBookingWidgetProps {
   className?: string;
+  compactLayout?: boolean;
   defaultAudienceType?: MeetingAudienceType;
   maxItems?: number;
   showHeader?: boolean;
@@ -188,6 +189,7 @@ const draftFromReservation = (reservation: MeetingReservationRow): MeetingDraft 
 
 const MeetingBookingWidget = ({
   className,
+  compactLayout = false,
   defaultAudienceType = 'employee',
   maxItems = 12,
   showHeader = true,
@@ -669,9 +671,14 @@ const MeetingBookingWidget = ({
         </header>
       )}
 
-      <div className="grid gap-5 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_370px]">
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2">
+      <div
+        className={cn(
+          'grid min-w-0 gap-5 p-4 sm:p-5',
+          compactLayout ? 'grid-cols-1' : 'lg:grid-cols-[minmax(0,1fr)_370px]',
+        )}
+      >
+        <div className="min-w-0 space-y-4">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {MEETING_AUDIENCE_OPTIONS.map((option) => {
               const AudienceIcon = option.icon;
               return (
@@ -712,7 +719,16 @@ const MeetingBookingWidget = ({
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold text-[#39393b]">미팅 유형</Label>
-            <div className={cn('grid gap-2', draft.audience_type === 'client' ? 'sm:grid-cols-2' : 'sm:grid-cols-3')}>
+            <div
+              className={cn(
+                'grid gap-2',
+                draft.audience_type === 'client'
+                  ? 'sm:grid-cols-2'
+                  : compactLayout
+                  ? 'sm:grid-cols-2 xl:grid-cols-3'
+                  : 'sm:grid-cols-3',
+              )}
+            >
               {(draft.audience_type === 'employee' ? EMPLOYEE_MEETING_OPTIONS : CLIENT_MEETING_OPTIONS).map((option) => {
                 const active =
                   draft.audience_type === 'employee'
@@ -917,7 +933,7 @@ const MeetingBookingWidget = ({
           {formError && <p className="text-center text-xs font-medium text-[#707072]">{formError}</p>}
         </div>
 
-        <aside className="space-y-3">
+        <aside className="min-w-0 space-y-3">
           <div className="grid grid-cols-3 gap-2">
             {[
               { label: '예정', value: upcomingCount, icon: CalendarDays },
@@ -935,7 +951,7 @@ const MeetingBookingWidget = ({
             })}
           </div>
 
-          <div className="rounded-lg border border-[#e5e5e5] bg-white p-3">
+          <div className="min-w-0 overflow-hidden rounded-lg border border-[#e5e5e5] bg-white p-3">
             <div className="flex items-center justify-between gap-2">
               <Button
                 type="button"
@@ -972,7 +988,7 @@ const MeetingBookingWidget = ({
                 <div key={weekday}>{weekday}</div>
               ))}
             </div>
-            <div className="mt-1 grid grid-cols-7 gap-1">
+            <div className="mt-1 grid min-w-0 grid-cols-7 gap-1">
               {calendarDays.map((day) => {
                 const dateKey = getDateKey(day);
                 const dayReservations = reservationsByDate[dateKey] || [];
@@ -1007,7 +1023,7 @@ const MeetingBookingWidget = ({
           </div>
 
           {selectedReservation && detailDraft && (
-            <div className="rounded-lg border border-[#111111] bg-white">
+            <div className="min-w-0 rounded-lg border border-[#111111] bg-white">
               <div className="flex items-start justify-between gap-3 border-b border-[#e5e5e5] px-3 py-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -1160,7 +1176,7 @@ const MeetingBookingWidget = ({
             </div>
           )}
 
-          <div className="rounded-lg border border-[#e5e5e5] bg-white">
+          <div className="min-w-0 rounded-lg border border-[#e5e5e5] bg-white">
             <div className="flex items-center justify-between gap-3 border-b border-[#e5e5e5] px-3 py-3">
               <div>
                 <h3 className="text-sm font-bold text-[#111111]">
