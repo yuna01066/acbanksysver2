@@ -132,7 +132,6 @@ export type Database = {
           is_pinned: boolean
           meeting_date: string | null
           meeting_location: string | null
-          meeting_reservation_id: string | null
           meeting_time: string | null
           recipient_id: string | null
           recipient_name: string | null
@@ -152,7 +151,6 @@ export type Database = {
           is_pinned?: boolean
           meeting_date?: string | null
           meeting_location?: string | null
-          meeting_reservation_id?: string | null
           meeting_time?: string | null
           recipient_id?: string | null
           recipient_name?: string | null
@@ -172,7 +170,6 @@ export type Database = {
           is_pinned?: boolean
           meeting_date?: string | null
           meeting_location?: string | null
-          meeting_reservation_id?: string | null
           meeting_time?: string | null
           recipient_id?: string | null
           recipient_name?: string | null
@@ -185,13 +182,6 @@ export type Database = {
             columns: ["recipient_id"]
             isOneToOne: false
             referencedRelation: "recipients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "announcements_meeting_reservation_id_fkey"
-            columns: ["meeting_reservation_id"]
-            isOneToOne: false
-            referencedRelation: "meeting_reservations"
             referencedColumns: ["id"]
           },
         ]
