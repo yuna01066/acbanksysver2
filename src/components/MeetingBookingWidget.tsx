@@ -30,6 +30,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { getMeetingReservationErrorMessage, isMissingMeetingReservationsTableError } from '@/lib/meetingReservationErrors';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -257,7 +258,10 @@ const MeetingBookingWidget = ({
         : query.gte('meeting_date', todayString());
 
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        if (isMissingMeetingReservationsTableError(error)) return [];
+        throw error;
+      }
       return (data || []) as MeetingReservationRow[];
     },
     enabled: !!user,
@@ -458,7 +462,7 @@ const MeetingBookingWidget = ({
       queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || '미팅 예약 등록에 실패했습니다.');
+      toast.error(getMeetingReservationErrorMessage(error, '미팅 예약 등록에 실패했습니다.'));
     },
   });
 
@@ -487,7 +491,7 @@ const MeetingBookingWidget = ({
       queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || '미팅 예약 수정에 실패했습니다.');
+      toast.error(getMeetingReservationErrorMessage(error, '미팅 예약 수정에 실패했습니다.'));
     },
   });
 
@@ -512,7 +516,7 @@ const MeetingBookingWidget = ({
       queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || '상태 변경에 실패했습니다.');
+      toast.error(getMeetingReservationErrorMessage(error, '상태 변경에 실패했습니다.'));
     },
   });
 

@@ -24,6 +24,7 @@ import {
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { isMissingMeetingReservationsTableError } from '@/lib/meetingReservationErrors';
 import { cn } from '@/lib/utils';
 import MeetingBookingWidget from '@/components/MeetingBookingWidget';
 import {
@@ -90,7 +91,10 @@ const DashboardMeetingBookingCard = () => {
       }
 
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        if (isMissingMeetingReservationsTableError(error)) return [];
+        throw error;
+      }
       return ((data || []) as unknown) as DashboardMeetingReservation[];
     },
     enabled: !!user,

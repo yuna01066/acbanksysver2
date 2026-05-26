@@ -14,6 +14,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths,
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
+import { isMissingMeetingReservationsTableError } from '@/lib/meetingReservationErrors';
 
 interface CalendarEvent {
   id: string;
@@ -145,7 +146,10 @@ const DashboardCalendar = () => {
         .neq('status', 'canceled')
         .order('meeting_date', { ascending: true })
         .order('start_time', { ascending: true });
-      if (error) throw error;
+      if (error) {
+        if (isMissingMeetingReservationsTableError(error)) return [];
+        throw error;
+      }
       return ((data || []) as unknown) as MeetingReservationCalendarRow[];
     },
     enabled: !!user,
