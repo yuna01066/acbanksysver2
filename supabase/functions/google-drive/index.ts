@@ -254,6 +254,50 @@ function escapeDriveQueryValue(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
+function extractDriveFileId(value: unknown): string | null {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+
+  const decoded = decodeURIComponent(raw);
+  const patterns = [
+    /\/folders\/([a-zA-Z0-9_-]+)/,
+    /\/file\/d\/([a-zA-Z0-9_-]+)/,
+    /[?&]id=([a-zA-Z0-9_-]+)/,
+    /^([a-zA-Z0-9_-]{10,})$/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = decoded.match(pattern);
+    if (match?.[1]) return match[1];
+  }
+  return null;
+}
+
+function driveFileViewLink(fileId: string): string {
+  return `https://drive.google.com/file/d/${fileId}/view`;
+}
+
+function getImageExtension(fileName: string, mimeType: string | null | undefined): string {
+  const match = fileName.match(/\.([a-zA-Z0-9]{2,8})$/);
+  if (match?.[1]) return match[1].toLowerCase();
+  if (mimeType === 'image/png') return 'png';
+  if (mimeType === 'image/webp') return 'webp';
+  if (mimeType === 'image/gif') return 'gif';
+  if (mimeType === 'image/heic') return 'heic';
+  return 'jpg';
+}
+
+function makePortfolioCopyFileName(file: any): string {
+  const rawName = String(file?.name || 'portfolio-image');
+  const withoutExt = rawName.replace(/\.[^.]+$/, '');
+  const safeBase = withoutExt
+    .replace(/[\\/:*?"<>|]/g, ' ')
+    .replace(/[^\w.-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'portfolio';
+  return `${Date.now()}-${crypto.randomUUID()}-${safeBase}.${getImageExtension(rawName, file?.mimeType)}`;
+}
+
 function getMetadataRecord(value: any): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
@@ -316,9 +360,10 @@ async function findDriveFilesByName(
 async function getDriveFileMetadata(
   accessToken: string,
   fileId: string,
+  fields = 'id,name,mimeType,size,parents,trashed',
 ): Promise<any | null> {
   const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true&fields=id,name,mimeType,size,parents,trashed`,
+    `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true&fields=${encodeURIComponent(fields)}`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
 
@@ -340,7 +385,7 @@ async function assertFileInFolder(
   if (!file) return null;
   if (file.trashed) throw new Error('Drive 파일이 이미 휴지통에 있습니다.');
   if (!Array.isArray(file.parents) || !file.parents.includes(folderId)) {
-    throw new Error('포트폴리오 폴더에 있는 파일만 처리할 수 있습니다.');
+    throw new Error('요청한 Drive 폴더에 있는 파일만 처리할 수 있습니다.');
   }
   return file;
 }
@@ -355,6 +400,66 @@ async function deleteDriveFile(accessToken: string, fileId: string): Promise<voi
     const errText = await res.text();
     throw new Error(`Delete failed: ${errText}`);
   }
+}
+
+async function copyDriveFile(
+  accessToken: string,
+  fileId: string,
+  folderId: string,
+  fileName: string,
+): Promise<any> {
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}/copy?supportsAllDrives=true&fields=id,name,mimeType,size,parents`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: fileName,
+        parents: [folderId],
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Drive copy failed: ${errText}`);
+  }
+
+  const copied = await res.json();
+  if (Array.isArray(copied.parents) && copied.parents.includes(folderId)) {
+    return copied;
+  }
+
+  const removeParents = Array.isArray(copied.parents)
+    ? copied.parents.filter((parentId: string) => parentId !== folderId).join(',')
+    : '';
+  const updateUrl = new URL(`https://www.googleapis.com/drive/v3/files/${copied.id}`);
+  updateUrl.searchParams.set('supportsAllDrives', 'true');
+  updateUrl.searchParams.set('addParents', folderId);
+  if (removeParents) updateUrl.searchParams.set('removeParents', removeParents);
+  updateUrl.searchParams.set('fields', 'id,name,mimeType,size,parents');
+
+  const updateRes = await fetch(updateUrl.toString(), {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({}),
+  });
+
+  if (!updateRes.ok) {
+    const errText = await updateRes.text();
+    await deleteDriveFile(accessToken, copied.id).catch((deleteError) => {
+      console.warn('Failed to clean up copied Drive file after move failure:', deleteError);
+    });
+    throw new Error(`Drive copied file move failed: ${errText}`);
+  }
+
+  return await updateRes.json();
 }
 
 async function getDriveFileMedia(
@@ -407,6 +512,46 @@ async function listDriveChildren(
     if (!res.ok) {
       const errText = await res.text();
       throw new Error(`Drive children list failed: ${errText}`);
+    }
+
+    const data = await res.json();
+    files.push(...(data.files || []));
+    pageToken = data.nextPageToken || '';
+  } while (pageToken);
+
+  return files;
+}
+
+async function listPortfolioDriveFolderFiles(
+  accessToken: string,
+  folderId: string,
+  driveId: string | null,
+): Promise<any[]> {
+  const files: any[] = [];
+  let pageToken = '';
+
+  do {
+    const q = `'${folderId}' in parents and trashed=false`;
+    const url = new URL('https://www.googleapis.com/drive/v3/files');
+    url.searchParams.set('q', q);
+    url.searchParams.set('supportsAllDrives', 'true');
+    url.searchParams.set('includeItemsFromAllDrives', 'true');
+    if (driveId) {
+      url.searchParams.set('corpora', 'drive');
+      url.searchParams.set('driveId', driveId);
+    } else {
+      url.searchParams.set('corpora', 'allDrives');
+    }
+    url.searchParams.set('fields', 'nextPageToken,files(id,name,size,mimeType,createdTime,modifiedTime,thumbnailLink,webViewLink,parents,driveId)');
+    url.searchParams.set('pageSize', '200');
+    if (pageToken) url.searchParams.set('pageToken', pageToken);
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Drive folder list failed: ${errText}`);
     }
 
     const data = await res.json();
@@ -795,6 +940,181 @@ serve(async (req) => {
         drivePath: folderPath.join('/'),
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (action === 'copy-portfolio-drive-files') {
+      const sourceFolderId = extractDriveFileId(body.sourceFolderId || body.sourceFolderUrl);
+      const files = Array.isArray(body.files) ? body.files.slice(0, 20) : [];
+      if (!sourceFolderId) throw new Error('Missing sourceFolderId');
+      if (files.length === 0) throw new Error('Missing files');
+
+      const folderPath = getPortfolioFolderPath(body);
+      const targetFolderId = await ensureFolderPath(accessToken, folderPath, sharedDriveId, sharedDriveId);
+      const copiedFiles: Record<string, unknown>[] = [];
+      const failures: Record<string, string>[] = [];
+
+      for (const item of files) {
+        const sourceFileId = extractDriveFileId(item?.id || item?.fileId);
+        const requestedName = String(item?.name || 'Drive 이미지');
+        if (!sourceFileId) {
+          failures.push({ sourceFileId: '', fileName: requestedName, error: 'Drive 파일 ID가 없습니다.' });
+          continue;
+        }
+
+        try {
+          const sourceFile = await assertFileInFolder(accessToken, sourceFileId, sourceFolderId);
+          if (!sourceFile) throw new Error('Drive 파일을 찾을 수 없습니다.');
+          if (!String(sourceFile.mimeType || '').startsWith('image/')) {
+            throw new Error('이미지 파일만 복제할 수 있습니다.');
+          }
+
+          const copied = await copyDriveFile(
+            accessToken,
+            sourceFileId,
+            targetFolderId,
+            makePortfolioCopyFileName(sourceFile),
+          );
+
+          copiedFiles.push({
+            sourceFileId,
+            fileId: copied.id,
+            fileName: copied.name || sourceFile.name || requestedName,
+            folderId: targetFolderId,
+            drivePath: folderPath.join('/'),
+            mimeType: copied.mimeType || sourceFile.mimeType || 'image/jpeg',
+            fileSize: Number(copied.size || sourceFile.size || 0),
+          });
+        } catch (copyError) {
+          failures.push({
+            sourceFileId,
+            fileName: requestedName,
+            error: copyError instanceof Error ? copyError.message : 'Drive 복제 실패',
+          });
+        }
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        folderId: targetFolderId,
+        drivePath: folderPath.join('/'),
+        copiedFiles,
+        failures,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (action === 'list-portfolio-drive-folder') {
+      const folderId = extractDriveFileId(body.folderId || body.folderUrl);
+      const serviceAccountEmail = serviceAccount.client_email || null;
+      if (!folderId) {
+        throw new Error('Drive 폴더 URL 또는 폴더 ID를 확인해주세요.');
+      }
+
+      try {
+        const folder = await getDriveFileMetadata(
+          accessToken,
+          folderId,
+          'id,name,mimeType,trashed,driveId,webViewLink',
+        );
+
+        if (!folder || folder.trashed || folder.mimeType !== 'application/vnd.google-apps.folder') {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Drive 폴더에 접근할 수 없습니다. 서비스 계정에 폴더 공유가 필요합니다.',
+            serviceAccountEmail,
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const children = await listPortfolioDriveFolderFiles(accessToken, folder.id, folder.driveId || null);
+        const imageFiles = children
+          .filter((file: any) => typeof file.mimeType === 'string' && file.mimeType.startsWith('image/'))
+          .sort((a: any, b: any) => String(a.name || '').localeCompare(String(b.name || ''), 'ko', { numeric: true }))
+          .map((file: any) => ({
+            id: file.id,
+            name: file.name || 'Drive 이미지',
+            mimeType: file.mimeType || 'application/octet-stream',
+            size: Number(file.size || 0),
+            createdTime: file.createdTime || null,
+            modifiedTime: file.modifiedTime || null,
+            thumbnailUrl: file.thumbnailLink || null,
+            webViewLink: file.webViewLink || driveFileViewLink(file.id),
+          }));
+        const unsupportedCount = children.filter((file: any) => (
+          file.mimeType !== 'application/vnd.google-apps.folder'
+          && !(typeof file.mimeType === 'string' && file.mimeType.startsWith('image/'))
+        )).length;
+
+        return new Response(JSON.stringify({
+          success: true,
+          folder: {
+            id: folder.id,
+            name: folder.name || 'Drive 폴더',
+            webViewLink: folder.webViewLink || null,
+          },
+          files: imageFiles,
+          unsupportedCount,
+          serviceAccountEmail,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (folderError) {
+        const detail = folderError instanceof Error ? folderError.message : String(folderError);
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Drive 폴더에 접근할 수 없습니다. 서비스 계정에 폴더 공유가 필요합니다.',
+          detail,
+          serviceAccountEmail,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    if (action === 'get-portfolio-drive-thumbnail') {
+      const { fileId, folderId } = body;
+      if (!fileId) throw new Error('Missing fileId');
+
+      if (folderId) {
+        await assertFileInFolder(accessToken, fileId, folderId);
+      }
+
+      const file = await getDriveFileMetadata(
+        accessToken,
+        fileId,
+        'id,name,mimeType,size,parents,trashed,thumbnailLink',
+      );
+      if (!file || file.trashed) throw new Error('Drive 파일을 찾을 수 없습니다.');
+
+      if (file.thumbnailLink) {
+        const thumbnailUrl = String(file.thumbnailLink).replace(/=s\d+$/, '=s600');
+        const thumbnailRes = await fetch(thumbnailUrl, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (thumbnailRes.ok) {
+          const contentType = thumbnailRes.headers.get('Content-Type') || 'image/jpeg';
+          return new Response(thumbnailRes.body, {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': contentType,
+              'X-Thumbnail-Mime-Type': contentType,
+              'Cache-Control': 'private, max-age=300',
+            },
+          });
+        }
+      }
+
+      const media = await getDriveFileMedia(accessToken, fileId);
+      return new Response(media.body, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': media.contentType,
+          'X-Thumbnail-Mime-Type': media.contentType,
+          'Cache-Control': 'private, max-age=300',
+        },
       });
     }
 

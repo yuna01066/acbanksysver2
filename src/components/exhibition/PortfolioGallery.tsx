@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import {
   Upload, Trash2, Image as ImageIcon, Loader2, Plus,
   ChevronLeft, ChevronRight, Search, RefreshCw, Eye, X, Hash, Clock, TrendingUp, Pencil,
-  ZoomIn, ZoomOut, Maximize2
+  ZoomIn, ZoomOut, Maximize2, FolderOpen, CheckSquare, Square, Link as LinkIcon
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -82,6 +82,49 @@ interface PortfolioThumbnailResult {
   height: number;
   bucket: string;
   path: string;
+}
+
+interface DriveFolderFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  createdTime: string | null;
+  modifiedTime: string | null;
+  thumbnailUrl: string | null;
+  webViewLink: string | null;
+}
+
+interface DriveFolderResult {
+  folder: {
+    id: string;
+    name: string;
+    webViewLink: string | null;
+  };
+  files: DriveFolderFile[];
+  unsupportedCount: number;
+  serviceAccountEmail: string | null;
+}
+
+type PendingPortfolioImage =
+  | { id: string; source: 'local'; file: File }
+  | { id: string; source: 'drive'; file: DriveFolderFile; folderId: string; folderName: string };
+
+interface CopiedPortfolioDriveFile {
+  sourceFileId: string;
+  fileId: string;
+  fileName: string;
+  folderId: string | null;
+  drivePath: string | null;
+  mimeType: string;
+  fileSize: number;
+}
+
+interface PortfolioDriveCopyResult {
+  folderId: string | null;
+  drivePath: string | null;
+  copiedFiles: CopiedPortfolioDriveFile[];
+  failures: Array<{ sourceFileId: string; fileName: string; error: string }>;
 }
 
 const LEGACY_PORTFOLIO_FOLDER = ['포트폴리오'];
@@ -231,6 +274,28 @@ async function createPortfolioThumbnail(
   } finally {
     bitmap.close();
   }
+}
+
+async function fetchPortfolioDriveThumbnailFile(file: DriveFolderFile, folderId?: string | null): Promise<File> {
+  const { data, error, response } = await supabase.functions.invoke('google-drive', {
+    body: {
+      action: 'get-portfolio-drive-thumbnail',
+      fileId: file.id,
+      folderId: folderId || undefined,
+    },
+  });
+
+  if (error || !(data instanceof Blob)) {
+    throw new Error(error?.message || 'Drive 썸네일을 불러오지 못했습니다.');
+  }
+
+  const contentType = response?.headers.get('X-Thumbnail-Mime-Type') || data.type || 'image/jpeg';
+  const extension = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+  const blob = new Blob([data], { type: contentType });
+  return new File([blob], `${makeStorageSafeName(file.name)}-drive-thumb.${extension}`, {
+    type: contentType,
+    lastModified: Date.now(),
+  });
 }
 
 async function createPortfolioThumbnailSignedUrl(image: PortfolioImage): Promise<string | null> {
@@ -386,6 +451,67 @@ async function uploadPortfolioThumbnail(thumbnail: PortfolioThumbnailResult): Pr
   if (error) throw error;
 }
 
+async function listPortfolioDriveFolder(folderUrl: string): Promise<DriveFolderResult> {
+  const { data, error } = await supabase.functions.invoke('google-drive', {
+    body: {
+      action: 'list-portfolio-drive-folder',
+      folderUrl,
+    },
+  });
+
+  if (error || !data?.success) {
+    const serviceAccount = data?.serviceAccountEmail ? ` 공유 대상: ${data.serviceAccountEmail}` : '';
+    throw new Error(error?.message || `${data?.error || 'Drive 폴더를 불러오지 못했습니다.'}${serviceAccount}`);
+  }
+
+  const files = ((data.files || []) as DriveFolderFile[]).map((file) => ({
+    ...file,
+    size: Number(file.size || 0),
+  }));
+
+  return {
+    folder: data.folder,
+    files,
+    unsupportedCount: Number(data.unsupportedCount || 0),
+    serviceAccountEmail: data.serviceAccountEmail || null,
+  };
+}
+
+async function copyPortfolioDriveFiles(params: {
+  sourceFolderId: string;
+  files: DriveFolderFile[];
+  category: string;
+  postTitle: string;
+}): Promise<PortfolioDriveCopyResult> {
+  if (params.files.length === 0) {
+    return { folderId: null, drivePath: null, copiedFiles: [], failures: [] };
+  }
+
+  const { data, error } = await supabase.functions.invoke('google-drive', {
+    body: {
+      action: 'copy-portfolio-drive-files',
+      sourceFolderId: params.sourceFolderId,
+      category: params.category,
+      postTitle: params.postTitle,
+      files: params.files.map(file => ({ id: file.id, name: file.name })),
+    },
+  });
+
+  if (error || !data?.success) {
+    throw new Error(error?.message || data?.error || 'Drive 사진 복제에 실패했습니다.');
+  }
+
+  return {
+    folderId: data.folderId || null,
+    drivePath: data.drivePath || null,
+    copiedFiles: ((data.copiedFiles || []) as CopiedPortfolioDriveFile[]).map(file => ({
+      ...file,
+      fileSize: Number(file.fileSize || 0),
+    })),
+    failures: data.failures || [],
+  };
+}
+
 async function fetchPortfolioOriginalImage(image: PortfolioImage): Promise<string> {
   if (image.image_url) return image.image_url;
 
@@ -406,37 +532,92 @@ async function fetchPortfolioOriginalImage(image: PortfolioImage): Promise<strin
   return URL.createObjectURL(blob);
 }
 
-function PendingImagePreview({
+function DriveFolderImagePreview({
   file,
-  isMain,
-  onRemove,
+  folderId,
+  enabled = true,
 }: {
-  file: File;
-  isMain: boolean;
-  onRemove: () => void;
+  file: DriveFolderFile;
+  folderId: string;
+  enabled?: boolean;
 }) {
   const [previewUrl, setPreviewUrl] = useState('');
 
   useEffect(() => {
-    const url = URL.createObjectURL(file);
+    if (!enabled) {
+      setPreviewUrl('');
+      return;
+    }
+
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
+    fetchPortfolioDriveThumbnailFile(file, folderId)
+      .then((thumbnailFile) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(thumbnailFile);
+        setPreviewUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewUrl('');
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [enabled, file, folderId]);
+
+  if (!previewUrl) {
+    return <ImageIcon className="h-5 w-5 text-muted-foreground" />;
+  }
+
+  return <img src={previewUrl} alt="" className="h-full w-full object-cover" />;
+}
+
+function PendingImagePreview({
+  item,
+  isMain,
+  onRemove,
+}: {
+  item: PendingPortfolioImage;
+  isMain: boolean;
+  onRemove: () => void;
+}) {
+  const [previewUrl, setPreviewUrl] = useState('');
+  const fileName = item.source === 'local' ? item.file.name : item.file.name;
+  const fileSize = item.source === 'local' ? item.file.size : item.file.size;
+
+  useEffect(() => {
+    if (item.source !== 'local') {
+      setPreviewUrl('');
+      return;
+    }
+
+    const url = URL.createObjectURL(item.file);
     setPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
-  }, [file]);
+  }, [item]);
 
   return (
     <div className="relative aspect-square overflow-hidden rounded-lg border bg-muted/30">
-      {previewUrl && <img src={previewUrl} alt="" className="h-full w-full object-cover" />}
+      {item.source === 'local'
+        ? previewUrl && <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+        : <div className="grid h-full w-full place-items-center"><DriveFolderImagePreview file={item.file} folderId={item.folderId} /></div>}
       {isMain && <Badge className="absolute left-1 top-1 px-1 py-0 text-[10px]">대표</Badge>}
+      {item.source === 'drive' && (
+        <Badge className="absolute left-1 top-6 rounded bg-blue-600 px-1 py-0 text-[10px] text-white">Drive</Badge>
+      )}
       <button
         type="button"
         className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white transition-colors hover:bg-destructive"
         onClick={onRemove}
-        aria-label={`${file.name} 제거`}
+        aria-label={`${fileName} 제거`}
       >
         <Trash2 className="h-3 w-3" />
       </button>
       <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white">
-        {formatBytes(file.size)}
+        {formatBytes(fileSize)}
       </span>
     </div>
   );
@@ -472,7 +653,11 @@ const PortfolioGallery = () => {
   const [newCategory, setNewCategory] = useState<string>(DEFAULT_PORTFOLIO_CATEGORY);
   const [newKeywords, setNewKeywords] = useState<string[]>([]);
   const [keywordInput, setKeywordInput] = useState('');
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [pendingImages, setPendingImages] = useState<PendingPortfolioImage[]>([]);
+  const [driveFolderUrl, setDriveFolderUrl] = useState('');
+  const [driveFolderResult, setDriveFolderResult] = useState<DriveFolderResult | null>(null);
+  const [selectedDriveFileIds, setSelectedDriveFileIds] = useState<string[]>([]);
+  const [loadingDriveFolder, setLoadingDriveFolder] = useState(false);
   const [creating, setCreating] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [currentOriginalImageUrl, setCurrentOriginalImageUrl] = useState<string | null>(null);
@@ -640,6 +825,15 @@ const PortfolioGallery = () => {
     setNewKeywords(prev => prev.filter(k => k !== keyword));
   };
 
+  const selectedDriveFileIdSet = useMemo(() => new Set(selectedDriveFileIds), [selectedDriveFileIds]);
+  const pendingDriveFileIdSet = useMemo(() => {
+    return new Set(
+      pendingImages
+        .filter((item): item is Extract<PendingPortfolioImage, { source: 'drive' }> => item.source === 'drive')
+        .map(item => item.file.id)
+    );
+  }, [pendingImages]);
+
   const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -656,23 +850,110 @@ const PortfolioGallery = () => {
       }
       return true;
     });
-    setPendingFiles(prev => {
+    setPendingImages(prev => {
       const availableSlots = Math.max(0, MAX_UPLOAD_FILES - prev.length);
       if (validFiles.length > availableSlots) {
         toast.error(`한 번에 최대 ${MAX_UPLOAD_FILES}장까지 등록할 수 있습니다.`);
       }
-      return [...prev, ...validFiles.slice(0, availableSlots)];
+      return [
+        ...prev,
+        ...validFiles.slice(0, availableSlots).map(file => ({
+          id: `local-${crypto.randomUUID()}`,
+          source: 'local' as const,
+          file,
+        })),
+      ];
     });
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const removePendingFile = (index: number) => {
-    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+  const removePendingImage = (index: number) => {
+    setPendingImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleLoadDriveFolder = useCallback(async () => {
+    if (!driveFolderUrl.trim()) {
+      toast.error('Drive 폴더 URL을 입력해주세요.');
+      return;
+    }
+
+    setLoadingDriveFolder(true);
+    try {
+      const result = await listPortfolioDriveFolder(driveFolderUrl.trim());
+      setDriveFolderResult(result);
+      if (!newTitle.trim()) setNewTitle(result.folder.name);
+
+      const availableSlots = Math.max(0, MAX_UPLOAD_FILES - pendingImages.length);
+      const selectableFiles = result.files
+        .filter(file => !pendingDriveFileIdSet.has(file.id))
+        .slice(0, availableSlots);
+      setSelectedDriveFileIds(selectableFiles.map(file => file.id));
+
+      if (result.files.length === 0) {
+        toast.warning('가져올 수 있는 이미지가 없습니다.');
+      } else {
+        toast.success(`Drive 사진 ${result.files.length}개를 불러왔습니다.`);
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+      setDriveFolderResult(null);
+      setSelectedDriveFileIds([]);
+    } finally {
+      setLoadingDriveFolder(false);
+    }
+  }, [driveFolderUrl, newTitle, pendingImages.length, pendingDriveFileIdSet]);
+
+  const toggleDriveFileSelection = (fileId: string) => {
+    setSelectedDriveFileIds(prev => (
+      prev.includes(fileId) ? prev.filter(id => id !== fileId) : [...prev, fileId]
+    ));
+  };
+
+  const selectAllDriveFiles = () => {
+    if (!driveFolderResult) return;
+    const availableSlots = Math.max(0, MAX_UPLOAD_FILES - pendingImages.length);
+    const ids = driveFolderResult.files
+      .filter(file => !pendingDriveFileIdSet.has(file.id))
+      .slice(0, availableSlots)
+      .map(file => file.id);
+    setSelectedDriveFileIds(ids);
+  };
+
+  const addSelectedDriveFiles = () => {
+    if (!driveFolderResult) return;
+
+    setPendingImages(prev => {
+      const availableSlots = Math.max(0, MAX_UPLOAD_FILES - prev.length);
+      const nextDriveFiles = driveFolderResult.files
+        .filter(file => selectedDriveFileIdSet.has(file.id))
+        .filter(file => !prev.some(item => item.source === 'drive' && item.file.id === file.id))
+        .slice(0, availableSlots);
+
+      if (nextDriveFiles.length === 0) {
+        toast.error('추가할 Drive 사진을 선택해주세요.');
+        return prev;
+      }
+      if (selectedDriveFileIds.length > availableSlots) {
+        toast.error(`한 번에 최대 ${MAX_UPLOAD_FILES}장까지 등록할 수 있습니다.`);
+      }
+
+      return [
+        ...prev,
+        ...nextDriveFiles.map(file => ({
+          id: `drive-${file.id}`,
+          source: 'drive' as const,
+          file,
+          folderId: driveFolderResult.folder.id,
+          folderName: driveFolderResult.folder.name,
+        })),
+      ];
+    });
+    setSelectedDriveFileIds([]);
   };
 
   const handleCreate = useCallback(async () => {
     if (!newTitle.trim()) { toast.error('제목을 입력해주세요.'); return; }
-    if (pendingFiles.length === 0) { toast.error('이미지를 최소 1개 추가해주세요.'); return; }
+    if (pendingImages.length === 0) { toast.error('이미지를 최소 1개 추가해주세요.'); return; }
 
     setCreating(true);
     setUploadStatus('등록 정보를 생성하는 중...');
@@ -693,50 +974,139 @@ const PortfolioGallery = () => {
       if (postError) throw postError;
       createdPostId = post.id;
 
-      for (let i = 0; i < pendingFiles.length; i++) {
-        const originalFile = pendingFiles[i];
-        setUploadStatus(`${i + 1}/${pendingFiles.length} 이미지 최적화 중...`);
-        const uploadFile = await optimizePortfolioImage(originalFile);
-        setUploadStatus(`${i + 1}/${pendingFiles.length} Drive 업로드 중...`);
-        const uploadData = await uploadPortfolioFile(uploadFile, { category: newCategory, postTitle });
-        uploadedDriveFiles.push({ fileId: uploadData.fileId, folderId: uploadData.folderId });
+      const driveItems = pendingImages.filter((item): item is Extract<PendingPortfolioImage, { source: 'drive' }> => item.source === 'drive');
+      const copiedFilesBySourceId = new Map<string, CopiedPortfolioDriveFile>();
+      const copyFailures: PortfolioDriveCopyResult['failures'] = [];
 
-        setUploadStatus(`${i + 1}/${pendingFiles.length} 썸네일 생성 중...`);
-        const thumbnail = await createPortfolioThumbnail(originalFile, post.id, i);
-        setUploadStatus(`${i + 1}/${pendingFiles.length} 썸네일 저장 중...`);
+      if (driveItems.length > 0) {
+        setUploadStatus(`Drive 사진 ${driveItems.length}개 복제 중...`);
+        const driveItemsByFolder = new Map<string, Extract<PendingPortfolioImage, { source: 'drive' }>[]>();
+        driveItems.forEach((item) => {
+          const items = driveItemsByFolder.get(item.folderId) || [];
+          items.push(item);
+          driveItemsByFolder.set(item.folderId, items);
+        });
+
+        for (const [sourceFolderId, items] of driveItemsByFolder) {
+          const copyResult = await copyPortfolioDriveFiles({
+            sourceFolderId,
+            files: items.map(item => item.file),
+            category: newCategory,
+            postTitle,
+          });
+
+          copyResult.copiedFiles.forEach((file) => {
+            copiedFilesBySourceId.set(file.sourceFileId, file);
+            uploadedDriveFiles.push({ fileId: file.fileId, folderId: file.folderId });
+          });
+          copyFailures.push(...copyResult.failures);
+        }
+      }
+
+      if (copiedFilesBySourceId.size === 0 && pendingImages.every(item => item.source === 'drive')) {
+        throw new Error(copyFailures.length > 0 ? `Drive 사진 복제 실패: ${copyFailures.map(f => f.fileName).join(', ')}` : '복제된 Drive 사진이 없습니다.');
+      }
+
+      let displayOrder = 0;
+      for (let i = 0; i < pendingImages.length; i++) {
+        const pendingImage = pendingImages[i];
+        const total = pendingImages.length;
+        let driveFileId: string;
+        let driveFolderId: string | null;
+        let drivePath: string | null;
+        let fileName: string;
+        let fileSize: number;
+        let mimeType: string;
+        let thumbnailSourceFile: File;
+
+        if (pendingImage.source === 'local') {
+          const originalFile = pendingImage.file;
+          setUploadStatus(`${i + 1}/${total} 이미지 최적화 중...`);
+          const uploadFile = await optimizePortfolioImage(originalFile);
+          setUploadStatus(`${i + 1}/${total} Drive 업로드 중...`);
+          const uploadData = await uploadPortfolioFile(uploadFile, { category: newCategory, postTitle });
+          uploadedDriveFiles.push({ fileId: uploadData.fileId, folderId: uploadData.folderId });
+
+          driveFileId = uploadData.fileId;
+          driveFolderId = uploadData.folderId;
+          drivePath = uploadData.drivePath;
+          fileName = originalFile.name;
+          fileSize = uploadData.fileSize;
+          mimeType = uploadData.mimeType;
+          thumbnailSourceFile = originalFile;
+        } else {
+          const copiedFile = copiedFilesBySourceId.get(pendingImage.file.id);
+          if (!copiedFile) continue;
+
+          const copiedPreviewFile: DriveFolderFile = {
+            id: copiedFile.fileId,
+            name: copiedFile.fileName,
+            mimeType: copiedFile.mimeType,
+            size: copiedFile.fileSize,
+            createdTime: null,
+            modifiedTime: null,
+            thumbnailUrl: null,
+            webViewLink: null,
+          };
+          setUploadStatus(`${i + 1}/${total} 복제본 썸네일 불러오는 중...`);
+          thumbnailSourceFile = await fetchPortfolioDriveThumbnailFile(copiedPreviewFile, copiedFile.folderId);
+
+          driveFileId = copiedFile.fileId;
+          driveFolderId = copiedFile.folderId;
+          drivePath = copiedFile.drivePath;
+          fileName = pendingImage.file.name;
+          fileSize = copiedFile.fileSize;
+          mimeType = copiedFile.mimeType || pendingImage.file.mimeType || 'image/jpeg';
+        }
+
+        setUploadStatus(`${i + 1}/${total} 썸네일 생성 중...`);
+        const thumbnail = await createPortfolioThumbnail(thumbnailSourceFile, post.id, displayOrder);
+        setUploadStatus(`${i + 1}/${total} 썸네일 저장 중...`);
         await uploadPortfolioThumbnail(thumbnail);
         uploadedThumbnails.push({ bucket: thumbnail.bucket, path: thumbnail.path });
 
         const { error: imageError } = await supabase.from('portfolio_images').insert({
           post_id: post.id,
-          drive_file_id: uploadData.fileId,
-          drive_folder_id: uploadData.folderId,
-          drive_path: uploadData.drivePath,
-          file_name: originalFile.name,
+          drive_file_id: driveFileId,
+          drive_folder_id: driveFolderId,
+          drive_path: drivePath,
+          file_name: fileName,
           thumbnail_url: null,
           image_url: null,
           thumbnail_bucket: thumbnail.bucket,
           thumbnail_path: thumbnail.path,
           thumbnail_width: thumbnail.width,
           thumbnail_height: thumbnail.height,
-          display_order: i,
-          is_main: i === 0,
-          file_size: uploadData.fileSize,
-          mime_type: uploadData.mimeType,
+          display_order: displayOrder,
+          is_main: displayOrder === 0,
+          file_size: fileSize,
+          mime_type: mimeType,
           storage_provider: 'google_drive',
           uploaded_by: user?.email || user?.id || null,
           access_level: 'internal',
           delete_status: 'active',
         });
         if (imageError) throw imageError;
+        displayOrder++;
       }
 
-      toast.success('포트폴리오가 등록되었습니다.');
+      if (displayOrder === 0) {
+        throw new Error('등록할 수 있는 이미지가 없습니다.');
+      }
+
+      if (copyFailures.length > 0) {
+        toast.warning(`포트폴리오 등록 완료. Drive 사진 ${copyFailures.length}개는 복제 실패로 제외되었습니다.`);
+      } else {
+        toast.success('포트폴리오가 등록되었습니다.');
+      }
       setShowCreateDialog(false);
       setNewTitle('');
       setNewCategory(DEFAULT_PORTFOLIO_CATEGORY);
       setNewKeywords([]);
-      setPendingFiles([]);
+      setPendingImages([]);
+      setDriveFolderUrl('');
+      setDriveFolderResult(null);
+      setSelectedDriveFileIds([]);
       setVisibleCount(PAGE_SIZE);
       qc.invalidateQueries({ queryKey: ['portfolio-posts'] });
       qc.invalidateQueries({ queryKey: ['portfolio-popular-keywords'] });
@@ -752,7 +1122,7 @@ const PortfolioGallery = () => {
       setCreating(false);
       setUploadStatus(null);
     }
-  }, [newTitle, newCategory, newKeywords, pendingFiles, user, qc]);
+  }, [newTitle, newCategory, newKeywords, pendingImages, user, qc]);
 
   const deleteMutation = useMutation({
     mutationFn: async (postId: string) => {
@@ -1061,7 +1431,7 @@ const PortfolioGallery = () => {
 
       {/* Create Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>포트폴리오 등록</DialogTitle>
           </DialogHeader>
@@ -1073,7 +1443,7 @@ const PortfolioGallery = () => {
             <div>
               <Label>저장 카테고리 *</Label>
               <p className="mb-2 text-xs text-muted-foreground">
-                원본 이미지는 Drive의 ACBANK_SYS/04_포트폴리오/{`{카테고리}`}/{`{제목}`} 폴더에 비공개 저장됩니다.
+                로컬 이미지와 Drive 복제 사진은 ACBANK_SYS/04_포트폴리오/{`{카테고리}`}/{`{제목}`} 폴더에 앱 관리본으로 저장됩니다.
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {PORTFOLIO_UPLOAD_CATEGORIES.map(category => (
@@ -1145,24 +1515,113 @@ const PortfolioGallery = () => {
               )}
             </div>
             <div>
-              <Label>이미지 ({pendingFiles.length}개) *</Label>
+              <Label className="flex items-center gap-1.5">
+                <FolderOpen className="h-4 w-4" />
+                Drive 폴더에서 복제 업로드
+              </Label>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <Input
+                  value={driveFolderUrl}
+                  onChange={e => setDriveFolderUrl(e.target.value)}
+                  placeholder="Google Drive 폴더 URL"
+                  disabled={creating || loadingDriveFolder}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleLoadDriveFolder}
+                  disabled={creating || loadingDriveFolder}
+                  className="shrink-0"
+                >
+                  {loadingDriveFolder ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <FolderOpen className="mr-1 h-4 w-4" />}
+                  불러오기
+                </Button>
+              </div>
+              {driveFolderResult && (
+                <div className="mt-3 space-y-3 rounded-lg border bg-muted/20 p-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold">{driveFolderResult.folder.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        이미지 {driveFolderResult.files.length}개
+                        {driveFolderResult.unsupportedCount > 0 ? ` · 미지원 ${driveFolderResult.unsupportedCount}개` : ''}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      {driveFolderResult.folder.webViewLink && (
+                        <Button type="button" variant="ghost" size="sm" asChild>
+                          <a href={driveFolderResult.folder.webViewLink} target="_blank" rel="noreferrer">
+                            <LinkIcon className="mr-1 h-4 w-4" />
+                            열기
+                          </a>
+                        </Button>
+                      )}
+                      <Button type="button" variant="outline" size="sm" onClick={selectAllDriveFiles} disabled={creating}>
+                        전체선택
+                      </Button>
+                      <Button type="button" size="sm" onClick={addSelectedDriveFiles} disabled={creating || selectedDriveFileIds.length === 0}>
+                        선택 추가
+                      </Button>
+                    </div>
+                  </div>
+                  {driveFolderResult.files.length > 0 && (
+                    <div className="grid max-h-72 grid-cols-3 gap-2 overflow-y-auto pr-1 sm:grid-cols-4 md:grid-cols-5">
+                      {driveFolderResult.files.map((file, index) => {
+                        const alreadyPending = pendingDriveFileIdSet.has(file.id);
+                        const disabled = creating || alreadyPending;
+                        const selected = selectedDriveFileIdSet.has(file.id);
+                        return (
+                          <button
+                            key={file.id}
+                            type="button"
+                            onClick={() => { if (!disabled) toggleDriveFileSelection(file.id); }}
+                            disabled={disabled}
+                            className={`min-w-0 rounded-lg border bg-white p-1 text-left transition-colors ${
+                              selected
+                                ? 'border-[#111111] ring-2 ring-[#111111]/20'
+                                : 'border-[#e5e5e5] hover:border-[#111111]'
+                            } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+                          >
+                            <span className="relative grid aspect-square place-items-center overflow-hidden rounded-md bg-muted">
+                              <DriveFolderImagePreview file={file} folderId={driveFolderResult.folder.id} enabled={index < 40 || selected} />
+                              <span className="absolute right-1 top-1 rounded bg-black/70 p-0.5 text-white">
+                                {selected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+                              </span>
+                              {alreadyPending && (
+                                <span className="absolute inset-x-1 bottom-1 rounded bg-black/70 px-1 py-0.5 text-center text-[10px] font-bold text-white">
+                                  추가됨
+                                </span>
+                              )}
+                            </span>
+                            <span className="mt-1 block truncate text-[11px] font-bold">{file.name}</span>
+                            <span className="block text-[10px] text-muted-foreground">{formatBytes(file.size)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div>
+              <Label>이미지 ({pendingImages.length}개) *</Label>
               <p className="mb-2 text-xs text-muted-foreground">
                 첫 번째 이미지가 대표 이미지로 표시됩니다. 최대 {MAX_UPLOAD_FILES}장, 파일당 {formatBytes(MAX_UPLOAD_IMAGE_BYTES)}까지 등록됩니다.
               </p>
               <div className="grid grid-cols-4 gap-2 mb-2">
-                {pendingFiles.map((file, i) => (
+                {pendingImages.map((item, i) => (
                   <PendingImagePreview
-                    key={`${file.name}-${file.lastModified}-${i}`}
-                    file={file}
+                    key={item.id}
+                    item={item}
                     isMain={i === 0}
-                    onRemove={() => removePendingFile(i)}
+                    onRemove={() => removePendingImage(i)}
                   />
                 ))}
                 <button
                   type="button"
                   className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary/50 transition-colors"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={pendingFiles.length >= MAX_UPLOAD_FILES}
+                  disabled={pendingImages.length >= MAX_UPLOAD_FILES}
                 >
                   <Plus className="h-5 w-5 text-muted-foreground" />
                 </button>
