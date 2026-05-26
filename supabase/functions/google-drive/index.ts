@@ -1246,6 +1246,8 @@ serve(async (req) => {
         return m === 'image/heic' || m === 'image/heif' || /\.(heic|heif)$/i.test(n);
       };
 
+      const mode = String(body.mode || 'flat');
+
       // List root children
       const rootChildren = await listPortfolioDriveFolderFiles(accessToken, root.id, sourceDriveId);
       const subfolders = rootChildren.filter((c: any) => c.mimeType === 'application/vnd.google-apps.folder');
@@ -1254,31 +1256,80 @@ serve(async (req) => {
       type Project = { title: string; folderId: string; files: any[]; category: string };
       const projects: Project[] = [];
 
-      for (const sub of subfolders) {
-        const children = await listPortfolioDriveFolderFiles(accessToken, sub.id, sourceDriveId);
-        const images = children
-          .filter((c: any) => isImage(c.mimeType) && !isDupName(c.name))
-          .sort((a: any, b: any) =>
-            String(b.modifiedTime || b.createdTime || '').localeCompare(String(a.modifiedTime || a.createdTime || '')))
-          .slice(0, maxImagesPerPost);
-        projects.push({
-          title: sanitizeDriveFolderName(sub.name),
-          folderId: sub.id,
-          files: images,
-          category: categorizeByName(sub.name),
-        });
-      }
+      // Recursively gather all images under a folder (any depth)
+      const gatherImagesRecursive = async (folderId: string, depth = 0): Promise<any[]> => {
+        if (depth > 6) return [];
+        const items = await listPortfolioDriveFolderFiles(accessToken, folderId, sourceDriveId);
+        const imgs: any[] = [];
+        for (const it of items) {
+          if (it.mimeType === 'application/vnd.google-apps.folder') {
+            const nested = await gatherImagesRecursive(it.id, depth + 1);
+            imgs.push(...nested);
+          } else if (isImage(it.mimeType) && !isDupName(it.name)) {
+            imgs.push(it);
+          }
+        }
+        return imgs;
+      };
 
-      if (directImages.length > 0) {
-        projects.push({
-          title: sanitizeDriveFolderName(root.name),
-          folderId: root.id,
-          files: directImages
+      if (mode === 'category-subfolders') {
+        // 2nd pass: only enumerate project folder *names/ids* up front (cheap).
+        // Defer recursive image gathering to the per-project loop after slicing,
+        // so we don't blow the 150s idle timeout on large trees.
+        type Stub = { title: string; folderId: string; category: string };
+        const stubs: Stub[] = [];
+        for (const cat of subfolders) {
+          const catName = String(cat.name || '');
+          const category = categorizeByName(catName);
+          const catChildren = await listPortfolioDriveFolderFiles(accessToken, cat.id, sourceDriveId);
+          const projectFolders = catChildren.filter((c: any) => c.mimeType === 'application/vnd.google-apps.folder');
+          for (const pf of projectFolders) {
+            stubs.push({
+              title: sanitizeDriveFolderName(pf.name).replace(/^\d+\.\s*/, ''),
+              folderId: pf.id,
+              category,
+            });
+          }
+        }
+        // Only gather images for the slice we'll actually process this request.
+        const sliceStubs = stubs.slice(projectStart, Math.min(projectStart + projectLimit, stubs.length));
+        for (const s of sliceStubs) {
+          const imgs = await gatherImagesRecursive(s.folderId);
+          const sorted = imgs
             .sort((a: any, b: any) =>
               String(b.modifiedTime || b.createdTime || '').localeCompare(String(a.modifiedTime || a.createdTime || '')))
-            .slice(0, maxImagesPerPost),
-          category: categorizeByName(root.name),
-        });
+            .slice(0, maxImagesPerPost);
+          projects.push({ title: s.title, folderId: s.folderId, files: sorted, category: s.category });
+        }
+        // Override slicing later: we already pre-sliced, so reset projectStart effect.
+        (body as any).__preSliced = { total: stubs.length, start: projectStart, end: projectStart + sliceStubs.length };
+      } else {
+        for (const sub of subfolders) {
+          const children = await listPortfolioDriveFolderFiles(accessToken, sub.id, sourceDriveId);
+          const images = children
+            .filter((c: any) => isImage(c.mimeType) && !isDupName(c.name))
+            .sort((a: any, b: any) =>
+              String(b.modifiedTime || b.createdTime || '').localeCompare(String(a.modifiedTime || a.createdTime || '')))
+            .slice(0, maxImagesPerPost);
+          projects.push({
+            title: sanitizeDriveFolderName(sub.name),
+            folderId: sub.id,
+            files: images,
+            category: categorizeByName(sub.name),
+          });
+        }
+
+        if (directImages.length > 0) {
+          projects.push({
+            title: sanitizeDriveFolderName(root.name),
+            folderId: root.id,
+            files: directImages
+              .sort((a: any, b: any) =>
+                String(b.modifiedTime || b.createdTime || '').localeCompare(String(a.modifiedTime || a.createdTime || '')))
+              .slice(0, maxImagesPerPost),
+            category: categorizeByName(root.name),
+          });
+        }
       }
 
       // Pilot mode: pick exactly 1 JPG + 1 HEIC across all projects
@@ -1335,11 +1386,13 @@ serve(async (req) => {
 
       const targetDriveId = sharedDriveId;
 
-      const totalProjects = projects.length;
-      const sliceEnd = Math.min(projectStart + projectLimit, totalProjects);
-      const projectsSlice = projects.slice(projectStart, sliceEnd);
+      const preSliced = (body as any).__preSliced as { total: number; start: number; end: number } | undefined;
+      const totalProjects = preSliced ? preSliced.total : projects.length;
+      const effectiveStart = preSliced ? preSliced.start : projectStart;
+      const sliceEnd = preSliced ? preSliced.end : Math.min(projectStart + projectLimit, totalProjects);
+      const projectsSlice = preSliced ? projects : projects.slice(projectStart, sliceEnd);
       report.totalProjects = totalProjects;
-      report.projectStart = projectStart;
+      report.projectStart = effectiveStart;
       report.projectEnd = sliceEnd;
       report.hasMore = sliceEnd < totalProjects;
 
