@@ -761,12 +761,20 @@ serve(async (req) => {
       'sync-pending-document-files',
       'list-drive-usage',
       'delete-file',
+      'bulk-import-portfolio-folder',
     ]);
 
+
+    const useInternalSecret = action === 'bulk-import-portfolio-folder';
     await requireFunctionAuth(
       req,
-      adminActions.has(action) ? { allowedRoles: ['admin', 'moderator'] } : {},
+      {
+        ...(adminActions.has(action) ? { allowedRoles: ['admin', 'moderator'] as ('admin' | 'moderator')[] } : {}),
+        ...(useInternalSecret ? { allowInternalSecret: true } : {}),
+      },
     );
+
+
 
     const { serviceAccount, sharedDriveId } = getConfig();
     const accessToken = await getAccessToken(serviceAccount);
@@ -1204,7 +1212,275 @@ serve(async (req) => {
       });
     }
 
+    if (action === 'bulk-import-portfolio-folder') {
+      const rootFolderId = extractDriveFileId(body.rootFolderId || body.folderId);
+      if (!rootFolderId) throw new Error('Missing rootFolderId');
+      const maxImagesPerPost = Math.min(Number(body.maxImagesPerPost || 20), 20);
+      const pilot = !!body.pilot;
+      const createdBy = String(body.createdBy || 'bulk-import');
+      const dryRun = !!body.dryRun;
+
+      const supabaseAdmin = getSupabaseAdminClient();
+      const driveIdForList = sharedDriveId;
+
+      const root = await getDriveFileMetadata(accessToken, rootFolderId, 'id,name,mimeType,driveId,trashed');
+      if (!root || root.trashed || root.mimeType !== 'application/vnd.google-apps.folder') {
+        throw new Error('Root Drive 폴더에 접근할 수 없습니다.');
+      }
+      const sourceDriveId = root.driveId || driveIdForList;
+
+      const categorizeByName = (name: string): string => {
+        const n = String(name || '');
+        if (/사인물|사인|디스플레이|signage/i.test(n)) return '사인/디스플레이';
+        if (/쇼룸|아트월|인테리어|interior/i.test(n)) return '인테리어';
+        if (/오브제|작품|집기|빅더미|제작|가공/i.test(n)) return '제작가공';
+        return '기타';
+      };
+      const isDupName = (name: string): boolean => /복사본|사본|copy|\s\(\d+\)/i.test(name);
+      const isImage = (mime?: string | null): boolean => !!mime && String(mime).startsWith('image/');
+      const isHeic = (mime?: string | null, name?: string | null): boolean => {
+        const m = String(mime || '').toLowerCase();
+        const n = String(name || '').toLowerCase();
+        return m === 'image/heic' || m === 'image/heif' || /\.(heic|heif)$/i.test(n);
+      };
+
+      // List root children
+      const rootChildren = await listPortfolioDriveFolderFiles(accessToken, root.id, sourceDriveId);
+      const subfolders = rootChildren.filter((c: any) => c.mimeType === 'application/vnd.google-apps.folder');
+      const directImages = rootChildren.filter((c: any) => isImage(c.mimeType) && !isDupName(c.name));
+
+      type Project = { title: string; folderId: string; files: any[]; category: string };
+      const projects: Project[] = [];
+
+      for (const sub of subfolders) {
+        const children = await listPortfolioDriveFolderFiles(accessToken, sub.id, sourceDriveId);
+        const images = children
+          .filter((c: any) => isImage(c.mimeType) && !isDupName(c.name))
+          .sort((a: any, b: any) =>
+            String(b.modifiedTime || b.createdTime || '').localeCompare(String(a.modifiedTime || a.createdTime || '')))
+          .slice(0, maxImagesPerPost);
+        projects.push({
+          title: sanitizeDriveFolderName(sub.name),
+          folderId: sub.id,
+          files: images,
+          category: categorizeByName(sub.name),
+        });
+      }
+
+      if (directImages.length > 0) {
+        projects.push({
+          title: sanitizeDriveFolderName(root.name),
+          folderId: root.id,
+          files: directImages
+            .sort((a: any, b: any) =>
+              String(b.modifiedTime || b.createdTime || '').localeCompare(String(a.modifiedTime || a.createdTime || '')))
+            .slice(0, maxImagesPerPost),
+          category: categorizeByName(root.name),
+        });
+      }
+
+      // Pilot mode: pick exactly 1 JPG + 1 HEIC across all projects
+      if (pilot) {
+        const jpgPick: { project: Project; file: any } | null = (() => {
+          for (const p of projects) {
+            const f = p.files.find((x: any) => /image\/jpe?g/i.test(x.mimeType) && !isHeic(x.mimeType, x.name));
+            if (f) return { project: p, file: f };
+          }
+          return null;
+        })();
+        const heicPick: { project: Project; file: any } | null = (() => {
+          for (const p of projects) {
+            const f = p.files.find((x: any) => isHeic(x.mimeType, x.name));
+            if (f) return { project: p, file: f };
+          }
+          return null;
+        })();
+        const picks = new Map<string, Project>();
+        const addPick = (sel: { project: Project; file: any } | null) => {
+          if (!sel) return;
+          const existing = picks.get(sel.project.title);
+          if (existing) {
+            existing.files = [...existing.files, sel.file];
+          } else {
+            picks.set(sel.project.title, { ...sel.project, files: [sel.file] });
+          }
+        };
+        addPick(jpgPick);
+        addPick(heicPick);
+        projects.length = 0;
+        projects.push(...picks.values());
+      }
+
+      const report: any = {
+        rootFolder: { id: root.id, name: root.name },
+        projects: [],
+        postsCreated: 0,
+        postsUpdated: 0,
+        imagesInserted: 0,
+        skipped: [] as Array<{ project: string; file: string; reason: string }>,
+        failures: [] as Array<{ project: string; file?: string; error: string }>,
+      };
+
+      if (dryRun) {
+        report.projects = projects.map(p => ({
+          title: p.title, category: p.category, imageCount: p.files.length,
+          files: p.files.map((f: any) => ({ name: f.name, mimeType: f.mimeType, size: f.size })),
+        }));
+        return new Response(JSON.stringify({ success: true, dryRun: true, ...report }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const targetDriveId = sharedDriveId;
+
+      for (const project of projects) {
+        try {
+          // Find existing post by title
+          const { data: existing } = await supabaseAdmin
+            .from('portfolio_posts')
+            .select('id, keywords')
+            .eq('title', project.title)
+            .maybeSingle();
+
+          let postId: string;
+          let isNewPost = false;
+          if (existing?.id) {
+            postId = existing.id as string;
+            report.postsUpdated++;
+            // Ensure category keyword exists
+            const kws: string[] = Array.isArray(existing.keywords) ? existing.keywords as string[] : [];
+            if (!kws.includes(project.category)) {
+              await supabaseAdmin.from('portfolio_posts').update({
+                keywords: Array.from(new Set([...kws, project.category])),
+              }).eq('id', postId);
+            }
+          } else {
+            const { data: inserted, error: insertErr } = await supabaseAdmin
+              .from('portfolio_posts')
+              .insert({ title: project.title, keywords: [project.category], created_by: createdBy })
+              .select('id')
+              .single();
+            if (insertErr) throw insertErr;
+            postId = (inserted as any).id;
+            isNewPost = true;
+            report.postsCreated++;
+          }
+
+          // Existing images: dedupe by file_name
+          const { data: existingImgs } = await supabaseAdmin
+            .from('portfolio_images')
+            .select('file_name, display_order')
+            .eq('post_id', postId);
+          const existingNames = new Set<string>((existingImgs || []).map((r: any) => String(r.file_name).toLowerCase()));
+          let nextOrder = (existingImgs && existingImgs.length > 0)
+            ? Math.max(...existingImgs.map((r: any) => Number(r.display_order || 0))) + 1
+            : 0;
+
+          // Ensure managed Drive folder
+          const folderPath = [...PORTFOLIO_DRIVE_ROOT, project.category, sanitizeDriveFolderName(project.title)];
+          const targetFolderId = await ensureFolderPath(accessToken, folderPath, targetDriveId, targetDriveId);
+
+          const projReport = { title: project.title, category: project.category, inserted: 0, skipped: 0, failed: 0 };
+
+          for (const file of project.files) {
+            const fname = String(file.name || '');
+            try {
+              if (existingNames.has(fname.toLowerCase())) {
+                report.skipped.push({ project: project.title, file: fname, reason: 'duplicate_in_post' });
+                projReport.skipped++;
+                continue;
+              }
+
+              // Copy original to managed Drive (preserve original in source per spec)
+              const copied = await copyDriveFile(accessToken, file.id, targetFolderId, makePortfolioCopyFileName(file));
+
+              // Thumbnail: download Drive thumbnail (JPEG) of the copied file at s=600
+              // Use source file thumbnail since it's already generated by Drive
+              const thumbMeta = await getDriveFileMetadata(accessToken, file.id, 'id,thumbnailLink,name');
+              let thumbBuf: Uint8Array | null = null;
+              const tlink = thumbMeta?.thumbnailLink ? String(thumbMeta.thumbnailLink).replace(/=s\d+$/, '=s600') : null;
+              if (tlink) {
+                const tres = await fetch(tlink, { headers: { Authorization: `Bearer ${accessToken}` } });
+                if (tres.ok) {
+                  thumbBuf = new Uint8Array(await tres.arrayBuffer());
+                }
+              }
+              // Fallback: for non-HEIC, download original as thumbnail proxy
+              if (!thumbBuf && !isHeic(file.mimeType, fname)) {
+                const tres = await fetch(
+                  `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media&supportsAllDrives=true`,
+                  { headers: { Authorization: `Bearer ${accessToken}` } },
+                );
+                if (tres.ok) thumbBuf = new Uint8Array(await tres.arrayBuffer());
+              }
+              if (!thumbBuf) {
+                report.skipped.push({ project: project.title, file: fname, reason: 'no_thumbnail_available' });
+                projReport.skipped++;
+                // Best-effort: delete copy to avoid orphan
+                await deleteDriveFile(accessToken, copied.id).catch(() => {});
+                continue;
+              }
+
+              const thumbBucket = 'portfolio-thumbnails';
+              const thumbPath = `${postId}/${nextOrder}-${crypto.randomUUID()}.jpg`;
+              const { error: upErr } = await supabaseAdmin.storage
+                .from(thumbBucket)
+                .upload(thumbPath, thumbBuf, { contentType: 'image/jpeg', upsert: false });
+              if (upErr) throw new Error(`thumbnail upload failed: ${upErr.message}`);
+
+              const { error: imgErr } = await supabaseAdmin.from('portfolio_images').insert({
+                post_id: postId,
+                drive_file_id: copied.id,
+                drive_folder_id: targetFolderId,
+                drive_path: folderPath.join('/'),
+                file_name: fname,
+                thumbnail_url: null,
+                image_url: null,
+                thumbnail_bucket: thumbBucket,
+                thumbnail_path: thumbPath,
+                thumbnail_width: null,
+                thumbnail_height: null,
+                display_order: nextOrder,
+                is_main: nextOrder === 0,
+                file_size: Number(copied.size || file.size || 0),
+                mime_type: copied.mimeType || file.mimeType || 'image/jpeg',
+                storage_provider: 'google_drive',
+                uploaded_by: createdBy,
+                access_level: 'internal',
+                delete_status: 'active',
+              });
+              if (imgErr) throw imgErr;
+
+              existingNames.add(fname.toLowerCase());
+              nextOrder++;
+              report.imagesInserted++;
+              projReport.inserted++;
+            } catch (fileErr) {
+              const msg = fileErr instanceof Error ? fileErr.message : String(fileErr);
+              report.failures.push({ project: project.title, file: fname, error: msg });
+              projReport.failed++;
+            }
+          }
+
+          // If we just created a post but inserted 0 images, remove it
+          if (isNewPost && projReport.inserted === 0) {
+            await supabaseAdmin.from('portfolio_posts').delete().eq('id', postId);
+            report.postsCreated--;
+          }
+          report.projects.push(projReport);
+        } catch (projErr) {
+          const msg = projErr instanceof Error ? projErr.message : String(projErr);
+          report.failures.push({ project: project.title, error: msg });
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, ...report }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (action === 'delete-file') {
+
       const { fileId } = body;
       if (!fileId) throw new Error('Missing fileId');
       await deleteDriveFile(accessToken, fileId);
