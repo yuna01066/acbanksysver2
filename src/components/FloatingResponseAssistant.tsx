@@ -378,12 +378,13 @@ const FloatingResponseAssistant: React.FC = () => {
               )}
               {activeTool === 'meetingBooking' && (
                 <MeetingBookingWidget
+                  compactLayout
                   showHeader={false}
                   defaultAudienceType="client"
                   maxItems={6}
                   title="상담/미팅 예약"
                   description="직원 미팅과 클라이언트 상담 일정을 빠르게 예약합니다."
-                  className="max-w-none rounded-[24px] border-0 shadow-none"
+                  className="max-w-full overflow-hidden rounded-[24px] border-0 shadow-none"
                 />
               )}
             </div>
