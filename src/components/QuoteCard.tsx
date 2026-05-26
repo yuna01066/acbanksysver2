@@ -70,6 +70,8 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
         color: quote.selectedColor || '',
         colorHex: quote.selectedColorHex || '',
         surfaceType: quote.surface || '',
+        productType: '',
+        bondingMethod: '',
         notes: quote.breakdown?.map(item => `${item.label}: ${formatPrice(item.price)}`).join('\n') || '',
       };
 

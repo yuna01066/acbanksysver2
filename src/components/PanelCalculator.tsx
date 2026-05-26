@@ -267,6 +267,8 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
           color: typeof manualProductItemRecord.color === 'string' ? manualProductItemRecord.color : '',
           colorHex: typeof manualProductItemRecord.colorHex === 'string' ? manualProductItemRecord.colorHex : '',
           surfaceType: typeof manualProductItemRecord.surfaceType === 'string' ? manualProductItemRecord.surfaceType : '',
+          productType: typeof manualProductItemRecord.productType === 'string' ? manualProductItemRecord.productType : '',
+          bondingMethod: typeof manualProductItemRecord.bondingMethod === 'string' ? manualProductItemRecord.bondingMethod : '',
           notes: typeof manualProductItemRecord.notes === 'string' ? manualProductItemRecord.notes : '',
           calculationBreakdown: Array.isArray(manualProductItemRecord.calculationBreakdown)
             ? manualProductItemRecord.calculationBreakdown as { label: string; price: number }[]
@@ -649,6 +651,8 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         color: '',
         colorHex: '',
         surfaceType: '',
+        productType: '',
+        bondingMethod: '',
         notes: ''
       }]);
       setCurrentStep(100); // 제품 제작 전용 단계
@@ -1166,15 +1170,18 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
     const quoteDataList: QuoteDraft[] = validItems.map(item => {
       const sizeParts = [item.sizeWidth, item.sizeHeight, item.sizeDepth].filter(p => p.trim());
       const sizeStr = sizeParts.length > 0 ? sizeParts.join(' × ') : '-';
+      const itemTotal = item.unitPrice * item.quantity;
+      const fabricationTags = [item.productType, item.bondingMethod].filter(Boolean).join(' / ');
       
-      const breakdownItems: { label: string; price: number }[] = item.calculationBreakdown?.length
-        ? item.calculationBreakdown.map(entry => ({ ...entry }))
-        : [
-            { label: `${item.name} (${item.quantity}개 × ₩${item.unitPrice.toLocaleString()})`, price: item.unitPrice * item.quantity }
-          ];
+      const breakdownItems: { label: string; price: number }[] = [
+        {
+          label: `${fabricationTags ? `${fabricationTags} - ` : ''}제품 제작 수동 단가 (${item.quantity}개 × ₩${item.unitPrice.toLocaleString()})`,
+          price: itemTotal,
+        }
+      ];
       
       if (item.notes.trim()) {
-        breakdownItems.push({ label: `기타: ${item.notes}`, price: 0 });
+        breakdownItems.push({ label: `메모: ${item.notes}`, price: 0 });
       }
 
       return {
@@ -1188,11 +1195,11 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         selectedColorHex: item.colorHex || '',
         customColorName: '',
         customOpacity: '',
-        surface: item.surfaceType || '-',
+        surface: fabricationTags || item.surfaceType || '-',
         colorMixingCost: 0,
         processing: 'manual',
         processingName: `${item.itemNumber ? `[${item.itemNumber}] ` : ''}${item.name}`,
-        totalPrice: item.unitPrice * item.quantity,
+        totalPrice: itemTotal,
         quantity: 1,
         breakdown: breakdownItems,
         pricingVersionId: activePricingVersion?.id || null,
@@ -1200,10 +1207,15 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         quoteStyle: 'fabrication' as const,
         calculationSnapshot: createCalculationSnapshot(
           breakdownItems,
-          item.unitPrice * item.quantity,
+          itemTotal,
           {
             manualProductItem: { ...item },
-            pricingMeta: item.pricingMeta || null,
+            pricingMeta: {
+              ...(item.pricingMeta || {}),
+              pricingType: 'manual-fabrication-unit-price',
+              productType: item.productType || null,
+              bondingMethod: item.bondingMethod || null,
+            },
           }
         )
       };
