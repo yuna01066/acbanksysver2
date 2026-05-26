@@ -134,7 +134,7 @@ const IncidentReportPanel: React.FC<IncidentReportPanelProps> = ({ isAdminView =
 
   useEffect(() => {
     if (isAdminView && canManage) {
-      supabase.from('profiles').select('id, full_name, department').eq('is_approved', true).order('full_name')
+      supabase.from('profile_directory' as any).select('id, full_name, department').order('full_name')
         .then(({ data }) => { if (data) setEmployees(data as any[]); });
     }
   }, [isAdminView, canManage]);

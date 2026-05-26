@@ -116,9 +116,8 @@ const AnnouncementsPage = () => {
     queryKey: ['employees-for-announcement'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profiles')
+        .from('profile_directory' as any)
         .select('id, full_name')
-        .eq('is_approved', true)
         .order('full_name');
       if (error) throw error;
       return data;
@@ -232,9 +231,8 @@ const AnnouncementsPage = () => {
 
         // Notify all users
         const { data: allProfiles } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('is_approved', true);
+          .from('profile_directory' as any)
+          .select('id');
 
         if (allProfiles && allProfiles.length > 0) {
           const notiTitle = announcementType === 'conference' ? '📋 회의 공지'

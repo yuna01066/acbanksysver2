@@ -47,9 +47,9 @@ const DepartmentWorkPatternAnalysis: React.FC = () => {
     queryKey: ['dept-pattern-employees'],
     queryFn: async () => {
       const { data } = await supabase
-        .from('profiles')
+        .from('profile_directory' as any)
         .select('id, full_name, department')
-        .eq('is_approved', true);
+        .order('full_name');
       return data || [];
     },
   });

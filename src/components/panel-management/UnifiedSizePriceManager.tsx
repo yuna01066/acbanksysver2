@@ -124,7 +124,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
     console.log('Setting up realtime subscription for panel_sizes');
 
     const channel = supabase
-      .channel('panel-sizes-changes')
+      .channel('panel-sizes-changes', { config: { private: true } })
       .on(
         'postgres_changes',
         {

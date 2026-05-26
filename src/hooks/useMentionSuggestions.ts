@@ -14,11 +14,10 @@ export const useMentionSuggestions = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       const { data } = await supabase
-        .from('profiles')
+        .from('profile_directory' as any)
         .select('id, full_name, avatar_url, department')
-        .eq('is_approved', true)
         .order('full_name');
-      if (data) setUsers(data);
+      if (data) setUsers(data as MentionUser[]);
     };
     fetchUsers();
   }, []);

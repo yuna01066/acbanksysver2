@@ -70,6 +70,7 @@ const OnlineEmployeesCard: React.FC = () => {
   const [myStatus, setMyStatus] = useState<WorkStatus>('available');
   const [statusMap, setStatusMap] = useState<Record<string, WorkStatus>>({});
   const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
+  const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
     fetchCheckedInEmployees();
@@ -80,8 +81,9 @@ const OnlineEmployeesCard: React.FC = () => {
     if (!user) return;
 
     const channel = supabase.channel('employee-status', {
-      config: { presence: { key: user.id } },
+      config: { private: true, presence: { key: user.id } },
     });
+    presenceChannelRef.current = channel;
 
     channel
       .on('presence', { event: 'sync' }, () => {
@@ -102,6 +104,7 @@ const OnlineEmployeesCard: React.FC = () => {
       });
 
     return () => {
+      presenceChannelRef.current = null;
       supabase.removeChannel(channel);
     };
   }, [user]);
@@ -111,37 +114,24 @@ const OnlineEmployeesCard: React.FC = () => {
     setMyStatus(newStatus);
     setStatusPopoverOpen(false);
 
-    const channel = supabase.channel('employee-status');
-    await channel.track({ status: newStatus, online_at: new Date().toISOString() });
+    await presenceChannelRef.current?.track({ status: newStatus, online_at: new Date().toISOString() });
     toast.success(`상태가 "${STATUS_CONFIG[newStatus].label}"(으)로 변경되었습니다`);
   }, []);
 
   const fetchCheckedInEmployees = async () => {
-    const today = new Date().toISOString().split('T')[0];
-    
     const { data: attendanceData, error: attError } = await supabase
-      .from('attendance_records')
-      .select('user_id, user_name, check_in')
-      .eq('date', today)
-      .in('status', ['checked_in', 'present']);
+      .from('checked_in_employee_status' as any)
+      .select('user_id, user_name, check_in, avatar_url, department, position')
+      .order('check_in', { ascending: true });
 
     if (attError || !attendanceData) {
       setLoading(false);
       return;
     }
 
-    const userIds = attendanceData.map(a => a.user_id);
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, avatar_url, department, position')
-      .in('id', userIds);
-
-    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-
-    const merged = attendanceData.map(a => {
-      const profile = profileMap.get(a.user_id);
+    const merged = (attendanceData as CheckedInEmployee[]).map(a => {
       // Refresh cache-busting param to avoid stale cached images
-      let avatarUrl = profile?.avatar_url || null;
+      let avatarUrl = a.avatar_url || null;
       if (avatarUrl) {
         const base = avatarUrl.split('?')[0];
         avatarUrl = `${base}?t=${Date.now()}`;
@@ -149,8 +139,6 @@ const OnlineEmployeesCard: React.FC = () => {
       return {
         ...a,
         avatar_url: avatarUrl,
-        department: profile?.department,
-        position: profile?.position,
       };
     });
 

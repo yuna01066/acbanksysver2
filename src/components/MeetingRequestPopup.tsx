@@ -39,7 +39,7 @@ const MeetingRequestPopup: React.FC = () => {
     fetchPendingRequests();
 
     const channel = supabase
-      .channel('meeting-requests-popup')
+      .channel('meeting-requests-popup', { config: { private: true } })
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -72,7 +72,7 @@ const MeetingRequestPopup: React.FC = () => {
     // Fetch sender profiles
     const senderIds = [...new Set(data.map(d => d.sender_id))];
     const { data: profiles } = await supabase
-      .from('profiles')
+      .from('profile_directory' as any)
       .select('id, full_name, avatar_url, department')
       .in('id', senderIds);
 

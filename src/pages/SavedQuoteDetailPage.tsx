@@ -175,7 +175,7 @@ const SavedQuoteDetailPage = () => {
 
   const fetchQuoteDefaults = async () => {
     const { data } = await supabase
-      .from('company_info')
+      .from('company_quote_defaults' as any)
       .select('*')
       .limit(1)
       .maybeSingle();

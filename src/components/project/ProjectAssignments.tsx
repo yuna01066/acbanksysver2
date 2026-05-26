@@ -34,9 +34,8 @@ const ProjectAssignments: React.FC<Props> = ({ projectId }) => {
     queryKey: ['all-employees'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profiles')
+        .from('profile_directory' as any)
         .select('id, full_name, department, position')
-        .eq('is_approved', true)
         .order('full_name');
       if (error) throw error;
       return data;
