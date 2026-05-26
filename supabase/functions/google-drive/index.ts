@@ -1335,7 +1335,15 @@ serve(async (req) => {
 
       const targetDriveId = sharedDriveId;
 
-      for (const project of projects) {
+      const totalProjects = projects.length;
+      const sliceEnd = Math.min(projectStart + projectLimit, totalProjects);
+      const projectsSlice = projects.slice(projectStart, sliceEnd);
+      report.totalProjects = totalProjects;
+      report.projectStart = projectStart;
+      report.projectEnd = sliceEnd;
+      report.hasMore = sliceEnd < totalProjects;
+
+      for (const project of projectsSlice) {
         try {
           // Find existing post by title
           const { data: existing } = await supabaseAdmin
