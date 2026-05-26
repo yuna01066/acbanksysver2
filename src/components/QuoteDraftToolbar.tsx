@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { type MouseEvent, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,8 +7,8 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuotes } from '@/contexts/QuoteContext';
-import { listQuoteDrafts, type QuoteDraftRecord } from '@/services/quoteDrafts';
-import { Archive, Copy, FileText, FolderOpen, Loader2, Plus, Save } from 'lucide-react';
+import { archiveQuoteDraft, listQuoteDrafts, type QuoteDraftRecord } from '@/services/quoteDrafts';
+import { Archive, Copy, FileText, FolderOpen, Loader2, Plus, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const STATUS_LABELS = {
@@ -107,6 +107,34 @@ const QuoteDraftToolbar = () => {
     }
   };
 
+  const handleCloseDraftTab = async (
+    draft: QuoteDraftRecord,
+    event: MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.stopPropagation();
+
+    const nextDraft = drafts.find((candidate) => candidate.id !== draft.id);
+
+    try {
+      if (draft.id === activeDraftId) {
+        const archived = await archiveActiveDraft();
+        if (!archived) return;
+
+        if (nextDraft) {
+          await loadDraft(nextDraft.id);
+        }
+      } else {
+        await archiveQuoteDraft(draft.id);
+      }
+
+      toast.success('초안 탭을 닫았습니다.');
+      await refreshDrafts();
+    } catch (error) {
+      console.error('Failed to close quote draft tab:', error);
+      toast.error('초안 탭을 닫지 못했습니다.');
+    }
+  };
+
   return (
     <Card className="mb-4 overflow-hidden border-blue-100 bg-white/85 shadow-sm print:hidden">
       <CardContent className="p-2.5 sm:p-3">
@@ -124,7 +152,7 @@ const QuoteDraftToolbar = () => {
                     return (
                       <div
                         key={draft.id}
-                        className="flex h-11 min-w-[220px] max-w-[300px] items-center gap-2 rounded-t-2xl border border-blue-200 border-b-white bg-white px-3 text-blue-700 shadow-sm"
+                        className="group flex h-11 min-w-[220px] max-w-[300px] items-center gap-2 rounded-t-2xl border border-blue-200 border-b-white bg-white px-3 text-blue-700 shadow-sm"
                       >
                         <FileText className="h-4 w-4 shrink-0" />
                         <Input
@@ -136,24 +164,46 @@ const QuoteDraftToolbar = () => {
                         <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600">
                           {draft.items.length}
                         </span>
+                        <button
+                          type="button"
+                          onClick={(event) => handleCloseDraftTab(draft, event)}
+                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                          aria-label={`${draft.title} 닫기`}
+                          title="초안 탭 닫기"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     );
                   }
 
                   return (
-                    <button
+                    <div
                       key={draft.id}
-                      type="button"
-                      onClick={() => loadDraft(draft.id)}
-                      className="flex h-10 min-w-[170px] max-w-[240px] items-center gap-2 rounded-t-2xl border border-slate-200 bg-slate-50/80 px-3 text-left text-sm font-medium text-slate-600 transition-colors hover:border-blue-100 hover:bg-white hover:text-slate-900"
+                      className="group flex h-10 min-w-[170px] max-w-[240px] items-center rounded-t-2xl border border-slate-200 bg-slate-50/80 px-2 text-sm font-medium text-slate-600 transition-colors hover:border-blue-100 hover:bg-white hover:text-slate-900"
                       title={draft.title}
                     >
-                      <FileText className="h-4 w-4 shrink-0 text-slate-400" />
-                      <span className="min-w-0 flex-1 truncate">{draft.title}</span>
+                      <button
+                        type="button"
+                        onClick={() => loadDraft(draft.id)}
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                      >
+                        <FileText className="h-4 w-4 shrink-0 text-slate-400" />
+                        <span className="min-w-0 flex-1 truncate">{draft.title}</span>
+                      </button>
                       <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-500">
                         {draft.items.length}
                       </span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={(event) => handleCloseDraftTab(draft, event)}
+                        className="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700"
+                        aria-label={`${draft.title} 닫기`}
+                        title="초안 탭 닫기"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   );
                 })}
                 {shouldShowLocalDraftTab && (

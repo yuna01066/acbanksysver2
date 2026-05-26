@@ -630,6 +630,11 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
       setDraftSaveStatus('idle');
       setDraftLastSavedAt(null);
       setDraftError(null);
+      quotesRef.current = [];
+      recipientRef.current = null;
+      quoteNumberRef.current = '';
+      activeDraftIdRef.current = null;
+      draftTitleRef.current = '새 견적 초안';
       lastSavedSignatureRef.current = '';
       isHydratingDraftRef.current = false;
       return true;
