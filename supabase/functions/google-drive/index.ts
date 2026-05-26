@@ -765,10 +765,16 @@ serve(async (req) => {
     ]);
 
 
-    await requireFunctionAuth(
-      req,
-      adminActions.has(action) ? { allowedRoles: ['admin', 'moderator'] } : {},
-    );
+    // Bulk import uses internal-secret bypass for one-off ops
+    const serviceRoleBypass = action === 'bulk-import-portfolio-folder'
+      && req.headers.get('x-service-role-key') === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!serviceRoleBypass) {
+      await requireFunctionAuth(
+        req,
+        adminActions.has(action) ? { allowedRoles: ['admin', 'moderator'] } : {},
+      );
+    }
+
 
     const { serviceAccount, sharedDriveId } = getConfig();
     const accessToken = await getAccessToken(serviceAccount);
