@@ -82,13 +82,13 @@ const getLocalPriceTable = (qualityId: string): LocalPanelPriceTable | null => {
     case 'glossy-color':
       return glossyColorSinglePrices;
     case 'bright-color':
-      return brightColorSinglePrices;
+      return brightColorSinglePrices as unknown as LocalPanelPriceTable;
     case 'glossy-standard':
-      return glossyStandardSinglePrices;
+      return glossyStandardSinglePrices as unknown as LocalPanelPriceTable;
     case 'astel-color':
-      return astelColorSinglePrices;
+      return astelColorSinglePrices as unknown as LocalPanelPriceTable;
     case 'satin-color':
-      return satinColorSinglePrices;
+      return satinColorSinglePrices as unknown as LocalPanelPriceTable;
     case 'acrylic-mirror':
     case 'astel-mirror':
     case 'satin-mirror':
