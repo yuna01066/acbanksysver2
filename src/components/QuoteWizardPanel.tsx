@@ -442,14 +442,14 @@ const QuoteWizardPanel = ({ embedded = false, compact = false, onOpenFullPage, c
                   className="w-full"
                   size={compact ? 'sm' : 'default'}
                   onClick={handleConvertDraft}
-                  disabled={converting || !result || reviewStatus === 'converted' || reviewStatus === 'blocked'}
+                  disabled={converting || !result || reviewStatus === 'converted' || reviewStatus !== 'calculable'}
                 >
                   {converting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {reviewStatus === 'converted' ? '전환 완료' : '견적 초안으로 전환'}
                 </Button>
-                {reviewStatus === 'blocked' && (
+                {reviewStatus !== 'calculable' && reviewStatus !== 'converted' && (
                   <p className="text-xs text-muted-foreground">
-                    보류 상태는 누락 파일이나 필수 치수 확인 후 전환할 수 있습니다.
+                    파일 분석 결과는 자동 견적 금액으로 전환하지 않습니다. 상담원 검수 후 기존 견적 화면에서 직접 산출해주세요.
                   </p>
                 )}
               </CardContent>

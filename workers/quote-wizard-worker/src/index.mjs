@@ -12,7 +12,6 @@ const optionalScript = {
   dxfParser: process.env.ACBANK_DXF_PARSER || '/Users/acbank002/.codex/skills/dwg-cad-analyzer/scripts/parse_dxf_ascii.py',
   cadInspector: process.env.ACBANK_CAD_INSPECTOR || '/Users/acbank002/.codex/skills/dwg-cad-analyzer/scripts/inspect_cad.py',
   yieldCalculator: process.env.ACBANK_YIELD_CALCULATOR || '/Users/acbank002/.codex/skills/acbank-drawing-quote-analyzer/scripts/acrylic_yield_calculator.py',
-  formulaCalculator: process.env.ACBANK_FORMULA_CALCULATOR || '/Users/acbank002/.codex/skills/acbank-quote-formula-calculator/scripts/calculate_formula_v2.py',
 };
 
 const json = (res, status, body) => {
@@ -359,63 +358,13 @@ const fallbackFormulaSnapshot = (sourceOnly, productionRisks, parts = []) => {
 
 const runFormulaCalculator = async ({ analysis, parts, yieldSnapshot, tempDir, sourceOnly }) => {
   const fallback = fallbackFormulaSnapshot(sourceOnly, analysis.production_risks, parts);
-  if (sourceOnly || !parts.length) return fallback;
-  if (process.env.QUOTE_WIZARD_ENABLE_FORMULA_MVP !== 'true') return fallback;
-  if (!analysis.material || !analysis.thickness || !yieldSnapshot.estimated_sheet_count) return fallback;
-
-  const sheetCount = yieldSnapshot.estimated_sheet_count || 1;
-  const edgeLengthM = parts.reduce((sum, part) => (
-    sum + ((Number(part.width_mm) || 0) + (Number(part.height_mm) || 0)) * 2 * (Number(part.quantity) || 1)
-  ), 0) / 1000;
-  const formulaInput = {
-    sheetCost: sheetCount * 156_000,
-    productQty: analysis.quantity || 1,
-    selectedSetupFee: 70_000,
-    edgeLengthM,
-    hasBulgwang: String(analysis.finish || '').includes('불광') || String(analysis.finish || '').includes('광택'),
-    hasCncInterlockingSlot: analysis.processing?.some((item) => String(item).includes('타공')) || false,
-    hasInterlockingAssembly: analysis.processing?.some((item) => String(item).includes('조립') || String(item).includes('접착')) || false,
-    hasUvBackPrint: analysis.processing?.some((item) => String(item).includes('인쇄')) || false,
-    uvProductQty: analysis.quantity || 1,
-    uvPrintAreaMm2: totalPartArea(parts) / Math.max(1, analysis.quantity || 1),
-    uvPrintBaseFee: 10_000,
-    otherFabricationCost: 210_000,
+  return {
+    ...fallback,
+    blocked_reasons: [
+      ...(fallback.blocked_reasons || []),
+      '분석 워커는 파일 관찰값만 반환하며 임의 단가/공임으로 견적 금액을 계산하지 않습니다.',
+    ],
   };
-
-  try {
-    const inputPath = join(tempDir, 'formula-input.json');
-    await writeFile(inputPath, JSON.stringify(formulaInput, null, 2));
-    const { stdout } = await run('python3', [optionalScript.formulaCalculator, inputPath]);
-    const calculated = JSON.parse(stdout);
-    const printAmount = (calculated.uvServiceCost || 0) + (calculated.uvSheetOutsourceSaleAmount || 0) + (calculated.dyeOutsourceSaleAmount || 0);
-
-    return {
-      status: 'needs_review',
-      subtotal: calculated.subtotal,
-      tax: calculated.tax,
-      total: calculated.total,
-      version: FORMULA_VERSION,
-      line_items: [
-        { label: '재단/가공 산식 v2', amount: calculated.fabricationSaleAmount || 0, source: 'formula_v2', reason: 'calculate_formula_v2.py fabricationSaleAmount' },
-        { label: '인쇄/외주 산식 v2', amount: printAmount, source: 'formula_v2', reason: 'UV/외주 관련 산식 결과' },
-      ].filter((item) => item.amount > 0),
-      warnings: analysis.production_risks,
-      blocked_reasons: [],
-      audit: {
-        script: 'calculate_formula_v2.py',
-        input: formulaInput,
-        output: calculated,
-      },
-    };
-  } catch (error) {
-    return {
-      ...fallback,
-      warnings: [
-        ...(fallback.warnings || []),
-        `견적 공식 스킬 실행 실패: ${error instanceof Error ? error.message : String(error)}`,
-      ],
-    };
-  }
 };
 
 const buildParts = (parserNotes) => dedupeParts(

@@ -10,6 +10,7 @@ const corsHeaders = {
 const BUCKET = "quote-wizard-temp";
 const FORMULA_VERSION = "pricing-engine-v2-core-260520";
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const ENGINE_VERSION = "quote-wizard-observed-only-20260526";
 
 type Json = Record<string, unknown>;
 
@@ -445,6 +446,59 @@ function buildFormulaSnapshot(parts: ExtractedPart[], risks: string[]) {
   };
 }
 
+function isKnownSamplePart(part: any) {
+  const name = String(part?.name || "");
+  const width = Number(part?.width_mm) || 0;
+  const height = Number(part?.height_mm) || 0;
+  const quantity = Number(part?.quantity) || 0;
+  return (
+    (name.includes("상/하판") && width === 600 && height === 380 && quantity === 24) ||
+    (name.includes("전/후면판") && width === 600 && height === 240 && quantity === 24) ||
+    (name.includes("좌/우") && width === 380 && height === 240 && quantity === 24)
+  );
+}
+
+function sanitizeResultPayload(resultPayload: any) {
+  const analysis = resultPayload?.analysis || {};
+  const parts = Array.isArray(analysis.parts) ? analysis.parts : [];
+  const samplePartDetected = parts.some(isKnownSamplePart);
+  const safeParts = samplePartDetected ? [] : parts;
+  const risks = [
+    ...new Set([
+      ...((Array.isArray(analysis.production_risks) ? analysis.production_risks.map(String) : []) || []),
+      ...(samplePartDetected ? ["이전 샘플 파트 패턴이 감지되어 자동 결과에서 제거했습니다."] : []),
+      "자동 금액 산출은 비활성화되어 상담원 검수 전에는 임시 금액을 만들지 않습니다.",
+    ]),
+  ];
+  const missing = [
+    ...new Set([
+      ...((Array.isArray(analysis.missing_fields) ? analysis.missing_fields.map(String) : []) || []),
+      ...(safeParts.length ? [] : ["파트별 치수", "수량"]),
+      "원장 규격",
+      "소재 단가",
+      "가공 조건",
+    ]),
+  ];
+
+  return {
+    ...resultPayload,
+    analysis: {
+      ...analysis,
+      parts: safeParts,
+      inferred: {
+        ...(analysis.inferred && typeof analysis.inferred === "object" ? analysis.inferred : {}),
+        engine_version: ENGINE_VERSION,
+        pricing_policy: "observed_only_no_auto_amount",
+      },
+      missing_fields: missing,
+      production_risks: risks,
+    },
+    yield: buildYieldSnapshot(safeParts),
+    formula: buildFormulaSnapshot(safeParts, risks),
+    status: "blocked",
+  };
+}
+
 function buildEngineUnavailableResult(job: any, files: QuoteWizardFile[], reason: string) {
   const risks = [
     reason,
@@ -467,6 +521,8 @@ function buildEngineUnavailableResult(job: any, files: QuoteWizardFile[], reason
       inferred: {
         engine_status: "unavailable",
         extraction_mode: "none",
+        engine_version: ENGINE_VERSION,
+        pricing_policy: "observed_only_no_auto_amount",
         note: reason,
       },
       parts: [],
@@ -563,6 +619,8 @@ async function buildBuiltInAnalysis(supabase: ReturnType<typeof createClient>, j
       extraction_mode: ai ? "edge_builtin_ai" : "edge_builtin_text",
       worker_status: Deno.env.get("QUOTE_WIZARD_WORKER_URL") ? "configured_but_fallback_used" : "not_configured",
       ai_gateway_status: Deno.env.get("LOVABLE_API_KEY") ? "available" : "missing",
+      engine_version: ENGINE_VERSION,
+      pricing_policy: "observed_only_no_auto_amount",
       note: "Edge Function 내장 분석기가 파일 텍스트/이미지에서 관찰 가능한 값만 추출했습니다.",
     },
     parts,
@@ -692,15 +750,18 @@ async function analyzeJob(supabase: ReturnType<typeof createClient>, userId: str
 
   try {
     const workerResult = await requestWorker(payload.job, payload.files as QuoteWizardFile[]);
-    const analysisResult = workerResult || await buildBuiltInAnalysis(
+    const rawAnalysisResult = workerResult || await buildBuiltInAnalysis(
       supabase,
       payload.job,
       payload.files as QuoteWizardFile[],
     );
+    const analysisResult = sanitizeResultPayload(
+      rawAnalysisResult || buildEngineUnavailableResult(payload.job, payload.files as QuoteWizardFile[], "분석 엔진이 결과를 반환하지 않았습니다."),
+    );
     await saveResult(
       supabase,
       payload.job,
-      analysisResult || buildEngineUnavailableResult(payload.job, payload.files as QuoteWizardFile[], "분석 엔진이 결과를 반환하지 않았습니다."),
+      analysisResult,
       workerResult ? "worker" : "edge_builtin",
     );
     return loadPayload(supabase, jobId, userId);
@@ -796,6 +857,11 @@ async function convertDraft(supabase: ReturnType<typeof createClient>, userId: s
   const analysis = result.analysis_snapshot || {};
   const formula = result.formula_snapshot || {};
   const subtotal = Number(formula.subtotal) || 0;
+  const total = Number(formula.total) || 0;
+  const lineItems = Array.isArray(formula.line_items) ? formula.line_items : [];
+  if (formula.status !== "calculable" || subtotal <= 0 || total <= 0 || lineItems.length === 0) {
+    throw new Error("견적 마법사 결과가 금액 산출 보류 상태입니다. 상담원 검수 후 기존 견적 초안에서 직접 산출해주세요.");
+  }
   const tax = Math.round(subtotal * 0.1);
   const itemName = analysis.item_name || "견적 마법사 분석";
 
