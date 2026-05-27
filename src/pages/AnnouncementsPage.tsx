@@ -136,7 +136,6 @@ const AnnouncementsPage = () => {
       toast.success(created ? '공지사항이 등록되었습니다.' : '공지사항이 수정되었습니다.');
       resetForm();
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
-      queryClient.invalidateQueries({ queryKey: ['latest-announcements'] });
     },
     onError: (error: Error) => {
       toast.error(error.message || '공지사항 저장에 실패했습니다.');
@@ -151,7 +150,6 @@ const AnnouncementsPage = () => {
     onSuccess: () => {
       toast.success('공지사항이 삭제되었습니다.');
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
-      queryClient.invalidateQueries({ queryKey: ['latest-announcements'] });
     },
   });
 
@@ -167,7 +165,6 @@ const AnnouncementsPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
-      queryClient.invalidateQueries({ queryKey: ['latest-announcements'] });
     },
     onError: (error: Error) => {
       toast.error(error.message || '고정 상태 변경에 실패했습니다.');

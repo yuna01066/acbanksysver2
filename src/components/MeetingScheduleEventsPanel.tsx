@@ -156,7 +156,6 @@ const MeetingScheduleEventsPanel = ({ compactLayout = false, maxItems = 8 }: Mee
   const invalidateScheduleQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['meeting-widget-schedule-events'] });
     queryClient.invalidateQueries({ queryKey: ['announcements'] });
-    queryClient.invalidateQueries({ queryKey: ['latest-announcements'] });
     queryClient.invalidateQueries({ queryKey: ['announcement-events'] });
     queryClient.invalidateQueries({ queryKey: ['calendar-announcement-events'] });
     queryClient.invalidateQueries({ queryKey: ['today-upcoming-events'] });
@@ -278,7 +277,7 @@ const MeetingScheduleEventsPanel = ({ compactLayout = false, maxItems = 8 }: Mee
             <div className="min-w-0">
               <h3 className="text-sm font-bold text-[#111111]">이벤트 일정</h3>
               <p className="mt-1 text-xs leading-5 text-[#707072]">
-                기존 공지사항의 이벤트 기능을 이 화면에서 관리합니다. 일반 공지는 공지사항 게시판에 남깁니다.
+                전사 이벤트와 주요 일정을 미팅 예약 화면에서 함께 관리합니다.
               </p>
             </div>
           </div>

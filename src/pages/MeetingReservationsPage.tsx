@@ -7,7 +7,7 @@ const MeetingReservationsPage = () => {
     <PageShell maxWidth="5xl">
       <PageHeader
         title="미팅 예약 관리"
-        description="직원 미팅과 클라이언트 미팅 예약을 공지사항과 분리해 관리합니다."
+        description="직원 미팅, 클라이언트 상담, 전사 이벤트 일정을 한 화면에서 관리합니다."
         icon={<CalendarCheck2 className="h-5 w-5" />}
       />
       <MeetingBookingWidget className="mx-auto" />
