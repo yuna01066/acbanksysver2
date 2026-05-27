@@ -24,7 +24,6 @@ const MANAGED_PAGES: PageDef[] = [
   { key: '/attendance', label: '근태 관리', description: '출퇴근 기록 관리' },
   { key: '/leave-management', label: '연차·휴가 관리', description: '연차 및 휴가 신청/관리' },
   { key: '/performance-review', label: '업무평가', description: '업무평가 작성 및 조회' },
-  { key: '/announcements', label: '공지사항', description: '회사 공지사항 관리' },
   { key: '/team-chat', label: '팀 채팅', description: '사내 메신저 및 팀 채팅' },
   { key: '/material-orders', label: '자재 발주', description: '자재 발주 요청 및 관리' },
   { key: '/tax-invoices', label: '세금계산서', description: '세금계산서 발행 및 조회' },

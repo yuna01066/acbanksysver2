@@ -442,7 +442,7 @@ const NotificationPanel = ({
                         className="h-7 text-xs"
                         onClick={() => {
                           onRemove(notification.id);
-                          navigate(notification.data?.eventId ? `/meeting-reservations?event=${notification.data.eventId}` : '/announcements');
+                          navigate(notification.data?.eventId ? `/meeting-reservations?event=${notification.data.eventId}` : '/');
                           setOpen(false);
                         }}
                       >
