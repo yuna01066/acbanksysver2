@@ -57,14 +57,25 @@ if [[ "$USE_SECRET_MANAGER" == "true" ]]; then
   PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
   RUNTIME_SERVICE_ACCOUNT="${RUNTIME_SERVICE_ACCOUNT:-${PROJECT_NUMBER}-compute@developer.gserviceaccount.com}"
 
-  for secret_name in LOVABLE_API_KEY QUOTE_WIZARD_WORKER_SECRET; do
+  required_secrets=(QUOTE_WIZARD_WORKER_SECRET)
+  optional_secrets=()
+
+  if gcloud secrets describe LOVABLE_API_KEY --project "$PROJECT_ID" >/dev/null 2>&1; then
+    optional_secrets+=(LOVABLE_API_KEY)
+  else
+    echo "LOVABLE_API_KEY Secret Manager secret not found; deploying without AI Gateway."
+  fi
+
+  for secret_name in "${required_secrets[@]}"; do
     if ! gcloud secrets describe "$secret_name" --project "$PROJECT_ID" >/dev/null 2>&1; then
       echo "Missing Secret Manager secret: ${secret_name}" >&2
       echo "Create it first, for example:" >&2
       echo "  printf '%s' '<value>' | gcloud secrets create ${secret_name} --data-file=- --project ${PROJECT_ID}" >&2
       exit 1
     fi
+  done
 
+  for secret_name in "${required_secrets[@]}" "${optional_secrets[@]}"; do
     gcloud secrets add-iam-policy-binding "$secret_name" \
       --member "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
       --role roles/secretmanager.secretAccessor \
@@ -96,13 +107,27 @@ deploy_args=(
 
 if [[ "$USE_SECRET_MANAGER" == "true" ]]; then
   deploy_args+=(--service-account "$RUNTIME_SERVICE_ACCOUNT")
-  deploy_args+=(--set-secrets "LOVABLE_API_KEY=LOVABLE_API_KEY:latest,QUOTE_WIZARD_WORKER_SECRET=QUOTE_WIZARD_WORKER_SECRET:latest")
+  secret_bindings=("QUOTE_WIZARD_WORKER_SECRET=QUOTE_WIZARD_WORKER_SECRET:latest")
+  if gcloud secrets describe LOVABLE_API_KEY --project "$PROJECT_ID" >/dev/null 2>&1; then
+    secret_bindings+=("LOVABLE_API_KEY=LOVABLE_API_KEY:latest")
+  fi
+  IFS=,
+  deploy_args+=(--set-secrets "${secret_bindings[*]}")
+  unset IFS
 else
-  if [[ -z "${LOVABLE_API_KEY:-}" || -z "${QUOTE_WIZARD_WORKER_SECRET:-}" ]]; then
-    echo "LOVABLE_API_KEY and QUOTE_WIZARD_WORKER_SECRET env vars are required when USE_SECRET_MANAGER=false." >&2
+  if [[ -z "${QUOTE_WIZARD_WORKER_SECRET:-}" ]]; then
+    echo "QUOTE_WIZARD_WORKER_SECRET env var is required when USE_SECRET_MANAGER=false." >&2
     exit 1
   fi
-  deploy_args+=(--set-env-vars "LOVABLE_API_KEY=${LOVABLE_API_KEY},QUOTE_WIZARD_WORKER_SECRET=${QUOTE_WIZARD_WORKER_SECRET}")
+  env_vars=("QUOTE_WIZARD_WORKER_SECRET=${QUOTE_WIZARD_WORKER_SECRET}")
+  if [[ -n "${LOVABLE_API_KEY:-}" ]]; then
+    env_vars+=("LOVABLE_API_KEY=${LOVABLE_API_KEY}")
+  else
+    echo "LOVABLE_API_KEY env var is not set; deploying without AI Gateway."
+  fi
+  IFS=,
+  deploy_args+=(--set-env-vars "${env_vars[*]}")
+  unset IFS
 fi
 
 gcloud "${deploy_args[@]}"

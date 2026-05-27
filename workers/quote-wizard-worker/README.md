@@ -18,10 +18,10 @@ TESSERACT_LANG=kor+eng npm run dev
 
 로컬에서 Edge Function을 거치지 않고 직접 Storage 파일을 내려받아 테스트해야 할 때만 `SUPABASE_URL`과 `SUPABASE_SERVICE_ROLE_KEY`를 fallback으로 사용할 수 있습니다. Render 운영 환경에는 service role key를 저장하지 않습니다.
 
-선택 환경 변수:
+환경 변수:
 
 - `QUOTE_WIZARD_WORKER_SECRET`: Edge Function에서 전달하는 Bearer token 검증.
-- `LOVABLE_API_KEY`: AI Gateway 비전/텍스트 분석용 키.
+- `LOVABLE_API_KEY`: AI Gateway 비전/텍스트 분석용 키. 없으면 AI enrichment 없이 로컬 PDF/OCR/CAD 분석만 수행합니다.
 - `TESSERACT_LANG`: 기본 `kor+eng`.
 - `ACBANK_DXF_PARSER`: 기본 `workers/quote-wizard-worker/scripts/parse_dxf_ascii.py`.
 - `ACBANK_CAD_INSPECTOR`: 기본 `workers/quote-wizard-worker/scripts/inspect_cad.py`.
@@ -51,8 +51,13 @@ repo 루트의 `render.yaml`을 Render Blueprint로 연결합니다.
 필수 Secret:
 
 ```text
-LOVABLE_API_KEY=<Lovable AI Gateway key>
 QUOTE_WIZARD_WORKER_SECRET=<Lovable Edge Function과 동일한 값>
+```
+
+선택 Secret:
+
+```text
+LOVABLE_API_KEY=<Lovable AI Gateway key>
 ```
 
 컨테이너에는 `node`, `python3`, `poppler-utils`, `tesseract-ocr`, `tesseract-ocr-kor`, `tesseract-ocr-eng`가 설치됩니다. `libredwg-tools`는 설치 가능하면 포함하지만, 없어도 DWG는 `미리보기 필요` 상태로 처리합니다.
@@ -65,10 +70,12 @@ QUOTE_WIZARD_WORKER_SECRET=<Lovable Edge Function과 동일한 값>
     "pdftotext": true,
     "pdftoppm": true,
     "tesseract": true,
-    "aiGateway": true
+    "aiGateway": false
   }
 }
 ```
+
+`LOVABLE_API_KEY`를 설정하고 재배포하면 `aiGateway`가 `true`로 바뀝니다.
 
 ## Lovable 연결
 

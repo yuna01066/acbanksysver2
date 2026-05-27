@@ -41,8 +41,10 @@ jobs:
         run: |
           test -n "$PROJECT_ID" || { echo "Missing repository secret GCP_PROJECT_ID"; exit 1; }
           test -n "$GCP_SA_KEY" || { echo "Missing repository secret GCP_SA_KEY"; exit 1; }
-          test -n "$LOVABLE_API_KEY" || { echo "Missing repository secret LOVABLE_API_KEY"; exit 1; }
           test -n "$QUOTE_WIZARD_WORKER_SECRET" || { echo "Missing repository secret QUOTE_WIZARD_WORKER_SECRET"; exit 1; }
+          if [[ -z "$LOVABLE_API_KEY" ]]; then
+            echo "LOVABLE_API_KEY is not set; deploying worker without AI Gateway."
+          fi
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -68,7 +70,11 @@ jobs:
             fi
           }
 
-          sync_secret LOVABLE_API_KEY "$LOVABLE_API_KEY"
+          if [[ -n "$LOVABLE_API_KEY" ]]; then
+            sync_secret LOVABLE_API_KEY "$LOVABLE_API_KEY"
+          else
+            echo "Skipping LOVABLE_API_KEY Secret Manager sync."
+          fi
           sync_secret QUOTE_WIZARD_WORKER_SECRET "$QUOTE_WIZARD_WORKER_SECRET"
 
       - name: Deploy worker

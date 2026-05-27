@@ -15,19 +15,25 @@ Lovable app
 
 The Edge Function creates short-lived signed URLs for uploaded files. Cloud Run does not need a Supabase service role key.
 
-## Required Secrets
+## Secrets
 
-Create these in Google Secret Manager:
+Create the worker shared secret in Google Secret Manager:
 
 ```bash
-printf '%s' '<lovable-api-key>' \
-  | gcloud secrets create LOVABLE_API_KEY --data-file=- --project <project-id>
-
 printf '%s' '<random-shared-secret>' \
   | gcloud secrets create QUOTE_WIZARD_WORKER_SECRET --data-file=- --project <project-id>
 ```
 
 Use the same `QUOTE_WIZARD_WORKER_SECRET` in Lovable Cloud Secrets.
+
+`LOVABLE_API_KEY` is optional for deployment. If it is not set, the worker still runs PDF text extraction, PDF rendering, OCR, DXF parsing, yield references, and formula adapters, but `/health` reports `aiGateway=false` and image AI enrichment is skipped.
+
+To enable AI Gateway later:
+
+```bash
+printf '%s' '<lovable-api-key>' \
+  | gcloud secrets create LOVABLE_API_KEY --data-file=- --project <project-id>
+```
 
 ## Deploy
 
@@ -47,8 +53,8 @@ If this machine does not have `gcloud`, use the GitHub Actions workflow instead:
 1. Add repository secrets:
    - `GCP_PROJECT_ID`
    - `GCP_SA_KEY`
-   - `LOVABLE_API_KEY`
    - `QUOTE_WIZARD_WORKER_SECRET`
+   - `LOVABLE_API_KEY` only if AI Gateway should be enabled during deployment
 2. Open GitHub Actions.
 3. Run `Deploy Quote Wizard Worker to Cloud Run`.
 
@@ -76,10 +82,12 @@ Expected `/health` values:
     "pdftotext": true,
     "pdftoppm": true,
     "tesseract": true,
-    "aiGateway": true
+    "aiGateway": false
   }
 }
 ```
+
+`aiGateway` becomes `true` after `LOVABLE_API_KEY` is added and the service is redeployed.
 
 ## Connect Lovable
 
