@@ -689,7 +689,7 @@ const MeetingBookingWidget = ({
             {
               value: 'schedule' as const,
               label: '이벤트 일정',
-              description: '공지사항 이벤트 기능 통합',
+              description: '전사 일정 관리',
               icon: Megaphone,
             },
           ].map((option) => {
