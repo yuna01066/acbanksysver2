@@ -125,6 +125,9 @@ const NotificationPanel = ({
         return <UserPlus className="h-4 w-4 text-primary" />;
       case 'system':
         return <Megaphone className="h-4 w-4 text-accent" />;
+      case 'meeting_reservation':
+      case 'meeting_reservation_status':
+        return <CalendarCheck className="h-4 w-4 text-sky-600" />;
       case 'quote_update':
         return <FileText className="h-4 w-4 text-primary" />;
       case 'approval_complete':
@@ -162,6 +165,8 @@ const NotificationPanel = ({
       || notification.type === 'project_mention'
       || notification.type === 'performance_review_summary'
       || notification.type === 'channel_talk_quote_lead'
+      || notification.type === 'meeting_reservation'
+      || notification.type === 'meeting_reservation_status'
     ) return 'work';
     if (
       notification.type === 'leave_request'
@@ -185,6 +190,8 @@ const NotificationPanel = ({
       case 'quote_modified': return '견적';
       case 'project_mention': return '프로젝트';
       case 'channel_talk_quote_lead': return '채널톡';
+      case 'meeting_reservation':
+      case 'meeting_reservation_status': return '미팅';
       case 'leave_request':
       case 'leave_approved':
       case 'leave_rejected':
@@ -435,11 +442,27 @@ const NotificationPanel = ({
                         className="h-7 text-xs"
                         onClick={() => {
                           onRemove(notification.id);
-                          navigate('/announcements');
+                          navigate(notification.data?.eventId ? `/meeting-reservations?event=${notification.data.eventId}` : '/announcements');
                           setOpen(false);
                         }}
                       >
                         <Megaphone className="h-3 w-3 mr-1" />
+                        바로가기
+                      </Button>
+                    )}
+
+                    {(notification.type === 'meeting_reservation' || notification.type === 'meeting_reservation_status') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          onRemove(notification.id);
+                          navigate(notification.data?.meetingReservationId ? `/meeting-reservations?id=${notification.data.meetingReservationId}` : '/meeting-reservations');
+                          setOpen(false);
+                        }}
+                      >
+                        <CalendarCheck className="h-3 w-3 mr-1" />
                         바로가기
                       </Button>
                     )}

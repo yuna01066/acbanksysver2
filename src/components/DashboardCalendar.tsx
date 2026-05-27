@@ -19,7 +19,7 @@ import { isMissingMeetingReservationsTableError } from '@/lib/meetingReservation
 interface CalendarEvent {
   id: string;
   projectName: string;
-  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'meeting_reservation' | 'holiday' | 'birthday' | 'announcement_meeting' | 'announcement_conference' | 'project' | 'announcement_event' | 'leave';
+  type: 'quote' | 'delivery' | 'notion' | 'meeting' | 'meeting_reservation' | 'holiday' | 'birthday' | 'project' | 'announcement_event' | 'leave';
   date: Date;
   userId: string;
   url?: string;
@@ -87,7 +87,7 @@ const DashboardCalendar = () => {
 
       const participantIds = [...new Set(data.flatMap(m => [m.sender_id, m.receiver_id]))];
       const { data: profiles } = await supabase
-        .from('profile_directory' as any)
+        .from('profile_directory')
         .select('id, full_name')
         .in('id', participantIds);
       const nameMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
@@ -122,13 +122,13 @@ const DashboardCalendar = () => {
     },
   });
 
-  const { data: announcementMeetings } = useQuery({
-    queryKey: ['announcement-meetings'],
+  const { data: announcementEvents } = useQuery({
+    queryKey: ['calendar-announcement-events'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('announcements')
-        .select('id, title, author_id, meeting_date, meeting_time, meeting_location, meeting_reservation_id, announcement_type, event_end_date, recipient_name, assignee_ids')
-        .in('announcement_type', ['meeting', 'conference', 'event'])
+        .select('id, title, author_id, meeting_date, meeting_location, event_end_date')
+        .eq('announcement_type', 'event')
         .not('meeting_date', 'is', null);
       if (error) throw error;
       return data;
@@ -193,7 +193,7 @@ const DashboardCalendar = () => {
   });
 
   const events = useMemo(() => {
-    if (!quotes && !notionProjects && !meetings && !holidays && !birthdays && !announcementMeetings && !meetingReservations && !managedProjects && !leaveRequests) return [];
+    if (!quotes && !notionProjects && !meetings && !holidays && !birthdays && !announcementEvents && !meetingReservations && !managedProjects && !leaveRequests) return [];
     const result: CalendarEvent[] = [];
 
     // 휴일 이벤트
@@ -297,14 +297,10 @@ const DashboardCalendar = () => {
       }
     });
 
-    // 회의/미팅/이벤트 공지 이벤트
-    announcementMeetings?.forEach((am) => {
+    // 공지 기반 이벤트 일정
+    announcementEvents?.forEach((am) => {
       if (am.meeting_date) {
-        if ((am.announcement_type === 'conference' || am.announcement_type === 'meeting') && am.meeting_reservation_id) {
-          return;
-        }
-
-        if (am.announcement_type === 'event' && am.event_end_date) {
+        if (am.event_end_date) {
           // Multi-day event
           const start = new Date(am.meeting_date);
           const end = new Date(am.event_end_date);
@@ -320,7 +316,7 @@ const DashboardCalendar = () => {
               });
             });
           }
-        } else if (am.announcement_type === 'event') {
+        } else {
           // Single-day event
           const date = new Date(am.meeting_date);
           if (!isNaN(date.getTime())) {
@@ -330,31 +326,6 @@ const DashboardCalendar = () => {
               type: 'announcement_event',
               date,
               userId: am.author_id || '',
-            });
-          }
-        } else if (am.announcement_type === 'conference') {
-          // 회의
-          const date = new Date(am.meeting_date);
-          if (!isNaN(date.getTime())) {
-            result.push({
-              id: am.id,
-              projectName: `${am.title}${am.meeting_time ? ` ${am.meeting_time}` : ''}`,
-              type: 'announcement_conference',
-              date,
-              userId: am.author_id || '',
-            });
-          }
-        } else {
-          // 미팅
-          const date = new Date(am.meeting_date);
-          if (!isNaN(date.getTime())) {
-            result.push({
-              id: am.id,
-              projectName: `${am.title}${am.recipient_name ? ` (${am.recipient_name})` : ''}${am.meeting_time ? ` ${am.meeting_time}` : ''}`,
-              type: 'announcement_meeting',
-              date,
-              userId: am.author_id || '',
-              assigneeIds: am.assignee_ids || [],
             });
           }
         }
@@ -421,7 +392,7 @@ const DashboardCalendar = () => {
     });
 
     return result;
-  }, [quotes, notionProjects, meetings, holidays, birthdays, announcementMeetings, meetingReservations, managedProjects, leaveRequests, user, currentMonth]);
+  }, [quotes, notionProjects, meetings, holidays, birthdays, announcementEvents, meetingReservations, managedProjects, leaveRequests, user, currentMonth]);
 
   // Filter events based on view mode
   const filteredEvents = useMemo(() => {
@@ -436,8 +407,6 @@ const DashboardCalendar = () => {
       if (e.type === 'holiday') return true;
       if (e.type === 'birthday') return true;
       if (e.type === 'leave') return e.userId === user.id;
-      if (e.type === 'announcement_meeting') return e.userId === user.id || (e.assigneeIds || []).includes(user.id);
-      if (e.type === 'announcement_conference') return true;
       if (e.type === 'announcement_event') return true;
       // Meetings are already filtered to current user
       if (e.type === 'meeting') return true;
@@ -464,8 +433,8 @@ const DashboardCalendar = () => {
       }
       return;
     }
-    if (event.type === 'announcement_meeting' || event.type === 'announcement_conference' || event.type === 'announcement_event') {
-      navigate(`/announcements?focus=${event.id}`);
+    if (event.type === 'announcement_event') {
+      navigate(`/meeting-reservations?event=${event.id}`);
       return;
     }
     if (event.type === 'meeting_reservation') {
@@ -499,12 +468,10 @@ const DashboardCalendar = () => {
           case 'leave': return 2;
           case 'announcement_event': return 3;
           case 'delivery': return 4;
-          case 'announcement_conference': return 5;
-          case 'announcement_meeting': return 6;
-          case 'meeting_reservation': return 7;
-          case 'meeting': return 8;
-          case 'project': return 9;
-          case 'quote': return 10;
+          case 'meeting_reservation': return 5;
+          case 'meeting': return 6;
+          case 'project': return 7;
+          case 'quote': return 8;
           case 'notion': return 11;
           default: return 11;
         }
@@ -556,9 +523,6 @@ const DashboardCalendar = () => {
           </span>
           <span className="flex items-center gap-1">
             <BookOpen className="h-3 w-3 text-violet-500" /> Notion 프로젝트
-          </span>
-          <span className="flex items-center gap-1">
-            <Users className="h-3 w-3 text-blue-600" /> 회의
           </span>
           <span className="flex items-center gap-1">
             <Coffee className="h-3 w-3 text-amber-600" /> 미팅
@@ -643,10 +607,6 @@ const DashboardCalendar = () => {
                           ? "bg-amber-500/10 text-amber-700"
                           : event.type === 'meeting_reservation'
                           ? "bg-sky-500/10 text-sky-700 cursor-pointer"
-                          : event.type === 'announcement_conference'
-                          ? "bg-blue-500/10 text-blue-700 cursor-pointer"
-                          : event.type === 'announcement_meeting'
-                          ? "bg-amber-500/10 text-amber-700 cursor-pointer"
                           : event.type === 'announcement_event'
                           ? "bg-emerald-500/10 text-emerald-600 cursor-pointer"
                           : event.type === 'holiday'
@@ -669,10 +629,6 @@ const DashboardCalendar = () => {
                         <Coffee className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'meeting_reservation' ? (
                         <CalendarCheck className="h-2.5 w-2.5 shrink-0" />
-                      ) : event.type === 'announcement_conference' ? (
-                        <Users className="h-2.5 w-2.5 shrink-0" />
-                      ) : event.type === 'announcement_meeting' ? (
-                        <Coffee className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'announcement_event' ? (
                         <AlertCircle className="h-2.5 w-2.5 shrink-0" />
                       ) : event.type === 'holiday' ? (

@@ -91,14 +91,17 @@ function getNotificationPath(notification: AppNotification): string {
     return `/channel-talk-leads?id=${notification.data.lead_id}`;
   }
   if (notification.type === 'meeting_reservation' || notification.type === 'meeting_reservation_status') {
-    return '/meeting-reservations';
+    return notification.data?.meetingReservationId ? `/meeting-reservations?id=${notification.data.meetingReservationId}` : '/meeting-reservations';
   }
   if (notification.type === 'leave_request' || notification.type === 'leave_approved' || notification.type === 'leave_rejected') {
     return '/leave-management';
   }
   if (notification.type === 'peer_feedback') return '/my-page';
   if (notification.type === 'performance_review_summary') return '/my-page?tab=business';
-  return '/announcements';
+  if (notification.type === 'system' && notification.data?.eventId) {
+    return `/meeting-reservations?event=${notification.data.eventId}`;
+  }
+  return notification.data?.announcementId ? `/announcements?focus=${notification.data.announcementId}` : '/announcements';
 }
 
 function formatDueLabel(dateString: string | null): { label: string; tone: WorkItemTone } {
@@ -349,7 +352,7 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
           <ScrollArea className={cn('pr-3', shouldScrollWorkItems ? 'h-[340px] sm:h-[360px]' : 'max-h-[360px]')}>
             <div className="space-y-2 pb-1">
               {workItems.map((item, index) => (
-                <React.Fragment key={item.id}>
+                <div key={item.id}>
                   <button
                     type="button"
                     onClick={item.onClick}
@@ -374,7 +377,7 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
                     </div>
                   </button>
                   {index < workItems.length - 1 && <Separator className="opacity-40" />}
-                </React.Fragment>
+                </div>
               ))}
             </div>
           </ScrollArea>
