@@ -580,7 +580,7 @@ async function fetchImagesForPosts(postIds: string[]): Promise<Map<string, Portf
   if (error) throw error;
 
   const imagesByPostId = new Map<string, PortfolioImage[]>();
-  const hydratedImages = await hydratePortfolioImages((data || []) as PortfolioImage[]);
+  const hydratedImages = await hydratePortfolioImages((data || []) as unknown as PortfolioImage[]);
   hydratedImages.forEach((image) => {
     const images = imagesByPostId.get(image.post_id) || [];
     images.push(image);
