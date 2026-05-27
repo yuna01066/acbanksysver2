@@ -179,6 +179,11 @@ function getErrorMessage(error: unknown): string {
   return '알 수 없는 오류가 발생했습니다.';
 }
 
+function isComposingText(event: React.KeyboardEvent): boolean {
+  const nativeEvent = event.nativeEvent as KeyboardEvent & { isComposing?: boolean };
+  return Boolean(nativeEvent.isComposing) || event.keyCode === 229;
+}
+
 function getCategoryKeywords(categoryKey: string): string[] {
   return [...(PORTFOLIO_CATEGORY_FILTERS.find(filter => filter.key === categoryKey)?.keywords || [])];
 }
@@ -816,6 +821,7 @@ const PortfolioGallery = () => {
   };
 
   const handleKeywordKeyDown = (e: React.KeyboardEvent) => {
+    if (isComposingText(e)) return;
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
       addKeyword(keywordInput);
@@ -1184,6 +1190,7 @@ const PortfolioGallery = () => {
   };
 
   const handleEditKeywordKeyDown = (e: React.KeyboardEvent) => {
+    if (isComposingText(e)) return;
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
       addEditKeyword(editKeywordInput);
