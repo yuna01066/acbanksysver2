@@ -515,7 +515,6 @@ export type Database = {
           business_type: string | null
           ceo_name: string | null
           company_name: string
-          company_seal_storage_path: string | null
           created_at: string
           detail_address: string | null
           email: string | null
@@ -543,7 +542,6 @@ export type Database = {
           business_type?: string | null
           ceo_name?: string | null
           company_name?: string
-          company_seal_storage_path?: string | null
           created_at?: string
           detail_address?: string | null
           email?: string | null
@@ -571,7 +569,6 @@ export type Database = {
           business_type?: string | null
           ceo_name?: string | null
           company_name?: string
-          company_seal_storage_path?: string | null
           created_at?: string
           detail_address?: string | null
           email?: string | null
