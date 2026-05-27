@@ -50,6 +50,7 @@ interface PortfolioPost {
   created_by: string;
   created_at: string;
   updated_at: string;
+  image_count: number;
   images: PortfolioImage[];
 }
 
@@ -98,7 +99,12 @@ interface PortfolioSearchRow {
   created_by: string;
   created_at: string;
   updated_at: string;
+  image_count?: number | string | null;
   total_count?: number | string | null;
+}
+
+interface PortfolioListImageRow extends PortfolioImage {
+  image_count?: number | string | null;
 }
 
 interface PortfolioQueryResult {
@@ -483,30 +489,83 @@ async function fetchPortfolioDriveThumbnailFile(file: DriveFolderFile, folderId?
   });
 }
 
-async function createPortfolioThumbnailSignedUrl(image: PortfolioImage): Promise<string | null> {
-  if (!image.thumbnail_path) return image.thumbnail_url || null;
+async function hydratePortfolioImages(data: PortfolioImage[]): Promise<PortfolioImage[]> {
+  const nextImages = data.map(image => ({ ...image }));
+  const pendingByBucket = new Map<string, Map<string, number[]>>();
 
-  const bucket = image.thumbnail_bucket || PORTFOLIO_THUMBNAIL_BUCKET;
-  const cacheKey = `${bucket}/${image.thumbnail_path}`;
-  const cached = thumbnailSignedUrlCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) return cached.url;
+  nextImages.forEach((image, index) => {
+    if (!image.thumbnail_path) {
+      image.thumbnail_url = image.thumbnail_url || null;
+      return;
+    }
 
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .createSignedUrl(image.thumbnail_path, 60 * 60);
-  if (error) return image.thumbnail_url || null;
-  const signedUrl = data?.signedUrl || image.thumbnail_url || null;
-  if (signedUrl) {
-    thumbnailSignedUrlCache.set(cacheKey, { url: signedUrl, expiresAt: Date.now() + 55 * 60 * 1000 });
-  }
-  return signedUrl;
+    const bucket = image.thumbnail_bucket || PORTFOLIO_THUMBNAIL_BUCKET;
+    const cacheKey = `${bucket}/${image.thumbnail_path}`;
+    const cached = thumbnailSignedUrlCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      image.thumbnail_url = cached.url;
+      return;
+    }
+
+    const pathsByIndex = pendingByBucket.get(bucket) || new Map<string, number[]>();
+    const indexes = pathsByIndex.get(image.thumbnail_path) || [];
+    indexes.push(index);
+    pathsByIndex.set(image.thumbnail_path, indexes);
+    pendingByBucket.set(bucket, pathsByIndex);
+  });
+
+  await Promise.all(Array.from(pendingByBucket.entries()).map(async ([bucket, pathsByIndex]) => {
+    const paths = Array.from(pathsByIndex.keys());
+    const { data: signedUrls, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrls(paths, 60 * 60);
+    if (error || !signedUrls) return;
+
+    signedUrls.forEach((signedUrlResult) => {
+      if (!signedUrlResult.path || !signedUrlResult.signedUrl) return;
+      const indexes = pathsByIndex.get(signedUrlResult.path) || [];
+      indexes.forEach((index) => {
+        nextImages[index].thumbnail_url = signedUrlResult.signedUrl;
+      });
+      thumbnailSignedUrlCache.set(`${bucket}/${signedUrlResult.path}`, {
+        url: signedUrlResult.signedUrl,
+        expiresAt: Date.now() + 55 * 60 * 1000,
+      });
+    });
+  }));
+
+  return nextImages;
 }
 
-async function hydratePortfolioImages(data: PortfolioImage[]): Promise<PortfolioImage[]> {
-  return await Promise.all(data.map(async (image) => ({
-    ...image,
-    thumbnail_url: await createPortfolioThumbnailSignedUrl(image),
-  })));
+async function fetchPortfolioListImages(postIds: string[]): Promise<Map<string, { image: PortfolioImage | null; imageCount: number }>> {
+  if (postIds.length === 0) return new Map();
+
+  const { data, error } = await supabase.rpc('get_portfolio_post_main_images', {
+    p_post_ids: postIds,
+  });
+  if (error) {
+    const fallbackImagesByPostId = await fetchImagesForPosts(postIds);
+    const fallbackListImages = new Map<string, { image: PortfolioImage | null; imageCount: number }>();
+    postIds.forEach((postId) => {
+      const images = fallbackImagesByPostId.get(postId) || [];
+      fallbackListImages.set(postId, {
+        image: images.find(image => image.is_main) || images[0] || null,
+        imageCount: images.length,
+      });
+    });
+    return fallbackListImages;
+  }
+
+  const rows = (data || []) as PortfolioListImageRow[];
+  const hydratedRows = await hydratePortfolioImages(rows);
+  const imagesByPostId = new Map<string, { image: PortfolioImage | null; imageCount: number }>();
+  hydratedRows.forEach((image) => {
+    imagesByPostId.set(image.post_id, {
+      image,
+      imageCount: Number(image.image_count || 0),
+    });
+  });
+  return imagesByPostId;
 }
 
 async function fetchImagesForPosts(postIds: string[]): Promise<Map<string, PortfolioImage[]>> {
@@ -516,6 +575,7 @@ async function fetchImagesForPosts(postIds: string[]): Promise<Map<string, Portf
     .from('portfolio_images')
     .select('*')
     .in('post_id', postIds)
+    .neq('delete_status', 'deleted')
     .order('display_order', { ascending: true });
   if (error) throw error;
 
@@ -548,38 +608,66 @@ async function fetchPortfolioPosts(params: {
   if (rpc.error) throw rpc.error;
 
   const rows = (rpc.data || []) as PortfolioSearchRow[];
-  const imagesByPostId = await fetchImagesForPosts(rows.map(row => row.id));
-  const candidatePosts = rows.map(row => ({
-    id: row.id,
-    title: row.title,
-    category: row.category || null,
-    client_name: row.client_name || null,
-    project_year: row.project_year || null,
-    location: row.location || null,
-    materials: row.materials || [],
-    processes: row.processes || [],
-    visibility: row.visibility || null,
-    archived_at: row.archived_at || null,
-    cover_image_id: row.cover_image_id || null,
-    keywords: row.keywords || [],
-    created_by: row.created_by,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    images: imagesByPostId.get(row.id) || [],
-  }));
-  const matchedPosts = useClientSearch
-    ? candidatePosts.filter(post => matchesPortfolioSearch(post, params.searchText))
-    : candidatePosts;
-  const posts = matchedPosts.slice(0, params.limit);
+  const matchedRows = useClientSearch
+    ? rows.filter(row => matchesPortfolioSearch({
+      id: row.id,
+      title: row.title,
+      category: row.category || null,
+      client_name: row.client_name || null,
+      project_year: row.project_year || null,
+      location: row.location || null,
+      materials: row.materials || [],
+      processes: row.processes || [],
+      visibility: row.visibility || null,
+      archived_at: row.archived_at || null,
+      cover_image_id: row.cover_image_id || null,
+      keywords: row.keywords || [],
+      created_by: row.created_by,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      image_count: Number(row.image_count || 0),
+      images: [],
+    }, params.searchText))
+    : rows;
+  const visibleRows = matchedRows.slice(0, params.limit);
+  const listImagesByPostId = await fetchPortfolioListImages(visibleRows.map(row => row.id));
+  const posts = visibleRows.map(row => {
+    const listImage = listImagesByPostId.get(row.id);
+    const imageCount = Number(row.image_count || listImage?.imageCount || 0);
+    return {
+      id: row.id,
+      title: row.title,
+      category: row.category || null,
+      client_name: row.client_name || null,
+      project_year: row.project_year || null,
+      location: row.location || null,
+      materials: row.materials || [],
+      processes: row.processes || [],
+      visibility: row.visibility || null,
+      archived_at: row.archived_at || null,
+      cover_image_id: row.cover_image_id || null,
+      keywords: row.keywords || [],
+      created_by: row.created_by,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      image_count: imageCount,
+      images: listImage?.image ? [listImage.image] : [],
+    };
+  });
   const totalMatches = useClientSearch
-    ? matchedPosts.length
+    ? matchedRows.length
     : Number(rows[0]?.total_count || rows.length || 0);
 
   return {
     posts,
-    hasMore: matchedPosts.length > params.limit || totalMatches > params.limit,
+    hasMore: matchedRows.length > params.limit || totalMatches > params.limit,
     totalMatches,
   };
+}
+
+async function fetchPortfolioImagesForPost(postId: string): Promise<PortfolioImage[]> {
+  const imagesByPostId = await fetchImagesForPosts([postId]);
+  return imagesByPostId.get(postId) || [];
 }
 
 async function deletePortfolioDriveFile(fileId: string, folderId?: string | null): Promise<void> {
@@ -997,6 +1085,7 @@ const PortfolioGallery = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const lightboxStageRef = useRef<HTMLDivElement>(null);
+  const detailImagesRequestRef = useRef(0);
   const dragStateRef = useRef({ startX: 0, startY: 0, originX: 0, originY: 0 });
   const touchStateRef = useRef({
     startX: 0,
@@ -1069,6 +1158,7 @@ const PortfolioGallery = () => {
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [currentOriginalImageUrl, setCurrentOriginalImageUrl] = useState<string | null>(null);
   const [loadingOriginalImage, setLoadingOriginalImage] = useState(false);
+  const [loadingDetailImages, setLoadingDetailImages] = useState(false);
 
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const normalizedSearchQuery = deferredSearchQuery.trim();
@@ -1159,7 +1249,7 @@ const PortfolioGallery = () => {
       .filter((post): post is PortfolioPost => Boolean(post))
   ), [posts, comparePostIds]);
   const portfolioStats = useMemo(() => {
-    const imageCount = posts.reduce((sum, post) => sum + post.images.length, 0);
+    const imageCount = posts.reduce((sum, post) => sum + post.image_count, 0);
     const fileBytes = posts.reduce((sum, post) => sum + post.images.reduce((imageSum, image) => imageSum + (image.file_size || 0), 0), 0);
     const failedDeletes = posts.reduce((sum, post) => sum + post.images.filter(image => image.delete_status === 'failed').length, 0);
     return { imageCount, fileBytes, failedDeletes };
@@ -1287,13 +1377,48 @@ const PortfolioGallery = () => {
   }, []);
 
   const openPostDetail = useCallback((post: PortfolioPost) => {
+    const requestId = ++detailImagesRequestRef.current;
+    const initialImageId = post.images[0]?.id;
     setSelectedPost(post);
     setCurrentImageIndex(0);
     resetImageView();
     rememberRecentPost(post);
+
+    if (post.image_count <= post.images.length) {
+      setLoadingDetailImages(false);
+      return;
+    }
+
+    setLoadingDetailImages(true);
+    fetchPortfolioImagesForPost(post.id)
+      .then((images) => {
+        if (detailImagesRequestRef.current !== requestId) return;
+        setSelectedPost(prev => {
+          if (!prev || prev.id !== post.id) return prev;
+          return {
+            ...prev,
+            image_count: Math.max(prev.image_count, images.length),
+            images: images.length > 0 ? images : prev.images,
+          };
+        });
+        if (initialImageId) {
+          const nextIndex = images.findIndex(image => image.id === initialImageId);
+          setCurrentImageIndex(nextIndex >= 0 ? nextIndex : 0);
+        }
+      })
+      .catch((error) => {
+        if (detailImagesRequestRef.current === requestId) {
+          toast.error('상세 사진 로딩 실패: ' + getErrorMessage(error));
+        }
+      })
+      .finally(() => {
+        if (detailImagesRequestRef.current === requestId) setLoadingDetailImages(false);
+      });
   }, [resetImageView, rememberRecentPost]);
 
   const closePostDetail = useCallback(() => {
+    detailImagesRequestRef.current++;
+    setLoadingDetailImages(false);
     setSelectedPost(null);
     resetImageView();
   }, [resetImageView]);
@@ -1733,13 +1858,16 @@ const PortfolioGallery = () => {
     mutationFn: async (postId: string) => {
       const post = posts.find(p => p.id === postId);
       if (post) {
+        const imagesToDelete = post.images.length >= post.image_count
+          ? post.images
+          : await fetchPortfolioImagesForPost(postId);
         await supabase
           .from('portfolio_images')
           .update({ delete_status: 'pending', delete_error: null })
           .eq('post_id', postId);
 
         const deleteFailures: string[] = [];
-        for (const img of post.images) {
+        for (const img of imagesToDelete) {
           try {
             await deletePortfolioDriveFile(img.drive_file_id, img.drive_folder_id);
             await deletePortfolioThumbnail(img.thumbnail_bucket, img.thumbnail_path);
@@ -1770,7 +1898,25 @@ const PortfolioGallery = () => {
   });
 
   // Edit handlers
-  const openEditDialog = (post: PortfolioPost) => {
+  const openEditDialog = async (post: PortfolioPost) => {
+    let images = post.images;
+    if (post.images.length < post.image_count) {
+      setLoadingDetailImages(true);
+      try {
+        images = await fetchPortfolioImagesForPost(post.id);
+        setSelectedPost(prev => prev?.id === post.id ? {
+          ...prev,
+          image_count: Math.max(prev.image_count, images.length),
+          images: images.length > 0 ? images : prev.images,
+        } : prev);
+      } catch (error) {
+        toast.error('수정용 사진 로딩 실패: ' + getErrorMessage(error));
+        return;
+      } finally {
+        setLoadingDetailImages(false);
+      }
+    }
+
     setEditTitle(post.title);
     setEditCategory(getPostCategoryLabel(post));
     setEditClientName(post.client_name || '');
@@ -1780,7 +1926,7 @@ const PortfolioGallery = () => {
     setEditProcessesInput(joinListInput(post.processes));
     setEditKeywords([...post.keywords]);
     setEditKeywordInput('');
-    setEditImages([...post.images].sort((a, b) => a.display_order - b.display_order));
+    setEditImages([...images].sort((a, b) => a.display_order - b.display_order));
     setEditRemovedImages([]);
     setEditPendingImages([]);
     setShowEditDialog(true);
@@ -1999,6 +2145,7 @@ const PortfolioGallery = () => {
           materials: parseListInput(editMaterialsInput),
           processes: parseListInput(editProcessesInput),
           keywords: normalizedKeywords,
+          image_count: nextImages.length,
           images: nextImages,
           updated_at: new Date().toISOString(),
         };
@@ -2212,8 +2359,8 @@ const PortfolioGallery = () => {
             <div className="grid gap-2 rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-xs font-bold text-[#707072] sm:grid-cols-4">
               <div className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4" /> 로딩 {portfolioData.totalMatches}건</div>
               <div className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> 사진 {portfolioStats.imageCount}장</div>
-              <div className="flex items-center gap-2"><Layers className="h-4 w-4" /> 원본 {formatBytes(portfolioStats.fileBytes)}</div>
-              <div className="flex items-center gap-2 text-destructive"><Trash2 className="h-4 w-4" /> 삭제 실패 {portfolioStats.failedDeletes}건</div>
+              <div className="flex items-center gap-2"><Layers className="h-4 w-4" /> 대표 파일 {formatBytes(portfolioStats.fileBytes)}</div>
+              <div className="flex items-center gap-2 text-destructive"><Trash2 className="h-4 w-4" /> 대표 삭제 실패 {portfolioStats.failedDeletes}건</div>
             </div>
           )}
 
@@ -2326,7 +2473,7 @@ const PortfolioGallery = () => {
                           <span className="line-clamp-1 text-xs font-bold text-[#707072]">{getPostMetaLine(post)}</span>
                         )}
                         <span className="flex items-center gap-1 text-xs font-bold text-[#707072]">
-                          <ImageIcon className="h-3.5 w-3.5" /> {post.images.length}장
+                          <ImageIcon className="h-3.5 w-3.5" /> {post.image_count}장
                         </span>
                         {post.keywords.length > 0 && (
                           <span className="flex gap-1 overflow-x-auto pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -2709,6 +2856,14 @@ const PortfolioGallery = () => {
                     </span>
                   </div>
                 )}
+                {loadingDetailImages && (
+                  <div className="absolute inset-x-0 top-28 z-10 flex justify-center">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-xs font-bold text-white">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      사진 목록 로딩 중
+                    </span>
+                  </div>
+                )}
 
                 <div className="absolute left-3 top-3 flex gap-1.5">
                   <button
@@ -2805,7 +2960,7 @@ const PortfolioGallery = () => {
                       {getPostCategoryLabel(selectedPost)}
                     </Badge>
                     <Badge variant="secondary" className="w-fit rounded-full font-mono text-[11px]">
-                      {currentImageIndex + 1} / {selectedPost.images.length}
+                      {selectedPost.images.length > 0 ? currentImageIndex + 1 : 0} / {Math.max(selectedPost.image_count, selectedPost.images.length)}
                     </Badge>
                   </div>
                 </div>
@@ -2886,7 +3041,7 @@ const PortfolioGallery = () => {
                     </Button>
                     {isManageMode && (
                       <>
-                        <Button variant="outline" size="sm" className="flex-1 rounded-full" onClick={() => openEditDialog(selectedPost)}>
+                        <Button variant="outline" size="sm" className="flex-1 rounded-full" onClick={() => openEditDialog(selectedPost)} disabled={loadingDetailImages}>
                           <Pencil className="mr-1 h-4 w-4" />
                           수정
                         </Button>
