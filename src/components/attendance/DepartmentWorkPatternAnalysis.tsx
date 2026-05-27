@@ -43,13 +43,13 @@ const DepartmentWorkPatternAnalysis: React.FC = () => {
     },
   });
 
-  const { data: employees = [] } = useQuery({
+  const { data: employees = [] } = useQuery<any[]>({
     queryKey: ['dept-pattern-employees'],
     queryFn: async () => {
       const { data } = await (supabase.from('profile_directory' as any) as any)
         .select('id, full_name, department')
         .order('full_name');
-      return data || [];
+      return (data || []) as any[];
     },
   });
 

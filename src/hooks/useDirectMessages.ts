@@ -150,7 +150,7 @@ export const useConversationList = () => {
       .select('id, full_name, avatar_url, department, position')
       .in('id', partnerIds);
 
-    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+    const profileMap = new Map<string, any>((profiles || []).map((p: any) => [p.id as string, p]));
 
     const result: ConversationPartner[] = partnerIds
       .map(pid => {
