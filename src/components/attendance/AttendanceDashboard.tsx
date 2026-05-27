@@ -68,8 +68,7 @@ const AttendanceDashboard: React.FC = () => {
   const { data: employees = [] } = useQuery({
     queryKey: ['dashboard-employees'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('profile_directory' as any)
+      const { data } = await (supabase.from('profile_directory' as any) as any)
         .select('id, full_name, department')
         .order('full_name');
       return ((data as any[]) || []) as Array<{ id: string; full_name: string; department: string | null }>;

@@ -119,8 +119,7 @@ const OnlineEmployeesCard: React.FC = () => {
   }, []);
 
   const fetchCheckedInEmployees = async () => {
-    const { data: attendanceData, error: attError } = await supabase
-      .from('checked_in_employee_status' as any)
+    const { data: attendanceData, error: attError } = await (supabase.from('checked_in_employee_status' as any) as any)
       .select('user_id, user_name, check_in, avatar_url, department, position')
       .order('check_in', { ascending: true });
 

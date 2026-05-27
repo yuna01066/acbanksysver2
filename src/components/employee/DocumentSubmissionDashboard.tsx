@@ -23,8 +23,7 @@ const DocumentSubmissionDashboard: React.FC = () => {
 
     const fetchSubmissions = async () => {
       // Fetch all employees
-      const { data: profiles } = await supabase
-        .from('profile_directory' as any)
+      const { data: profiles } = await (supabase.from('profile_directory' as any) as any)
         .select('id, full_name, department')
         .order('full_name');
 

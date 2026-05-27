@@ -109,7 +109,7 @@ const AttendancePage = () => {
   const { data: employees = [] } = useQuery({
     queryKey: ['all-employees-for-attendance'],
     queryFn: async () => {
-      const { data } = await supabase.from('profile_directory' as any).select('id, full_name, department').order('full_name');
+      const { data } = await (supabase.from('profile_directory' as any) as any).select('id, full_name, department').order('full_name');
       return data || [];
     },
     enabled: !!user && (isAdmin || isModerator),

@@ -125,8 +125,7 @@ const ReceivedFeedbackPanel: React.FC = () => {
       ...(sentRes.data || []).map(f => f.receiver_id),
     ])];
 
-    const { data: profiles } = await supabase
-      .from('profile_directory' as any)
+    const { data: profiles } = await (supabase.from('profile_directory' as any) as any)
       .select('id, full_name')
       .in('id', partnerIds.length > 0 ? partnerIds : ['none']);
 

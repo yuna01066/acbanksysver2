@@ -41,8 +41,7 @@ const MonthlyAttendanceReport: React.FC = () => {
   const { data: employees = [] } = useQuery({
     queryKey: ['monthly-report-employees'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('profile_directory' as any)
+      const { data } = await (supabase.from('profile_directory' as any) as any)
         .select('id, full_name, department')
         .order('full_name');
       return data || [];

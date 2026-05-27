@@ -146,8 +146,7 @@ export const useConversationList = () => {
     }
 
     const partnerIds = Array.from(partnerMap.keys());
-    const { data: profiles } = await supabase
-      .from('profile_directory' as any)
+    const { data: profiles } = await (supabase.from('profile_directory' as any) as any)
       .select('id, full_name, avatar_url, department, position')
       .in('id', partnerIds);
 

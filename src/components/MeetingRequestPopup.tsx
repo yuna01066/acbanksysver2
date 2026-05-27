@@ -71,8 +71,7 @@ const MeetingRequestPopup: React.FC = () => {
 
     // Fetch sender profiles
     const senderIds = [...new Set(data.map(d => d.sender_id))];
-    const { data: profilesRaw } = await supabase
-      .from('profile_directory' as any)
+    const { data: profilesRaw } = await (supabase.from('profile_directory' as any) as any)
       .select('id, full_name, avatar_url, department')
       .in('id', senderIds);
     const profiles = (profilesRaw as any[]) || [];
