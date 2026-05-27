@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import {
   Upload, Trash2, Image as ImageIcon, Loader2, Plus,
   ChevronLeft, ChevronRight, Search, RefreshCw, Eye, X, Hash, Clock, TrendingUp, Pencil,
-  ZoomIn, ZoomOut, Maximize2, FolderOpen, CheckSquare, Square, Link as LinkIcon
+  ZoomIn, ZoomOut, Maximize2, FolderOpen, CheckSquare, Square, Link as LinkIcon, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -646,6 +646,7 @@ const PortfolioGallery = () => {
   const [editTitle, setEditTitle] = useState('');
   const [editKeywords, setEditKeywords] = useState<string[]>([]);
   const [editKeywordInput, setEditKeywordInput] = useState('');
+  const [editImages, setEditImages] = useState<PortfolioImage[]>([]);
   const [editing, setEditing] = useState(false);
 
   // Create form state
@@ -1169,6 +1170,7 @@ const PortfolioGallery = () => {
     setEditTitle(post.title);
     setEditKeywords([...post.keywords]);
     setEditKeywordInput('');
+    setEditImages([...post.images].sort((a, b) => a.display_order - b.display_order));
     setShowEditDialog(true);
   };
 
@@ -1188,25 +1190,74 @@ const PortfolioGallery = () => {
     }
   };
 
+  const moveEditImage = useCallback((fromIndex: number, direction: -1 | 1) => {
+    setEditImages(prev => {
+      const toIndex = fromIndex + direction;
+      if (toIndex < 0 || toIndex >= prev.length) return prev;
+
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }, []);
+
   const handleEdit = useCallback(async () => {
     if (!selectedPost || !editTitle.trim()) { toast.error('제목을 입력해주세요.'); return; }
     setEditing(true);
     try {
+      const normalizedKeywords = Array.from(new Set(
+        editKeywords
+          .map(keyword => keyword.trim().replace(/^#/, ''))
+          .filter(Boolean)
+      ));
+      const orderedImages = editImages.map((image, index) => ({
+        ...image,
+        display_order: index,
+        is_main: index === 0,
+      }));
+
       const { error } = await supabase
         .from('portfolio_posts')
-        .update({ title: editTitle.trim(), keywords: editKeywords, updated_at: new Date().toISOString() })
+        .update({ title: editTitle.trim(), keywords: normalizedKeywords, updated_at: new Date().toISOString() })
         .eq('id', selectedPost.id);
       if (error) throw error;
+
+      if (orderedImages.length > 0) {
+        const imageUpdates = await Promise.all(orderedImages.map((image, index) => (
+          supabase
+            .from('portfolio_images')
+            .update({ display_order: index, is_main: index === 0 })
+            .eq('id', image.id)
+        )));
+        const imageError = imageUpdates.find(result => result.error)?.error;
+        if (imageError) throw imageError;
+      }
+
       toast.success('수정되었습니다.');
       setShowEditDialog(false);
-      setSelectedPost({ ...selectedPost, title: editTitle.trim(), keywords: editKeywords });
+      setEditKeywords(normalizedKeywords);
+      setSelectedPost(prev => {
+        if (!prev || prev.id !== selectedPost.id) return prev;
+        return {
+          ...prev,
+          title: editTitle.trim(),
+          keywords: normalizedKeywords,
+          images: orderedImages,
+          updated_at: new Date().toISOString(),
+        };
+      });
+      const currentImageId = selectedPost.images[currentImageIndex]?.id;
+      const nextImageIndex = currentImageId ? orderedImages.findIndex(image => image.id === currentImageId) : 0;
+      setCurrentImageIndex(nextImageIndex >= 0 ? nextImageIndex : 0);
       qc.invalidateQueries({ queryKey: ['portfolio-posts'] });
+      qc.invalidateQueries({ queryKey: ['portfolio-popular-keywords'] });
     } catch (err) {
       toast.error('수정 실패: ' + getErrorMessage(err));
     } finally {
       setEditing(false);
     }
-  }, [selectedPost, editTitle, editKeywords, qc]);
+  }, [selectedPost, editTitle, editKeywords, editImages, currentImageIndex, qc]);
 
   const editKeywordSuggestions = useMemo(() => {
     if (!editKeywordInput.trim()) return [];
@@ -1824,7 +1875,7 @@ const PortfolioGallery = () => {
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>포트폴리오 수정</DialogTitle>
           </DialogHeader>
@@ -1868,9 +1919,81 @@ const PortfolioGallery = () => {
                 )}
               </div>
             </div>
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div>
+                  <Label>사진 순서</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">첫 번째 사진이 대표 이미지로 표시됩니다.</p>
+                </div>
+                <Badge variant="outline" className="shrink-0 rounded-full font-bold">
+                  {editImages.length}장
+                </Badge>
+              </div>
+              {editImages.length > 0 ? (
+                <div className="space-y-2 rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-2">
+                  {editImages.map((image, index) => (
+                    <div key={image.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-[#e5e5e5] bg-white p-2">
+                      <div className="relative h-14 w-20 overflow-hidden rounded-md bg-muted">
+                        <img
+                          src={image.thumbnail_url || image.image_url || ''}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        {index === 0 && (
+                          <Badge className="absolute left-1 top-1 h-5 rounded-full px-1.5 text-[10px]">대표</Badge>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#111111] text-[11px] font-black text-white">
+                            {index + 1}
+                          </span>
+                          <p className="truncate text-sm font-black text-[#111111]">{image.file_name}</p>
+                        </div>
+                        <p className="mt-1 text-xs font-semibold text-[#707072]">
+                          {formatBytes(image.file_size)} · {image.mime_type || 'image'}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-full"
+                          onClick={() => moveEditImage(index, -1)}
+                          disabled={index === 0 || editing}
+                          aria-label={`${image.file_name} 앞으로 이동`}
+                          title="앞으로 이동"
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-full"
+                          onClick={() => moveEditImage(index, 1)}
+                          disabled={index === editImages.length - 1 || editing}
+                          aria-label={`${image.file_name} 뒤로 이동`}
+                          title="뒤로 이동"
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid min-h-24 place-items-center rounded-lg border border-dashed text-sm font-bold text-muted-foreground">
+                  등록된 사진이 없습니다.
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>취소</Button>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)} disabled={editing}>취소</Button>
             <Button onClick={handleEdit} disabled={editing}>
               {editing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Pencil className="h-4 w-4 mr-1" />}
               {editing ? '수정 중...' : '수정'}
