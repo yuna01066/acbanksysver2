@@ -70,6 +70,7 @@ const MyContractsList: React.FC = () => {
   const [password, setPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [signaturePreviewConfirmed, setSignaturePreviewConfirmed] = useState(false);
   const [processing, setProcessing] = useState(false);
   const openedEventsRef = useRef<Set<string>>(new Set());
 
@@ -114,6 +115,12 @@ const MyContractsList: React.FC = () => {
     setPassword('');
     setAgreed(false);
     setSignatureDataUrl(null);
+    setSignaturePreviewConfirmed(false);
+  };
+
+  const handleSignatureChange = (dataUrl: string | null) => {
+    setSignatureDataUrl(dataUrl);
+    setSignaturePreviewConfirmed(false);
   };
 
   const handleSign = async () => {
@@ -128,6 +135,7 @@ const MyContractsList: React.FC = () => {
       return;
     }
     if (!signatureDataUrl) { toast.error('손서명을 입력해주세요.'); return; }
+    if (!signaturePreviewConfirmed) { toast.error('서명 미리보기를 확인해주세요.'); return; }
     if (!password) { toast.error('비밀번호를 입력해주세요.'); return; }
 
     setProcessing(true);
@@ -348,7 +356,7 @@ const MyContractsList: React.FC = () => {
       />
 
       <Dialog open={!!signingContract} onOpenChange={(open) => { if (!open) { setSigningContract(null); resetSignForm(); } }}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-green-600" />
@@ -385,8 +393,31 @@ const MyContractsList: React.FC = () => {
             </div>
             <div className="space-y-1.5">
               <Label>손서명</Label>
-              <SignaturePad onChange={setSignatureDataUrl} />
+              <SignaturePad onChange={handleSignatureChange} />
             </div>
+            {signatureDataUrl && (
+              <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">서명 미리보기</p>
+                    <p className="text-xs text-muted-foreground">이 이미지가 계약서 서명란에 삽입됩니다.</p>
+                  </div>
+                  <div className="flex h-16 items-center justify-center rounded-md border bg-white px-4 sm:w-48">
+                    <img src={signatureDataUrl} alt="입력한 손서명 미리보기" className="max-h-12 max-w-full object-contain" />
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    checked={signaturePreviewConfirmed}
+                    onCheckedChange={(v) => setSignaturePreviewConfirmed(Boolean(v))}
+                    id="contract-signature-preview-confirm"
+                  />
+                  <Label htmlFor="contract-signature-preview-confirm" className="text-sm leading-relaxed">
+                    미리보기와 같이 서명이 계약서에 삽입되는 것을 확인합니다.
+                  </Label>
+                </div>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => { setSigningContract(null); resetSignForm(); }} disabled={processing}>
                 취소
