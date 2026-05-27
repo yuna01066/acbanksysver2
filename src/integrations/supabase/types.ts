@@ -412,6 +412,7 @@ export type Database = {
       }
       color_options: {
         Row: {
+          attributes: Json
           color_attribute_note: string | null
           color_code: string | null
           color_name: string
@@ -429,6 +430,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          attributes?: Json
           color_attribute_note?: string | null
           color_code?: string | null
           color_name: string
@@ -446,6 +448,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          attributes?: Json
           color_attribute_note?: string | null
           color_code?: string | null
           color_name?: string
