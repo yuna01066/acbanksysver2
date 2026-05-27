@@ -5539,6 +5539,39 @@ export type Database = {
         Args: { _request_id: string; _review_note?: string }
         Returns: string
       }
+      get_portfolio_post_main_images: {
+        Args: { p_post_ids: string[] }
+        Returns: {
+          access_level: string
+          caption: string | null
+          created_at: string
+          delete_error: string | null
+          delete_status: string
+          display_order: number
+          dominant_color: string | null
+          drive_file_id: string
+          drive_folder_id: string | null
+          drive_path: string | null
+          file_name: string
+          file_size: number | null
+          height: number | null
+          id: string
+          image_count: number
+          image_url: string | null
+          is_main: boolean
+          mime_type: string | null
+          post_id: string
+          storage_provider: string
+          taken_at: string | null
+          thumbnail_bucket: string | null
+          thumbnail_height: number | null
+          thumbnail_path: string | null
+          thumbnail_url: string | null
+          thumbnail_width: number | null
+          uploaded_by: string | null
+          width: number | null
+        }[]
+      }
       search_portfolio_posts: {
         Args: {
           p_category_keywords?: string[]
@@ -5555,6 +5588,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          image_count: number
           keywords: string[]
           location: string | null
           materials: string[] | null
