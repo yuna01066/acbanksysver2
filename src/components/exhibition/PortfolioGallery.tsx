@@ -540,7 +540,7 @@ async function hydratePortfolioImages(data: PortfolioImage[]): Promise<Portfolio
 async function fetchPortfolioListImages(postIds: string[]): Promise<Map<string, { image: PortfolioImage | null; imageCount: number }>> {
   if (postIds.length === 0) return new Map();
 
-  const { data, error } = await supabase.rpc('get_portfolio_post_main_images', {
+  const { data, error } = await (supabase.rpc as any)('get_portfolio_post_main_images', {
     p_post_ids: postIds,
   });
   if (error) {
@@ -562,7 +562,7 @@ async function fetchPortfolioListImages(postIds: string[]): Promise<Map<string, 
   hydratedRows.forEach((image) => {
     imagesByPostId.set(image.post_id, {
       image,
-      imageCount: Number(image.image_count || 0),
+      imageCount: Number((image as any).image_count || 0),
     });
   });
   return imagesByPostId;
@@ -580,7 +580,7 @@ async function fetchImagesForPosts(postIds: string[]): Promise<Map<string, Portf
   if (error) throw error;
 
   const imagesByPostId = new Map<string, PortfolioImage[]>();
-  const hydratedImages = await hydratePortfolioImages((data || []) as PortfolioImage[]);
+  const hydratedImages = await hydratePortfolioImages((data || []) as unknown as PortfolioImage[]);
   hydratedImages.forEach((image) => {
     const images = imagesByPostId.get(image.post_id) || [];
     images.push(image);
@@ -1472,7 +1472,7 @@ const PortfolioGallery = () => {
     if (e.touches.length === 2) {
       touchStateRef.current = {
         ...touchStateRef.current,
-        pinchDistance: getTouchDistance(e.touches),
+        pinchDistance: getTouchDistance(e.touches as unknown as TouchList),
         startZoom: imageZoom,
         mode: 'pinch',
       };
@@ -1495,7 +1495,7 @@ const PortfolioGallery = () => {
   const handleLightboxTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     if (touchStateRef.current.mode === 'pinch' && e.touches.length === 2) {
       e.preventDefault();
-      const nextDistance = getTouchDistance(e.touches);
+      const nextDistance = getTouchDistance(e.touches as unknown as TouchList);
       if (touchStateRef.current.pinchDistance > 0) {
         setBoundedZoom(touchStateRef.current.startZoom * (nextDistance / touchStateRef.current.pinchDistance));
       }
@@ -2123,7 +2123,7 @@ const PortfolioGallery = () => {
           delete_status: 'active',
         }).select().single();
         if (insertImageError) throw insertImageError;
-        const [hydratedImage] = await hydratePortfolioImages([insertedImage as PortfolioImage]);
+        const [hydratedImage] = await hydratePortfolioImages([insertedImage as unknown as PortfolioImage]);
         insertedImages.push(hydratedImage);
       }
 
