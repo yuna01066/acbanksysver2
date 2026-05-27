@@ -199,17 +199,35 @@ async function cmdMaterialSearch(admin: any, kw: string): Promise<Response> {
   }
 }
 
+async function fetchLatestProjectStage(admin: any, projectId: string): Promise<string | null> {
+  try {
+    const { data } = await admin
+      .from("saved_quotes")
+      .select("project_stage,updated_at,created_at")
+      .eq("project_id", projectId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return (data?.project_stage as string | undefined) || null;
+  } catch {
+    return null;
+  }
+}
+
 async function cmdProjectsRecent(admin: any): Promise<Response> {
   try {
     const { data, error } = await admin
       .from("projects")
-      .select("id,name,stage,status,created_at")
+      .select("id,name,status,created_at")
       .order("created_at", { ascending: false })
       .limit(10);
     if (error) return kakaoText(`프로젝트 최근 조회 실패: ${error.message}`);
     if (!data?.length) return kakaoText("등록된 프로젝트가 없습니다.");
+    const stages = await Promise.all(
+      data.map((p: any) => fetchLatestProjectStage(admin, p.id)),
+    );
     const lines = data.map((p: any, i: number) =>
-      `${i + 1}. ${p.name || p.id} [${p.stage || p.status || "-"}] (${fmtDate(p.created_at)})`
+      `${i + 1}. ${p.name || p.id} [${stages[i] || p.status || "-"}] (${fmtDate(p.created_at)})`
     );
     return kakaoText(`최근 프로젝트 ${data.length}건\n` + lines.join("\n"));
   } catch (e) {
@@ -222,19 +240,30 @@ async function cmdProjectSearch(admin: any, kw: string): Promise<Response> {
   try {
     const { data, error } = await admin
       .from("projects")
-      .select("id,name,stage,status,created_at")
+      .select("id,name,status,created_at")
       .ilike("name", `%${kw}%`)
       .order("created_at", { ascending: false })
       .limit(10);
     if (error) return kakaoText(`프로젝트 검색 실패: ${error.message}`);
     if (!data?.length) return kakaoText(`"${kw}" 프로젝트가 없습니다.`);
+    const stages = await Promise.all(
+      data.map((p: any) => fetchLatestProjectStage(admin, p.id)),
+    );
     const lines = data.map((p: any, i: number) =>
-      `${i + 1}. ${p.name || p.id} [${p.stage || p.status || "-"}] (${fmtDate(p.created_at)})`
+      `${i + 1}. ${p.name || p.id} [${stages[i] || p.status || "-"}] (${fmtDate(p.created_at)})`
     );
     return kakaoText(`프로젝트 "${kw}" ${data.length}건\n` + lines.join("\n"));
   } catch (e) {
     return kakaoText(`프로젝트 검색 처리 오류: ${(e as Error).message}`);
   }
+}
+
+function statusForStage(newStage: string): string | null {
+  const s = newStage.toLowerCase();
+  if (s.includes("완료") || s.includes("complete") || s.includes("done")) return "completed";
+  if (s.includes("취소") || s.includes("cancel")) return "cancelled";
+  if (s.includes("보류") || s.includes("hold")) return "on_hold";
+  return "active";
 }
 
 async function cmdChangeStage(
@@ -249,28 +278,63 @@ async function cmdChangeStage(
     return kakaoText("형식: 아뱅 프로세스 변경 <프로젝트키워드> <단계>");
   }
   try {
-    const { data: matches, error } = await admin
-      .from("projects")
-      .select("id,name,stage,status")
-      .ilike("name", `%${kw}%`)
-      .limit(5);
-    if (error) return kakaoText(`프로젝트 조회 실패: ${error.message}`);
+    // Match by name ilike OR by id prefix
+    const isUuidPrefix = /^[0-9a-fA-F-]{4,}$/.test(kw);
+    let query = admin.from("projects").select("id,name,status");
+    if (isUuidPrefix) {
+      query = query.or(`name.ilike.%${kw}%,id.eq.${kw}`);
+    } else {
+      query = query.ilike("name", `%${kw}%`);
+    }
+    const { data: matches, error } = await query.limit(5);
+    if (error) {
+      return kakaoText(`"${kw}" 일치하는 프로젝트를 찾지 못했습니다.`);
+    }
     if (!matches?.length) return kakaoText(`"${kw}" 일치하는 프로젝트가 없습니다.`);
     if (matches.length > 1) {
       const list = matches.map((p: any, i: number) => `${i + 1}. ${p.name}`).join("\n");
       return kakaoText(`복수 프로젝트 일치. 더 구체적인 키워드로 지정해주세요:\n${list}`);
     }
     const proj = matches[0];
-    const oldStage = proj.stage || proj.status || null;
-    // try stage column first, then status
-    let updateErr: any = null;
-    const tryUpdate = async (col: string) => {
-      const { error: e } = await admin.from("projects").update({ [col]: newStage }).eq("id", proj.id);
-      return e;
-    };
-    updateErr = await tryUpdate("stage");
-    if (updateErr) updateErr = await tryUpdate("status");
-    if (updateErr) return kakaoText(`프로세스 변경 실패: ${updateErr.message}`);
+    const oldStage = (await fetchLatestProjectStage(admin, proj.id)) || proj.status || null;
+
+    // Update saved_quotes.project_stage for all quotes linked to this project
+    const { data: quotes, error: qerr } = await admin
+      .from("saved_quotes")
+      .select("id,project_stage")
+      .eq("project_id", proj.id);
+    if (qerr) {
+      return kakaoText(`프로세스 변경 실패: 견적 조회 오류 (${qerr.message})`);
+    }
+
+    let updatedCount = 0;
+    if (quotes && quotes.length) {
+      const { error: uerr } = await admin
+        .from("saved_quotes")
+        .update({ project_stage: newStage, status_updated_at: new Date().toISOString() })
+        .eq("project_id", proj.id);
+      if (uerr) return kakaoText(`프로세스 변경 실패: ${uerr.message}`);
+      updatedCount = quotes.length;
+
+      // Insert stage history rows (best-effort)
+      try {
+        const rows = quotes.map((q: any) => ({
+          quote_id: q.id,
+          old_stage: q.project_stage || null,
+          new_stage: newStage,
+          changed_by: actorProfileId,
+          changed_by_name: "Kakao Bot",
+          memo: `Kakao: ${commandText}`,
+        }));
+        await admin.from("quote_stage_history").insert(rows);
+      } catch (_e) { /* best-effort */ }
+    }
+
+    // Optionally update projects.status (NOT projects.stage which doesn't exist)
+    const newStatus = statusForStage(newStage);
+    if (newStatus) {
+      await admin.from("projects").update({ status: newStatus }).eq("id", proj.id);
+    }
 
     await logAudit(admin, {
       kakao_user_id: kakaoUserId,
@@ -284,7 +348,7 @@ async function cmdChangeStage(
       result: "success",
     });
 
-    return kakaoText(`✅ "${proj.name}" 단계 변경 완료\n${oldStage || "-"} → ${newStage}`);
+    return kakaoText(`✅ "${proj.name}" 단계 변경 완료 (견적 ${updatedCount}건)\n${oldStage || "-"} → ${newStage}`);
   } catch (e) {
     return kakaoText(`프로세스 변경 처리 오류: ${(e as Error).message}`);
   }
