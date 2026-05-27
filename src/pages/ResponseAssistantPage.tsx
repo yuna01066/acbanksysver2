@@ -420,7 +420,7 @@ const ResponseAssistantPage = () => {
                 <Textarea
                   value={internalContext}
                   onChange={(event) => setInternalContext(event.target.value)}
-                  placeholder="예: 원자재 20% 상승, 무기포 접착은 일반 접착 대비 약 3배, 사양 변경 시 단가 조정 가능..."
+                  placeholder="예: 요청 사양 기준 산출, 공정 관리가 필요한 제작 방식 포함, 사양 변경 시 조정 가능 여부 검토..."
                   className="mt-1 min-h-28 leading-relaxed"
                 />
               </div>
