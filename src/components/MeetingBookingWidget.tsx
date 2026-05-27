@@ -21,6 +21,7 @@ import {
   Clock3,
   Loader2,
   MapPin,
+  Megaphone,
   Plus,
   Save,
   Search,
@@ -38,6 +39,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import MeetingScheduleEventsPanel from '@/components/MeetingScheduleEventsPanel';
 import {
   CLIENT_MEETING_OPTIONS,
   EMPLOYEE_MEETING_OPTIONS,
@@ -212,12 +214,13 @@ const MeetingBookingWidget = ({
   const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null);
   const [detailDraft, setDetailDraft] = useState<MeetingDraft | null>(null);
   const [detailParticipantSearch, setDetailParticipantSearch] = useState('');
+  const [workflowMode, setWorkflowMode] = useState<'meeting' | 'schedule'>('meeting');
 
   const { data: employees = [], isLoading: isEmployeesLoading } = useQuery({
     queryKey: ['meeting-reservation-employees'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profile_directory' as any)
+        .from('profile_directory')
         .select('id, full_name, department, position')
         .order('full_name');
       if (error) throw error;
@@ -674,6 +677,59 @@ const MeetingBookingWidget = ({
         </header>
       )}
 
+      <div className="border-b border-[#e5e5e5] px-4 py-3 sm:px-5">
+        <div className="grid gap-2 sm:grid-cols-2">
+          {[
+            {
+              value: 'meeting' as const,
+              label: '미팅 예약',
+              description: '직원 회의와 클라이언트 상담',
+              icon: UsersRound,
+            },
+            {
+              value: 'schedule' as const,
+              label: '이벤트 일정',
+              description: '공지사항 이벤트 기능 통합',
+              icon: Megaphone,
+            },
+          ].map((option) => {
+            const Icon = option.icon;
+            const active = workflowMode === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setWorkflowMode(option.value)}
+                className={cn(
+                  'flex min-h-14 items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
+                  active
+                    ? 'border-[#111111] bg-[#111111] text-white'
+                    : 'border-[#e5e5e5] bg-white text-[#111111] hover:border-[#cacacb]',
+                )}
+              >
+                <span
+                  className={cn(
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border',
+                    active ? 'border-white/20 bg-white/10' : 'border-[#e5e5e5] bg-[#f5f5f5]',
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold leading-5">{option.label}</span>
+                  <span className={cn('block truncate text-xs leading-4', active ? 'text-white/70' : 'text-[#707072]')}>
+                    {option.description}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {workflowMode === 'schedule' ? (
+        <MeetingScheduleEventsPanel compactLayout={compactLayout} maxItems={maxItems} />
+      ) : (
       <div
         className={cn(
           'grid min-w-0 gap-5 p-4 sm:p-5',
@@ -1286,6 +1342,7 @@ const MeetingBookingWidget = ({
           </div>
         </aside>
       </div>
+      )}
     </section>
   );
 };

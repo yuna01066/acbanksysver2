@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { isMissingMeetingReservationsTableError } from '@/lib/meetingReservationErrors';
 
 type WorkStatus = 'available' | 'busy' | 'focusing' | 'meeting';
 
@@ -21,6 +22,8 @@ interface TimeGreetingProps {
   name: string;
   avatarUrl?: string | null;
 }
+
+const supabaseAny = supabase as any;
 
 const getGreetingData = (): { message: string; icon: React.ReactNode; sub?: string; gradient: string; iconBg: string; timeColor: string } => {
   const now = new Date();
@@ -190,52 +193,91 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
     refetchInterval: 60000,
   });
 
-  // Fetch today's upcoming events (conference, meeting, event)
+  // Fetch today's event schedules from the notice table.
   const { data: todayEvents } = useQuery({
     queryKey: ['today-upcoming-events'],
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('announcements')
-        .select('id, title, announcement_type, meeting_date, meeting_time, meeting_location, content, author_name')
-        .in('announcement_type', ['meeting', 'conference', 'event'])
+        .select('id, title, meeting_date, meeting_location, event_end_date, content, author_name')
+        .eq('announcement_type', 'event')
         .or(`meeting_date.eq.${today},and(meeting_date.lte.${today},event_end_date.gte.${today})`)
-        .order('meeting_time', { ascending: true, nullsFirst: false });
+        .order('meeting_date', { ascending: true });
       if (error) throw error;
       return data || [];
     },
     refetchInterval: 60000,
   });
 
-  // Filter upcoming events within 30 minutes
+  const { data: todayReservations } = useQuery({
+    queryKey: ['today-meeting-reservation-reminders', user?.id],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabaseAny
+        .from('meeting_reservations')
+        .select('id, title, audience_type, employee_meeting_type, client_meeting_type, meeting_date, start_time, location, client_name, created_by, participant_ids, status')
+        .eq('meeting_date', today)
+        .in('status', ['scheduled', 'confirmed'])
+        .order('start_time', { ascending: true });
+      if (error) {
+        if (isMissingMeetingReservationsTableError(error)) return [];
+        throw error;
+      }
+      return data || [];
+    },
+    enabled: !!user,
+    refetchInterval: 60000,
+  });
+
+  // Filter upcoming schedules within 30 minutes. All-day events remain visible.
   const upcomingEvents = useMemo(() => {
-    if (!todayEvents || todayEvents.length === 0) return [];
     const nowDate = new Date();
     const currentMinute = nowDate.getHours() * 60 + nowDate.getMinutes();
 
-    return todayEvents
-      .map(ev => {
-        if (!ev.meeting_time) {
-          // Events without time - show all day
-          return { ...ev, minutesLeft: null, isAllDay: true };
-        }
-        const [h, min] = ev.meeting_time.split(':').map(Number);
+    const eventItems = (todayEvents || []).map((ev) => ({
+      id: ev.id,
+      title: ev.title,
+      eventType: 'event' as const,
+      meeting_date: ev.meeting_date,
+      meeting_time: null,
+      meeting_location: ev.meeting_location,
+      content: ev.content,
+      author_name: ev.author_name,
+      minutesLeft: null,
+      isAllDay: true,
+    }));
+
+    const reservationItems = (todayReservations || [])
+      .map((reservation: any) => {
+        const [h, min] = String(reservation.start_time || '').split(':').map(Number);
         if (isNaN(h) || isNaN(min)) return null;
         const eventMin = h * 60 + min;
         const diff = eventMin - currentMinute;
-        if (diff > 0 && diff <= 30) {
-          return { ...ev, minutesLeft: diff, isAllDay: false };
-        }
-        return null;
+        if (diff <= 0 || diff > 30) return null;
+        return {
+          id: reservation.id,
+          title: reservation.title,
+          eventType: reservation.audience_type === 'employee' ? 'conference' as const : 'meeting' as const,
+          meeting_date: reservation.meeting_date,
+          meeting_time: reservation.start_time,
+          meeting_location: reservation.location || reservation.client_name,
+          content: reservation.client_name || '',
+          author_name: reservation.audience_type === 'employee' ? '직원 미팅' : '클라이언트 미팅',
+          minutesLeft: diff,
+          isAllDay: false,
+        };
       })
-      .filter(Boolean)
+      .filter(Boolean);
+
+    return [...reservationItems, ...eventItems]
       .slice(0, 3) as Array<{
-        id: string; title: string; announcement_type: string;
+        id: string; title: string; eventType: 'meeting' | 'conference' | 'event';
         meeting_date: string | null; meeting_time: string | null;
         meeting_location: string | null; content: string;
         author_name: string; minutesLeft: number | null; isAllDay: boolean;
       }>;
-  }, [todayEvents, now]);
+  }, [todayEvents, todayReservations, now]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -496,7 +538,7 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
               conference: { label: '회의', badgeBg: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300', cardBorder: 'border-violet-200/70 dark:border-violet-800/60', cardBg: 'bg-background/70', icon: <Users className="h-3.5 w-3.5" /> },
               meeting: { label: '미팅', badgeBg: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', cardBorder: 'border-amber-200/70 dark:border-amber-800/60', cardBg: 'bg-background/70', icon: <Coffee className="h-3.5 w-3.5" /> },
               event: { label: '이벤트', badgeBg: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300', cardBorder: 'border-emerald-200/70 dark:border-emerald-800/60', cardBg: 'bg-background/70', icon: <Calendar className="h-3.5 w-3.5" /> },
-            }[ev.announcement_type] || { label: '일정', badgeBg: 'bg-muted text-muted-foreground', cardBorder: 'border-border', cardBg: 'bg-muted/50', icon: <Calendar className="h-3.5 w-3.5" /> };
+            }[ev.eventType] || { label: '일정', badgeBg: 'bg-muted text-muted-foreground', cardBorder: 'border-border', cardBg: 'bg-muted/50', icon: <Calendar className="h-3.5 w-3.5" /> };
 
             const formattedDate = ev.meeting_date
               ? new Date(ev.meeting_date + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' })

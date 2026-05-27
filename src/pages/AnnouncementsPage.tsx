@@ -1,30 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import DashboardCalendar from '@/components/DashboardCalendar';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
+import { AlertCircle, Edit, Loader2, Megaphone, Pin, Plus, Search, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Megaphone, Plus, Loader2, Trash2, Edit, Pin, Calendar, MapPin, Clock, PartyPopper, Building2, Users, X, Coffee, LayoutGrid, Search, CalendarDays, AlertCircle, ChevronRight } from 'lucide-react';
-import { toast } from 'sonner';
-import { endOfWeek, format, isBefore, isSameDay, isWithinInterval, startOfDay, startOfWeek } from 'date-fns';
-import { ko } from 'date-fns/locale';
 import { PageHeader, PageShell, SearchFilterBar } from '@/components/layout/PageLayout';
-import {
-  buildMeetingReservationFromAnnouncement,
-  isAnnouncementMeetingType,
-} from '@/lib/announcementMeetingLink';
-
-type AnnouncementType = 'general' | 'event' | 'conference' | 'meeting';
-type SummaryFilter = 'all' | 'today' | 'week' | 'pinned';
-
-const SCHEDULED_TYPES = ['event', 'conference', 'meeting'];
 
 interface Announcement {
   id: string;
@@ -34,483 +22,174 @@ interface Announcement {
   author_name: string;
   is_pinned: boolean;
   announcement_type: string;
-  meeting_date: string | null;
-  meeting_time: string | null;
-  meeting_location: string | null;
-  meeting_reservation_id: string | null;
-  event_end_date: string | null;
-  recipient_id: string | null;
-  recipient_name: string | null;
-  assignee_ids: string[] | null;
-  assignee_names: string[] | null;
   created_at: string;
   updated_at: string;
 }
-
-const TAB_CONFIG: { value: string; label: string; icon: React.ReactNode; types: string[] }[] = [
-  { value: 'all', label: '전체', icon: <LayoutGrid className="h-4 w-4" />, types: ['general', 'event', 'conference', 'meeting'] },
-  { value: 'general', label: '공지', icon: <Megaphone className="h-4 w-4" />, types: ['general'] },
-  { value: 'event', label: '이벤트', icon: <PartyPopper className="h-4 w-4" />, types: ['event'] },
-  { value: 'conference', label: '회의', icon: <Users className="h-4 w-4" />, types: ['conference'] },
-  { value: 'meeting', label: '미팅', icon: <Coffee className="h-4 w-4" />, types: ['meeting'] },
-];
-
-const isScheduledAnnouncement = (announcement: Announcement) =>
-  SCHEDULED_TYPES.includes(announcement.announcement_type);
-
-const supabaseAny = supabase as any;
-
-const getAnnouncementDate = (announcement: Announcement) => {
-  const dateValue = announcement.meeting_date || announcement.created_at;
-  const date = new Date(dateValue.length === 10 ? `${dateValue}T00:00:00` : dateValue);
-  return isNaN(date.getTime()) ? null : date;
-};
 
 const AnnouncementsPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, profile, isAdmin, isModerator } = useAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
-  const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>('all');
+  const canManage = isAdmin || isModerator;
+  const focusedAnnouncementId = searchParams.get('focus');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [announcementType, setAnnouncementType] = useState<AnnouncementType>('general');
-  const [meetingDate, setMeetingDate] = useState('');
-  const [meetingTime, setMeetingTime] = useState('');
-  const [meetingLocation, setMeetingLocation] = useState('');
-  const [eventEndDate, setEventEndDate] = useState('');
-  const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
-  const [recipientNameInput, setRecipientNameInput] = useState('');
-  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
-  const canManage = isAdmin || isModerator;
-  const focusedAnnouncementId = searchParams.get('focus');
-
-  const { data: announcements, isLoading } = useQuery({
+  const { data: announcements = [], isLoading } = useQuery({
     queryKey: ['announcements'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('announcements')
-        .select('*')
+        .select('id, title, content, author_id, author_name, is_pinned, announcement_type, created_at, updated_at')
+        .eq('announcement_type', 'general')
         .order('is_pinned', { ascending: false })
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data as Announcement[];
+      return (data || []) as Announcement[];
     },
     enabled: !!user,
   });
 
-  const { data: recipients } = useQuery({
-    queryKey: ['recipients-for-announcement'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('recipients')
-        .select('id, company_name')
-        .order('company_name');
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user && canManage,
-  });
-
-  const { data: employees } = useQuery({
-    queryKey: ['employees-for-announcement'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profile_directory' as any)
-        .select('id, full_name')
-        .order('full_name');
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user && canManage,
-  });
-
-  const getFormError = () => {
-    if (!title.trim()) return '제목을 입력해주세요.';
-    if (!content.trim()) return '내용을 입력해주세요.';
-    if ((announcementType === 'conference' || announcementType === 'meeting' || announcementType === 'event') && !meetingDate) {
-      return '일정이 있는 공지는 날짜를 입력해주세요.';
-    }
-    if (announcementType === 'event' && meetingDate && eventEndDate) {
-      const start = new Date(`${meetingDate}T00:00:00`);
-      const end = new Date(`${eventEndDate}T00:00:00`);
-      if (isBefore(end, start)) return '이벤트 종료일은 시작일보다 빠를 수 없습니다.';
-    }
+  const formError = useMemo(() => {
+    if (!title.trim()) return '공지 제목을 입력해주세요.';
+    if (!content.trim()) return '공지 내용을 입력해주세요.';
     return '';
+  }, [content, title]);
+
+  const resetForm = () => {
+    setTitle('');
+    setContent('');
+    setEditingId(null);
+    setShowForm(false);
   };
 
-  const formError = getFormError();
+  const notifyAnnouncementCreated = async (announcement: Announcement) => {
+    if (!user || !profile) return;
 
-  const postMutation = useMutation({
+    const { data: profiles } = await supabase.from('profile_directory').select('id');
+    const notifications = (profiles || [])
+      .filter((item) => item.id !== user.id)
+      .map((item) => ({
+        user_id: item.id,
+        type: 'system',
+        title: '새 공지사항',
+        description: `공지사항이 등록되었습니다: ${announcement.title}`,
+        data: { announcementId: announcement.id },
+      }));
+
+    if (notifications.length > 0) {
+      await supabase.from('notifications').insert(notifications);
+    }
+  };
+
+  const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!user || !profile) throw new Error('로그인 필요');
+      if (!user || !profile) throw new Error('로그인이 필요합니다.');
+      if (!canManage) throw new Error('공지 작성 권한이 없습니다.');
       if (formError) throw new Error(formError);
 
-      const hasDateFields = announcementType === 'event' || announcementType === 'conference' || announcementType === 'meeting';
-      const assigneeNames = selectedAssigneeIds.map(id => employees?.find(e => e.id === id)?.full_name || '').filter(Boolean);
-      const recipientName = selectedRecipientId 
-        ? recipients?.find(r => r.id === selectedRecipientId)?.company_name || recipientNameInput 
-        : recipientNameInput || null;
-      const currentAnnouncement = editingId ? announcements?.find(a => a.id === editingId) || null : null;
-      const authorId = currentAnnouncement?.author_id || user.id;
-      const authorName = currentAnnouncement?.author_name || profile.full_name || user.email || '관리자';
-
-      const syncLinkedMeetingReservation = async (announcementId: string, reservationId?: string | null) => {
-        if (!meetingDate || !isAnnouncementMeetingType(announcementType)) return null;
-
-        const payload = buildMeetingReservationFromAnnouncement({
-          announcementId,
-          announcementType,
-          title,
-          content,
-          meetingDate,
-          meetingTime,
-          meetingLocation,
-          authorId,
-          authorName,
-          recipientId: selectedRecipientId,
-          recipientName,
-          assigneeIds: selectedAssigneeIds,
-          assigneeNames,
-        });
-
-        if (reservationId) {
-          const updatePayload: Record<string, unknown> = { ...payload };
-          delete updatePayload.created_by;
-          delete updatePayload.created_by_name;
-          delete updatePayload.status;
-
-          const { data, error } = await supabaseAny
-            .from('meeting_reservations')
-            .update(updatePayload)
-            .eq('id', reservationId)
-            .select('id')
-            .single();
-          if (error) throw error;
-          return data.id as string;
-        }
-
-        const { data, error } = await supabaseAny
-          .from('meeting_reservations')
-          .insert(payload)
-          .select('id')
-          .single();
-        if (error) throw error;
-
-        const { error: linkError } = await supabase
-          .from('announcements')
-          .update({ meeting_reservation_id: data.id })
-          .eq('id', announcementId);
-        if (linkError) throw linkError;
-
-        return data.id as string;
-      };
-
-      const cancelLinkedMeetingReservation = async (reservationId?: string | null) => {
-        if (!reservationId) return;
-        const { error } = await supabaseAny
-          .from('meeting_reservations')
-          .update({ status: 'canceled', source_announcement_id: null })
-          .eq('id', reservationId);
-        if (error) throw error;
-      };
-
       if (editingId) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('announcements')
           .update({
-            title,
-            content,
-            announcement_type: announcementType,
-            meeting_date: hasDateFields ? meetingDate || null : null,
-            meeting_time: (announcementType === 'conference' || announcementType === 'meeting') ? meetingTime || null : null,
-            meeting_location: hasDateFields ? meetingLocation || null : null,
-            event_end_date: announcementType === 'event' ? eventEndDate || null : null,
-            recipient_id: announcementType === 'meeting' ? selectedRecipientId : null,
-            recipient_name: announcementType === 'meeting' ? recipientName : null,
-            assignee_ids: announcementType === 'meeting' ? selectedAssigneeIds : [],
-            assignee_names: announcementType === 'meeting' ? assigneeNames : [],
+            title: title.trim(),
+            content: content.trim(),
+            announcement_type: 'general',
+            meeting_date: null,
+            meeting_time: null,
+            meeting_location: null,
+            event_end_date: null,
+            recipient_id: null,
+            recipient_name: null,
+            assignee_ids: [],
+            assignee_names: [],
           })
-          .eq('id', editingId);
-        if (error) throw error;
-
-        if (isAnnouncementMeetingType(announcementType) && meetingDate) {
-          await syncLinkedMeetingReservation(editingId, currentAnnouncement?.meeting_reservation_id);
-        } else if (currentAnnouncement?.meeting_reservation_id) {
-          await cancelLinkedMeetingReservation(currentAnnouncement.meeting_reservation_id);
-          const { error: unlinkError } = await supabase
-            .from('announcements')
-            .update({ meeting_reservation_id: null })
-            .eq('id', editingId);
-          if (unlinkError) throw unlinkError;
-        }
-      } else {
-        const insertData: Record<string, unknown> = {
-          title,
-          content,
-          author_id: user.id,
-          author_name: profile.full_name || user.email || '관리자',
-          announcement_type: announcementType,
-        };
-        if (hasDateFields) {
-          insertData.meeting_date = meetingDate || null;
-          insertData.meeting_location = meetingLocation || null;
-        }
-        if (announcementType === 'conference' || announcementType === 'meeting') {
-          insertData.meeting_time = meetingTime || null;
-        }
-        if (announcementType === 'meeting') {
-          insertData.recipient_id = selectedRecipientId;
-          insertData.recipient_name = recipientName;
-          insertData.assignee_ids = selectedAssigneeIds;
-          insertData.assignee_names = assigneeNames;
-        }
-        if (announcementType === 'event') {
-          insertData.event_end_date = eventEndDate || null;
-        }
-
-        const { data: announcement, error } = await supabase
-          .from('announcements')
-          .insert(insertData as any)
-          .select()
+          .eq('id', editingId)
+          .select('id, title, content, author_id, author_name, is_pinned, announcement_type, created_at, updated_at')
           .single();
         if (error) throw error;
-
-        await syncLinkedMeetingReservation(announcement.id);
-
-        // Post to team chat
-        if (announcementType === 'conference') {
-          const info = `📋 회의 공지: ${title}\n📅 ${meetingDate || '미정'}${meetingTime ? ` ⏰ ${meetingTime}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}`;
-          await supabase.from('team_messages').insert({
-            user_id: user.id,
-            user_name: profile.full_name || user.email || '관리자',
-            avatar_url: profile.avatar_url || null,
-            message: info,
-          });
-        } else if (announcementType === 'meeting') {
-          const info = `☕ 미팅: ${title}\n📅 ${meetingDate || '미정'}${meetingTime ? ` ⏰ ${meetingTime}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}${recipientName ? `\n🏢 ${recipientName}` : ''}`;
-          await supabase.from('team_messages').insert({
-            user_id: user.id,
-            user_name: profile.full_name || user.email || '관리자',
-            avatar_url: profile.avatar_url || null,
-            message: info,
-          });
-        } else if (announcementType === 'event') {
-          const info = `❗ 이벤트 공지: ${title}\n📅 ${meetingDate || '미정'}${eventEndDate ? ` ~ ${eventEndDate}` : ''}${meetingLocation ? `\n📍 ${meetingLocation}` : ''}`;
-          await supabase.from('team_messages').insert({
-            user_id: user.id,
-            user_name: profile.full_name || user.email || '관리자',
-            avatar_url: profile.avatar_url || null,
-            message: info,
-          });
-        }
-
-        // Notify all users
-        const { data: allProfiles } = await supabase
-          .from('profile_directory' as any)
-          .select('id');
-
-        if (allProfiles && allProfiles.length > 0) {
-          const notiTitle = announcementType === 'conference' ? '📋 회의 공지'
-            : announcementType === 'meeting' ? '☕ 미팅 등록'
-            : announcementType === 'event' ? '❗ 이벤트 공지'
-            : '새 공지사항';
-          const notiDesc = announcementType === 'conference'
-            ? `회의가 등록되었습니다: ${title} (${meetingDate || '날짜 미정'}${meetingTime ? ` ${meetingTime}` : ''})`
-            : announcementType === 'meeting'
-            ? `미팅이 등록되었습니다: ${title} (${meetingDate || '날짜 미정'}${meetingTime ? ` ${meetingTime}` : ''})`
-            : announcementType === 'event'
-            ? `이벤트가 등록되었습니다: ${title} (${meetingDate || '날짜 미정'}${eventEndDate ? ` ~ ${eventEndDate}` : ''})`
-            : `공지사항이 등록되었습니다: ${title}`;
-          const notifications = allProfiles
-            .filter(p => p.id !== user.id)
-            .map(p => ({
-              user_id: p.id,
-              type: 'system',
-              title: notiTitle,
-              description: notiDesc,
-              data: { announcementId: announcement.id },
-            }));
-          if (notifications.length > 0) {
-            await supabase.from('notifications').insert(notifications);
-          }
-        }
+        return { announcement: data as Announcement, created: false };
       }
+
+      const { data, error } = await supabase
+        .from('announcements')
+        .insert({
+          title: title.trim(),
+          content: content.trim(),
+          author_id: user.id,
+          author_name: profile.full_name || user.email || '관리자',
+          announcement_type: 'general',
+        })
+        .select('id, title, content, author_id, author_name, is_pinned, announcement_type, created_at, updated_at')
+        .single();
+      if (error) throw error;
+
+      await notifyAnnouncementCreated(data as Announcement);
+      return { announcement: data as Announcement, created: true };
     },
-    onSuccess: () => {
-      toast.success(editingId ? '수정되었습니다.' : '등록되었습니다.');
+    onSuccess: ({ created }) => {
+      toast.success(created ? '공지사항이 등록되었습니다.' : '공지사항이 수정되었습니다.');
       resetForm();
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
       queryClient.invalidateQueries({ queryKey: ['latest-announcements'] });
-      queryClient.invalidateQueries({ queryKey: ['announcement-meetings'] });
-      queryClient.invalidateQueries({ queryKey: ['announcement-events'] });
-      queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-meeting-booking-card'] });
     },
-    onError: (err: unknown) => {
-      const message = err instanceof Error ? err.message : '알 수 없는 오류';
-      toast.error('실패: ' + message);
+    onError: (error: Error) => {
+      toast.error(error.message || '공지사항 저장에 실패했습니다.');
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async ({ id, meetingReservationId }: { id: string; meetingReservationId?: string | null }) => {
-      if (meetingReservationId) {
-        const { error: reservationError } = await supabaseAny
-          .from('meeting_reservations')
-          .update({ status: 'canceled', source_announcement_id: null })
-          .eq('id', meetingReservationId);
-        if (reservationError) throw reservationError;
-      }
-
+    mutationFn: async (id: string) => {
       const { error } = await supabase.from('announcements').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success('삭제되었습니다.');
+      toast.success('공지사항이 삭제되었습니다.');
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
       queryClient.invalidateQueries({ queryKey: ['latest-announcements'] });
-      queryClient.invalidateQueries({ queryKey: ['announcement-meetings'] });
-      queryClient.invalidateQueries({ queryKey: ['meeting-reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-meeting-booking-card'] });
     },
   });
 
   const togglePinMutation = useMutation({
     mutationFn: async ({ id, isPinned }: { id: string; isPinned: boolean }) => {
       if (!isPinned) {
-        const pinnedCount = announcements?.filter(a => a.is_pinned).length || 0;
-        if (pinnedCount >= 2) {
-          throw new Error('고정 공지는 최대 2건까지 가능합니다.');
-        }
+        const pinnedCount = announcements.filter((announcement) => announcement.is_pinned).length;
+        if (pinnedCount >= 2) throw new Error('고정 공지는 최대 2건까지 가능합니다.');
       }
+
       const { error } = await supabase.from('announcements').update({ is_pinned: !isPinned }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
+      queryClient.invalidateQueries({ queryKey: ['latest-announcements'] });
     },
-    onError: (err: unknown) => {
-      const message = err instanceof Error ? err.message : '처리 실패';
-      toast.error(message);
+    onError: (error: Error) => {
+      toast.error(error.message || '고정 상태 변경에 실패했습니다.');
     },
   });
 
-  const allAnnouncements = useMemo(() => announcements || [], [announcements]);
-
   const filteredAnnouncements = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-    const today = startOfDay(new Date());
-    const weekRange = {
-      start: startOfWeek(today, { weekStartsOn: 1 }),
-      end: endOfWeek(today, { weekStartsOn: 1 }),
-    };
-
-    return allAnnouncements.filter((announcement) => {
-      const searchableText = [
-        announcement.title,
-        announcement.content,
-        announcement.author_name,
-        announcement.recipient_name,
-        announcement.meeting_location,
-        ...(announcement.assignee_names || []),
-      ]
-        .filter(Boolean)
+    const keyword = searchTerm.trim().toLowerCase();
+    if (!keyword) return announcements;
+    return announcements.filter((announcement) =>
+      [announcement.title, announcement.content, announcement.author_name]
         .join(' ')
-        .toLowerCase();
-
-      const matchesSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
-      const announcementDate = getAnnouncementDate(announcement);
-      const matchesDate = !dateFilter || (
-        announcementDate
-        && format(announcementDate, 'yyyy-MM-dd') === dateFilter
-      );
-      const matchesSummaryFilter = (() => {
-        if (summaryFilter === 'all') return true;
-        if (summaryFilter === 'pinned') return announcement.is_pinned;
-        if (!announcementDate || !isScheduledAnnouncement(announcement)) return false;
-        if (summaryFilter === 'today') return isSameDay(announcementDate, today);
-        if (summaryFilter === 'week') return isWithinInterval(announcementDate, weekRange);
-        return true;
-      })();
-
-      return matchesSearch && matchesDate && matchesSummaryFilter;
-    });
-  }, [allAnnouncements, searchTerm, dateFilter, summaryFilter]);
-
-  const summary = useMemo(() => {
-    const today = new Date();
-    const weekRange = {
-      start: startOfWeek(today, { weekStartsOn: 1 }),
-      end: endOfWeek(today, { weekStartsOn: 1 }),
-    };
-
-    const scheduled = allAnnouncements.filter(isScheduledAnnouncement);
-
-    return {
-      total: allAnnouncements.length,
-      pinned: allAnnouncements.filter((announcement) => announcement.is_pinned).length,
-      today: scheduled.filter((announcement) => {
-        const date = getAnnouncementDate(announcement);
-        return date ? isSameDay(date, today) : false;
-      }).length,
-      thisWeek: scheduled.filter((announcement) => {
-        const date = getAnnouncementDate(announcement);
-        return date ? isWithinInterval(date, weekRange) : false;
-      }).length,
-    };
-  }, [allAnnouncements]);
-
-  const upcomingAnnouncements = useMemo(() => {
-    const today = startOfDay(new Date());
-
-    return allAnnouncements
-      .filter((announcement) => {
-        const date = getAnnouncementDate(announcement);
-        return isScheduledAnnouncement(announcement) && date && !isBefore(date, today);
-      })
-      .sort((a, b) => {
-        const dateA = getAnnouncementDate(a)?.getTime() || 0;
-        const dateB = getAnnouncementDate(b)?.getTime() || 0;
-        const timeA = a.meeting_time || '';
-        const timeB = b.meeting_time || '';
-        return dateA - dateB || timeA.localeCompare(timeB);
-      })
-      .slice(0, 6);
-  }, [allAnnouncements]);
-
-  const focusAnnouncement = (announcement: Announcement) => {
-    setSearchParams({ focus: announcement.id });
-    setSummaryFilter('all');
-    setDateFilter('');
-    setActiveTab(announcement.announcement_type || 'all');
-    setExpandedIds(prev => new Set(prev).add(announcement.id));
-
-    window.setTimeout(() => {
-      document.getElementById(`announcement-${announcement.id}`)?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
-    }, 100);
-  };
+        .toLowerCase()
+        .includes(keyword),
+    );
+  }, [announcements, searchTerm]);
 
   useEffect(() => {
-    if (!focusedAnnouncementId || allAnnouncements.length === 0) return;
-
-    const target = allAnnouncements.find((announcement) => announcement.id === focusedAnnouncementId);
+    if (!focusedAnnouncementId || announcements.length === 0) return;
+    const target = announcements.find((announcement) => announcement.id === focusedAnnouncementId);
     if (!target) return;
-
-    setActiveTab(target.announcement_type || 'all');
-    setExpandedIds(prev => new Set(prev).add(target.id));
+    setExpandedIds((prev) => new Set(prev).add(target.id));
 
     window.setTimeout(() => {
       document.getElementById(`announcement-${target.id}`)?.scrollIntoView({
@@ -518,152 +197,90 @@ const AnnouncementsPage = () => {
         block: 'center',
       });
     }, 120);
-  }, [focusedAnnouncementId, allAnnouncements]);
+  }, [announcements, focusedAnnouncementId]);
 
-  const resetForm = () => {
-    setTitle('');
-    setContent('');
-    setAnnouncementType(activeTab === 'all' ? 'general' : activeTab as AnnouncementType);
-    setMeetingDate('');
-    setMeetingTime('');
-    setMeetingLocation('');
-    setEventEndDate('');
-    setSelectedRecipientId(null);
-    setRecipientNameInput('');
-    setSelectedAssigneeIds([]);
-    setEditingId(null);
-    setShowForm(false);
-  };
-
-  const handleEdit = (a: Announcement) => {
-    setEditingId(a.id);
-    setTitle(a.title);
-    setContent(a.content);
-    setAnnouncementType((a.announcement_type || 'general') as AnnouncementType);
-    setMeetingDate(a.meeting_date || '');
-    setMeetingTime(a.meeting_time || '');
-    setMeetingLocation(a.meeting_location || '');
-    setEventEndDate(a.event_end_date || '');
-    setSelectedRecipientId(a.recipient_id || null);
-    setRecipientNameInput(a.recipient_name || '');
-    setSelectedAssigneeIds(a.assignee_ids || []);
+  const openCreateForm = () => {
+    resetForm();
     setShowForm(true);
-    setActiveTab(a.announcement_type || 'general');
   };
 
-  const getTypeBadge = (type: string) => {
-    if (type === 'conference') return <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-blue-500 text-blue-600">회의</Badge>;
-    if (type === 'meeting') return <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-500 text-amber-600">미팅</Badge>;
-    if (type === 'event') return <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-emerald-500 text-emerald-600">이벤트</Badge>;
-    return null;
+  const openEditForm = (announcement: Announcement) => {
+    setEditingId(announcement.id);
+    setTitle(announcement.title);
+    setContent(announcement.content);
+    setShowForm(true);
   };
 
-  const getScheduleBadge = (announcement: Announcement) => {
-    if (!isScheduledAnnouncement(announcement)) return null;
-    const date = getAnnouncementDate(announcement);
-    if (!date) return null;
-    const today = startOfDay(new Date());
-    if (isSameDay(date, today)) {
-      return <Badge className="h-4 px-1.5 py-0 text-[10px]">오늘</Badge>;
-    }
-    if (isBefore(date, today)) {
-      return <Badge variant="secondary" className="h-4 px-1.5 py-0 text-[10px]">지난 일정</Badge>;
-    }
-    return <Badge variant="secondary" className="h-4 px-1.5 py-0 text-[10px]">예정</Badge>;
-  };
-
-  const renderAnnouncementCard = (a: Announcement) => {
-    const isEvent = a.announcement_type === 'event';
-    const isConference = a.announcement_type === 'conference';
-    const isMeeting = a.announcement_type === 'meeting';
-    const hasDateInfo = isEvent || isConference || isMeeting;
-    const isFocused = focusedAnnouncementId === a.id;
+  const renderAnnouncementCard = (announcement: Announcement) => {
+    const isFocused = focusedAnnouncementId === announcement.id;
+    const isLong = announcement.content.split('\n').length > 5 || announcement.content.length > 300;
+    const isExpanded = expandedIds.has(announcement.id);
 
     return (
       <Card
-        key={a.id}
-        id={`announcement-${a.id}`}
+        key={announcement.id}
+        id={`announcement-${announcement.id}`}
         className={[
-          a.is_pinned ? 'border-primary/30 bg-primary/5' : '',
+          announcement.is_pinned ? 'border-primary/30 bg-primary/5' : '',
           isFocused ? 'ring-2 ring-primary/35 shadow-depth' : '',
         ].filter(Boolean).join(' ')}
       >
         <CardContent className="pt-5 pb-4">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                {a.is_pinned && <Pin className="h-3.5 w-3.5 text-primary shrink-0" />}
-                {getTypeBadge(a.announcement_type)}
-                {getScheduleBadge(a)}
-                {a.meeting_reservation_id && (
-                  <Badge variant="secondary" className="h-4 px-1.5 py-0 text-[10px]">예약 연동</Badge>
-                )}
-                <h3 className="font-semibold text-lg">{a.title}</h3>
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex items-center gap-2">
+                {announcement.is_pinned && <Pin className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                <Badge variant="outline" className="h-5 rounded-full px-2 text-[11px]">공지</Badge>
+                <h3 className="min-w-0 truncate text-lg font-semibold">{announcement.title}</h3>
               </div>
-              {hasDateInfo && (a.meeting_date || a.meeting_time || a.meeting_location) && (
-                <div className="flex items-center gap-3 text-sm text-muted-foreground mb-2 flex-wrap">
-                  {a.meeting_date && (
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5" />
-                      {a.meeting_date}
-                      {isEvent && a.event_end_date && ` ~ ${a.event_end_date}`}
-                    </span>
-                  )}
-                  {(isConference || isMeeting) && a.meeting_time && (
-                    <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{a.meeting_time}</span>
-                  )}
-                  {a.meeting_location && (
-                    <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{a.meeting_location}</span>
-                  )}
-                  {isMeeting && a.recipient_name && (
-                    <span className="flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors" onClick={(e) => { e.stopPropagation(); if (a.recipient_id) navigate(`/recipients?id=${a.recipient_id}`); }}>
-                      <Building2 className="h-3.5 w-3.5" />
-                      <span className={a.recipient_id ? 'underline' : ''}>{a.recipient_name}</span>
-                    </span>
-                  )}
-                </div>
+              <p className={`mt-2 whitespace-pre-wrap text-base leading-relaxed text-foreground/80 ${!isExpanded && isLong ? 'line-clamp-5' : ''}`}>
+                {announcement.content}
+              </p>
+              {isLong && (
+                <button
+                  type="button"
+                  className="mt-1 text-sm text-primary hover:underline"
+                  onClick={() => {
+                    setExpandedIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(announcement.id)) next.delete(announcement.id);
+                      else next.add(announcement.id);
+                      return next;
+                    });
+                  }}
+                >
+                  {isExpanded ? '접기' : '... 더보기'}
+                </button>
               )}
-              {isMeeting && a.assignee_names && a.assignee_names.length > 0 && (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
-                  <Users className="h-3.5 w-3.5 shrink-0" />
-                  <span>담당: {a.assignee_names.join(', ')}</span>
-                </div>
-              )}
-              {(() => {
-                const isLong = a.content.split('\n').length > 5 || a.content.length > 300;
-                const isExpanded = expandedIds.has(a.id);
-                return (
-                  <>
-                    <p className={`text-base text-foreground/80 whitespace-pre-wrap mt-2 leading-relaxed ${!isExpanded && isLong ? 'line-clamp-5' : ''}`}>
-                      {a.content}
-                    </p>
-                    {isLong && !isExpanded && (
-                      <button className="text-sm text-primary mt-1 hover:underline" onClick={(e) => { e.stopPropagation(); setExpandedIds(prev => new Set(prev).add(a.id)); }}>
-                        ... 더보기
-                      </button>
-                    )}
-                    {isLong && isExpanded && (
-                      <button className="text-sm text-muted-foreground mt-1 hover:underline" onClick={(e) => { e.stopPropagation(); setExpandedIds(prev => { const s = new Set(prev); s.delete(a.id); return s; }); }}>
-                        접기
-                      </button>
-                    )}
-                  </>
-                );
-              })()}
-              <div className="flex items-center gap-3 mt-3 text-sm text-muted-foreground">
-                <span>{a.author_name}</span>
-                <span>{format(new Date(a.created_at), 'yyyy.MM.dd HH:mm', { locale: ko })}</span>
+              <div className="mt-3 flex items-center gap-3 text-sm text-muted-foreground">
+                <span>{announcement.author_name}</span>
+                <span>{format(new Date(announcement.created_at), 'yyyy.MM.dd HH:mm', { locale: ko })}</span>
               </div>
             </div>
             {canManage && (
-              <div className="flex items-center gap-1 shrink-0">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => togglePinMutation.mutate({ id: a.id, isPinned: a.is_pinned })} title={a.is_pinned ? '고정 해제' : '상단 고정'}>
-                  <Pin className={`h-3.5 w-3.5 ${a.is_pinned ? 'text-primary' : 'text-muted-foreground'}`} />
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => togglePinMutation.mutate({ id: announcement.id, isPinned: announcement.is_pinned })}
+                  title={announcement.is_pinned ? '고정 해제' : '상단 고정'}
+                >
+                  <Pin className={`h-3.5 w-3.5 ${announcement.is_pinned ? 'text-primary' : 'text-muted-foreground'}`} />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(a)}>
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditForm(announcement)}>
                   <Edit className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm('정말 삭제하시겠습니까?')) deleteMutation.mutate({ id: a.id, meetingReservationId: a.meeting_reservation_id }); }}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-destructive"
+                  onClick={() => {
+                    if (confirm('공지사항을 삭제하시겠습니까?')) deleteMutation.mutate(announcement.id);
+                  }}
+                >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -674,414 +291,141 @@ const AnnouncementsPage = () => {
     );
   };
 
-  const isFormValid = () => {
-    return !formError;
-  };
-
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    resetForm();
-    setAnnouncementType(tab === 'all' ? 'general' : tab as AnnouncementType);
-  };
-
-  const resetFilters = () => {
-    setSearchTerm('');
-    setDateFilter('');
-    setSummaryFilter('all');
-    if (focusedAnnouncementId) setSearchParams({}, { replace: true });
-  };
-
-  const getItemsForTab = (tab: string) => {
-    const config = TAB_CONFIG.find(t => t.value === tab);
-    if (!config) return [];
-    return filteredAnnouncements.filter(a => config.types.includes(a.announcement_type));
-  };
-
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground">로그인이 필요합니다.</p>
       </div>
     );
   }
 
-  const renderForm = () => {
-    if (!canManage || !showForm) return null;
-    const shouldShowFormError = Boolean(
-      formError
-      && (title || content || meetingDate || eventEndDate || meetingTime || meetingLocation || recipientNameInput || selectedAssigneeIds.length > 0)
-    );
-
-    return (
-      <Card className="mb-6">
-        <CardContent className="pt-6 space-y-3">
-          <Input
-            placeholder={
-              announcementType === 'conference' ? '회의 제목' :
-              announcementType === 'meeting' ? '미팅 제목' :
-              announcementType === 'event' ? '이벤트 제목' : '공지 제목'
-            }
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          {/* 회의: date/time/location */}
-          {announcementType === 'conference' && (
-            <div className="grid gap-2 md:grid-cols-3">
-              <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} placeholder="날짜" />
-              <Input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} placeholder="시간" />
-              <Input placeholder="장소 (선택)" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} />
-            </div>
-          )}
-          {/* 미팅: date/time/location + recipient + assignees */}
-          {announcementType === 'meeting' && (
-            <>
-              <div className="grid gap-2 md:grid-cols-3">
-                <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} placeholder="날짜" />
-                <Input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} placeholder="시간" />
-                <Input placeholder="장소" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} />
-              </div>
-              <div className="grid gap-2 md:grid-cols-2">
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" />고객사 (선택)</label>
-                  <div className="flex gap-1">
-                    <Select value={selectedRecipientId || '__none__'} onValueChange={(v) => { setSelectedRecipientId(v === '__none__' ? null : v); if (v !== '__none__') { const r = recipients?.find(r => r.id === v); if (r) setRecipientNameInput(r.company_name); } }}>
-                      <SelectTrigger className="flex-1 h-9">
-                        <SelectValue placeholder="수신처 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">직접 입력</SelectItem>
-                        {recipients?.map(r => (
-                          <SelectItem key={r.id} value={r.id}>{r.company_name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {!selectedRecipientId && (
-                      <Input className="flex-1 h-9" placeholder="고객사명 입력" value={recipientNameInput} onChange={e => setRecipientNameInput(e.target.value)} />
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" />담당자 배정</label>
-                  <Select value="__none__" onValueChange={(v) => { if (v !== '__none__' && !selectedAssigneeIds.includes(v)) setSelectedAssigneeIds(prev => [...prev, v]); }}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="담당자 추가" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">선택하세요</SelectItem>
-                      {employees?.filter(e => !selectedAssigneeIds.includes(e.id)).map(e => (
-                        <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {selectedAssigneeIds.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {selectedAssigneeIds.map(id => {
-                        const emp = employees?.find(e => e.id === id);
-                        return (
-                          <Badge key={id} variant="secondary" className="text-xs gap-1 pr-1">
-                            {emp?.full_name || '?'}
-                            <button onClick={() => setSelectedAssigneeIds(prev => prev.filter(i => i !== id))} className="hover:text-destructive">
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-          {/* 이벤트: start/end date + location */}
-          {announcementType === 'event' && (
-            <div className="grid gap-2 md:grid-cols-3">
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">시작일</label>
-                <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">종료일</label>
-                <Input type="date" value={eventEndDate} onChange={e => setEventEndDate(e.target.value)} min={meetingDate} />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">장소 (선택)</label>
-                <Input placeholder="장소" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} />
-              </div>
-            </div>
-          )}
-          <Textarea placeholder="내용을 입력하세요..." value={content} onChange={(e) => setContent(e.target.value)} rows={5} className="resize-none" />
-          {shouldShowFormError && (
-            <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              <span>{formError}</span>
-            </div>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={resetForm}>취소</Button>
-            <Button onClick={() => postMutation.mutate()} disabled={!isFormValid() || postMutation.isPending}>
-              {postMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {editingId ? '수정' : '등록'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  const renderList = (items: Announcement[], emptyIcon: React.ReactNode, emptyText: string) => {
-    if (isLoading) {
-      return (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      );
-    }
-
-    if (items.length === 0) {
-      return (
-        <div className="text-center py-16 text-muted-foreground">
-          <div className="mx-auto mb-3 opacity-30">{emptyIcon}</div>
-          <p>{emptyText}</p>
-        </div>
-      );
-    }
-
-    const pinned = items.filter(a => a.is_pinned);
-    const unpinned = items.filter(a => !a.is_pinned);
-
-    return (
-      <div className="space-y-6">
-        {pinned.length > 0 && (
-          <div className={`grid gap-4 ${pinned.length === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
-            {pinned.map(renderAnnouncementCard)}
-          </div>
-        )}
-        {unpinned.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {unpinned.map(renderAnnouncementCard)}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const tabLabels: Record<string, string> = { all: '공지', general: '공지', event: '이벤트', conference: '회의', meeting: '미팅' };
-  const tabEmptyIcons: Record<string, React.ReactNode> = {
-    all: <Megaphone className="h-10 w-10 mx-auto" />,
-    general: <Megaphone className="h-10 w-10 mx-auto" />,
-    event: <PartyPopper className="h-10 w-10 mx-auto" />,
-    conference: <Users className="h-10 w-10 mx-auto" />,
-    meeting: <Coffee className="h-10 w-10 mx-auto" />,
-  };
-
-  const summaryCardClass = (filter: SummaryFilter) => [
-    'glass-surface rounded-2xl px-4 py-3 text-left transition-all hover:border-primary/30 hover:bg-primary/5',
-    summaryFilter === filter ? 'border-primary/40 bg-primary/10 ring-1 ring-primary/15' : '',
-  ].filter(Boolean).join(' ');
-
   return (
     <PageShell maxWidth="7xl">
       <PageHeader
-        eyebrow="Notice & Calendar"
+        eyebrow="Notice Board"
         title="공지사항"
-        description="사내 공지와 회의, 미팅, 이벤트 일정을 한 화면에서 확인합니다."
+        description="일반 사내 공지만 관리합니다. 회의, 미팅, 이벤트 일정은 미팅 예약에서 관리합니다."
         icon={<Megaphone className="h-5 w-5" />}
-        actions={(
-          <>
-            {canManage && (
-              <Button
-                onClick={() => {
-                  resetForm();
-                  setAnnouncementType(activeTab === 'all' ? 'general' : activeTab as AnnouncementType);
-                  setShowForm(true);
-                }}
-                size="sm"
-              >
-                <Plus className="h-4 w-4" />
-                새 {tabLabels[activeTab] || '공지'} 작성
-              </Button>
-            )}
-          </>
-        )}
+        actions={
+          canManage ? (
+            <Button type="button" size="sm" onClick={openCreateForm}>
+              <Plus className="h-4 w-4" />
+              새 공지 작성
+            </Button>
+          ) : null
+        }
       />
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <button
-          type="button"
-          className={summaryCardClass('all')}
-          onClick={() => {
-            setSummaryFilter('all');
-            setDateFilter('');
-            setActiveTab('all');
-          }}
-        >
+      <section className="rounded-2xl border border-primary/15 bg-primary/5 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <div>
+              <h2 className="text-sm font-semibold">일정 기능은 미팅 예약으로 이동했습니다.</h2>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                회의, 클라이언트 미팅, 이벤트 일정은 미팅 예약 화면에서 등록하고 캘린더와 대시보드에 연동됩니다.
+              </p>
+            </div>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={() => navigate('/meeting-reservations')}>
+            미팅 예약 열기
+          </Button>
+        </div>
+      </section>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="glass-surface rounded-2xl px-4 py-3">
           <div className="text-xs text-muted-foreground">전체 공지</div>
-          <div className="mt-1 text-xl font-semibold">{summary.total.toLocaleString()}건</div>
-        </button>
-        <button
-          type="button"
-          className={summaryCardClass('today')}
-          onClick={() => {
-            setSummaryFilter('today');
-            setDateFilter('');
-            setActiveTab('all');
-          }}
-        >
-          <div className="text-xs text-muted-foreground">오늘 일정</div>
-          <div className="mt-1 text-xl font-semibold">{summary.today.toLocaleString()}건</div>
-        </button>
-        <button
-          type="button"
-          className={summaryCardClass('week')}
-          onClick={() => {
-            setSummaryFilter('week');
-            setDateFilter('');
-            setActiveTab('all');
-          }}
-        >
-          <div className="text-xs text-muted-foreground">이번주 일정</div>
-          <div className="mt-1 text-xl font-semibold">{summary.thisWeek.toLocaleString()}건</div>
-        </button>
-        <button
-          type="button"
-          className={summaryCardClass('pinned')}
-          onClick={() => {
-            setSummaryFilter('pinned');
-            setDateFilter('');
-            setActiveTab('all');
-          }}
-        >
+          <div className="mt-1 text-xl font-semibold">{announcements.length.toLocaleString()}건</div>
+        </div>
+        <div className="glass-surface rounded-2xl px-4 py-3">
           <div className="text-xs text-muted-foreground">고정 공지</div>
-          <div className="mt-1 text-xl font-semibold">{summary.pinned.toLocaleString()}건</div>
-        </button>
+          <div className="mt-1 text-xl font-semibold">{announcements.filter((announcement) => announcement.is_pinned).length.toLocaleString()}건</div>
+        </div>
+        <div className="glass-surface rounded-2xl px-4 py-3">
+          <div className="text-xs text-muted-foreground">검색 결과</div>
+          <div className="mt-1 text-xl font-semibold">{filteredAnnouncements.length.toLocaleString()}건</div>
+        </div>
       </div>
 
-      <DashboardCalendar />
-
-      {upcomingAnnouncements.length > 0 && (
-        <section className="glass-surface rounded-2xl p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-semibold">다가오는 일정</h2>
-              <p className="text-xs text-muted-foreground">오늘 이후 일정 중 가까운 순서로 표시합니다.</p>
+      {canManage && showForm && (
+        <Card>
+          <CardContent className="space-y-3 pt-6">
+            <Input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="공지 제목"
+            />
+            <Textarea
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+              placeholder="공지 내용을 입력하세요."
+              rows={6}
+              className="resize-none"
+            />
+            {formError && (
+              <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                <span>{formError}</span>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={resetForm}>취소</Button>
+              <Button type="button" onClick={() => saveMutation.mutate()} disabled={!!formError || saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editingId ? '수정' : '등록'}
+              </Button>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSummaryFilter('week');
-                setActiveTab('all');
-              }}
-            >
-              이번주 보기
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {upcomingAnnouncements.map((announcement) => {
-              const date = getAnnouncementDate(announcement);
-              return (
-                <button
-                  key={announcement.id}
-                  type="button"
-                  onClick={() => focusAnnouncement(announcement)}
-                  className="rounded-xl border border-border/70 bg-background/60 p-3 text-left transition-colors hover:border-primary/30 hover:bg-primary/5"
-                >
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    {getTypeBadge(announcement.announcement_type)}
-                    <span className="text-xs text-muted-foreground">
-                      {date ? format(date, 'M월 d일 (EEE)', { locale: ko }) : '날짜 미정'}
-                      {announcement.meeting_time ? ` ${announcement.meeting_time}` : ''}
-                    </span>
-                  </div>
-                  <div className="truncate text-sm font-semibold">{announcement.title}</div>
-                  {(announcement.recipient_name || announcement.meeting_location) && (
-                    <div className="mt-1 truncate text-xs text-muted-foreground">
-                      {announcement.recipient_name || announcement.meeting_location}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </section>
+          </CardContent>
+        </Card>
       )}
 
       <SearchFilterBar>
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto]">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="제목, 내용, 작성자, 장소, 담당자 검색"
-              className="pl-10"
-            />
-          </div>
-          <div className="relative">
-            <CalendarDays className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="date"
-              value={dateFilter}
-              onChange={(event) => {
-                setDateFilter(event.target.value);
-                setSummaryFilter('all');
-              }}
+              placeholder="제목, 내용, 작성자 검색"
               className="pl-10"
             />
           </div>
           <Button
             type="button"
             variant="outline"
-            onClick={resetFilters}
-            disabled={!searchTerm && !dateFilter && !focusedAnnouncementId && summaryFilter === 'all'}
+            onClick={() => {
+              setSearchTerm('');
+              if (focusedAnnouncementId) setSearchParams({}, { replace: true });
+            }}
+            disabled={!searchTerm && !focusedAnnouncementId}
           >
             필터 초기화
           </Button>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>표시 {filteredAnnouncements.length.toLocaleString()}건</span>
-          {summaryFilter !== 'all' && (
-            <Badge variant="secondary" className="h-6">
-              {summaryFilter === 'today' ? '오늘 일정' : summaryFilter === 'week' ? '이번주 일정' : '고정 공지'} 필터 적용 중
-            </Badge>
-          )}
-          {focusedAnnouncementId && (
-            <Badge variant="secondary" className="h-6">
-              캘린더에서 선택한 일정 표시 중
-            </Badge>
-          )}
-        </div>
       </SearchFilterBar>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-5">
-          {TAB_CONFIG.map(tab => {
-            const count = getItemsForTab(tab.value).length;
-            return (
-              <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
-                {tab.icon}
-                {tab.label}
-                {count > 0 && (
-                  <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{count}</Badge>
-                )}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-
-        {TAB_CONFIG.map(tab => (
-          <TabsContent key={tab.value} value={tab.value}>
-            {renderForm()}
-            {renderList(
-              getItemsForTab(tab.value),
-              tabEmptyIcons[tab.value],
-              `등록된 ${tab.label}이(가) 없습니다.`
-            )}
-          </TabsContent>
-        ))}
-      </Tabs>
+      {isLoading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : filteredAnnouncements.length > 0 ? (
+        <div className="space-y-6">
+          {filteredAnnouncements.some((announcement) => announcement.is_pinned) && (
+            <div className="grid gap-4 md:grid-cols-2">
+              {filteredAnnouncements.filter((announcement) => announcement.is_pinned).map(renderAnnouncementCard)}
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {filteredAnnouncements.filter((announcement) => !announcement.is_pinned).map(renderAnnouncementCard)}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed bg-muted/20 py-16 text-center text-muted-foreground">
+          <Megaphone className="mx-auto mb-3 h-10 w-10 opacity-30" />
+          <p>등록된 공지사항이 없습니다.</p>
+        </div>
+      )}
     </PageShell>
   );
 };
