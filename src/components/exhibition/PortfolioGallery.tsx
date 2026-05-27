@@ -1495,7 +1495,7 @@ const PortfolioGallery = () => {
   const handleLightboxTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     if (touchStateRef.current.mode === 'pinch' && e.touches.length === 2) {
       e.preventDefault();
-      const nextDistance = getTouchDistance(e.touches);
+      const nextDistance = getTouchDistance(e.touches as unknown as TouchList);
       if (touchStateRef.current.pinchDistance > 0) {
         setBoundedZoom(touchStateRef.current.startZoom * (nextDistance / touchStateRef.current.pinchDistance));
       }
