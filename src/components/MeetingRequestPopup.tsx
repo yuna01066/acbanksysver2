@@ -71,12 +71,13 @@ const MeetingRequestPopup: React.FC = () => {
 
     // Fetch sender profiles
     const senderIds = [...new Set(data.map(d => d.sender_id))];
-    const { data: profiles } = await supabase
+    const { data: profilesRaw } = await supabase
       .from('profile_directory' as any)
       .select('id, full_name, avatar_url, department')
       .in('id', senderIds);
+    const profiles = (profilesRaw as any[]) || [];
 
-    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+    const profileMap = new Map<string, any>(profiles.map((p: any) => [p.id, p]));
 
     const enriched: MeetingRequest[] = data.map(d => ({
       ...d,

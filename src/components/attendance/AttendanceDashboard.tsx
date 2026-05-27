@@ -72,7 +72,7 @@ const AttendanceDashboard: React.FC = () => {
         .from('profile_directory' as any)
         .select('id, full_name, department')
         .order('full_name');
-      return data || [];
+      return ((data as any[]) || []) as Array<{ id: string; full_name: string; department: string | null }>;
     },
   });
 

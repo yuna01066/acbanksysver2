@@ -129,7 +129,7 @@ const OnlineEmployeesCard: React.FC = () => {
       return;
     }
 
-    const merged = (attendanceData as CheckedInEmployee[]).map(a => {
+    const merged = (attendanceData as unknown as CheckedInEmployee[]).map(a => {
       // Refresh cache-busting param to avoid stale cached images
       let avatarUrl = a.avatar_url || null;
       if (avatarUrl) {
