@@ -540,7 +540,7 @@ async function hydratePortfolioImages(data: PortfolioImage[]): Promise<Portfolio
 async function fetchPortfolioListImages(postIds: string[]): Promise<Map<string, { image: PortfolioImage | null; imageCount: number }>> {
   if (postIds.length === 0) return new Map();
 
-  const { data, error } = await supabase.rpc('get_portfolio_post_main_images', {
+  const { data, error } = await (supabase.rpc as any)('get_portfolio_post_main_images', {
     p_post_ids: postIds,
   });
   if (error) {
