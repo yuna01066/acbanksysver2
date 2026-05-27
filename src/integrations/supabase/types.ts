@@ -1522,6 +1522,114 @@ export type Database = {
           },
         ]
       }
+      kakao_chatbot_audit_logs: {
+        Row: {
+          action: string
+          actor_profile_id: string | null
+          command_text: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          kakao_user_id: string | null
+          metadata: Json
+          new_value: string | null
+          old_value: string | null
+          result: string
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          action: string
+          actor_profile_id?: string | null
+          command_text?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          kakao_user_id?: string | null
+          metadata?: Json
+          new_value?: string | null
+          old_value?: string | null
+          result?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          action?: string
+          actor_profile_id?: string | null
+          command_text?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          kakao_user_id?: string | null
+          metadata?: Json
+          new_value?: string | null
+          old_value?: string | null
+          result?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kakao_chatbot_audit_logs_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profile_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kakao_chatbot_audit_logs_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kakao_chatbot_users: {
+        Row: {
+          allowed_actions: string[]
+          created_at: string
+          display_name: string | null
+          is_active: boolean
+          kakao_user_id: string
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_actions?: string[]
+          created_at?: string
+          display_name?: string | null
+          is_active?: boolean
+          kakao_user_id: string
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_actions?: string[]
+          created_at?: string
+          display_name?: string | null
+          is_active?: boolean
+          kakao_user_id?: string
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kakao_chatbot_users_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profile_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kakao_chatbot_users_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       labor_law_settings: {
         Row: {
           created_at: string | null
