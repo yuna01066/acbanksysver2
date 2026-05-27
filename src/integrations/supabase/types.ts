@@ -2599,18 +2599,90 @@ export type Database = {
           },
         ]
       }
+      portfolio_collection_items: {
+        Row: {
+          collection_id: string
+          created_at: string
+          display_order: number
+          id: string
+          post_id: string
+        }
+        Insert: {
+          collection_id: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          post_id: string
+        }
+        Update: {
+          collection_id?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_collection_items_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_collection_items_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolio_collections: {
+        Row: {
+          collection_type: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          collection_type?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          collection_type?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       portfolio_images: {
         Row: {
           access_level: string
           created_at: string
           delete_error: string | null
           delete_status: string
+          dominant_color: string | null
           display_order: number
           drive_file_id: string
           drive_folder_id: string | null
           drive_path: string | null
+          caption: string | null
           file_name: string
           file_size: number | null
+          height: number | null
           id: string
           image_url: string | null
           is_main: boolean
@@ -2622,19 +2694,24 @@ export type Database = {
           thumbnail_path: string | null
           thumbnail_url: string | null
           thumbnail_width: number | null
+          taken_at: string | null
           uploaded_by: string | null
+          width: number | null
         }
         Insert: {
           access_level?: string
+          caption?: string | null
           created_at?: string
           delete_error?: string | null
           delete_status?: string
+          dominant_color?: string | null
           display_order?: number
           drive_file_id: string
           drive_folder_id?: string | null
           drive_path?: string | null
           file_name: string
           file_size?: number | null
+          height?: number | null
           id?: string
           image_url?: string | null
           is_main?: boolean
@@ -2646,19 +2723,24 @@ export type Database = {
           thumbnail_path?: string | null
           thumbnail_url?: string | null
           thumbnail_width?: number | null
+          taken_at?: string | null
           uploaded_by?: string | null
+          width?: number | null
         }
         Update: {
           access_level?: string
+          caption?: string | null
           created_at?: string
           delete_error?: string | null
           delete_status?: string
+          dominant_color?: string | null
           display_order?: number
           drive_file_id?: string
           drive_folder_id?: string | null
           drive_path?: string | null
           file_name?: string
           file_size?: number | null
+          height?: number | null
           id?: string
           image_url?: string | null
           is_main?: boolean
@@ -2670,7 +2752,9 @@ export type Database = {
           thumbnail_path?: string | null
           thumbnail_url?: string | null
           thumbnail_width?: number | null
+          taken_at?: string | null
           uploaded_by?: string | null
+          width?: number | null
         }
         Relationships: [
           {
@@ -2684,30 +2768,65 @@ export type Database = {
       }
       portfolio_posts: {
         Row: {
+          archived_at: string | null
+          category: string | null
+          client_name: string | null
+          cover_image_id: string | null
           created_at: string
           created_by: string
           id: string
           keywords: string[] | null
+          location: string | null
+          materials: string[] | null
+          processes: string[] | null
+          project_year: number | null
           title: string
           updated_at: string
+          visibility: string | null
         }
         Insert: {
+          archived_at?: string | null
+          category?: string | null
+          client_name?: string | null
+          cover_image_id?: string | null
           created_at?: string
           created_by: string
           id?: string
           keywords?: string[] | null
+          location?: string | null
+          materials?: string[] | null
+          processes?: string[] | null
+          project_year?: number | null
           title: string
           updated_at?: string
+          visibility?: string | null
         }
         Update: {
+          archived_at?: string | null
+          category?: string | null
+          client_name?: string | null
+          cover_image_id?: string | null
           created_at?: string
           created_by?: string
           id?: string
           keywords?: string[] | null
+          location?: string | null
+          materials?: string[] | null
+          processes?: string[] | null
+          project_year?: number | null
           title?: string
           updated_at?: string
+          visibility?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_posts_cover_image_id_fkey"
+            columns: ["cover_image_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_images"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       processing_categories: {
         Row: {
@@ -5429,13 +5548,22 @@ export type Database = {
           p_search_text?: string
         }
         Returns: {
+          archived_at: string | null
+          category: string | null
+          client_name: string | null
+          cover_image_id: string | null
           created_at: string
           created_by: string
           id: string
           keywords: string[]
+          location: string | null
+          materials: string[] | null
+          processes: string[] | null
+          project_year: number | null
           title: string
           total_count: number
           updated_at: string
+          visibility: string | null
         }[]
       }
     }
