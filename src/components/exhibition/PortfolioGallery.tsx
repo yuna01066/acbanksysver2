@@ -562,7 +562,7 @@ async function fetchPortfolioListImages(postIds: string[]): Promise<Map<string, 
   hydratedRows.forEach((image) => {
     imagesByPostId.set(image.post_id, {
       image,
-      imageCount: Number(image.image_count || 0),
+      imageCount: Number((image as any).image_count || 0),
     });
   });
   return imagesByPostId;
