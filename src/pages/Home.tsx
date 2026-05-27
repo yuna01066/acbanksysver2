@@ -15,6 +15,7 @@ import ActivityFeedCard from '@/components/ActivityFeedCard';
 import TodayWorkCard from '@/components/TodayWorkCard';
 import ChannelTalkInquiryCard from '@/components/ChannelTalkInquiryCard';
 import DashboardMeetingBookingCard from '@/components/DashboardMeetingBookingCard';
+import ImwebTopItemsCard from '@/components/ImwebTopItemsCard';
 
 import { useAuth } from '@/contexts/AuthContext';
 import TimeGreeting from '@/components/TimeGreeting';
@@ -292,7 +293,8 @@ const Home = () => {
               <ChannelTalkInquiryCard />
             </div>
             <DashboardCalendar />
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <ImwebTopItemsCard />
               <ActivityFeedCard />
               <ProjectProgressCard />
             </div>
