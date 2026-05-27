@@ -348,7 +348,7 @@ async function cmdChangeStage(
       result: "success",
     });
 
-    return kakaoText(`✅ "${proj.name}" 단계 변경 완료\n${oldStage || "-"} → ${newStage}`);
+    return kakaoText(`✅ "${proj.name}" 단계 변경 완료 (견적 ${updatedCount}건)\n${oldStage || "-"} → ${newStage}`);
   } catch (e) {
     return kakaoText(`프로세스 변경 처리 오류: ${(e as Error).message}`);
   }
