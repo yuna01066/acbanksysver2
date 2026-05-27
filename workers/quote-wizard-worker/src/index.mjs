@@ -1,17 +1,23 @@
 import { createServer } from 'node:http';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const PORT = Number(process.env.PORT || 8788);
 const HOST = process.env.HOST || '127.0.0.1';
 const FORMULA_VERSION = 'pricing-engine-v2-core-260520';
+const AI_GATEWAY_URL = process.env.AI_GATEWAY_URL || 'https://ai.gateway.lovable.dev/v1/chat/completions';
+const AI_MODEL = process.env.QUOTE_WIZARD_AI_MODEL || 'google/gemini-2.5-flash';
+const PDF_RENDER_PAGE_LIMIT = Number(process.env.QUOTE_WIZARD_PDF_RENDER_PAGE_LIMIT || 4);
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const bundledScript = (name) => join(__dirname, '..', 'scripts', name);
 
 const optionalScript = {
-  dxfParser: process.env.ACBANK_DXF_PARSER || '/Users/acbank002/.codex/skills/dwg-cad-analyzer/scripts/parse_dxf_ascii.py',
-  cadInspector: process.env.ACBANK_CAD_INSPECTOR || '/Users/acbank002/.codex/skills/dwg-cad-analyzer/scripts/inspect_cad.py',
-  yieldCalculator: process.env.ACBANK_YIELD_CALCULATOR || '/Users/acbank002/.codex/skills/acbank-drawing-quote-analyzer/scripts/acrylic_yield_calculator.py',
+  dxfParser: process.env.ACBANK_DXF_PARSER || bundledScript('parse_dxf_ascii.py'),
+  cadInspector: process.env.ACBANK_CAD_INSPECTOR || bundledScript('inspect_cad.py'),
+  yieldCalculator: process.env.ACBANK_YIELD_CALCULATOR || bundledScript('acrylic_yield_calculator.py'),
 };
 
 const json = (res, status, body) => {
@@ -40,19 +46,45 @@ const run = (command, args) => new Promise((resolve, reject) => {
   });
 });
 
-const downloadStorageFile = async (bucket, path, directory) => {
+const commandExists = async (command) => {
+  try {
+    await run('which', [command]);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const safeFileName = (file) => String(file.file_name || file.file_path || 'quote-wizard-file')
+  .split(/[\\/]/)
+  .pop()
+  .replace(/[^\w가-힣ㄱ-ㅎㅏ-ㅣ .()[\]-]+/g, '_')
+  .slice(0, 180) || 'quote-wizard-file';
+
+const writeDownloadedFile = async (file, directory, arrayBuffer) => {
+  const localPath = join(directory, safeFileName(file));
+  await writeFile(localPath, Buffer.from(arrayBuffer));
+  return localPath;
+};
+
+const downloadStorageFile = async (file, bucket, directory) => {
+  if (file.signed_url) {
+    const response = await fetch(file.signed_url);
+    if (!response.ok) throw new Error(`Failed to download signed URL for ${file.file_name}: ${response.status}`);
+    return writeDownloadedFile(file, directory, await response.arrayBuffer());
+  }
+
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceKey) return null;
+  const path = file.file_path;
 
   const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${encodeURI(path)}`, {
     headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
   });
   if (!response.ok) throw new Error(`Failed to download ${path}: ${response.status}`);
 
-  const localPath = join(directory, path.split('/').pop() || 'quote-wizard-file');
-  await writeFile(localPath, Buffer.from(await response.arrayBuffer()));
-  return localPath;
+  return writeDownloadedFile(file, directory, await response.arrayBuffer());
 };
 
 const inspectDxf = async (filePath) => {
@@ -87,7 +119,7 @@ const decodePdfLiteral = (raw) => raw
   .replace(/\\\)/g, ')')
   .replace(/\\\\/g, '\\');
 
-const extractPdfText = async (filePath) => {
+const extractRawPdfText = async (filePath) => {
   const buffer = await readFile(filePath);
   const raw = buffer.toString('latin1');
   const fragments = [];
@@ -108,6 +140,61 @@ const extractPdfText = async (filePath) => {
 
   return compactText([...fragments, ...(fallback || [])].join(' '), 10000);
 };
+
+const extractPdfText = async (filePath) => {
+  if (await commandExists('pdftotext')) {
+    try {
+      const { stdout } = await run('pdftotext', ['-layout', '-enc', 'UTF-8', filePath, '-']);
+      const text = compactText(stdout, 16000);
+      if (text) return { text, method: 'pdftotext' };
+    } catch (error) {
+      // Fall through to the raw text extractor. Some customer PDFs are image-only
+      // or have malformed text streams.
+    }
+  }
+
+  return { text: await extractRawPdfText(filePath), method: 'raw_pdf_stream' };
+};
+
+const renderPdfPages = async (filePath, directory) => {
+  if (!(await commandExists('pdftoppm'))) return [];
+
+  const prefix = join(directory, 'quote-wizard-page');
+  await run('pdftoppm', [
+    '-png',
+    '-r',
+    '160',
+    '-f',
+    '1',
+    '-l',
+    String(Math.max(1, PDF_RENDER_PAGE_LIMIT)),
+    filePath,
+    prefix,
+  ]);
+
+  const files = await readdir(directory);
+  return files
+    .filter((name) => name.startsWith('quote-wizard-page') && name.endsWith('.png'))
+    .sort()
+    .map((name) => join(directory, name));
+};
+
+const ocrImage = async (filePath) => {
+  if (!(await commandExists('tesseract'))) return { text: '', method: 'missing_tesseract' };
+
+  try {
+    const { stdout } = await run('tesseract', [filePath, 'stdout', '-l', process.env.TESSERACT_LANG || 'kor+eng']);
+    return { text: compactText(stdout, 8000), method: 'tesseract' };
+  } catch (error) {
+    return { text: '', method: `tesseract_failed: ${error instanceof Error ? error.message : String(error)}` };
+  }
+};
+
+const imagePayloadFromFile = async (filePath, mimeType, label) => ({
+  mimeType: mimeType || 'image/png',
+  base64: (await readFile(filePath)).toString('base64'),
+  fileName: label,
+});
 
 const normalizeUnit = (value, unit = 'mm') => {
   const normalized = String(unit || 'mm').toLowerCase();
@@ -155,6 +242,13 @@ const extractProcessing = (text) => {
   return candidates.filter(([, pattern]) => pattern.test(text)).map(([label]) => label);
 };
 
+const toText = (value) => (typeof value === 'string' && value.trim() ? value.trim() : null);
+
+const toNumber = (value) => {
+  const parsed = typeof value === 'number' ? value : Number(String(value || '').replace(/,/g, ''));
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 10) / 10 : null;
+};
+
 const dedupeParts = (parts) => {
   const seen = new Set();
   return parts.filter((part) => {
@@ -163,6 +257,115 @@ const dedupeParts = (parts) => {
     seen.add(key);
     return true;
   });
+};
+
+const normalizeAiParts = (value) => {
+  if (!Array.isArray(value)) return [];
+
+  return value.map((item, index) => {
+    const record = item && typeof item === 'object' ? item : {};
+    return {
+      id: toText(record.id) || `ai-part-${index + 1}`,
+      name: toText(record.name) || `AI 추출 파트 ${index + 1}`,
+      shape: ['rect', 'trapezoid', 'irregular', 'unknown'].includes(String(record.shape)) ? record.shape : 'unknown',
+      width_mm: toNumber(record.width_mm),
+      height_mm: toNumber(record.height_mm),
+      quantity: toNumber(record.quantity),
+      material: toText(record.material),
+      thickness: toText(record.thickness),
+      basis: toText(record.basis) || 'AI Gateway 파일 분석 결과',
+      confidence: ['low', 'medium', 'high'].includes(String(record.confidence)) ? record.confidence : 'low',
+      risk_notes: Array.isArray(record.risk_notes) ? record.risk_notes.map(String).filter(Boolean) : ['AI 추출값은 상담원 검수가 필요합니다.'],
+    };
+  }).filter((part) => part.width_mm && part.height_mm);
+};
+
+const parseAiJson = (content) => {
+  const jsonMatch = String(content || '').match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+  try {
+    return JSON.parse(jsonMatch[0]);
+  } catch {
+    return null;
+  }
+};
+
+const runAiAnalysis = async ({ job, parserNotes, imagePayloads }) => {
+  const apiKey = process.env.LOVABLE_API_KEY;
+  if (!apiKey) return null;
+
+  const content = [
+    {
+      type: 'text',
+      text: `ACBANK 견적 마법사 워커 분석입니다. 첨부 파일 텍스트/OCR/렌더링 이미지에서 실제로 보이는 내용만 근거로 JSON을 반환하세요.
+
+절대 샘플 치수, 일반적인 박스 구조, 임의 수량, 임의 금액을 만들지 마세요.
+치수/수량/소재/파트가 보이지 않으면 null 또는 빈 배열로 두세요.
+
+응답 JSON 스키마:
+{
+  "item_name": string | null,
+  "dimensions": string | null,
+  "quantity": number | null,
+  "material": string | null,
+  "thickness": string | null,
+  "color": string | null,
+  "finish": string | null,
+  "processing": string[],
+  "parts": [
+    {"name": string, "shape": "rect"|"trapezoid"|"irregular"|"unknown", "width_mm": number|null, "height_mm": number|null, "quantity": number|null, "material": string|null, "thickness": string|null, "basis": string, "confidence": "low"|"medium"|"high", "risk_notes": string[]}
+  ],
+  "missing_fields": string[],
+  "production_risks": string[],
+  "recommended_reply": string,
+  "confidence": "low"|"medium"|"high"
+}
+
+고객 메모: ${job?.customer_note || '없음'}
+파일 관찰값:
+${JSON.stringify(parserNotes.map((note) => ({
+  file: note.file,
+  kind: note.kind,
+  text_excerpt: note.text_excerpt,
+  ocr_excerpt: note.ocr_excerpt,
+  extracted_parts: note.parts,
+  dxf_summary: note.dxf?.summary || note.dxf?.entity_counts || null,
+  cad: note.cad || null,
+  note: note.note,
+  error: note.error,
+})), null, 2)}`,
+    },
+  ];
+
+  for (const image of imagePayloads.slice(0, 6)) {
+    content.push({
+      type: 'image_url',
+      image_url: { url: `data:${image.mimeType};base64,${image.base64}` },
+    });
+  }
+
+  const response = await fetch(AI_GATEWAY_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      messages: [{ role: 'user', content }],
+      max_tokens: 3000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    return {
+      error: `AI Gateway failed: ${response.status} ${errorText}`,
+    };
+  }
+
+  const result = await response.json();
+  return parseAiJson(result.choices?.[0]?.message?.content || '');
 };
 
 const extractDimensionParts = (text, sourceLabel) => {
@@ -367,19 +570,28 @@ const runFormulaCalculator = async ({ analysis, parts, yieldSnapshot, tempDir, s
   };
 };
 
-const buildParts = (parserNotes) => dedupeParts(
-  parserNotes.flatMap((note) => Array.isArray(note.parts) ? note.parts : []),
+const buildParts = (parserNotes, aiResult) => dedupeParts(
+  [
+    ...normalizeAiParts(aiResult?.parts),
+    ...parserNotes.flatMap((note) => Array.isArray(note.parts) ? note.parts : []),
+  ],
 );
 
-const buildAnalysis = async ({ job, files, parserNotes, tempDir }) => {
+const buildAnalysis = async ({ job, files, parserNotes, imagePayloads, tempDir }) => {
   const hasFastPreview = files.some((file) => ['pdf', 'image', 'dxf'].includes(file.kind));
   const sourceOnly = !hasFastPreview;
-  const parts = buildParts(parserNotes);
+  const aiResult = await runAiAnalysis({ job, parserNotes, imagePayloads });
+  const aiError = aiResult?.error || null;
+  const parts = buildParts(parserNotes, aiError ? null : aiResult);
   const combinedText = compactText(parserNotes.map((note) => note.text || note.text_excerpt || '').join('\n'), 16000);
-  const material = extractMaterial(combinedText);
-  const thickness = extractThickness(combinedText);
-  const processing = extractProcessing(combinedText);
+  const material = toText(aiResult?.material) || extractMaterial(combinedText);
+  const thickness = toText(aiResult?.thickness) || extractThickness(combinedText);
+  const processing = Array.isArray(aiResult?.processing) && aiResult.processing.length
+    ? aiResult.processing.map(String).filter(Boolean)
+    : extractProcessing(combinedText);
   const risks = [
+    ...((Array.isArray(aiResult?.production_risks) ? aiResult.production_risks.map(String) : []) || []),
+    ...(aiError ? [aiError] : []),
     ...(sourceOnly ? ['원본 파일만으로는 자동 분석이 제한됩니다. PDF/DXF 또는 이미지 미리보기가 필요합니다.'] : []),
     ...(parts.length ? ['자동 추출 치수는 도면 스케일과 실제 파트 여부 검수가 필요합니다.'] : ['파일에서 명확한 파트 치수와 수량을 추출하지 못했습니다.']),
     ...(files.some((file) => file.kind === 'dwg') ? ['DWG는 변환 결과와 PDF/DXF 미리보기를 대조해야 합니다.'] : []),
@@ -387,35 +599,40 @@ const buildAnalysis = async ({ job, files, parserNotes, tempDir }) => {
   ];
 
   const analysis = {
-    item_name: null,
-    dimensions: null,
-    quantity: null,
+    item_name: toText(aiResult?.item_name),
+    dimensions: toText(aiResult?.dimensions),
+    quantity: toNumber(aiResult?.quantity),
     material,
     thickness,
-    color: null,
-    finish: null,
+    color: toText(aiResult?.color),
+    finish: toText(aiResult?.finish),
     processing,
     observed: { files: files.map((file) => `${file.file_name}(${file.kind})`), parser_notes: parserNotes },
     inferred: {
       engine_status: parts.length ? 'limited' : 'needs_review',
-      extraction_mode: 'quote_wizard_worker_text',
-      worker_mode: 'quote-wizard-worker-mvp',
-      note: '워커가 PDF 텍스트/DXF 엔티티에서 관찰 가능한 치수만 추출했습니다. 샘플 파트나 샘플 금액은 생성하지 않습니다.',
+      extraction_mode: aiResult && !aiError ? 'quote_wizard_worker_ai' : 'quote_wizard_worker_text',
+      worker_status: 'connected',
+      worker_mode: 'quote-wizard-worker-render-ocr-ai',
+      ai_gateway_status: process.env.LOVABLE_API_KEY ? (aiError ? 'failed' : 'available') : 'missing',
+      pdf_render_status: parserNotes.some((note) => note.rendered_pages?.length) ? 'available' : 'not_used_or_missing_pdftoppm',
+      ocr_status: parserNotes.some((note) => note.ocr_excerpt) ? 'available' : 'not_used_or_missing_tesseract',
+      note: '워커가 PDF 텍스트, 가능 시 PDF 렌더링/OCR/이미지 비전, DXF 엔티티에서 관찰 가능한 값만 추출했습니다. 샘플 파트나 샘플 금액은 생성하지 않습니다.',
     },
     parts,
     missing_fields: [
+      ...((Array.isArray(aiResult?.missing_fields) ? aiResult.missing_fields.map(String) : []) || []),
       ...(parts.length ? [] : ['파트별 치수', '수량']),
       ...(material ? [] : ['소재']),
       ...(thickness ? [] : ['두께']),
-      '제작 품목',
+      ...(toText(aiResult?.item_name) ? [] : ['제작 품목']),
       '원장 규격',
       '커프/재단 여유',
     ],
     production_risks: risks,
-    recommended_reply: parts.length
+    recommended_reply: toText(aiResult?.recommended_reply) || (parts.length
       ? '첨부파일에서 자동 추출 가능한 파트 치수만 정리했습니다. 제작 품목, 수량, 소재/두께, 원장 규격을 확인하면 견적 산출을 진행할 수 있습니다.'
-      : '첨부파일은 접수했지만 자동으로 확정 가능한 파트 치수를 찾지 못했습니다. PDF/DXF 미리보기, 제작 품목, 파트별 치수, 수량, 소재/두께를 확인해주세요.',
-    confidence: parts.length ? 'medium' : 'low',
+      : '첨부파일은 접수했지만 자동으로 확정 가능한 파트 치수를 찾지 못했습니다. PDF/DXF 미리보기, 제작 품목, 파트별 치수, 수량, 소재/두께를 확인해주세요.'),
+    confidence: ['low', 'medium', 'high'].includes(String(aiResult?.confidence)) ? aiResult.confidence : (parts.length ? 'medium' : 'low'),
   };
 
   const yieldSnapshot = await runYieldCalculator(parts, analysis.thickness, fallbackYieldSnapshot(parts, sourceOnly));
@@ -428,24 +645,44 @@ const handleAnalyze = async (body) => {
   const files = Array.isArray(body.files) ? body.files : [];
   const tempDir = await mkdtemp(join(tmpdir(), 'quote-wizard-'));
   const parserNotes = [];
+  const imagePayloads = [];
 
   try {
     await mkdir(tempDir, { recursive: true });
     for (const file of files) {
-      const localPath = await downloadStorageFile(body.bucket, file.file_path, tempDir).catch((error) => {
+      const localPath = await downloadStorageFile(file, body.bucket, tempDir).catch((error) => {
         parserNotes.push({ file: file.file_name, stage: 'download', error: error.message });
         return null;
       });
       if (!localPath) continue;
 
       if (file.kind === 'pdf') {
-        const text = await extractPdfText(localPath);
+        const { text, method } = await extractPdfText(localPath);
+        const renderedPages = await renderPdfPages(localPath, tempDir).catch((error) => {
+          parserNotes.push({
+            file: file.file_name,
+            kind: 'pdf',
+            stage: 'render',
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return [];
+        });
+        const ocrTexts = [];
+        for (const [index, pagePath] of renderedPages.entries()) {
+          const ocr = await ocrImage(pagePath);
+          if (ocr.text) ocrTexts.push(ocr.text);
+          imagePayloads.push(await imagePayloadFromFile(pagePath, 'image/png', `${file.file_name} page ${index + 1}`));
+        }
+        const fullText = compactText([text, ...ocrTexts].filter(Boolean).join('\n'), 20000);
         parserNotes.push({
           file: file.file_name,
           kind: 'pdf',
-          text,
-          text_excerpt: compactText(text, 1200),
-          parts: extractDimensionParts(text, `${file.file_name} PDF`),
+          text: fullText,
+          text_excerpt: compactText(fullText, 1200),
+          ocr_excerpt: compactText(ocrTexts.join('\n'), 1200),
+          extraction_method: method,
+          rendered_pages: renderedPages.map((page) => page.split('/').pop()),
+          parts: extractDimensionParts(fullText, `${file.file_name} PDF`),
         });
       } else if (file.kind === 'dxf') {
         const text = await readFile(localPath, 'utf8').catch(() => '');
@@ -467,10 +704,17 @@ const handleAnalyze = async (body) => {
           cad: await inspectCad(localPath),
         });
       } else if (file.kind === 'image') {
+        const ocr = await ocrImage(localPath);
+        imagePayloads.push(await imagePayloadFromFile(localPath, file.mime_type || 'image/png', file.file_name));
         parserNotes.push({
           file: file.file_name,
           kind: 'image',
-          note: '현재 독립 워커는 이미지 OCR/비전 분석을 수행하지 않습니다. Lovable AI Gateway 또는 PDF/DXF 미리보기가 필요합니다.',
+          text: ocr.text,
+          text_excerpt: compactText(ocr.text, 1200),
+          ocr_excerpt: compactText(ocr.text, 1200),
+          ocr_method: ocr.method,
+          parts: extractDimensionParts(ocr.text, `${file.file_name} OCR`),
+          note: '이미지는 OCR 및 AI Gateway 비전 분석 대상으로 전달했습니다.',
         });
       } else {
         parserNotes.push({
@@ -481,13 +725,27 @@ const handleAnalyze = async (body) => {
       }
     }
 
-    return buildAnalysis({ job: body.job, files, parserNotes, tempDir });
+    return buildAnalysis({ job: body.job, files, parserNotes, imagePayloads, tempDir });
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
 };
 
 createServer(async (req, res) => {
+  if (req.method === 'GET' && req.url?.includes('/health')) {
+    return json(res, 200, {
+      ok: true,
+      worker: 'quote-wizard-worker',
+      mode: 'render-ocr-ai',
+      tools: {
+        pdftotext: await commandExists('pdftotext'),
+        pdftoppm: await commandExists('pdftoppm'),
+        tesseract: await commandExists('tesseract'),
+        aiGateway: Boolean(process.env.LOVABLE_API_KEY),
+      },
+    });
+  }
+
   if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' });
 
   const expectedSecret = process.env.QUOTE_WIZARD_WORKER_SECRET;

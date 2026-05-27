@@ -693,9 +693,31 @@ async function buildBuiltInAnalysis(supabase: ReturnType<typeof createClient>, j
   return { analysis, yield: yieldSnapshot, formula, status: formula.status };
 }
 
-async function requestWorker(job: any, files: QuoteWizardFile[]) {
+async function createWorkerSignedFiles(supabase: ReturnType<typeof createClient>, files: QuoteWizardFile[]) {
+  const expiresIn = 60 * 15;
+  const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+  return await Promise.all(files.map(async (file) => {
+    const { data, error } = await supabase
+      .storage
+      .from(BUCKET)
+      .createSignedUrl(file.file_path, expiresIn);
+    if (error || !data?.signedUrl) {
+      throw new Error(`워커 파일 접근 URL 생성 실패: ${file.file_name}`);
+    }
+
+    return {
+      ...file,
+      signed_url: data.signedUrl,
+      signed_url_expires_at: expiresAt,
+    };
+  }));
+}
+
+async function requestWorker(supabase: ReturnType<typeof createClient>, job: any, files: QuoteWizardFile[]) {
   const workerUrl = Deno.env.get("QUOTE_WIZARD_WORKER_URL");
   if (!workerUrl) return null;
+  const workerFiles = await createWorkerSignedFiles(supabase, files);
 
   const response = await fetch(workerUrl, {
     method: "POST",
@@ -705,7 +727,7 @@ async function requestWorker(job: any, files: QuoteWizardFile[]) {
         ? { "Authorization": `Bearer ${Deno.env.get("QUOTE_WIZARD_WORKER_SECRET")}` }
         : {}),
     },
-    body: JSON.stringify({ job, files, bucket: BUCKET }),
+    body: JSON.stringify({ job, files: workerFiles, bucket: BUCKET }),
   });
 
   if (!response.ok) {
@@ -806,7 +828,7 @@ async function analyzeJob(supabase: ReturnType<typeof createClient>, userId: str
   if (analyzingError) throw analyzingError;
 
   try {
-    const workerResult = await requestWorker(payload.job, payload.files as QuoteWizardFile[]);
+    const workerResult = await requestWorker(supabase, payload.job, payload.files as QuoteWizardFile[]);
     const rawAnalysisResult = workerResult || await buildBuiltInAnalysis(
       supabase,
       payload.job,

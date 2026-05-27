@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: acbank-quote-wizard-worker
+    runtime: docker
+    plan: free
+    dockerfilePath: ./workers/quote-wizard-worker/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: NODE_ENV
+        value: production
+      - key: TESSERACT_LANG
+        value: kor+eng
+      - key: LOVABLE_API_KEY
+        sync: false
+      - key: QUOTE_WIZARD_WORKER_SECRET
+        sync: false
