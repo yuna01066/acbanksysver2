@@ -675,6 +675,8 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
     customColorName?: string;
     customOpacity?: string;
     isBrightPigment?: boolean;
+    colorTypeLabel?: string;
+    colorAttributes?: unknown;
   }) => {
     console.log('Color selected:', colorId, colorInfo);
     if (colorInfo) {
@@ -682,7 +684,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
       setSelectedColorHex(colorInfo.hexCode);
       setCustomColorName(colorInfo.customColorName || '');
       setCustomOpacity(colorInfo.customOpacity || '');
-      setSelectedColorType(colorInfo.isBrightPigment ? '브라이트/진백/스리' : '');
+      setSelectedColorType(colorInfo.colorTypeLabel || (colorInfo.isBrightPigment ? '브라이트/진백/스리' : ''));
     } else {
       setSelectedColor(colorId);
     }

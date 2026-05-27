@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Search, Palette } from "lucide-react";
 import { getColorSeriesLabel, getColorSeriesTab, hasExplicitSeriesTabs } from '@/utils/colorSeries';
+import {
+  ColorOptionAttributes,
+  getColorAttributeBadges,
+  getColorAttributes,
+  getColorSearchTokens,
+  getColorSelectionTypeLabel,
+  isBrightPigmentColor,
+  isWhiteOpacityReference,
+} from '@/utils/colorAttributes';
 
 interface ColorOption {
   id: string;
@@ -20,6 +29,7 @@ interface ColorOption {
   series_key?: string | null;
   pantone?: string | null;
   source_url?: string | null;
+  attributes?: ColorOptionAttributes | null;
 }
 
 interface ColorSelectionProps {
@@ -30,6 +40,8 @@ interface ColorSelectionProps {
     customColorName?: string;
     customOpacity?: string;
     isBrightPigment?: boolean;
+    colorTypeLabel?: string;
+    colorAttributes?: ColorOptionAttributes;
   }) => void;
   selectedQuality?: { id: string; name: string } | null;
   initialCustomColor?: string;
@@ -135,17 +147,27 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
   });
 
   // 검색 필터링 및 카테고리 분리
-  const [activeTab, setActiveTab] = React.useState<'A' | 'B'>('A');
+  const [activeTab, setActiveTab] = React.useState<'A' | 'B' | 'reference'>('A');
   const colorOptions = colors && colors.length > 0
     ? colors
     : getMirrorFallbackColors(selectedQuality?.id);
   
   const hasSeriesTabs = hasExplicitSeriesTabs(colorOptions);
+  const referenceColors = colorOptions.filter(isWhiteOpacityReference);
   const categoryAColors = colorOptions.filter(color => getColorSeriesTab(color) === 'A');
   const categoryBColors = colorOptions.filter(color => getColorSeriesTab(color) === 'B');
-  const displayColors = hasSeriesTabs
-    ? activeTab === 'A' ? categoryAColors : categoryBColors
+  const hasColorTabs = hasSeriesTabs || referenceColors.length > 0;
+  const displayColors = hasColorTabs
+    ? activeTab === 'reference'
+      ? referenceColors
+      : activeTab === 'A'
+        ? categoryAColors
+        : categoryBColors
     : colorOptions;
+
+  useEffect(() => {
+    setActiveTab(categoryAColors.length > 0 ? 'A' : referenceColors.length > 0 ? 'reference' : 'B');
+  }, [selectedQuality?.id, categoryAColors.length, referenceColors.length]);
   
   const filteredColors = displayColors.filter(color => {
     if (!searchTerm) return true;
@@ -153,9 +175,30 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
     const acCode = color.color_name.split(' ')[0] || '';
     return (
       acCode.toLowerCase().includes(search) ||
-      color.color_code?.toLowerCase().includes(search)
+      color.color_code?.toLowerCase().includes(search) ||
+      color.pantone?.toLowerCase().includes(search) ||
+      getColorSearchTokens(color).includes(search)
     );
   });
+
+  const materialGuide = (() => {
+    switch (selectedQuality?.id) {
+      case 'glossy-color':
+        return 'Clear는 유광 기본 컬러입니다. 화이트 기준 컬러는 투명도 단계와 백색 안료 기준을 구분해서 표시합니다.';
+      case 'satin-color':
+        return 'Satin은 Clear 기본가에 조색비, 사틴 추가금, 양단면 추가금 기준으로 계산됩니다.';
+      case 'astel-color':
+        return 'Astel은 Clear 기본가에 조색비, 아스텔 추가금, 양단면 추가금 기준으로 계산됩니다.';
+      case 'bright-color':
+        return 'Bright는 AC-B004 백색 안료 60 기준의 스리/진백 계열 추가금 대상입니다.';
+      case 'acrylic-mirror':
+      case 'astel-mirror':
+      case 'satin-mirror':
+        return 'Mirror 계열은 재질 선택 단계에서 미러증착 비용이 포함되고, 하드코팅은 후가공 옵션에서 선택합니다.';
+      default:
+        return '';
+    }
+  })();
 
   const handleCustomColorApply = () => {
     if (!customColorName.trim()) {
@@ -194,6 +237,11 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
         <h3 className="text-2xl font-bold text-gray-900 mb-2">색상을 선택해주세요</h3>
         <p className="text-gray-600">원하는 색상을 선택해주세요</p>
       </div>
+      {materialGuide && (
+        <div className="max-w-4xl mx-auto rounded-lg border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-900">
+          {materialGuide}
+        </div>
+      )}
       
       {/* 검색 기능 및 커스텀 조색 버튼 */}
       <div className="flex gap-3 max-w-2xl mx-auto">
@@ -301,28 +349,44 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
         </Dialog>
       </div>
 
-      {hasSeriesTabs && (
+      {hasColorTabs && (
         <div className="flex gap-2 border-b mb-4">
-          <button
-            onClick={() => setActiveTab('A')}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === 'A'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            카테고리 A ({categoryAColors.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('B')}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === 'B'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            카테고리 B ({categoryBColors.length})
-          </button>
+          {categoryAColors.length > 0 && (
+            <button
+              onClick={() => setActiveTab('A')}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === 'A'
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              A 시리즈 ({categoryAColors.length})
+            </button>
+          )}
+          {categoryBColors.length > 0 && (
+            <button
+              onClick={() => setActiveTab('B')}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === 'B'
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              B 시리즈 ({categoryBColors.length})
+            </button>
+          )}
+          {referenceColors.length > 0 && (
+            <button
+              onClick={() => setActiveTab('reference')}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === 'reference'
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              화이트 기준 ({referenceColors.length})
+            </button>
+          )}
         </div>
       )}
 
@@ -333,6 +397,10 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
             {filteredColors.map((color) => {
               const acCode = color.color_name.split(' ')[0] || '';
               const isSelected = selectedColor === color.id || selectedColor === acCode;
+              const attributes = getColorAttributes(color.attributes);
+              const badges = getColorAttributeBadges(color);
+              const brightPigment = isBrightPigmentColor(color);
+              const colorTypeLabel = getColorSelectionTypeLabel(color);
               
               return (
                 <div
@@ -341,7 +409,9 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                   onClick={() => onColorSelect(color.id, { 
                     acCode, 
                     hexCode: color.color_code || '',
-                    isBrightPigment: color.is_bright_pigment || false,
+                    isBrightPigment: brightPigment,
+                    colorTypeLabel,
+                    colorAttributes: attributes,
                   })}
                 >
                   <div className={`aspect-square rounded-lg border-2 transition-all ${
@@ -359,14 +429,32 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                       {acCode}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
-                      {color.color_code}
+                      {color.pantone || color.color_code}
                     </div>
-                    {color.is_bright_pigment && (
-                      <div className="text-[10px] text-rose-600 truncate">조색비 대상</div>
-                    )}
                     {color.series_key && (
                       <div className="text-[10px] text-muted-foreground truncate">
                         {getColorSeriesLabel(color.series_key)}
+                      </div>
+                    )}
+                    {badges.length > 0 && (
+                      <div className="mt-1 flex flex-wrap justify-center gap-1">
+                        {badges.slice(0, 2).map((badge) => (
+                          <span
+                            key={badge}
+                            className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
+                              brightPigment && badge.includes('스리')
+                                ? 'bg-rose-50 text-rose-600'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {badge}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {color.color_attribute_note && !badges.length && (
+                      <div className="text-[10px] text-muted-foreground truncate">
+                        {color.color_attribute_note}
                       </div>
                     )}
                   </div>
@@ -379,8 +467,8 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
             <p className="text-muted-foreground">
               {searchTerm
                 ? '검색 결과가 없습니다.'
-                : hasSeriesTabs
-                  ? `카테고리 ${activeTab}에 등록된 컬러가 없습니다.`
+                : hasColorTabs
+                  ? `${activeTab === 'reference' ? '화이트 기준' : `${activeTab} 시리즈`}에 등록된 컬러가 없습니다.`
                   : '등록된 컬러가 없습니다.'}
             </p>
           </div>
