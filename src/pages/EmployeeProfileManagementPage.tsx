@@ -144,42 +144,49 @@ const EmployeeProfileManagementPage = () => {
   }
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="fixed inset-0 flex flex-col bg-background overflow-hidden">
+    <Tabs
+      value={activeTab}
+      onValueChange={setActiveTab}
+      className="flex flex-col bg-background overflow-hidden"
+      style={{ height: 'calc(100vh - var(--quick-nav-offset, 0rem))' }}
+    >
       {/* Top Bar */}
-      <div className="border-b px-4 py-2 flex items-center justify-between bg-card shrink-0">
-        <div className="flex items-center gap-3">
+      <div className="border-b px-4 py-2 flex items-center justify-between gap-4 bg-card shrink-0">
+        <div className="flex min-w-0 items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate('/admin-settings')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-base font-semibold flex items-center gap-2">
+          <h1 className="text-base font-semibold flex items-center gap-2 whitespace-nowrap">
             <Users className="h-5 w-5 text-primary" />
             구성원 관리
           </h1>
         </div>
-        <TabsList className="bg-muted h-8">
-          <TabsTrigger value="employees" className="text-xs h-7 gap-1">
-            <Users className="h-3.5 w-3.5" /> 구성원
-          </TabsTrigger>
-          <TabsTrigger value="employee-table" className="text-xs h-7 gap-1">
-            <TableProperties className="h-3.5 w-3.5" /> 구성원 목록
-          </TabsTrigger>
-          {isAdmin && (
-            <>
-              <TabsTrigger value="document-settings" className="text-xs h-7 gap-1">
-                <FileText className="h-3.5 w-3.5" /> 문서함 설정
-              </TabsTrigger>
-              <TabsTrigger value="document-status" className="text-xs h-7 gap-1">
-                <BarChart3 className="h-3.5 w-3.5" /> 제출 현황
-              </TabsTrigger>
-              <TabsTrigger value="contracts" className="text-xs h-7 gap-1">
-                <FileSignature className="h-3.5 w-3.5" /> 전자계약
-              </TabsTrigger>
-              <TabsTrigger value="accounts" className="text-xs h-7 gap-1">
-                <Shield className="h-3.5 w-3.5" /> 계정/권한
-              </TabsTrigger>
-            </>
-          )}
-        </TabsList>
+        <div className="min-w-0 flex-1 overflow-x-auto">
+          <TabsList className="ml-auto h-8 w-max bg-muted">
+            <TabsTrigger value="employees" className="text-xs h-7 gap-1">
+              <Users className="h-3.5 w-3.5" /> 구성원
+            </TabsTrigger>
+            <TabsTrigger value="employee-table" className="text-xs h-7 gap-1">
+              <TableProperties className="h-3.5 w-3.5" /> 구성원 목록
+            </TabsTrigger>
+            {isAdmin && (
+              <>
+                <TabsTrigger value="document-settings" className="text-xs h-7 gap-1">
+                  <FileText className="h-3.5 w-3.5" /> 문서함 설정
+                </TabsTrigger>
+                <TabsTrigger value="document-status" className="text-xs h-7 gap-1">
+                  <BarChart3 className="h-3.5 w-3.5" /> 제출 현황
+                </TabsTrigger>
+                <TabsTrigger value="contracts" className="text-xs h-7 gap-1">
+                  <FileSignature className="h-3.5 w-3.5" /> 전자계약
+                </TabsTrigger>
+                <TabsTrigger value="accounts" className="text-xs h-7 gap-1">
+                  <Shield className="h-3.5 w-3.5" /> 계정/권한
+                </TabsTrigger>
+              </>
+            )}
+          </TabsList>
+        </div>
       </div>
 
       {/* Content area - rendered outside TabsContent to avoid Radix display issues */}

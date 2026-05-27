@@ -194,17 +194,20 @@
   }
 
   #root {
+    --quick-nav-offset: 0rem;
     transition: padding-top 0.18s ease;
   }
 
   .quick-nav-active #root {
-    padding-top: 4.5rem;
+    --quick-nav-offset: 4.5rem;
+    padding-top: var(--quick-nav-offset);
     scroll-padding-top: 5.5rem;
   }
 
   @media (max-width: 640px) {
     .quick-nav-active #root {
-      padding-top: 4rem;
+      --quick-nav-offset: 4rem;
+      padding-top: var(--quick-nav-offset);
       scroll-padding-top: 5rem;
     }
   }
