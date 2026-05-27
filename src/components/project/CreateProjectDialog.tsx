@@ -45,8 +45,7 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
   const { data: employees = [] } = useQuery({
     queryKey: ['all-employees'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profile_directory' as any)
+      const { data, error } = await (supabase.from('profile_directory' as any) as any)
         .select('id, full_name, department, position')
         .order('full_name');
       if (error) throw error;

@@ -13,8 +13,7 @@ export const useMentionSuggestions = () => {
 
   useEffect(() => {
     const fetchUsers = async () => {
-      const { data } = await supabase
-        .from('profile_directory' as any)
+      const { data } = await (supabase.from('profile_directory' as any) as any)
         .select('id, full_name, avatar_url, department')
         .order('full_name');
       if (data) setUsers(data as MentionUser[]);

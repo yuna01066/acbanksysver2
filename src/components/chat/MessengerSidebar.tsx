@@ -37,8 +37,7 @@ const MessengerSidebar: React.FC<MessengerSidebarProps> = ({ activeTarget, onSel
 
   useEffect(() => {
     const fetchEmployees = async () => {
-      const { data } = await supabase
-        .from('profile_directory' as any)
+      const { data } = await (supabase.from('profile_directory' as any) as any)
         .select('id, full_name, avatar_url, department, position')
         .order('full_name');
       if (data) setEmployees((data as EmployeeProfile[]).filter(e => e.id !== user?.id));
