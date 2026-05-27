@@ -467,22 +467,57 @@ function sanitizeResultPayload(resultPayload: any) {
   const parts = Array.isArray(analysis.parts) ? analysis.parts : [];
   const samplePartDetected = parts.some(isKnownSamplePart);
   const safeParts = samplePartDetected ? [] : parts;
+  const incomingFormula = resultPayload?.formula || {};
+  const incomingLineItems = Array.isArray(incomingFormula.line_items) ? incomingFormula.line_items : [];
+  const hasFormulaAmount = (
+    !samplePartDetected &&
+    ["calculable", "needs_review"].includes(String(incomingFormula.status || "")) &&
+    Number(incomingFormula.subtotal) > 0 &&
+    Number(incomingFormula.total) > 0 &&
+    incomingLineItems.length > 0
+  );
   const risks = [
     ...new Set([
       ...((Array.isArray(analysis.production_risks) ? analysis.production_risks.map(String) : []) || []),
       ...(samplePartDetected ? ["이전 샘플 파트 패턴이 감지되어 자동 결과에서 제거했습니다."] : []),
-      "자동 금액 산출은 비활성화되어 상담원 검수 전에는 임시 금액을 만들지 않습니다.",
+      hasFormulaAmount
+        ? "견적 마법사 금액은 파일 관찰값과 기존 v2 산식으로 만든 임시 초안이며 상담원 검수 전 확정 견적으로 사용할 수 없습니다."
+        : "자동 금액 산출은 비활성화되어 상담원 검수 전에는 임시 금액을 만들지 않습니다.",
     ]),
   ];
   const missing = [
     ...new Set([
       ...((Array.isArray(analysis.missing_fields) ? analysis.missing_fields.map(String) : []) || []),
       ...(safeParts.length ? [] : ["파트별 치수", "수량"]),
-      "원장 규격",
-      "소재 단가",
-      "가공 조건",
+      ...(hasFormulaAmount ? [] : ["원장 규격", "소재 단가", "가공 조건"]),
     ]),
   ];
+  const yieldSnapshot = hasFormulaAmount && resultPayload?.yield?.status
+    ? resultPayload.yield
+    : buildYieldSnapshot(safeParts);
+  const formula = hasFormulaAmount
+    ? {
+        status: incomingFormula.status === "calculable" ? "calculable" : "needs_review",
+        subtotal: Number(incomingFormula.subtotal) || 0,
+        tax: Number(incomingFormula.tax) || Math.round((Number(incomingFormula.subtotal) || 0) * 0.1),
+        total: Number(incomingFormula.total) || ((Number(incomingFormula.subtotal) || 0) + Math.round((Number(incomingFormula.subtotal) || 0) * 0.1)),
+        version: incomingFormula.version || FORMULA_VERSION,
+        line_items: incomingLineItems.map((item: any) => ({
+          label: String(item.label || item.source || "견적 마법사 산식 항목"),
+          amount: Number(item.amount) || 0,
+          source: String(item.source || "manual"),
+          ...(item.reason ? { reason: String(item.reason) } : {}),
+        })),
+        warnings: [
+          ...new Set([
+            ...risks,
+            ...((Array.isArray(incomingFormula.warnings) ? incomingFormula.warnings.map(String) : []) || []),
+          ]),
+        ],
+        blocked_reasons: [],
+        ...(incomingFormula.audit ? { audit: incomingFormula.audit } : {}),
+      }
+    : buildFormulaSnapshot(safeParts, risks);
 
   return {
     ...resultPayload,
@@ -492,14 +527,14 @@ function sanitizeResultPayload(resultPayload: any) {
       inferred: {
         ...(analysis.inferred && typeof analysis.inferred === "object" ? analysis.inferred : {}),
         engine_version: ENGINE_VERSION,
-        pricing_policy: "observed_only_no_auto_amount",
+        pricing_policy: hasFormulaAmount ? "formula_v2_adapter_observed_amount" : "observed_only_no_auto_amount",
       },
       missing_fields: missing,
       production_risks: risks,
     },
-    yield: buildYieldSnapshot(safeParts),
-    formula: buildFormulaSnapshot(safeParts, risks),
-    status: "blocked",
+    yield: yieldSnapshot,
+    formula,
+    status: formula.status,
   };
 }
 
@@ -714,10 +749,31 @@ async function createWorkerSignedFiles(supabase: ReturnType<typeof createClient>
   }));
 }
 
+async function loadWorkerPricingContext(supabase: ReturnType<typeof createClient>) {
+  const [{ data: masters, error: mastersError }, { data: sizes, error: sizesError }] = await Promise.all([
+    supabase
+      .from("panel_masters")
+      .select("id, material, quality, name"),
+    supabase
+      .from("panel_sizes")
+      .select("panel_master_id, thickness, size_name, actual_width, actual_height, price, pricing_version_id, is_active")
+      .eq("is_active", true),
+  ]);
+
+  if (mastersError) throw mastersError;
+  if (sizesError) throw sizesError;
+
+  return {
+    panel_masters: masters || [],
+    panel_sizes: (sizes || []).filter((size: any) => Number(size.price) > 0),
+  };
+}
+
 async function requestWorker(supabase: ReturnType<typeof createClient>, job: any, files: QuoteWizardFile[]) {
   const workerUrl = Deno.env.get("QUOTE_WIZARD_WORKER_URL");
   if (!workerUrl) return null;
   const workerFiles = await createWorkerSignedFiles(supabase, files);
+  const pricingContext = await loadWorkerPricingContext(supabase);
 
   const response = await fetch(workerUrl, {
     method: "POST",
@@ -727,7 +783,7 @@ async function requestWorker(supabase: ReturnType<typeof createClient>, job: any
         ? { "Authorization": `Bearer ${Deno.env.get("QUOTE_WIZARD_WORKER_SECRET")}` }
         : {}),
     },
-    body: JSON.stringify({ job, files: workerFiles, bucket: BUCKET }),
+    body: JSON.stringify({ job, files: workerFiles, bucket: BUCKET, pricing_context: pricingContext }),
   });
 
   if (!response.ok) {

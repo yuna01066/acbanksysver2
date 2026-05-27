@@ -18,6 +18,7 @@ const optionalScript = {
   dxfParser: process.env.ACBANK_DXF_PARSER || bundledScript('parse_dxf_ascii.py'),
   cadInspector: process.env.ACBANK_CAD_INSPECTOR || bundledScript('inspect_cad.py'),
   yieldCalculator: process.env.ACBANK_YIELD_CALCULATOR || bundledScript('acrylic_yield_calculator.py'),
+  formulaCalculator: process.env.ACBANK_FORMULA_CALCULATOR || bundledScript('calculate_formula_v2.py'),
 };
 
 const json = (res, status, body) => {
@@ -451,6 +452,91 @@ const totalPartArea = (parts) => parts.reduce((sum, part) => (
   sum + (Number(part.width_mm) || 0) * (Number(part.height_mm) || 0) * (Number(part.quantity) || 1)
 ), 0);
 
+const normalizeThickness = (value) => {
+  const match = String(value || '').match(/\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const numeric = Number(match[0]);
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  return `${String(numeric).replace(/\.0$/, '')}T`;
+};
+
+const normalizeSearchText = (...values) => values
+  .map((value) => String(value || '').toLowerCase())
+  .join(' ');
+
+const inferAcrylicQuality = (analysis, parserNotes = []) => {
+  const text = normalizeSearchText(
+    analysis.material,
+    analysis.color,
+    analysis.finish,
+    analysis.item_name,
+    analysis.processing?.join(' '),
+    parserNotes.map((note) => `${note.text_excerpt || ''} ${note.ocr_excerpt || ''}`).join(' '),
+  );
+
+  if (!/아크릴|acrylic|pmma|투명|clear|클리어|미러|mirror|사틴|satin|아스텔|astel|브라이트|bright|보급/.test(text)) {
+    return {
+      qualityId: null,
+      qualityLabel: null,
+      confidence: 'low',
+      warnings: ['아크릴 판재 재질로 확정할 수 없어 자동 금액 산출을 보류했습니다.'],
+    };
+  }
+
+  if (/사틴.*미러|satin.*mirror|mirror.*satin|미러.*사틴/.test(text)) {
+    return { qualityId: 'satin-mirror', qualityLabel: 'Satin Mirror', confidence: 'medium', warnings: ['사틴 미러 재질은 상담원 단가 검수가 필요합니다.'] };
+  }
+  if (/아스텔.*미러|astel.*mirror|mirror.*astel|미러.*아스텔/.test(text)) {
+    return { qualityId: 'astel-mirror', qualityLabel: 'Astel Mirror', confidence: 'medium', warnings: ['아스텔 미러 재질은 상담원 단가 검수가 필요합니다.'] };
+  }
+  if (/미러|mirror/.test(text)) {
+    return { qualityId: 'acrylic-mirror', qualityLabel: 'Mirror', confidence: 'medium', warnings: ['미러 재질은 색상/증착 단가 검수가 필요합니다.'] };
+  }
+  if (/사틴|satin/.test(text)) return { qualityId: 'satin-color', qualityLabel: 'Satin', confidence: 'medium', warnings: [] };
+  if (/아스텔|astel/.test(text)) return { qualityId: 'astel-color', qualityLabel: 'Astel', confidence: 'medium', warnings: [] };
+  if (/브라이트|bright|진백|스리/.test(text)) return { qualityId: 'bright-color', qualityLabel: 'Bright', confidence: 'medium', warnings: ['브라이트/진백/스리 안료 추가금은 상담원 검수가 필요합니다.'] };
+  if (/보급/.test(text)) return { qualityId: 'glossy-standard', qualityLabel: '유광 보급판', confidence: 'medium', warnings: [] };
+
+  return {
+    qualityId: 'glossy-color',
+    qualityLabel: 'Clear',
+    confidence: /투명|clear|클리어|glossy/.test(text) ? 'medium' : 'low',
+    warnings: /투명|clear|클리어|glossy/.test(text)
+      ? []
+      : ['재질 세부값이 명확하지 않아 Clear 기준 임시 금액으로 계산했습니다.'],
+  };
+};
+
+const pricingPanelsFor = (pricingContext, qualityId, thickness) => {
+  if (!pricingContext || !qualityId || !thickness) return [];
+  const masters = Array.isArray(pricingContext.panel_masters) ? pricingContext.panel_masters : [];
+  const sizes = Array.isArray(pricingContext.panel_sizes) ? pricingContext.panel_sizes : [];
+  const masterIds = new Set(
+    masters
+      .filter((master) => String(master.quality) === qualityId)
+      .map((master) => master.id),
+  );
+
+  return sizes
+    .filter((size) => (
+      masterIds.has(size.panel_master_id) &&
+      String(size.thickness) === thickness &&
+      size.is_active !== false &&
+      Number(size.price) > 0 &&
+      Number(size.actual_width) > 0 &&
+      Number(size.actual_height) > 0
+    ))
+    .map((size) => ({
+      name: String(size.size_name || `${size.actual_width}x${size.actual_height}`).replace(/[:\r\n]/g, ' ').trim(),
+      width_mm: Number(size.actual_width),
+      height_mm: Number(size.actual_height),
+      price: Number(size.price),
+      pricing_version_id: size.pricing_version_id || null,
+      panel_master_id: size.panel_master_id,
+    }))
+    .sort((a, b) => (a.width_mm * a.height_mm) - (b.width_mm * b.height_mm));
+};
+
 const fallbackYieldSnapshot = (parts, sourceOnly) => {
   const totalArea = totalPartArea(parts);
 
@@ -468,7 +554,7 @@ const fallbackYieldSnapshot = (parts, sourceOnly) => {
   };
 };
 
-const compactYieldResult = (result, parts) => {
+const compactYieldResult = (result, parts, usedDbPanels = false) => {
   const scenario = result.rotation_scenarios?.rotation_allowed || result;
   const recommendation = Array.isArray(scenario.recommendations) ? scenario.recommendations[0] : null;
   if (!recommendation) throw new Error('Yield calculator returned no recommendation');
@@ -488,7 +574,9 @@ const compactYieldResult = (result, parts) => {
     scrap_percent: recommendation.yield_percent ? Math.round((100 - recommendation.yield_percent) * 10) / 10 : null,
     notes: [
       'acrylic_yield_calculator.py 실행 결과입니다.',
-      'DB panel_sizes가 워커로 전달되지 않으면 스킬 fallback 원장 후보를 사용합니다.',
+      usedDbPanels
+        ? 'Lovable DB panel_sizes 단가 후보로 원장/수율을 계산했습니다.'
+        : 'DB panel_sizes가 워커로 전달되지 않아 스킬 fallback 원장 후보를 사용했습니다.',
     ],
     audit: {
       script: 'acrylic_yield_calculator.py',
@@ -502,7 +590,7 @@ const compactYieldResult = (result, parts) => {
   };
 };
 
-const runYieldCalculator = async (parts, thickness, fallback) => {
+const runYieldCalculator = async (parts, thickness, fallback, panelCandidates = []) => {
   if (!parts.length) return fallback;
   if (!thickness) {
     return {
@@ -516,12 +604,19 @@ const runYieldCalculator = async (parts, thickness, fallback) => {
 
   const args = [
     optionalScript.yieldCalculator,
-    '--logic-candidates',
     '--allow-rotate',
     'yes',
     '--thickness',
     thickness,
   ];
+
+  if (panelCandidates.length) {
+    for (const panel of panelCandidates) {
+      args.push('--panel', `${panel.name}:${panel.width_mm}x${panel.height_mm}`);
+    }
+  } else {
+    args.push('--logic-candidates');
+  }
 
   for (const part of parts) {
     const name = String(part.name || 'part').replace(/[:\r\n]/g, ' ').trim() || 'part';
@@ -531,7 +626,7 @@ const runYieldCalculator = async (parts, thickness, fallback) => {
 
   try {
     const { stdout } = await run('python3', args);
-    return compactYieldResult(JSON.parse(stdout), parts);
+    return compactYieldResult(JSON.parse(stdout), parts, panelCandidates.length > 0);
   } catch (error) {
     return {
       ...fallback,
@@ -559,15 +654,148 @@ const fallbackFormulaSnapshot = (sourceOnly, productionRisks, parts = []) => {
   };
 };
 
-const runFormulaCalculator = async ({ analysis, parts, yieldSnapshot, tempDir, sourceOnly }) => {
+const findRecommendedPanel = (yieldSnapshot, panelCandidates) => {
+  if (!yieldSnapshot?.stock_sheet || !panelCandidates.length) return null;
+  const stock = yieldSnapshot.stock_sheet;
+  const name = String(stock.name || '');
+  const width = Number(stock.width_mm) || 0;
+  const height = Number(stock.height_mm) || 0;
+
+  return panelCandidates.find((panel) => panel.name === name) ||
+    panelCandidates.find((panel) => (
+      Math.abs(panel.width_mm - width) <= 1 &&
+      Math.abs(panel.height_mm - height) <= 1
+    )) ||
+    null;
+};
+
+const inferFormulaSetup = (analysis, parts, yieldSnapshot) => {
+  const text = normalizeSearchText(
+    analysis.processing?.join(' '),
+    analysis.item_name,
+    analysis.recommended_reply,
+    analysis.production_risks?.join(' '),
+  );
+  const warnings = [];
+  let selectedSetupFee = 0;
+  let fabricationBaseMultiplier = 1.3;
+
+  if (/cnc|씨엔씨|홈|슬롯|끼움/.test(text)) {
+    selectedSetupFee = 70_000;
+    warnings.push('CNC/끼움 홈 가능성이 있어 기본 세팅비 70,000원을 적용했습니다.');
+  } else if (/레이저|laser/.test(text)) {
+    selectedSetupFee = 50_000;
+    warnings.push('레이저 가공 가능성이 있어 기본 세팅비 50,000원을 적용했습니다.');
+  } else if (/복잡|다중|타공|홀|hole/.test(text) || parts.length >= 8) {
+    selectedSetupFee = 70_000;
+    warnings.push('복합/다중 재단 가능성이 있어 기본 세팅비 70,000원을 적용했습니다.');
+  }
+
+  if (/단순|simple/.test(text) && parts.length <= 3) {
+    warnings.push('단순 재단 여부는 상담원 검수 후 확정해야 합니다.');
+  }
+
+  if (/접착|본딩|무기포|bond|조립/.test(text)) {
+    warnings.push('접착/조립 공정은 접착선 길이와 코너 수 확인 전 임시 금액입니다.');
+  }
+  if (/인쇄|uv|print|염색/.test(text)) {
+    warnings.push('인쇄/염색 공정은 도수, 인쇄 면적, 외주비 확인 전 임시 금액입니다.');
+  }
+  if (yieldSnapshot?.status !== 'estimated' && yieldSnapshot?.status !== 'calculated') {
+    warnings.push('수율 계산이 확정 상태가 아니므로 원장 수량 검수가 필요합니다.');
+  }
+
+  return { selectedSetupFee, fabricationBaseMultiplier, warnings };
+};
+
+const runFormulaCalculator = async ({ analysis, parts, yieldSnapshot, tempDir, sourceOnly, pricingContext, qualityMatch, panelCandidates }) => {
   const fallback = fallbackFormulaSnapshot(sourceOnly, analysis.production_risks, parts);
-  return {
-    ...fallback,
-    blocked_reasons: [
-      ...(fallback.blocked_reasons || []),
-      '분석 워커는 파일 관찰값만 반환하며 임의 단가/공임으로 견적 금액을 계산하지 않습니다.',
-    ],
+  const warnings = [...(analysis.production_risks || []), ...(qualityMatch?.warnings || [])];
+  const blockedReasons = [];
+
+  if (sourceOnly || !parts.length) blockedReasons.push('파일에서 견적 산출 가능한 파트 치수를 추출하지 못했습니다.');
+  if (!qualityMatch?.qualityId) blockedReasons.push('아크릴 재질/품질을 기존 단가표 품목으로 매핑하지 못했습니다.');
+  const thickness = normalizeThickness(analysis.thickness);
+  if (!thickness) blockedReasons.push('두께를 기존 단가표 형식으로 확정하지 못했습니다.');
+
+  const panel = findRecommendedPanel(yieldSnapshot, panelCandidates);
+  const sheetCount = Number(yieldSnapshot?.estimated_sheet_count) || 0;
+  if (!panel) blockedReasons.push('추천 원장을 기존 panel_sizes 단가와 매칭하지 못했습니다.');
+  if (!sheetCount) blockedReasons.push('필요 원장 수량을 산출하지 못했습니다.');
+
+  if (blockedReasons.length) {
+    return {
+      ...fallback,
+      warnings,
+      blocked_reasons: [...new Set([...blockedReasons, ...(fallback.blocked_reasons || [])])],
+    };
+  }
+
+  const sheetCost = Math.round(panel.price * sheetCount);
+  const setup = inferFormulaSetup(analysis, parts, yieldSnapshot);
+  warnings.push(...setup.warnings);
+
+  const formulaInput = {
+    sheetCost,
+    fabricationBaseMultiplier: setup.fabricationBaseMultiplier,
+    selectedSetupFee: setup.selectedSetupFee,
+    targetGrossMarginRate: 0.30,
+    productQty: analysis.quantity || Math.max(1, ...parts.map((part) => Number(part.quantity) || 1)),
+    hasInterlockingAssembly: /끼움|조립|interlocking/i.test(normalizeSearchText(analysis.processing?.join(' '), analysis.item_name)),
+    hasCncInterlockingSlot: /cnc|씨엔씨|홈|슬롯/i.test(normalizeSearchText(analysis.processing?.join(' '), analysis.item_name)),
+    taxRate: 0.10,
   };
+
+  try {
+    const inputPath = join(tempDir, 'quote-wizard-formula-input.json');
+    await writeFile(inputPath, JSON.stringify(formulaInput, null, 2));
+    const { stdout } = await run('python3', [optionalScript.formulaCalculator, inputPath]);
+    const result = JSON.parse(stdout);
+    const subtotal = Number(result.subtotal) || 0;
+    const tax = Number(result.tax) || Math.round(subtotal * 0.1);
+    const total = Number(result.total) || subtotal + tax;
+    const status = warnings.length ? 'needs_review' : 'calculable';
+
+    return {
+      status,
+      subtotal,
+      tax,
+      total,
+      version: FORMULA_VERSION,
+      line_items: [
+        {
+          label: `${qualityMatch.qualityLabel || qualityMatch.qualityId} ${thickness} ${panel.name} ${sheetCount}장 기준 임시 공급가`,
+          amount: subtotal,
+          source: 'processing',
+          reason: `panel_sizes 단가 ${panel.price.toLocaleString()}원 × ${sheetCount}장, fabricationBaseMultiplier ${setup.fabricationBaseMultiplier}, setupFee ${setup.selectedSetupFee.toLocaleString()}원, targetGrossMarginRate 30%`,
+        },
+      ],
+      warnings: [...new Set(warnings)],
+      blocked_reasons: [],
+      audit: {
+        adapter: 'quote_wizard_formula_v2_adapter',
+        formula_input: formulaInput,
+        formula_result: result,
+        quality_match: qualityMatch,
+        panel,
+        pricing_context: {
+          panel_candidate_count: panelCandidates.length,
+          pricing_version_id: panel.pricing_version_id,
+        },
+      },
+    };
+  } catch (error) {
+    return {
+      ...fallback,
+      warnings,
+      blocked_reasons: [
+        ...new Set([
+          ...(fallback.blocked_reasons || []),
+          `공식 v2 helper 실행 실패: ${error instanceof Error ? error.message : String(error)}`,
+        ]),
+      ],
+    };
+  }
 };
 
 const buildParts = (parserNotes, aiResult) => dedupeParts(
@@ -577,7 +805,7 @@ const buildParts = (parserNotes, aiResult) => dedupeParts(
   ],
 );
 
-const buildAnalysis = async ({ job, files, parserNotes, imagePayloads, tempDir }) => {
+const buildAnalysis = async ({ job, files, parserNotes, imagePayloads, tempDir, pricingContext }) => {
   const hasFastPreview = files.some((file) => ['pdf', 'image', 'dxf'].includes(file.kind));
   const sourceOnly = !hasFastPreview;
   const aiResult = await runAiAnalysis({ job, parserNotes, imagePayloads });
@@ -616,6 +844,7 @@ const buildAnalysis = async ({ job, files, parserNotes, imagePayloads, tempDir }
       ai_gateway_status: process.env.LOVABLE_API_KEY ? (aiError ? 'failed' : 'available') : 'missing',
       pdf_render_status: parserNotes.some((note) => note.rendered_pages?.length) ? 'available' : 'not_used_or_missing_pdftoppm',
       ocr_status: parserNotes.some((note) => note.ocr_excerpt) ? 'available' : 'not_used_or_missing_tesseract',
+      pricing_adapter: 'quote_wizard_formula_v2_adapter',
       note: '워커가 PDF 텍스트, 가능 시 PDF 렌더링/OCR/이미지 비전, DXF 엔티티에서 관찰 가능한 값만 추출했습니다. 샘플 파트나 샘플 금액은 생성하지 않습니다.',
     },
     parts,
@@ -635,8 +864,20 @@ const buildAnalysis = async ({ job, files, parserNotes, imagePayloads, tempDir }
     confidence: ['low', 'medium', 'high'].includes(String(aiResult?.confidence)) ? aiResult.confidence : (parts.length ? 'medium' : 'low'),
   };
 
-  const yieldSnapshot = await runYieldCalculator(parts, analysis.thickness, fallbackYieldSnapshot(parts, sourceOnly));
-  const formula = await runFormulaCalculator({ analysis, parts, yieldSnapshot, tempDir, sourceOnly });
+  const qualityMatch = inferAcrylicQuality(analysis, parserNotes);
+  const normalizedThickness = normalizeThickness(analysis.thickness);
+  const panelCandidates = pricingPanelsFor(pricingContext, qualityMatch.qualityId, normalizedThickness);
+  const yieldSnapshot = await runYieldCalculator(parts, normalizedThickness, fallbackYieldSnapshot(parts, sourceOnly), panelCandidates);
+  const formula = await runFormulaCalculator({
+    analysis,
+    parts,
+    yieldSnapshot,
+    tempDir,
+    sourceOnly,
+    pricingContext,
+    qualityMatch,
+    panelCandidates,
+  });
 
   return { analysis, yield: yieldSnapshot, formula, status: formula.status };
 };
@@ -725,7 +966,7 @@ const handleAnalyze = async (body) => {
       }
     }
 
-    return buildAnalysis({ job: body.job, files, parserNotes, imagePayloads, tempDir });
+    return await buildAnalysis({ job: body.job, files, parserNotes, imagePayloads, tempDir, pricingContext: body.pricing_context });
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

@@ -41,8 +41,8 @@ TESSERACT_LANG=kor+eng npm run dev
 - 이미지: OCR과 AI Gateway 비전 분석 대상으로 전달합니다.
 - DXF: `dwg-cad-analyzer` 스킬의 ASCII DXF 파서와 내장 LWPOLYLINE 파서를 사용합니다.
 - DWG: 로컬 변환기가 없으면 CAD metadata/도구 가능 여부만 기록하고 PDF/DXF 미리보기를 요청합니다.
-- 수율: 파트 치수와 두께가 있으면 `acrylic_yield_calculator.py --logic-candidates`를 실행합니다.
-- 금액: 임의 단가/공임으로 자동 금액을 만들지 않고 상담원 검수 전 `blocked` 상태를 유지합니다.
+- 수율: 파트 치수와 두께가 있으면 Edge Function이 전달한 DB `panel_sizes` 후보를 우선 사용하고, 없으면 `acrylic_yield_calculator.py --logic-candidates`를 실행합니다.
+- 금액: DB 원장 단가와 수율 결과가 있는 경우 `calculate_formula_v2.py`로 임시 금액 초안을 만듭니다. 재질/가공/치수 검수값이 남아 있으면 `needs_review` 상태로 유지하고, 임의 단가/공임은 만들지 않습니다.
 
 ## Render 배포
 
