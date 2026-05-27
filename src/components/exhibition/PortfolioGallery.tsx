@@ -1472,7 +1472,7 @@ const PortfolioGallery = () => {
     if (e.touches.length === 2) {
       touchStateRef.current = {
         ...touchStateRef.current,
-        pinchDistance: getTouchDistance(e.touches),
+        pinchDistance: getTouchDistance(e.touches as unknown as TouchList),
         startZoom: imageZoom,
         mode: 'pinch',
       };
