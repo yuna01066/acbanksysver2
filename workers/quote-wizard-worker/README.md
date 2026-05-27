@@ -80,3 +80,13 @@ QUOTE_WIZARD_WORKER_SECRET=<Render와 동일한 값>
 ```
 
 중요: Lovable Cloud에서 실행되는 Edge Function은 로컬 `127.0.0.1` 워커에 접근할 수 없습니다. 운영에서는 Render/Railway/Fly/Cloud Run 같은 공개 HTTPS 엔드포인트로 이 워커를 배포한 뒤 URL을 설정해야 합니다.
+
+## Cloud Run 배포
+
+무료 사용량을 우선 활용하려면 Google Cloud Run 배포 경로를 사용할 수 있습니다. repo 루트 기준:
+
+```bash
+REGION=asia-northeast3 scripts/deploy-quote-wizard-worker-cloud-run.sh
+```
+
+자세한 절차는 `docs/quote-wizard-worker-cloud-run.md`를 참고하세요.
