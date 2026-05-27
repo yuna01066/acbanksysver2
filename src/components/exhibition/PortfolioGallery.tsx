@@ -2123,7 +2123,7 @@ const PortfolioGallery = () => {
           delete_status: 'active',
         }).select().single();
         if (insertImageError) throw insertImageError;
-        const [hydratedImage] = await hydratePortfolioImages([insertedImage as PortfolioImage]);
+        const [hydratedImage] = await hydratePortfolioImages([insertedImage as unknown as PortfolioImage]);
         insertedImages.push(hydratedImage);
       }
 
