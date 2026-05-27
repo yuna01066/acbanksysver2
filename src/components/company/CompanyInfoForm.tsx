@@ -8,6 +8,14 @@ import { Save, Loader2, Building2, MapPin, Navigation, Upload, Stamp } from 'luc
 import { toast } from 'sonner';
 import { getDownloadUrl } from '@/services/documentFiles';
 
+const isMissingCompanySealColumnError = (error: { code?: string; message?: string } | null) => {
+  if (!error) return false;
+  return (
+    error.code === 'PGRST204'
+    || error.message?.includes('company_seal_storage_path')
+  );
+};
+
 const CompanyInfoForm: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -166,19 +174,32 @@ const CompanyInfoForm: React.FC = () => {
         updated_at: new Date().toISOString(),
       };
 
-      if (id) {
+      const persistCompanyInfo = async (nextPayload: any) => {
+        if (id) {
+          const { error } = await supabase
+            .from('company_info')
+            .update(nextPayload)
+            .eq('id', id);
+          return error;
+        }
+
         const { error } = await supabase
           .from('company_info')
-          .update(payload)
-          .eq('id', id);
-        if (error) throw error;
+          .insert(nextPayload);
+        return error;
+      };
+
+      const error = await persistCompanyInfo(payload);
+
+      if (isMissingCompanySealColumnError(error)) {
+        const { company_seal_storage_path: _companySealStoragePath, ...fallbackPayload } = payload;
+        const fallbackError = await persistCompanyInfo(fallbackPayload);
+        if (fallbackError) throw fallbackError;
+        toast.warning('회사 정보는 저장했지만 DB에 직인 경로 컬럼이 없어 직인은 저장되지 않았습니다. Supabase migration 적용 후 다시 저장해주세요.');
       } else {
-        const { error } = await supabase
-          .from('company_info')
-          .insert(payload);
         if (error) throw error;
+        toast.success('회사 정보가 저장되었습니다');
       }
-      toast.success('회사 정보가 저장되었습니다');
       fetchInfo();
     } catch (e: any) {
       toast.error('저장 실패: ' + (e.message || ''));
