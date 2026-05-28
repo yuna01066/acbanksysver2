@@ -62,7 +62,6 @@ interface SavedQuote {
 interface UserProfile {
   id: string;
   full_name: string;
-  email: string;
 }
 
 type SortOption = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'number-desc' | 'number-asc';
@@ -252,12 +251,12 @@ const SavedQuotesPage = () => {
   const fetchUsers = async () => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
+        .from('profile_directory' as any)
+        .select('id, full_name')
         .order('full_name', { ascending: true });
 
       if (error) throw error;
-      setUsers(data || []);
+      setUsers(((data || []) as unknown) as UserProfile[]);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
@@ -712,7 +711,7 @@ const SavedQuotesPage = () => {
                   <SelectItem value="all">전체 담당자</SelectItem>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
-                      {user.full_name} ({user.email})
+                      {user.full_name || user.id}
                     </SelectItem>
                   ))}
                 </SelectContent>
