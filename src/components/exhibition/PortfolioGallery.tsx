@@ -750,7 +750,7 @@ async function fetchPortfolioPosts(params: {
     : Number(rows[0]?.total_count || rows.length || 0);
 
   return {
-    posts,
+    posts: posts as PortfolioPost[],
     hasMore: matchedRows.length > params.limit || totalMatches > params.limit,
     totalMatches,
   };
