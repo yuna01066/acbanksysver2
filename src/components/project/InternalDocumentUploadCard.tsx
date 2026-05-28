@@ -58,12 +58,13 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, d
       const now = new Date();
       const y = now.getFullYear();
       const m = String(now.getMonth() + 1).padStart(2, '0');
-      const gcsPrefix = projectName
+      const drivePath = projectName
         ? buildProjectDrivePath({
             projectName,
             section: `02_발주_매입/${typeFolder}/${y}년/${m}월`,
           }).join('/')
-        : `internal-project-docs/${projectId}/${documentType}`;
+        : null;
+      const gcsPrefix = `internal-project-docs/${user.id}/${projectId}/${documentType}`;
       const { gcsPath } = await gcsUploadFile(file, gcsPrefix);
 
       // Create DB record with GCS path
@@ -93,10 +94,7 @@ const InternalDocumentUploadCard: React.FC<Props> = ({ projectId, projectName, d
           storage_path: gcsPath,
           mime_type: file.type,
           file_size: file.size,
-          drive_path: projectName ? buildProjectDrivePath({
-            projectName,
-            section: `02_발주_매입/${typeFolder}/${y}년/${m}월`,
-          }).join('/') : null,
+          drive_path: drivePath,
           uploaded_by: user.id,
           sync_status: projectName ? 'pending' : 'not_required',
           metadata: {

@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { isAuthResponse, requireFunctionAuth, withCors } from "../_shared/auth.ts";
 
+type AuthContext = Awaited<ReturnType<typeof requireFunctionAuth>>;
+type GcsAction = 'upload' | 'get-download-url' | 'delete';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-gcs-action, x-gcs-bucket, x-gcs-path, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -108,6 +111,142 @@ function getCredentials() {
   return { accessKey, secretKey, projectId };
 }
 
+function getAllowedUserBucket() {
+  return Deno.env.get('GCS_BUCKET') || 'acbank_sys2';
+}
+
+function jsonError(message: string, status = 403) {
+  throw new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function pathSegment(path: string, index: number) {
+  return path.split('/').filter(Boolean)[index] || '';
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+async function hasPrivilegedRole(auth: AuthContext) {
+  if (!auth.user) return false;
+  const checks = await Promise.all([
+    auth.supabaseAdmin.rpc('has_role', { _user_id: auth.user.id, _role: 'admin' }),
+    auth.supabaseAdmin.rpc('has_role', { _user_id: auth.user.id, _role: 'moderator' }),
+  ]);
+  return checks.some(({ data }) => Boolean(data));
+}
+
+async function canAccessProject(auth: AuthContext, projectId: string) {
+  if (!auth.user || !isUuid(projectId)) return false;
+  const checks = await Promise.all([
+    auth.supabaseAdmin.rpc('is_project_owner', { _project_id: projectId, _user_id: auth.user.id }),
+    auth.supabaseAdmin.rpc('is_project_assigned', { _project_id: projectId, _user_id: auth.user.id }),
+  ]);
+  return checks.some(({ data }) => Boolean(data));
+}
+
+async function canAccessDocumentFile(auth: AuthContext, path: string) {
+  if (!auth.user) return false;
+  const { data, error } = await auth.supabaseAdmin
+    .from('document_files')
+    .select('uploaded_by, quote_id, project_id, recipient_id')
+    .eq('storage_provider', 'gcs')
+    .eq('storage_path', path)
+    .limit(1);
+
+  if (error || !data?.length) return false;
+  const doc = data[0] as {
+    uploaded_by?: string | null;
+    quote_id?: string | null;
+    project_id?: string | null;
+    recipient_id?: string | null;
+  };
+
+  if (doc.uploaded_by === auth.user.id) return true;
+  if (doc.project_id && await canAccessProject(auth, doc.project_id)) return true;
+
+  if (doc.quote_id) {
+    const { data: quote } = await auth.supabaseAdmin
+      .from('saved_quotes')
+      .select('user_id, issuer_id, assigned_to')
+      .eq('id', doc.quote_id)
+      .maybeSingle();
+    if (
+      quote
+      && [quote.user_id, quote.issuer_id, quote.assigned_to].includes(auth.user.id)
+    ) {
+      return true;
+    }
+  }
+
+  if (doc.recipient_id) {
+    const { data: recipient } = await auth.supabaseAdmin
+      .from('recipients')
+      .select('user_id')
+      .eq('id', doc.recipient_id)
+      .maybeSingle();
+    if (recipient?.user_id === auth.user.id) return true;
+  }
+
+  return false;
+}
+
+async function assertGcsAccess(auth: AuthContext, action: GcsAction, bucket: string, path: string) {
+  if (!auth.user) jsonError('Authentication required', 401);
+
+  const privileged = await hasPrivilegedRole(auth);
+  if (privileged) return;
+
+  if (bucket !== getAllowedUserBucket()) {
+    jsonError('Forbidden bucket');
+  }
+
+  const userId = auth.user.id;
+
+  if (action === 'upload') {
+    if (
+      path.startsWith(`recipient-documents/${userId}/`)
+      || path.startsWith(`tax-documents/${userId}/`)
+      || path.startsWith(`team-chat/${userId}/`)
+      || path.startsWith(`project-updates/${userId}/`)
+      || path.startsWith(`internal-project-docs/${userId}/`)
+    ) {
+      return;
+    }
+    jsonError('Forbidden upload path');
+  }
+
+  if (action === 'get-download-url' && path.startsWith('team-chat/')) {
+    return;
+  }
+
+  if (
+    path.startsWith(`recipient-documents/${userId}/`)
+    || path.startsWith(`tax-documents/${userId}/`)
+    || path.startsWith(`project-updates/${userId}/`)
+    || path.startsWith(`internal-project-docs/${userId}/`)
+  ) {
+    return;
+  }
+
+  if (path.startsWith('project-updates/')) {
+    const projectId = pathSegment(path, 2);
+    if (await canAccessProject(auth, projectId)) return;
+  }
+
+  if (path.startsWith('internal-project-docs/')) {
+    const maybeProjectId = pathSegment(path, 1);
+    if (await canAccessProject(auth, maybeProjectId)) return;
+  }
+
+  if (await canAccessDocumentFile(auth, path)) return;
+
+  jsonError('Forbidden path');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -117,7 +256,7 @@ serve(async (req) => {
     // Check if this is a binary upload via custom headers
     const headerAction = req.headers.get('x-gcs-action');
     if (headerAction === 'upload') {
-      await requireFunctionAuth(req);
+      const auth = await requireFunctionAuth(req);
       const { accessKey, secretKey } = getCredentials();
       const bucket = req.headers.get('x-gcs-bucket');
       const path = decodeURIComponent(req.headers.get('x-gcs-path') || '');
@@ -125,6 +264,7 @@ serve(async (req) => {
 
       if (!bucket || !path) throw new Error('bucket and path headers are required');
       if (path.startsWith('/') || path.includes('..')) throw new Error('Invalid path');
+      await assertGcsAccess(auth, 'upload', bucket, path);
 
       // Read body as binary directly - no base64 overhead
       const binaryData = new Uint8Array(await req.arrayBuffer());
@@ -144,7 +284,7 @@ serve(async (req) => {
     // JSON-based actions (non-upload)
     const { action, bucket, path, contentType, data: fileData, prefix } = await req.json();
     const adminActions = new Set(['list-buckets', 'create-bucket', 'list-files']);
-    await requireFunctionAuth(req, adminActions.has(action) ? { allowedRoles: ['admin', 'moderator'] } : {});
+    const auth = await requireFunctionAuth(req, adminActions.has(action) ? { allowedRoles: ['admin', 'moderator'] } : {});
     const { accessKey, secretKey, projectId } = getCredentials();
     if (typeof path === 'string' && (path.startsWith('/') || path.includes('..'))) {
       throw new Error('Invalid path');
@@ -210,6 +350,7 @@ serve(async (req) => {
       // Legacy base64 upload (kept for backward compatibility with small files)
       case 'upload': {
         if (!bucket || !path || !fileData) throw new Error('bucket, path, and data are required');
+        await assertGcsAccess(auth, 'upload', bucket, path);
         const binaryData = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
         const res = await gcsRequest('PUT', `/${bucket}/${path}`, accessKey, secretKey, binaryData, {
           'Content-Type': contentType || 'application/octet-stream',
@@ -225,6 +366,7 @@ serve(async (req) => {
 
       case 'get-download-url': {
         if (!bucket || !path) throw new Error('bucket and path are required');
+        await assertGcsAccess(auth, 'get-download-url', bucket, path);
         const now = new Date();
         const dateStamp = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
         const shortDate = dateStamp.substring(0, 8);
@@ -265,6 +407,7 @@ serve(async (req) => {
 
       case 'delete': {
         if (!bucket || !path) throw new Error('bucket and path are required');
+        await assertGcsAccess(auth, 'delete', bucket, path);
         const res = await gcsRequest('DELETE', `/${bucket}/${path}`, accessKey, secretKey);
         if (res.status === 204 || res.ok) {
           return new Response(JSON.stringify({ success: true }), {
