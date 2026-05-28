@@ -173,7 +173,7 @@ function appendStat(map: Map<string, { label: string; quantity: number; amount: 
   map.set(key, current);
 }
 
-function topStats(map: Map<string, { label: string; quantity: number; amount: number }>, limit = 5) {
+function topStats(map: Map<string, { label: string; quantity: number; amount: number }>, limit = 10) {
   return [...map.values()]
     .sort((a, b) => b.quantity - a.quantity || b.amount - a.amount || a.label.localeCompare(b.label))
     .slice(0, limit)
@@ -296,7 +296,7 @@ async function getTopOrderItems(serviceClient: ReturnType<typeof createClient>, 
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await serviceClient
     .from("imweb_orders")
-    .select("order_date, order_status, total_price, items, raw_data, synced_at")
+    .select("order_date, order_status, items, synced_at")
     .gte("order_date", since)
     .order("order_date", { ascending: false })
     .limit(500);
@@ -347,9 +347,9 @@ async function getTopOrderItems(serviceClient: ReturnType<typeof createClient>, 
     orderCount,
     itemCount,
     lastSyncedAt: lastSyncedAt || null,
-    products: topStats(products, 5),
-    materials: topStats(materials, 5),
-    colors: topStats(colors, 5),
+    products: topStats(products, 10),
+    materials: topStats(materials, 10),
+    colors: topStats(colors, 10),
   };
 }
 
