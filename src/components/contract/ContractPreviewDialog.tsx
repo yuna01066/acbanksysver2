@@ -13,6 +13,7 @@ import { ko } from 'date-fns/locale';
 import { Download, Loader2 } from 'lucide-react';
 import { getDownloadUrl } from '@/services/documentFiles';
 import { contractDocumentCss, injectCompanySealIntoRenderedHtml, injectSignatureIntoRenderedHtml } from '@/utils/contractRenderer';
+import { sanitizeHtml } from '@/utils/sanitizeHtml';
 
 export interface ContractData {
   user_name: string;
@@ -124,9 +125,11 @@ const ContractPreviewDialog: React.FC<ContractPreviewDialogProps> = ({
   const renderedContractHtml = useMemo(() => {
     const html = contract?.signed_rendered_html || contract?.rendered_html;
     if (!html) return null;
-    return injectSignatureIntoRenderedHtml(
-      injectCompanySealIntoRenderedHtml(html, companySealUrl),
-      signatureUrl,
+    return sanitizeHtml(
+      injectSignatureIntoRenderedHtml(
+        injectCompanySealIntoRenderedHtml(html, companySealUrl),
+        signatureUrl,
+      ),
     );
   }, [contract?.rendered_html, contract?.signed_rendered_html, companySealUrl, signatureUrl]);
 
