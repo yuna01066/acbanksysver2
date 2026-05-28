@@ -2605,75 +2605,90 @@ export type Database = {
       portfolio_images: {
         Row: {
           access_level: string
+          caption: string | null
           created_at: string
           delete_error: string | null
           delete_status: string
+          dominant_color: string | null
           display_order: number
           drive_file_id: string
           drive_folder_id: string | null
           drive_path: string | null
           file_name: string
           file_size: number | null
+          height: number | null
           id: string
           image_url: string | null
           is_main: boolean
           mime_type: string | null
           post_id: string
           storage_provider: string
+          taken_at: string | null
           thumbnail_bucket: string | null
           thumbnail_height: number | null
           thumbnail_path: string | null
           thumbnail_url: string | null
           thumbnail_width: number | null
           uploaded_by: string | null
+          width: number | null
         }
         Insert: {
           access_level?: string
+          caption?: string | null
           created_at?: string
           delete_error?: string | null
           delete_status?: string
+          dominant_color?: string | null
           display_order?: number
           drive_file_id: string
           drive_folder_id?: string | null
           drive_path?: string | null
           file_name: string
           file_size?: number | null
+          height?: number | null
           id?: string
           image_url?: string | null
           is_main?: boolean
           mime_type?: string | null
           post_id: string
           storage_provider?: string
+          taken_at?: string | null
           thumbnail_bucket?: string | null
           thumbnail_height?: number | null
           thumbnail_path?: string | null
           thumbnail_url?: string | null
           thumbnail_width?: number | null
           uploaded_by?: string | null
+          width?: number | null
         }
         Update: {
           access_level?: string
+          caption?: string | null
           created_at?: string
           delete_error?: string | null
           delete_status?: string
+          dominant_color?: string | null
           display_order?: number
           drive_file_id?: string
           drive_folder_id?: string | null
           drive_path?: string | null
           file_name?: string
           file_size?: number | null
+          height?: number | null
           id?: string
           image_url?: string | null
           is_main?: boolean
           mime_type?: string | null
           post_id?: string
           storage_provider?: string
+          taken_at?: string | null
           thumbnail_bucket?: string | null
           thumbnail_height?: number | null
           thumbnail_path?: string | null
           thumbnail_url?: string | null
           thumbnail_width?: number | null
           uploaded_by?: string | null
+          width?: number | null
         }
         Relationships: [
           {
@@ -2687,30 +2702,71 @@ export type Database = {
       }
       portfolio_posts: {
         Row: {
+          archived_at: string | null
+          category: string | null
+          client_name: string | null
+          cover_image_id: string | null
           created_at: string
           created_by: string
+          gallery_type: string
           id: string
           keywords: string[] | null
+          location: string | null
+          materials: string[] | null
+          memo: string | null
+          processes: string[] | null
+          project_year: number | null
           title: string
           updated_at: string
+          visibility: string | null
         }
         Insert: {
+          archived_at?: string | null
+          category?: string | null
+          client_name?: string | null
+          cover_image_id?: string | null
           created_at?: string
           created_by: string
+          gallery_type?: string
           id?: string
           keywords?: string[] | null
+          location?: string | null
+          materials?: string[] | null
+          memo?: string | null
+          processes?: string[] | null
+          project_year?: number | null
           title: string
           updated_at?: string
+          visibility?: string | null
         }
         Update: {
+          archived_at?: string | null
+          category?: string | null
+          client_name?: string | null
+          cover_image_id?: string | null
           created_at?: string
           created_by?: string
+          gallery_type?: string
           id?: string
           keywords?: string[] | null
+          location?: string | null
+          materials?: string[] | null
+          memo?: string | null
+          processes?: string[] | null
+          project_year?: number | null
           title?: string
           updated_at?: string
+          visibility?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_posts_cover_image_id_fkey"
+            columns: ["cover_image_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_images"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       processing_categories: {
         Row: {
@@ -5423,22 +5479,68 @@ export type Database = {
         Args: { _request_id: string; _review_note?: string }
         Returns: string
       }
+      get_portfolio_post_main_images: {
+        Args: { p_post_ids: string[] }
+        Returns: {
+          access_level: string
+          caption: string | null
+          created_at: string
+          delete_error: string | null
+          delete_status: string
+          display_order: number
+          dominant_color: string | null
+          drive_file_id: string
+          drive_folder_id: string | null
+          drive_path: string | null
+          file_name: string
+          file_size: number | null
+          height: number | null
+          id: string
+          image_count: number
+          image_url: string | null
+          is_main: boolean
+          mime_type: string | null
+          post_id: string
+          storage_provider: string
+          taken_at: string | null
+          thumbnail_bucket: string | null
+          thumbnail_height: number | null
+          thumbnail_path: string | null
+          thumbnail_url: string | null
+          thumbnail_width: number | null
+          uploaded_by: string | null
+          width: number | null
+        }[]
+      }
       search_portfolio_posts: {
         Args: {
           p_category_keywords?: string[]
           p_exact_keyword?: string
+          p_gallery_type?: string
           p_limit?: number
           p_offset?: number
           p_search_text?: string
         }
         Returns: {
+          archived_at: string | null
+          category: string | null
+          client_name: string | null
+          cover_image_id: string | null
           created_at: string
           created_by: string
+          gallery_type: string
           id: string
+          image_count: number
           keywords: string[]
+          location: string | null
+          materials: string[] | null
+          memo: string | null
+          processes: string[] | null
+          project_year: number | null
           title: string
           total_count: number
           updated_at: string
+          visibility: string | null
         }[]
       }
     }

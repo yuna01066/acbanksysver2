@@ -24,6 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import {
   Upload, Trash2, Image as ImageIcon, Loader2, Plus,
@@ -34,9 +35,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
+type GalleryType = 'portfolio' | 'reference';
+
 interface PortfolioPost {
   id: string;
   title: string;
+  gallery_type: GalleryType;
+  memo: string | null;
   category: string | null;
   client_name: string | null;
   project_year: number | null;
@@ -86,6 +91,8 @@ interface PortfolioImage {
 interface PortfolioSearchRow {
   id: string;
   title: string;
+  gallery_type?: GalleryType | string | null;
+  memo?: string | null;
   category: string | null;
   client_name: string | null;
   project_year: number | null;
@@ -190,13 +197,82 @@ interface SavedPortfolioFilter {
   keywordFilter: string | null;
 }
 
+interface PortfolioGalleryProps {
+  galleryType?: GalleryType;
+}
+
 const LEGACY_PORTFOLIO_FOLDER = ['포트폴리오'];
 const PORTFOLIO_THUMBNAIL_BUCKET = 'portfolio-thumbnails';
-const RECENT_KEYWORDS_KEY = 'portfolio-recent-keywords';
-const RECENT_POSTS_KEY = 'portfolio-recent-posts';
-const FAVORITE_POSTS_KEY = 'portfolio-favorite-posts';
-const CONSULTING_COLLECTION_KEY = 'portfolio-consulting-collection';
-const SAVED_FILTERS_KEY = 'portfolio-saved-filters';
+const GALLERY_CONFIG: Record<GalleryType, {
+  title: string;
+  shortTitle: string;
+  itemLabel: string;
+  countLabel: string;
+  driveRoot: string[];
+  recentKeywordsKey: string;
+  recentPostsKey: string;
+  favoritePostIdsKey: string;
+  collectionKey: string;
+  savedFiltersKey: string;
+  searchPlaceholder: string;
+  emptyText: string;
+  firstCreateLabel: string;
+  createDialogTitle: string;
+  editDialogTitle: string;
+  compareDialogTitle: string;
+  compareEmptyText: string;
+  titlePlaceholder: string;
+  memoLabel: string;
+  memoPlaceholder: string;
+  showMemo: boolean;
+}> = {
+  portfolio: {
+    title: 'ACBANK PORTFOLIO',
+    shortTitle: '포트폴리오',
+    itemLabel: '포트폴리오',
+    countLabel: 'PROJECTS',
+    driveRoot: ['ACBANK_SYS', '04_포트폴리오'],
+    recentKeywordsKey: 'portfolio-recent-keywords',
+    recentPostsKey: 'portfolio-recent-posts',
+    favoritePostIdsKey: 'portfolio-favorite-posts',
+    collectionKey: 'portfolio-consulting-collection',
+    savedFiltersKey: 'portfolio-saved-filters',
+    searchPlaceholder: '키워드, 공간, 소재, 파일명 검색',
+    emptyText: '등록된 포트폴리오가 없습니다.',
+    firstCreateLabel: '첫 포트폴리오 등록',
+    createDialogTitle: '포트폴리오 등록',
+    editDialogTitle: '포트폴리오 수정',
+    compareDialogTitle: '포트폴리오 비교',
+    compareEmptyText: '비교할 포트폴리오 2건을 선택해주세요.',
+    titlePlaceholder: '포트폴리오 제목',
+    memoLabel: '메모',
+    memoPlaceholder: '상담 시 참고할 설명을 입력하세요.',
+    showMemo: false,
+  },
+  reference: {
+    title: 'ACBANK REFERENCE',
+    shortTitle: '레퍼런스',
+    itemLabel: '레퍼런스',
+    countLabel: 'REFERENCES',
+    driveRoot: ['ACBANK_SYS', '05_레퍼런스'],
+    recentKeywordsKey: 'reference-recent-keywords',
+    recentPostsKey: 'reference-recent-posts',
+    favoritePostIdsKey: 'reference-favorite-posts',
+    collectionKey: 'reference-consulting-collection',
+    savedFiltersKey: 'reference-saved-filters',
+    searchPlaceholder: '키워드, 스타일, 공간, 파일명 검색',
+    emptyText: '등록된 레퍼런스가 없습니다.',
+    firstCreateLabel: '첫 레퍼런스 등록',
+    createDialogTitle: '레퍼런스 등록',
+    editDialogTitle: '레퍼런스 수정',
+    compareDialogTitle: '레퍼런스 비교',
+    compareEmptyText: '비교할 레퍼런스 2건을 선택해주세요.',
+    titlePlaceholder: '레퍼런스 제목',
+    memoLabel: '레퍼런스 설명',
+    memoPlaceholder: '상담 시 설명할 레퍼런스 포인트, 적용 아이디어, 주의할 점을 적어주세요.',
+    showMemo: true,
+  },
+};
 const MAX_RECENT = 10;
 const PAGE_SIZE = 24;
 const MAX_UPLOAD_FILES = 20;
@@ -240,14 +316,14 @@ function writeJsonStorage<T>(key: string, value: T) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-function getRecentKeywords(): string[] {
-  return readJsonStorage<string[]>(RECENT_KEYWORDS_KEY, []);
+function getRecentKeywords(key: string): string[] {
+  return readJsonStorage<string[]>(key, []);
 }
 
-function saveRecentKeyword(keyword: string) {
-  const recent = getRecentKeywords().filter(k => k !== keyword);
+function saveRecentKeyword(key: string, keyword: string) {
+  const recent = getRecentKeywords(key).filter(k => k !== keyword);
   recent.unshift(keyword);
-  writeJsonStorage(RECENT_KEYWORDS_KEY, recent.slice(0, MAX_RECENT));
+  writeJsonStorage(key, recent.slice(0, MAX_RECENT));
 }
 
 function getStringSetFromStorage(key: string): Set<string> {
@@ -317,6 +393,7 @@ function portfolioSearchBlob(post: PortfolioPost): string {
   const imageText = post.images.map(image => [image.file_name, image.caption].filter(Boolean).join(' ')).join(' ');
   const values = [
     post.title,
+    post.memo,
     post.category,
     post.client_name,
     post.location,
@@ -389,6 +466,14 @@ function makeStorageSafeName(fileName: string): string {
     .replace(/[^\w.-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80) || 'portfolio';
+}
+
+function makeGalleryDriveFolderPath(galleryType: GalleryType, category: string, title: string): string[] {
+  return [
+    ...GALLERY_CONFIG[galleryType].driveRoot,
+    category,
+    title.trim().replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').slice(0, 80) || '무제',
+  ];
 }
 
 async function optimizePortfolioImage(file: File): Promise<File> {
@@ -590,6 +675,7 @@ async function fetchImagesForPosts(postIds: string[]): Promise<Map<string, Portf
 }
 
 async function fetchPortfolioPosts(params: {
+  galleryType: GalleryType;
   searchText: string;
   categoryKeywords: string[];
   exactKeyword: string | null;
@@ -603,6 +689,7 @@ async function fetchPortfolioPosts(params: {
     p_exact_keyword: params.exactKeyword,
     p_limit: rpcLimit,
     p_offset: 0,
+    p_gallery_type: params.galleryType,
   });
 
   if (rpc.error) throw rpc.error;
@@ -612,6 +699,8 @@ async function fetchPortfolioPosts(params: {
     ? rows.filter(row => matchesPortfolioSearch({
       id: row.id,
       title: row.title,
+      gallery_type: row.gallery_type === 'reference' ? 'reference' : 'portfolio',
+      memo: row.memo || null,
       category: row.category || null,
       client_name: row.client_name || null,
       project_year: row.project_year || null,
@@ -637,6 +726,8 @@ async function fetchPortfolioPosts(params: {
     return {
       id: row.id,
       title: row.title,
+      gallery_type: row.gallery_type === 'reference' ? 'reference' : 'portfolio',
+      memo: row.memo || null,
       category: row.category || null,
       client_name: row.client_name || null,
       project_year: row.project_year || null,
@@ -707,7 +798,7 @@ async function readFileAsBase64(file: File): Promise<string> {
 
 async function uploadPortfolioFile(
   file: File,
-  params: { category: string; postTitle: string },
+  params: { category: string; postTitle: string; folderPath?: string[] },
 ): Promise<PortfolioUploadResult> {
   const uploadFileName = makeDriveFileName(file);
   const fileBase64 = await readFileAsBase64(file);
@@ -716,6 +807,7 @@ async function uploadPortfolioFile(
       action: 'upload-portfolio-image',
       category: params.category,
       postTitle: params.postTitle,
+      folderPath: params.folderPath,
       fileName: uploadFileName,
       fileBase64,
       contentType: file.type || 'application/octet-stream',
@@ -779,6 +871,7 @@ async function copyPortfolioDriveFiles(params: {
   files: DriveFolderFile[];
   category: string;
   postTitle: string;
+  folderPath?: string[];
 }): Promise<PortfolioDriveCopyResult> {
   if (params.files.length === 0) {
     return { folderId: null, drivePath: null, copiedFiles: [], failures: [] };
@@ -790,6 +883,7 @@ async function copyPortfolioDriveFiles(params: {
       sourceFolderId: params.sourceFolderId,
       category: params.category,
       postTitle: params.postTitle,
+      folderPath: params.folderPath,
       files: params.files.map(file => ({ id: file.id, name: file.name })),
     },
   });
@@ -1079,7 +1173,8 @@ function SortableEditImageRow({
   );
 }
 
-const PortfolioGallery = () => {
+const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) => {
+  const galleryConfig = GALLERY_CONFIG[galleryType];
   const qc = useQueryClient();
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1110,12 +1205,12 @@ const PortfolioGallery = () => {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [isManageMode, setIsManageMode] = useState(false);
   const [isConsultingMode, setIsConsultingMode] = useState(true);
-  const [favoritePostIds, setFavoritePostIds] = useState<Set<string>>(() => getStringSetFromStorage(FAVORITE_POSTS_KEY));
-  const [collectionPostIds, setCollectionPostIds] = useState<Set<string>>(() => getStringSetFromStorage(CONSULTING_COLLECTION_KEY));
+  const [favoritePostIds, setFavoritePostIds] = useState<Set<string>>(() => getStringSetFromStorage(galleryConfig.favoritePostIdsKey));
+  const [collectionPostIds, setCollectionPostIds] = useState<Set<string>>(() => getStringSetFromStorage(galleryConfig.collectionKey));
   const [comparePostIds, setComparePostIds] = useState<string[]>([]);
   const [showCompareDialog, setShowCompareDialog] = useState(false);
-  const [recentPosts, setRecentPosts] = useState<RecentPortfolioPost[]>(() => readJsonStorage<RecentPortfolioPost[]>(RECENT_POSTS_KEY, []));
-  const [savedFilters, setSavedFilters] = useState<SavedPortfolioFilter[]>(() => readJsonStorage<SavedPortfolioFilter[]>(SAVED_FILTERS_KEY, []));
+  const [recentPosts, setRecentPosts] = useState<RecentPortfolioPost[]>(() => readJsonStorage<RecentPortfolioPost[]>(galleryConfig.recentPostsKey, []));
+  const [savedFilters, setSavedFilters] = useState<SavedPortfolioFilter[]>(() => readJsonStorage<SavedPortfolioFilter[]>(galleryConfig.savedFiltersKey, []));
   const [showKeywordSuggestions, setShowKeywordSuggestions] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [imageZoom, setImageZoom] = useState(1);
@@ -1126,6 +1221,7 @@ const PortfolioGallery = () => {
   // Edit state
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editTitle, setEditTitle] = useState('');
+  const [editMemo, setEditMemo] = useState('');
   const [editCategory, setEditCategory] = useState<string>(DEFAULT_PORTFOLIO_CATEGORY);
   const [editClientName, setEditClientName] = useState('');
   const [editProjectYear, setEditProjectYear] = useState('');
@@ -1141,6 +1237,7 @@ const PortfolioGallery = () => {
 
   // Create form state
   const [newTitle, setNewTitle] = useState('');
+  const [newMemo, setNewMemo] = useState('');
   const [newCategory, setNewCategory] = useState<string>(DEFAULT_PORTFOLIO_CATEGORY);
   const [newClientName, setNewClientName] = useState('');
   const [newProjectYear, setNewProjectYear] = useState('');
@@ -1228,8 +1325,9 @@ const PortfolioGallery = () => {
 
   // Fetch posts with images
   const { data: portfolioData = EMPTY_PORTFOLIO_RESULT, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['portfolio-posts', normalizedSearchQuery, activeKeywordFilter, activeCategoryFilter, visibleCount],
+    queryKey: ['portfolio-posts', galleryType, normalizedSearchQuery, activeKeywordFilter, activeCategoryFilter, visibleCount],
     queryFn: () => fetchPortfolioPosts({
+      galleryType,
       searchText: normalizedSearchQuery,
       categoryKeywords: activeCategoryKeywords,
       exactKeyword: activeKeywordFilter,
@@ -1257,11 +1355,12 @@ const PortfolioGallery = () => {
 
   // Compute popular keywords (sorted by frequency)
   const { data: popularKeywords = [] } = useQuery({
-    queryKey: ['portfolio-popular-keywords'],
+    queryKey: ['portfolio-popular-keywords', galleryType],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('portfolio_posts')
         .select('keywords')
+        .eq('gallery_type', galleryType)
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -1277,7 +1376,7 @@ const PortfolioGallery = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const recentKeywords = getRecentKeywords();
+  const recentKeywords = getRecentKeywords(galleryConfig.recentKeywordsKey);
 
   const resetImageView = useCallback(() => {
     setImageZoom(1);
@@ -1297,30 +1396,30 @@ const PortfolioGallery = () => {
         },
         ...prev.filter(item => item.id !== post.id),
       ].slice(0, MAX_RECENT);
-      writeJsonStorage(RECENT_POSTS_KEY, next);
+      writeJsonStorage(galleryConfig.recentPostsKey, next);
       return next;
     });
-  }, []);
+  }, [galleryConfig.recentPostsKey]);
 
   const toggleFavoritePost = useCallback((postId: string) => {
     setFavoritePostIds(prev => {
       const next = new Set(prev);
       if (next.has(postId)) next.delete(postId);
       else next.add(postId);
-      saveStringSetToStorage(FAVORITE_POSTS_KEY, next);
+      saveStringSetToStorage(galleryConfig.favoritePostIdsKey, next);
       return next;
     });
-  }, []);
+  }, [galleryConfig.favoritePostIdsKey]);
 
   const toggleCollectionPost = useCallback((postId: string) => {
     setCollectionPostIds(prev => {
       const next = new Set(prev);
       if (next.has(postId)) next.delete(postId);
       else next.add(postId);
-      saveStringSetToStorage(CONSULTING_COLLECTION_KEY, next);
+      saveStringSetToStorage(galleryConfig.collectionKey, next);
       return next;
     });
-  }, []);
+  }, [galleryConfig.collectionKey]);
 
   const toggleComparePost = useCallback((postId: string) => {
     setComparePostIds(prev => {
@@ -1348,11 +1447,11 @@ const PortfolioGallery = () => {
     };
     setSavedFilters(prev => {
       const next = [nextFilter, ...prev.filter(filter => filter.label !== nextFilter.label)].slice(0, 8);
-      writeJsonStorage(SAVED_FILTERS_KEY, next);
+      writeJsonStorage(galleryConfig.savedFiltersKey, next);
       return next;
     });
     toast.success('필터가 저장되었습니다.');
-  }, [normalizedSearchQuery, activeCategoryFilter, activeKeywordFilter]);
+  }, [normalizedSearchQuery, activeCategoryFilter, activeKeywordFilter, galleryConfig.savedFiltersKey]);
 
   const applySavedFilter = useCallback((filter: SavedPortfolioFilter) => {
     setSearchQuery(filter.searchQuery);
@@ -1684,6 +1783,8 @@ const PortfolioGallery = () => {
         .from('portfolio_posts')
         .insert({
           title: postTitle,
+          gallery_type: galleryType,
+          memo: galleryConfig.showMemo ? newMemo.trim() || null : null,
           category: newCategory,
           client_name: newClientName.trim() || null,
           project_year: projectYear,
@@ -1698,6 +1799,7 @@ const PortfolioGallery = () => {
         .single();
       if (postError) throw postError;
       createdPostId = post.id;
+      const targetFolderPath = makeGalleryDriveFolderPath(galleryType, newCategory, postTitle);
 
       const driveItems = pendingImages.filter((item): item is Extract<PendingPortfolioImage, { source: 'drive' }> => item.source === 'drive');
       const copiedFilesBySourceId = new Map<string, CopiedPortfolioDriveFile>();
@@ -1718,6 +1820,7 @@ const PortfolioGallery = () => {
             files: items.map(item => item.file),
             category: newCategory,
             postTitle,
+            folderPath: targetFolderPath,
           });
 
           copyResult.copiedFiles.forEach((file) => {
@@ -1749,7 +1852,7 @@ const PortfolioGallery = () => {
           setUploadStatus(`${i + 1}/${total} 이미지 최적화 중...`);
           const uploadFile = await optimizePortfolioImage(originalFile);
           setUploadStatus(`${i + 1}/${total} Drive 업로드 중...`);
-          const uploadData = await uploadPortfolioFile(uploadFile, { category: newCategory, postTitle });
+          const uploadData = await uploadPortfolioFile(uploadFile, { category: newCategory, postTitle, folderPath: targetFolderPath });
           uploadedDriveFiles.push({ fileId: uploadData.fileId, folderId: uploadData.folderId });
 
           driveFileId = uploadData.fileId;
@@ -1820,12 +1923,13 @@ const PortfolioGallery = () => {
       }
 
       if (copyFailures.length > 0) {
-        toast.warning(`포트폴리오 등록 완료. Drive 사진 ${copyFailures.length}개는 복제 실패로 제외되었습니다.`);
+        toast.warning(`${galleryConfig.itemLabel} 등록 완료. Drive 사진 ${copyFailures.length}개는 복제 실패로 제외되었습니다.`);
       } else {
-        toast.success('포트폴리오가 등록되었습니다.');
+        toast.success(`${galleryConfig.itemLabel}가 등록되었습니다.`);
       }
       setShowCreateDialog(false);
       setNewTitle('');
+      setNewMemo('');
       setNewCategory(DEFAULT_PORTFOLIO_CATEGORY);
       setNewClientName('');
       setNewProjectYear('');
@@ -1838,8 +1942,8 @@ const PortfolioGallery = () => {
       setDriveFolderResult(null);
       setSelectedDriveFileIds([]);
       setVisibleCount(PAGE_SIZE);
-      qc.invalidateQueries({ queryKey: ['portfolio-posts'] });
-      qc.invalidateQueries({ queryKey: ['portfolio-popular-keywords'] });
+      qc.invalidateQueries({ queryKey: ['portfolio-posts', galleryType] });
+      qc.invalidateQueries({ queryKey: ['portfolio-popular-keywords', galleryType] });
     } catch (err) {
       setUploadStatus('실패 항목을 정리하는 중...');
       await Promise.allSettled(uploadedDriveFiles.map(file => deletePortfolioDriveFile(file.fileId, file.folderId)));
@@ -1852,7 +1956,7 @@ const PortfolioGallery = () => {
       setCreating(false);
       setUploadStatus(null);
     }
-  }, [newTitle, newCategory, newClientName, newProjectYear, newLocation, newMaterialsInput, newProcessesInput, newKeywords, pendingImages, user, qc]);
+  }, [newTitle, newMemo, newCategory, newClientName, newProjectYear, newLocation, newMaterialsInput, newProcessesInput, newKeywords, pendingImages, user, qc, galleryType, galleryConfig]);
 
   const deleteMutation = useMutation({
     mutationFn: async (postId: string) => {
@@ -1889,8 +1993,8 @@ const PortfolioGallery = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['portfolio-posts'] });
-      qc.invalidateQueries({ queryKey: ['portfolio-popular-keywords'] });
+      qc.invalidateQueries({ queryKey: ['portfolio-posts', galleryType] });
+      qc.invalidateQueries({ queryKey: ['portfolio-popular-keywords', galleryType] });
       setSelectedPost(null);
       toast.success('삭제되었습니다.');
     },
@@ -1918,6 +2022,7 @@ const PortfolioGallery = () => {
     }
 
     setEditTitle(post.title);
+    setEditMemo(post.memo || '');
     setEditCategory(getPostCategoryLabel(post));
     setEditClientName(post.client_name || '');
     setEditProjectYear(post.project_year ? String(post.project_year) : '');
@@ -2018,7 +2123,7 @@ const PortfolioGallery = () => {
     setEditPendingImages(prev => {
       const availableSlots = Math.max(0, MAX_UPLOAD_FILES - editImages.length - prev.length);
       if (validFiles.length > availableSlots) {
-        toast.error(`포트폴리오당 최대 ${MAX_UPLOAD_FILES}장까지 등록할 수 있습니다.`);
+        toast.error(`${galleryConfig.itemLabel}당 최대 ${MAX_UPLOAD_FILES}장까지 등록할 수 있습니다.`);
       }
       return [
         ...prev,
@@ -2058,6 +2163,7 @@ const PortfolioGallery = () => {
         .from('portfolio_posts')
         .update({
           title: editTitle.trim(),
+          memo: galleryConfig.showMemo ? editMemo.trim() || null : null,
           category: editCategory,
           client_name: editClientName.trim() || null,
           project_year: projectYear,
@@ -2094,7 +2200,11 @@ const PortfolioGallery = () => {
         if (pendingImage.source !== 'local') continue;
         const displayOrder = orderedImages.length + insertedImages.length;
         const uploadFile = await optimizePortfolioImage(pendingImage.file);
-        const uploadData = await uploadPortfolioFile(uploadFile, { category: editCategory, postTitle: editTitle.trim() });
+        const uploadData = await uploadPortfolioFile(uploadFile, {
+          category: editCategory,
+          postTitle: editTitle.trim(),
+          folderPath: makeGalleryDriveFolderPath(galleryType, editCategory, editTitle.trim()),
+        });
         uploadedDriveFiles.push({ fileId: uploadData.fileId, folderId: uploadData.folderId });
         const thumbnail = await createPortfolioThumbnail(pendingImage.file, selectedPost.id, displayOrder);
         await uploadPortfolioThumbnail(thumbnail);
@@ -2138,6 +2248,7 @@ const PortfolioGallery = () => {
         return {
           ...prev,
           title: editTitle.trim(),
+          memo: galleryConfig.showMemo ? editMemo.trim() || null : null,
           category: editCategory,
           client_name: editClientName.trim() || null,
           project_year: projectYear,
@@ -2153,8 +2264,8 @@ const PortfolioGallery = () => {
       const currentImageId = selectedPost.images[currentImageIndex]?.id;
       const nextImageIndex = currentImageId ? [...orderedImages, ...insertedImages].findIndex(image => image.id === currentImageId) : 0;
       setCurrentImageIndex(nextImageIndex >= 0 ? nextImageIndex : 0);
-      qc.invalidateQueries({ queryKey: ['portfolio-posts'] });
-      qc.invalidateQueries({ queryKey: ['portfolio-popular-keywords'] });
+      qc.invalidateQueries({ queryKey: ['portfolio-posts', galleryType] });
+      qc.invalidateQueries({ queryKey: ['portfolio-popular-keywords', galleryType] });
     } catch (err) {
       await Promise.allSettled(uploadedDriveFiles.map(file => deletePortfolioDriveFile(file.fileId, file.folderId)));
       await Promise.allSettled(uploadedThumbnails.map(file => deletePortfolioThumbnail(file.bucket, file.path)));
@@ -2165,6 +2276,7 @@ const PortfolioGallery = () => {
   }, [
     selectedPost,
     editTitle,
+    editMemo,
     editCategory,
     editClientName,
     editProjectYear,
@@ -2178,6 +2290,8 @@ const PortfolioGallery = () => {
     currentImageIndex,
     user,
     qc,
+    galleryType,
+    galleryConfig,
   ]);
 
   const editKeywordSuggestions = useMemo(() => {
@@ -2187,7 +2301,7 @@ const PortfolioGallery = () => {
   }, [editKeywordInput, popularKeywords, editKeywords]);
 
   const handleKeywordFilterClick = (keyword: string) => {
-    saveRecentKeyword(keyword);
+    saveRecentKeyword(galleryConfig.recentKeywordsKey, keyword);
     if (activeKeywordFilter === keyword) {
       setActiveKeywordFilter(null);
     } else {
@@ -2213,10 +2327,10 @@ const PortfolioGallery = () => {
       <Card className="overflow-hidden border-[#e5e5e5] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <div className="relative grid min-h-[64px] place-items-center border-b border-[#e5e5e5] px-4 py-4 text-center">
           <h2 className="text-[24px] font-black leading-none tracking-tight text-[#111111] sm:text-[28px]">
-            ACBANK PORTFOLIO
+            {galleryConfig.title}
           </h2>
           <Badge variant="outline" className="absolute right-4 top-1/2 hidden -translate-y-1/2 font-mono text-[11px] font-black sm:inline-flex">
-            {portfolioData.totalMatches} PROJECTS
+            {portfolioData.totalMatches} {galleryConfig.countLabel}
           </Badge>
         </div>
 
@@ -2226,7 +2340,7 @@ const PortfolioGallery = () => {
               <div className="relative min-w-0 flex-1">
                 <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#707072]" />
                 <Input
-                  placeholder="키워드, 공간, 소재, 파일명 검색"
+                  placeholder={galleryConfig.searchPlaceholder}
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   onFocus={() => setShowKeywordSuggestions(true)}
@@ -2426,7 +2540,7 @@ const PortfolioGallery = () => {
               <div>
                 <ImageIcon className="mx-auto mb-3 h-12 w-12 text-[#9e9ea0]" />
                 <p className="font-bold text-[#707072]">
-                  {searchQuery || activeKeywordFilter || activeCategoryFilter !== 'all' || showFavoritesOnly ? '검색 결과가 없습니다.' : '등록된 포트폴리오가 없습니다.'}
+                  {searchQuery || activeKeywordFilter || activeCategoryFilter !== 'all' || showFavoritesOnly ? '검색 결과가 없습니다.' : galleryConfig.emptyText}
                 </p>
                 {(searchQuery || activeKeywordFilter || activeCategoryFilter !== 'all' || showFavoritesOnly) ? (
                   <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -2443,7 +2557,7 @@ const PortfolioGallery = () => {
                 ) : isManageMode && (
                   <Button variant="outline" className="mt-4 rounded-full" onClick={() => setShowCreateDialog(true)}>
                     <Plus className="mr-2 h-4 w-4" />
-                    첫 포트폴리오 등록
+                    {galleryConfig.firstCreateLabel}
                   </Button>
                 )}
               </div>
@@ -2471,6 +2585,9 @@ const PortfolioGallery = () => {
                         </span>
                         {getPostMetaLine(post) && (
                           <span className="line-clamp-1 text-xs font-bold text-[#707072]">{getPostMetaLine(post)}</span>
+                        )}
+                        {galleryConfig.showMemo && post.memo && (
+                          <span className="line-clamp-2 text-xs font-bold leading-relaxed text-[#39393b]">{post.memo}</span>
                         )}
                         <span className="flex items-center gap-1 text-xs font-bold text-[#707072]">
                           <ImageIcon className="h-3.5 w-3.5" /> {post.image_count}장
@@ -2549,7 +2666,7 @@ const PortfolioGallery = () => {
                         className="h-11 rounded-full"
                         onClick={() => {
                           setCollectionPostIds(new Set<string>());
-                          saveStringSetToStorage(CONSULTING_COLLECTION_KEY, new Set<string>());
+                          saveStringSetToStorage(galleryConfig.collectionKey, new Set<string>());
                         }}
                         disabled={collectionPostIds.size === 0}
                       >
@@ -2590,17 +2707,28 @@ const PortfolioGallery = () => {
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>포트폴리오 등록</DialogTitle>
+            <DialogTitle>{galleryConfig.createDialogTitle}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label>제목 *</Label>
-              <Input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="포트폴리오 제목" />
+              <Input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder={galleryConfig.titlePlaceholder} />
             </div>
+            {galleryConfig.showMemo && (
+              <div>
+                <Label>{galleryConfig.memoLabel}</Label>
+                <Textarea
+                  value={newMemo}
+                  onChange={e => setNewMemo(e.target.value)}
+                  rows={4}
+                  placeholder={galleryConfig.memoPlaceholder}
+                />
+              </div>
+            )}
             <div>
               <Label>저장 카테고리 *</Label>
               <p className="mb-2 text-xs text-muted-foreground">
-                로컬 이미지와 Drive 복제 사진은 ACBANK_SYS/04_포트폴리오/{`{카테고리}`}/{`{제목}`} 폴더에 앱 관리본으로 저장됩니다.
+                로컬 이미지와 Drive 복제 사진은 {galleryConfig.driveRoot.join('/')}/{`{카테고리}`}/{`{제목}`} 폴더에 앱 관리본으로 저장됩니다.
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {PORTFOLIO_UPLOAD_CATEGORIES.map(category => (
@@ -2953,7 +3081,7 @@ const PortfolioGallery = () => {
 
               <aside className="grid min-h-0 grid-rows-[auto_1fr_auto] border-l border-[#e5e5e5]">
                 <div className="space-y-2 border-b border-[#e5e5e5] p-4">
-                  <div className="text-[11px] font-black text-[#707072]">PORTFOLIO</div>
+                  <div className="text-[11px] font-black text-[#707072]">{galleryConfig.shortTitle.toUpperCase()}</div>
                   <h3 className="text-xl font-black leading-tight text-[#111111]">{selectedPost.title}</h3>
                   <div className="flex flex-wrap gap-1.5">
                     <Badge variant="outline" className="w-fit rounded-full text-[11px] font-black">
@@ -2967,6 +3095,14 @@ const PortfolioGallery = () => {
 
                 <div className="min-h-0 overflow-y-auto p-4">
                   <dl className="grid gap-2">
+                    {galleryConfig.showMemo && selectedPost.memo && (
+                      <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
+                        <dt className="text-[11px] font-black text-[#707072]">{galleryConfig.memoLabel}</dt>
+                        <dd className="mt-1 whitespace-pre-wrap text-sm font-bold leading-relaxed text-[#111111]">
+                          {selectedPost.memo}
+                        </dd>
+                      </div>
+                    )}
                     {getPostMetaLine(selectedPost) && (
                       <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
                         <dt className="text-[11px] font-black text-[#707072]">프로젝트 정보</dt>
@@ -3047,7 +3183,7 @@ const PortfolioGallery = () => {
                         </Button>
                         <Button
                           variant="outline" size="sm" className="flex-1 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => { if (confirm('이 포트폴리오를 삭제하시겠습니까?')) deleteMutation.mutate(selectedPost.id); }}
+                          onClick={() => { if (confirm(`이 ${galleryConfig.itemLabel}를 삭제하시겠습니까?`)) deleteMutation.mutate(selectedPost.id); }}
                         >
                           <Trash2 className="mr-1 h-4 w-4" />
                           삭제
@@ -3067,7 +3203,7 @@ const PortfolioGallery = () => {
       <Dialog open={showCompareDialog} onOpenChange={setShowCompareDialog}>
         <DialogContent className="max-h-[92vh] w-[96vw] max-w-6xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>포트폴리오 비교</DialogTitle>
+            <DialogTitle>{galleryConfig.compareDialogTitle}</DialogTitle>
           </DialogHeader>
           {comparePosts.length === 2 ? (
             <div className="grid gap-3 lg:grid-cols-2">
@@ -3103,7 +3239,7 @@ const PortfolioGallery = () => {
             </div>
           ) : (
             <div className="grid min-h-32 place-items-center rounded-lg border border-dashed text-sm font-bold text-muted-foreground">
-              비교할 포트폴리오 2건을 선택해주세요.
+              {galleryConfig.compareEmptyText}
             </div>
           )}
         </DialogContent>
@@ -3113,13 +3249,25 @@ const PortfolioGallery = () => {
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>포트폴리오 수정</DialogTitle>
+            <DialogTitle>{galleryConfig.editDialogTitle}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label>제목 *</Label>
-              <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="포트폴리오 제목" />
+              <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder={galleryConfig.titlePlaceholder} />
             </div>
+            {galleryConfig.showMemo && (
+              <div>
+                <Label>{galleryConfig.memoLabel}</Label>
+                <Textarea
+                  value={editMemo}
+                  onChange={e => setEditMemo(e.target.value)}
+                  rows={4}
+                  placeholder={galleryConfig.memoPlaceholder}
+                  disabled={editing}
+                />
+              </div>
+            )}
             <div>
               <Label>카테고리</Label>
               <div className="mt-2 flex flex-wrap gap-1.5">

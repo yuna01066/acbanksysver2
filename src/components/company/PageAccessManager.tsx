@@ -30,6 +30,7 @@ const MANAGED_PAGES: PageDef[] = [
   { key: '/imweb-management', label: '아임웹 관리', description: '아임웹 연동 주문/상품 관리' },
   { key: '/exhibition-management', label: '전시회 관리', description: '전시회 일정 및 상담 관리' },
   { key: '/portfolio', label: '포트폴리오', description: '인테리어 및 제작가공 사진 포트폴리오' },
+  { key: '/references', label: '레퍼런스', description: '상담용 레퍼런스 이미지 및 메모' },
   { key: '/business-dashboard', label: '경영 대시보드', description: '매출 및 경영 현황 대시보드' },
 ];
 
