@@ -683,7 +683,7 @@ async function fetchPortfolioPosts(params: {
 }): Promise<PortfolioQueryResult> {
   const useClientSearch = shouldUseClientPortfolioSearch(params.searchText);
   const rpcLimit = useClientSearch ? 500 : params.limit + 1;
-  const rpc = await supabase.rpc('search_portfolio_posts', {
+  const rpc = await (supabase.rpc as any)('search_portfolio_posts', {
     p_search_text: useClientSearch ? null : params.searchText || null,
     p_category_keywords: params.categoryKeywords.length > 0 ? params.categoryKeywords : null,
     p_exact_keyword: params.exactKeyword,
@@ -750,7 +750,7 @@ async function fetchPortfolioPosts(params: {
     : Number(rows[0]?.total_count || rows.length || 0);
 
   return {
-    posts,
+    posts: posts as PortfolioPost[],
     hasMore: matchedRows.length > params.limit || totalMatches > params.limit,
     totalMatches,
   };
@@ -1357,7 +1357,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
   const { data: popularKeywords = [] } = useQuery({
     queryKey: ['portfolio-popular-keywords', galleryType],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('portfolio_posts')
         .select('keywords')
         .eq('gallery_type', galleryType)
