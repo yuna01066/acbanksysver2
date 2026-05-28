@@ -170,6 +170,7 @@ DROP POLICY IF EXISTS "Authenticated users can view today attendance" ON public.
 
 DROP POLICY IF EXISTS "Anyone can read company info" ON public.company_info;
 DROP POLICY IF EXISTS "Authenticated users can read company info" ON public.company_info;
+DROP POLICY IF EXISTS "Admins and moderators can read company info" ON public.company_info;
 
 CREATE POLICY "Admins and moderators can read company info"
 ON public.company_info
