@@ -1357,7 +1357,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
   const { data: popularKeywords = [] } = useQuery({
     queryKey: ['portfolio-popular-keywords', galleryType],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('portfolio_posts')
         .select('keywords')
         .eq('gallery_type', galleryType)
