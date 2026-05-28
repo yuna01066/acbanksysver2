@@ -65,11 +65,12 @@ export const useDirectMessages = (partnerId: string | null) => {
     if (!user || !partnerId) return;
 
     const channel = supabase
-      .channel(`dm-${[user.id, partnerId].sort().join('-')}`, { config: { private: true } })
+      .channel(`direct-messages-${user.id}`, { config: { private: true } })
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'direct_messages',
+        filter: `receiver_id=eq.${user.id}`,
       }, (payload) => {
         const msg = payload.new as DirectMessage;
         if (
@@ -85,6 +86,20 @@ export const useDirectMessages = (partnerId: string | null) => {
               .eq('id', msg.id)
               .then();
           }
+        }
+      })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'direct_messages',
+        filter: `sender_id=eq.${user.id}`,
+      }, (payload) => {
+        const msg = payload.new as DirectMessage;
+        if (
+          (msg.sender_id === user.id && msg.receiver_id === partnerId) ||
+          (msg.sender_id === partnerId && msg.receiver_id === user.id)
+        ) {
+          setMessages(prev => prev.some(existing => existing.id === msg.id) ? prev : [...prev, msg]);
         }
       })
       .subscribe();
@@ -185,11 +200,20 @@ export const useConversationList = () => {
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel('dm-list-refresh', { config: { private: true } })
+      .channel(`direct-message-list-${user.id}`, { config: { private: true } })
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'direct_messages',
+        filter: `receiver_id=eq.${user.id}`,
+      }, () => {
+        fetchConversations();
+      })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'direct_messages',
+        filter: `sender_id=eq.${user.id}`,
       }, () => {
         fetchConversations();
       })

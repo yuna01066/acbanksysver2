@@ -178,7 +178,6 @@ const MyContractsList: React.FC = () => {
         signedByName: confirmName.trim(),
         signatureStoragePath: signaturePath,
         signedPdfStoragePath: pdfPath,
-        signedRenderedHtml: signedHtml,
       }, signInData.session?.access_token || session?.access_token);
 
       toast.success('계약서에 서명했습니다.');
