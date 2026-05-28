@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -134,10 +133,9 @@ export default function ImwebTopItemsCard() {
     refetchInterval: 10 * 60 * 1000,
   });
 
-  const lastSyncedLabel = useMemo(() => {
-    if (!data?.lastSyncedAt) return '동기화 이력 없음';
-    return `${formatDistanceToNow(new Date(data.lastSyncedAt), { addSuffix: true, locale: ko })} 동기화`;
-  }, [data?.lastSyncedAt]);
+  const lastSyncedLabel = data?.lastSyncedAt
+    ? `${formatDistanceToNow(new Date(data.lastSyncedAt), { addSuffix: true, locale: ko })} 동기화`
+    : '동기화 이력 없음';
 
   const handleSync = async () => {
     if (!canSync) return;
