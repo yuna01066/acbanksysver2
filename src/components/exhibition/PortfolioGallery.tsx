@@ -983,6 +983,54 @@ function DriveFolderImagePreview({
   return <img src={getSafeImageSrc(previewUrl)} alt="" className="h-full w-full object-cover" />;
 }
 
+function LocalFileCanvasPreview({ file }: { file: File }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let bitmap: ImageBitmap | null = null;
+
+    const render = async () => {
+      if (!file.type.startsWith('image/') || file.type === 'image/svg+xml' || !('createImageBitmap' in window)) {
+        return;
+      }
+
+      try {
+        bitmap = await createImageBitmap(file);
+        if (cancelled || !canvasRef.current) return;
+
+        const scale = Math.min(1, 240 / Math.max(bitmap.width, bitmap.height));
+        const width = Math.max(1, Math.round(bitmap.width * scale));
+        const height = Math.max(1, Math.round(bitmap.height * scale));
+        const canvas = canvasRef.current;
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        if (!context) return;
+        context.clearRect(0, 0, width, height);
+        context.drawImage(bitmap, 0, 0, width, height);
+      } catch (error) {
+        console.warn('Local portfolio preview render failed:', getErrorMessage(error));
+      }
+    };
+
+    render();
+
+    return () => {
+      cancelled = true;
+      bitmap?.close();
+    };
+  }, [file]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-label={file.name}
+      className="h-full w-full object-cover"
+    />
+  );
+}
+
 function PendingImagePreview({
   item,
   isMain,
@@ -992,25 +1040,13 @@ function PendingImagePreview({
   isMain: boolean;
   onRemove: () => void;
 }) {
-  const [previewUrl, setPreviewUrl] = useState('');
   const fileName = item.source === 'local' ? item.file.name : item.file.name;
   const fileSize = item.source === 'local' ? item.file.size : item.file.size;
-
-  useEffect(() => {
-    if (item.source !== 'local') {
-      setPreviewUrl('');
-      return;
-    }
-
-    const url = URL.createObjectURL(item.file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [item]);
 
   return (
     <div className="relative aspect-square overflow-hidden rounded-lg border bg-muted/30">
       {item.source === 'local'
-        ? previewUrl && <img src={getSafeImageSrc(previewUrl)} alt="" className="h-full w-full object-cover" />
+        ? <LocalFileCanvasPreview file={item.file} />
         : <div className="grid h-full w-full place-items-center"><DriveFolderImagePreview file={item.file} folderId={item.folderId} /></div>}
       {isMain && <Badge className="absolute left-1 top-1 px-1 py-0 text-[10px]">대표</Badge>}
       {item.source === 'drive' && (
