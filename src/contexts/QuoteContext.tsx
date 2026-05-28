@@ -18,6 +18,7 @@ import {
   type QuoteDraftRecord,
 } from '@/services/quoteDrafts';
 import { detectQuoteStyleFromItems } from '@/utils/quoteStyle';
+import { secureRandomNumericString } from '@/utils/secureRandom';
 
 export interface Quote {
   id: string;
@@ -451,7 +452,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     const day = String(now.getDate()).padStart(2, '0');
     const hour = String(now.getHours()).padStart(2, '0');
     const minute = String(now.getMinutes()).padStart(2, '0');
-    const sequence = String(Math.floor(Math.random() * 100) + 1).padStart(2, '0');
+    const sequence = secureRandomNumericString(0, 99, 2);
     
     const newQuoteNumber = `${month}${day}${hour}${minute}${sequence}`;
     setQuoteNumber(newQuoteNumber);

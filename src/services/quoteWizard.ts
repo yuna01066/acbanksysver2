@@ -7,6 +7,7 @@ import type {
   QuoteWizardPayload,
   QuoteWizardResultSnapshot,
 } from '@/types/quoteWizard';
+import { secureRandomToken } from '@/utils/secureRandom';
 
 const QUOTE_WIZARD_FUNCTION = 'quote-wizard';
 export const QUOTE_WIZARD_BUCKET = 'quote-wizard-temp';
@@ -65,12 +66,12 @@ const safeFileName = (name: string) => (
 );
 
 const createStoragePath = (job: QuoteWizardJobRecord, file: File) => {
-  const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+  const id = `${Date.now()}-${secureRandomToken(8)}`;
   return `${job.user_id}/${job.id}/${id}-${safeFileName(file.name)}`;
 };
 
 const createLocalId = () => (
-  typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`
+  `${Date.now()}-${secureRandomToken(8)}`
 );
 
 const createLocalPayload = (customerNote: string): QuoteWizardPayload => {
