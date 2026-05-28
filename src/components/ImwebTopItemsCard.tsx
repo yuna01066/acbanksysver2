@@ -1,8 +1,7 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { BarChart3, PackageCheck, Palette, RefreshCw, ShoppingBag } from 'lucide-react';
-import { toast } from 'sonner';
+import { BarChart3, ExternalLink, PackageCheck, Palette, RefreshCw, ShoppingBag } from 'lucide-react';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { getSupabaseFunctionUrl } from '@/lib/supabaseFunctions';
 
 interface TopOrderItem {
   label: string;
@@ -31,7 +31,8 @@ interface TopOrderItemsResponse {
   error?: string;
 }
 
-const FUNCTION_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/imweb-api`;
+const FUNCTION_URL = getSupabaseFunctionUrl('imweb-api');
+const IMWEB_ADMIN_URL = 'https://admin.imweb.me/';
 
 async function getSessionToken() {
   const { data } = await supabase.auth.getSession();
@@ -50,21 +51,6 @@ async function fetchTopOrderItems(days = 90): Promise<TopOrderItemsResponse> {
   });
   const result = await res.json();
   if (!res.ok) throw new Error(result.error || '아임웹 주문 집계를 불러오지 못했습니다.');
-  return result;
-}
-
-async function syncImwebOrders() {
-  const token = await getSessionToken();
-  const res = await fetch(`${FUNCTION_URL}?action=sync-orders`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: '{}',
-  });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.error || '아임웹 주문 동기화에 실패했습니다.');
   return result;
 }
 
@@ -121,9 +107,7 @@ function StatList({
 }
 
 export default function ImwebTopItemsCard() {
-  const { user, isAdmin, isModerator } = useAuth();
-  const queryClient = useQueryClient();
-  const canSync = isAdmin || isModerator;
+  const { user } = useAuth();
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['imweb-top-order-items', 90],
@@ -137,18 +121,6 @@ export default function ImwebTopItemsCard() {
     ? `${formatDistanceToNow(new Date(data.lastSyncedAt), { addSuffix: true, locale: ko })} 동기화`
     : '동기화 이력 없음';
 
-  const handleSync = async () => {
-    if (!canSync) return;
-    try {
-      const result = await syncImwebOrders();
-      toast.success(`아임웹 주문 동기화 완료: ${result.syncedCount || 0}건`);
-      await queryClient.invalidateQueries({ queryKey: ['imweb-top-order-items'] });
-      await queryClient.invalidateQueries({ queryKey: ['imweb-orders'] });
-    } catch (syncError) {
-      toast.error(syncError instanceof Error ? syncError.message : '아임웹 주문 동기화에 실패했습니다.');
-    }
-  };
-
   if (!user) return null;
 
   return (
@@ -157,7 +129,7 @@ export default function ImwebTopItemsCard() {
         <BrandedCardHeader
           icon={BarChart3}
           title="인기 주문 아이템"
-          subtitle="아임웹 최근 주문 기준 소재·컬러 상담 참고용"
+          subtitle="아임웹 주문 캐시 기준 TOP 10 상담 참고용"
           meta={
             data ? (
               <Badge variant="secondary" className="rounded-full px-2.5 text-xs">
@@ -166,19 +138,7 @@ export default function ImwebTopItemsCard() {
             ) : null
           }
           actions={
-            canSync ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 gap-1.5 rounded-lg px-2 text-xs"
-                onClick={handleSync}
-                disabled={isFetching}
-              >
-                <RefreshCw className={cn('h-3.5 w-3.5', isFetching && 'animate-spin')} />
-                동기화
-              </Button>
-            ) : (
+            <div className="flex items-center gap-1.5">
               <Button
                 type="button"
                 variant="ghost"
@@ -186,10 +146,23 @@ export default function ImwebTopItemsCard() {
                 className="h-8 gap-1.5 rounded-lg px-2 text-xs"
                 onClick={() => refetch()}
                 disabled={isFetching}
+                title="캐시 새로고침"
               >
                 <RefreshCw className={cn('h-3.5 w-3.5', isFetching && 'animate-spin')} />
+                새로고침
               </Button>
-            )
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 rounded-lg px-2 text-xs"
+              >
+                <a href={IMWEB_ADMIN_URL} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  아임웹
+                </a>
+              </Button>
+            </div>
           }
         />
       </CardHeader>
@@ -207,7 +180,7 @@ export default function ImwebTopItemsCard() {
         ) : !data || data.itemCount === 0 ? (
           <div className="flex min-h-[280px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center text-sm text-muted-foreground">
             <ShoppingBag className="mb-2 h-8 w-8 text-muted-foreground/35" />
-            최근 주문 집계 데이터가 없습니다.
+            최근 주문 집계 데이터가 없습니다. 자세한 주문 내역은 아임웹에서 확인해주세요.
           </div>
         ) : (
           <>
