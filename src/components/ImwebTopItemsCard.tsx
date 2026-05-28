@@ -31,8 +31,36 @@ interface TopOrderItemsResponse {
   error?: string;
 }
 
+interface ImwebConnectionResponse {
+  connected: boolean;
+  error?: string;
+}
+
 const FUNCTION_URL = getSupabaseFunctionUrl('imweb-api');
 const IMWEB_ADMIN_URL = 'https://admin.imweb.me/';
+
+async function fetchImwebConnection(): Promise<ImwebConnectionResponse> {
+  try {
+    const res = await fetch(`${FUNCTION_URL}?action=check-connection`, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        connected: false,
+        error: result.error || '아임웹 연결 상태를 확인하지 못했습니다.',
+      };
+    }
+    return { connected: Boolean(result.connected) };
+  } catch (error) {
+    return {
+      connected: false,
+      error: error instanceof Error ? error.message : '아임웹 연결 상태를 확인하지 못했습니다.',
+    };
+  }
+}
 
 async function getSessionToken() {
   const { data } = await supabase.auth.getSession();
@@ -50,7 +78,22 @@ async function fetchTopOrderItems(days = 90): Promise<TopOrderItemsResponse> {
     },
   });
   const result = await res.json();
-  if (!res.ok) throw new Error(result.error || '아임웹 주문 집계를 불러오지 못했습니다.');
+  if (!res.ok) {
+    if (res.status === 403 && result.notConnected) {
+      return {
+        success: false,
+        days,
+        orderCount: 0,
+        itemCount: 0,
+        lastSyncedAt: null,
+        products: [],
+        materials: [],
+        colors: [],
+        error: result.error || '아임웹 연결이 필요합니다.',
+      };
+    }
+    throw new Error(result.error || '아임웹 주문 집계를 불러오지 못했습니다.');
+  }
   return result;
 }
 
@@ -109,12 +152,28 @@ function StatList({
 export default function ImwebTopItemsCard() {
   const { user } = useAuth();
 
+  const {
+    data: connection,
+    isLoading: isConnectionLoading,
+    isFetching: isConnectionFetching,
+    refetch: refetchConnection,
+  } = useQuery({
+    queryKey: ['imweb-connection-status'],
+    queryFn: fetchImwebConnection,
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const isConnected = connection?.connected === true;
+
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['imweb-top-order-items', 90],
     queryFn: () => fetchTopOrderItems(90),
-    enabled: !!user,
+    enabled: !!user && isConnected,
     staleTime: 5 * 60 * 1000,
     refetchInterval: 10 * 60 * 1000,
+    retry: 1,
   });
 
   const lastSyncedLabel = data?.lastSyncedAt
@@ -144,11 +203,11 @@ export default function ImwebTopItemsCard() {
                 variant="ghost"
                 size="sm"
                 className="h-8 gap-1.5 rounded-lg px-2 text-xs"
-                onClick={() => refetch()}
-                disabled={isFetching}
+                onClick={() => (isConnected ? refetch() : refetchConnection())}
+                disabled={isFetching || isConnectionFetching}
                 title="캐시 새로고침"
               >
-                <RefreshCw className={cn('h-3.5 w-3.5', isFetching && 'animate-spin')} />
+                <RefreshCw className={cn('h-3.5 w-3.5', (isFetching || isConnectionFetching) && 'animate-spin')} />
                 새로고침
               </Button>
               <Button
@@ -167,7 +226,25 @@ export default function ImwebTopItemsCard() {
         />
       </CardHeader>
       <CardContent className="flex flex-1 flex-col pt-0">
-        {isLoading ? (
+        {isConnectionLoading ? (
+          <div className="flex min-h-[280px] flex-1 items-center justify-center rounded-xl border border-dashed bg-muted/20 text-sm text-muted-foreground">
+            불러오는 중...
+          </div>
+        ) : !isConnected ? (
+          <div className="flex min-h-[280px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center text-sm text-muted-foreground">
+            <ShoppingBag className="mb-2 h-8 w-8 text-muted-foreground/35" />
+            <p>아임웹 주문 집계 연결이 필요합니다.</p>
+            <p className="mt-1 text-xs">
+              {connection?.error || '연결 후 인기 주문 아이템을 표시합니다.'}
+            </p>
+            <Button asChild variant="outline" size="sm" className="mt-3 h-8 rounded-lg text-xs">
+              <a href={IMWEB_ADMIN_URL} target="_blank" rel="noreferrer">
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                아임웹 확인
+              </a>
+            </Button>
+          </div>
+        ) : isLoading ? (
           <div className="flex min-h-[280px] flex-1 items-center justify-center rounded-xl border border-dashed bg-muted/20 text-sm text-muted-foreground">
             불러오는 중...
           </div>
@@ -176,6 +253,12 @@ export default function ImwebTopItemsCard() {
             <ShoppingBag className="mb-2 h-8 w-8 text-muted-foreground/35" />
             <p>아임웹 주문 집계를 불러오지 못했습니다.</p>
             <p className="mt-1 text-xs">{error instanceof Error ? error.message : '연동 상태를 확인해주세요.'}</p>
+          </div>
+        ) : data?.error ? (
+          <div className="flex min-h-[280px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center text-sm text-muted-foreground">
+            <ShoppingBag className="mb-2 h-8 w-8 text-muted-foreground/35" />
+            <p>아임웹 주문 집계를 불러오지 못했습니다.</p>
+            <p className="mt-1 text-xs">{data.error}</p>
           </div>
         ) : !data || data.itemCount === 0 ? (
           <div className="flex min-h-[280px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center text-sm text-muted-foreground">
