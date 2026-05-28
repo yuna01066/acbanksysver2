@@ -32,6 +32,7 @@ import EdgeFinishingOption from "./EdgeFinishingOption";
 import ManualProductEntry, { ManualProductItem } from "./ManualProductEntry";
 import type { Database } from '@/integrations/supabase/types';
 import { formatPricingVersionDisplayName } from '@/utils/pricingVersionDisplay';
+import { secureRandomToken } from '@/utils/secureRandom';
 
 const DEFAULT_COLOR_MIXING_COST = 40000;
 
@@ -1265,7 +1266,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         quoteDataList.forEach(qd => {
           items.push({
             ...qd,
-            id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+            id: `${Date.now()}-${secureRandomToken(4)}`,
             createdAt: new Date().toISOString()
           });
         });

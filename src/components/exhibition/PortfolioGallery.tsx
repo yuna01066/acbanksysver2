@@ -442,6 +442,23 @@ function getErrorMessage(error: unknown): string {
   return '알 수 없는 오류가 발생했습니다.';
 }
 
+function getSafeImageSrc(value: string | null | undefined): string {
+  const source = (value || '').trim();
+  if (!source) return '';
+  if (/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(source)) return source;
+
+  try {
+    const url = new URL(source, 'https://acbank.local');
+    if (url.protocol === 'https:' || url.protocol === 'http:' || url.protocol === 'blob:') {
+      return source;
+    }
+  } catch {
+    if (source.startsWith('/')) return source;
+  }
+
+  return '';
+}
+
 function isComposingText(event: React.KeyboardEvent): boolean {
   const nativeEvent = event.nativeEvent as KeyboardEvent & { isComposing?: boolean };
   return Boolean(nativeEvent.isComposing) || event.keyCode === 229;
@@ -963,7 +980,55 @@ function DriveFolderImagePreview({
     return <ImageIcon className="h-5 w-5 text-muted-foreground" />;
   }
 
-  return <img src={previewUrl} alt="" className="h-full w-full object-cover" />;
+  return <img src={getSafeImageSrc(previewUrl)} alt="" className="h-full w-full object-cover" />;
+}
+
+function LocalFileCanvasPreview({ file }: { file: File }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let bitmap: ImageBitmap | null = null;
+
+    const render = async () => {
+      if (!file.type.startsWith('image/') || file.type === 'image/svg+xml' || !('createImageBitmap' in window)) {
+        return;
+      }
+
+      try {
+        bitmap = await createImageBitmap(file);
+        if (cancelled || !canvasRef.current) return;
+
+        const scale = Math.min(1, 240 / Math.max(bitmap.width, bitmap.height));
+        const width = Math.max(1, Math.round(bitmap.width * scale));
+        const height = Math.max(1, Math.round(bitmap.height * scale));
+        const canvas = canvasRef.current;
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        if (!context) return;
+        context.clearRect(0, 0, width, height);
+        context.drawImage(bitmap, 0, 0, width, height);
+      } catch (error) {
+        console.warn('Local portfolio preview render failed:', getErrorMessage(error));
+      }
+    };
+
+    render();
+
+    return () => {
+      cancelled = true;
+      bitmap?.close();
+    };
+  }, [file]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-label={file.name}
+      className="h-full w-full object-cover"
+    />
+  );
 }
 
 function PendingImagePreview({
@@ -975,25 +1040,13 @@ function PendingImagePreview({
   isMain: boolean;
   onRemove: () => void;
 }) {
-  const [previewUrl, setPreviewUrl] = useState('');
   const fileName = item.source === 'local' ? item.file.name : item.file.name;
   const fileSize = item.source === 'local' ? item.file.size : item.file.size;
-
-  useEffect(() => {
-    if (item.source !== 'local') {
-      setPreviewUrl('');
-      return;
-    }
-
-    const url = URL.createObjectURL(item.file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [item]);
 
   return (
     <div className="relative aspect-square overflow-hidden rounded-lg border bg-muted/30">
       {item.source === 'local'
-        ? previewUrl && <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+        ? <LocalFileCanvasPreview file={item.file} />
         : <div className="grid h-full w-full place-items-center"><DriveFolderImagePreview file={item.file} folderId={item.folderId} /></div>}
       {isMain && <Badge className="absolute left-1 top-1 px-1 py-0 text-[10px]">대표</Badge>}
       {item.source === 'drive' && (
@@ -1016,13 +1069,14 @@ function PendingImagePreview({
 
 function PortfolioCardThumbnail({ src, alt }: { src: string | null | undefined; alt: string }) {
   const [loaded, setLoaded] = useState(false);
+  const safeSrc = getSafeImageSrc(src);
 
   return (
     <span className="relative block aspect-[4/3] overflow-hidden border-b border-black/5 bg-[#f5f5f5]">
       {!loaded && <span className="absolute inset-0 animate-pulse bg-gradient-to-br from-[#f5f5f5] via-[#ededed] to-[#fafafa]" />}
-      {src ? (
+      {safeSrc ? (
         <img
-          src={src}
+          src={safeSrc}
           alt={alt}
           className={`h-full w-full object-cover transition duration-200 group-hover:scale-[1.025] ${loaded ? 'opacity-100' : 'opacity-0'}`}
           loading="lazy"
@@ -1067,6 +1121,7 @@ function SortableEditImageRow({
   onCaptionChange: (imageId: string, caption: string) => void;
   onRemove: (image: PortfolioImage) => void;
 }) {
+  const thumbnailSrc = getSafeImageSrc(image.thumbnail_url || image.image_url);
   const {
     attributes,
     listeners,
@@ -1092,13 +1147,19 @@ function SortableEditImageRow({
         <GripVertical className="h-4 w-4" />
       </button>
       <div className="relative h-16 w-24 overflow-hidden rounded-md bg-muted">
-        <img
-          src={image.thumbnail_url || image.image_url || ''}
-          alt=""
-          className="h-full w-full object-cover"
-          loading="lazy"
-          decoding="async"
-        />
+        {thumbnailSrc ? (
+          <img
+            src={thumbnailSrc}
+            alt=""
+            className="h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <div className="grid h-full w-full place-items-center text-muted-foreground">
+            <ImageIcon className="h-5 w-5" />
+          </div>
+        )}
         {index === 0 && (
           <Badge className="absolute left-1 top-1 h-5 rounded-full px-1.5 text-[10px]">대표</Badge>
         )}
@@ -2961,7 +3022,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
               >
                 {selectedPost.images.length > 0 ? (
                   <img
-                    src={currentOriginalImageUrl || selectedPost.images[currentImageIndex]?.thumbnail_url || ''}
+                    src={getSafeImageSrc(currentOriginalImageUrl || selectedPost.images[currentImageIndex]?.thumbnail_url)}
                     alt={selectedPost.images[currentImageIndex]?.file_name}
                     className={`absolute left-1/2 top-1/2 block max-h-full max-w-full select-none object-contain ${imageZoom > 1 ? isImageDragging ? 'cursor-grabbing' : 'cursor-grab' : 'cursor-zoom-in'}`}
                     draggable={false}
@@ -3071,7 +3132,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
                           }`}
                           onClick={() => showImageAt(i)}
                         >
-                          <img src={img.thumbnail_url || img.image_url || ''} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                          <img src={getSafeImageSrc(img.thumbnail_url || img.image_url)} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
                         </button>
                       ))}
                     </div>
@@ -3161,7 +3222,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
                           }`}
                           onClick={() => showImageAt(i)}
                         >
-                          <img src={img.thumbnail_url || img.image_url || ''} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                          <img src={getSafeImageSrc(img.thumbnail_url || img.image_url)} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
                         </button>
                       ))}
                     </div>
@@ -3213,7 +3274,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
                   <div key={post.id} className="overflow-hidden rounded-lg border border-[#e5e5e5] bg-white">
                     <div className="aspect-[4/3] bg-[#111111]">
                       {image ? (
-                        <img src={image.thumbnail_url || image.image_url || ''} alt={post.title} className="h-full w-full object-contain" />
+                        <img src={getSafeImageSrc(image.thumbnail_url || image.image_url)} alt={post.title} className="h-full w-full object-contain" />
                       ) : (
                         <div className="grid h-full place-items-center text-white/60"><ImageIcon className="h-10 w-10" /></div>
                       )}

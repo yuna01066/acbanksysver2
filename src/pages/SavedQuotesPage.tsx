@@ -17,6 +17,7 @@ import { PageHeader, PageShell, SearchFilterBar } from '@/components/layout/Page
 import { formatQuoteProjectTitle } from '@/utils/quoteNaming';
 import { convertQuoteToProject } from '@/services/quoteProjectConversion';
 import { normalizeQuoteStatus, QUOTE_STATUSES, type QuoteStatusValue } from '@/utils/quoteStatus';
+import { secureRandomNumericString } from '@/utils/secureRandom';
 
 interface LinkedProject {
   id: string;
@@ -506,7 +507,7 @@ const SavedQuotesPage = () => {
     const day = String(now.getDate()).padStart(2, '0');
     const hour = String(now.getHours()).padStart(2, '0');
     const minute = String(now.getMinutes()).padStart(2, '0');
-    const sequence = String(Math.floor(Math.random() * 100) + 1).padStart(2, '0');
+    const sequence = secureRandomNumericString(0, 99, 2);
     return `${month}${day}${hour}${minute}${sequence}`;
   };
 

@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Quote, QuoteRecipient } from '@/contexts/QuoteContext';
 import { detectQuoteStyleFromItems, type QuoteStyleType } from '@/utils/quoteStyle';
 import { saveIssuedQuote } from '@/services/issuedQuoteSaver';
+import { secureRandomNumericString } from '@/utils/secureRandom';
 
 export type QuoteDraftStatus = 'active' | 'issued' | 'archived';
 
@@ -207,7 +208,7 @@ export const generateIssuedQuoteNumber = (offset = 0) => {
   const day = String(now.getDate()).padStart(2, '0');
   const hour = String(now.getHours()).padStart(2, '0');
   const minute = String(now.getMinutes()).padStart(2, '0');
-  const sequence = String(Math.floor(Math.random() * 90) + 10).padStart(2, '0');
+  const sequence = secureRandomNumericString(10, 99, 2);
   return `${month}${day}${hour}${minute}${sequence}`;
 };
 

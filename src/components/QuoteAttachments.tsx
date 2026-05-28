@@ -16,6 +16,7 @@ import {
   type DocumentSyncStatus,
 } from '@/services/documentFiles';
 import { logQuoteActivity } from '@/services/quoteActivity';
+import { secureRandomToken } from '@/utils/secureRandom';
 
 interface DriveSyncResult {
   success: boolean;
@@ -285,7 +286,7 @@ const QuoteAttachments = ({
 
           const fileExt = getFileExtension(file.name) || 'bin';
           const timestamp = Date.now();
-          const random = Math.random().toString(36).substring(2, 9);
+          const random = secureRandomToken(5);
           const fileName = `${timestamp}-${random}.${fileExt}`;
           const filePath = `${user.id}/${fileName}`;
 
@@ -519,7 +520,7 @@ const QuoteAttachments = ({
 
       // 견적번호 기반 경로로 저장 (수정 시 덮어쓰기 가능)
       const safeQuoteNumber = quoteNumber || `temp-${Date.now()}`;
-      const fileRevision = quoteId ? `-${Date.now()}-${Math.random().toString(36).substring(2, 7)}` : '';
+      const fileRevision = quoteId ? `-${Date.now()}-${secureRandomToken(4)}` : '';
       const fileName = `${safeQuoteNumber}${fileRevision}.pdf`;
       const filePath = `${user.id}/${safeQuoteNumber}/${fileName}`;
 

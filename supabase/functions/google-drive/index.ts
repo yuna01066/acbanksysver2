@@ -1071,10 +1071,10 @@ serve(async (req) => {
         });
       } catch (folderError) {
         const detail = folderError instanceof Error ? folderError.message : String(folderError);
+        console.error('Portfolio Drive folder access failed:', detail);
         return new Response(JSON.stringify({
           success: false,
           error: 'Drive 폴더에 접근할 수 없습니다. 서비스 계정에 폴더 공유가 필요합니다.',
-          detail,
           serviceAccountEmail,
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
