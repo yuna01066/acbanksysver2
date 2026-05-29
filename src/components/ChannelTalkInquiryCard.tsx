@@ -25,16 +25,6 @@ type ChannelTalkInquiry = {
 };
 
 const ACTIVE_STATUSES = ['new', 'needs_review', 'analyzed'];
-const CHANNEL_TALK_QUERY_TIMEOUT_MS = 3500;
-
-function withChannelTalkTimeout<T>(promise: PromiseLike<T>, fallback: T): Promise<T> {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise<T>((resolve) => {
-      setTimeout(() => resolve(fallback), CHANNEL_TALK_QUERY_TIMEOUT_MS);
-    }),
-  ]);
-}
 
 const statusLabel = (status: string) => {
   switch (status) {
@@ -70,27 +60,19 @@ const ChannelTalkInquiryCard = () => {
   const { data: inquiries = [], isLoading } = useQuery<ChannelTalkInquiry[]>({
     queryKey: ['home-channel-talk-inquiries'],
     queryFn: async () => {
-      const { data, error } = await withChannelTalkTimeout(
-        supabase
-          .from('channel_talk_quote_leads' as any)
-          .select('id, customer_name, customer_company, inquiry_type, status, analysis, missing_fields, created_at')
-          .in('status', ACTIVE_STATUSES)
-          .order('created_at', { ascending: false })
-          .limit(12),
-        { data: [], error: null },
-      );
+      const { data, error } = await supabase
+        .from('channel_talk_quote_leads' as any)
+        .select('id, customer_name, customer_company, inquiry_type, status, analysis, missing_fields, created_at')
+        .in('status', ACTIVE_STATUSES)
+        .order('created_at', { ascending: false })
+        .limit(12);
 
-      if (error) {
-        console.warn('[ChannelTalkInquiryCard] failed to load inquiries', error);
-        return [];
-      }
+      if (error) throw error;
       return ((data || []) as unknown) as ChannelTalkInquiry[];
     },
     enabled: !!user,
     staleTime: 60 * 1000,
     refetchInterval: false,
-    placeholderData: [],
-    retry: 0,
   });
 
   useEffect(() => {
