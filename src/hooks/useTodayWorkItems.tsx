@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -29,9 +29,11 @@ import { useCalendarEvents } from '@/hooks/useInternalCalendar';
 import type { CalendarViewScope } from '@/types/internalCalendar';
 
 export type WorkItemTone = 'danger' | 'warning' | 'primary' | 'neutral' | 'success';
+export type TodayWorkCategory = 'notification' | 'approval' | 'calendar' | 'hr' | 'quote' | 'project' | 'system';
 
 export interface TodayWorkItem {
   id: string;
+  category: TodayWorkCategory;
   title: string;
   description: string;
   label: string;
@@ -79,6 +81,7 @@ interface DocumentSyncSummary {
 
 const todayString = () => format(new Date(), 'yyyy-MM-dd');
 const plusDaysString = (days: number) => format(addDays(new Date(), days), 'yyyy-MM-dd');
+const TODAY_WORK_DISMISS_PREFIX = 'acbank:today-work-hidden:';
 
 export function getNotificationPath(notification: AppNotification): string {
   if (notification.type === 'project_mention' && notification.data?.projectId) {
@@ -124,6 +127,46 @@ function formatEventTime(startsAt: string, allDay: boolean) {
   return format(new Date(startsAt), 'HH:mm', { locale: ko });
 }
 
+function getDismissStorageKey(userId?: string | null) {
+  return userId ? `${TODAY_WORK_DISMISS_PREFIX}${userId}:${todayString()}` : null;
+}
+
+function readDismissedIds(userId?: string | null) {
+  const key = getDismissStorageKey(userId);
+  if (!key || typeof window === 'undefined') return [];
+
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeDismissedIds(userId: string, ids: string[]) {
+  const key = getDismissStorageKey(userId);
+  if (!key || typeof window === 'undefined') return;
+  window.localStorage.setItem(key, JSON.stringify(ids));
+}
+
+function buildBriefing(items: TodayWorkItem[], urgentCount: number, todayCount: number) {
+  if (items.length === 0) return '지금은 바로 처리할 항목이 없습니다. 필요한 기능은 바로가기에서 시작하세요.';
+
+  const segments: string[] = [];
+  if (urgentCount > 0) segments.push(`우선 확인 ${urgentCount}건`);
+  if (todayCount > 0) segments.push(`오늘 일정/마감 ${todayCount}건`);
+
+  const quoteCount = items.filter((item) => item.category === 'quote').length;
+  const approvalCount = items.filter((item) => item.category === 'approval').length;
+  if (approvalCount > 0) segments.push(`승인 ${approvalCount}건`);
+  if (quoteCount > 0) segments.push(`납기 ${quoteCount}건`);
+
+  const summary = segments.length > 0 ? segments.join(', ') : `업무 ${items.length}건`;
+  return `${summary}을 확인하면 됩니다.`;
+}
+
 export function toneClasses(tone: WorkItemTone): string {
   switch (tone) {
     case 'danger':
@@ -143,10 +186,33 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
   const navigate = useNavigate();
   const { user, isAdmin, isModerator } = useAuth();
   const canReview = isAdmin || isModerator;
+  const [dismissedIds, setDismissedIds] = useState<string[]>(() => readDismissedIds(user?.id));
   const calendarScope: CalendarViewScope = canReview ? 'all' : 'my';
   const today = startOfDay(new Date());
   const calendarRangeStart = today.toISOString();
   const calendarRangeEnd = addDays(today, 8).toISOString();
+
+  useEffect(() => {
+    setDismissedIds(readDismissedIds(user?.id));
+  }, [user?.id]);
+
+  const dismissItem = useCallback((itemId: string) => {
+    if (!user?.id) return;
+
+    setDismissedIds((current) => {
+      if (current.includes(itemId)) return current;
+      const next = [...current, itemId];
+      writeDismissedIds(user.id, next);
+      return next;
+    });
+  }, [user?.id]);
+
+  const resetDismissedItems = useCallback(() => {
+    if (!user?.id) return;
+
+    setDismissedIds([]);
+    writeDismissedIds(user.id, []);
+  }, [user?.id]);
 
   const { data: upcomingQuotes = [], isLoading: quotesLoading } = useQuery({
     queryKey: ['today-work-upcoming-quotes', user?.id, canReview],
@@ -252,6 +318,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
       const urgent = notification.type === 'leave_request' || notification.type === 'password_reset' || notification.type === 'pending_approval';
       items.push({
         id: notification.id,
+        category: 'notification',
         title: notification.title,
         description: notification.description,
         label: '새 알림',
@@ -268,6 +335,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
       pendingLeaves.forEach((leave) => {
         items.push({
           id: `leave-${leave.id}`,
+          category: 'approval',
           title: `${leave.user_name} 연차 승인 대기`,
           description: `${leave.leave_type} · ${format(parseISO(leave.start_date), 'M/d', { locale: ko })}~${format(parseISO(leave.end_date), 'M/d', { locale: ko })} · ${leave.days}일`,
           label: '승인 필요',
@@ -283,6 +351,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
       if (syncSummary.failed > 0) {
         items.push({
           id: 'document-sync-failed',
+          category: 'system',
           title: `파일 동기화 실패 ${syncSummary.failed}건`,
           description: 'Drive 또는 외부 저장소 동기화 실패 항목을 확인해야 합니다.',
           label: '실패',
@@ -295,6 +364,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
       } else if (syncSummary.pending > 0) {
         items.push({
           id: 'document-sync-pending',
+          category: 'system',
           title: `파일 동기화 대기 ${syncSummary.pending}건`,
           description: '최근 업로드 파일의 Drive 동기화 상태를 확인할 수 있습니다.',
           label: '대기',
@@ -315,6 +385,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
         const isTodayEvent = isSameDay(startsAt, new Date());
         items.push({
           id: `calendar-${event.id}`,
+          category: 'calendar',
           title: event.title,
           description: `${format(startsAt, 'M월 d일', { locale: ko })} · ${formatEventTime(event.starts_at, event.all_day)}${event.location ? ` · ${event.location}` : ''}`,
           label: isTodayEvent ? '오늘 일정' : '예정',
@@ -336,6 +407,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
         const linkedPath = typeof task.linked_resource?.path === 'string' ? task.linked_resource.path : '/my-page?tab=tasks';
         items.push({
           id: `hr-task-${task.id}`,
+          category: 'hr',
           title: task.title,
           description: task.description || '내 HR 업무를 확인해야 합니다.',
           label: due.label === '마감 미정' ? 'HR 업무' : due.label,
@@ -353,6 +425,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
       const due = formatDueLabel(quote.desired_delivery_date);
       items.push({
         id: `quote-${quote.id}`,
+        category: 'quote',
         title: quote.project_name || quote.recipient_company || `견적 ${quote.quote_number}`,
         description: `납기 희망일 · ${quote.desired_delivery_date ? format(parseISO(quote.desired_delivery_date), 'yyyy. M. d', { locale: ko }) : '미정'}`,
         label: due.label.replace('마감', '납기'),
@@ -369,6 +442,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
     activeProjects.forEach((project) => {
       items.push({
         id: `project-${project.id}`,
+        category: 'project',
         title: project.name,
         description: `프로젝트 상태 · ${project.status}`,
         label: '진행중',
@@ -392,13 +466,38 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
       .slice(0, 12);
   }, [activeProjects, calendarEvents, canReview, hrTasks, navigate, pendingLeaves, syncSummary, unreadNotifications, upcomingQuotes]);
 
-  const urgentCount = workItems.filter((item) => item.tone === 'danger' || item.tone === 'warning').length;
-  const todayCount = workItems.filter((item) => item.isToday).length;
+  const visibleWorkItems = useMemo(
+    () => workItems.filter((item) => !dismissedIds.includes(item.id)),
+    [dismissedIds, workItems],
+  );
+  const categoryCounts = useMemo(() => {
+    return visibleWorkItems.reduce<Record<TodayWorkCategory, number>>((acc, item) => {
+      acc[item.category] += 1;
+      return acc;
+    }, {
+      notification: 0,
+      approval: 0,
+      calendar: 0,
+      hr: 0,
+      quote: 0,
+      project: 0,
+      system: 0,
+    });
+  }, [visibleWorkItems]);
+  const urgentCount = visibleWorkItems.filter((item) => item.tone === 'danger' || item.tone === 'warning').length;
+  const todayCount = visibleWorkItems.filter((item) => item.isToday).length;
+  const briefing = buildBriefing(visibleWorkItems, urgentCount, todayCount);
 
   return {
-    items: workItems,
+    items: visibleWorkItems,
+    allItemCount: workItems.length,
+    hiddenCount: workItems.length - visibleWorkItems.length,
+    categoryCounts,
     urgentCount,
     todayCount,
+    briefing,
+    dismissItem,
+    resetDismissedItems,
     isLoading: quotesLoading || projectsLoading || leavesLoading || syncLoading || calendarLoading || hrTasksLoading,
   };
 }

@@ -37,9 +37,11 @@ export interface AssistantShortcutItem {
 type AssistantPreferenceRow = {
   user_id: string;
   shortcut_ids: string[] | null;
+  storage?: 'database' | 'local';
 };
 
 const supabaseAny = supabase as any;
+const ASSISTANT_SHORTCUT_STORAGE_PREFIX = 'acbank:assistant-shortcuts:';
 
 export const ASSISTANT_SHORTCUT_CATALOG: AssistantShortcutItem[] = [
   {
@@ -203,6 +205,43 @@ function sanitizeShortcutIds(ids: string[], role: AssistantShortcutRole) {
   });
 }
 
+function isAssistantPreferenceStorageError(error: unknown) {
+  const message = String((error as { message?: string })?.message || error || '').toLowerCase();
+  return (
+    message.includes('assistant_user_preferences')
+    || message.includes('schema cache')
+    || message.includes('does not exist')
+    || message.includes('relation')
+  );
+}
+
+function getLocalPreferenceKey(userId: string) {
+  return `${ASSISTANT_SHORTCUT_STORAGE_PREFIX}${userId}`;
+}
+
+function readLocalShortcutIds(userId?: string | null) {
+  if (!userId || typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.localStorage.getItem(getLocalPreferenceKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string') : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalShortcutIds(userId: string, ids: string[]) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(getLocalPreferenceKey(userId), JSON.stringify(ids));
+}
+
+function removeLocalShortcutIds(userId: string) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(getLocalPreferenceKey(userId));
+}
+
 export function useAssistantShortcuts() {
   const { user, isAdmin, isModerator } = useAuth();
   const queryClient = useQueryClient();
@@ -217,8 +256,14 @@ export function useAssistantShortcuts() {
         .select('user_id, shortcut_ids')
         .eq('user_id', user!.id)
         .maybeSingle();
-      if (error) throw error;
-      return data as AssistantPreferenceRow | null;
+      if (error) {
+        if (isAssistantPreferenceStorageError(error)) {
+          const localIds = readLocalShortcutIds(user!.id);
+          return { user_id: user!.id, shortcut_ids: localIds, storage: 'local' };
+        }
+        throw error;
+      }
+      return data ? { ...(data as AssistantPreferenceRow), storage: 'database' } : null;
     },
     enabled: !!user,
   });
@@ -231,6 +276,8 @@ export function useAssistantShortcuts() {
   const selectedShortcuts = shortcutIds
     .map((id) => availableShortcuts.find((shortcut) => shortcut.id === id))
     .filter(Boolean) as AssistantShortcutItem[];
+  const isLocalFallback = preferencesQuery.data?.storage === 'local'
+    || (Boolean(user) && Boolean(preferencesQuery.error) && isAssistantPreferenceStorageError(preferencesQuery.error));
 
   const saveShortcutOrder = useMutation({
     mutationFn: async (ids: string[]) => {
@@ -240,16 +287,26 @@ export function useAssistantShortcuts() {
       const { error } = await supabaseAny
         .from('assistant_user_preferences')
         .upsert({ user_id: user.id, shortcut_ids: nextIds }, { onConflict: 'user_id' });
-      if (error) throw error;
-      return nextIds;
+      if (error) {
+        if (isAssistantPreferenceStorageError(error)) {
+          writeLocalShortcutIds(user.id, nextIds);
+          return { ids: nextIds, storage: 'local' as const };
+        }
+        throw error;
+      }
+      removeLocalShortcutIds(user.id);
+      return { ids: nextIds, storage: 'database' as const };
     },
-    onSuccess: (nextIds) => {
+    onSuccess: ({ ids: nextIds, storage }) => {
       queryClient.setQueryData(['assistant-user-preferences', user?.id], {
         user_id: user?.id,
         shortcut_ids: nextIds,
+        storage,
       });
       queryClient.invalidateQueries({ queryKey: ['assistant-user-preferences', user?.id] });
-      toast.success('햄찌 바로가기를 저장했습니다.');
+      toast.success(storage === 'local'
+        ? 'DB 설정 전까지 이 브라우저에 임시 저장했습니다.'
+        : '햄찌 바로가기를 저장했습니다.');
     },
     onError: (error: Error) => {
       toast.error(error.message || '바로가기 저장에 실패했습니다.');
@@ -262,16 +319,26 @@ export function useAssistantShortcuts() {
       const { error } = await supabaseAny
         .from('assistant_user_preferences')
         .upsert({ user_id: user.id, shortcut_ids: roleDefaultIds }, { onConflict: 'user_id' });
-      if (error) throw error;
-      return roleDefaultIds;
+      if (error) {
+        if (isAssistantPreferenceStorageError(error)) {
+          removeLocalShortcutIds(user.id);
+          return { ids: roleDefaultIds, storage: 'local' as const };
+        }
+        throw error;
+      }
+      removeLocalShortcutIds(user.id);
+      return { ids: roleDefaultIds, storage: 'database' as const };
     },
-    onSuccess: (nextIds) => {
+    onSuccess: ({ ids: nextIds, storage }) => {
       queryClient.setQueryData(['assistant-user-preferences', user?.id], {
         user_id: user?.id,
         shortcut_ids: nextIds,
+        storage,
       });
       queryClient.invalidateQueries({ queryKey: ['assistant-user-preferences', user?.id] });
-      toast.success('역할 기본 바로가기로 복구했습니다.');
+      toast.success(storage === 'local'
+        ? '브라우저 임시 설정을 지우고 역할 기본값으로 복구했습니다.'
+        : '역할 기본 바로가기로 복구했습니다.');
     },
     onError: (error: Error) => {
       toast.error(error.message || '기본값 복구에 실패했습니다.');
@@ -285,6 +352,7 @@ export function useAssistantShortcuts() {
     selectedShortcuts,
     availableShortcuts,
     isLoading: preferencesQuery.isLoading,
+    isLocalFallback,
     saveShortcutOrder,
     resetToRoleDefault,
   };
