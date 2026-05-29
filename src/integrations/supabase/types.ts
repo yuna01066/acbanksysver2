@@ -247,6 +247,243 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_event_participants: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          event_id: string
+          id: string
+          response_status: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          event_id: string
+          id?: string
+          response_status?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          event_id?: string
+          id?: string
+          response_status?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_participants_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_event_resources: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          resource_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          resource_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          resource_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_resources_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_event_resources_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_events: {
+        Row: {
+          all_day: boolean
+          client_contact: string | null
+          client_name: string | null
+          created_at: string
+          created_by: string
+          created_by_name: string
+          description: string | null
+          ends_at: string
+          id: string
+          location: string | null
+          metadata: Json
+          recipient_id: string | null
+          source_id: string | null
+          source_type: string
+          starts_at: string
+          status: string
+          team_department: string | null
+          title: string
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          all_day?: boolean
+          client_contact?: string | null
+          client_name?: string | null
+          created_at?: string
+          created_by: string
+          created_by_name?: string
+          description?: string | null
+          ends_at: string
+          id?: string
+          location?: string | null
+          metadata?: Json
+          recipient_id?: string | null
+          source_id?: string | null
+          source_type?: string
+          starts_at: string
+          status?: string
+          team_department?: string | null
+          title: string
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          all_day?: boolean
+          client_contact?: string | null
+          client_name?: string | null
+          created_at?: string
+          created_by?: string
+          created_by_name?: string
+          description?: string | null
+          ends_at?: string
+          id?: string
+          location?: string | null
+          metadata?: Json
+          recipient_id?: string | null
+          source_id?: string | null
+          source_type?: string
+          starts_at?: string
+          status?: string
+          team_department?: string | null
+          title?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_resources: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          floor: string | null
+          id: string
+          is_active: boolean
+          name: string
+          resource_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          floor?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          resource_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          floor?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          resource_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      calendar_subscriptions: {
+        Row: {
+          color: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          is_visible: boolean
+          subscriber_id: string
+          target_department: string | null
+          target_resource_id: string | null
+          target_type: string
+          target_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_visible?: boolean
+          subscriber_id: string
+          target_department?: string | null
+          target_resource_id?: string | null
+          target_type: string
+          target_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_visible?: boolean
+          subscriber_id?: string
+          target_department?: string | null
+          target_resource_id?: string | null
+          target_type?: string
+          target_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_subscriptions_target_resource_id_fkey"
+            columns: ["target_resource_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       category_logic_slots: {
         Row: {
           category: string
@@ -2101,6 +2338,7 @@ export type Database = {
       meeting_reservations: {
         Row: {
           audience_type: string
+          calendar_event_id: string | null
           client_contact: string | null
           client_meeting_type: string | null
           client_name: string | null
@@ -2124,6 +2362,7 @@ export type Database = {
         }
         Insert: {
           audience_type: string
+          calendar_event_id?: string | null
           client_contact?: string | null
           client_meeting_type?: string | null
           client_name?: string | null
@@ -2147,6 +2386,7 @@ export type Database = {
         }
         Update: {
           audience_type?: string
+          calendar_event_id?: string | null
           client_contact?: string | null
           client_meeting_type?: string | null
           client_name?: string | null
@@ -5714,6 +5954,10 @@ export type Database = {
         Args: { _request_id: string; _review_note?: string }
         Returns: string
       }
+      calendar_meeting_start_at: {
+        Args: { _date: string; _time: string }
+        Returns: string
+      }
       can_access_feature: { Args: { _feature_key: string }; Returns: boolean }
       check_workplace_distance: {
         Args: { input_lat: number; input_lng: number }
@@ -5731,6 +5975,39 @@ export type Database = {
         }[]
       }
       cleanup_expired_quote_wizard_rows: { Args: never; Returns: number }
+      create_calendar_event: { Args: { payload: Json }; Returns: string }
+      get_calendar_dashboard_summary: {
+        Args: { range_end: string; range_start: string; scope?: string }
+        Returns: Json
+      }
+      get_calendar_events: {
+        Args: { filters?: Json; range_end: string; range_start: string }
+        Returns: {
+          all_day: boolean
+          can_edit: boolean
+          client_contact: string
+          client_name: string
+          created_by: string
+          created_by_name: string
+          description: string
+          ends_at: string
+          id: string
+          is_redacted: boolean
+          location: string
+          metadata: Json
+          participant_ids: string[]
+          participant_names: string[]
+          resource_ids: string[]
+          resource_names: string[]
+          source_id: string
+          source_type: string
+          starts_at: string
+          status: string
+          team_department: string
+          title: string
+          visibility: string
+        }[]
+      }
       get_portfolio_post_main_images: {
         Args: { p_post_ids: string[] }
         Returns: {
@@ -5815,6 +6092,7 @@ export type Database = {
           visibility: string
         }[]
       }
+      update_calendar_event: { Args: { payload: Json }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "user" | "moderator" | "manager" | "employee"
