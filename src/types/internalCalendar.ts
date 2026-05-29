@@ -14,6 +14,7 @@ export type CalendarSourceType =
 export type CalendarResourceType = 'meeting_room';
 export type CalendarViewScope = 'my' | 'all' | 'team';
 export type CalendarParticipantRole = 'organizer' | 'attendee' | 'assignee';
+export type CalendarDeleteMode = 'cancel' | 'hard_delete';
 export type CalendarIconType =
   | 'calendar'
   | 'quote'
@@ -114,6 +115,11 @@ export type CalendarEventDraftPayload = {
   assignee_ids?: string[];
   resource_ids?: string[];
   metadata?: Record<string, unknown>;
+};
+
+export type CalendarEventDeletePayload = {
+  id: string;
+  mode: CalendarDeleteMode;
 };
 
 export type CalendarRoomSummaryEvent = {

@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type {
   CalendarDashboardSummary,
   CalendarDirectoryUser,
+  CalendarEventDeletePayload,
   CalendarEventDraftPayload,
   CalendarResource,
   CalendarSubscription,
@@ -398,6 +399,24 @@ export function useUpdateCalendarEvent() {
   return useMutation({
     mutationFn: async (payload: CalendarEventDraftPayload & { id: string }) => {
       const { data, error } = await supabaseAny.rpc('update_calendar_event', { payload });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-meeting-booking-card'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-meeting-reservations'] });
+    },
+  });
+}
+
+export function useDeleteCalendarEvent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: CalendarEventDeletePayload) => {
+      const { data, error } = await supabaseAny.rpc('delete_calendar_event', { payload });
       if (error) throw error;
       return data as string;
     },
