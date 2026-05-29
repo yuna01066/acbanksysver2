@@ -42,6 +42,8 @@ const MANAGER_ACTIONS = new Set([
   "search",
   "getPopbillURL",
   "checkCertValidation",
+  "checkCorpNum",
+  "checkCorpNums",
 ]);
 
 /**

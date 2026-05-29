@@ -196,6 +196,35 @@ export type Database = {
           },
         ]
       }
+      assistant_user_preferences: {
+        Row: {
+          created_at: string
+          shortcut_ids: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          shortcut_ids?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          shortcut_ids?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_user_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_records: {
         Row: {
           check_in: string | null
@@ -1301,6 +1330,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      employee_online_heartbeats: {
+        Row: {
+          created_at: string
+          last_seen_at: string
+          online_at: string
+          updated_at: string
+          user_agent: string | null
+          user_id: string
+          work_status: string
+        }
+        Insert: {
+          created_at?: string
+          last_seen_at?: string
+          online_at?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id: string
+          work_status?: string
+        }
+        Update: {
+          created_at?: string
+          last_seen_at?: string
+          online_at?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
+          work_status?: string
+        }
+        Relationships: []
       }
       employment_contracts: {
         Row: {
@@ -5953,7 +6012,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      today_attendance_status: {
+        Row: {
+          check_in: string | null
+          check_out: string | null
+          date: string | null
+          status: string | null
+          user_id: string | null
+          user_name: string | null
+        }
+        Insert: {
+          check_in?: string | null
+          check_out?: string | null
+          date?: string | null
+          status?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          check_in?: string | null
+          check_out?: string | null
+          date?: string | null
+          status?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       apply_supported_settings_change: {
@@ -6050,6 +6135,7 @@ export type Database = {
       }
       cleanup_expired_quote_wizard_rows: { Args: never; Returns: number }
       create_calendar_event: { Args: { payload: Json }; Returns: string }
+      delete_calendar_event: { Args: { payload: Json }; Returns: string }
       get_calendar_dashboard_summary: {
         Args: { range_end: string; range_start: string; scope?: string }
         Returns: Json
@@ -6084,6 +6170,21 @@ export type Database = {
           team_department: string
           title: string
           visibility: string
+        }[]
+      }
+      get_employee_online_status: {
+        Args: never
+        Returns: {
+          attendance_status: string
+          avatar_url: string
+          check_in: string
+          check_out: string
+          department: string
+          full_name: string
+          last_seen_at: string
+          position: string
+          user_id: string
+          work_status: string
         }[]
       }
       get_portfolio_post_main_images: {
@@ -6135,6 +6236,7 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
+      mark_employee_offline: { Args: never; Returns: undefined }
       reject_settings_change_request: {
         Args: { _request_id: string; _review_note?: string }
         Returns: string
@@ -6171,6 +6273,10 @@ export type Database = {
         }[]
       }
       update_calendar_event: { Args: { payload: Json }; Returns: string }
+      upsert_employee_online_heartbeat: {
+        Args: { _user_agent?: string; _work_status?: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "moderator" | "manager" | "employee"
