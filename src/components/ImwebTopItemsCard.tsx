@@ -41,29 +41,21 @@ const IMWEB_ADMIN_URL = 'https://admin.imweb.me/';
 
 async function fetchImwebConnection(): Promise<ImwebConnectionResponse> {
   try {
-    const { data, error } = await supabase.functions.invoke('imweb-api', {
-      method: 'GET',
-      headers: { 'x-action': 'check-connection' },
-    } as any);
-    // Note: invoke doesn't support query params; fall back to fetch with apikey
-    if (error || !data) {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      const anonKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || '';
-      const res = await fetch(`${FUNCTION_URL}?action=check-connection`, {
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: anonKey,
-          Authorization: `Bearer ${token || anonKey}`,
-        },
-      });
-      const result = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        return { connected: false, error: result.error || '아임웹 연결 상태를 확인하지 못했습니다.' };
-      }
-      return { connected: Boolean(result.connected) };
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    const anonKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || '';
+    const res = await fetch(`${FUNCTION_URL}?action=check-connection`, {
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: anonKey,
+        Authorization: `Bearer ${token || anonKey}`,
+      },
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { connected: false, error: result.error || '아임웹 연결 상태를 확인하지 못했습니다.' };
     }
-    return { connected: Boolean((data as any).connected) };
+    return { connected: Boolean(result.connected) };
   } catch (error) {
     return {
       connected: false,
