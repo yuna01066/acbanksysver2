@@ -56,7 +56,6 @@ const MANAGED_FEATURES: FeatureDef[] = [
   { key: 'review.send_results', label: '평가 결과 전달', description: '평가 결과를 직원에게 전달', icon: <FileText className="h-3.5 w-3.5" />, group: 'review' },
 
   // 시스템 관리
-  { key: 'system.manage_announcements', label: '공지사항 관리', description: '공지사항 작성, 수정, 삭제', icon: <Pencil className="h-3.5 w-3.5" />, group: 'system' },
   { key: 'system.manage_prices', label: '단가 관리', description: '패널 단가 및 가공비 설정', icon: <DollarSign className="h-3.5 w-3.5" />, group: 'system' },
   { key: 'system.manage_response_assistant', label: '상담 응대 보조 관리', description: 'AI instruction, 런처 아이콘, 응대 근거 관리', icon: <Pencil className="h-3.5 w-3.5" />, group: 'system' },
   { key: '/channel-talk-leads', label: '채널톡 문의 분석함', description: '도면 분석 리드 검토 및 전환 관리', icon: <Eye className="h-3.5 w-3.5" />, group: 'system' },

@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.migrate-storage-to-gcs]
 verify_jwt = false
+
+[functions.kakao-chatbot]
+verify_jwt = false

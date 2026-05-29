@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { formatQuoteProjectTitle } from '@/utils/quoteNaming';
 import { logQuoteActivity } from '@/services/quoteActivity';
+import { projectStageToLegacyQuoteStatus } from '@/utils/quoteWorkflow';
 
 export interface QuoteForProjectConversion {
   id: string;
@@ -18,6 +19,7 @@ export interface QuoteForProjectConversion {
   user_id: string;
   project_id?: string | null;
   quote_status?: string | null;
+  project_stage?: string | null;
 }
 
 export interface ConvertedProject {
@@ -108,7 +110,8 @@ export async function convertQuoteToProject({
     .from('saved_quotes')
     .update({
       project_id: project.id,
-      quote_status: 'won',
+      project_stage: 'contracted',
+      quote_status: projectStageToLegacyQuoteStatus('contracted'),
       status_updated_at: new Date().toISOString(),
     } as never)
     .eq('id', quote.id);
@@ -142,14 +145,14 @@ export async function convertQuoteToProject({
     },
   });
 
-  if (quote.quote_status !== 'won') {
+  if (quote.project_stage !== 'contracted') {
     await logQuoteActivity({
       quoteId: quote.id,
       actionType: 'status_changed',
       actorId,
       actorName,
-      oldValue: quote.quote_status || 'sent',
-      newValue: 'won',
+      oldValue: quote.project_stage || 'quote_issued',
+      newValue: 'contracted',
       memo: '프로젝트 전환으로 자동 수주 처리',
       metadata: { quoteNumber: quote.quote_number, projectId: project.id },
     });

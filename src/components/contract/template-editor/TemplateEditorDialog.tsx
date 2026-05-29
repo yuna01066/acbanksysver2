@@ -31,6 +31,7 @@ import { PREBUILT_TEMPLATES } from './prebuiltTemplates';
 import { SAMPLE_DATA } from './placeholderFields';
 import type { ContractTemplate } from '@/hooks/useContracts';
 import { evaluateContractTemplateQuality } from '@/utils/contractTemplateQuality';
+import { sanitizeHtml } from '@/utils/sanitizeHtml';
 
 interface TemplateEditorDialogProps {
   open: boolean;
@@ -203,7 +204,7 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
       html = html.split(`{{${key}}}`).join(`<span style="color:#2563eb;font-weight:600;text-decoration:underline">${value}</span>`);
     }
 
-    return html;
+    return sanitizeHtml(html);
   };
 
   if (!open) return null;

@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: '승인 대기',
@@ -40,6 +41,11 @@ function formatDateTime(value?: string | null) {
   });
 }
 
+type SettingsChangeRequestsPanelProps = {
+  variant?: 'compact' | 'full';
+  maxItems?: number;
+};
+
 function statusBadgeClass(status: string) {
   if (status === 'pending') return 'border-amber-300 text-amber-700';
   if (status === 'applied' || status === 'approved') return 'border-emerald-300 text-emerald-700';
@@ -47,7 +53,10 @@ function statusBadgeClass(status: string) {
   return '';
 }
 
-const SettingsChangeRequestsPanel: React.FC = () => {
+const SettingsChangeRequestsPanel: React.FC<SettingsChangeRequestsPanelProps> = ({
+  variant = 'full',
+  maxItems,
+}) => {
   const queryClient = useQueryClient();
   const { isAdmin, isModerator } = useAuth();
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
@@ -62,6 +71,11 @@ const SettingsChangeRequestsPanel: React.FC = () => {
     () => requests.filter((request) => request.status === 'pending').length,
     [requests],
   );
+  const visibleRequests = useMemo(
+    () => requests.slice(0, maxItems ?? requests.length),
+    [maxItems, requests],
+  );
+  const isCompact = variant === 'compact';
 
   const approveMutation = useMutation({
     mutationFn: async (request: SettingsChangeRequestRecord) => {
@@ -89,50 +103,52 @@ const SettingsChangeRequestsPanel: React.FC = () => {
   if (!isAdmin && !isModerator) return null;
 
   return (
-    <Card className="border-white/60 bg-card/80">
-      <CardHeader>
+    <Card className={cn('border-border bg-white shadow-none', isCompact && 'rounded-lg')}>
+      <CardHeader className={cn(isCompact && 'p-4 pb-3')}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <ShieldCheck className="h-4 w-4 text-primary" />
+              <ShieldCheck className="h-4 w-4 text-foreground" />
               설정 변경 승인 요청
             </CardTitle>
-            <CardDescription>
-              중간관리자가 요청한 고위험 설정 변경을 관리자가 검토하고 반영합니다.
+            <CardDescription className={cn(isCompact && 'text-xs')}>
+              {isCompact
+                ? '대기 중인 고위험 설정 변경을 빠르게 확인합니다.'
+                : '중간관리자가 요청한 고위험 설정 변경을 관리자가 검토하고 반영합니다.'}
             </CardDescription>
           </div>
-          <Badge variant={pendingCount > 0 ? 'destructive' : 'secondary'} className="w-fit">
+          <Badge variant={pendingCount > 0 ? 'destructive' : 'secondary'} className="w-fit rounded-full">
             대기 {pendingCount}건
           </Badge>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className={cn(isCompact && 'p-4 pt-0')}>
         {isLoading ? (
-          <div className="flex h-28 items-center justify-center">
+          <div className={cn('flex items-center justify-center', isCompact ? 'h-20' : 'h-28')}>
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : requests.length === 0 ? (
-          <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <div className={cn('rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground', isCompact && 'p-4 text-xs')}>
             등록된 설정 변경 요청이 없습니다.
           </div>
         ) : (
           <div className="space-y-3">
-            {requests.map((request) => {
+            {visibleRequests.map((request) => {
               const isPending = request.status === 'pending';
               const processing = approveMutation.isPending || rejectMutation.isPending;
 
               return (
-                <div key={request.id} className="rounded-xl border bg-background p-4">
+                <div key={request.id} className={cn('rounded-lg border bg-background p-4', isCompact && 'p-3')}>
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className={statusBadgeClass(request.status)}>
+                        <Badge variant="outline" className={cn('rounded-full', statusBadgeClass(request.status))}>
                           {STATUS_LABELS[request.status] || request.status}
                         </Badge>
-                        <Badge variant={request.risk_level === 'high' ? 'destructive' : 'secondary'}>
+                        <Badge variant={request.risk_level === 'high' ? 'destructive' : 'secondary'} className="rounded-full">
                           위험도 {RISK_LABELS[request.risk_level] || request.risk_level}
                         </Badge>
-                        <Badge variant="outline">{request.target_table}</Badge>
+                        <Badge variant="outline" className="rounded-full">{request.target_table}</Badge>
                       </div>
                       <div>
                         <p className="text-sm font-semibold">{request.change_summary}</p>
@@ -147,7 +163,7 @@ const SettingsChangeRequestsPanel: React.FC = () => {
                       </div>
                     </div>
                     {isPending && isAdmin && (
-                      <div className="w-full space-y-2 lg:w-80">
+                      <div className={cn('w-full space-y-2', isCompact ? 'lg:w-64' : 'lg:w-80')}>
                         <Textarea
                           value={reviewNotes[request.id] || ''}
                           onChange={(event) => setReviewNotes((current) => ({ ...current, [request.id]: event.target.value }))}
@@ -187,6 +203,11 @@ const SettingsChangeRequestsPanel: React.FC = () => {
                 </div>
               );
             })}
+            {maxItems && requests.length > maxItems && (
+              <div className="rounded-lg border border-dashed px-3 py-2 text-center text-xs text-muted-foreground">
+                외 {requests.length - maxItems}건은 전체 검토에서 확인할 수 있습니다.
+              </div>
+            )}
           </div>
         )}
       </CardContent>

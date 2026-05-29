@@ -5,18 +5,19 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, FolderOpen, Loader2, PlusCircle } from 'lucide-react';
+import { Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, FolderOpen, Loader2, PlusCircle, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import ProjectStageSelect, { PROJECT_STAGES } from '@/components/ProjectStageSelect';
-import QuoteStatusSelect from '@/components/QuoteStatusSelect';
 import { getPaymentStatusInfo } from '@/components/project/PaymentStatusSelect';
 import { PageHeader, PageShell, SearchFilterBar } from '@/components/layout/PageLayout';
 import { formatQuoteProjectTitle } from '@/utils/quoteNaming';
 import { convertQuoteToProject } from '@/services/quoteProjectConversion';
-import { normalizeQuoteStatus, QUOTE_STATUSES, type QuoteStatusValue } from '@/utils/quoteStatus';
+import { secureRandomNumericString } from '@/utils/secureRandom';
+import { isQuoteExpired, normalizeProjectStage, projectStageToLegacyQuoteStatus } from '@/utils/quoteWorkflow';
+import { reissueSavedQuote } from '@/services/quoteReissue';
 
 interface LinkedProject {
   id: string;
@@ -29,6 +30,7 @@ interface SavedQuote {
   id: string;
   quote_number: string;
   quote_date: string;
+  quote_date_display?: string | null;
   project_name: string | null;
   recipient_name: string | null;
   recipient_company: string | null;
@@ -48,7 +50,11 @@ interface SavedQuote {
   issuer_name: string | null;
   issuer_phone: string | null;
   issuer_email: string | null;
+  issuer_department?: string | null;
+  issuer_position?: string | null;
   attachments: unknown;
+  calculation_snapshot?: unknown;
+  pricing_version_id?: string | null;
   desired_delivery_date?: string | null;
   quote_status?: string | null;
   assigned_to?: string | null;
@@ -57,12 +63,16 @@ interface SavedQuote {
   project_id?: string | null;
   linked_project?: LinkedProject | null;
   creator_name?: string | null;
+  auto_cancelled_at?: string | null;
+  auto_cancel_reason?: string | null;
+  reissued_from_quote_id?: string | null;
+  reissued_quote_id?: string | null;
+  reissued_at?: string | null;
 }
 
 interface UserProfile {
   id: string;
   full_name: string;
-  email: string;
 }
 
 type SortOption = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'number-desc' | 'number-asc';
@@ -80,9 +90,9 @@ const SavedQuotesPage = () => {
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [userFilter, setUserFilter] = useState<string>('all');
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [quoteStatusFilter, setQuoteStatusFilter] = useState<string>('all');
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [creatingProjectQuoteId, setCreatingProjectQuoteId] = useState<string | null>(null);
+  const [reissuingQuoteId, setReissuingQuoteId] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 50;
 
   const getQuoteTitle = (quote: SavedQuote): string => {
@@ -110,99 +120,6 @@ const SavedQuotesPage = () => {
     return `${year}.${month}.${day}`;
   };
 
-  // valid_until 문자열에서 마지막 날짜를 파싱하는 함수
-  const parseValidUntilDate = (validUntil: string | null): Date | null => {
-    if (!validUntil || validUntil.trim() === '') return null;
-    
-    // "2026. 2. 11. ~ 2026. 2. 25." 형식 → 마지막 날짜 추출
-    if (validUntil.includes('~')) {
-      const parts = validUntil.split('~');
-      const endPart = parts[parts.length - 1].trim();
-      const nums = endPart.match(/\d+/g);
-      if (nums && nums.length >= 3) {
-        return new Date(parseInt(nums[0]), parseInt(nums[1]) - 1, parseInt(nums[2]));
-      }
-    }
-    
-    // "2026년 02월 16일" 형식
-    const korMatch = validUntil.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
-    if (korMatch) {
-      return new Date(parseInt(korMatch[1]), parseInt(korMatch[2]) - 1, parseInt(korMatch[3]));
-    }
-    
-    // "2026. 2. 25." 형식 (단일)
-    const dotMatch = validUntil.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
-    if (dotMatch) {
-      return new Date(parseInt(dotMatch[1]), parseInt(dotMatch[2]) - 1, parseInt(dotMatch[3]));
-    }
-    
-    return null;
-  };
-
-  // 만료된 견적서 자동 상태 변경 + 만료 예정 알림
-  const autoExpireQuotes = async (quotesData: SavedQuote[]): Promise<number> => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const threeDaysLater = new Date(today);
-    threeDaysLater.setDate(threeDaysLater.getDate() + 3);
-    
-    const expiredIds = quotesData
-      .filter(q => {
-        if (normalizeQuoteStatus(q.quote_status, q.project_stage) !== 'sent') return false;
-        const expDate = parseValidUntilDate(q.valid_until);
-        if (!expDate) return false;
-        return expDate < today;
-      })
-      .map(q => q.id);
-
-    // 만료 예정 견적서 알림 (3일 이내)
-    const soonExpiring = quotesData.filter(q => {
-      if (normalizeQuoteStatus(q.quote_status, q.project_stage) !== 'sent') return false;
-      const expDate = parseValidUntilDate(q.valid_until);
-      if (!expDate) return false;
-      return expDate >= today && expDate <= threeDaysLater;
-    });
-
-    if (soonExpiring.length > 0 && user) {
-      // Check if we already sent notification today
-      const todayStr = today.toISOString().substring(0, 10);
-      const { data: existing } = await supabase
-        .from('notifications')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('type', 'quote_expiring')
-        .gte('created_at', todayStr)
-        .limit(1);
-
-      if (!existing || existing.length === 0) {
-        await supabase.from('notifications').insert({
-          user_id: user.id,
-          type: 'quote_expiring',
-          title: '견적서 만료 예정',
-          description: `${soonExpiring.length}건의 견적서가 3일 이내 만료 예정입니다.`,
-          data: { quote_ids: soonExpiring.map(q => q.id), count: soonExpiring.length },
-        });
-      }
-    }
-    
-    if (expiredIds.length === 0) return 0;
-
-    try {
-      const { error } = await supabase
-        .from('saved_quotes')
-        .update({ quote_status: 'cancelled', status_updated_at: new Date().toISOString() } as never)
-        .in('id', expiredIds);
-      
-      if (error) throw error;
-      
-      toast.info(`유효기간이 만료된 견적서 ${expiredIds.length}건이 취소 처리되었습니다.`);
-      return expiredIds.length;
-    } catch (error) {
-      console.error('Error auto-expiring quotes:', error);
-      return 0;
-    }
-  };
-
   useEffect(() => {
     if (isAdmin) {
       fetchUsers();
@@ -215,16 +132,15 @@ const SavedQuotesPage = () => {
 
   useEffect(() => {
     filterQuotes();
-  }, [searchTerm, dateFilter, quotes, sortBy, quoteStatusFilter, stageFilter]);
+  }, [searchTerm, dateFilter, quotes, sortBy, stageFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, dateFilter, quoteStatusFilter, stageFilter, userFilter]);
+  }, [searchTerm, dateFilter, stageFilter, userFilter]);
 
   const activeFilterCount = [
     searchTerm.trim() ? 'search' : null,
     dateFilter ? 'date' : null,
-    quoteStatusFilter !== 'all' ? 'quoteStatus' : null,
     stageFilter !== 'all' ? 'stage' : null,
     isAdmin && userFilter !== 'all' ? 'user' : null,
   ].filter(Boolean).length;
@@ -244,20 +160,28 @@ const SavedQuotesPage = () => {
   const resetFilters = () => {
     setSearchTerm('');
     setDateFilter('');
-    setQuoteStatusFilter('all');
     setStageFilter('all');
     if (isAdmin) setUserFilter('all');
+  };
+
+  const canReissueQuote = (quote: SavedQuote) => {
+    const stage = normalizeProjectStage(quote.project_stage, quote.quote_status);
+    const protectedStages = ['contracted', 'invoice_issued', 'in_progress', 'panel_ordered', 'manufacturing', 'completed'];
+    return isQuoteExpired(quote.valid_until)
+      && !quote.reissued_quote_id
+      && !quote.project_id
+      && !protectedStages.includes(stage);
   };
 
   const fetchUsers = async () => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
+        .from('profile_directory' as any)
+        .select('id, full_name')
         .order('full_name', { ascending: true });
 
       if (error) throw error;
-      setUsers(data || []);
+      setUsers(((data || []) as unknown) as UserProfile[]);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
@@ -317,8 +241,7 @@ const SavedQuotesPage = () => {
         const creatorIds = [...new Set(formattedData.map(q => q.user_id))];
         let creatorMap: Record<string, string> = {};
         if (creatorIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from('profile_directory' as any)
+          const { data: profiles } = await (supabase.from('profile_directory' as any) as any)
             .select('id, full_name')
             .in('id', creatorIds);
           if (profiles) {
@@ -330,22 +253,11 @@ const SavedQuotesPage = () => {
           ...q,
           linked_project: q.project_id ? projectMap[q.project_id] || null : null,
           creator_name: creatorMap[q.user_id] || null,
-          quote_status: normalizeQuoteStatus(q.quote_status, q.project_stage),
+          project_stage: normalizeProjectStage(q.project_stage, q.quote_status),
           assigned_to_name: q.assigned_to_name || q.issuer_name || creatorMap[q.user_id] || null,
         }));
         
-        // 만료된 견적서 자동 상태 변경 후 다시 로드
-        const expiredCount = await autoExpireQuotes(finalQuotes);
-        if (expiredCount) {
-          // 상태 변경이 있었으면 다시 fetch하지 않고 로컬에서 업데이트
-          setQuotes(finalQuotes.map(q => 
-            normalizeQuoteStatus(q.quote_status, q.project_stage) === 'sent' && parseValidUntilDate(q.valid_until) && parseValidUntilDate(q.valid_until)! < new Date(new Date().setHours(0,0,0,0))
-              ? { ...q, quote_status: 'cancelled' }
-              : q
-          ));
-        } else {
-          setQuotes(finalQuotes);
-        }
+        setQuotes(finalQuotes);
       } else {
         // Non-admin: show quotes where user is owner OR issuer
         const { count, error: countError } = await supabase
@@ -386,8 +298,7 @@ const SavedQuotesPage = () => {
         const creatorIds2 = [...new Set(formattedData.map(q => q.user_id))];
         let creatorMap2: Record<string, string> = {};
         if (creatorIds2.length > 0) {
-          const { data: profiles } = await supabase
-            .from('profile_directory' as any)
+          const { data: profiles } = await (supabase.from('profile_directory' as any) as any)
             .select('id, full_name')
             .in('id', creatorIds2);
           if (profiles) {
@@ -399,20 +310,11 @@ const SavedQuotesPage = () => {
           ...q,
           linked_project: q.project_id ? projectMap2[q.project_id] || null : null,
           creator_name: creatorMap2[q.user_id] || null,
-          quote_status: normalizeQuoteStatus(q.quote_status, q.project_stage),
+          project_stage: normalizeProjectStage(q.project_stage, q.quote_status),
           assigned_to_name: q.assigned_to_name || q.issuer_name || creatorMap2[q.user_id] || null,
         }));
         
-        const expiredCount2 = await autoExpireQuotes(finalQuotes2);
-        if (expiredCount2) {
-          setQuotes(finalQuotes2.map(q => 
-            normalizeQuoteStatus(q.quote_status, q.project_stage) === 'sent' && parseValidUntilDate(q.valid_until) && parseValidUntilDate(q.valid_until)! < new Date(new Date().setHours(0,0,0,0))
-              ? { ...q, quote_status: 'cancelled' }
-              : q
-          ));
-        } else {
-          setQuotes(finalQuotes2);
-        }
+        setQuotes(finalQuotes2);
       }
     } catch (error) {
       console.error('Error fetching quotes:', error);
@@ -442,12 +344,8 @@ const SavedQuotesPage = () => {
       );
     }
 
-    if (quoteStatusFilter !== 'all') {
-      filtered = filtered.filter(quote => normalizeQuoteStatus(quote.quote_status, quote.project_stage) === quoteStatusFilter);
-    }
-
     if (stageFilter !== 'all') {
-      filtered = filtered.filter(quote => quote.project_stage === stageFilter);
+      filtered = filtered.filter(quote => normalizeProjectStage(quote.project_stage, quote.quote_status) === stageFilter);
     }
 
     filtered.sort((a, b) => {
@@ -509,7 +407,7 @@ const SavedQuotesPage = () => {
     const day = String(now.getDate()).padStart(2, '0');
     const hour = String(now.getHours()).padStart(2, '0');
     const minute = String(now.getMinutes()).padStart(2, '0');
-    const sequence = String(Math.floor(Math.random() * 100) + 1).padStart(2, '0');
+    const sequence = secureRandomNumericString(0, 99, 2);
     return `${month}${day}${hour}${minute}${sequence}`;
   };
 
@@ -564,6 +462,7 @@ const SavedQuotesPage = () => {
         issuer_phone: originalQuote.issuer_phone,
         issuer_department: originalQuote.issuer_department,
         issuer_position: originalQuote.issuer_position,
+        project_stage: 'quote_issued',
         quote_status: 'sent',
         assigned_to: originalQuote.issuer_id || user.id,
         assigned_to_name: originalQuote.issuer_name || profile?.full_name || user.email,
@@ -607,7 +506,7 @@ const SavedQuotesPage = () => {
       const project = await convertQuoteToProject({
         quote: {
           ...quote,
-          quote_status: normalizeQuoteStatus(quote.quote_status, quote.project_stage),
+          project_stage: normalizeProjectStage(quote.project_stage, quote.quote_status),
         },
         actorId: user.id,
         actorName: profile?.full_name || user.email || '알 수 없음',
@@ -615,7 +514,7 @@ const SavedQuotesPage = () => {
 
       setQuotes((prev) => prev.map((item) => (
         item.id === quote.id
-          ? { ...item, project_id: project.id, quote_status: 'won', linked_project: project as LinkedProject }
+          ? { ...item, project_id: project.id, project_stage: 'contracted', quote_status: projectStageToLegacyQuoteStatus('contracted'), linked_project: project as LinkedProject }
           : item
       )));
 
@@ -626,6 +525,31 @@ const SavedQuotesPage = () => {
       toast.error('프로젝트 생성에 실패했습니다.');
     } finally {
       setCreatingProjectQuoteId(null);
+    }
+  };
+
+  const handleReissueQuote = async (quote: SavedQuote) => {
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    setReissuingQuoteId(quote.id);
+    try {
+      const newQuote = await reissueSavedQuote({
+        quoteId: quote.id,
+        actorId: user.id,
+        actorName: profile?.full_name || user.email || '알 수 없음',
+      });
+
+      toast.success(`견적서가 ${newQuote.quote_number}번으로 재발행되었습니다.`);
+      fetchQuotes();
+      navigate(`/saved-quotes/${newQuote.id}`);
+    } catch (error) {
+      console.error('Error reissuing quote:', error);
+      toast.error(error instanceof Error ? error.message : '견적서 재발행에 실패했습니다.');
+    } finally {
+      setReissuingQuoteId(null);
     }
   };
 
@@ -714,7 +638,7 @@ const SavedQuotesPage = () => {
                   <SelectItem value="all">전체 담당자</SelectItem>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
-                      {user.full_name} ({user.email})
+                      {user.full_name || user.id}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -748,28 +672,7 @@ const SavedQuotesPage = () => {
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">견적 상태</span>
-            <Badge
-              variant={quoteStatusFilter === 'all' ? 'default' : 'outline'}
-              className="cursor-pointer rounded-full px-2.5 text-xs"
-              onClick={() => setQuoteStatusFilter('all')}
-            >
-              전체
-            </Badge>
-            {QUOTE_STATUSES.map((status) => (
-              <Badge
-                key={status.value}
-                variant="outline"
-                className={`cursor-pointer rounded-full border px-2.5 text-xs ${quoteStatusFilter === status.value ? status.color : ''}`}
-                onClick={() => setQuoteStatusFilter(status.value)}
-              >
-                {status.label}
-              </Badge>
-            ))}
-          </div>
-
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">프로젝트 단계</span>
+            <span className="text-sm text-muted-foreground">상태/단계</span>
             <Badge
               variant={stageFilter === 'all' ? 'default' : 'outline'}
                 className="cursor-pointer rounded-full px-2.5 text-xs"
@@ -818,7 +721,7 @@ const SavedQuotesPage = () => {
                 <span>거래처</span>
                 <span>담당자</span>
                 <span className="text-right">금액</span>
-                <span className="text-right">견적 상태</span>
+                <span className="text-right">상태/단계</span>
               </div>
 
               <div className="divide-y divide-border/70">
@@ -827,6 +730,8 @@ const SavedQuotesPage = () => {
                     ? getPaymentStatusInfo(quote.linked_project.payment_status)
                     : null;
                   const quoteTitle = getQuoteTitle(quote);
+                  const expired = isQuoteExpired(quote.valid_until);
+                  const reissueCandidate = canReissueQuote(quote);
 
                   return (
                     <div
@@ -878,14 +783,15 @@ const SavedQuotesPage = () => {
                         </div>
 
                         <div className="flex justify-start lg:justify-end" onClick={(event) => event.stopPropagation()}>
-                          <QuoteStatusSelect
+                          <ProjectStageSelect
                             quoteId={quote.id}
-                            currentStatus={quote.quote_status}
-                            projectStage={quote.project_stage}
+                            currentStage={quote.project_stage || 'quote_issued'}
                             quoteNumber={quote.quote_number}
                             quoteUserId={quote.user_id}
-                            onStatusChanged={(newStatus: QuoteStatusValue) => {
-                              setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, quote_status: newStatus } : q));
+                            onStageChanged={(newStage) => {
+                              setQuotes(prev => prev.map(q => q.id === quote.id
+                                ? { ...q, project_stage: newStage, quote_status: projectStageToLegacyQuoteStatus(newStage) }
+                                : q));
                             }}
                           />
                         </div>
@@ -903,6 +809,21 @@ const SavedQuotesPage = () => {
                               <User className="h-3.5 w-3.5" />
                               {quote.recipient_name}
                             </span>
+                          )}
+                          {expired && (
+                            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-[10px] text-amber-700">
+                              유효기간 만료
+                            </Badge>
+                          )}
+                          {quote.reissued_quote_id && (
+                            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-[10px] text-slate-600">
+                              재발행됨
+                            </Badge>
+                          )}
+                          {quote.reissued_from_quote_id && (
+                            <Badge variant="outline" className="border-blue-200 bg-blue-50 text-[10px] text-blue-700">
+                              재발행본
+                            </Badge>
                           )}
                         </div>
 
@@ -949,15 +870,26 @@ const SavedQuotesPage = () => {
                               프로젝트 생성
                             </Button>
                           )}
-                          <ProjectStageSelect
-                            quoteId={quote.id}
-                            currentStage={quote.project_stage || 'quote_issued'}
-                            quoteNumber={quote.quote_number}
-                            quoteUserId={quote.user_id}
-                            onStageChanged={(newStage) => {
-                              setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, project_stage: newStage } : q));
-                            }}
-                          />
+                          {reissueCandidate && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 gap-1.5 px-2 text-xs text-blue-700"
+                              disabled={reissuingQuoteId === quote.id}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleReissueQuote(quote);
+                              }}
+                            >
+                              {reissuingQuoteId === quote.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              )}
+                              견적 재발행
+                            </Button>
+                          )}
                           <div className="flex items-center gap-1.5">
                             <Button
                               variant="outline"

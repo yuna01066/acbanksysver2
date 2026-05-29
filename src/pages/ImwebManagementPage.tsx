@@ -18,6 +18,9 @@ import {
   RefreshCw, Package, ShoppingCart, History,
   Search, Wifi, WifiOff, Edit2, Check, Link2, Unlink
 } from 'lucide-react';
+import { getSupabaseFunctionUrl } from '@/lib/supabaseFunctions';
+
+const IMWEB_API_URL = getSupabaseFunctionUrl('imweb-api');
 
 const ImwebManagementPage: React.FC = () => {
   const navigate = useNavigate();
@@ -53,7 +56,7 @@ const ImwebManagementPage: React.FC = () => {
     queryKey: ['imweb-connection'],
     queryFn: async () => {
       const res = await fetch(
-        `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/imweb-api?action=check-connection`,
+        `${IMWEB_API_URL}?action=check-connection`,
         {
           headers: {
             'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
@@ -74,7 +77,7 @@ const ImwebManagementPage: React.FC = () => {
     try {
       const session = (await supabase.auth.getSession()).data.session;
       const res = await fetch(
-        `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/imweb-api?action=get-auth-url`,
+        `${IMWEB_API_URL}?action=get-auth-url`,
         {
           method: 'POST',
           headers: {
@@ -113,7 +116,7 @@ const ImwebManagementPage: React.FC = () => {
     setConnectionStatus('testing');
     try {
       const res = await fetch(
-        `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/imweb-api?action=test`,
+        `${IMWEB_API_URL}?action=test`,
         {
           headers: {
             Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
@@ -140,7 +143,7 @@ const ImwebManagementPage: React.FC = () => {
     if (!session) throw new Error('로그인이 필요합니다');
 
     const res = await fetch(
-      `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/imweb-api?action=${action}`,
+      `${IMWEB_API_URL}?action=${action}`,
       {
         method: 'POST',
         headers: {

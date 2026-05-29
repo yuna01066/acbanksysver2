@@ -101,7 +101,7 @@ function getNotificationPath(notification: AppNotification): string {
   if (notification.type === 'system' && notification.data?.eventId) {
     return `/meeting-reservations?event=${notification.data.eventId}`;
   }
-  return notification.data?.announcementId ? `/announcements?focus=${notification.data.announcementId}` : '/announcements';
+  return '/';
 }
 
 function formatDueLabel(dateString: string | null): { label: string; tone: WorkItemTone } {
@@ -141,12 +141,11 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
     queryFn: async () => {
       let query = supabase
         .from('saved_quotes')
-        .select('id, quote_number, project_name, recipient_company, desired_delivery_date, project_stage, quote_status, user_id')
+        .select('id, quote_number, project_name, recipient_company, desired_delivery_date, project_stage, user_id')
         .gte('desired_delivery_date', todayString())
         .lte('desired_delivery_date', plusDaysString(7))
         .not('project_stage', 'eq', 'completed')
         .not('project_stage', 'eq', 'cancelled')
-        .not('quote_status', 'eq', 'cancelled')
         .order('desired_delivery_date', { ascending: true })
         .limit(8);
 
@@ -383,11 +382,7 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
           </ScrollArea>
         )}
 
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Button variant="outline" size="sm" className="justify-start gap-2" onClick={() => navigate('/announcements')}>
-            <Bell className="h-3.5 w-3.5" />
-            공지
-          </Button>
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Button variant="outline" size="sm" className="justify-start gap-2" onClick={() => navigate('/saved-quotes')}>
             <FileText className="h-3.5 w-3.5" />
             견적

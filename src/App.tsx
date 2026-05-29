@@ -36,7 +36,6 @@ const QuoteWizardPage = lazy(() => import("./pages/QuoteWizardPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 const MyPage = lazy(() => import("./pages/MyPage"));
 const UserStatisticsPage = lazy(() => import("./pages/UserStatisticsPage"));
-const AnnouncementsPage = lazy(() => import("./pages/AnnouncementsPage"));
 const RecipientManagementPage = lazy(() => import("./pages/RecipientManagementPage"));
 const AttendancePage = lazy(() => import("./pages/AttendancePage"));
 const EmployeeProfileManagementPage = lazy(() => import("./pages/EmployeeProfileManagementPage"));
@@ -59,6 +58,7 @@ const SampleChipInventoryPage = lazy(() => import("./pages/SampleChipInventoryPa
 const ImwebManagementPage = lazy(() => import("./pages/ImwebManagementPage"));
 const ExhibitionManagementPage = lazy(() => import("./pages/ExhibitionManagementPage"));
 const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
+const ReferencePage = lazy(() => import("./pages/ReferencePage"));
 const BusinessDashboardPage = lazy(() => import("./pages/BusinessDashboardPage"));
 const SpaceProjectFormPage = lazy(() => import("./pages/SpaceProjectFormPage"));
 const SpaceProjectsListPage = lazy(() => import("./pages/SpaceProjectsListPage"));
@@ -116,7 +116,6 @@ const App = () => (
               <Route path="/my-page" element={<MyPage />} />
               <Route path="/user-management" element={<Navigate to="/employee-profiles" replace />} />
               <Route path="/user-statistics" element={<S><UserStatisticsPage /></S>} />
-              <Route path="/announcements" element={<G><AnnouncementsPage /></G>} />
               <Route path="/recipients" element={<G><RecipientManagementPage /></G>} />
               <Route path="/recipient-management" element={<Navigate to="/recipients" replace />} />
               <Route path="/attendance" element={<G><AttendancePage /></G>} />
@@ -141,6 +140,7 @@ const App = () => (
               <Route path="/imweb-management" element={<G><ImwebManagementPage /></G>} />
               <Route path="/exhibition-management" element={<G><ExhibitionManagementPage /></G>} />
               <Route path="/portfolio" element={<G><PortfolioPage /></G>} />
+              <Route path="/references" element={<G><ReferencePage /></G>} />
               <Route path="/business-dashboard" element={<S><BusinessDashboardPage /></S>} />
               <Route path="/review-hub" element={<G><ReviewHubPage /></G>} />
               <Route path="/channel-talk-leads" element={<G><ChannelTalkLeadsPage /></G>} />

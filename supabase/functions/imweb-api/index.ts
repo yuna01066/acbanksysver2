@@ -10,6 +10,14 @@ const corsHeaders = {
 
 const IMWEB_API_BASE = "https://openapi.imweb.me";
 
+function getImwebClientId() {
+  return Deno.env.get("IMWEB_CLIENT_ID") || Deno.env.get("IMWEB_API_KEY") || "";
+}
+
+function getImwebClientSecret() {
+  return Deno.env.get("IMWEB_CLIENT_SECRET") || Deno.env.get("IMWEB_API_SECRET") || "";
+}
+
 // --- Helper: get service-role supabase client for token storage ---
 function getServiceClient() {
   return createClient(
@@ -49,9 +57,9 @@ async function getImwebToken(): Promise<string> {
 }
 
 async function refreshImwebToken(serviceClient: any, tokenId: string, refreshToken: string): Promise<string> {
-  const clientId = Deno.env.get("IMWEB_CLIENT_ID");
-  const clientSecret = Deno.env.get("IMWEB_CLIENT_SECRET");
-  if (!clientId || !clientSecret) throw new Error("IMWEB_CLIENT_ID or IMWEB_CLIENT_SECRET not configured");
+  const clientId = getImwebClientId();
+  const clientSecret = getImwebClientSecret();
+  if (!clientId || !clientSecret) throw new Error("IMWEB_CLIENT_ID/IMWEB_API_KEY or IMWEB_CLIENT_SECRET/IMWEB_API_SECRET not configured");
 
   const body = new URLSearchParams({
     clientId,
@@ -111,6 +119,240 @@ async function imwebPatch(token: string, path: string, body: Record<string, unkn
   return res.json();
 }
 
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function firstText(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return "";
+}
+
+function toNumber(value: unknown, fallback = 0) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/[^\d.-]/g, ""));
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function collectText(value: unknown, depth = 0): string[] {
+  if (depth > 3) return [];
+  if (typeof value === "string" || typeof value === "number") {
+    const text = String(value).trim();
+    return text ? [text] : [];
+  }
+  if (Array.isArray(value)) return value.flatMap((item) => collectText(item, depth + 1));
+  if (isRecord(value)) {
+    return Object.values(value).flatMap((item) => collectText(item, depth + 1));
+  }
+  return [];
+}
+
+function normalizeTextKey(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function appendStat(map: Map<string, { label: string; quantity: number; amount: number }>, label: string, quantity: number, amount = 0) {
+  const normalizedLabel = label.trim();
+  if (!normalizedLabel) return;
+  const key = normalizeTextKey(normalizedLabel);
+  const current = map.get(key) || { label: normalizedLabel, quantity: 0, amount: 0 };
+  current.quantity += quantity;
+  current.amount += amount;
+  map.set(key, current);
+}
+
+function topStats(map: Map<string, { label: string; quantity: number; amount: number }>, limit = 10) {
+  return [...map.values()]
+    .sort((a, b) => b.quantity - a.quantity || b.amount - a.amount || a.label.localeCompare(b.label))
+    .slice(0, limit)
+    .map((item) => ({
+      ...item,
+      quantity: Number(item.quantity.toFixed(2)),
+      amount: Math.round(item.amount),
+    }));
+}
+
+function extractOptionValue(item: JsonRecord, labels: string[]) {
+  const candidates = [
+    item.options,
+    item.option,
+    item.optionValues,
+    item.option_values,
+    item.selectedOptions,
+    item.selected_options,
+    item.prodOption,
+    item.prod_option,
+  ];
+
+  for (const candidate of candidates) {
+    const optionEntries = Array.isArray(candidate)
+      ? candidate.map((option) => ["", option] as const)
+      : isRecord(candidate)
+        ? Object.entries(candidate)
+        : [];
+    for (const [entryKey, option] of optionEntries) {
+      if (typeof option === "string" || typeof option === "number") {
+        const normalizedKey = entryKey.toLowerCase();
+        if (labels.some((label) => normalizedKey.includes(label))) return String(option).trim();
+        continue;
+      }
+      if (!isRecord(option)) continue;
+      const optionName = firstText(entryKey, option.name, option.label, option.key, option.optionName, option.option_name, option.title);
+      const optionValue = firstText(
+        option.value,
+        option.text,
+        option.content,
+        option.optionValue,
+        option.option_value,
+        option.valueName,
+        option.value_name,
+        option.label,
+      );
+      const normalizedName = optionName.toLowerCase();
+      if (optionValue && optionValue !== optionName && labels.some((label) => normalizedName.includes(label))) return optionValue;
+    }
+  }
+
+  return "";
+}
+
+function extractMaterial(item: JsonRecord, textBlob: string) {
+  const optionMaterial = extractOptionValue(item, ["소재", "재질", "material", "quality"]);
+  if (optionMaterial) return optionMaterial;
+
+  const materialPatterns: Array<[RegExp, string]> = [
+    [/(astel|아스텔)/i, "ASTEL"],
+    [/(satin|사틴)/i, "SATIN"],
+    [/(bright|브라이트)/i, "BRIGHT"],
+    [/(mirror|미러|거울)/i, "MIRROR"],
+    [/(clear|클리어|투명)/i, "CLEAR"],
+    [/(포맥스|폼보드|formax)/i, "포맥스"],
+    [/(pc|폴리카보네이트)/i, "PC"],
+    [/(pet|a-pet|apet)/i, "A-PET"],
+    [/(abs)/i, "ABS"],
+    [/(아크릴)/i, "아크릴"],
+  ];
+
+  for (const [pattern, label] of materialPatterns) {
+    if (pattern.test(textBlob)) return label;
+  }
+  return "미분류";
+}
+
+function extractColor(item: JsonRecord, textBlob: string) {
+  const optionColor = extractOptionValue(item, ["색상", "컬러", "color", "colour"]);
+  if (optionColor) return optionColor;
+
+  const acbankCode = textBlob.match(/\bAC[-\s]?[A-Z]{0,2}\d{2,4}\b/i);
+  if (acbankCode) return acbankCode[0].replace(/\s+/g, "-").toUpperCase();
+
+  const colorPatterns: Array<[RegExp, string]> = [
+    [/(clear|클리어|투명)/i, "투명"],
+    [/(white|화이트|백색|흰색)/i, "화이트"],
+    [/(black|블랙|검정|흑색)/i, "블랙"],
+    [/(red|레드|빨강|적색)/i, "레드"],
+    [/(blue|블루|파랑|청색)/i, "블루"],
+    [/(green|그린|초록|녹색)/i, "그린"],
+    [/(yellow|옐로우|노랑|황색)/i, "옐로우"],
+    [/(orange|오렌지|주황)/i, "오렌지"],
+    [/(purple|퍼플|보라)/i, "퍼플"],
+    [/(gray|grey|그레이|회색)/i, "그레이"],
+  ];
+
+  for (const [pattern, label] of colorPatterns) {
+    if (pattern.test(textBlob)) return label;
+  }
+  return "미분류";
+}
+
+function normalizeOrderItems(order: JsonRecord) {
+  const rawItems = asArray(order.items);
+  if (rawItems.length > 0) return rawItems;
+
+  const rawData = isRecord(order.raw_data) ? order.raw_data : {};
+  return asArray(rawData.items).length > 0
+    ? asArray(rawData.items)
+    : asArray(rawData.orderItems);
+}
+
+function orderIsCountable(status: unknown) {
+  const normalized = String(status || "").toLowerCase();
+  return !["cancel", "cancelled", "canceled", "refund", "refunded", "failed"].some((token) => normalized.includes(token));
+}
+
+async function getTopOrderItems(serviceClient: ReturnType<typeof createClient>, days: number) {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await serviceClient
+    .from("imweb_orders")
+    .select("order_date, order_status, items, synced_at")
+    .gte("order_date", since)
+    .order("order_date", { ascending: false })
+    .limit(500);
+
+  if (error) throw error;
+
+  const products = new Map<string, { label: string; quantity: number; amount: number }>();
+  const materials = new Map<string, { label: string; quantity: number; amount: number }>();
+  const colors = new Map<string, { label: string; quantity: number; amount: number }>();
+  let orderCount = 0;
+  let itemCount = 0;
+  let lastSyncedAt = "";
+
+  for (const order of (data || []) as JsonRecord[]) {
+    if (!orderIsCountable(order.order_status)) continue;
+    orderCount++;
+    if (typeof order.synced_at === "string" && (!lastSyncedAt || order.synced_at > lastSyncedAt)) {
+      lastSyncedAt = order.synced_at;
+    }
+
+    const items = normalizeOrderItems(order);
+    for (const rawItem of items) {
+      if (!isRecord(rawItem)) continue;
+
+      const productName = firstText(
+        rawItem.name,
+        rawItem.prodName,
+        rawItem.prod_name,
+        rawItem.productName,
+        rawItem.product_name,
+        rawItem.itemName,
+        rawItem.item_name,
+        isRecord(rawItem.product) ? rawItem.product.name : "",
+      ) || "상품명 미확인";
+      const quantity = Math.max(1, toNumber(rawItem.quantity ?? rawItem.qty ?? rawItem.count ?? rawItem.itemCount ?? rawItem.item_count, 1));
+      const amount = toNumber(rawItem.totalPrice ?? rawItem.total_price ?? rawItem.price ?? rawItem.salePrice ?? rawItem.sale_price, 0);
+      const textBlob = collectText(rawItem).join(" ");
+
+      appendStat(products, productName, quantity, amount);
+      appendStat(materials, extractMaterial(rawItem, textBlob), quantity, amount);
+      appendStat(colors, extractColor(rawItem, textBlob), quantity, amount);
+      itemCount += quantity;
+    }
+  }
+
+  return {
+    days,
+    orderCount,
+    itemCount,
+    lastSyncedAt: lastSyncedAt || null,
+    products: topStats(products, 10),
+    materials: topStats(materials, 10),
+    colors: topStats(colors, 10),
+  };
+}
+
 function safeAppRedirect(value: string | null): string {
   if (!value) return "/imweb-management";
   if (value.startsWith("/")) return value;
@@ -152,8 +394,8 @@ serve(async (req) => {
         return new Response("Missing authorization code", { status: 400, headers: corsHeaders });
       }
 
-      const clientId = Deno.env.get("IMWEB_CLIENT_ID");
-      const clientSecret = Deno.env.get("IMWEB_CLIENT_SECRET");
+      const clientId = getImwebClientId();
+      const clientSecret = getImwebClientSecret();
       const supabaseUrl = Deno.env.get("SUPABASE_URL");
       if (!clientId || !clientSecret) {
         return new Response("Missing client credentials", { status: 500, headers: corsHeaders });
@@ -216,12 +458,40 @@ serve(async (req) => {
       });
     }
 
+    // === Check connection status (no user auth needed) ===
+    if (action === "check-connection") {
+      const serviceClient = getServiceClient();
+      const { data: tokenRow } = await serviceClient
+        .from("imweb_oauth_tokens")
+        .select("id, scope, created_at, expires_at")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      return new Response(JSON.stringify({ connected: !!tokenRow, token: tokenRow ? { scope: tokenRow.scope, createdAt: tokenRow.created_at, expiresAt: tokenRow.expires_at } : null }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Aggregated dashboard data only. Requires login, but does not expose buyer/order PII.
+    if (action === "top-order-items") {
+      await requireFunctionAuth(req);
+      const daysParam = Number(url.searchParams.get("days") || "90");
+      const days = Number.isFinite(daysParam)
+        ? Math.min(Math.max(Math.round(daysParam), 7), 365)
+        : 90;
+      const result = await getTopOrderItems(getServiceClient(), days);
+      return new Response(JSON.stringify({ success: true, ...result }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const authContext = await requireFunctionAuth(req, { allowedRoles: ["admin", "moderator"] });
     const userId = authContext.user!.id;
 
     // === Generate OAuth authorize URL ===
     if (action === "get-auth-url") {
-      const clientId = Deno.env.get("IMWEB_CLIENT_ID");
+      const clientId = getImwebClientId();
       const siteCode = Deno.env.get("IMWEB_SITE_CODE");
       const supabaseUrl = Deno.env.get("SUPABASE_URL");
       if (!clientId || !siteCode) {
@@ -240,26 +510,10 @@ serve(async (req) => {
       const redirectUri = `${supabaseUrl}/functions/v1/imweb-api?action=oauth-callback`;
       const state = appOrigin ? `${appOrigin}/imweb-management` : "/imweb-management";
       const scope = "product:read product:write order:read";
-      const stateParam = crypto.randomUUID();
 
       const authUrl = `${IMWEB_API_BASE}/oauth2/authorize?responseType=code&clientId=${encodeURIComponent(clientId)}&redirectUri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}&siteCode=${encodeURIComponent(siteCode)}`;
 
       return new Response(JSON.stringify({ authUrl, redirectUri }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // === Check connection status (no user auth needed) ===
-    if (action === "check-connection") {
-      const serviceClient = getServiceClient();
-      const { data: tokenRow } = await serviceClient
-        .from("imweb_oauth_tokens")
-        .select("id, scope, created_at, expires_at")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      return new Response(JSON.stringify({ connected: !!tokenRow, token: tokenRow ? { scope: tokenRow.scope, createdAt: tokenRow.created_at, expiresAt: tokenRow.expires_at } : null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

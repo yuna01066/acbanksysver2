@@ -152,7 +152,7 @@ const ReviewCycleManager: React.FC = () => {
     setTargetSearch('');
 
     const [empRes, targetsRes] = await Promise.all([
-      supabase.from('profile_directory' as any).select('id, full_name, department, position, avatar_url').order('full_name'),
+      (supabase.from('profile_directory' as any) as any).select('id, full_name, department, position, avatar_url').order('full_name'),
       supabase.from('review_cycle_targets' as any).select('*').eq('cycle_id', cycle.id),
     ]);
 

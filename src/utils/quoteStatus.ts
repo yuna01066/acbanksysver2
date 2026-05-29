@@ -1,3 +1,5 @@
+import { projectStageToLegacyQuoteStatus } from '@/utils/quoteWorkflow';
+
 export const QUOTE_STATUSES = [
   {
     value: 'draft',
@@ -52,9 +54,9 @@ export function isQuoteStatus(value: unknown): value is QuoteStatusValue {
 }
 
 export function normalizeQuoteStatus(value: unknown, projectStage?: string | null): QuoteStatusValue {
+  if (projectStage) return projectStageToLegacyQuoteStatus(projectStage) as QuoteStatusValue;
   if (isQuoteStatus(value)) return value;
-  if (projectStage === 'cancelled') return 'cancelled';
-  return DEFAULT_QUOTE_STATUS;
+  return projectStageToLegacyQuoteStatus(projectStage) as QuoteStatusValue || DEFAULT_QUOTE_STATUS;
 }
 
 export function getQuoteStatusInfo(value: unknown, projectStage?: string | null) {

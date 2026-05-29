@@ -119,8 +119,7 @@ const OnlineEmployeesCard: React.FC = () => {
   }, []);
 
   const fetchCheckedInEmployees = async () => {
-    const { data: attendanceData, error: attError } = await supabase
-      .from('checked_in_employee_status' as any)
+    const { data: attendanceData, error: attError } = await (supabase.from('checked_in_employee_status' as any) as any)
       .select('user_id, user_name, check_in, avatar_url, department, position')
       .order('check_in', { ascending: true });
 
@@ -129,7 +128,7 @@ const OnlineEmployeesCard: React.FC = () => {
       return;
     }
 
-    const merged = (attendanceData as CheckedInEmployee[]).map(a => {
+    const merged = (attendanceData as unknown as CheckedInEmployee[]).map(a => {
       // Refresh cache-busting param to avoid stale cached images
       let avatarUrl = a.avatar_url || null;
       if (avatarUrl) {

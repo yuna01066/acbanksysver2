@@ -40,7 +40,8 @@ import { formatPricingVersionDisplayName } from "@/utils/pricingVersionDisplay";
 import { formatQuoteProjectTitle } from "@/utils/quoteNaming";
 import { convertQuoteToProject } from "@/services/quoteProjectConversion";
 import { logQuoteActivity } from "@/services/quoteActivity";
-import { normalizeQuoteStatus, type QuoteStatusValue } from "@/utils/quoteStatus";
+import { isQuoteExpired, normalizeProjectStage, projectStageToLegacyQuoteStatus } from "@/utils/quoteWorkflow";
+import { reissueSavedQuote } from "@/services/quoteReissue";
 import type { QuoteAssigneeOption } from "@/components/QuoteAssigneeSelect";
 
 interface SavedQuote {
@@ -58,6 +59,11 @@ interface SavedQuote {
   assigned_to?: string | null;
   assigned_to_name?: string | null;
   status_updated_at?: string | null;
+  auto_cancelled_at?: string | null;
+  auto_cancel_reason?: string | null;
+  reissued_from_quote_id?: string | null;
+  reissued_quote_id?: string | null;
+  reissued_at?: string | null;
   user_id: string;
   issuer_id?: string | null;
   recipient_name: string | null;
@@ -133,6 +139,7 @@ const SavedQuoteDetailPage = () => {
   const [linkedProject, setLinkedProject] = useState<{ id: string; name: string; payment_status: string | null } | null>(null);
   const [assigneeUsers, setAssigneeUsers] = useState<QuoteAssigneeOption[]>([]);
   const [convertingProject, setConvertingProject] = useState(false);
+  const [reissuingQuote, setReissuingQuote] = useState(false);
   const [quoteDefaults, setQuoteDefaults] = useState({
     quote_bank_info: '신한은행 140-014-544315 (주)아크뱅크',
     quote_notes: '- 견적서의 유효기간은 발행일로부터 14일 입니다.\n- 운송비 및 부가세는 별도 입니다.',
@@ -255,6 +262,7 @@ const SavedQuoteDetailPage = () => {
 
       const formattedData = {
         ...data,
+        project_stage: normalizeProjectStage(data.project_stage, data.quote_status),
         items: Array.isArray(data.items) ? data.items : []
       };
       
@@ -609,8 +617,13 @@ const SavedQuoteDetailPage = () => {
     setAttachments(newAttachments);
   };
 
-  const handleStatusChanged = (newStatus: QuoteStatusValue) => {
-    setQuote(prev => prev ? { ...prev, quote_status: newStatus, status_updated_at: new Date().toISOString() } as SavedQuote : prev);
+  const handleStageChanged = (newStage: string) => {
+    setQuote(prev => prev ? {
+      ...prev,
+      project_stage: newStage,
+      quote_status: projectStageToLegacyQuoteStatus(newStage),
+      status_updated_at: new Date().toISOString(),
+    } as SavedQuote : prev);
   };
 
   const handleAssigneeChanged = (assigneeId: string | null, assigneeName: string | null) => {
@@ -633,14 +646,19 @@ const SavedQuoteDetailPage = () => {
       const project = await convertQuoteToProject({
         quote: {
           ...quote,
-          quote_status: normalizeQuoteStatus(quote.quote_status, quote.project_stage),
+          project_stage: normalizeProjectStage(quote.project_stage, quote.quote_status),
         },
         actorId: user.id,
         actorName: profile?.full_name || user.email || '알 수 없음',
       });
 
       setLinkedProject(project);
-      setQuote(prev => prev ? { ...prev, project_id: project.id, quote_status: 'won' } as SavedQuote : prev);
+      setQuote(prev => prev ? {
+        ...prev,
+        project_id: project.id,
+        project_stage: 'contracted',
+        quote_status: projectStageToLegacyQuoteStatus('contracted'),
+      } as SavedQuote : prev);
       queryClient.invalidateQueries({ queryKey: ['quote-activity-history', quote.id] });
       toast.success('견적서 기준 프로젝트가 생성되었습니다.');
     } catch (error) {
@@ -648,6 +666,31 @@ const SavedQuoteDetailPage = () => {
       toast.error(error instanceof Error ? error.message : '프로젝트 전환에 실패했습니다.');
     } finally {
       setConvertingProject(false);
+    }
+  };
+
+  const handleReissueQuote = async () => {
+    if (!quote || !user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    setReissuingQuote(true);
+    try {
+      const newQuote = await reissueSavedQuote({
+        quoteId: quote.id,
+        actorId: user.id,
+        actorName: profile?.full_name || user.email || '알 수 없음',
+      });
+
+      toast.success(`견적서가 ${newQuote.quote_number}번으로 재발행되었습니다.`);
+      queryClient.invalidateQueries({ queryKey: ['quote-activity-history', quote.id] });
+      navigate(`/saved-quotes/${newQuote.id}`);
+    } catch (error) {
+      console.error('Error reissuing quote:', error);
+      toast.error(error instanceof Error ? error.message : '견적서 재발행에 실패했습니다.');
+    } finally {
+      setReissuingQuote(false);
     }
   };
 
@@ -718,6 +761,12 @@ const SavedQuoteDetailPage = () => {
     capturedAt: snapshotCapturedAt,
   });
   const snapshotItemsCount = items.filter((item: any) => item?.calculationSnapshot).length;
+  const quoteExpired = isQuoteExpired(quote.valid_until);
+  const protectedReissueStages = ['contracted', 'invoice_issued', 'in_progress', 'panel_ordered', 'manufacturing', 'completed'];
+  const canReissueQuote = quoteExpired
+    && !quote.reissued_quote_id
+    && !quote.project_id
+    && !protectedReissueStages.includes(normalizeProjectStage(quote.project_stage, quote.quote_status));
 
   return (
     <>
@@ -948,7 +997,6 @@ const SavedQuoteDetailPage = () => {
           <QuoteWorkflowPanel
             quoteId={quote.id}
             quoteNumber={quote.quote_number}
-            quoteStatus={quote.quote_status}
             projectStage={quote.project_stage}
             quoteUserId={quote.user_id}
             assignedTo={quote.assigned_to}
@@ -956,9 +1004,15 @@ const SavedQuoteDetailPage = () => {
             users={assigneeUsers}
             linkedProject={linkedProject}
             convertingProject={convertingProject}
-            onStatusChanged={handleStatusChanged}
+            isExpired={quoteExpired}
+            canReissue={canReissueQuote}
+            reissuingQuote={reissuingQuote}
+            reissuedQuoteId={quote.reissued_quote_id}
+            reissuedFromQuoteId={quote.reissued_from_quote_id}
+            onStageChanged={handleStageChanged}
             onAssigneeChanged={handleAssigneeChanged}
             onConvertProject={handleConvertProject}
+            onReissueQuote={handleReissueQuote}
           />
           {/* 원판 발주 */}
           {id && <QuoteMaterialOrders quoteId={id} />}

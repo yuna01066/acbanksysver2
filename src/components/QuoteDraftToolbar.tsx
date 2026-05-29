@@ -8,7 +8,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuotes } from '@/contexts/QuoteContext';
 import { archiveQuoteDraft, listQuoteDrafts, type QuoteDraftRecord } from '@/services/quoteDrafts';
-import { Archive, Copy, FileText, FolderOpen, Loader2, Plus, Save, X } from 'lucide-react';
+import { Archive, Copy, FileText, FolderOpen, List, Loader2, Plus, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const STATUS_LABELS = {
@@ -256,6 +256,10 @@ const QuoteDraftToolbar = () => {
             <Button size="sm" onClick={() => navigate('/quote-drafts')} className={actionButtonClassName}>
               <FolderOpen className="h-4 w-4 shrink-0" />
               초안함
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate('/saved-quotes')} className={actionButtonClassName}>
+              <List className="h-4 w-4 shrink-0" />
+              발행 견적서 목록
             </Button>
           </div>
         </div>

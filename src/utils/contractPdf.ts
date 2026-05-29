@@ -1,4 +1,5 @@
 import html2canvas from 'html2canvas';
+import { sanitizeHtml } from './sanitizeHtml';
 import { contractDocumentCss } from './contractRenderer';
 
 const A4_WIDTH_PT = 595.28;
@@ -96,7 +97,7 @@ export async function createContractPdfBlob(html: string) {
   container.style.left = '-10000px';
   container.style.top = '0';
   container.style.background = '#fff';
-  container.innerHTML = `<style>${contractDocumentCss()}</style>${html}`;
+  container.innerHTML = `<style>${contractDocumentCss()}</style>${sanitizeHtml(html)}`;
   document.body.appendChild(container);
 
   try {

@@ -16,7 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { getStageInfo } from '@/components/ProjectStageSelect';
-import { getQuoteStatusInfo } from '@/utils/quoteStatus';
 
 interface Props {
   quoteId: string;
@@ -34,7 +33,7 @@ interface ActivityEntry {
 }
 
 const ACTION_LABELS: Record<string, { label: string; Icon: React.ElementType }> = {
-  status_changed: { label: '견적 상태 변경', Icon: GitBranch },
+  status_changed: { label: '상태/단계 변경', Icon: GitBranch },
   legacy_stage_changed: { label: '프로젝트 단계 변경', Icon: GitBranch },
   assignee_changed: { label: '담당자 변경', Icon: UserCheck },
   quote_updated: { label: '견적 수정', Icon: PencilLine },
@@ -44,11 +43,13 @@ const ACTION_LABELS: Record<string, { label: string; Icon: React.ElementType }> 
   file_deleted: { label: '파일 삭제', Icon: Paperclip },
   project_converted: { label: '프로젝트 전환', Icon: FolderOpen },
   project_linked: { label: '프로젝트 연결', Icon: FolderOpen },
+  quote_reissued: { label: '견적 재발행', Icon: GitBranch },
+  created_from_reissue: { label: '재발행본 생성', Icon: GitBranch },
 };
 
 const formatValue = (actionType: string, value: string | null) => {
   if (!value) return '없음';
-  if (actionType === 'status_changed') return getQuoteStatusInfo(value).label;
+  if (actionType === 'status_changed') return getStageInfo(value).label;
   if (actionType === 'legacy_stage_changed') return getStageInfo(value).label;
   return value;
 };
@@ -62,6 +63,12 @@ const buildDescription = (entry: ActivityEntry) => {
   if (entry.action_type === 'file_uploaded') return `${entry.metadata?.fileName || '파일'} 업로드`;
   if (entry.action_type === 'file_deleted') return `${entry.metadata?.fileName || '파일'} 삭제`;
   if (entry.action_type === 'project_converted') return entry.metadata?.projectName || '프로젝트로 전환됨';
+  if (entry.action_type === 'quote_reissued') {
+    return `${entry.metadata?.originalQuoteNumber || entry.old_value || '원본'} -> ${entry.metadata?.reissuedQuoteNumber || entry.new_value || '재발행본'}`;
+  }
+  if (entry.action_type === 'created_from_reissue') {
+    return `${entry.metadata?.originalQuoteNumber || entry.old_value || '원본'}에서 재발행됨`;
+  }
 
   if (entry.old_value || entry.new_value) {
     return `${formatValue(entry.action_type, entry.old_value)} -> ${formatValue(entry.action_type, entry.new_value)}`;

@@ -125,12 +125,11 @@ const ReceivedFeedbackPanel: React.FC = () => {
       ...(sentRes.data || []).map(f => f.receiver_id),
     ])];
 
-    const { data: profiles } = await supabase
-      .from('profile_directory' as any)
+    const { data: profiles } = await (supabase.from('profile_directory' as any) as any)
       .select('id, full_name')
       .in('id', partnerIds.length > 0 ? partnerIds : ['none']);
 
-    const nameMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+    const nameMap = new Map<string, string>((profiles || []).map((p: any) => [p.id as string, (p.full_name || '') as string]));
 
     setReceived((receivedRes.data || []).map(f => ({ ...f, partner_name: nameMap.get(f.sender_id) || '알 수 없음' })));
     setSent((sentRes.data || []).map(f => ({ ...f, partner_name: nameMap.get(f.receiver_id) || '알 수 없음' })));

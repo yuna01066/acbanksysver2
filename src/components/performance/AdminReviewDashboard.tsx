@@ -111,7 +111,7 @@ const AdminReviewDashboard: React.FC = () => {
 
     // Fetch employees, reviews, scores, and existing summaries in parallel
     const [empRes, reviewsRes, summariesRes] = await Promise.all([
-      supabase.from('profile_directory' as any).select('id, full_name, department, position, avatar_url').order('full_name'),
+      (supabase.from('profile_directory' as any) as any).select('id, full_name, department, position, avatar_url').order('full_name'),
       supabase.from('performance_reviews').select('*').eq('cycle_id', selectedCycleId).eq('status', 'submitted'),
       supabase.from('performance_review_summaries').select('reviewee_id').eq('cycle_id', selectedCycleId),
     ]);

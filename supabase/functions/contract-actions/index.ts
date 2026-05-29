@@ -230,7 +230,9 @@ Deno.serve(async (req) => {
       }),
     ]);
 
-    const signedRenderedHtml = String(body.signedRenderedHtml || contract.rendered_html || '');
+    // Do not trust or persist caller-supplied HTML. The signed snapshot is based
+    // on the already-rendered contract record plus separately validated files.
+    const signedRenderedHtml = String(contract.rendered_html || '');
     if (!signedRenderedHtml.trim()) {
       return json({ error: '서명 완료 HTML 스냅샷이 필요합니다.' }, 400);
     }

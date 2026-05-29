@@ -154,8 +154,9 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
   
   const hasSeriesTabs = hasExplicitSeriesTabs(colorOptions);
   const referenceColors = colorOptions.filter(isWhiteOpacityReference);
-  const categoryAColors = colorOptions.filter(color => getColorSeriesTab(color) === 'A');
-  const categoryBColors = colorOptions.filter(color => getColorSeriesTab(color) === 'B');
+  const regularColors = colorOptions.filter(color => !isWhiteOpacityReference(color));
+  const categoryAColors = regularColors.filter(color => getColorSeriesTab(color) === 'A');
+  const categoryBColors = regularColors.filter(color => getColorSeriesTab(color) === 'B');
   const hasColorTabs = hasSeriesTabs || referenceColors.length > 0;
   const displayColors = hasColorTabs
     ? activeTab === 'reference'

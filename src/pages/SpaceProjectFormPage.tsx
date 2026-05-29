@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Trash2, ArrowLeft, Save, Upload, X, FileText, List } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
+import { secureRandomNumericString } from '@/utils/secureRandom';
 
 interface LineItem {
   id: string;
@@ -126,7 +127,7 @@ const SpaceProjectFormPage = () => {
       const d = new Date();
       const pad = (n: number) => String(n).padStart(2, '0');
       setQuoteNumber(
-        `SP-${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(Math.floor(Math.random() * 100))}`
+        `SP-${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${secureRandomNumericString(0, 99, 2)}`
       );
     }
   }, [quoteNumber, editId]);

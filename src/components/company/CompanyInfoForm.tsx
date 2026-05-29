@@ -4,15 +4,34 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Save, Loader2, Building2, MapPin, Navigation, Upload, Stamp } from 'lucide-react';
+import { Save, Loader2, Building2, MapPin, Navigation, Upload, Stamp, PenLine } from 'lucide-react';
 import { toast } from 'sonner';
 import { getDownloadUrl } from '@/services/documentFiles';
+import SignaturePad from '@/components/contract/SignaturePad';
+
+function dataUrlToBlob(dataUrl: string) {
+  const [meta, base64] = dataUrl.split(',');
+  const mime = meta.match(/data:(.*);base64/)?.[1] || 'image/png';
+  const binary = atob(base64 || '');
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+const isMissingCompanySealColumnError = (error: { code?: string; message?: string } | null) => {
+  if (!error) return false;
+  return (
+    error.code === 'PGRST204'
+    || error.message?.includes('company_seal_storage_path')
+  );
+};
 
 const CompanyInfoForm: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
   const [uploadingSeal, setUploadingSeal] = useState(false);
+  const [drawnSealDataUrl, setDrawnSealDataUrl] = useState<string | null>(null);
   const [sealPreviewUrl, setSealPreviewUrl] = useState<string | null>(null);
   const [id, setId] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -144,6 +163,30 @@ const CompanyInfoForm: React.FC = () => {
     }
   };
 
+  const handleSealSignatureRegister = async () => {
+    if (!drawnSealDataUrl) {
+      toast.error('등록할 회사 서명 또는 직인을 먼저 입력해주세요.');
+      return;
+    }
+
+    setUploadingSeal(true);
+    try {
+      const path = `company/seal-signature-${Date.now()}.png`;
+      const blob = dataUrlToBlob(drawnSealDataUrl);
+      const { error } = await supabase.storage
+        .from('employee-contracts')
+        .upload(path, blob, { upsert: true, contentType: 'image/png' });
+      if (error) throw error;
+      setForm(prev => ({ ...prev, company_seal_storage_path: path }));
+      setSealPreviewUrl(drawnSealDataUrl);
+      toast.success('회사 서명이 직인으로 등록되었습니다. 저장하기를 눌러 반영하세요.');
+    } catch (e: any) {
+      toast.error('회사 서명 등록 실패: ' + (e.message || ''));
+    } finally {
+      setUploadingSeal(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -166,19 +209,32 @@ const CompanyInfoForm: React.FC = () => {
         updated_at: new Date().toISOString(),
       };
 
-      if (id) {
+      const persistCompanyInfo = async (nextPayload: any) => {
+        if (id) {
+          const { error } = await supabase
+            .from('company_info')
+            .update(nextPayload)
+            .eq('id', id);
+          return error;
+        }
+
         const { error } = await supabase
           .from('company_info')
-          .update(payload)
-          .eq('id', id);
-        if (error) throw error;
+          .insert(nextPayload);
+        return error;
+      };
+
+      const error = await persistCompanyInfo(payload);
+
+      if (isMissingCompanySealColumnError(error)) {
+        const { company_seal_storage_path: _companySealStoragePath, ...fallbackPayload } = payload;
+        const fallbackError = await persistCompanyInfo(fallbackPayload);
+        if (fallbackError) throw fallbackError;
+        toast.warning('회사 정보는 저장했지만 DB에 직인 경로 컬럼이 없어 직인은 저장되지 않았습니다. Supabase migration 적용 후 다시 저장해주세요.');
       } else {
-        const { error } = await supabase
-          .from('company_info')
-          .insert(payload);
         if (error) throw error;
+        toast.success('회사 정보가 저장되었습니다');
       }
-      toast.success('회사 정보가 저장되었습니다');
       fetchInfo();
     } catch (e: any) {
       toast.error('저장 실패: ' + (e.message || ''));
@@ -295,6 +351,34 @@ const CompanyInfoForm: React.FC = () => {
                 <Upload className="h-3 w-3" />
                 투명 배경 PNG를 권장합니다.
               </p>
+            </div>
+          </div>
+          <div className="rounded-md border bg-muted/10 p-4">
+            <div className="mb-3 flex flex-col gap-1">
+              <Label className="text-sm font-medium">직접 그려 등록</Label>
+              <p className="text-xs text-muted-foreground">
+                직인 이미지가 없을 때 대표자 서명이나 간이 직인을 마우스·터치로 입력해 회사 직인으로 사용할 수 있습니다.
+              </p>
+            </div>
+            <SignaturePad onChange={setDrawnSealDataUrl} />
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex h-16 items-center justify-center rounded-md border bg-white px-4 sm:w-48">
+                {drawnSealDataUrl ? (
+                  <img src={drawnSealDataUrl} alt="직접 입력한 회사 서명 미리보기" className="max-h-12 max-w-full object-contain" />
+                ) : (
+                  <span className="text-xs text-muted-foreground">입력한 서명 미리보기</span>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-1.5"
+                onClick={handleSealSignatureRegister}
+                disabled={uploadingSeal || !drawnSealDataUrl}
+              >
+                {uploadingSeal ? <Loader2 className="h-4 w-4 animate-spin" /> : <PenLine className="h-4 w-4" />}
+                회사 직인으로 등록
+              </Button>
             </div>
           </div>
         </CardContent>

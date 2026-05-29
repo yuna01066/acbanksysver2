@@ -57,6 +57,38 @@ interface ImportItemForm {
   production_note: string;
 }
 
+type MaterialOrderColorOption = {
+  color_name: string;
+  quality: string;
+};
+
+const getPanelQualityFromOrderQuality = (quality: string) => {
+  const normalized = quality.toLowerCase().replace(/\s/g, '');
+
+  if (!normalized) return null;
+  if (normalized.includes('astelmirror') || normalized.includes('아스텔미러')) return 'astel-mirror';
+  if (normalized.includes('satinmirror') || normalized.includes('사틴미러')) return 'satin-mirror';
+  if (normalized.includes('mirror') || normalized.includes('미러')) return 'acrylic-mirror';
+  if (normalized.includes('bright') || normalized.includes('브라이트')) return 'bright-color';
+  if (normalized.includes('astel') || normalized.includes('아스텔')) return 'astel-color';
+  if (normalized.includes('satin') || normalized.includes('사틴')) return 'satin-color';
+  if (normalized.includes('clear') || normalized.includes('클리어') || normalized.includes('glossy')) return 'glossy-color';
+
+  return null;
+};
+
+const getColorOptionsForQuality = (
+  quality: string,
+  colorOptions: MaterialOrderColorOption[]
+) => {
+  const panelQuality = getPanelQualityFromOrderQuality(quality);
+  if (!panelQuality) return [];
+
+  return colorOptions
+    .filter(option => option.quality === panelQuality)
+    .map(option => option.color_name);
+};
+
 const MaterialOrdersPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, isModerator } = useAuth();
@@ -130,11 +162,17 @@ const MaterialOrdersPage: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('color_options')
-        .select('color_name')
+        .select('color_name, display_order, panel_masters!inner(quality)')
         .eq('is_active', true)
-        .order('color_name');
+        .neq('is_producible', false)
+        .order('display_order', { ascending: true });
       if (error) throw error;
-      return (data || []).map(c => c.color_name);
+      return (data || []).map((c: any) => ({
+        color_name: c.color_name,
+        quality: Array.isArray(c.panel_masters)
+          ? c.panel_masters[0]?.quality
+          : c.panel_masters?.quality,
+      })).filter((c: MaterialOrderColorOption) => c.color_name && c.quality);
     },
     enabled: !!user,
   });
@@ -397,8 +435,13 @@ const MaterialOrdersPage: React.FC = () => {
       let surfaceType = '';
       if (surfaceRaw.includes('양면')) surfaceType = '양면';
       else if (surfaceRaw.includes('단면')) surfaceType = '단면';
-      // Extract color code from quote data
-      const colorCode = item.selectedColor || item.colorType || '';
+      // Extract color code from quote data and keep it only when it matches the selected quality.
+      const rawColorCode = item.selectedColor || item.colorType || '';
+      const qualityColorOptions = getColorOptionsForQuality(item.quality, colorOptions);
+      const shouldValidateColorCode = !!getPanelQualityFromOrderQuality(item.quality) && qualityColorOptions.length > 0;
+      const colorCode = shouldValidateColorCode
+        ? (SPECIAL_COLOR_OPTIONS.includes(rawColorCode) || qualityColorOptions.includes(rawColorCode) ? rawColorCode : '')
+        : rawColorCode;
       // Extract base size name (e.g. "4*8" from "4*8 (1220×2420)")
       const rawSizeName = isProductManufacturing ? '' : (item.size_name || '');
       const baseSizeName = rawSizeName.replace(/\s*\(.*\)$/, '');
@@ -416,10 +459,21 @@ const MaterialOrdersPage: React.FC = () => {
         production_note: '',
       };
     }));
-  }, []);
+  }, [colorOptions]);
 
   const updateImportItem = (index: number, field: keyof ImportItemForm, value: string | number) => {
-    setImportItems(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
+    setImportItems(prev => prev.map((item, i) => {
+      if (i !== index) return item;
+      const updated = { ...item, [field]: value };
+
+      if (field === 'quality') {
+        const availableColors = getColorOptionsForQuality(String(value), colorOptions);
+        const keepsCurrentColor = SPECIAL_COLOR_OPTIONS.includes(item.color_code) || availableColors.includes(item.color_code);
+        if (!keepsCurrentColor) updated.color_code = '';
+      }
+
+      return updated;
+    }));
   };
 
   const addManualImportItem = () => {
@@ -874,8 +928,21 @@ const MaterialOrdersPage: React.FC = () => {
                                 {SPECIAL_COLOR_OPTIONS.map(s => (
                                   <SelectItem key={s} value={s} className="font-medium">{s}</SelectItem>
                                 ))}
-                                <div className="h-px bg-border my-1" />
-                                {colorOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                {(() => {
+                                  const qualityColorOptions = getColorOptionsForQuality(item.quality, colorOptions);
+                                  return (
+                                    <>
+                                      <div className="h-px bg-border my-1" />
+                                      {qualityColorOptions.length > 0 ? (
+                                        qualityColorOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)
+                                      ) : (
+                                        <div className="px-2 py-2 text-xs text-muted-foreground">
+                                          품질을 먼저 선택해주세요
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </SelectContent>
                             </Select>
                           </div>

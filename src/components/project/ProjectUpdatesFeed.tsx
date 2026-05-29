@@ -141,8 +141,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId, projectName }) => {
   const { data: allEmployees = [] } = useQuery({
     queryKey: ['employees-for-mention'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('profile_directory' as any)
+      const { data } = await (supabase.from('profile_directory' as any) as any)
         .select('id, full_name, department, avatar_url')
         .order('full_name');
       return (data || []) as { id: string; full_name: string; department: string | null; avatar_url: string | null }[];

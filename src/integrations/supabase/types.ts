@@ -247,6 +247,255 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_event_participants: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          event_id: string
+          id: string
+          response_status: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          event_id: string
+          id?: string
+          response_status?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          event_id?: string
+          id?: string
+          response_status?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_participants_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_event_resources: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          resource_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          resource_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          resource_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_resources_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_event_resources_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_events: {
+        Row: {
+          accent: string | null
+          all_day: boolean
+          client_contact: string | null
+          client_name: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string
+          description: string | null
+          ends_at: string
+          icon_type: string | null
+          id: string
+          location: string | null
+          metadata: Json
+          recipient_id: string | null
+          source_id: string | null
+          source_path: string | null
+          source_subtype: string
+          source_type: string
+          starts_at: string
+          status: string
+          team_department: string | null
+          title: string
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          accent?: string | null
+          all_day?: boolean
+          client_contact?: string | null
+          client_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string
+          description?: string | null
+          ends_at: string
+          icon_type?: string | null
+          id?: string
+          location?: string | null
+          metadata?: Json
+          recipient_id?: string | null
+          source_id?: string | null
+          source_path?: string | null
+          source_subtype?: string
+          source_type?: string
+          starts_at: string
+          status?: string
+          team_department?: string | null
+          title: string
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          accent?: string | null
+          all_day?: boolean
+          client_contact?: string | null
+          client_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string
+          description?: string | null
+          ends_at?: string
+          icon_type?: string | null
+          id?: string
+          location?: string | null
+          metadata?: Json
+          recipient_id?: string | null
+          source_id?: string | null
+          source_path?: string | null
+          source_subtype?: string
+          source_type?: string
+          starts_at?: string
+          status?: string
+          team_department?: string | null
+          title?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_resources: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          floor: string | null
+          id: string
+          is_active: boolean
+          name: string
+          resource_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          floor?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          resource_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          floor?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          resource_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      calendar_subscriptions: {
+        Row: {
+          color: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          is_visible: boolean
+          subscriber_id: string
+          target_department: string | null
+          target_resource_id: string | null
+          target_type: string
+          target_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_visible?: boolean
+          subscriber_id: string
+          target_department?: string | null
+          target_resource_id?: string | null
+          target_type: string
+          target_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_visible?: boolean
+          subscriber_id?: string
+          target_department?: string | null
+          target_resource_id?: string | null
+          target_type?: string
+          target_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_subscriptions_target_resource_id_fkey"
+            columns: ["target_resource_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       category_logic_slots: {
         Row: {
           category: string
@@ -349,13 +598,6 @@ export type Database = {
             foreignKeyName: "channel_talk_quote_leads_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
-            referencedRelation: "profile_directory"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "channel_talk_quote_leads_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -374,6 +616,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      checked_in_employee_status: {
+        Row: {
+          avatar_url: string | null
+          check_in: string | null
+          date: string
+          department: string | null
+          position: string | null
+          status: string
+          synced_at: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          check_in?: string | null
+          date: string
+          department?: string | null
+          position?: string | null
+          status: string
+          synced_at?: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          avatar_url?: string | null
+          check_in?: string | null
+          date?: string
+          department?: string | null
+          position?: string | null
+          status?: string
+          synced_at?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
       }
       color_mixing_costs: {
         Row: {
@@ -592,6 +870,144 @@ export type Database = {
           workplace_lat?: number | null
           workplace_lng?: number | null
           workplace_radius?: number | null
+        }
+        Relationships: []
+      }
+      company_public_info: {
+        Row: {
+          address: string | null
+          business_number: string | null
+          business_type: string | null
+          ceo_name: string | null
+          company_name: string | null
+          detail_address: string | null
+          email: string | null
+          established_date: string | null
+          fax: string | null
+          id: string
+          industry: string | null
+          logo_url: string | null
+          phone: string | null
+          quote_consultation: string | null
+          quote_contact_email: string | null
+          quote_contact_message: string | null
+          quote_contact_phone: string | null
+          quote_notes: string | null
+          synced_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          business_number?: string | null
+          business_type?: string | null
+          ceo_name?: string | null
+          company_name?: string | null
+          detail_address?: string | null
+          email?: string | null
+          established_date?: string | null
+          fax?: string | null
+          id: string
+          industry?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          quote_consultation?: string | null
+          quote_contact_email?: string | null
+          quote_contact_message?: string | null
+          quote_contact_phone?: string | null
+          quote_notes?: string | null
+          synced_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          business_number?: string | null
+          business_type?: string | null
+          ceo_name?: string | null
+          company_name?: string | null
+          detail_address?: string | null
+          email?: string | null
+          established_date?: string | null
+          fax?: string | null
+          id?: string
+          industry?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          quote_consultation?: string | null
+          quote_contact_email?: string | null
+          quote_contact_message?: string | null
+          quote_contact_phone?: string | null
+          quote_notes?: string | null
+          synced_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      company_quote_defaults: {
+        Row: {
+          address: string | null
+          business_number: string | null
+          business_type: string | null
+          ceo_name: string | null
+          company_name: string | null
+          detail_address: string | null
+          email: string | null
+          fax: string | null
+          id: string
+          industry: string | null
+          logo_url: string | null
+          phone: string | null
+          quote_bank_info: string | null
+          quote_consultation: string | null
+          quote_contact_email: string | null
+          quote_contact_message: string | null
+          quote_contact_phone: string | null
+          quote_notes: string | null
+          synced_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          business_number?: string | null
+          business_type?: string | null
+          ceo_name?: string | null
+          company_name?: string | null
+          detail_address?: string | null
+          email?: string | null
+          fax?: string | null
+          id: string
+          industry?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          quote_bank_info?: string | null
+          quote_consultation?: string | null
+          quote_contact_email?: string | null
+          quote_contact_message?: string | null
+          quote_contact_phone?: string | null
+          quote_notes?: string | null
+          synced_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          business_number?: string | null
+          business_type?: string | null
+          ceo_name?: string | null
+          company_name?: string | null
+          detail_address?: string | null
+          email?: string | null
+          fax?: string | null
+          id?: string
+          industry?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          quote_bank_info?: string | null
+          quote_consultation?: string | null
+          quote_contact_email?: string | null
+          quote_contact_message?: string | null
+          quote_contact_phone?: string | null
+          quote_notes?: string | null
+          synced_at?: string
+          website?: string | null
         }
         Relationships: []
       }
@@ -1525,6 +1941,100 @@ export type Database = {
           },
         ]
       }
+      kakao_chatbot_audit_logs: {
+        Row: {
+          action: string
+          actor_profile_id: string | null
+          command_text: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          kakao_user_id: string | null
+          metadata: Json
+          new_value: string | null
+          old_value: string | null
+          result: string
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          action: string
+          actor_profile_id?: string | null
+          command_text?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          kakao_user_id?: string | null
+          metadata?: Json
+          new_value?: string | null
+          old_value?: string | null
+          result?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          action?: string
+          actor_profile_id?: string | null
+          command_text?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          kakao_user_id?: string | null
+          metadata?: Json
+          new_value?: string | null
+          old_value?: string | null
+          result?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kakao_chatbot_audit_logs_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kakao_chatbot_users: {
+        Row: {
+          allowed_actions: string[]
+          created_at: string
+          display_name: string | null
+          is_active: boolean
+          kakao_user_id: string
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_actions?: string[]
+          created_at?: string
+          display_name?: string | null
+          is_active?: boolean
+          kakao_user_id: string
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_actions?: string[]
+          created_at?: string
+          display_name?: string | null
+          is_active?: boolean
+          kakao_user_id?: string
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kakao_chatbot_users_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       labor_law_settings: {
         Row: {
           created_at: string | null
@@ -1840,6 +2350,7 @@ export type Database = {
       meeting_reservations: {
         Row: {
           audience_type: string
+          calendar_event_id: string | null
           client_contact: string | null
           client_meeting_type: string | null
           client_name: string | null
@@ -1863,6 +2374,7 @@ export type Database = {
         }
         Insert: {
           audience_type: string
+          calendar_event_id?: string | null
           client_contact?: string | null
           client_meeting_type?: string | null
           client_name?: string | null
@@ -1886,6 +2398,7 @@ export type Database = {
         }
         Update: {
           audience_type?: string
+          calendar_event_id?: string | null
           client_contact?: string | null
           client_meeting_type?: string | null
           client_name?: string | null
@@ -2494,78 +3007,162 @@ export type Database = {
           },
         ]
       }
+      portfolio_collection_items: {
+        Row: {
+          collection_id: string
+          created_at: string
+          display_order: number
+          id: string
+          post_id: string
+        }
+        Insert: {
+          collection_id: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          post_id: string
+        }
+        Update: {
+          collection_id?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_collection_items_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_collection_items_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolio_collections: {
+        Row: {
+          collection_type: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          collection_type?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          collection_type?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       portfolio_images: {
         Row: {
           access_level: string
+          caption: string | null
           created_at: string
           delete_error: string | null
           delete_status: string
           display_order: number
+          dominant_color: string | null
           drive_file_id: string
           drive_folder_id: string | null
           drive_path: string | null
           file_name: string
           file_size: number | null
+          height: number | null
           id: string
           image_url: string | null
           is_main: boolean
           mime_type: string | null
           post_id: string
           storage_provider: string
+          taken_at: string | null
           thumbnail_bucket: string | null
           thumbnail_height: number | null
           thumbnail_path: string | null
           thumbnail_url: string | null
           thumbnail_width: number | null
           uploaded_by: string | null
+          width: number | null
         }
         Insert: {
           access_level?: string
+          caption?: string | null
           created_at?: string
           delete_error?: string | null
           delete_status?: string
           display_order?: number
+          dominant_color?: string | null
           drive_file_id: string
           drive_folder_id?: string | null
           drive_path?: string | null
           file_name: string
           file_size?: number | null
+          height?: number | null
           id?: string
           image_url?: string | null
           is_main?: boolean
           mime_type?: string | null
           post_id: string
           storage_provider?: string
+          taken_at?: string | null
           thumbnail_bucket?: string | null
           thumbnail_height?: number | null
           thumbnail_path?: string | null
           thumbnail_url?: string | null
           thumbnail_width?: number | null
           uploaded_by?: string | null
+          width?: number | null
         }
         Update: {
           access_level?: string
+          caption?: string | null
           created_at?: string
           delete_error?: string | null
           delete_status?: string
           display_order?: number
+          dominant_color?: string | null
           drive_file_id?: string
           drive_folder_id?: string | null
           drive_path?: string | null
           file_name?: string
           file_size?: number | null
+          height?: number | null
           id?: string
           image_url?: string | null
           is_main?: boolean
           mime_type?: string | null
           post_id?: string
           storage_provider?: string
+          taken_at?: string | null
           thumbnail_bucket?: string | null
           thumbnail_height?: number | null
           thumbnail_path?: string | null
           thumbnail_url?: string | null
           thumbnail_width?: number | null
           uploaded_by?: string | null
+          width?: number | null
         }
         Relationships: [
           {
@@ -2579,30 +3176,71 @@ export type Database = {
       }
       portfolio_posts: {
         Row: {
+          archived_at: string | null
+          category: string | null
+          client_name: string | null
+          cover_image_id: string | null
           created_at: string
           created_by: string
+          gallery_type: string
           id: string
           keywords: string[] | null
+          location: string | null
+          materials: string[] | null
+          memo: string | null
+          processes: string[] | null
+          project_year: number | null
           title: string
           updated_at: string
+          visibility: string | null
         }
         Insert: {
+          archived_at?: string | null
+          category?: string | null
+          client_name?: string | null
+          cover_image_id?: string | null
           created_at?: string
           created_by: string
+          gallery_type?: string
           id?: string
           keywords?: string[] | null
+          location?: string | null
+          materials?: string[] | null
+          memo?: string | null
+          processes?: string[] | null
+          project_year?: number | null
           title: string
           updated_at?: string
+          visibility?: string | null
         }
         Update: {
+          archived_at?: string | null
+          category?: string | null
+          client_name?: string | null
+          cover_image_id?: string | null
           created_at?: string
           created_by?: string
+          gallery_type?: string
           id?: string
           keywords?: string[] | null
+          location?: string | null
+          materials?: string[] | null
+          memo?: string | null
+          processes?: string[] | null
+          project_year?: number | null
           title?: string
           updated_at?: string
+          visibility?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_posts_cover_image_id_fkey"
+            columns: ["cover_image_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_images"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       processing_categories: {
         Row: {
@@ -2709,6 +3347,42 @@ export type Database = {
           requires_review?: boolean
           unit?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      profile_directory: {
+        Row: {
+          avatar_url: string | null
+          department: string | null
+          full_name: string | null
+          id: string
+          is_approved: boolean
+          job_title: string | null
+          position: string | null
+          rank_title: string | null
+          synced_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          department?: string | null
+          full_name?: string | null
+          id: string
+          is_approved?: boolean
+          job_title?: string | null
+          position?: string | null
+          rank_title?: string | null
+          synced_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          department?: string | null
+          full_name?: string | null
+          id?: string
+          is_approved?: boolean
+          job_title?: string | null
+          position?: string | null
+          rank_title?: string | null
+          synced_at?: string
         }
         Relationships: []
       }
@@ -3253,6 +3927,189 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      quote_status_recovery_backup_20260529: {
+        Row: {
+          assigned_to: string | null
+          assigned_to_name: string | null
+          attachments: Json | null
+          auto_cancel_reason: string | null
+          auto_cancelled_at: string | null
+          calculation_snapshot: Json | null
+          created_at: string | null
+          custom_color_name: string | null
+          custom_opacity: string | null
+          delivery_period: string | null
+          desired_delivery_date: string | null
+          drive_folder_id: string | null
+          drive_folder_path: string | null
+          drive_pdf_file_id: string | null
+          id: string | null
+          issuer_department: string | null
+          issuer_email: string | null
+          issuer_id: string | null
+          issuer_name: string | null
+          issuer_phone: string | null
+          issuer_position: string | null
+          items: Json | null
+          payment_condition: string | null
+          pricing_version_id: string | null
+          project_id: string | null
+          project_name: string | null
+          project_stage: string | null
+          quote_date: string | null
+          quote_date_display: string | null
+          quote_number: string | null
+          quote_status: string | null
+          recipient_address: string | null
+          recipient_company: string | null
+          recipient_email: string | null
+          recipient_memo: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
+          reissued_at: string | null
+          reissued_from_quote_id: string | null
+          reissued_quote_id: string | null
+          status_updated_at: string | null
+          subtotal: number | null
+          tax: number | null
+          total: number | null
+          updated_at: string | null
+          user_id: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          assigned_to_name?: string | null
+          attachments?: Json | null
+          auto_cancel_reason?: string | null
+          auto_cancelled_at?: string | null
+          calculation_snapshot?: Json | null
+          created_at?: string | null
+          custom_color_name?: string | null
+          custom_opacity?: string | null
+          delivery_period?: string | null
+          desired_delivery_date?: string | null
+          drive_folder_id?: string | null
+          drive_folder_path?: string | null
+          drive_pdf_file_id?: string | null
+          id?: string | null
+          issuer_department?: string | null
+          issuer_email?: string | null
+          issuer_id?: string | null
+          issuer_name?: string | null
+          issuer_phone?: string | null
+          issuer_position?: string | null
+          items?: Json | null
+          payment_condition?: string | null
+          pricing_version_id?: string | null
+          project_id?: string | null
+          project_name?: string | null
+          project_stage?: string | null
+          quote_date?: string | null
+          quote_date_display?: string | null
+          quote_number?: string | null
+          quote_status?: string | null
+          recipient_address?: string | null
+          recipient_company?: string | null
+          recipient_email?: string | null
+          recipient_memo?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          reissued_at?: string | null
+          reissued_from_quote_id?: string | null
+          reissued_quote_id?: string | null
+          status_updated_at?: string | null
+          subtotal?: number | null
+          tax?: number | null
+          total?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          assigned_to_name?: string | null
+          attachments?: Json | null
+          auto_cancel_reason?: string | null
+          auto_cancelled_at?: string | null
+          calculation_snapshot?: Json | null
+          created_at?: string | null
+          custom_color_name?: string | null
+          custom_opacity?: string | null
+          delivery_period?: string | null
+          desired_delivery_date?: string | null
+          drive_folder_id?: string | null
+          drive_folder_path?: string | null
+          drive_pdf_file_id?: string | null
+          id?: string | null
+          issuer_department?: string | null
+          issuer_email?: string | null
+          issuer_id?: string | null
+          issuer_name?: string | null
+          issuer_phone?: string | null
+          issuer_position?: string | null
+          items?: Json | null
+          payment_condition?: string | null
+          pricing_version_id?: string | null
+          project_id?: string | null
+          project_name?: string | null
+          project_stage?: string | null
+          quote_date?: string | null
+          quote_date_display?: string | null
+          quote_number?: string | null
+          quote_status?: string | null
+          recipient_address?: string | null
+          recipient_company?: string | null
+          recipient_email?: string | null
+          recipient_memo?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          reissued_at?: string | null
+          reissued_from_quote_id?: string | null
+          reissued_quote_id?: string | null
+          status_updated_at?: string | null
+          subtotal?: number | null
+          tax?: number | null
+          total?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      quote_status_recovery_review_20260529: {
+        Row: {
+          created_at: string
+          current_project_stage: string | null
+          current_quote_status: string | null
+          project_id: string | null
+          quote_id: string
+          quote_number: string | null
+          reason: string | null
+          suggested_project_stage: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_project_stage?: string | null
+          current_quote_status?: string | null
+          project_id?: string | null
+          quote_id: string
+          quote_number?: string | null
+          reason?: string | null
+          suggested_project_stage?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_project_stage?: string | null
+          current_quote_status?: string | null
+          project_id?: string | null
+          quote_id?: string
+          quote_number?: string | null
+          reason?: string | null
+          suggested_project_stage?: string | null
+        }
+        Relationships: []
       }
       quote_template_items: {
         Row: {
@@ -4035,6 +4892,8 @@ export type Database = {
           assigned_to: string | null
           assigned_to_name: string | null
           attachments: Json | null
+          auto_cancel_reason: string | null
+          auto_cancelled_at: string | null
           calculation_snapshot: Json
           created_at: string
           custom_color_name: string | null
@@ -4067,6 +4926,9 @@ export type Database = {
           recipient_memo: string | null
           recipient_name: string | null
           recipient_phone: string | null
+          reissued_at: string | null
+          reissued_from_quote_id: string | null
+          reissued_quote_id: string | null
           status_updated_at: string
           subtotal: number
           tax: number
@@ -4079,6 +4941,8 @@ export type Database = {
           assigned_to?: string | null
           assigned_to_name?: string | null
           attachments?: Json | null
+          auto_cancel_reason?: string | null
+          auto_cancelled_at?: string | null
           calculation_snapshot?: Json
           created_at?: string
           custom_color_name?: string | null
@@ -4111,6 +4975,9 @@ export type Database = {
           recipient_memo?: string | null
           recipient_name?: string | null
           recipient_phone?: string | null
+          reissued_at?: string | null
+          reissued_from_quote_id?: string | null
+          reissued_quote_id?: string | null
           status_updated_at?: string
           subtotal: number
           tax: number
@@ -4123,6 +4990,8 @@ export type Database = {
           assigned_to?: string | null
           assigned_to_name?: string | null
           attachments?: Json | null
+          auto_cancel_reason?: string | null
+          auto_cancelled_at?: string | null
           calculation_snapshot?: Json
           created_at?: string
           custom_color_name?: string | null
@@ -4155,6 +5024,9 @@ export type Database = {
           recipient_memo?: string | null
           recipient_name?: string | null
           recipient_phone?: string | null
+          reissued_at?: string | null
+          reissued_from_quote_id?: string | null
+          reissued_quote_id?: string | null
           status_updated_at?: string
           subtotal?: number
           tax?: number
@@ -4164,13 +5036,6 @@ export type Database = {
           valid_until?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "saved_quotes_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "profile_directory"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "saved_quotes_assigned_to_fkey"
             columns: ["assigned_to"]
@@ -4190,6 +5055,20 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_quotes_reissued_from_quote_id_fkey"
+            columns: ["reissued_from_quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_quotes_reissued_quote_id_fkey"
+            columns: ["reissued_quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
             referencedColumns: ["id"]
           },
         ]
@@ -4326,21 +5205,7 @@ export type Database = {
             foreignKeyName: "settings_change_requests_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
-            referencedRelation: "profile_directory"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "settings_change_requests_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "settings_change_requests_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "profile_directory"
             referencedColumns: ["id"]
           },
           {
@@ -5088,184 +5953,7 @@ export type Database = {
       }
     }
     Views: {
-      checked_in_employee_status: {
-        Row: {
-          avatar_url: string | null
-          check_in: string | null
-          date: string | null
-          department: string | null
-          position: string | null
-          status: string | null
-          user_id: string | null
-          user_name: string | null
-        }
-        Relationships: []
-      }
-      company_public_info: {
-        Row: {
-          address: string | null
-          business_number: string | null
-          business_type: string | null
-          ceo_name: string | null
-          company_name: string | null
-          detail_address: string | null
-          email: string | null
-          established_date: string | null
-          fax: string | null
-          id: string | null
-          industry: string | null
-          logo_url: string | null
-          phone: string | null
-          quote_consultation: string | null
-          quote_contact_email: string | null
-          quote_contact_message: string | null
-          quote_contact_phone: string | null
-          quote_notes: string | null
-          website: string | null
-        }
-        Insert: {
-          address?: string | null
-          business_number?: string | null
-          business_type?: string | null
-          ceo_name?: string | null
-          company_name?: string | null
-          detail_address?: string | null
-          email?: string | null
-          established_date?: string | null
-          fax?: string | null
-          id?: string | null
-          industry?: string | null
-          logo_url?: string | null
-          phone?: string | null
-          quote_consultation?: string | null
-          quote_contact_email?: string | null
-          quote_contact_message?: string | null
-          quote_contact_phone?: string | null
-          quote_notes?: string | null
-          website?: string | null
-        }
-        Update: {
-          address?: string | null
-          business_number?: string | null
-          business_type?: string | null
-          ceo_name?: string | null
-          company_name?: string | null
-          detail_address?: string | null
-          email?: string | null
-          established_date?: string | null
-          fax?: string | null
-          id?: string | null
-          industry?: string | null
-          logo_url?: string | null
-          phone?: string | null
-          quote_consultation?: string | null
-          quote_contact_email?: string | null
-          quote_contact_message?: string | null
-          quote_contact_phone?: string | null
-          quote_notes?: string | null
-          website?: string | null
-        }
-        Relationships: []
-      }
-      company_quote_defaults: {
-        Row: {
-          address: string | null
-          business_number: string | null
-          business_type: string | null
-          ceo_name: string | null
-          company_name: string | null
-          detail_address: string | null
-          email: string | null
-          fax: string | null
-          id: string | null
-          industry: string | null
-          logo_url: string | null
-          phone: string | null
-          quote_bank_info: string | null
-          quote_consultation: string | null
-          quote_contact_email: string | null
-          quote_contact_message: string | null
-          quote_contact_phone: string | null
-          quote_notes: string | null
-          website: string | null
-        }
-        Insert: {
-          address?: string | null
-          business_number?: string | null
-          business_type?: string | null
-          ceo_name?: string | null
-          company_name?: string | null
-          detail_address?: string | null
-          email?: string | null
-          fax?: string | null
-          id?: string | null
-          industry?: string | null
-          logo_url?: string | null
-          phone?: string | null
-          quote_bank_info?: string | null
-          quote_consultation?: string | null
-          quote_contact_email?: string | null
-          quote_contact_message?: string | null
-          quote_contact_phone?: string | null
-          quote_notes?: string | null
-          website?: string | null
-        }
-        Update: {
-          address?: string | null
-          business_number?: string | null
-          business_type?: string | null
-          ceo_name?: string | null
-          company_name?: string | null
-          detail_address?: string | null
-          email?: string | null
-          fax?: string | null
-          id?: string | null
-          industry?: string | null
-          logo_url?: string | null
-          phone?: string | null
-          quote_bank_info?: string | null
-          quote_consultation?: string | null
-          quote_contact_email?: string | null
-          quote_contact_message?: string | null
-          quote_contact_phone?: string | null
-          quote_notes?: string | null
-          website?: string | null
-        }
-        Relationships: []
-      }
-      profile_directory: {
-        Row: {
-          avatar_url: string | null
-          department: string | null
-          full_name: string | null
-          id: string | null
-          is_approved: boolean | null
-          job_title: string | null
-          position: string | null
-          rank_title: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          department?: string | null
-          full_name?: string | null
-          id?: string | null
-          is_approved?: boolean | null
-          job_title?: string | null
-          position?: string | null
-          rank_title?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          department?: string | null
-          full_name?: string | null
-          id?: string | null
-          is_approved?: boolean | null
-          job_title?: string | null
-          position?: string | null
-          rank_title?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       apply_supported_settings_change: {
@@ -5276,6 +5964,72 @@ export type Database = {
       }
       approve_settings_change_request: {
         Args: { _request_id: string; _review_note?: string }
+        Returns: string
+      }
+      calendar_day_end_at: { Args: { _date: string }; Returns: string }
+      calendar_day_start_at: { Args: { _date: string }; Returns: string }
+      calendar_meeting_start_at: {
+        Args: { _date: string; _time: string }
+        Returns: string
+      }
+      calendar_replace_event_participants: {
+        Args: {
+          _assignee_ids?: string[]
+          _attendee_ids?: string[]
+          _event_id: string
+          _organizer_id?: string
+        }
+        Returns: undefined
+      }
+      calendar_sync_announcement_event: {
+        Args: { _announcement_id: string }
+        Returns: undefined
+      }
+      calendar_sync_company_holiday: {
+        Args: { _holiday_id: string }
+        Returns: undefined
+      }
+      calendar_sync_leave_request: {
+        Args: { _leave_id: string }
+        Returns: undefined
+      }
+      calendar_sync_peer_meeting: {
+        Args: { _feedback_id: string }
+        Returns: undefined
+      }
+      calendar_sync_project: {
+        Args: { _project_id: string }
+        Returns: undefined
+      }
+      calendar_sync_saved_quote: {
+        Args: { _quote_id: string }
+        Returns: undefined
+      }
+      calendar_try_date: { Args: { _value: string }; Returns: string }
+      calendar_upsert_source_event: {
+        Args: {
+          _accent: string
+          _all_day: boolean
+          _client_contact: string
+          _client_name: string
+          _created_by: string
+          _created_by_name: string
+          _description: string
+          _ends_at: string
+          _icon_type: string
+          _location: string
+          _metadata?: Json
+          _recipient_id: string
+          _source_id: string
+          _source_path: string
+          _source_subtype: string
+          _source_type: string
+          _starts_at: string
+          _status: string
+          _team_department: string
+          _title: string
+          _visibility: string
+        }
         Returns: string
       }
       can_access_feature: { Args: { _feature_key: string }; Returns: boolean }
@@ -5295,6 +6049,76 @@ export type Database = {
         }[]
       }
       cleanup_expired_quote_wizard_rows: { Args: never; Returns: number }
+      create_calendar_event: { Args: { payload: Json }; Returns: string }
+      get_calendar_dashboard_summary: {
+        Args: { range_end: string; range_start: string; scope?: string }
+        Returns: Json
+      }
+      get_calendar_events: {
+        Args: { filters?: Json; range_end: string; range_start: string }
+        Returns: {
+          accent: string
+          all_day: boolean
+          can_edit: boolean
+          client_contact: string
+          client_name: string
+          created_by: string
+          created_by_name: string
+          description: string
+          ends_at: string
+          icon_type: string
+          id: string
+          is_redacted: boolean
+          location: string
+          metadata: Json
+          participant_ids: string[]
+          participant_names: string[]
+          resource_ids: string[]
+          resource_names: string[]
+          source_id: string
+          source_path: string
+          source_subtype: string
+          source_type: string
+          starts_at: string
+          status: string
+          team_department: string
+          title: string
+          visibility: string
+        }[]
+      }
+      get_portfolio_post_main_images: {
+        Args: { p_post_ids: string[] }
+        Returns: {
+          access_level: string
+          caption: string
+          created_at: string
+          delete_error: string
+          delete_status: string
+          display_order: number
+          dominant_color: string
+          drive_file_id: string
+          drive_folder_id: string
+          drive_path: string
+          file_name: string
+          file_size: number
+          height: number
+          id: string
+          image_count: number
+          image_url: string
+          is_main: boolean
+          mime_type: string
+          post_id: string
+          storage_provider: string
+          taken_at: string
+          thumbnail_bucket: string
+          thumbnail_height: number
+          thumbnail_path: string
+          thumbnail_url: string
+          thumbnail_width: number
+          uploaded_by: string
+          width: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -5319,20 +6143,34 @@ export type Database = {
         Args: {
           p_category_keywords?: string[]
           p_exact_keyword?: string
+          p_gallery_type?: string
           p_limit?: number
           p_offset?: number
           p_search_text?: string
         }
         Returns: {
+          archived_at: string
+          category: string
+          client_name: string
+          cover_image_id: string
           created_at: string
           created_by: string
+          gallery_type: string
           id: string
+          image_count: number
           keywords: string[]
+          location: string
+          materials: string[]
+          memo: string
+          processes: string[]
+          project_year: number
           title: string
           total_count: number
           updated_at: string
+          visibility: string
         }[]
       }
+      update_calendar_event: { Args: { payload: Json }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "user" | "moderator" | "manager" | "employee"

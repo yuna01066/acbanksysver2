@@ -92,7 +92,6 @@ type ProjectOption = {
 type ProfileOption = {
   id: string;
   full_name: string | null;
-  email: string | null;
 };
 
 const STATUS_CONFIG: Record<LeadStatus, { label: string; className: string }> = {
@@ -241,12 +240,11 @@ const ChannelTalkLeadsPage = () => {
     queryKey: ['channel-talk-leads-profile-options'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .eq('is_approved', true)
+        .from('profile_directory' as any)
+        .select('id, full_name')
         .order('full_name');
       if (error) throw error;
-      return (data || []) as ProfileOption[];
+      return ((data || []) as unknown) as ProfileOption[];
     },
     enabled: !!user && canReview,
   });
@@ -584,7 +582,7 @@ const ChannelTalkLeadsPage = () => {
                               <SelectContent>
                                 <SelectItem value="none">미지정</SelectItem>
                                 {profiles.map((p) => (
-                                  <SelectItem key={p.id} value={p.id}>{p.full_name || p.email || p.id}</SelectItem>
+                                  <SelectItem key={p.id} value={p.id}>{p.full_name || p.id}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>

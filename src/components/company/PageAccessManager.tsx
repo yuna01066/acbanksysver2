@@ -24,13 +24,13 @@ const MANAGED_PAGES: PageDef[] = [
   { key: '/attendance', label: '근태 관리', description: '출퇴근 기록 관리' },
   { key: '/leave-management', label: '연차·휴가 관리', description: '연차 및 휴가 신청/관리' },
   { key: '/performance-review', label: '업무평가', description: '업무평가 작성 및 조회' },
-  { key: '/announcements', label: '공지사항', description: '회사 공지사항 관리' },
   { key: '/team-chat', label: '팀 채팅', description: '사내 메신저 및 팀 채팅' },
   { key: '/material-orders', label: '자재 발주', description: '자재 발주 요청 및 관리' },
   { key: '/tax-invoices', label: '세금계산서', description: '세금계산서 발행 및 조회' },
   { key: '/imweb-management', label: '아임웹 관리', description: '아임웹 연동 주문/상품 관리' },
   { key: '/exhibition-management', label: '전시회 관리', description: '전시회 일정 및 상담 관리' },
   { key: '/portfolio', label: '포트폴리오', description: '인테리어 및 제작가공 사진 포트폴리오' },
+  { key: '/references', label: '레퍼런스', description: '상담용 레퍼런스 이미지 및 메모' },
   { key: '/business-dashboard', label: '경영 대시보드', description: '매출 및 경영 현황 대시보드' },
 ];
 

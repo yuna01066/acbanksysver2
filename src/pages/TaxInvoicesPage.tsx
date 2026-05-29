@@ -73,8 +73,8 @@ const TaxInvoicesPage: React.FC = () => {
   const { data: companyInfo } = useQuery({
     queryKey: ['company-info-tax'],
     queryFn: async () => {
-      const { data } = await supabase.from('company_public_info' as any).select('*').limit(1).single();
-      return data;
+      const { data } = await (supabase.from('company_public_info' as any) as any).select('*').limit(1).single();
+      return data as any;
     },
   });
 
