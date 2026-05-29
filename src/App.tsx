@@ -11,6 +11,7 @@ import PageAccessGuard from "@/components/PageAccessGuard";
 import CompanySettingsGuard from "@/components/company/CompanySettingsGuard";
 import GlobalQuickNav from "@/components/GlobalQuickNav";
 import FloatingResponseAssistant from "@/components/FloatingResponseAssistant";
+import EmployeeOnlineHeartbeat from "@/components/EmployeeOnlineHeartbeat";
 
 // 즉시 로드 (항상 필요)
 import Index from "./pages/Index";
@@ -91,6 +92,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <QuoteProvider>
+            <EmployeeOnlineHeartbeat />
             <GlobalQuickNav />
             <FloatingResponseAssistant />
             <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>

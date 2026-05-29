@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { triggerHamzzi } from '@/lib/hamzziEvents';
 import AttendanceEditDialog from '@/components/attendance/AttendanceEditDialog';
 import AttendanceCalendarView from '@/components/attendance/AttendanceCalendarView';
+import LocationConfirmDialog from '@/components/attendance/LocationConfirmDialog';
 import ScrollTimePicker from '@/components/ui/scroll-time-picker';
 import AttendanceDashboard from '@/components/attendance/AttendanceDashboard';
 import OvertimeDetectionPanel from '@/components/attendance/OvertimeDetectionPanel';
@@ -44,6 +45,9 @@ const LEAVE_STATUS = {
   rejected: { label: '거부', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
+type AttendanceAction = 'check_in' | 'check_out';
+type AttendanceLocation = { lat: number; lng: number } | null;
+
 const AttendancePage = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, isModerator, loading: authLoading } = useAuth();
@@ -63,6 +67,9 @@ const AttendancePage = () => {
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
   const [manualForm, setManualForm] = useState({ userId: '', userName: '', date: '', checkIn: '09:00', checkOut: '18:00', status: 'checked_out', memo: '' });
   const [manualSaving, setManualSaving] = useState(false);
+  const [locationDialogOpen, setLocationDialogOpen] = useState(false);
+  const [pendingAttendanceAction, setPendingAttendanceAction] = useState<AttendanceAction | null>(null);
+  const [pendingLocation, setPendingLocation] = useState<AttendanceLocation>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -150,14 +157,31 @@ const AttendancePage = () => {
     });
   };
 
+  const isOutsideWorkplace = async (location: AttendanceLocation): Promise<boolean> => {
+    if (!location) return false;
+
+    const { data, error } = await supabase.rpc('check_workplace_distance' as any, {
+      input_lat: location.lat,
+      input_lng: location.lng,
+    } as any);
+
+    if (error) {
+      console.warn('Workplace distance check failed:', error);
+      return false;
+    }
+
+    const result = Array.isArray(data) ? data[0] : data;
+    return Boolean(result?.outside);
+  };
+
   const checkInMutation = useMutation({
-    mutationFn: async () => {
-      const location = await getLocation();
+    mutationFn: async ({ location, locationMemo }: { location: AttendanceLocation; locationMemo?: string | null }) => {
       const { error } = await supabase.from('attendance_records').insert({
         user_id: user!.id,
         user_name: profile?.full_name || user!.email || '',
         check_in: new Date().toISOString(),
         check_in_location: location,
+        location_memo: locationMemo || null,
         date: today,
         status: 'checked_in',
       });
@@ -168,20 +192,26 @@ const AttendancePage = () => {
       triggerHamzzi('attendance_check_in');
       queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
       queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+      queryClient.invalidateQueries({ queryKey: ['employee-online-status'] });
     },
     onError: (err: any) => toast.error('출근 기록 실패: ' + err.message),
   });
 
   const checkOutMutation = useMutation({
-    mutationFn: async () => {
-      const location = await getLocation();
+    mutationFn: async ({ location, locationMemo }: { location: AttendanceLocation; locationMemo?: string | null }) => {
+      const updateData: any = {
+        check_out: new Date().toISOString(),
+        check_out_location: location,
+        status: 'checked_out',
+      };
+
+      if (locationMemo) {
+        updateData.location_memo = (todayRecord?.location_memo ? `${todayRecord.location_memo} | ` : '') + `퇴근: ${locationMemo}`;
+      }
+
       const { error } = await supabase
         .from('attendance_records')
-        .update({
-          check_out: new Date().toISOString(),
-          check_out_location: location,
-          status: 'checked_out',
-        })
+        .update(updateData)
         .eq('id', todayRecord!.id);
       if (error) throw error;
     },
@@ -190,9 +220,44 @@ const AttendancePage = () => {
       triggerHamzzi('attendance_check_out');
       queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
       queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+      queryClient.invalidateQueries({ queryKey: ['employee-online-status'] });
     },
     onError: (err: any) => toast.error('퇴근 기록 실패: ' + err.message),
   });
+
+  const handleAttendanceAction = async (action: AttendanceAction) => {
+    const location = await getLocation();
+    if (await isOutsideWorkplace(location)) {
+      setPendingAttendanceAction(action);
+      setPendingLocation(location);
+      setLocationDialogOpen(true);
+      return;
+    }
+
+    if (action === 'check_in') {
+      checkInMutation.mutate({ location, locationMemo: null });
+    } else {
+      checkOutMutation.mutate({ location, locationMemo: null });
+    }
+  };
+
+  const handleLocationConfirm = (memo: string) => {
+    setLocationDialogOpen(false);
+    if (pendingAttendanceAction === 'check_in') {
+      checkInMutation.mutate({ location: pendingLocation, locationMemo: memo });
+    } else if (pendingAttendanceAction === 'check_out') {
+      checkOutMutation.mutate({ location: pendingLocation, locationMemo: memo });
+    }
+    setPendingAttendanceAction(null);
+    setPendingLocation(null);
+  };
+
+  const handleLocationCancel = () => {
+    setLocationDialogOpen(false);
+    setPendingAttendanceAction(null);
+    setPendingLocation(null);
+    toast.info('출퇴근 등록이 취소되었습니다.');
+  };
 
   const submitLeaveMutation = useMutation({
     mutationFn: async () => {
@@ -398,13 +463,13 @@ const AttendancePage = () => {
                 </div>
                 <div className="flex gap-2">
                   {!todayRecord && (
-                    <Button onClick={() => checkInMutation.mutate()} disabled={checkInMutation.isPending || gettingLocation} className="gap-2">
+                    <Button onClick={() => handleAttendanceAction('check_in')} disabled={checkInMutation.isPending || gettingLocation} className="gap-2">
                       {(checkInMutation.isPending || gettingLocation) ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
                       출근하기
                     </Button>
                   )}
                   {isCheckedIn && (
-                    <Button onClick={() => checkOutMutation.mutate()} disabled={checkOutMutation.isPending || gettingLocation} variant="destructive" className="gap-2">
+                    <Button onClick={() => handleAttendanceAction('check_out')} disabled={checkOutMutation.isPending || gettingLocation} variant="destructive" className="gap-2">
                       {(checkOutMutation.isPending || gettingLocation) ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
                       퇴근하기
                     </Button>
@@ -875,6 +940,13 @@ const AttendancePage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <LocationConfirmDialog
+        open={locationDialogOpen}
+        actionType={pendingAttendanceAction || 'check_in'}
+        onConfirm={handleLocationConfirm}
+        onCancel={handleLocationCancel}
+      />
 
       <AttendanceEditDialog
         record={editRecord}

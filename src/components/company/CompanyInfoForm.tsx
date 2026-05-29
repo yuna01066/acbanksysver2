@@ -48,7 +48,7 @@ const CompanyInfoForm: React.FC = () => {
     business_type: '',
     workplace_lat: '',
     workplace_lng: '',
-    workplace_radius: '500',
+    workplace_radius: '800',
     company_seal_storage_path: '',
   });
 
@@ -79,7 +79,7 @@ const CompanyInfoForm: React.FC = () => {
         business_type: data.business_type || '',
         workplace_lat: (data as any).workplace_lat?.toString() || '',
         workplace_lng: (data as any).workplace_lng?.toString() || '',
-        workplace_radius: (data as any).workplace_radius?.toString() || '500',
+        workplace_radius: (data as any).workplace_radius?.toString() || '800',
         company_seal_storage_path: (data as any).company_seal_storage_path || '',
       });
     }
@@ -204,7 +204,7 @@ const CompanyInfoForm: React.FC = () => {
         business_type: form.business_type,
         workplace_lat: form.workplace_lat ? parseFloat(form.workplace_lat) : null,
         workplace_lng: form.workplace_lng ? parseFloat(form.workplace_lng) : null,
-        workplace_radius: form.workplace_radius ? parseFloat(form.workplace_radius) : 500,
+        workplace_radius: form.workplace_radius ? parseFloat(form.workplace_radius) : 800,
         company_seal_storage_path: form.company_seal_storage_path || null,
         updated_at: new Date().toISOString(),
       };
@@ -417,7 +417,7 @@ const CompanyInfoForm: React.FC = () => {
                 type="number"
                 value={form.workplace_radius}
                 onChange={(e) => setForm(prev => ({ ...prev, workplace_radius: e.target.value }))}
-                placeholder="500"
+                placeholder="800"
               />
             </div>
           </div>
