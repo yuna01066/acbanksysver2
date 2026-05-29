@@ -62,6 +62,7 @@ import {
   getCalendarEventAccent,
   getCalendarEventIconType,
   getCalendarSourceFilter,
+  shouldShowUnspecifiedCalendarTime,
   type CalendarIconType,
   type CalendarResource,
   type CalendarSourceFilter,
@@ -95,7 +96,7 @@ function formatDateLabel(date: Date) {
 }
 
 function formatEventTime(event: InternalCalendarEvent) {
-  if (event.all_day) return '종일';
+  if (event.all_day) return shouldShowUnspecifiedCalendarTime(event) ? '시간 미지정' : '종일';
   const start = new Date(event.starts_at);
   const end = new Date(event.ends_at);
   return `${format(start, 'HH:mm')} - ${format(end, 'HH:mm')}`;
@@ -111,6 +112,18 @@ function getCalendarIcon(event: InternalCalendarEvent) {
   return CALENDAR_ICON_MAP[getCalendarEventIconType(event)] || CalendarCheck2;
 }
 
+function isHolidayEvent(event: InternalCalendarEvent) {
+  return event.source_type === 'holiday' || event.icon_type === 'holiday';
+}
+
+function isCompanyWideManualEvent(event: InternalCalendarEvent) {
+  const calendarKind = event.metadata?.calendar_kind;
+  return calendarKind === 'holiday'
+    || calendarKind === 'event'
+    || event.icon_type === 'holiday'
+    || event.icon_type === 'event';
+}
+
 function buildCalendarKeys({
   event,
   userId,
@@ -124,6 +137,7 @@ function buildCalendarKeys({
   if (event.created_by) keys.add(`user:${event.created_by}`);
   event.resource_ids.forEach((resourceId) => keys.add(`resource:${resourceId}`));
   if (['holiday', 'birthday', 'announcement_event', 'notion'].includes(event.source_type)) keys.add('company');
+  if (isCompanyWideManualEvent(event)) keys.add('company');
   return keys;
 }
 
@@ -140,7 +154,7 @@ const CalendarPage = () => {
   const [sourceFilters, setSourceFilters] = useState<Set<CalendarSourceFilter>>(() => new Set(DEFAULT_SOURCE_FILTERS));
   const [initializedCalendars, setInitializedCalendars] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<'employee' | 'client' | 'room' | 'manual'>('employee');
+  const [dialogMode, setDialogMode] = useState<'employee' | 'client' | 'room' | 'manual' | 'event' | 'holiday'>('manual');
   const [dialogDate, setDialogDate] = useState(() => new Date());
   const [editingEvent, setEditingEvent] = useState<InternalCalendarEvent | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<InternalCalendarEvent | null>(null);
@@ -281,7 +295,7 @@ const CalendarPage = () => {
     return true;
   };
 
-  const openNewEvent = (mode: 'employee' | 'client' | 'room' | 'manual', date = selectedDate) => {
+  const openNewEvent = (mode: 'employee' | 'client' | 'room' | 'manual' | 'event' | 'holiday', date = selectedDate) => {
     setDialogMode(mode);
     setEditingEvent(null);
     setSelectedDate(date);
@@ -454,7 +468,7 @@ const CalendarPage = () => {
                 ))}
               </div>
             )}
-            <Button className="h-9 rounded-full bg-[#111111] px-4 text-white hover:bg-[#39393b]" onClick={() => openNewEvent('employee')}>
+            <Button className="h-9 rounded-full bg-[#111111] px-4 text-white hover:bg-[#39393b]" onClick={() => openNewEvent('manual')}>
               <Plus className="mr-2 h-4 w-4" />
               일정 등록
             </Button>
@@ -465,7 +479,7 @@ const CalendarPage = () => {
       <section className="grid gap-3 sm:grid-cols-4">
         {[
           { label: '오늘 일정', value: todayEvents.length, action: () => setViewMode('day') },
-          { label: '다음 일정', value: nextEvent ? (nextEvent.all_day ? '종일' : format(new Date(nextEvent.starts_at), 'HH:mm')) : '-', action: () => nextEvent && setSelectedEvent(nextEvent) },
+          { label: '다음 일정', value: nextEvent ? formatEventTime(nextEvent) : '-', action: () => nextEvent && setSelectedEvent(nextEvent) },
           { label: '회의실 사용 중', value: roomsInUse.length, action: () => setViewMode('day') },
           { label: '이번 달 표시', value: visibleEvents.length, action: () => setViewMode('month') },
         ].map((item) => (
@@ -569,6 +583,17 @@ const CalendarPage = () => {
               <Button variant="outline" size="icon" className="h-9 w-9 rounded-full border-[#cacacb]" onClick={() => setCurrentMonth((current) => addMonths(current, 1))}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
+              <Button
+                variant="ghost"
+                className="h-9 rounded-full px-3 text-xs"
+                onClick={() => {
+                  const today = new Date();
+                  setCurrentMonth(today);
+                  setSelectedDate(today);
+                }}
+              >
+                오늘
+              </Button>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative">
@@ -614,17 +639,23 @@ const CalendarPage = () => {
                   const dayEvents = visibleEvents
                     .filter((event) => eventOverlapsDay(event, day))
                     .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+                  const visibleDayEvents = dayEvents.filter((event) => !isHolidayEvent(event));
+                  const hasHoliday = dayEvents.some(isHolidayEvent);
                   const muted = !isSameMonth(day, currentMonth);
                   return (
                     <div
                       key={day.toISOString()}
-                      className={cn('min-h-[118px] border-b border-r border-[#e5e5e5] p-2', muted && 'bg-[#fafafa] text-[#9e9ea0]')}
+                      className={cn(
+                        'min-h-[118px] border-b border-r border-[#e5e5e5] p-2',
+                        muted && 'bg-[#fafafa] text-[#9e9ea0]',
+                        hasHoliday && 'bg-red-500/10',
+                      )}
                     >
                       <button
                         type="button"
                         onClick={() => {
                           setSelectedDate(day);
-                          openNewEvent('employee', day);
+                          openNewEvent('manual', day);
                         }}
                         className={cn(
                           'flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold',
@@ -634,8 +665,8 @@ const CalendarPage = () => {
                         {format(day, 'd')}
                       </button>
                       <div className="mt-1 space-y-1">
-                        {dayEvents.slice(0, 3).map((event) => renderEventPill(event, true))}
-                        {dayEvents.length > 3 && (
+                        {visibleDayEvents.slice(0, 3).map((event) => renderEventPill(event, true))}
+                        {visibleDayEvents.length > 3 && (
                           <button
                             type="button"
                             className="text-[10px] font-semibold text-[#707072] hover:text-[#111111]"
@@ -644,7 +675,7 @@ const CalendarPage = () => {
                               setViewMode('day');
                             }}
                           >
-                            +{dayEvents.length - 3}건 더보기
+                            +{visibleDayEvents.length - 3}건 더보기
                           </button>
                         )}
                       </div>
@@ -665,7 +696,7 @@ const CalendarPage = () => {
                     {dayEvents.length > 0 ? dayEvents.map((event) => renderEventPill(event)) : (
                       <button
                         type="button"
-                        onClick={() => openNewEvent('employee', day)}
+                        onClick={() => openNewEvent('manual', day)}
                         className="w-full rounded-lg border border-dashed border-[#cacacb] bg-[#fafafa] p-4 text-left text-sm text-[#707072] hover:border-[#111111]"
                       >
                         일정 없음. 클릭해서 새 일정을 등록하세요.
@@ -690,6 +721,15 @@ const CalendarPage = () => {
               </Button>
               <Button variant="outline" className="h-10 justify-start rounded-full border-[#cacacb]" onClick={() => openNewEvent('room')}>
                 <DoorOpen className="mr-2 h-4 w-4" /> 회의실 예약
+              </Button>
+              <Button variant="outline" className="h-10 justify-start rounded-full border-[#cacacb]" onClick={() => openNewEvent('manual')}>
+                <CalendarCheck2 className="mr-2 h-4 w-4" /> 일반 일정
+              </Button>
+              <Button variant="outline" className="h-10 justify-start rounded-full border-[#cacacb]" onClick={() => openNewEvent('event')}>
+                <ListChecks className="mr-2 h-4 w-4" /> 이벤트
+              </Button>
+              <Button variant="outline" className="h-10 justify-start rounded-full border-[#cacacb]" onClick={() => openNewEvent('holiday')}>
+                <PartyPopper className="mr-2 h-4 w-4" /> 휴무일
               </Button>
             </div>
           </div>

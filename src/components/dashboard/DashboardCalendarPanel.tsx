@@ -34,6 +34,7 @@ import {
   CALENDAR_EVENT_LEGEND,
   CALENDAR_STATUS_LABELS,
   getCalendarEventAccent,
+  shouldShowUnspecifiedCalendarTime,
   type CalendarViewScope,
   type InternalCalendarEvent,
 } from '@/types/internalCalendar';
@@ -41,7 +42,7 @@ import {
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
 function formatEventTime(event: InternalCalendarEvent) {
-  if (event.all_day) return '종일';
+  if (event.all_day) return shouldShowUnspecifiedCalendarTime(event) ? '시간 미지정' : '종일';
   return `${format(new Date(event.starts_at), 'HH:mm')} - ${format(new Date(event.ends_at), 'HH:mm')}`;
 }
 
@@ -183,7 +184,7 @@ const DashboardCalendarPanel = () => {
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[
               { label: '오늘 내 일정', value: summary?.today_count ?? todayEvents.length, icon: CalendarCheck2, path: '/calendar?view=day' },
-              { label: '다음 일정', value: nextEvent ? (nextEvent.all_day ? '종일' : format(new Date(nextEvent.starts_at), 'HH:mm')) : '-', icon: Clock3, path: '/calendar' },
+              { label: '다음 일정', value: nextEvent ? formatEventTime(nextEvent) : '-', icon: Clock3, path: '/calendar' },
               { label: '회의실 사용 중', value: summary?.rooms_in_use_count ?? 0, icon: DoorOpen, path: '/calendar' },
               { label: '담당 미팅', value: summary?.assigned_meeting_count ?? 0, icon: UsersRound, path: '/calendar' },
             ].map((item) => {
@@ -257,9 +258,12 @@ const DashboardCalendarPanel = () => {
               </div>
               <div className="grid grid-cols-7">
                 {days.map((day) => {
-                  const dayEvents = calendarEvents.filter((event) => eventOverlapsDay(event, day));
+                  const dayEvents = calendarEvents
+                    .filter((event) => eventOverlapsDay(event, day))
+                    .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
                   const dotEvents = dayEvents.filter((event) => !isHolidayEvent(event));
                   const hasHoliday = dayEvents.some(isHolidayEvent);
+                  const canSlidePopoverEvents = dayEvents.length > 4;
                   const dayKey = format(day, 'yyyy-MM-dd');
                   return (
                     <Popover key={day.toISOString()}>
@@ -306,39 +310,51 @@ const DashboardCalendarPanel = () => {
                           </div>
                         </div>
                         {dayEvents.length > 0 ? (
-                          <ScrollArea className="max-h-[min(60vh,360px)]">
-                            <div className="space-y-2 p-3">
-                              {dayEvents
-                                .slice()
-                                .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
-                                .map((event) => {
-                                  const accent = getCalendarEventAccent(event);
-                                  const meta = getEventMeta(event);
-                                  return (
-                                    <button
-                                      key={event.id}
-                                      type="button"
-                                      onClick={() => openSourcePath(event, day)}
-                                      className="w-full rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-2.5 text-left transition-colors hover:border-[#cacacb] hover:bg-white"
-                                    >
-                                      <div className="flex items-start gap-2">
-                                        <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
-                                        <div className="min-w-0 flex-1">
-                                          <div className="flex items-start justify-between gap-2">
-                                            <p className="min-w-0 truncate text-sm font-semibold text-[#111111]">{event.title}</p>
-                                            <Badge variant="outline" className="shrink-0 rounded-full px-2 py-0 text-[10px]">
-                                              {CALENDAR_STATUS_LABELS[event.status]}
-                                            </Badge>
+                          <div className="relative">
+                            <ScrollArea
+                              className={cn(
+                                'pr-1',
+                                canSlidePopoverEvents ? 'h-[min(46vh,336px)]' : 'max-h-[min(46vh,336px)]',
+                              )}
+                              aria-label={`${format(day, 'M월 d일', { locale: ko })} 일정 목록`}
+                            >
+                              <div className={cn('space-y-2 p-3 pr-4', canSlidePopoverEvents && 'pb-9')}>
+                                {dayEvents.map((event) => {
+                                    const accent = getCalendarEventAccent(event);
+                                    const meta = getEventMeta(event);
+                                    return (
+                                      <button
+                                        key={event.id}
+                                        type="button"
+                                        onClick={() => openSourcePath(event, day)}
+                                        className="w-full snap-start rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-2.5 text-left transition-colors hover:border-[#cacacb] hover:bg-white"
+                                      >
+                                        <div className="flex items-start gap-2">
+                                          <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex items-start justify-between gap-2">
+                                              <p className="min-w-0 truncate text-sm font-semibold text-[#111111]">{event.title}</p>
+                                              <Badge variant="outline" className="shrink-0 rounded-full px-2 py-0 text-[10px]">
+                                                {CALENDAR_STATUS_LABELS[event.status]}
+                                              </Badge>
+                                            </div>
+                                            <p className="mt-1 text-xs font-medium text-[#707072]">{formatEventTime(event)}</p>
+                                            {meta && <p className="mt-0.5 truncate text-xs text-[#707072]">{meta}</p>}
                                           </div>
-                                          <p className="mt-1 text-xs font-medium text-[#707072]">{formatEventTime(event)}</p>
-                                          {meta && <p className="mt-0.5 truncate text-xs text-[#707072]">{meta}</p>}
                                         </div>
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-                            </div>
-                          </ScrollArea>
+                                      </button>
+                                    );
+                                  })}
+                              </div>
+                            </ScrollArea>
+                            {canSlidePopoverEvents && (
+                              <div className="pointer-events-none absolute inset-x-0 bottom-0 rounded-b-lg bg-gradient-to-t from-white via-white/95 to-transparent px-3 pb-2 pt-8">
+                                <p className="text-center text-[11px] font-semibold text-[#707072]">
+                                  목록을 슬라이드해 {dayEvents.length}건 전체 보기
+                                </p>
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <div className="p-3">
                             <div className="rounded-lg border border-dashed border-[#cacacb] bg-[#fafafa] p-4 text-center">

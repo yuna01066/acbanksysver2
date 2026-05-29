@@ -211,10 +211,20 @@ export function getCalendarEventIconType(event: Pick<InternalCalendarEvent, 'ico
   return matched?.iconType || 'calendar';
 }
 
-export function getCalendarSourceFilter(event: Pick<InternalCalendarEvent, 'source_type' | 'resource_ids'>): CalendarSourceFilter {
+export function getCalendarSourceFilter(event: Pick<InternalCalendarEvent, 'source_type' | 'resource_ids' | 'icon_type'>): CalendarSourceFilter {
   if (event.resource_ids.length > 0) return 'room';
+  if (event.icon_type === 'holiday' || event.icon_type === 'birthday' || event.icon_type === 'leave') return 'people';
+  if (event.icon_type === 'event') return 'meeting';
   if (event.source_type === 'quote') return 'quote';
   if (event.source_type === 'project' || event.source_type === 'notion') return 'project';
   if (event.source_type === 'leave' || event.source_type === 'holiday' || event.source_type === 'birthday') return 'people';
   return 'meeting';
+}
+
+export function shouldShowUnspecifiedCalendarTime(event: Pick<InternalCalendarEvent, 'all_day' | 'source_type'>) {
+  return event.all_day && (
+    event.source_type === 'quote'
+    || event.source_type === 'project'
+    || event.source_type === 'notion'
+  );
 }

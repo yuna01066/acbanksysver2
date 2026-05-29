@@ -55,9 +55,30 @@ function safeSourceType(value: unknown): CalendarSourceType {
   return 'manual';
 }
 
+function getManualEventPresentation(sourceType: CalendarSourceType, metadata: Record<string, unknown>) {
+  if (sourceType !== 'manual') {
+    return {};
+  }
+
+  if (metadata.calendar_kind === 'holiday') {
+    return { accent: '#ef4444', icon_type: 'holiday' as CalendarIconType, source_subtype: 'holiday' };
+  }
+
+  if (metadata.calendar_kind === 'event') {
+    return { accent: '#10b981', icon_type: 'event' as CalendarIconType, source_subtype: 'event' };
+  }
+
+  return {};
+}
+
 function normalizeCalendarEvent(raw: any): InternalCalendarEvent {
   const sourceType = safeSourceType(raw?.source_type);
-  const sourceSubtype = raw?.source_subtype || 'default';
+  const metadata = raw?.metadata && typeof raw.metadata === 'object' ? raw.metadata : {};
+  const manualPresentation = getManualEventPresentation(sourceType, metadata);
+  const rawSourceSubtype = raw?.source_subtype || '';
+  const sourceSubtype = rawSourceSubtype && rawSourceSubtype !== 'default'
+    ? rawSourceSubtype
+    : manualPresentation.source_subtype || rawSourceSubtype || 'default';
   const resourceIds = Array.isArray(raw?.resource_ids) ? raw.resource_ids : [];
   const normalized = {
     id: String(raw?.id || crypto.randomUUID()),
@@ -73,8 +94,8 @@ function normalizeCalendarEvent(raw: any): InternalCalendarEvent {
     source_id: raw?.source_id ?? null,
     source_subtype: sourceSubtype,
     source_path: raw?.source_path ?? null,
-    accent: raw?.accent ?? null,
-    icon_type: (raw?.icon_type ?? null) as CalendarIconType | null,
+    accent: manualPresentation.accent || raw?.accent || null,
+    icon_type: (manualPresentation.icon_type || raw?.icon_type || null) as CalendarIconType | null,
     created_by: raw?.created_by ?? null,
     created_by_name: raw?.created_by_name || '시스템',
     team_department: raw?.team_department ?? null,
@@ -86,7 +107,7 @@ function normalizeCalendarEvent(raw: any): InternalCalendarEvent {
     resource_names: Array.isArray(raw?.resource_names) ? raw.resource_names : [],
     can_edit: Boolean(raw?.can_edit) && (sourceType === 'manual' || sourceType === 'meeting_reservation'),
     is_redacted: Boolean(raw?.is_redacted),
-    metadata: raw?.metadata && typeof raw.metadata === 'object' ? raw.metadata : {},
+    metadata,
   } as InternalCalendarEvent;
 
   return {

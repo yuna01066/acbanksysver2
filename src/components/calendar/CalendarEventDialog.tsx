@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { differenceInMinutes, format } from 'date-fns';
+import { addDays, differenceInMinutes, format } from 'date-fns';
 import { CalendarCheck2, Check, Loader2, Search, UsersRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import {
@@ -23,10 +24,11 @@ import {
   type CalendarDirectoryUser,
   type CalendarEventStatus,
   type CalendarEventVisibility,
+  type CalendarIconType,
   type InternalCalendarEvent,
 } from '@/types/internalCalendar';
 
-type CalendarDialogMode = 'employee' | 'client' | 'room' | 'manual';
+type CalendarDialogMode = 'employee' | 'client' | 'room' | 'manual' | 'event' | 'holiday';
 
 interface CalendarEventDialogProps {
   open: boolean;
@@ -48,6 +50,7 @@ type Draft = {
   location: string;
   visibility: CalendarEventVisibility;
   status: CalendarEventStatus;
+  allDay: boolean;
   teamDepartment: string;
   selectedUserIds: string[];
   selectedResourceIds: string[];
@@ -65,6 +68,92 @@ const TIME_OPTIONS = Array.from({ length: 25 }, (_, index) => {
 
 const todayString = () => format(new Date(), 'yyyy-MM-dd');
 
+const MODE_OPTIONS: Array<{ value: CalendarDialogMode; label: string }> = [
+  { value: 'employee', label: '직원 미팅' },
+  { value: 'client', label: '클라이언트' },
+  { value: 'room', label: '회의실 예약' },
+  { value: 'manual', label: '일반 일정' },
+  { value: 'event', label: '이벤트' },
+  { value: 'holiday', label: '휴무일' },
+];
+
+const MODE_DEFAULTS: Record<CalendarDialogMode, {
+  titlePlaceholder: string;
+  visibility: CalendarEventVisibility;
+  status: CalendarEventStatus;
+  allDay: boolean;
+  accent: string | null;
+  iconType: CalendarIconType | null;
+  sourceSubtype: string;
+}> = {
+  employee: {
+    titlePlaceholder: '예: 1:1 미팅, 팀 회의',
+    visibility: 'title_only',
+    status: 'scheduled',
+    allDay: false,
+    accent: null,
+    iconType: null,
+    sourceSubtype: 'default',
+  },
+  client: {
+    titlePlaceholder: '예: 제작 상담, 납기 협의',
+    visibility: 'title_only',
+    status: 'scheduled',
+    allDay: false,
+    accent: null,
+    iconType: null,
+    sourceSubtype: 'default',
+  },
+  room: {
+    titlePlaceholder: '예: 1층 회의실 예약',
+    visibility: 'title_only',
+    status: 'scheduled',
+    allDay: false,
+    accent: null,
+    iconType: null,
+    sourceSubtype: 'default',
+  },
+  manual: {
+    titlePlaceholder: '예: 내부 일정, 작업 집중 시간',
+    visibility: 'title_only',
+    status: 'scheduled',
+    allDay: false,
+    accent: '#111111',
+    iconType: 'calendar',
+    sourceSubtype: 'default',
+  },
+  event: {
+    titlePlaceholder: '예: 사내 행사, 방문 일정, 전시 이벤트',
+    visibility: 'details',
+    status: 'confirmed',
+    allDay: true,
+    accent: '#10b981',
+    iconType: 'event',
+    sourceSubtype: 'event',
+  },
+  holiday: {
+    titlePlaceholder: '예: 회사 휴무일, 대체휴무일',
+    visibility: 'details',
+    status: 'confirmed',
+    allDay: true,
+    accent: '#ef4444',
+    iconType: 'holiday',
+    sourceSubtype: 'holiday',
+  },
+};
+
+function getModeDefaults(mode: CalendarDialogMode) {
+  return MODE_DEFAULTS[mode] || MODE_DEFAULTS.manual;
+}
+
+function getEventMode(event: InternalCalendarEvent): CalendarDialogMode {
+  const calendarKind = event.metadata?.calendar_kind;
+  if (calendarKind === 'holiday' || event.icon_type === 'holiday') return 'holiday';
+  if (calendarKind === 'event' || event.icon_type === 'event') return 'event';
+  return (calendarKind as CalendarDialogMode | undefined)
+    || (event.client_name ? 'client' : event.resource_ids.length > 0 ? 'room' : 'employee');
+}
+
 function getInitialDraft({
   event,
   defaultDate,
@@ -75,16 +164,18 @@ function getInitialDraft({
   defaultMode: CalendarDialogMode;
 }): Draft {
   if (!event) {
+    const defaults = getModeDefaults(defaultMode);
     return {
       mode: defaultMode,
       title: '',
       date: defaultDate || todayString(),
-      startTime: '10:00',
+      startTime: defaults.allDay ? '00:00' : '10:00',
       durationMinutes: '60',
       description: '',
       location: '',
-      visibility: 'title_only',
-      status: 'scheduled',
+      visibility: defaults.visibility,
+      status: defaults.status,
+      allDay: defaults.allDay,
       teamDepartment: '',
       selectedUserIds: [],
       selectedResourceIds: [],
@@ -96,8 +187,7 @@ function getInitialDraft({
   const start = new Date(event.starts_at);
   const end = new Date(event.ends_at);
   const duration = Math.max(30, differenceInMinutes(end, start));
-  const eventMode = (event.metadata?.calendar_kind as CalendarDialogMode | undefined)
-    || (event.client_name ? 'client' : event.resource_ids.length > 0 ? 'room' : 'employee');
+  const eventMode = getEventMode(event);
 
   return {
     mode: eventMode,
@@ -109,6 +199,7 @@ function getInitialDraft({
     location: event.location || '',
     visibility: event.visibility,
     status: event.status,
+    allDay: event.all_day || eventMode === 'holiday',
     teamDepartment: event.team_department || '',
     selectedUserIds: event.participant_ids.filter((id) => id !== event.created_by),
     selectedResourceIds: event.resource_ids,
@@ -170,8 +261,12 @@ const CalendarEventDialog = ({
   }, [employeeSearch, employees]);
 
   const selectedResources = resources.filter((resource) => draft.selectedResourceIds.includes(resource.id));
-  const startIso = toSeoulDateTime(draft.date, draft.startTime);
-  const endIso = toSeoulDateTime(draft.date, addMinutesToClockTime(draft.startTime, Number(draft.durationMinutes)));
+  const modeDefaults = getModeDefaults(draft.mode);
+  const isAllDay = draft.mode === 'holiday' || draft.allDay;
+  const startIso = toSeoulDateTime(draft.date, isAllDay ? '00:00' : draft.startTime);
+  const endIso = isAllDay
+    ? toSeoulDateTime(format(addDays(new Date(`${draft.date}T00:00:00`), 1), 'yyyy-MM-dd'), '00:00')
+    : toSeoulDateTime(draft.date, addMinutesToClockTime(draft.startTime, Number(draft.durationMinutes)));
 
   const conflictingResourceNames = selectedResources
     .filter((resource) => events.some((item) => eventOverlapsResource(item, resource.id, startIso, endIso, event?.id)))
@@ -201,7 +296,7 @@ const CalendarEventDialog = ({
 
   const validationError = useMemo(() => {
     if (!draft.title.trim()) return '일정 제목을 입력해주세요.';
-    if (!draft.date || !draft.startTime) return '일정 날짜와 시간을 선택해주세요.';
+    if (!draft.date || (!isAllDay && !draft.startTime)) return '일정 날짜와 시간을 선택해주세요.';
     if (draft.mode === 'employee' && draft.selectedUserIds.length === 0 && !draft.teamDepartment) {
       return '참석 직원 또는 팀을 선택해주세요.';
     }
@@ -215,7 +310,7 @@ const CalendarEventDialog = ({
       return `${conflictingResourceNames.join(', ')}은 선택한 시간에 이미 예약되어 있습니다.`;
     }
     return '';
-  }, [conflictingResourceNames, draft.date, draft.mode, draft.selectedResourceIds.length, draft.selectedUserIds.length, draft.startTime, draft.teamDepartment, draft.title]);
+  }, [conflictingResourceNames, draft.date, draft.mode, draft.selectedResourceIds.length, draft.selectedUserIds.length, draft.startTime, draft.teamDepartment, draft.title, isAllDay]);
 
   const handleSubmit = async () => {
     if (validationError) {
@@ -224,24 +319,34 @@ const CalendarEventDialog = ({
     }
 
     const resourceLocation = selectedResources.map((resource) => resource.name).join(', ');
+    const calendarKind = draft.mode;
+    const baseMetadata = { ...(event?.metadata || {}) };
+    delete baseMetadata.employee_meeting_type;
     const payload = {
       ...(event ? { id: event.id } : {}),
       title: draft.title.trim(),
       description: draft.description.trim() || null,
       starts_at: startIso,
       ends_at: endIso,
+      all_day: isAllDay,
       location: resourceLocation || draft.location.trim() || null,
       visibility: draft.visibility,
       status: draft.status,
+      source_type: 'manual' as const,
+      source_subtype: modeDefaults.sourceSubtype,
+      accent: modeDefaults.accent,
+      icon_type: modeDefaults.iconType,
       team_department: draft.teamDepartment || null,
       client_name: draft.mode === 'client' ? draft.clientName.trim() || null : null,
       client_contact: draft.mode === 'client' ? draft.clientContact.trim() || null : null,
-      participant_ids: draft.mode === 'client' ? [] : draft.selectedUserIds,
+      participant_ids: draft.mode === 'client' || draft.mode === 'holiday' ? [] : draft.selectedUserIds,
       assignee_ids: draft.mode === 'client' ? draft.selectedUserIds : [],
-      resource_ids: draft.selectedResourceIds,
+      resource_ids: draft.mode === 'holiday' ? [] : draft.selectedResourceIds,
       metadata: {
-        ...(event?.metadata || {}),
-        calendar_kind: draft.mode,
+        ...baseMetadata,
+        calendar_kind: calendarKind,
+        calendar_label: MODE_OPTIONS.find((option) => option.value === calendarKind)?.label || '일정',
+        ...(draft.mode === 'event' || draft.mode === 'holiday' ? { employee_meeting_type: 'all_hands' } : {}),
       },
     };
 
@@ -328,16 +433,24 @@ const CalendarEventDialog = ({
         <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-4">
             <div className="grid gap-2 sm:grid-cols-4">
-              {[
-                { value: 'employee', label: '직원 미팅' },
-                { value: 'client', label: '클라이언트' },
-                { value: 'room', label: '회의실 예약' },
-                { value: 'manual', label: '일반 일정' },
-              ].map((option) => (
+              {MODE_OPTIONS.map((option) => (
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => setDraftField('mode', option.value as CalendarDialogMode)}
+                  onClick={() => {
+                    const nextMode = option.value;
+                    const defaults = getModeDefaults(nextMode);
+                    setDraft((current) => ({
+                      ...current,
+                      mode: nextMode,
+                      visibility: defaults.visibility,
+                      status: defaults.status,
+                      allDay: defaults.allDay,
+                      startTime: defaults.allDay ? '00:00' : current.startTime,
+                      selectedResourceIds: nextMode === 'holiday' ? [] : current.selectedResourceIds,
+                      selectedUserIds: nextMode === 'holiday' ? [] : current.selectedUserIds,
+                    }));
+                  }}
                   className={cn(
                     'h-10 rounded-full border px-3 text-sm font-semibold transition-colors',
                     draft.mode === option.value
@@ -356,7 +469,7 @@ const CalendarEventDialog = ({
                 <Input
                   value={draft.title}
                   onChange={(event) => setDraftField('title', event.target.value)}
-                  placeholder="예: 1:1 미팅, 제작 상담, 회의실 예약"
+                  placeholder={modeDefaults.titlePlaceholder}
                   className="h-10 rounded-lg border-[#cacacb] bg-white text-sm"
                 />
               </div>
@@ -369,34 +482,47 @@ const CalendarEventDialog = ({
                   className="h-10 rounded-lg border-[#cacacb] bg-white text-sm"
                 />
               </div>
-              <div className="grid grid-cols-[1fr_96px] gap-2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[#39393b]">시작</Label>
-                  <Select value={draft.startTime} onValueChange={(value) => setDraftField('startTime', value)}>
-                    <SelectTrigger className="h-10 rounded-lg border-[#cacacb] bg-white text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TIME_OPTIONS.map((time) => (
-                        <SelectItem key={time} value={time}>{time}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[#39393b]">길이</Label>
-                  <Select value={draft.durationMinutes} onValueChange={(value) => setDraftField('durationMinutes', value)}>
-                    <SelectTrigger className="h-10 rounded-lg border-[#cacacb] bg-white text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DURATION_OPTIONS.map((duration) => (
-                        <SelectItem key={duration} value={String(duration)}>{duration}분</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-[#39393b]">종일</Label>
+                <div className="flex h-10 items-center justify-between rounded-lg border border-[#cacacb] bg-white px-3">
+                  <span className="text-sm text-[#39393b]">{isAllDay ? '종일 일정' : '시간 지정'}</span>
+                  <Switch
+                    checked={isAllDay}
+                    disabled={draft.mode === 'holiday'}
+                    onCheckedChange={(checked) => setDraftField('allDay', checked)}
+                  />
                 </div>
               </div>
+              {!isAllDay && (
+                <div className="grid grid-cols-[1fr_96px] gap-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-[#39393b]">시작</Label>
+                    <Select value={draft.startTime} onValueChange={(value) => setDraftField('startTime', value)}>
+                      <SelectTrigger className="h-10 rounded-lg border-[#cacacb] bg-white text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIME_OPTIONS.map((time) => (
+                          <SelectItem key={time} value={time}>{time}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-[#39393b]">길이</Label>
+                    <Select value={draft.durationMinutes} onValueChange={(value) => setDraftField('durationMinutes', value)}>
+                      <SelectTrigger className="h-10 rounded-lg border-[#cacacb] bg-white text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DURATION_OPTIONS.map((duration) => (
+                          <SelectItem key={duration} value={String(duration)}>{duration}분</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-[#39393b]">공개 수준</Label>
                 <Select value={draft.visibility} onValueChange={(value) => setDraftField('visibility', value as CalendarEventVisibility)}>
@@ -457,20 +583,21 @@ const CalendarEventDialog = ({
               )}
             </div>
 
-            {renderEmployeePicker(draft.mode === 'client' ? '담당자 지정' : '참석자 지정')}
+            {draft.mode !== 'holiday' && renderEmployeePicker(draft.mode === 'client' ? '담당자 지정' : '참석자 지정')}
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-[#39393b]">내용</Label>
               <Textarea
                 value={draft.description}
                 onChange={(event) => setDraftField('description', event.target.value)}
-                placeholder="안건, 준비물, 미팅 목적 등을 기록하세요."
+                placeholder={draft.mode === 'holiday' ? '휴무 사유나 운영 메모를 기록하세요.' : '안건, 준비물, 미팅 목적 등을 기록하세요.'}
                 className="min-h-24 rounded-lg border-[#cacacb] bg-white text-sm"
               />
             </div>
           </div>
 
           <aside className="space-y-3">
+            {draft.mode !== 'holiday' && (
             <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold text-[#39393b]">회의실</Label>
@@ -518,6 +645,7 @@ const CalendarEventDialog = ({
                 })}
               </div>
             </div>
+            )}
 
             <div className="rounded-lg border border-[#e5e5e5] bg-white p-3">
               <div className="flex items-center gap-2">
@@ -527,11 +655,11 @@ const CalendarEventDialog = ({
               <dl className="mt-3 grid gap-2 text-xs">
                 <div className="flex justify-between gap-3">
                   <dt className="text-[#707072]">시간</dt>
-                  <dd className="font-semibold text-[#111111]">{draft.date} {draft.startTime}</dd>
+                  <dd className="font-semibold text-[#111111]">{draft.date} {isAllDay ? '종일' : draft.startTime}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt className="text-[#707072]">종료</dt>
-                  <dd className="font-semibold text-[#111111]">{addMinutesToClockTime(draft.startTime, Number(draft.durationMinutes))}</dd>
+                  <dd className="font-semibold text-[#111111]">{isAllDay ? '다음 날 00:00' : addMinutesToClockTime(draft.startTime, Number(draft.durationMinutes))}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt className="text-[#707072]">공개</dt>
@@ -539,7 +667,7 @@ const CalendarEventDialog = ({
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt className="text-[#707072]">대상</dt>
-                  <dd className="font-semibold text-[#111111]">{draft.selectedUserIds.length}명</dd>
+                  <dd className="font-semibold text-[#111111]">{draft.mode === 'holiday' ? '회사 공용' : `${draft.selectedUserIds.length}명`}</dd>
                 </div>
               </dl>
               {validationError && (
