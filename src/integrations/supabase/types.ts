@@ -4457,6 +4457,8 @@ export type Database = {
           assigned_to: string | null
           assigned_to_name: string | null
           attachments: Json | null
+          auto_cancel_reason: string | null
+          auto_cancelled_at: string | null
           calculation_snapshot: Json
           created_at: string
           custom_color_name: string | null
@@ -4483,6 +4485,9 @@ export type Database = {
           quote_date_display: string | null
           quote_number: string
           quote_status: string
+          reissued_at: string | null
+          reissued_from_quote_id: string | null
+          reissued_quote_id: string | null
           recipient_address: string | null
           recipient_company: string | null
           recipient_email: string | null
@@ -4501,6 +4506,8 @@ export type Database = {
           assigned_to?: string | null
           assigned_to_name?: string | null
           attachments?: Json | null
+          auto_cancel_reason?: string | null
+          auto_cancelled_at?: string | null
           calculation_snapshot?: Json
           created_at?: string
           custom_color_name?: string | null
@@ -4527,6 +4534,9 @@ export type Database = {
           quote_date_display?: string | null
           quote_number: string
           quote_status?: string
+          reissued_at?: string | null
+          reissued_from_quote_id?: string | null
+          reissued_quote_id?: string | null
           recipient_address?: string | null
           recipient_company?: string | null
           recipient_email?: string | null
@@ -4545,6 +4555,8 @@ export type Database = {
           assigned_to?: string | null
           assigned_to_name?: string | null
           attachments?: Json | null
+          auto_cancel_reason?: string | null
+          auto_cancelled_at?: string | null
           calculation_snapshot?: Json
           created_at?: string
           custom_color_name?: string | null
@@ -4571,6 +4583,9 @@ export type Database = {
           quote_date_display?: string | null
           quote_number?: string
           quote_status?: string
+          reissued_at?: string | null
+          reissued_from_quote_id?: string | null
+          reissued_quote_id?: string | null
           recipient_address?: string | null
           recipient_company?: string | null
           recipient_email?: string | null

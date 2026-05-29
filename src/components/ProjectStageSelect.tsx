@@ -6,22 +6,17 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useActivityLog } from '@/hooks/useActivityLog';
 import { logStageChange } from '@/hooks/useQuoteStageHistory';
+import {
+  getStageInfo,
+  normalizeProjectStage,
+  projectStageToLegacyQuoteStatus,
+  QUOTE_PROJECT_STAGES,
+  type ProjectStageValue,
+} from '@/utils/quoteWorkflow';
 
-export const PROJECT_STAGES = [
-  { value: 'quote_issued', label: '견적 발행', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  { value: 'invoice_issued', label: '계산서 발행', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' },
-  { value: 'in_progress', label: '진행중', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-  { value: 'panel_ordered', label: '원판발주', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
-  { value: 'manufacturing', label: '제작중', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
-  { value: 'completed', label: '제작완료', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-  { value: 'cancelled', label: '취소된 프로젝트', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
-] as const;
-
-export type ProjectStageValue = typeof PROJECT_STAGES[number]['value'];
-
-export function getStageInfo(value: string) {
-  return PROJECT_STAGES.find(s => s.value === value) || PROJECT_STAGES[0];
-}
+export const PROJECT_STAGES = QUOTE_PROJECT_STAGES;
+export { getStageInfo };
+export type { ProjectStageValue };
 
 interface ProjectStageSelectProps {
   quoteId: string;
@@ -41,22 +36,27 @@ const ProjectStageSelect = ({
   const { user, profile } = useAuth();
   const [updating, setUpdating] = useState(false);
   const { logActivity } = useActivityLog();
+  const normalizedCurrentStage = normalizeProjectStage(currentStage);
 
   const handleStageChange = async (newStage: string) => {
-    if (newStage === currentStage) return;
+    if (newStage === normalizedCurrentStage) return;
     setUpdating(true);
 
     try {
       // 1. Update local DB
       const { error } = await supabase
         .from('saved_quotes')
-        .update({ project_stage: newStage })
+        .update({
+          project_stage: newStage,
+          quote_status: projectStageToLegacyQuoteStatus(newStage),
+          status_updated_at: new Date().toISOString(),
+        } as never)
         .eq('id', quoteId);
 
       if (error) throw error;
 
       // Send notification to the quote owner
-      const oldStageInfo = getStageInfo(currentStage);
+      const oldStageInfo = getStageInfo(normalizedCurrentStage);
       const newStageInfo = getStageInfo(newStage);
       const targetUserId = quoteUserId || user?.id;
       if (targetUserId && targetUserId !== user?.id) {
@@ -65,19 +65,19 @@ const ProjectStageSelect = ({
           type: 'quote_update',
           title: '견적서 상태 변경',
           description: `견적서 ${quoteNumber || ''} 상태가 "${oldStageInfo.label}"에서 "${newStageInfo.label}"(으)로 변경되었습니다.`,
-          data: { quoteId, oldStage: currentStage, newStage, quoteNumber },
+          data: { quoteId, oldStage: normalizedCurrentStage, newStage, quoteNumber },
         });
       }
 
 
       const stageInfo = getStageInfo(newStage);
       toast.success(`${stageInfo.label}(으)로 변경되었습니다.`);
-      logActivity('stage_changed', quoteId, quoteNumber || quoteId, { oldStage: currentStage, newStage, newStageLabel: stageInfo.label });
+      logActivity('stage_changed', quoteId, quoteNumber || quoteId, { oldStage: normalizedCurrentStage, newStage, newStageLabel: stageInfo.label });
 
       // Log stage change history
       const userName = profile?.full_name || user?.email || '알 수 없음';
       if (user) {
-        logStageChange(quoteId, currentStage, newStage, user.id, userName);
+        logStageChange(quoteId, normalizedCurrentStage, newStage, user.id, userName);
       }
 
       onStageChanged?.(newStage);
@@ -89,12 +89,12 @@ const ProjectStageSelect = ({
     }
   };
 
-  const stage = getStageInfo(currentStage);
+  const stage = getStageInfo(normalizedCurrentStage);
 
   return (
     <div onClick={(e) => e.stopPropagation()}>
-      <Select value={currentStage} onValueChange={handleStageChange} disabled={updating}>
-        <SelectTrigger className={`h-7 text-xs font-medium border-0 ${stage.color} w-auto min-w-[100px] px-2`}>
+      <Select value={normalizedCurrentStage} onValueChange={handleStageChange} disabled={updating}>
+        <SelectTrigger className={`h-7 text-xs font-medium border ${stage.color} w-auto min-w-[100px] px-2`}>
           {updating ? (
             <Loader2 className="w-3 h-3 animate-spin mr-1" />
           ) : null}
