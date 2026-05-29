@@ -1,48 +1,39 @@
-# 공간 프로젝트 견적 탭 추가
 
-기존 아크릴판 / 제품제작 견적과 **완전히 분리된** 별도 견적 흐름을 추가합니다. 자체 DB 테이블, 자체 폼 페이지, 자체 목록/상세 페이지를 갖습니다.
+## Goal
+Apply two calendar migrations to the production Supabase DB in order, then run a structured verification checklist. No source code changes.
 
-## 1. 데이터베이스
+## Source files
+- `user-uploads://20260529120000_internal_calendar_system.sql` (1134 lines) — creates `calendar_events`, `calendar_event_participants`, `calendar_resources` (seeds `1층 회의실`, `2층 회의실`), `calendar_event_resources`, `calendar_subscriptions`, RLS, and v1 of `get_calendar_events` / `get_calendar_dashboard_summary` / `create_calendar_event` / `update_calendar_event` / `sync_meeting_reservation_calendar_event`.
+- `user-uploads://20260529133000_calendar_source_integrations.sql` (1301 lines) — adds `source_subtype`/`source_path`/`accent`/`icon_type`, replaces source-type CHECK, recreates `idx_calendar_events_source_unique(source_type, source_id, source_subtype) WHERE source_id IS NOT NULL`, adds sync RPCs + triggers for quote/project/leave/holiday/peer_meeting/announcement_event/meeting_reservation, redefines `get_calendar_events` / `get_calendar_dashboard_summary`, and runs full backfill.
 
-새 테이블 `space_project_quotes` 생성:
-- 프로젝트 기본 정보: project_name, client_name, project_type(쇼룸/팝업/매장 등), location, scheduled_date
-- 공간 규모: total_area, area_unit(평/㎡), floor_count, zones(JSON)
-- 시공 항목 라인: items (JSON 배열 — 항목명, 규격, 수량, 단위, 단가, 금액)
-- 비용 요약: subtotal, tax, total, cost_breakdown(JSON — 디자인비/시공비/자재비)
-- 수신처 정보: recipient_company, recipient_contact, recipient_phone, recipient_email, recipient_address
-- 메모/특기사항: memo
-- 첨부: attachments (JSON, `quote-attachments` 버킷 재사용)
-- 식별/메타: quote_number, quote_date, user_id, valid_until
+## Steps
 
-RLS 정책:
-- 본인 견적 CRUD 가능
-- admin/moderator는 전체 조회/수정/삭제 가능 (`has_role` 사용)
+1. **Pre-flight snapshot** (read-only)
+   - Inspect current state of `public.calendar_events` columns, indexes, RPC signatures, and `calendar_resources` rows so any partial prior run is visible before applying SQL.
 
-## 2. 신규 페이지 / 컴포넌트
+2. **Apply migration 1** via `supabase--migration`
+   - Submit the full contents of `20260529120000_internal_calendar_system.sql` as a single migration. All statements use `IF NOT EXISTS` / `CREATE OR REPLACE`, so a partial prior run is tolerated. If a CHECK or POLICY definition was already created with different shape and rejects re-apply, the next migration (M2) restates them and supersedes.
 
-| 경로 | 역할 |
-|---|---|
-| `/space-quote` | 신규 작성 폼 (편집 시 `?id=xxx`) |
-| `/space-quotes` | 저장된 공간 견적 목록 |
-| `/space-quotes/:id` | 상세 보기 + 인쇄(PDF) |
+3. **Apply migration 2** via `supabase--migration`
+   - Submit the full contents of `20260529133000_calendar_source_integrations.sql`. This includes the backfill `SELECT public.calendar_sync_*(id) FROM ...` calls at the tail.
 
-- `SpaceProjectFormPage.tsx`: zod 스키마 검증, 시공 항목 라인 동적 추가/삭제, 자동 합계/부가세 계산(100원 단위 반올림), `QuoteAttachments` 재사용
-- `SpaceProjectsListPage.tsx`: `SavedQuotesPage` UI 패턴 따라 검색/정렬
-- `SpaceProjectDetailPage.tsx`: `PrintStyles` + `window.print()` 으로 PDF 출력 (기존 패턴 유지)
+4. **Verification checklist** (read-only SQL via `supabase--read_query`, capture verbatim output)
+   - **Columns**: `information_schema.columns` for `calendar_events` → confirm `source_subtype`, `source_path`, `accent`, `icon_type` exist.
+   - **Unique index**: `pg_indexes` → confirm `idx_calendar_events_source_unique` definition includes `(source_type, source_id, source_subtype)` with `WHERE (source_id IS NOT NULL)`.
+   - **Resources**: `SELECT name FROM calendar_resources` → confirm rows `1층 회의실` and `2층 회의실` (Korean equivalents accepted per spec).
+   - **RPC callability**:
+     ```sql
+     SELECT count(*) FROM public.get_calendar_events(now() - interval '30 day', now() + interval '30 day', '{}'::jsonb);
+     SELECT public.get_calendar_dashboard_summary(now() - interval '30 day', now() + interval '30 day', 'all');
+     ```
+   - **Backfill counts**: `SELECT source_type, count(*) FROM calendar_events GROUP BY source_type` → confirm rows exist for each source whose source table has data (`quote`, `project`, `leave`, `holiday`, `peer_meeting`, `announcement_event`, `meeting_reservation`). Cross-reference with `saved_quotes`, `projects`, `leave_requests`, `company_holidays`, `peer_feedback`, `announcements`, `meeting_reservations` row counts to flag source_types where backfill produced 0 rows despite source data being present.
 
-## 3. 진입점
+5. **Preview QA**
+   - Reload `/` (home dashboard) and `/calendar`, capture browser console + network for any 4xx/500 from `get_calendar_events` / `get_calendar_dashboard_summary` or `PGRST` schema errors, and report.
 
-- `MaterialSelection`에 3번째 카드 **"공간 프로젝트"** 추가
-- `PanelCalculator`에서 해당 material 선택 시 `navigate('/space-quote')`로 이동 (기존 계산기 흐름과 분리)
-- `Home.tsx` 빠른 링크에 "공간 프로젝트 견적" 메뉴 추가
+## Error-handling policy
+- If any migration statement fails, capture the verbatim Postgres error (code + message + line) and stop. Do **not** edit source files. If the failure is from a leftover artifact of a prior partial run (e.g. existing index with a different definition, existing CHECK with old enum), report it with the exact object definition and ask before issuing a targeted DROP/ALTER to make the migration idempotently complete.
+- If a backfill `SELECT public.calendar_sync_*()` errors mid-set (e.g. malformed source row), report the offending source id and error, then continue verification with the partial state.
 
-## 4. 라우팅
-
-`App.tsx`에 lazy 라우트 3개 추가, `PageAccessGuard`로 감싸서 권한 관리.
-
-## 기술 노트
-
-- 견적번호 생성: 기존 `generateQuoteNumber` 패턴 재사용 (`SP-MMDDhhmmss`)
-- 100원 단위 반올림 규칙 준수 (총액/세액)
-- 첨부 파일은 기존 `quote-attachments` 스토리지 버킷 + 서명 URL 재활용
-- 디자인 토큰만 사용 (semantic tokens, HSL)
+## Deliverable
+A single report containing, per verification item: PASS/FAIL + raw SQL output (or raw Postgres error). Then `/calendar` + dashboard console snapshot. No code changes will be committed.
