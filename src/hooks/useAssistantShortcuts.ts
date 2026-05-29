@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+  BarChart3,
   BookOpen,
   CalendarDays,
   CalendarPlus,
@@ -79,6 +80,15 @@ export const ASSISTANT_SHORTCUT_CATALOG: AssistantShortcutItem[] = [
     target: 'route',
     path: '/calendar',
     keywords: ['캘린더', '일정', '회의실'],
+  },
+  {
+    id: 'route-yield-calculator',
+    label: '수율 계산기',
+    description: '원판 배치와 수율 확인',
+    icon: BarChart3,
+    target: 'route',
+    path: '/calculator?type=yield',
+    keywords: ['수율', '계산기', '원판', '네스팅', 'yield'],
   },
   {
     id: 'route-attendance',
@@ -163,6 +173,7 @@ const ROLE_DEFAULT_SHORTCUT_IDS: Record<AssistantShortcutRole, string[]> = {
     'tool-quote-wizard',
     'tool-meeting-booking',
     'route-calendar',
+    'route-yield-calculator',
     'route-attendance',
     'route-my-page',
   ],
