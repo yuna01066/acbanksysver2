@@ -685,7 +685,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
       setSelectedColorHex(colorInfo.hexCode);
       setCustomColorName(colorInfo.customColorName || '');
       setCustomOpacity(colorInfo.customOpacity || '');
-      setSelectedColorType(colorInfo.colorTypeLabel || (colorInfo.isBrightPigment ? '브라이트/진백/스리' : ''));
+      setSelectedColorType(colorInfo.colorTypeLabel || (colorInfo.isBrightPigment ? '화이트 안료 추가' : ''));
     } else {
       setSelectedColor(colorId);
     }

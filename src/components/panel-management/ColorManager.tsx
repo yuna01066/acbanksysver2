@@ -242,7 +242,7 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
             <div className="mt-1 text-xl font-semibold">{activeCount.toLocaleString()}개</div>
           </div>
           <div className="rounded-lg border bg-muted/30 p-3">
-            <div className="text-xs text-muted-foreground">조색비 대상</div>
+            <div className="text-xs text-muted-foreground">화이트 안료 추가</div>
             <div className="mt-1 text-xl font-semibold">{pigmentCount.toLocaleString()}개</div>
           </div>
           <div className="rounded-lg border bg-muted/30 p-3">
@@ -278,7 +278,7 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
                 />
               </div>
               <div className="flex items-center justify-between rounded border bg-background px-3 py-2">
-                <Label className="text-xs">브라이트/진백/스리 조색비 대상</Label>
+                <Label className="text-xs">브라이트/스리/진백 화이트 안료 추가</Label>
                 <Switch
                   checked={newColor.is_bright_pigment}
                   onCheckedChange={(checked) => setNewColor({ ...newColor, is_bright_pigment: checked })}
@@ -459,7 +459,7 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
                         />
                       )}
                       <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                        <span className="text-xs font-medium">조색비 대상</span>
+                        <span className="text-xs font-medium">화이트 안료 추가</span>
                         <Switch
                           checked={editForm.is_bright_pigment ?? false}
                           onCheckedChange={(checked) => setEditForm({ ...editForm, is_bright_pigment: checked })}
@@ -483,7 +483,7 @@ const ColorManager = ({ panelMasterId: propPanelMasterId, qualityId }: ColorMana
                       {color.is_bright_pigment && (
                         <Badge variant="outline" className="gap-1 border-rose-200 text-rose-700">
                           <Palette className="h-3 w-3" />
-                          조색비 대상
+                          화이트 안료 추가
                         </Badge>
                       )}
                     </div>

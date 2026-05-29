@@ -425,13 +425,18 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                       style={{ backgroundColor: color.color_code }}
                     />
                   </div>
-                  <div className="mt-1 text-center">
+                  <div className="mt-1 min-h-[3.75rem] text-center">
                     <div className="text-xs font-medium text-foreground truncate">
                       {acCode}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
                       {color.pantone || color.color_code}
                     </div>
+                    {brightPigment && (
+                      <div className="text-[10px] font-medium text-rose-600 truncate">
+                        화이트 안료 추가
+                      </div>
+                    )}
                     {color.series_key && (
                       <div className="text-[10px] text-muted-foreground truncate">
                         {getColorSeriesLabel(color.series_key)}
@@ -443,7 +448,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                           <span
                             key={badge}
                             className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
-                              brightPigment && badge.includes('스리')
+                              brightPigment && badge.includes('화이트 안료')
                                 ? 'bg-rose-50 text-rose-600'
                                 : 'bg-slate-100 text-slate-600'
                             }`}

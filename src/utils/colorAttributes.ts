@@ -75,6 +75,7 @@ export const getColorAttributeBadges = (color: ColorAttributeLike): string[] => 
   }
 
   if (isBrightPigmentColor(color)) {
+    badges.push('화이트 안료 추가');
     badges.push(`스리/진백 기준 ${attributes.white_base_code || 'AC-B004'}`);
   }
 
@@ -82,7 +83,7 @@ export const getColorAttributeBadges = (color: ColorAttributeLike): string[] => 
 };
 
 export const getColorSelectionTypeLabel = (color: ColorAttributeLike) => {
-  if (isBrightPigmentColor(color)) return '브라이트/스리/진백';
+  if (isBrightPigmentColor(color)) return '화이트 안료 추가';
 
   const attributes = getColorAttributes(color.attributes);
   if (attributes.is_white_opacity_reference && typeof attributes.visual_opacity_percent === 'number') {
