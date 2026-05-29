@@ -60,11 +60,13 @@ const EmployeeOnlineHeartbeat = () => {
       void sendHeartbeat();
     };
     const markOffline = () => {
-      void supabase.rpc('mark_employee_offline' as any).then(({ error }) => {
-        if (error) console.warn('[Presence] Mark offline failed', error);
-      }).catch((error) => {
-        console.warn('[Presence] Mark offline failed', error);
-      });
+      void Promise.resolve(supabase.rpc('mark_employee_offline' as any))
+        .then(({ error }) => {
+          if (error) console.warn('[Presence] Mark offline failed', error);
+        })
+        .catch((error) => {
+          console.warn('[Presence] Mark offline failed', error);
+        });
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') heartbeat();
