@@ -476,7 +476,7 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   assert.equal(result.status, 'calculable');
   assert.equal(result.totalPrice, 100_600);
   assert.equal(
-    result.lineItems.find(item => item.code.includes('브라이트-재질-조색비'))?.amount,
+    result.lineItems.find(item => /브라이트 화이트 안료 추가금/.test(item.label))?.amount,
     10_000,
     'bright material must apply pigment surcharge separately from satin surcharge'
   );

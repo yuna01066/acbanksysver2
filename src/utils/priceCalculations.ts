@@ -1561,7 +1561,7 @@ export const calculatePrice = (
   };
   const isBrightPigmentColor = (value?: string) => {
     if (!value) return false;
-    return /진백|스리|브라이트|bright/i.test(value);
+    return /진백|스리|브라이트|화이트\s*안료|bright|pigment/i.test(value);
   };
 
   // 1) 기본 단면 가격 가져오기 (원자재 비용)
@@ -1728,8 +1728,8 @@ export const calculatePrice = (
     if (brightPigmentCost > 0) {
       breakdown.push({
         label: isBrightQuality(qualityId)
-          ? (dbBrightPigmentSurcharge ? '브라이트 재질 조색비 (DB)' : '브라이트 재질 조색비')
-          : (dbBrightPigmentSurcharge ? '브라이트/진백/스리 조색비 (DB)' : '브라이트/진백/스리 조색비'),
+          ? (dbBrightPigmentSurcharge ? '브라이트 화이트 안료 추가금 (DB)' : '브라이트 화이트 안료 추가금')
+          : (dbBrightPigmentSurcharge ? '스리/진백 화이트 안료 추가금 (DB)' : '스리/진백 화이트 안료 추가금'),
         price: brightPigmentCost
       });
       basePrice += brightPigmentCost;

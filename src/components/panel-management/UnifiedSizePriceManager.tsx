@@ -461,7 +461,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
     },
     {
       type: 'bright_pigment',
-      title: '브라이트/진백/스리 조색비',
+      title: '브라이트/스리/진백 화이트 안료 추가금',
       description: '흰색 안료가 들어가는 컬러 생산 시 사이즈별로 추가됩니다.'
     }
   ];
