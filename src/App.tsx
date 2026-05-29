@@ -68,7 +68,15 @@ const ChannelTalkLeadsPage = lazy(() => import("./pages/ChannelTalkLeadsPage"));
 const ResponseAssistantPage = lazy(() => import("./pages/ResponseAssistantPage"));
 const ResponseAssistantManagementPage = lazy(() => import("./pages/ResponseAssistantManagementPage"));
 const FloatingResponseAssistant = lazy(() => import("@/components/FloatingResponseAssistant"));
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const G: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <PageAccessGuard>{children}</PageAccessGuard>
