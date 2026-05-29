@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, CalendarCheck2, HelpCircle, MessageSquareText, Sparkles, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, ChevronRight, HelpCircle, Loader2, RotateCcw, Settings2, X } from 'lucide-react';
 import hamzziCelebration from '@/assets/hamzzi/hamzzi_celebration.png';
 import hamzziCheck from '@/assets/hamzzi/hamzzi_check.png';
 import hamzziCoffee from '@/assets/hamzzi/hamzzi_coffee.png';
@@ -16,11 +16,17 @@ import iconNight from '@/assets/hamzzi/icon_night.png';
 import iconParty from '@/assets/hamzzi/icon_party.png';
 import defaultResponseAssistantIcon from '@/assets/response-assistant-default-icon.png';
 import responseAssistantSpeechBubble from '@/assets/response-assistant-speech-bubble.png';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import MeetingBookingWidget from '@/components/MeetingBookingWidget';
 import QuoteWizardPanel from '@/components/QuoteWizardPanel';
 import ResponseAssistantWidget from '@/components/ResponseAssistantWidget';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAssistantShortcuts, type AssistantEmbeddedTool, type AssistantShortcutItem } from '@/hooks/useAssistantShortcuts';
+import { useNotifications } from '@/hooks/useNotifications';
+import { toneClasses, useTodayWorkItems } from '@/hooks/useTodayWorkItems';
 import { supabase } from '@/integrations/supabase/client';
 import {
   HAMZZI_EVENT_NAME,
@@ -43,8 +49,8 @@ const HIDDEN_PATHS = [
 
 const FLOATING_RESPONSE_ASSISTANT_OPEN_KEY = 'acbank:floating-response-assistant-open';
 
-type AssistantTool = 'menu' | 'responseAssistant' | 'quoteWizard' | 'meetingBooking';
-type SpecialistTool = Exclude<AssistantTool, 'menu'>;
+type AssistantTool = 'menu' | AssistantEmbeddedTool;
+type SpecialistTool = AssistantEmbeddedTool;
 
 type HamzziReactionConfig = {
   image: string;
@@ -66,7 +72,7 @@ type HamzziSpriteConfig = {
 const TOOL_META: Record<AssistantTool, { title: string; description: string }> = {
   menu: {
     title: '햄찌 도우미',
-    description: '상담 CS · 견적 마법사 · 미팅 예약',
+    description: '오늘 할 일 · 개인 바로가기',
   },
   responseAssistant: {
     title: '상담 CS',
@@ -258,6 +264,22 @@ const FloatingResponseAssistant: React.FC = () => {
     navigate('/quote-wizard');
   } : undefined;
 
+  const handleShortcutSelect = (shortcut: AssistantShortcutItem) => {
+    setLauncherHintVisible(false);
+    if (shortcut.target === 'tool' && shortcut.tool) {
+      handleToolSelect(shortcut.tool);
+      return;
+    }
+    closeAssistant();
+    if (shortcut.target === 'route' && shortcut.path) {
+      navigate(shortcut.path);
+      return;
+    }
+    if (shortcut.target === 'external' && shortcut.externalUrl) {
+      window.open(shortcut.externalUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   useEffect(() => {
     try {
       window.sessionStorage.setItem(FLOATING_RESPONSE_ASSISTANT_OPEN_KEY, open ? 'true' : 'false');
@@ -357,7 +379,7 @@ const FloatingResponseAssistant: React.FC = () => {
 
             <div className="min-h-0 flex-1 overflow-y-auto bg-[#f5f5f5] p-3">
               {activeTool === 'menu' && (
-                <AssistantToolMenu onSelect={handleToolSelect} isTransitioning={Boolean(transitionTool)} />
+                <AssistantHomePanel onSelectShortcut={handleShortcutSelect} isTransitioning={Boolean(transitionTool)} />
               )}
               {activeTool === 'responseAssistant' && (
                 <ResponseAssistantWidget
@@ -532,66 +554,291 @@ const HamzziToolSprite = ({ tool, entering }: { tool: SpecialistTool; entering: 
   );
 };
 
-const AssistantToolMenu = ({
-  onSelect,
+const AssistantHomePanel = ({
+  onSelectShortcut,
   isTransitioning,
 }: {
-  onSelect: (tool: SpecialistTool) => void;
+  onSelectShortcut: (shortcut: AssistantShortcutItem) => void;
   isTransitioning: boolean;
-}) => (
-  <div className="space-y-3 rounded-[24px] bg-white p-3 shadow-none">
-    <div className="rounded-[20px] border border-[#ececec] bg-[#fafafa] p-4">
-      <p className="text-sm font-black text-[#111111]">필요한 도구를 선택하세요.</p>
-      <p className="mt-1 text-xs font-medium leading-5 text-[#707072]">
-        고객 응대 문안을 만들거나, 도면 파일 분석과 상담 일정을 빠르게 시작할 수 있습니다.
-      </p>
-    </div>
+}) => {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { notifications } = useNotifications();
+  const { items, urgentCount, todayCount, isLoading } = useTodayWorkItems(notifications);
+  const { selectedShortcuts, isLoading: shortcutsLoading } = useAssistantShortcuts();
+  const visibleItems = items.slice(0, 7);
 
-    <button
-      type="button"
-      onClick={() => onSelect('responseAssistant')}
-      disabled={isTransitioning}
-      className="flex w-full items-center gap-3 rounded-[20px] border border-[#dedede] bg-white p-4 text-left shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-[#cfcfcf] hover:shadow-[0_14px_30px_rgba(15,23,42,0.09)]"
-    >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-800">
-        <MessageSquareText className="h-5 w-5" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-black text-[#111111]">상담 CS</span>
-        <span className="mt-1 block text-xs font-semibold leading-5 text-[#707072]">답변 작성 · 문안 검수 · 견적 메일</span>
-      </span>
-    </button>
+  return (
+    <>
+      <div className="space-y-3 rounded-[24px] bg-white p-3 shadow-none">
+        <section className="rounded-[20px] border border-[#ececec] bg-[#fafafa] p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-black text-[#111111]">오늘 우선 확인</p>
+              <p className="mt-1 text-xs font-medium leading-5 text-[#707072]">
+                알림, 일정, 승인, 납기 업무를 모아 보여드립니다.
+              </p>
+            </div>
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-[#111111]" />
+          </div>
 
-    <button
-      type="button"
-      onClick={() => onSelect('quoteWizard')}
-      disabled={isTransitioning}
-      className="flex w-full items-center gap-3 rounded-[20px] border border-[#dedede] bg-white p-4 text-left shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-[#cfcfcf] hover:shadow-[0_14px_30px_rgba(15,23,42,0.09)]"
-    >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
-        <Sparkles className="h-5 w-5" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-black text-[#111111]">견적 마법사</span>
-        <span className="mt-1 block text-xs font-semibold leading-5 text-[#707072]">파일 업로드 · 제작물 판별 · 임시 견적 초안</span>
-      </span>
-    </button>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="rounded-2xl border border-[#dedede] bg-white px-3 py-2">
+              <p className="text-base font-black text-[#111111]">{items.length}</p>
+              <p className="text-[10px] font-semibold text-[#707072]">전체</p>
+            </div>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-3 py-2">
+              <p className="text-base font-black text-amber-700">{urgentCount}</p>
+              <p className="text-[10px] font-semibold text-amber-700">긴급</p>
+            </div>
+            <div className="rounded-2xl border border-blue-200 bg-blue-50/70 px-3 py-2">
+              <p className="text-base font-black text-blue-700">{todayCount}</p>
+              <p className="text-[10px] font-semibold text-blue-700">오늘</p>
+            </div>
+          </div>
+        </section>
 
-    <button
-      type="button"
-      onClick={() => onSelect('meetingBooking')}
-      disabled={isTransitioning}
-      className="flex w-full items-center gap-3 rounded-[20px] border border-[#dedede] bg-white p-4 text-left shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-[#cfcfcf] hover:shadow-[0_14px_30px_rgba(15,23,42,0.09)]"
-    >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
-        <CalendarCheck2 className="h-5 w-5" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-black text-[#111111]">상담/미팅 예약</span>
-        <span className="mt-1 block text-xs font-semibold leading-5 text-[#707072]">직원 미팅 · 클라이언트 상담 일정 등록</span>
-      </span>
-    </button>
-  </div>
-);
+        <section className="rounded-[20px] border border-[#ececec] bg-white p-3">
+          {isLoading ? (
+            <div className="flex min-h-32 items-center justify-center rounded-2xl bg-[#fafafa] text-xs font-semibold text-[#707072]">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              오늘 할 일을 불러오는 중
+            </div>
+          ) : visibleItems.length === 0 ? (
+            <div className="flex min-h-32 flex-col items-center justify-center rounded-2xl border border-dashed border-[#dedede] bg-[#fafafa] px-4 text-center">
+              <CheckCircle2 className="mb-2 h-8 w-8 text-emerald-500" />
+              <p className="text-sm font-black text-[#111111]">지금 바로 처리할 일이 없습니다.</p>
+              <p className="mt-1 text-xs font-medium leading-5 text-[#707072]">필요한 기능은 아래 바로가기에서 시작하세요.</p>
+            </div>
+          ) : (
+            <div className="max-h-[310px] space-y-2 overflow-y-auto pr-1">
+              {visibleItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={item.onClick}
+                  className="group grid w-full grid-cols-[auto,1fr,auto] items-center gap-2 rounded-2xl border border-[#ececec] bg-[#fafafa] p-3 text-left transition hover:border-[#cacacb] hover:bg-white"
+                >
+                  <span className={cn('flex h-8 w-8 items-center justify-center rounded-full border', toneClasses(item.tone))}>
+                    {item.icon}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate text-xs font-black text-[#111111]">{item.title}</span>
+                      <Badge variant="outline" className="h-5 shrink-0 rounded-full px-1.5 text-[9px]">
+                        {item.label}
+                      </Badge>
+                    </span>
+                    <span className="mt-1 block truncate text-[11px] font-medium text-[#707072]">{item.description}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-[#9e9ea0] transition group-hover:text-[#111111]" />
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-[20px] border border-[#ececec] bg-white p-3">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-black text-[#111111]">내 바로가기</p>
+              <p className="text-[11px] font-semibold text-[#9e9ea0]">자주 쓰는 기능을 햄찌 첫 화면에 고정합니다.</p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setSettingsOpen(true)}
+              className="h-8 rounded-full px-2.5 text-xs font-bold"
+            >
+              <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+              설정
+            </Button>
+          </div>
+
+          {shortcutsLoading ? (
+            <div className="flex h-24 items-center justify-center rounded-2xl bg-[#fafafa] text-xs font-semibold text-[#707072]">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              바로가기 불러오는 중
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {selectedShortcuts.map((shortcut) => {
+                const ShortcutIcon = shortcut.icon;
+                return (
+                  <button
+                    key={shortcut.id}
+                    type="button"
+                    onClick={() => onSelectShortcut(shortcut)}
+                    disabled={isTransitioning}
+                    className="min-h-[86px] rounded-2xl border border-[#dedede] bg-[#fafafa] p-3 text-left transition hover:border-[#cacacb] hover:bg-white disabled:pointer-events-none disabled:opacity-60"
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dedede] bg-white text-[#111111]">
+                      <ShortcutIcon className="h-4 w-4" />
+                    </span>
+                    <span className="mt-2 block truncate text-xs font-black text-[#111111]">{shortcut.label}</span>
+                    <span className="mt-0.5 block line-clamp-2 text-[10px] font-semibold leading-4 text-[#707072]">
+                      {shortcut.description}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
+
+      <AssistantShortcutSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+    </>
+  );
+};
+
+const AssistantShortcutSettingsDialog = ({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) => {
+  const {
+    availableShortcuts,
+    shortcutIds,
+    roleDefaultIds,
+    saveShortcutOrder,
+    resetToRoleDefault,
+  } = useAssistantShortcuts();
+  const [draftIds, setDraftIds] = useState<string[]>(shortcutIds);
+  const selectedIdSet = useMemo(() => new Set(draftIds), [draftIds]);
+  const saving = saveShortcutOrder.isPending || resetToRoleDefault.isPending;
+
+  useEffect(() => {
+    if (open) setDraftIds(shortcutIds);
+  }, [open, shortcutIds]);
+
+  const toggleShortcut = (id: string) => {
+    setDraftIds((current) => (
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    ));
+  };
+
+  const moveShortcut = (id: string, direction: -1 | 1) => {
+    setDraftIds((current) => {
+      const index = current.indexOf(id);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.length) return current;
+      const next = [...current];
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    try {
+      await saveShortcutOrder.mutateAsync(draftIds);
+      onOpenChange(false);
+    } catch {
+      // Mutation already shows a toast.
+    }
+  };
+
+  const handleReset = () => {
+    setDraftIds(roleDefaultIds);
+    resetToRoleDefault.mutate();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto rounded-[24px] border-[#dedede] bg-white p-0">
+        <DialogHeader className="border-b border-[#ececec] px-5 py-4 text-left">
+          <DialogTitle className="text-base font-black text-[#111111]">햄찌 바로가기 설정</DialogTitle>
+          <DialogDescription className="text-xs font-medium leading-5 text-[#707072]">
+            자주 쓰는 기능을 선택하고 위아래 버튼으로 첫 화면 순서를 조정하세요.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-2 p-4">
+          {availableShortcuts.map((shortcut) => {
+            const ShortcutIcon = shortcut.icon;
+            const selected = selectedIdSet.has(shortcut.id);
+            const orderIndex = draftIds.indexOf(shortcut.id);
+            return (
+              <div
+                key={shortcut.id}
+                className={cn(
+                  'grid grid-cols-[auto,1fr,auto] items-center gap-3 rounded-2xl border p-3',
+                  selected ? 'border-[#111111] bg-[#fafafa]' : 'border-[#ececec] bg-white',
+                )}
+              >
+                <Checkbox
+                  checked={selected}
+                  onCheckedChange={() => toggleShortcut(shortcut.id)}
+                  aria-label={`${shortcut.label} 바로가기 선택`}
+                />
+                <button
+                  type="button"
+                  onClick={() => toggleShortcut(shortcut.id)}
+                  className="grid min-w-0 grid-cols-[auto,1fr] items-center gap-2 text-left"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dedede] bg-white text-[#111111]">
+                    <ShortcutIcon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-[#111111]">{shortcut.label}</span>
+                    <span className="mt-0.5 block truncate text-xs font-semibold text-[#707072]">{shortcut.description}</span>
+                  </span>
+                </button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={!selected || orderIndex <= 0}
+                    onClick={() => moveShortcut(shortcut.id, -1)}
+                    className="h-8 w-8 rounded-full"
+                    aria-label={`${shortcut.label} 위로 이동`}
+                  >
+                    <ArrowUp className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={!selected || orderIndex < 0 || orderIndex >= draftIds.length - 1}
+                    onClick={() => moveShortcut(shortcut.id, 1)}
+                    className="h-8 w-8 rounded-full"
+                    aria-label={`${shortcut.label} 아래로 이동`}
+                  >
+                    <ArrowDown className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <DialogFooter className="border-t border-[#ececec] p-4 sm:justify-between sm:space-x-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleReset}
+            disabled={saving}
+            className="rounded-full"
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            기본값 복구
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || draftIds.length === 0}
+            className="rounded-full bg-[#111111] text-white hover:bg-[#39393b]"
+          >
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            저장
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 export default FloatingResponseAssistant;
