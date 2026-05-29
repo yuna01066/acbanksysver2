@@ -41,9 +41,12 @@ const IMWEB_ADMIN_URL = 'https://admin.imweb.me/';
 
 async function fetchImwebConnection(): Promise<ImwebConnectionResponse> {
   try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
     const res = await fetch(`${FUNCTION_URL}?action=check-connection`, {
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     });
     const result = await res.json().catch(() => ({}));
