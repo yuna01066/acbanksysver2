@@ -123,17 +123,17 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateS
   const selectedAttendance = selectedDate ? getAttendanceForDate(selectedDate) : null;
 
   return (
-    <Card>
+    <Card className="border-border shadow-none">
       <CardContent className="p-4">
         {/* Month Navigation */}
         <div className="flex items-center justify-between mb-4">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(m => subMonths(m, 1))}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setCurrentMonth(m => subMonths(m, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <h3 className="text-base font-semibold">
             {format(currentMonth, 'yyyy년 M월', { locale: ko })}
           </h3>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(m => addMonths(m, 1))}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setCurrentMonth(m => addMonths(m, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -143,7 +143,7 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateS
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         ) : (
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-4 lg:flex-row">
             {/* Calendar Grid */}
             <div className="flex-1">
               {/* Day headers */}
@@ -159,8 +159,6 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateS
                   const att = getAttendanceForDate(day);
                   const isCurrentMonth = isSameMonth(day, currentMonth);
                   const isSelected = selectedDate && isSameDay(day, selectedDate);
-                  const pendingCount = events.filter(e => e.status === 'pending').length;
-                  const approvedCount = events.filter(e => e.status === 'approved').length;
 
                   return (
                     <button
@@ -175,10 +173,10 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateS
                         }
                       }}
                       className={cn(
-                        'bg-card p-1.5 min-h-[80px] text-left transition-colors hover:bg-accent/50 flex flex-col',
+                        'bg-card p-1.5 min-h-[80px] text-left transition-colors hover:bg-muted/50 flex flex-col',
                         !isCurrentMonth && 'opacity-30',
-                        isSelected && 'ring-2 ring-primary ring-inset',
-                        isToday(day) && 'bg-primary/5'
+                        isSelected && 'ring-2 ring-foreground ring-inset',
+                        isToday(day) && 'bg-muted/70'
                       )}
                     >
                       <span className={cn(
@@ -232,7 +230,7 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateS
 
             {/* Detail Panel */}
             {selectedDate && (
-              <div className="w-72 border rounded-lg p-3 bg-muted/30 shrink-0">
+              <div className="w-full rounded-lg border border-border bg-muted/20 p-3 lg:w-72 lg:shrink-0">
                 <h4 className="text-sm font-semibold mb-3">
                   {format(selectedDate, 'M월 d일 (EEEE)', { locale: ko })}
                 </h4>

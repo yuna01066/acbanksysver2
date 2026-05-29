@@ -4,10 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Clock, AlertTriangle, UserX, Timer, Coffee, AlarmClock, CalendarOff, Palmtree, ClipboardCheck, FileWarning, Info } from 'lucide-react';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
+import { Loader2, Clock, AlertTriangle, UserX, Timer, AlarmClock, Palmtree, ClipboardCheck, Info, LogIn, LogOut } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 type DateRange = 'day' | 'week' | 'month';
 
@@ -158,9 +159,9 @@ const AttendanceDashboard: React.FC = () => {
   }
 
   const summaryCards = [
-    { icon: '🟡', label: '평균 출근', desc: '구성원 근무 기록의 평균 시작 시각', value: stats.avgCheckInStr },
-    { icon: '🟠', label: '평균 퇴근', desc: '구성원 근무 기록의 평균 종료 시각', value: stats.avgCheckOutStr },
-    { icon: '🟢', label: '일평균 근무', desc: '구성원 근무 기록의 평균 시간', value: stats.avgWorkHoursStr },
+    { icon: LogIn, label: '평균 출근', desc: '구성원 근무 기록의 평균 시작 시각', value: stats.avgCheckInStr },
+    { icon: LogOut, label: '평균 퇴근', desc: '구성원 근무 기록의 평균 종료 시각', value: stats.avgCheckOutStr },
+    { icon: Clock, label: '일평균 근무', desc: '구성원 근무 기록의 평균 시간', value: stats.avgWorkHoursStr },
   ];
 
   const statusCards = [
@@ -179,14 +180,17 @@ const AttendanceDashboard: React.FC = () => {
     <TooltipProvider>
       <div className="space-y-6">
         {/* Date range & filters */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1 border rounded-lg p-0.5">
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-3 shadow-none">
+          <div className="flex items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
             {(['day', 'week', 'month'] as DateRange[]).map(r => (
               <Button
                 key={r}
-                variant={rangeType === r ? 'default' : 'ghost'}
+                variant="ghost"
                 size="sm"
-                className="h-7 text-xs px-3"
+                className={cn(
+                  'h-7 rounded-full px-3 text-xs',
+                  rangeType === r && 'bg-foreground text-background hover:bg-foreground/90 hover:text-background'
+                )}
                 onClick={() => setRangeType(r)}
               >
                 {{ day: '일', week: '주', month: '월' }[r]}
@@ -195,7 +199,7 @@ const AttendanceDashboard: React.FC = () => {
           </div>
           <span className="text-sm text-muted-foreground">{rangeLabel}</span>
           <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-            <SelectTrigger className="w-36 h-8 text-xs">
+            <SelectTrigger className="h-8 w-36 rounded-full text-xs">
               <SelectValue placeholder="부서 전체" />
             </SelectTrigger>
             <SelectContent>
@@ -212,26 +216,31 @@ const AttendanceDashboard: React.FC = () => {
 
         {/* Summary cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {summaryCards.map(card => (
-            <Card key={card.label} className="glass-card">
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{card.icon}</span>
-                    <span className="font-semibold text-sm">{card.label}</span>
+          {summaryCards.map(card => {
+            const Icon = card.icon;
+            return (
+              <Card key={card.label} className="border-border shadow-none">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className="rounded-md border border-border bg-muted/30 p-1.5 text-muted-foreground">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <span className="font-semibold text-sm">{card.label}</span>
+                    </div>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground/50" />
+                      </TooltipTrigger>
+                      <TooltipContent><p className="text-xs">{card.desc}</p></TooltipContent>
+                    </Tooltip>
                   </div>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <Info className="h-3.5 w-3.5 text-muted-foreground/50" />
-                    </TooltipTrigger>
-                    <TooltipContent><p className="text-xs">{card.desc}</p></TooltipContent>
-                  </Tooltip>
-                </div>
-                <p className="text-xs text-muted-foreground mb-3">{card.desc}</p>
-                <p className="text-lg font-bold">{card.value}</p>
-              </CardContent>
-            </Card>
-          ))}
+                  <p className="text-xs text-muted-foreground mb-3">{card.desc}</p>
+                  <p className="text-lg font-bold tabular-nums">{card.value}</p>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* 근태 현황 */}
@@ -244,10 +253,15 @@ const AttendanceDashboard: React.FC = () => {
             {statusCards.map(card => {
               const Icon = card.icon;
               return (
-                <Card key={card.label} className="glass-card">
+                <Card key={card.label} className="border-border shadow-none">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium">{card.label}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="rounded-md border border-border bg-muted/30 p-1.5 text-muted-foreground">
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <span className="text-sm font-medium">{card.label}</span>
+                      </div>
                       <Tooltip>
                         <TooltipTrigger>
                           <Info className="h-3.5 w-3.5 text-muted-foreground/50" />
@@ -257,8 +271,8 @@ const AttendanceDashboard: React.FC = () => {
                     </div>
                     <p className="text-xs text-muted-foreground mb-3">{card.desc}</p>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-xl font-bold">{card.count}명</span>
-                      <span className="text-xs text-muted-foreground">변동없음</span>
+                      <span className="text-xl font-bold tabular-nums">{card.count}명</span>
+                      <span className="text-xs text-muted-foreground">해당 기간</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -277,11 +291,16 @@ const AttendanceDashboard: React.FC = () => {
             {approvalCards.map(card => {
               const Icon = card.icon;
               return (
-                <Card key={card.label} className="glass-card">
+                <Card key={card.label} className="border-border shadow-none">
                   <CardContent className="p-4">
-                    <span className="text-sm font-medium">{card.label}</span>
+                    <div className="mb-2 flex items-center gap-2">
+                      <div className="rounded-md border border-border bg-muted/30 p-1.5 text-muted-foreground">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <span className="text-sm font-medium">{card.label}</span>
+                    </div>
                     <p className="text-xs text-muted-foreground mb-3">{card.desc}</p>
-                    <span className="text-xl font-bold">{card.count}명</span>
+                    <span className="text-xl font-bold tabular-nums">{card.count}명</span>
                   </CardContent>
                 </Card>
               );
