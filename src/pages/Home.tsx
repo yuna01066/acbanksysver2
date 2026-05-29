@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calculator, Home as HomeIcon, Instagram, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette, Images } from "lucide-react";
 import LoginScreen from '@/components/LoginScreen';
-import DashboardCalendar from '@/components/DashboardCalendar';
+import DashboardCalendarPanel from '@/components/dashboard/DashboardCalendarPanel';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
 import QuickAttendanceButton from '@/components/QuickAttendanceButton';
@@ -292,7 +292,7 @@ const Home = () => {
               <DashboardMeetingBookingCard />
               <ChannelTalkInquiryCard />
             </div>
-            <DashboardCalendar />
+            <DashboardCalendarPanel />
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <ImwebTopItemsCard />
               <ActivityFeedCard />
