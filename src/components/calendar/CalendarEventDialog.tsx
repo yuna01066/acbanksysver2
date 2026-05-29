@@ -353,7 +353,7 @@ const CalendarEventDialog = ({
 
     try {
       const savedId = event
-        ? await updateEvent.mutateAsync(payload)
+        ? await updateEvent.mutateAsync({ ...payload, id: event.id })
         : await createEvent.mutateAsync(payload);
       toast.success(event ? '일정이 수정되었습니다.' : '일정이 등록되었습니다.');
       onSaved?.(savedId);
