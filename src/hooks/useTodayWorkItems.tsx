@@ -187,10 +187,17 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
   const { user, isAdmin, isModerator } = useAuth();
   const canReview = isAdmin || isModerator;
   const [dismissedIds, setDismissedIds] = useState<string[]>(() => readDismissedIds(user?.id));
+  const [showInitialLoading, setShowInitialLoading] = useState(true);
   const calendarScope: CalendarViewScope = canReview ? 'all' : 'my';
   const today = startOfDay(new Date());
   const calendarRangeStart = today.toISOString();
   const calendarRangeEnd = addDays(today, 8).toISOString();
+
+  useEffect(() => {
+    setShowInitialLoading(true);
+    const timeoutId = setTimeout(() => setShowInitialLoading(false), 2500);
+    return () => clearTimeout(timeoutId);
+  }, [user?.id, canReview]);
 
   useEffect(() => {
     setDismissedIds(readDismissedIds(user?.id));
@@ -487,6 +494,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
   const urgentCount = visibleWorkItems.filter((item) => item.tone === 'danger' || item.tone === 'warning').length;
   const todayCount = visibleWorkItems.filter((item) => item.isToday).length;
   const briefing = buildBriefing(visibleWorkItems, urgentCount, todayCount);
+  const isAnyLoading = quotesLoading || projectsLoading || leavesLoading || syncLoading || calendarLoading || hrTasksLoading;
 
   return {
     items: visibleWorkItems,
@@ -498,6 +506,6 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
     briefing,
     dismissItem,
     resetDismissedItems,
-    isLoading: quotesLoading || projectsLoading || leavesLoading || syncLoading || calendarLoading || hrTasksLoading,
+    isLoading: visibleWorkItems.length === 0 && isAnyLoading && showInitialLoading,
   };
 }

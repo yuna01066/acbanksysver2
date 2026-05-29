@@ -36,6 +36,14 @@ export const getCalendarMonthRange = (month: Date) => ({
 });
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const EMPTY_CALENDAR_DASHBOARD_SUMMARY: CalendarDashboardSummary = {
+  today_count: 0,
+  week_count: 0,
+  assigned_meeting_count: 0,
+  rooms_in_use_count: 0,
+  next_event: null,
+  rooms: [],
+};
 
 function safeSourceType(value: unknown): CalendarSourceType {
   const sourceType = String(value || 'manual');
@@ -127,7 +135,7 @@ function withCalendarTimeout<T>(promise: Promise<T>, fallback: T, timeoutMs = 25
   return Promise.race([
     promise,
     new Promise<T>((resolve) => {
-      window.setTimeout(() => resolve(fallback), timeoutMs);
+      setTimeout(() => resolve(fallback), timeoutMs);
     }),
   ]);
 }
@@ -270,15 +278,21 @@ export function useCalendarEvents({
     queryKey: ['calendar-events', rangeStart, rangeEnd, scope, includeCanceled],
     queryFn: async () => {
       const [{ data, error }, birthdayEvents, notionEvents] = await Promise.all([
-        supabaseAny.rpc('get_calendar_events', {
-          range_start: rangeStart,
-          range_end: rangeEnd,
-          filters: { scope, includeCanceled },
-        }),
+        withCalendarTimeout(
+          supabaseAny.rpc('get_calendar_events', {
+            range_start: rangeStart,
+            range_end: rangeEnd,
+            filters: { scope, includeCanceled },
+          }),
+          { data: [], error: null },
+          3500,
+        ),
         withCalendarTimeout(fetchBirthdayEvents(rangeStart, rangeEnd), []),
         withCalendarTimeout(fetchNotionEvents(rangeStart, rangeEnd, scope), []),
       ]);
-      if (error) throw error;
+      if (error) {
+        console.warn('[Calendar] get_calendar_events failed', error);
+      }
       return [
         ...(data || []).map(normalizeCalendarEvent),
         ...birthdayEvents,
@@ -305,12 +319,20 @@ export function useCalendarDashboardSummary({
   return useQuery<CalendarDashboardSummary>({
     queryKey: ['calendar-dashboard-summary', rangeStart, rangeEnd, scope],
     queryFn: async () => {
-      const { data, error } = await supabaseAny.rpc('get_calendar_dashboard_summary', {
-        range_start: rangeStart,
-        range_end: rangeEnd,
-        scope,
-      });
-      if (error) throw error;
+      const { data, error } = await withCalendarTimeout(
+        supabaseAny.rpc('get_calendar_dashboard_summary', {
+          range_start: rangeStart,
+          range_end: rangeEnd,
+          scope,
+        }),
+        { data: null, error: null },
+        3500,
+      );
+      if (error) {
+        console.warn('[Calendar] get_calendar_dashboard_summary failed', error);
+        return EMPTY_CALENDAR_DASHBOARD_SUMMARY;
+      }
+      if (!data) return EMPTY_CALENDAR_DASHBOARD_SUMMARY;
       return {
         today_count: Number(data?.today_count || 0),
         week_count: Number(data?.week_count || 0),
@@ -321,7 +343,7 @@ export function useCalendarDashboardSummary({
       } as CalendarDashboardSummary;
     },
     enabled,
-    refetchInterval: 60 * 1000,
+    refetchInterval: false,
     staleTime: 30 * 1000,
   });
 }
