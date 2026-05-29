@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   addDays,
@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import CalendarEventDialog from '@/components/calendar/CalendarEventDialog';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -39,7 +40,6 @@ import {
 } from '@/types/internalCalendar';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
-const CalendarEventDialog = lazy(() => import('@/components/calendar/CalendarEventDialog'));
 
 function formatEventTime(event: InternalCalendarEvent) {
   if (event.all_day) return shouldShowUnspecifiedCalendarTime(event) ? '시간 미지정' : '종일';
@@ -441,17 +441,13 @@ const DashboardCalendarPanel = () => {
         </CardContent>
       </Card>
 
-      {dialogOpen && (
-        <Suspense fallback={null}>
-          <CalendarEventDialog
-            open={dialogOpen}
-            onOpenChange={setDialogOpen}
-            events={dialogEvents}
-            defaultDate={selectedDate}
-            defaultMode={dialogMode}
-          />
-        </Suspense>
-      )}
+      <CalendarEventDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        events={dialogEvents}
+        defaultDate={selectedDate}
+        defaultMode={dialogMode}
+      />
     </>
   );
 };

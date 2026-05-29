@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addDays, format } from 'date-fns';
 import { Building2, CalendarCheck, Clock3, DoorOpen, UsersRound } from 'lucide-react';
@@ -6,14 +6,13 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
+import CalendarEventDialog from '@/components/calendar/CalendarEventDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   useCalendarDashboardSummary,
   useCalendarEvents,
 } from '@/hooks/useInternalCalendar';
 import type { CalendarViewScope } from '@/types/internalCalendar';
-
-const CalendarEventDialog = lazy(() => import('@/components/calendar/CalendarEventDialog'));
 
 const DashboardMeetingBookingCard = () => {
   const navigate = useNavigate();
@@ -150,17 +149,13 @@ const DashboardMeetingBookingCard = () => {
         </CardContent>
       </Card>
 
-      {dialogOpen && (
-        <Suspense fallback={null}>
-          <CalendarEventDialog
-            open={dialogOpen}
-            onOpenChange={setDialogOpen}
-            events={events}
-            defaultDate={format(new Date(), 'yyyy-MM-dd')}
-            defaultMode={dialogMode}
-          />
-        </Suspense>
-      )}
+      <CalendarEventDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        events={events}
+        defaultDate={format(new Date(), 'yyyy-MM-dd')}
+        defaultMode={dialogMode}
+      />
     </>
   );
 };
