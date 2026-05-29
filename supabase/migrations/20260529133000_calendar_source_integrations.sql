@@ -92,6 +92,10 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
+  IF _event_id IS NULL THEN
+    RETURN;
+  END IF;
+
   DELETE FROM public.calendar_event_participants
   WHERE event_id = _event_id;
 
@@ -100,15 +104,18 @@ BEGIN
     SELECT _event_id, _organizer_id, 'organizer', 'accepted', pd.full_name
     FROM public.profile_directory pd
     WHERE pd.id = _organizer_id
+      AND EXISTS (SELECT 1 FROM auth.users au WHERE au.id = _organizer_id)
     UNION ALL
     SELECT _event_id, _organizer_id, 'organizer', 'accepted', '담당자'
-    WHERE NOT EXISTS (SELECT 1 FROM public.profile_directory pd WHERE pd.id = _organizer_id)
+    WHERE EXISTS (SELECT 1 FROM auth.users au WHERE au.id = _organizer_id)
+      AND NOT EXISTS (SELECT 1 FROM public.profile_directory pd WHERE pd.id = _organizer_id)
     ON CONFLICT DO NOTHING;
   END IF;
 
   INSERT INTO public.calendar_event_participants (event_id, user_id, role, response_status, display_name)
   SELECT DISTINCT _event_id, attendee_id, 'attendee', 'accepted', pd.full_name
   FROM unnest(COALESCE(_attendee_ids, '{}'::uuid[])) AS attendee_id
+  JOIN auth.users au ON au.id = attendee_id
   LEFT JOIN public.profile_directory pd ON pd.id = attendee_id
   WHERE attendee_id IS NOT NULL
     AND attendee_id IS DISTINCT FROM _organizer_id
@@ -117,6 +124,7 @@ BEGIN
   INSERT INTO public.calendar_event_participants (event_id, user_id, role, response_status, display_name)
   SELECT DISTINCT _event_id, assignee_id, 'assignee', 'accepted', pd.full_name
   FROM unnest(COALESCE(_assignee_ids, '{}'::uuid[])) AS assignee_id
+  JOIN auth.users au ON au.id = assignee_id
   LEFT JOIN public.profile_directory pd ON pd.id = assignee_id
   WHERE assignee_id IS NOT NULL
     AND assignee_id IS DISTINCT FROM _organizer_id
@@ -154,10 +162,20 @@ SET search_path = public
 AS $$
 DECLARE
   v_event_id uuid;
+  v_created_by uuid;
+  v_recipient_id uuid;
 BEGIN
   IF _source_id IS NULL OR _starts_at IS NULL OR _ends_at IS NULL OR _ends_at <= _starts_at THEN
     RETURN NULL;
   END IF;
+
+  SELECT au.id INTO v_created_by
+  FROM auth.users au
+  WHERE au.id = _created_by;
+
+  SELECT r.id INTO v_recipient_id
+  FROM public.recipients r
+  WHERE r.id = _recipient_id;
 
   INSERT INTO public.calendar_events (
     title,
@@ -197,10 +215,10 @@ BEGIN
     NULLIF(_source_path, ''),
     NULLIF(_accent, ''),
     NULLIF(_icon_type, ''),
-    _created_by,
+    v_created_by,
     COALESCE(NULLIF(_created_by_name, ''), '시스템'),
     NULLIF(_team_department, ''),
-    _recipient_id,
+    v_recipient_id,
     NULLIF(_client_name, ''),
     NULLIF(_client_contact, ''),
     COALESCE(_metadata, '{}'::jsonb)
