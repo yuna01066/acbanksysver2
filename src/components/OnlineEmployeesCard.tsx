@@ -10,13 +10,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Heart, MessageSquare, Users2, Send, Loader2, CalendarIcon, Clock } from 'lucide-react';
+import { Heart, MessageSquare, Users2, Send, Loader2, CalendarIcon, Clock, Radio } from 'lucide-react';
 import { useProjectSuggestions, TaggableProject } from '@/hooks/useProjectSuggestions';
 import ProjectDropdown from '@/components/chat/ProjectDropdown';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
+import { getStoredEmployeeWorkStatus, setStoredEmployeeWorkStatus } from '@/components/EmployeeOnlineHeartbeat';
+import AdminOnlineUsersPanel, { useAdminOnlineUsers } from '@/components/AdminOnlineUsersPanel';
 
 interface CheckedInEmployee {
   user_id: string;
@@ -45,9 +47,10 @@ const STATUS_CONFIG: Record<WorkStatus, { label: string; emoji: string; color: s
 };
 
 const OnlineEmployeesCard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isAdmin, isModerator } = useAuth();
   const [employees, setEmployees] = useState<CheckedInEmployee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [onlineDialogOpen, setOnlineDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<CheckedInEmployee | null>(null);
   const [feedbackType, setFeedbackType] = useState<FeedbackType | null>(null);
   const [message, setMessage] = useState('');
@@ -67,10 +70,12 @@ const OnlineEmployeesCard: React.FC = () => {
   const [meetingTime, setMeetingTime] = useState<string>('');
 
   // Status tracking via Realtime Presence
-  const [myStatus, setMyStatus] = useState<WorkStatus>('available');
+  const [myStatus, setMyStatus] = useState<WorkStatus>(() => getStoredEmployeeWorkStatus());
   const [statusMap, setStatusMap] = useState<Record<string, WorkStatus>>({});
   const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
   const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const canViewOnlineUsers = isAdmin || isModerator;
+  const onlineUsers = useAdminOnlineUsers(canViewOnlineUsers);
 
   useEffect(() => {
     fetchCheckedInEmployees();
@@ -112,9 +117,14 @@ const OnlineEmployeesCard: React.FC = () => {
   // Update presence when status changes
   const updateMyStatus = useCallback(async (newStatus: WorkStatus) => {
     setMyStatus(newStatus);
+    setStoredEmployeeWorkStatus(newStatus);
     setStatusPopoverOpen(false);
 
     await presenceChannelRef.current?.track({ status: newStatus, online_at: new Date().toISOString() });
+    await supabase.rpc('upsert_employee_online_heartbeat' as any, {
+      _work_status: newStatus,
+      _user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+    } as any);
     toast.success(`상태가 "${STATUS_CONFIG[newStatus].label}"(으)로 변경되었습니다`);
   }, []);
 
@@ -282,7 +292,28 @@ const OnlineEmployeesCard: React.FC = () => {
           <BrandedCardHeader
             icon={Users2}
             title="현재 출근 중"
-            meta={<Badge variant="secondary" className="rounded-full px-2.5 text-xs">{employees.length}명</Badge>}
+            meta={
+              <div className="flex items-center gap-1.5">
+                <Badge variant="secondary" className="rounded-full px-2.5 text-xs">{employees.length}명</Badge>
+                {canViewOnlineUsers && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-full px-2.5 text-xs"
+                    onClick={() => setOnlineDialogOpen(true)}
+                  >
+                    <Radio className="mr-1.5 h-3.5 w-3.5" />
+                    접속자 보기
+                    {!onlineUsers.isError && onlineUsers.counts.total > 0 && (
+                      <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold">
+                        {onlineUsers.counts.total}
+                      </span>
+                    )}
+                  </Button>
+                )}
+              </div>
+            }
             iconClassName="text-emerald-500"
             iconWrapClassName="border-emerald-500/10 bg-emerald-500/10"
           />
@@ -521,6 +552,20 @@ const OnlineEmployeesCard: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {canViewOnlineUsers && (
+        <Dialog open={onlineDialogOpen} onOpenChange={setOnlineDialogOpen}>
+          <DialogContent className="max-h-[86vh] overflow-hidden sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Radio className="h-4 w-4" />
+                현재 접속 중
+              </DialogTitle>
+            </DialogHeader>
+            <AdminOnlineUsersPanel showHeader={false} />
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 };

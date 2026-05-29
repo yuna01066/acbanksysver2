@@ -300,7 +300,7 @@ const Home = () => {
             </div>
           </div>
 
-          {/* Online Employees & Team Chat */}
+          {/* Checked-in staff and team chat */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
             <OnlineEmployeesCard />
             <TeamChatCard />
