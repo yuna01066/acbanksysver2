@@ -145,6 +145,7 @@ function buildCalendarKeys({
 const CalendarPage = () => {
   const { user, profile, isAdmin, isModerator } = useAuth();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canViewAll = isAdmin || isModerator;
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
