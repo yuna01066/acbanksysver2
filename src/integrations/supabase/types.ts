@@ -3676,6 +3676,189 @@ export type Database = {
           },
         ]
       }
+      quote_status_recovery_backup_20260529: {
+        Row: {
+          assigned_to: string | null
+          assigned_to_name: string | null
+          attachments: Json | null
+          auto_cancel_reason: string | null
+          auto_cancelled_at: string | null
+          calculation_snapshot: Json | null
+          created_at: string | null
+          custom_color_name: string | null
+          custom_opacity: string | null
+          delivery_period: string | null
+          desired_delivery_date: string | null
+          drive_folder_id: string | null
+          drive_folder_path: string | null
+          drive_pdf_file_id: string | null
+          id: string | null
+          issuer_department: string | null
+          issuer_email: string | null
+          issuer_id: string | null
+          issuer_name: string | null
+          issuer_phone: string | null
+          issuer_position: string | null
+          items: Json | null
+          payment_condition: string | null
+          pricing_version_id: string | null
+          project_id: string | null
+          project_name: string | null
+          project_stage: string | null
+          quote_date: string | null
+          quote_date_display: string | null
+          quote_number: string | null
+          quote_status: string | null
+          recipient_address: string | null
+          recipient_company: string | null
+          recipient_email: string | null
+          recipient_memo: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
+          reissued_at: string | null
+          reissued_from_quote_id: string | null
+          reissued_quote_id: string | null
+          status_updated_at: string | null
+          subtotal: number | null
+          tax: number | null
+          total: number | null
+          updated_at: string | null
+          user_id: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          assigned_to_name?: string | null
+          attachments?: Json | null
+          auto_cancel_reason?: string | null
+          auto_cancelled_at?: string | null
+          calculation_snapshot?: Json | null
+          created_at?: string | null
+          custom_color_name?: string | null
+          custom_opacity?: string | null
+          delivery_period?: string | null
+          desired_delivery_date?: string | null
+          drive_folder_id?: string | null
+          drive_folder_path?: string | null
+          drive_pdf_file_id?: string | null
+          id?: string | null
+          issuer_department?: string | null
+          issuer_email?: string | null
+          issuer_id?: string | null
+          issuer_name?: string | null
+          issuer_phone?: string | null
+          issuer_position?: string | null
+          items?: Json | null
+          payment_condition?: string | null
+          pricing_version_id?: string | null
+          project_id?: string | null
+          project_name?: string | null
+          project_stage?: string | null
+          quote_date?: string | null
+          quote_date_display?: string | null
+          quote_number?: string | null
+          quote_status?: string | null
+          recipient_address?: string | null
+          recipient_company?: string | null
+          recipient_email?: string | null
+          recipient_memo?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          reissued_at?: string | null
+          reissued_from_quote_id?: string | null
+          reissued_quote_id?: string | null
+          status_updated_at?: string | null
+          subtotal?: number | null
+          tax?: number | null
+          total?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          assigned_to_name?: string | null
+          attachments?: Json | null
+          auto_cancel_reason?: string | null
+          auto_cancelled_at?: string | null
+          calculation_snapshot?: Json | null
+          created_at?: string | null
+          custom_color_name?: string | null
+          custom_opacity?: string | null
+          delivery_period?: string | null
+          desired_delivery_date?: string | null
+          drive_folder_id?: string | null
+          drive_folder_path?: string | null
+          drive_pdf_file_id?: string | null
+          id?: string | null
+          issuer_department?: string | null
+          issuer_email?: string | null
+          issuer_id?: string | null
+          issuer_name?: string | null
+          issuer_phone?: string | null
+          issuer_position?: string | null
+          items?: Json | null
+          payment_condition?: string | null
+          pricing_version_id?: string | null
+          project_id?: string | null
+          project_name?: string | null
+          project_stage?: string | null
+          quote_date?: string | null
+          quote_date_display?: string | null
+          quote_number?: string | null
+          quote_status?: string | null
+          recipient_address?: string | null
+          recipient_company?: string | null
+          recipient_email?: string | null
+          recipient_memo?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          reissued_at?: string | null
+          reissued_from_quote_id?: string | null
+          reissued_quote_id?: string | null
+          status_updated_at?: string | null
+          subtotal?: number | null
+          tax?: number | null
+          total?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      quote_status_recovery_review_20260529: {
+        Row: {
+          created_at: string
+          current_project_stage: string | null
+          current_quote_status: string | null
+          project_id: string | null
+          quote_id: string
+          quote_number: string | null
+          reason: string | null
+          suggested_project_stage: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_project_stage?: string | null
+          current_quote_status?: string | null
+          project_id?: string | null
+          quote_id: string
+          quote_number?: string | null
+          reason?: string | null
+          suggested_project_stage?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_project_stage?: string | null
+          current_quote_status?: string | null
+          project_id?: string | null
+          quote_id?: string
+          quote_number?: string | null
+          reason?: string | null
+          suggested_project_stage?: string | null
+        }
+        Relationships: []
+      }
       quote_template_items: {
         Row: {
           created_at: string
@@ -4485,15 +4668,15 @@ export type Database = {
           quote_date_display: string | null
           quote_number: string
           quote_status: string
-          reissued_at: string | null
-          reissued_from_quote_id: string | null
-          reissued_quote_id: string | null
           recipient_address: string | null
           recipient_company: string | null
           recipient_email: string | null
           recipient_memo: string | null
           recipient_name: string | null
           recipient_phone: string | null
+          reissued_at: string | null
+          reissued_from_quote_id: string | null
+          reissued_quote_id: string | null
           status_updated_at: string
           subtotal: number
           tax: number
@@ -4534,15 +4717,15 @@ export type Database = {
           quote_date_display?: string | null
           quote_number: string
           quote_status?: string
-          reissued_at?: string | null
-          reissued_from_quote_id?: string | null
-          reissued_quote_id?: string | null
           recipient_address?: string | null
           recipient_company?: string | null
           recipient_email?: string | null
           recipient_memo?: string | null
           recipient_name?: string | null
           recipient_phone?: string | null
+          reissued_at?: string | null
+          reissued_from_quote_id?: string | null
+          reissued_quote_id?: string | null
           status_updated_at?: string
           subtotal: number
           tax: number
@@ -4583,15 +4766,15 @@ export type Database = {
           quote_date_display?: string | null
           quote_number?: string
           quote_status?: string
-          reissued_at?: string | null
-          reissued_from_quote_id?: string | null
-          reissued_quote_id?: string | null
           recipient_address?: string | null
           recipient_company?: string | null
           recipient_email?: string | null
           recipient_memo?: string | null
           recipient_name?: string | null
           recipient_phone?: string | null
+          reissued_at?: string | null
+          reissued_from_quote_id?: string | null
+          reissued_quote_id?: string | null
           status_updated_at?: string
           subtotal?: number
           tax?: number
@@ -4620,6 +4803,20 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_quotes_reissued_from_quote_id_fkey"
+            columns: ["reissued_from_quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_quotes_reissued_quote_id_fkey"
+            columns: ["reissued_quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
             referencedColumns: ["id"]
           },
         ]
