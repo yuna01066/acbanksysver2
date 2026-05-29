@@ -45,6 +45,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageHeader, PageShell } from '@/components/layout/PageLayout';
 import CalendarEventDialog from '@/components/calendar/CalendarEventDialog';
+import CalendarEventDeleteActions from '@/components/calendar/CalendarEventDeleteActions';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -306,10 +307,6 @@ const CalendarPage = () => {
   const openEvent = (event: InternalCalendarEvent) => {
     setSelectedEvent(event);
     if (!event.can_edit && openSourcePath(event)) return;
-    if (event.can_edit) {
-      setEditingEvent(event);
-      setDialogOpen(true);
-    }
   };
 
   const handleSubscribeUser = async () => {
@@ -807,16 +804,25 @@ const CalendarPage = () => {
                   </p>
                 )}
                 {selectedEvent.can_edit && (
-                  <Button
-                    variant="outline"
-                    className="h-9 w-full rounded-full border-[#cacacb]"
-                    onClick={() => {
-                      setEditingEvent(selectedEvent);
-                      setDialogOpen(true);
-                    }}
-                  >
-                    일정 수정
-                  </Button>
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      className="h-9 w-full rounded-full border-[#cacacb]"
+                      onClick={() => {
+                        setEditingEvent(selectedEvent);
+                        setDialogOpen(true);
+                      }}
+                    >
+                      일정 수정
+                    </Button>
+                    <CalendarEventDeleteActions
+                      event={selectedEvent}
+                      onDeleted={() => {
+                        setSelectedEvent(null);
+                        setEditingEvent(null);
+                      }}
+                    />
+                  </div>
                 )}
                 {selectedEvent.source_path && (
                   <Button

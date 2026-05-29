@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import CalendarEventDeleteActions from '@/components/calendar/CalendarEventDeleteActions';
 import { cn } from '@/lib/utils';
 import {
   addMinutesToClockTime,
@@ -679,24 +680,39 @@ const CalendarEventDialog = ({
           </aside>
         </div>
 
-        <div className="flex flex-col-reverse gap-2 border-t border-[#e5e5e5] px-5 py-4 sm:flex-row sm:justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 rounded-full border-[#cacacb]"
-            onClick={() => onOpenChange(false)}
-          >
-            취소
-          </Button>
-          <Button
-            type="button"
-            disabled={!!validationError || saving}
-            onClick={handleSubmit}
-            className="h-10 rounded-full bg-[#111111] px-5 text-white hover:bg-[#39393b]"
-          >
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {event ? '변경 저장' : '일정 등록'}
-          </Button>
+        <div className="flex flex-col gap-3 border-t border-[#e5e5e5] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            {event?.can_edit && (
+              <CalendarEventDeleteActions
+                event={event}
+                variant="dialog"
+                disabled={saving}
+                onDeleted={() => {
+                  onSaved?.(event.id);
+                  onOpenChange(false);
+                }}
+              />
+            )}
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-full border-[#cacacb]"
+              onClick={() => onOpenChange(false)}
+            >
+              취소
+            </Button>
+            <Button
+              type="button"
+              disabled={!!validationError || saving}
+              onClick={handleSubmit}
+              className="h-10 rounded-full bg-[#111111] px-5 text-white hover:bg-[#39393b]"
+            >
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {event ? '변경 저장' : '일정 등록'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
