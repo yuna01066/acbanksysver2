@@ -49,6 +49,7 @@ const ReviewSettingsPage = lazy(() => import("./pages/ReviewSettingsPage"));
 const PerformanceReviewPage = lazy(() => import("./pages/PerformanceReviewPage"));
 const MaterialOrdersPage = lazy(() => import("./pages/MaterialOrdersPage"));
 const MeetingReservationsPage = lazy(() => import("./pages/MeetingReservationsPage"));
+const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 const YearEndTaxPage = lazy(() => import("./pages/YearEndTaxPage"));
 const YearEndTaxAdminPage = lazy(() => import("./pages/YearEndTaxAdminPage"));
 const StorageStatusPage = lazy(() => import("./pages/StorageStatusPage"));
@@ -130,6 +131,7 @@ const App = () => (
               <Route path="/performance-review" element={<G><PerformanceReviewPage /></G>} />
               <Route path="/material-orders" element={<G><MaterialOrdersPage /></G>} />
               <Route path="/meeting-reservations" element={<G><MeetingReservationsPage /></G>} />
+              <Route path="/calendar" element={<G><CalendarPage /></G>} />
               <Route path="/year-end-tax" element={<YearEndTaxPage />} />
               <Route path="/year-end-tax-admin" element={<S><YearEndTaxAdminPage /></S>} />
               <Route path="/storage-status" element={<StorageStatusPage />} />

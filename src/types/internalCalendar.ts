@@ -1,0 +1,220 @@
+export type CalendarEventStatus = 'scheduled' | 'confirmed' | 'completed' | 'canceled';
+export type CalendarEventVisibility = 'private' | 'busy_only' | 'title_only' | 'details';
+export type CalendarSourceType =
+  | 'manual'
+  | 'meeting_reservation'
+  | 'peer_meeting'
+  | 'announcement_event'
+  | 'leave'
+  | 'quote'
+  | 'project'
+  | 'holiday'
+  | 'birthday'
+  | 'notion';
+export type CalendarResourceType = 'meeting_room';
+export type CalendarViewScope = 'my' | 'all' | 'team';
+export type CalendarParticipantRole = 'organizer' | 'attendee' | 'assignee';
+export type CalendarIconType =
+  | 'calendar'
+  | 'quote'
+  | 'delivery'
+  | 'project'
+  | 'meeting'
+  | 'meeting_reservation'
+  | 'holiday'
+  | 'birthday'
+  | 'leave'
+  | 'event'
+  | 'notion'
+  | 'room';
+
+export type InternalCalendarEvent = {
+  id: string;
+  title: string;
+  description: string | null;
+  starts_at: string;
+  ends_at: string;
+  all_day: boolean;
+  location: string | null;
+  visibility: CalendarEventVisibility;
+  status: CalendarEventStatus;
+  source_type: CalendarSourceType;
+  source_id: string | null;
+  source_subtype: string;
+  source_path: string | null;
+  accent: string | null;
+  icon_type: CalendarIconType | null;
+  created_by: string | null;
+  created_by_name: string;
+  team_department: string | null;
+  client_name: string | null;
+  client_contact: string | null;
+  participant_ids: string[];
+  participant_names: string[];
+  resource_ids: string[];
+  resource_names: string[];
+  can_edit: boolean;
+  is_redacted: boolean;
+  metadata: Record<string, unknown>;
+};
+
+export type CalendarResource = {
+  id: string;
+  name: string;
+  resource_type: CalendarResourceType;
+  floor: string | null;
+  description: string | null;
+  is_active: boolean;
+  display_order: number;
+};
+
+export type CalendarSubscriptionTargetType = 'user' | 'team' | 'resource';
+
+export type CalendarSubscription = {
+  id: string;
+  subscriber_id: string;
+  target_type: CalendarSubscriptionTargetType;
+  target_user_id: string | null;
+  target_department: string | null;
+  target_resource_id: string | null;
+  display_name: string | null;
+  color: string | null;
+  is_visible: boolean;
+};
+
+export type CalendarDirectoryUser = {
+  id: string;
+  full_name: string;
+  department: string | null;
+  position: string | null;
+  avatar_url?: string | null;
+};
+
+export type CalendarEventDraftPayload = {
+  id?: string;
+  title: string;
+  description?: string | null;
+  starts_at: string;
+  ends_at: string;
+  all_day?: boolean;
+  location?: string | null;
+  visibility?: CalendarEventVisibility;
+  status?: CalendarEventStatus;
+  source_type?: CalendarSourceType;
+  source_id?: string | null;
+  source_subtype?: string;
+  source_path?: string | null;
+  accent?: string | null;
+  icon_type?: CalendarIconType | null;
+  team_department?: string | null;
+  recipient_id?: string | null;
+  client_name?: string | null;
+  client_contact?: string | null;
+  participant_ids?: string[];
+  assignee_ids?: string[];
+  resource_ids?: string[];
+  metadata?: Record<string, unknown>;
+};
+
+export type CalendarRoomSummaryEvent = {
+  id: string;
+  title: string;
+  starts_at: string;
+  ends_at: string;
+} | null;
+
+export type CalendarRoomSummary = {
+  id: string;
+  name: string;
+  floor: string | null;
+  is_active: boolean;
+  current_event: CalendarRoomSummaryEvent;
+  next_event: CalendarRoomSummaryEvent;
+};
+
+export type CalendarDashboardSummary = {
+  today_count: number;
+  week_count: number;
+  assigned_meeting_count: number;
+  rooms_in_use_count: number;
+  next_event: InternalCalendarEvent | null;
+  rooms: CalendarRoomSummary[];
+};
+
+export const CALENDAR_STATUS_LABELS: Record<CalendarEventStatus, string> = {
+  scheduled: '예정',
+  confirmed: '확정',
+  completed: '완료',
+  canceled: '취소',
+};
+
+export const CALENDAR_VISIBILITY_LABELS: Record<CalendarEventVisibility, string> = {
+  private: '비공개',
+  busy_only: '바쁨만 공개',
+  title_only: '제목까지 공개',
+  details: '상세 공개',
+};
+
+export type CalendarSourceFilter = 'quote' | 'project' | 'meeting' | 'people' | 'room';
+
+export const CALENDAR_SOURCE_FILTERS: Array<{
+  value: CalendarSourceFilter;
+  label: string;
+  description: string;
+}> = [
+  { value: 'quote', label: '견적·납기', description: '견적 발행일과 납기 희망일' },
+  { value: 'project', label: '프로젝트', description: '프로젝트와 Notion 일정' },
+  { value: 'meeting', label: '미팅', description: '직원/고객/공지 미팅' },
+  { value: 'people', label: '인사 일정', description: '휴가, 휴일, 생일' },
+  { value: 'room', label: '회의실', description: '회의실 예약 현황' },
+];
+
+export const CALENDAR_EVENT_LEGEND: Array<{
+  key: string;
+  label: string;
+  sourceType: CalendarSourceType;
+  sourceSubtype?: string;
+  iconType: CalendarIconType;
+  accent: string;
+}> = [
+  { key: 'quote-issued', label: '견적 발행일', sourceType: 'quote', sourceSubtype: 'issued', iconType: 'quote', accent: '#2563eb' },
+  { key: 'quote-delivery', label: '납기 희망일', sourceType: 'quote', sourceSubtype: 'delivery', iconType: 'delivery', accent: '#f97316' },
+  { key: 'project', label: '프로젝트', sourceType: 'project', iconType: 'project', accent: '#059669' },
+  { key: 'notion', label: 'Notion 프로젝트', sourceType: 'notion', iconType: 'notion', accent: '#7c3aed' },
+  { key: 'meeting', label: '미팅', sourceType: 'peer_meeting', iconType: 'meeting', accent: '#b45309' },
+  { key: 'meeting-reservation', label: '미팅 예약', sourceType: 'meeting_reservation', iconType: 'meeting_reservation', accent: '#0284c7' },
+  { key: 'announcement-event', label: '이벤트', sourceType: 'announcement_event', iconType: 'event', accent: '#10b981' },
+  { key: 'holiday', label: '휴일', sourceType: 'holiday', iconType: 'holiday', accent: '#ef4444' },
+  { key: 'birthday', label: '생일', sourceType: 'birthday', iconType: 'birthday', accent: '#ec4899' },
+  { key: 'leave', label: '휴가', sourceType: 'leave', iconType: 'leave', accent: '#14b8a6' },
+];
+
+export const DEFAULT_CALENDAR_ACCENT = '#111111';
+
+export function getCalendarEventAccent(event: Pick<InternalCalendarEvent, 'accent' | 'source_type' | 'source_subtype' | 'resource_ids'>) {
+  if (event.accent) return event.accent;
+  if (event.resource_ids.length > 0) return '#4b5563';
+  const matched = CALENDAR_EVENT_LEGEND.find((item) =>
+    item.sourceType === event.source_type
+    && (!item.sourceSubtype || item.sourceSubtype === event.source_subtype),
+  );
+  return matched?.accent || DEFAULT_CALENDAR_ACCENT;
+}
+
+export function getCalendarEventIconType(event: Pick<InternalCalendarEvent, 'icon_type' | 'source_type' | 'source_subtype' | 'resource_ids'>): CalendarIconType {
+  if (event.icon_type) return event.icon_type;
+  if (event.resource_ids.length > 0) return 'room';
+  const matched = CALENDAR_EVENT_LEGEND.find((item) =>
+    item.sourceType === event.source_type
+    && (!item.sourceSubtype || item.sourceSubtype === event.source_subtype),
+  );
+  return matched?.iconType || 'calendar';
+}
+
+export function getCalendarSourceFilter(event: Pick<InternalCalendarEvent, 'source_type' | 'resource_ids'>): CalendarSourceFilter {
+  if (event.resource_ids.length > 0) return 'room';
+  if (event.source_type === 'quote') return 'quote';
+  if (event.source_type === 'project' || event.source_type === 'notion') return 'project';
+  if (event.source_type === 'leave' || event.source_type === 'holiday' || event.source_type === 'birthday') return 'people';
+  return 'meeting';
+}
