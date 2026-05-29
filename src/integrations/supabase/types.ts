@@ -2930,10 +2930,12 @@ export type Database = {
           cover_image_id: string | null
           created_at: string
           created_by: string
+          gallery_type: string
           id: string
           keywords: string[] | null
           location: string | null
           materials: string[] | null
+          memo: string | null
           processes: string[] | null
           project_year: number | null
           title: string
@@ -2947,10 +2949,12 @@ export type Database = {
           cover_image_id?: string | null
           created_at?: string
           created_by: string
+          gallery_type?: string
           id?: string
           keywords?: string[] | null
           location?: string | null
           materials?: string[] | null
+          memo?: string | null
           processes?: string[] | null
           project_year?: number | null
           title: string
@@ -2964,10 +2968,12 @@ export type Database = {
           cover_image_id?: string | null
           created_at?: string
           created_by?: string
+          gallery_type?: string
           id?: string
           keywords?: string[] | null
           location?: string | null
           materials?: string[] | null
+          memo?: string | null
           processes?: string[] | null
           project_year?: number | null
           title?: string
@@ -5570,6 +5576,7 @@ export type Database = {
         Args: {
           p_category_keywords?: string[]
           p_exact_keyword?: string
+          p_gallery_type?: string
           p_limit?: number
           p_offset?: number
           p_search_text?: string
@@ -5581,11 +5588,13 @@ export type Database = {
           cover_image_id: string
           created_at: string
           created_by: string
+          gallery_type: string
           id: string
           image_count: number
           keywords: string[]
           location: string
           materials: string[]
+          memo: string
           processes: string[]
           project_year: number
           title: string
