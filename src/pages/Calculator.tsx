@@ -28,7 +28,7 @@ const Calculator = () => {
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate('/saved-quotes')}>
               <List className="h-4 w-4" />
-              발행 견적서
+              발행 견적서 목록
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate('/admin-settings')}>
               <Settings className="h-4 w-4" />
