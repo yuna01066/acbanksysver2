@@ -278,7 +278,7 @@ const Home = () => {
     link.action();
   };
 
-  if (authLoading) {
+  if (authLoading && user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-transparent px-4 text-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -287,7 +287,7 @@ const Home = () => {
     );
   }
 
-  // If not logged in, show login page
+  // If not logged in, keep the login page reachable even while session restore is slow.
   if (!user) {
     return <LoginScreen />;
   }

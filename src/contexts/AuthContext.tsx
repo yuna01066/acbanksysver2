@@ -44,6 +44,25 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 
 export const ROLE_HIERARCHY: AppRole[] = ['admin', 'moderator', 'manager', 'employee'];
 
+const AUTH_CONTEXT_TIMEOUT_MS = 5_000;
+
+const withAuthTimeout = async <T,>(promise: Promise<T>, label: string, fallback: T): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  const timeout = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.warn(`[Auth] ${label} timed out after ${AUTH_CONTEXT_TIMEOUT_MS}ms`);
+      resolve(fallback);
+    }, AUTH_CONTEXT_TIMEOUT_MS);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -133,10 +152,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loadUserContext = async (userId: string) => {
-    await Promise.all([
-      fetchProfile(userId),
-      checkUserRole(userId),
-    ]);
+    await withAuthTimeout(
+      Promise.all([
+        fetchProfile(userId),
+        checkUserRole(userId),
+      ]),
+      'User context load',
+      null
+    );
   };
 
   useEffect(() => {
@@ -163,7 +186,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    const restoreSession = withAuthTimeout(
+      supabase.auth.getSession(),
+      'Initial session restore',
+      { data: { session: null }, error: null }
+    );
+
+    restoreSession.then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       
