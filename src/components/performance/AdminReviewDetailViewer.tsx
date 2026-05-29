@@ -11,6 +11,7 @@ import { Loader2, User, Star, Target, TrendingUp, MessageSquare, ChevronDown, Ch
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import ProfileAvatarImage from '@/components/employee/ProfileAvatarImage';
 
 interface ReviewCycle {
   id: string;
@@ -227,7 +228,7 @@ const AdminReviewDetailViewer: React.FC<Props> = ({ initialEmployeeId }) => {
               <Card key={emp.id} className="cursor-pointer hover:border-primary/40 transition-all" onClick={() => setSelectedEmployeeId(emp.id)}>
                 <CardContent className="p-3 flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    {emp.avatar_url ? <img src={emp.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" /> : <User className="h-4 w-4 text-primary" />}
+                    {emp.avatar_url ? <ProfileAvatarImage src={emp.avatar_url} className="w-9 h-9 rounded-full object-cover" /> : <User className="h-4 w-4 text-primary" />}
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate">{emp.full_name}</p>
@@ -251,7 +252,7 @@ const AdminReviewDetailViewer: React.FC<Props> = ({ initialEmployeeId }) => {
             {selectedEmp && (
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  {selectedEmp.avatar_url ? <img src={selectedEmp.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" /> : <User className="h-4 w-4 text-primary" />}
+                  {selectedEmp.avatar_url ? <ProfileAvatarImage src={selectedEmp.avatar_url} className="w-8 h-8 rounded-full object-cover" /> : <User className="h-4 w-4 text-primary" />}
                 </div>
                 <span className="font-semibold text-sm">{selectedEmp.full_name}</span>
                 {selectedEmp.department && <span className="text-xs text-muted-foreground">{selectedEmp.department}</span>}

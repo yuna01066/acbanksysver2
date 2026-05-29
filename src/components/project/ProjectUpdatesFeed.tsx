@@ -21,6 +21,7 @@ import {
   updateDocumentFileRecord,
   type DocumentSyncStatus,
 } from '@/services/documentFiles';
+import ProfileAvatarImage from '@/components/employee/ProfileAvatarImage';
 
 interface NotionProject {
   id: string;
@@ -684,7 +685,7 @@ const ProjectUpdatesFeed: React.FC<Props> = ({ projectId, projectName }) => {
                     >
                       <Avatar className="h-5 w-5">
                         {emp.avatar_url ? (
-                          <img src={emp.avatar_url} alt="" className="h-5 w-5 rounded-full object-cover" />
+                          <ProfileAvatarImage src={emp.avatar_url} className="h-5 w-5 rounded-full object-cover" />
                         ) : (
                           <AvatarFallback className="text-[9px] bg-primary/10 text-primary">
                             {emp.full_name.slice(0, 1)}

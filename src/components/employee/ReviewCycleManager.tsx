@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { Plus, Calendar, Loader2, Trash2, Settings2, Users, Search, X } from 'lucide-react';
+import ProfileAvatarImage from '@/components/employee/ProfileAvatarImage';
 
 interface Cycle {
   id: string;
@@ -471,7 +472,7 @@ const ReviewCycleManager: React.FC = () => {
                         />
                         <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary overflow-hidden">
                           {emp.avatar_url
-                            ? <img src={emp.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+                            ? <ProfileAvatarImage src={emp.avatar_url} className="w-7 h-7 rounded-full object-cover" />
                             : emp.full_name?.charAt(0) || '?'}
                         </div>
                         <div className="flex-1 min-w-0">

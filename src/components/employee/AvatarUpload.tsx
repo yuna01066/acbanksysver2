@@ -1,8 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Camera, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAvatarDisplayUrl } from '@/hooks/useAvatarDisplayUrl';
 
 interface AvatarUploadProps {
   userId: string;
@@ -25,6 +26,11 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [currentUrl, setCurrentUrl] = useState(avatarUrl);
+  const displayUrl = useAvatarDisplayUrl(currentUrl);
+
+  useEffect(() => {
+    setCurrentUrl(avatarUrl);
+  }, [avatarUrl]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -82,8 +88,8 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
         sizeMap[size],
         "bg-gradient-to-br from-primary/25 to-primary/5 flex items-center justify-center font-bold text-primary shrink-0 overflow-hidden"
       )}>
-        {currentUrl ? (
-          <img src={currentUrl} alt={name} className="w-full h-full object-cover" />
+        {currentUrl && displayUrl ? (
+          <img src={displayUrl} alt={name} className="w-full h-full object-cover" />
         ) : (
           initial
         )}
