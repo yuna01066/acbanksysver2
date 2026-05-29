@@ -3,19 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Clock, LogIn, LogOut, MapPin, CalendarDays, Plus, Loader2, Check, X, BarChart3, Pencil, CalendarRange, Search, LayoutDashboard, AlertTriangle, Trash2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Clock, LogIn, LogOut, MapPin, CalendarDays, Plus, Loader2, Check, X, BarChart3, Pencil, Search, AlertTriangle, Trash2, ChevronLeft, ChevronRight, CalendarCheck, Timer, Palmtree, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -47,6 +46,47 @@ const LEAVE_STATUS = {
 
 type AttendanceAction = 'check_in' | 'check_out';
 type AttendanceLocation = { lat: number; lng: number } | null;
+
+const ATTENDANCE_STATUS_META: Record<string, { label: string; className: string }> = {
+  checked_out: {
+    label: '퇴근 완료',
+    className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  },
+  checked_in: {
+    label: '근무 중',
+    className: 'border-sky-200 bg-sky-50 text-sky-700',
+  },
+  present: {
+    label: '근무 중',
+    className: 'border-sky-200 bg-sky-50 text-sky-700',
+  },
+  absent: {
+    label: '결근',
+    className: 'border-red-200 bg-red-50 text-red-700',
+  },
+  late: {
+    label: '지각',
+    className: 'border-amber-200 bg-amber-50 text-amber-700',
+  },
+  early_leave: {
+    label: '조퇴',
+    className: 'border-orange-200 bg-orange-50 text-orange-700',
+  },
+};
+
+const getAttendanceStatusMeta = (status?: string | null) => {
+  if (!status) {
+    return {
+      label: '미기록',
+      className: 'border-border bg-muted/50 text-muted-foreground',
+    };
+  }
+
+  return ATTENDANCE_STATUS_META[status] || {
+    label: status,
+    className: 'border-border bg-muted/50 text-muted-foreground',
+  };
+};
 
 const AttendancePage = () => {
   const navigate = useNavigate();
@@ -390,192 +430,330 @@ const AttendancePage = () => {
     .reduce((sum: number, r: any) => sum + Number(r.work_hours || 0), 0);
   const avgHours = totalWorkDays > 0 ? (totalHours / totalWorkDays).toFixed(1) : '0';
   const approvedLeaves = leaveRequests.filter((l: any) => l.status === 'approved').reduce((sum: number, l: any) => sum + Number(l.days), 0);
+  const canManageAttendance = isAdmin || isModerator;
+  const filteredRecords = filterDate
+    ? monthlyRecords.filter((r: any) => r.date === filterDate)
+    : monthlyRecords;
+  const pendingLeaveCount = leaveRequests.filter((l: any) => l.status === 'pending').length;
+  const activeTodayCount = monthlyRecords.filter((r: any) => r.date === today && (r.status === 'checked_in' || r.status === 'present')).length;
+  const monthLabel = format(selectedMonth, 'yyyy년 M월', { locale: ko });
+  const isCheckedIn = todayRecord && !todayRecord.check_out;
+  const isCheckedOut = todayRecord && todayRecord.check_out;
+  const todayStatusMeta = isCheckedOut
+    ? getAttendanceStatusMeta('checked_out')
+    : isCheckedIn
+      ? getAttendanceStatusMeta('checked_in')
+      : getAttendanceStatusMeta(null);
+  const summaryCards = [
+    {
+      label: adminTab === 'all' ? '완료 기록' : '출근일수',
+      value: totalWorkDays,
+      helper: adminTab === 'all' ? `${monthLabel} 퇴근 완료 기록` : `${monthLabel} 퇴근 완료일`,
+      icon: CalendarCheck,
+    },
+    {
+      label: '총 근무시간',
+      value: totalHours.toFixed(1),
+      helper: adminTab === 'all' ? '전체 기록 합계' : '내 월간 합계',
+      icon: Timer,
+    },
+    {
+      label: '일평균',
+      value: avgHours,
+      helper: '퇴근 완료 기록 기준',
+      icon: Clock,
+    },
+    {
+      label: adminTab === 'all' ? '승인 휴가' : '사용 휴가',
+      value: approvedLeaves,
+      helper: pendingLeaveCount > 0 ? `승인 대기 ${pendingLeaveCount}건` : '승인된 휴가 일수',
+      icon: Palmtree,
+    },
+  ];
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
-  const isCheckedIn = todayRecord && !todayRecord.check_out;
-  const isCheckedOut = todayRecord && todayRecord.check_out;
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 p-4">
-      <div className="w-full max-w-6xl mx-auto">
-        <div className="mb-6 flex items-center gap-2">
-          <Button variant="outline" onClick={() => navigate('/leave-management')} size="sm" className="flex items-center gap-2">
-            <CalendarDays className="w-4 h-4" />
-            연차 관리
-          </Button>
-        </div>
-
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Clock className="w-6 h-6 text-primary" />
-            근태 관리
-          </h1>
-          {(isAdmin || isModerator) && (
-            <div className="flex gap-2">
-              <Button variant={adminTab === 'my' ? 'default' : 'outline'} size="sm" onClick={() => setAdminTab('my')}>내 기록</Button>
-              <Button variant={adminTab === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setAdminTab('all')}>전체 직원</Button>
-              {adminTab === 'all' && (
-                <Button variant="outline" size="sm" className="gap-1" onClick={() => setManualDialogOpen(true)}>
-                  <Plus className="w-4 h-4" />수동 등록
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Check In/Out Card */}
-        {adminTab === 'my' && (
-          <Card className="mb-6">
-            <CardContent className="p-6">
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="flex-1">
-                  <p className="text-lg font-semibold">{format(new Date(), 'yyyy년 M월 d일 (EEEE)', { locale: ko })}</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {isCheckedOut
-                      ? `✅ 퇴근 완료 (${format(new Date(todayRecord.check_in), 'HH:mm')} ~ ${format(new Date(todayRecord.check_out), 'HH:mm')})`
-                      : isCheckedIn
-                        ? `🟢 출근 중 (${format(new Date(todayRecord.check_in), 'HH:mm')} ~)`
-                        : '⏳ 아직 출근 기록이 없습니다'}
-                  </p>
-                  {todayRecord?.check_in_location && (
-                    <a
-                      href={`https://maps.google.com/?q=${(todayRecord.check_in_location as any).lat},${(todayRecord.check_in_location as any).lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary/70 hover:underline mt-1 flex items-center gap-1"
-                    >
-                      <MapPin className="w-3 h-3" />
-                      출근 위치: {(todayRecord.check_in_location as any).lat.toFixed(5)}, {(todayRecord.check_in_location as any).lng.toFixed(5)}
-                    </a>
-                  )}
-                  {todayRecord?.check_out_location && (
-                    <a
-                      href={`https://maps.google.com/?q=${(todayRecord.check_out_location as any).lat},${(todayRecord.check_out_location as any).lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary/70 hover:underline mt-0.5 flex items-center gap-1"
-                    >
-                      <MapPin className="w-3 h-3" />
-                      퇴근 위치: {(todayRecord.check_out_location as any).lat.toFixed(5)}, {(todayRecord.check_out_location as any).lng.toFixed(5)}
-                    </a>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  {!todayRecord && (
-                    <Button onClick={() => handleAttendanceAction('check_in')} disabled={checkInMutation.isPending || gettingLocation} className="gap-2">
-                      {(checkInMutation.isPending || gettingLocation) ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
-                      출근하기
-                    </Button>
-                  )}
-                  {isCheckedIn && (
-                    <Button onClick={() => handleAttendanceAction('check_out')} disabled={checkOutMutation.isPending || gettingLocation} variant="destructive" className="gap-2">
-                      {(checkOutMutation.isPending || gettingLocation) ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
-                      퇴근하기
-                    </Button>
-                  )}
-                </div>
+    <TooltipProvider>
+      <div className="min-h-screen bg-background p-4 sm:p-6">
+        <div className="w-full max-w-7xl mx-auto space-y-5">
+          <header className="rounded-lg border border-border bg-card p-4 shadow-none">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground">
+                  <Clock className="h-6 w-6 text-muted-foreground" />
+                  근태 관리
+                </h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {monthLabel} · {adminTab === 'all' ? '전체 직원 기준' : profile?.full_name || user?.email || '내 기록'}
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        )}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-primary">{totalWorkDays}</p>
-              <p className="text-xs text-muted-foreground">출근일수</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-primary">{totalHours.toFixed(1)}</p>
-              <p className="text-xs text-muted-foreground">총 근무시간</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-primary">{avgHours}</p>
-              <p className="text-xs text-muted-foreground">일평균(시간)</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-primary">{approvedLeaves}</p>
-              <p className="text-xs text-muted-foreground">사용 휴가(일)</p>
-            </CardContent>
-          </Card>
-        </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {canManageAttendance && (
+                  <div className="inline-flex rounded-full border border-border bg-muted/40 p-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        'h-8 rounded-full px-4 text-sm',
+                        adminTab === 'my'
+                          ? 'bg-foreground text-background hover:bg-foreground/90 hover:text-background'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                      onClick={() => setAdminTab('my')}
+                    >
+                      내 근태
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        'h-8 rounded-full px-4 text-sm',
+                        adminTab === 'all'
+                          ? 'bg-foreground text-background hover:bg-foreground/90 hover:text-background'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                      onClick={() => setAdminTab('all')}
+                    >
+                      전체 직원
+                    </Button>
+                  </div>
+                )}
+                <Button variant="outline" size="sm" className="h-9 rounded-full gap-1.5" onClick={() => setLeaveDialogOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  휴가 신청
+                </Button>
+                <Button variant="outline" size="sm" className="h-9 rounded-full gap-1.5" onClick={() => navigate('/leave-management')}>
+                  <CalendarDays className="h-4 w-4" />
+                  연차 관리
+                </Button>
+                {canManageAttendance && adminTab === 'all' && (
+                  <Button variant="outline" size="sm" className="h-9 rounded-full gap-1.5" onClick={() => setManualDialogOpen(true)}>
+                    <Plus className="h-4 w-4" />
+                    수동 등록
+                  </Button>
+                )}
+              </div>
+            </div>
+          </header>
 
-        {/* Calendar View - below stats */}
-        {(isAdmin || isModerator) && adminTab === 'all' && (
-          <div className="mb-6">
-            <AttendanceCalendarView
-              onDateSelect={(date: string) => {
-                setFilterDate(date);
-                if (date) {
-                  setSelectedMonth(new Date(date));
-                }
-              }}
-              selectedDate={filterDate}
-            />
+          {adminTab === 'my' && (
+            <Card className="border-border shadow-none">
+              <CardContent className="p-5">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0 space-y-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className={cn('rounded-full px-3 py-1 text-xs', todayStatusMeta.className)}>
+                        {todayStatusMeta.label}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {format(new Date(), 'yyyy년 M월 d일 EEEE', { locale: ko })}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-xl font-semibold text-foreground">
+                        {isCheckedOut
+                          ? '오늘 근무를 마쳤습니다'
+                          : isCheckedIn
+                            ? '현재 근무 중입니다'
+                            : '아직 출근 기록이 없습니다'}
+                      </p>
+                      <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-3">
+                        <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
+                          <p className="text-xs">출근</p>
+                          <p className="font-semibold text-foreground">
+                            {todayRecord?.check_in ? format(new Date(todayRecord.check_in), 'HH:mm') : '-'}
+                          </p>
+                        </div>
+                        <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
+                          <p className="text-xs">퇴근</p>
+                          <p className="font-semibold text-foreground">
+                            {todayRecord?.check_out ? format(new Date(todayRecord.check_out), 'HH:mm') : '-'}
+                          </p>
+                        </div>
+                        <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
+                          <p className="text-xs">근무시간</p>
+                          <p className="font-semibold text-foreground">
+                            {todayRecord?.work_hours ? `${Number(todayRecord.work_hours).toFixed(1)}h` : '-'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {todayRecord?.check_in_location && (
+                        <a
+                          href={`https://maps.google.com/?q=${(todayRecord.check_in_location as any).lat},${(todayRecord.check_in_location as any).lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <MapPin className="h-3 w-3" />
+                          출근 위치
+                        </a>
+                      )}
+                      {todayRecord?.check_out_location && (
+                        <a
+                          href={`https://maps.google.com/?q=${(todayRecord.check_out_location as any).lat},${(todayRecord.check_out_location as any).lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <MapPin className="h-3 w-3" />
+                          퇴근 위치
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 gap-2">
+                    {!todayRecord && (
+                      <Button onClick={() => handleAttendanceAction('check_in')} disabled={checkInMutation.isPending || gettingLocation || todayLoading} className="h-10 rounded-full gap-2 px-5">
+                        {(checkInMutation.isPending || gettingLocation) ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+                        출근하기
+                      </Button>
+                    )}
+                    {isCheckedIn && (
+                      <Button onClick={() => handleAttendanceAction('check_out')} disabled={checkOutMutation.isPending || gettingLocation} variant="destructive" className="h-10 rounded-full gap-2 px-5">
+                        {(checkOutMutation.isPending || gettingLocation) ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+                        퇴근하기
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {summaryCards.map((card) => {
+              const Icon = card.icon;
+              return (
+                <Card key={card.label} className="border-border shadow-none">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">{card.label}</p>
+                        <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{card.value}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{card.helper}</p>
+                      </div>
+                      <div className="rounded-md border border-border bg-muted/30 p-2 text-muted-foreground">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
-        )}
 
-        <Tabs defaultValue={((isAdmin || isModerator) && adminTab === 'all') ? 'dashboard' : 'attendance'}>
-          <TabsList className="mb-4 flex-wrap">
-            {(isAdmin || isModerator) && adminTab === 'all' && (
-              <TabsTrigger value="dashboard"><LayoutDashboard className="w-4 h-4 mr-1" />근태 대시보드</TabsTrigger>
-            )}
-            <TabsTrigger value="attendance"><Clock className="w-4 h-4 mr-1" />출퇴근 기록</TabsTrigger>
-            <TabsTrigger value="leave"><CalendarDays className="w-4 h-4 mr-1" />휴가 관리</TabsTrigger>
-            {(isAdmin || isModerator) && adminTab === 'all' && (
-              <>
-                <TabsTrigger value="overtime"><AlertTriangle className="w-4 h-4 mr-1" />초과근무 감지</TabsTrigger>
-                <TabsTrigger value="monthly-report"><BarChart3 className="w-4 h-4 mr-1" />월별 리포트</TabsTrigger>
-                <TabsTrigger value="dept-analysis"><BarChart3 className="w-4 h-4 mr-1" />부서 분석</TabsTrigger>
-              </>
-            )}
-          </TabsList>
-
-          {(isAdmin || isModerator) && adminTab === 'all' && (
-            <TabsContent value="dashboard">
+          {canManageAttendance && adminTab === 'all' && (
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">운영 인사이트</h2>
+                  <p className="text-sm text-muted-foreground">근무 누락, 지각, 초과근무, 휴가 승인 대기를 먼저 확인합니다.</p>
+                </div>
+                <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
+                  <Users className="mr-1 h-3 w-3" />
+                  근무 중 {activeTodayCount}명
+                </Badge>
+              </div>
               <AttendanceDashboard />
-            </TabsContent>
+            </section>
           )}
 
-          {(isAdmin || isModerator) && adminTab === 'all' && (
-            <TabsContent value="overtime">
-              <OvertimeDetectionPanel />
-            </TabsContent>
+          {canManageAttendance && adminTab === 'all' && (
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">월간 현황</h2>
+                  <p className="text-sm text-muted-foreground">날짜를 선택하면 아래 상세 기록과 미출근 직원 목록이 함께 필터링됩니다.</p>
+                </div>
+                {filterDate && (
+                  <Button variant="outline" size="sm" className="h-8 rounded-full" onClick={() => setFilterDate('')}>
+                    선택 해제
+                  </Button>
+                )}
+              </div>
+              <AttendanceCalendarView
+                onDateSelect={(date: string) => {
+                  setFilterDate(date);
+                  if (date) {
+                    setSelectedMonth(new Date(date));
+                  }
+                }}
+                selectedDate={filterDate}
+              />
+            </section>
           )}
 
-          {(isAdmin || isModerator) && adminTab === 'all' && (
-            <TabsContent value="monthly-report">
-              <MonthlyAttendanceReport />
-            </TabsContent>
-          )}
+          <Tabs key={adminTab} defaultValue="attendance" className="space-y-4">
+            <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-full border border-border bg-muted/30 p-1">
+              <TabsTrigger value="attendance" className="rounded-full px-4">
+                <Clock className="mr-1 h-4 w-4" />
+                상세 기록
+              </TabsTrigger>
+              <TabsTrigger value="leave" className="rounded-full px-4">
+                <CalendarDays className="mr-1 h-4 w-4" />
+                휴가 관리
+              </TabsTrigger>
+              {canManageAttendance && adminTab === 'all' && (
+                <>
+                  <TabsTrigger value="overtime" className="rounded-full px-4">
+                    <AlertTriangle className="mr-1 h-4 w-4" />
+                    초과근무
+                  </TabsTrigger>
+                  <TabsTrigger value="monthly-report" className="rounded-full px-4">
+                    <BarChart3 className="mr-1 h-4 w-4" />
+                    월별 리포트
+                  </TabsTrigger>
+                  <TabsTrigger value="dept-analysis" className="rounded-full px-4">
+                    <BarChart3 className="mr-1 h-4 w-4" />
+                    부서 분석
+                  </TabsTrigger>
+                </>
+              )}
+            </TabsList>
 
-          {(isAdmin || isModerator) && adminTab === 'all' && (
-            <TabsContent value="dept-analysis">
-              <DepartmentWorkPatternAnalysis />
-            </TabsContent>
-          )}
+            {canManageAttendance && adminTab === 'all' && (
+              <TabsContent value="overtime">
+                <OvertimeDetectionPanel />
+              </TabsContent>
+            )}
 
-          <TabsContent value="attendance">
-            {/* Missing employees section for filtered date */}
-            {(isAdmin || isModerator) && adminTab === 'all' && filterDate && (() => {
+            {canManageAttendance && adminTab === 'all' && (
+              <TabsContent value="monthly-report">
+                <MonthlyAttendanceReport />
+              </TabsContent>
+            )}
+
+            {canManageAttendance && adminTab === 'all' && (
+              <TabsContent value="dept-analysis">
+                <DepartmentWorkPatternAnalysis />
+              </TabsContent>
+            )}
+
+            <TabsContent value="attendance" className="mt-0 space-y-4">
+            {canManageAttendance && adminTab === 'all' && filterDate && (() => {
               const recordedUserIds = new Set(monthlyRecords.filter((r: any) => r.date === filterDate).map((r: any) => r.user_id));
               const missingEmployees = employees.filter((e: any) => !recordedUserIds.has(e.id));
               if (missingEmployees.length === 0) return null;
               return (
-                <Card className="mb-4 border-destructive/30">
+                <Card className="border-border bg-muted/20 shadow-none">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2 text-destructive">
-                      <AlertTriangle className="w-4 h-4" />
-                      미출근 직원 ({missingEmployees.length}명) - {format(new Date(filterDate), 'M월 d일 (EEE)', { locale: ko })}
-                    </CardTitle>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                        <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                        미출근 직원 {missingEmployees.length}명
+                      </div>
+                      <Badge variant="outline" className="rounded-full text-xs">
+                        {format(new Date(filterDate), 'M월 d일 EEE', { locale: ko })}
+                      </Badge>
+                    </div>
                   </CardHeader>
                   <CardContent className="pt-0">
                     <div className="flex flex-wrap gap-2">
@@ -584,7 +762,7 @@ const AttendancePage = () => {
                           key={emp.id}
                           variant="outline"
                           size="sm"
-                          className="h-8 text-xs gap-1.5"
+                          className="h-8 rounded-full text-xs gap-1.5 bg-card"
                           onClick={() => {
                             setManualForm({
                               userId: emp.id,
@@ -608,44 +786,54 @@ const AttendancePage = () => {
               );
             })()}
 
-            <Card>
-               <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <BrandedCardHeader
-                  icon={Clock}
-                  title={
-                    filterDate
-                      ? `${format(new Date(filterDate), 'yyyy년 M월 d일 (EEE)', { locale: ko })} 출퇴근 기록`
-                      : `${format(selectedMonth, 'yyyy년 M월', { locale: ko })} 출퇴근 기록`
-                  }
-                />
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <Search className="w-3.5 h-3.5 text-muted-foreground" />
-                    <Input
-                      type="date"
-                      value={filterDate}
-                      onChange={(e) => setFilterDate(e.target.value)}
-                      className="h-8 w-[140px] text-xs"
-                      placeholder="날짜 선택"
-                    />
-                    {filterDate && (
-                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setFilterDate('')}>
-                        <X className="w-3 h-3" />
+            <Card className="border-border shadow-none">
+              <CardHeader className="gap-3 pb-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <BrandedCardHeader
+                    icon={Clock}
+                    title={
+                      filterDate
+                        ? `${format(new Date(filterDate), 'yyyy년 M월 d일 (EEE)', { locale: ko })} 출퇴근 기록`
+                        : `${monthLabel} 출퇴근 기록`
+                    }
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1 rounded-full border border-border bg-muted/30 px-2 py-1">
+                      <Search className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        type="date"
+                        value={filterDate}
+                        onChange={(e) => setFilterDate(e.target.value)}
+                        className="h-7 w-[142px] border-0 bg-transparent px-1 text-xs shadow-none focus-visible:ring-0"
+                        placeholder="날짜 선택"
+                      />
+                      {filterDate && (
+                        <Button variant="ghost" size="sm" className="h-6 w-6 rounded-full p-0" onClick={() => setFilterDate('')}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex items-center rounded-full border border-border bg-muted/30 p-1">
+                      <Button variant="ghost" size="sm" className="h-7 w-7 rounded-full p-0" onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1))}>
+                        <ChevronLeft className="h-4 w-4" />
                       </Button>
-                    )}
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="outline" size="sm" onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1))}>◀</Button>
-                    <Button variant="outline" size="sm" onClick={() => setSelectedMonth(new Date())}>오늘</Button>
-                    <Button variant="outline" size="sm" onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1))}>▶</Button>
+                      <Button variant="ghost" size="sm" className="h-7 rounded-full px-3 text-xs" onClick={() => setSelectedMonth(new Date())}>
+                        오늘
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 rounded-full p-0" onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1))}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
+                      {filteredRecords.length}건
+                    </Badge>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                {/* Bulk action bar */}
-                {(isAdmin || isModerator) && adminTab === 'all' && selectedIds.size > 0 && (
-                  <div className="mb-4 p-3 border rounded-lg bg-muted/50 flex flex-wrap items-center gap-3">
-                    <Badge variant="secondary" className="text-xs">{selectedIds.size}명 선택</Badge>
+                {canManageAttendance && adminTab === 'all' && selectedIds.size > 0 && (
+                  <div className="sticky top-2 z-10 mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card/95 p-3 shadow-sm backdrop-blur">
+                    <Badge variant="secondary" className="rounded-full text-xs">{selectedIds.size}건 선택</Badge>
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-muted-foreground">출근:</label>
                       <ScrollTimePicker value={bulkCheckIn} onChange={setBulkCheckIn} className="h-8 text-xs" placeholder="출근 시간" />
@@ -671,17 +859,13 @@ const AttendancePage = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        {(isAdmin || isModerator) && adminTab === 'all' && (
+                        {canManageAttendance && adminTab === 'all' && (
                           <TableHead className="w-10">
                             <Checkbox
-                              checked={(() => {
-                                const filtered = filterDate ? monthlyRecords.filter((r: any) => r.date === filterDate) : monthlyRecords;
-                                return filtered.length > 0 && filtered.every((r: any) => selectedIds.has(r.id));
-                              })()}
+                              checked={filteredRecords.length > 0 && filteredRecords.every((r: any) => selectedIds.has(r.id))}
                               onCheckedChange={(checked) => {
-                                const filtered = filterDate ? monthlyRecords.filter((r: any) => r.date === filterDate) : monthlyRecords;
                                 if (checked) {
-                                  setSelectedIds(new Set(filtered.map((r: any) => r.id)));
+                                  setSelectedIds(new Set(filteredRecords.map((r: any) => r.id)));
                                 } else {
                                   setSelectedIds(new Set());
                                 }
@@ -696,20 +880,19 @@ const AttendancePage = () => {
                         <TableHead>근무시간</TableHead>
                         <TableHead>상태</TableHead>
                         <TableHead>위치</TableHead>
-                        {(isAdmin || isModerator) && adminTab === 'all' && <TableHead>수정</TableHead>}
+                        {canManageAttendance && adminTab === 'all' && <TableHead className="text-right">관리</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {(() => {
-                        const filtered = filterDate
-                          ? monthlyRecords.filter((r: any) => r.date === filterDate)
-                          : monthlyRecords;
-                        if (filtered.length === 0) return (
+                        if (filteredRecords.length === 0) return (
                           <TableRow><TableCell colSpan={adminTab === 'all' ? 9 : 6} className="text-center py-8 text-muted-foreground">{filterDate ? `${filterDate}의 기록이 없습니다` : '기록이 없습니다'}</TableCell></TableRow>
                         );
-                        return filtered.map((r: any) => (
-                          <TableRow key={r.id} className={selectedIds.has(r.id) ? 'bg-primary/5' : ''}>
-                            {(isAdmin || isModerator) && adminTab === 'all' && (
+                        return filteredRecords.map((r: any) => {
+                          const statusMeta = getAttendanceStatusMeta(r.status);
+                          return (
+                          <TableRow key={r.id} className={cn('hover:bg-muted/30', selectedIds.has(r.id) && 'bg-muted/50')}>
+                            {canManageAttendance && adminTab === 'all' && (
                               <TableCell>
                                 <Checkbox
                                   checked={selectedIds.has(r.id)}
@@ -727,63 +910,82 @@ const AttendancePage = () => {
                             <TableCell>{r.check_out ? format(new Date(r.check_out), 'HH:mm') : '-'}</TableCell>
                             <TableCell>{r.work_hours ? `${Number(r.work_hours).toFixed(1)}h` : '-'}</TableCell>
                             <TableCell>
-                              <Badge variant="outline" className="text-xs">
-                                {r.status === 'checked_out' ? '완료' : (r.status === 'checked_in' || r.status === 'present') ? '근무 중' : r.status}
+                              <Badge variant="outline" className={cn('rounded-full text-xs', statusMeta.className)}>
+                                {statusMeta.label}
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-1">
                                 {r.check_in_location && (
-                                  <a
-                                    href={`https://maps.google.com/?q=${(r.check_in_location as any).lat},${(r.check_in_location as any).lng}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-primary hover:underline flex items-center gap-0.5"
-                                    title={`출근: ${(r.check_in_location as any).lat.toFixed(5)}, ${(r.check_in_location as any).lng.toFixed(5)}`}
-                                  >
-                                    <MapPin className="w-3 h-3" />출근
-                                  </a>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <a
+                                        href={`https://maps.google.com/?q=${(r.check_in_location as any).lat},${(r.check_in_location as any).lng}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground"
+                                      >
+                                        <MapPin className="h-3.5 w-3.5" />
+                                      </a>
+                                    </TooltipTrigger>
+                                    <TooltipContent>출근 위치</TooltipContent>
+                                  </Tooltip>
                                 )}
                                 {r.check_out_location && (
-                                  <a
-                                    href={`https://maps.google.com/?q=${(r.check_out_location as any).lat},${(r.check_out_location as any).lng}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-primary hover:underline flex items-center gap-0.5"
-                                    title={`퇴근: ${(r.check_out_location as any).lat.toFixed(5)}, ${(r.check_out_location as any).lng.toFixed(5)}`}
-                                  >
-                                    <MapPin className="w-3 h-3" />퇴근
-                                  </a>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <a
+                                        href={`https://maps.google.com/?q=${(r.check_out_location as any).lat},${(r.check_out_location as any).lng}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground"
+                                      >
+                                        <LogOut className="h-3.5 w-3.5" />
+                                      </a>
+                                    </TooltipTrigger>
+                                    <TooltipContent>퇴근 위치</TooltipContent>
+                                  </Tooltip>
                                 )}
                                 {!r.check_in_location && !r.check_out_location && (
                                   <span className="text-xs text-muted-foreground">-</span>
                                 )}
                               </div>
                             </TableCell>
-                            {(isAdmin || isModerator) && adminTab === 'all' && (
-                              <TableCell>
-                                <div className="flex gap-0.5">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 w-7 p-0"
-                                    onClick={() => { setEditRecord(r); setEditDialogOpen(true); }}
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                                    onClick={() => handleDeleteRecord(r.id)}
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </Button>
+                            {canManageAttendance && adminTab === 'all' && (
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-1">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 w-8 rounded-full p-0"
+                                        onClick={() => { setEditRecord(r); setEditDialogOpen(true); }}
+                                      >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>근태 수정</TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 w-8 rounded-full p-0 text-destructive hover:text-destructive"
+                                        onClick={() => handleDeleteRecord(r.id)}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>기록 삭제</TooltipContent>
+                                  </Tooltip>
                                 </div>
                               </TableCell>
                             )}
                           </TableRow>
-                        ));
+                        );
+                        });
                       })()}
                     </TableBody>
                   </Table>
@@ -792,47 +994,14 @@ const AttendancePage = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="leave">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <TabsContent value="leave" className="mt-0">
+            <Card className="border-border shadow-none">
+              <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
                 <BrandedCardHeader icon={CalendarDays} title="휴가 신청 내역" />
-                <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1"><Plus className="w-4 h-4" />휴가 신청</Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader><DialogTitle>휴가 신청</DialogTitle></DialogHeader>
-                    <div className="space-y-4 mt-2">
-                      <div>
-                        <label className="text-sm font-medium">종류</label>
-                        <Select value={leaveForm.leaveType} onValueChange={(v) => setLeaveForm(f => ({ ...f, leaveType: v }))}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {LEAVE_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm font-medium">시작일</label>
-                          <Input type="date" value={format(leaveForm.startDate, 'yyyy-MM-dd')} onChange={(e) => setLeaveForm(f => ({ ...f, startDate: new Date(e.target.value) }))} />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">종료일</label>
-                          <Input type="date" value={format(leaveForm.endDate, 'yyyy-MM-dd')} onChange={(e) => setLeaveForm(f => ({ ...f, endDate: new Date(e.target.value) }))} />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">사유</label>
-                        <Textarea value={leaveForm.reason} onChange={(e) => setLeaveForm(f => ({ ...f, reason: e.target.value }))} placeholder="휴가 사유를 입력하세요" />
-                      </div>
-                      <Button onClick={() => submitLeaveMutation.mutate()} disabled={submitLeaveMutation.isPending} className="w-full">
-                        {submitLeaveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                        신청하기
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                <Button size="sm" className="rounded-full gap-1" onClick={() => setLeaveDialogOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  휴가 신청
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="overflow-auto">
@@ -845,7 +1014,7 @@ const AttendancePage = () => {
                         <TableHead>일수</TableHead>
                         <TableHead>사유</TableHead>
                         <TableHead>상태</TableHead>
-                        {(isAdmin || isModerator) && adminTab === 'all' && <TableHead>처리</TableHead>}
+                        {canManageAttendance && adminTab === 'all' && <TableHead className="text-right">처리</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -864,15 +1033,15 @@ const AttendancePage = () => {
                               <TableCell>
                                 <Badge className={cn('text-xs', statusInfo.color)}>{statusInfo.label}</Badge>
                               </TableCell>
-                              {(isAdmin || isModerator) && adminTab === 'all' && (
-                                <TableCell>
+                              {canManageAttendance && adminTab === 'all' && (
+                                <TableCell className="text-right">
                                   {l.status === 'pending' && (
-                                    <div className="flex gap-1">
-                                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-green-600" onClick={() => handleLeaveAction(l.id, 'approved')}>
-                                        <Check className="w-4 h-4" />
+                                    <div className="flex justify-end gap-1">
+                                      <Button size="sm" variant="ghost" className="h-8 w-8 rounded-full p-0 text-emerald-600" onClick={() => handleLeaveAction(l.id, 'approved')}>
+                                        <Check className="h-4 w-4" />
                                       </Button>
-                                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-600" onClick={() => handleLeaveAction(l.id, 'rejected')}>
-                                        <X className="w-4 h-4" />
+                                      <Button size="sm" variant="ghost" className="h-8 w-8 rounded-full p-0 text-red-600" onClick={() => handleLeaveAction(l.id, 'rejected')}>
+                                        <X className="h-4 w-4" />
                                       </Button>
                                     </div>
                                   )}
@@ -890,6 +1059,44 @@ const AttendancePage = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>휴가 신청</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <label className="text-sm font-medium">종류</label>
+              <Select value={leaveForm.leaveType} onValueChange={(v) => setLeaveForm(f => ({ ...f, leaveType: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {LEAVE_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">시작일</label>
+                <Input type="date" value={format(leaveForm.startDate, 'yyyy-MM-dd')} onChange={(e) => setLeaveForm(f => ({ ...f, startDate: new Date(e.target.value) }))} className="mt-1" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">종료일</label>
+                <Input type="date" value={format(leaveForm.endDate, 'yyyy-MM-dd')} onChange={(e) => setLeaveForm(f => ({ ...f, endDate: new Date(e.target.value) }))} className="mt-1" />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">사유</label>
+              <Textarea value={leaveForm.reason} onChange={(e) => setLeaveForm(f => ({ ...f, reason: e.target.value }))} placeholder="휴가 사유를 입력하세요" className="mt-1" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setLeaveDialogOpen(false)}>취소</Button>
+              <Button onClick={() => submitLeaveMutation.mutate()} disabled={submitLeaveMutation.isPending}>
+                {submitLeaveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                신청
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Manual Attendance Registration Dialog */}
       <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>
@@ -958,6 +1165,7 @@ const AttendancePage = () => {
         }}
       />
     </div>
+    </TooltipProvider>
   );
 };
 
