@@ -323,19 +323,23 @@ export type Database = {
       }
       calendar_events: {
         Row: {
+          accent: string | null
           all_day: boolean
           client_contact: string | null
           client_name: string | null
           created_at: string
-          created_by: string
+          created_by: string | null
           created_by_name: string
           description: string | null
           ends_at: string
+          icon_type: string | null
           id: string
           location: string | null
           metadata: Json
           recipient_id: string | null
           source_id: string | null
+          source_path: string | null
+          source_subtype: string
           source_type: string
           starts_at: string
           status: string
@@ -345,19 +349,23 @@ export type Database = {
           visibility: string
         }
         Insert: {
+          accent?: string | null
           all_day?: boolean
           client_contact?: string | null
           client_name?: string | null
           created_at?: string
-          created_by: string
+          created_by?: string | null
           created_by_name?: string
           description?: string | null
           ends_at: string
+          icon_type?: string | null
           id?: string
           location?: string | null
           metadata?: Json
           recipient_id?: string | null
           source_id?: string | null
+          source_path?: string | null
+          source_subtype?: string
           source_type?: string
           starts_at: string
           status?: string
@@ -367,19 +375,23 @@ export type Database = {
           visibility?: string
         }
         Update: {
+          accent?: string | null
           all_day?: boolean
           client_contact?: string | null
           client_name?: string | null
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           created_by_name?: string
           description?: string | null
           ends_at?: string
+          icon_type?: string | null
           id?: string
           location?: string | null
           metadata?: Json
           recipient_id?: string | null
           source_id?: string | null
+          source_path?: string | null
+          source_subtype?: string
           source_type?: string
           starts_at?: string
           status?: string
@@ -5954,8 +5966,70 @@ export type Database = {
         Args: { _request_id: string; _review_note?: string }
         Returns: string
       }
+      calendar_day_end_at: { Args: { _date: string }; Returns: string }
+      calendar_day_start_at: { Args: { _date: string }; Returns: string }
       calendar_meeting_start_at: {
         Args: { _date: string; _time: string }
+        Returns: string
+      }
+      calendar_replace_event_participants: {
+        Args: {
+          _assignee_ids?: string[]
+          _attendee_ids?: string[]
+          _event_id: string
+          _organizer_id?: string
+        }
+        Returns: undefined
+      }
+      calendar_sync_announcement_event: {
+        Args: { _announcement_id: string }
+        Returns: undefined
+      }
+      calendar_sync_company_holiday: {
+        Args: { _holiday_id: string }
+        Returns: undefined
+      }
+      calendar_sync_leave_request: {
+        Args: { _leave_id: string }
+        Returns: undefined
+      }
+      calendar_sync_peer_meeting: {
+        Args: { _feedback_id: string }
+        Returns: undefined
+      }
+      calendar_sync_project: {
+        Args: { _project_id: string }
+        Returns: undefined
+      }
+      calendar_sync_saved_quote: {
+        Args: { _quote_id: string }
+        Returns: undefined
+      }
+      calendar_try_date: { Args: { _value: string }; Returns: string }
+      calendar_upsert_source_event: {
+        Args: {
+          _accent: string
+          _all_day: boolean
+          _client_contact: string
+          _client_name: string
+          _created_by: string
+          _created_by_name: string
+          _description: string
+          _ends_at: string
+          _icon_type: string
+          _location: string
+          _metadata?: Json
+          _recipient_id: string
+          _source_id: string
+          _source_path: string
+          _source_subtype: string
+          _source_type: string
+          _starts_at: string
+          _status: string
+          _team_department: string
+          _title: string
+          _visibility: string
+        }
         Returns: string
       }
       can_access_feature: { Args: { _feature_key: string }; Returns: boolean }
@@ -5983,6 +6057,7 @@ export type Database = {
       get_calendar_events: {
         Args: { filters?: Json; range_end: string; range_start: string }
         Returns: {
+          accent: string
           all_day: boolean
           can_edit: boolean
           client_contact: string
@@ -5991,6 +6066,7 @@ export type Database = {
           created_by_name: string
           description: string
           ends_at: string
+          icon_type: string
           id: string
           is_redacted: boolean
           location: string
@@ -6000,6 +6076,8 @@ export type Database = {
           resource_ids: string[]
           resource_names: string[]
           source_id: string
+          source_path: string
+          source_subtype: string
           source_type: string
           starts_at: string
           status: string
