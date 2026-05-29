@@ -9,7 +9,9 @@ export type QuoteActivityAction =
   | 'file_uploaded'
   | 'file_deleted'
   | 'project_converted'
-  | 'project_linked';
+  | 'project_linked'
+  | 'quote_reissued'
+  | 'created_from_reissue';
 
 interface LogQuoteActivityParams {
   quoteId: string;

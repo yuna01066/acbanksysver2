@@ -141,12 +141,11 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
     queryFn: async () => {
       let query = supabase
         .from('saved_quotes')
-        .select('id, quote_number, project_name, recipient_company, desired_delivery_date, project_stage, quote_status, user_id')
+        .select('id, quote_number, project_name, recipient_company, desired_delivery_date, project_stage, user_id')
         .gte('desired_delivery_date', todayString())
         .lte('desired_delivery_date', plusDaysString(7))
         .not('project_stage', 'eq', 'completed')
         .not('project_stage', 'eq', 'cancelled')
-        .not('quote_status', 'eq', 'cancelled')
         .order('desired_delivery_date', { ascending: true })
         .limit(8);
 

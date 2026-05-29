@@ -1,12 +1,12 @@
-import { ExternalLink, FolderOpen, Loader2, PlusCircle, UserCheck } from 'lucide-react';
+import { ExternalLink, FolderOpen, Loader2, PlusCircle, RotateCcw, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import QuoteStatusSelect from '@/components/QuoteStatusSelect';
+import ProjectStageSelect from '@/components/ProjectStageSelect';
 import QuoteAssigneeSelect, { type QuoteAssigneeOption } from '@/components/QuoteAssigneeSelect';
-import { getQuoteStatusInfo, type QuoteStatusValue } from '@/utils/quoteStatus';
+import { getStageInfo } from '@/utils/quoteWorkflow';
 
 interface LinkedProject {
   id: string;
@@ -17,7 +17,6 @@ interface LinkedProject {
 interface QuoteWorkflowPanelProps {
   quoteId: string;
   quoteNumber: string;
-  quoteStatus?: string | null;
   projectStage?: string | null;
   quoteUserId?: string | null;
   assignedTo?: string | null;
@@ -25,15 +24,20 @@ interface QuoteWorkflowPanelProps {
   users: QuoteAssigneeOption[];
   linkedProject: LinkedProject | null;
   convertingProject?: boolean;
-  onStatusChanged: (status: QuoteStatusValue) => void;
+  isExpired?: boolean;
+  canReissue?: boolean;
+  reissuingQuote?: boolean;
+  reissuedQuoteId?: string | null;
+  reissuedFromQuoteId?: string | null;
+  onStageChanged: (stage: string) => void;
   onAssigneeChanged: (assigneeId: string | null, assigneeName: string | null) => void;
   onConvertProject: () => void;
+  onReissueQuote: () => void;
 }
 
 const QuoteWorkflowPanel = ({
   quoteId,
   quoteNumber,
-  quoteStatus,
   projectStage,
   quoteUserId,
   assignedTo,
@@ -41,12 +45,18 @@ const QuoteWorkflowPanel = ({
   users,
   linkedProject,
   convertingProject,
-  onStatusChanged,
+  isExpired,
+  canReissue,
+  reissuingQuote,
+  reissuedQuoteId,
+  reissuedFromQuoteId,
+  onStageChanged,
   onAssigneeChanged,
   onConvertProject,
+  onReissueQuote,
 }: QuoteWorkflowPanelProps) => {
   const navigate = useNavigate();
-  const statusInfo = getQuoteStatusInfo(quoteStatus, projectStage);
+  const stageInfo = getStageInfo(projectStage);
 
   return (
     <Card className="print:hidden">
@@ -58,17 +68,56 @@ const QuoteWorkflowPanel = ({
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-1.5">
-          <div className="text-[11px] font-medium text-muted-foreground">견적 상태</div>
-          <QuoteStatusSelect
+          <div className="text-[11px] font-medium text-muted-foreground">상태/단계</div>
+          <ProjectStageSelect
             quoteId={quoteId}
-            currentStatus={quoteStatus}
-            projectStage={projectStage}
+            currentStage={projectStage || 'quote_issued'}
             quoteNumber={quoteNumber}
             quoteUserId={quoteUserId}
-            onStatusChanged={onStatusChanged}
+            onStageChanged={onStageChanged}
           />
-          <p className="text-[11px] leading-relaxed text-muted-foreground">{statusInfo.description}</p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">{stageInfo.description}</p>
         </div>
+
+        {(isExpired || reissuedQuoteId || reissuedFromQuoteId) && (
+          <div className="rounded-lg border bg-muted/20 p-3 text-xs">
+            {isExpired && !reissuedQuoteId && (
+              <div className="mb-2 text-muted-foreground">유효기간이 만료된 견적입니다.</div>
+            )}
+            {canReissue && (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 w-full justify-start gap-2 text-xs text-blue-700"
+                onClick={onReissueQuote}
+                disabled={reissuingQuote}
+              >
+                {reissuingQuote ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                견적 재발행
+              </Button>
+            )}
+            {reissuedQuoteId && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-8 w-full justify-start px-0 text-xs text-primary"
+                onClick={() => navigate(`/saved-quotes/${reissuedQuoteId}`)}
+              >
+                최신 재발행본 보기
+              </Button>
+            )}
+            {reissuedFromQuoteId && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-8 w-full justify-start px-0 text-xs text-primary"
+                onClick={() => navigate(`/saved-quotes/${reissuedFromQuoteId}`)}
+              >
+                원본 견적 보기
+              </Button>
+            )}
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <div className="text-[11px] font-medium text-muted-foreground">담당자</div>

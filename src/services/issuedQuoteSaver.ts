@@ -279,6 +279,7 @@ export async function saveIssuedQuote({
     recipient_address: resolvedDeliveryAddress,
     recipient_memo: resolvedClientMemo,
     desired_delivery_date: resolvedDesiredDeliveryDate,
+    project_stage: 'quote_issued',
     quote_status: 'sent',
     assigned_to: resolvedIssuerId || userId,
     assigned_to_name: resolvedIssuerName,

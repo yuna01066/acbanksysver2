@@ -51,11 +51,13 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // quote_issued 상태이고 valid_until이 있는 견적서 조회
+    // 프로젝트 미연결, 발행 상태, 아직 자동취소 처리되지 않은 만료 견적만 조회
     const { data: quotes, error: fetchError } = await supabase
       .from("saved_quotes")
-      .select("id, valid_until")
+      .select("id, quote_number, valid_until")
       .eq("project_stage", "quote_issued")
+      .is("project_id", null)
+      .is("auto_cancelled_at", null)
       .not("valid_until", "is", null)
       .neq("valid_until", "");
 
@@ -64,12 +66,12 @@ Deno.serve(async (req) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const expiredIds = (quotes || [])
+    const expiredQuotes = (quotes || [])
       .filter((q) => {
         const expDate = parseValidUntilDate(q.valid_until);
         return expDate && expDate < today;
-      })
-      .map((q) => q.id);
+      });
+    const expiredIds = expiredQuotes.map((q) => q.id);
 
     if (expiredIds.length === 0) {
       return new Response(
@@ -78,12 +80,40 @@ Deno.serve(async (req) => {
       );
     }
 
+    const nowIso = new Date().toISOString();
     const { error: updateError } = await supabase
       .from("saved_quotes")
-      .update({ project_stage: "cancelled" })
+      .update({
+        project_stage: "cancelled",
+        quote_status: "cancelled",
+        auto_cancelled_at: nowIso,
+        auto_cancel_reason: "valid_until_expired_without_project",
+        status_updated_at: nowIso,
+      })
       .in("id", expiredIds);
 
     if (updateError) throw updateError;
+
+    const { error: historyError } = await supabase
+      .from("quote_activity_history")
+      .insert(expiredQuotes.map((quote) => ({
+        quote_id: quote.id,
+        action_type: "status_changed",
+        old_value: "quote_issued",
+        new_value: "cancelled",
+        actor_id: "00000000-0000-0000-0000-000000000000",
+        actor_name: "system",
+        memo: "유효기간 만료로 자동 취소 처리",
+        metadata: {
+          quoteNumber: quote.quote_number,
+          autoCancelled: true,
+          reason: "valid_until_expired_without_project",
+        },
+      })));
+
+    if (historyError) {
+      console.warn("Failed to insert quote activity history:", historyError);
+    }
 
     console.log(`Auto-expired ${expiredIds.length} quotes`);
 
