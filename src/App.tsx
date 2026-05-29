@@ -10,7 +10,6 @@ import { ThemeProvider } from "next-themes";
 import PageAccessGuard from "@/components/PageAccessGuard";
 import CompanySettingsGuard from "@/components/company/CompanySettingsGuard";
 import GlobalQuickNav from "@/components/GlobalQuickNav";
-import FloatingResponseAssistant from "@/components/FloatingResponseAssistant";
 import EmployeeOnlineHeartbeat from "@/components/EmployeeOnlineHeartbeat";
 
 // 즉시 로드 (항상 필요)
@@ -68,7 +67,16 @@ const ReviewHubPage = lazy(() => import("./pages/ReviewHubPage"));
 const ChannelTalkLeadsPage = lazy(() => import("./pages/ChannelTalkLeadsPage"));
 const ResponseAssistantPage = lazy(() => import("./pages/ResponseAssistantPage"));
 const ResponseAssistantManagementPage = lazy(() => import("./pages/ResponseAssistantManagementPage"));
-const queryClient = new QueryClient();
+const FloatingResponseAssistant = lazy(() => import("@/components/FloatingResponseAssistant"));
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const G: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <PageAccessGuard>{children}</PageAccessGuard>
@@ -77,6 +85,31 @@ const G: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 const S: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <CompanySettingsGuard>{children}</CompanySettingsGuard>
 );
+
+const DeferredFloatingResponseAssistant = () => {
+  const [ready, setReady] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const requestIdle = window.requestIdleCallback;
+    if (requestIdle) {
+      const id = requestIdle(() => setReady(true), { timeout: 3000 });
+      return () => window.cancelIdleCallback(id);
+    }
+
+    const id = window.setTimeout(() => setReady(true), 1200);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  if (!ready) return null;
+
+  return (
+    <Suspense fallback={null}>
+      <FloatingResponseAssistant />
+    </Suspense>
+  );
+};
 
 const ProjectRouteRedirect = () => {
   const location = useLocation();
@@ -94,7 +127,7 @@ const App = () => (
           <QuoteProvider>
             <EmployeeOnlineHeartbeat />
             <GlobalQuickNav />
-            <FloatingResponseAssistant />
+            <DeferredFloatingResponseAssistant />
             <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
               <Routes>
               <Route path="/" element={<Index />} />
