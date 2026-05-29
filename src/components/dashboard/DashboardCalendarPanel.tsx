@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   addDays,
+  addMonths,
   eachDayOfInterval,
   endOfMonth,
   endOfWeek,
@@ -11,12 +12,15 @@ import {
   startOfDay,
   startOfMonth,
   startOfWeek,
+  subMonths,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarCheck2, Clock3, DoorOpen, ListChecks, Plus, UsersRound } from 'lucide-react';
+import { CalendarCheck2, ChevronLeft, ChevronRight, Clock3, DoorOpen, ListChecks, Plus, UsersRound } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import CalendarEventDialog from '@/components/calendar/CalendarEventDialog';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +32,7 @@ import {
 } from '@/hooks/useInternalCalendar';
 import {
   CALENDAR_EVENT_LEGEND,
+  CALENDAR_STATUS_LABELS,
   getCalendarEventAccent,
   type CalendarViewScope,
   type InternalCalendarEvent,
@@ -46,6 +51,14 @@ function eventOverlapsDay(event: InternalCalendarEvent, day: Date) {
   return new Date(event.starts_at).getTime() < dayEnd && new Date(event.ends_at).getTime() > dayStart;
 }
 
+function getEventMeta(event: InternalCalendarEvent) {
+  return event.location || event.resource_names.join(', ') || event.participant_names.join(', ') || event.created_by_name;
+}
+
+function isHolidayEvent(event: InternalCalendarEvent) {
+  return event.source_type === 'holiday' || event.icon_type === 'holiday';
+}
+
 const DashboardCalendarPanel = () => {
   const navigate = useNavigate();
   const { user, isAdmin, isModerator } = useAuth();
@@ -53,45 +66,78 @@ const DashboardCalendarPanel = () => {
   const [scope, setScope] = useState<CalendarViewScope>(canViewAll ? 'all' : 'my');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'employee' | 'client' | 'room' | 'manual'>('employee');
-  const month = new Date();
-  const { rangeStart, rangeEnd } = getCalendarMonthRange(month);
-  const summaryStart = new Date().toISOString();
-  const summaryEnd = addDays(new Date(), 14).toISOString();
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
+  const dashboardRange = useMemo(() => {
+    const now = new Date();
+    return {
+      today: now,
+      rangeStart: startOfDay(now).toISOString(),
+      rangeEnd: addDays(now, 14).toISOString(),
+    };
+  }, []);
+  const { rangeStart, rangeEnd } = getCalendarMonthRange(calendarMonth);
 
-  const { data: events = [] } = useCalendarEvents({
+  const { data: calendarEvents = [] } = useCalendarEvents({
     rangeStart,
     rangeEnd,
     scope,
     enabled: !!user,
   });
+  const { data: dashboardEvents = [] } = useCalendarEvents({
+    rangeStart: dashboardRange.rangeStart,
+    rangeEnd: dashboardRange.rangeEnd,
+    scope,
+    enabled: !!user,
+  });
   const { data: summary } = useCalendarDashboardSummary({
-    rangeStart: summaryStart,
-    rangeEnd: summaryEnd,
+    rangeStart: dashboardRange.rangeStart,
+    rangeEnd: dashboardRange.rangeEnd,
     scope,
     enabled: !!user,
   });
 
   const days = useMemo(() => {
     return eachDayOfInterval({
-      start: startOfWeek(startOfMonth(month)),
-      end: endOfWeek(endOfMonth(month)),
+      start: startOfWeek(startOfMonth(calendarMonth)),
+      end: endOfWeek(endOfMonth(calendarMonth)),
     });
-  }, [month]);
+  }, [calendarMonth]);
 
   const upcomingEvents = useMemo(() => {
-    return events
+    return dashboardEvents
       .filter((event) => new Date(event.ends_at).getTime() >= Date.now())
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
       .slice(0, 5);
-  }, [events]);
+  }, [dashboardEvents]);
 
-  const todayEvents = events.filter((event) => eventOverlapsDay(event, new Date()));
-  const nextEvent = upcomingEvents[0] || null;
+  const dialogEvents = useMemo(() => {
+    return Array.from(new Map([...calendarEvents, ...dashboardEvents].map((event) => [event.id, event])).values());
+  }, [calendarEvents, dashboardEvents]);
+
+  const todayEvents = dashboardEvents.filter((event) => eventOverlapsDay(event, dashboardRange.today));
+  const nextEvent = summary?.next_event || upcomingEvents[0] || null;
   const rooms = summary?.rooms || [];
+  const isViewingCurrentMonth = isSameMonth(calendarMonth, dashboardRange.today);
 
-  const openDialog = (mode: 'employee' | 'client' | 'room' | 'manual') => {
+  const openDialog = (mode: 'employee' | 'client' | 'room' | 'manual', date = format(new Date(), 'yyyy-MM-dd')) => {
+    setSelectedDate(date);
     setDialogMode(mode);
     setDialogOpen(true);
+  };
+
+  const openSourcePath = (event: InternalCalendarEvent, day: Date) => {
+    const dayPath = `/calendar?date=${format(day, 'yyyy-MM-dd')}`;
+    if (event.source_path) {
+      if (/^https?:\/\//i.test(event.source_path)) {
+        window.open(event.source_path, '_blank', 'noopener,noreferrer');
+      } else {
+        navigate(event.source_path);
+      }
+      return;
+    }
+
+    navigate(event.can_edit ? `/calendar?event=${event.id}` : `${dayPath}&event=${event.id}`);
   };
 
   return (
@@ -136,7 +182,7 @@ const DashboardCalendarPanel = () => {
         <CardContent className="space-y-4 p-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: '오늘 내 일정', value: todayEvents.length, icon: CalendarCheck2, path: '/calendar?view=day' },
+              { label: '오늘 내 일정', value: summary?.today_count ?? todayEvents.length, icon: CalendarCheck2, path: '/calendar?view=day' },
               { label: '다음 일정', value: nextEvent ? (nextEvent.all_day ? '종일' : format(new Date(nextEvent.starts_at), 'HH:mm')) : '-', icon: Clock3, path: '/calendar' },
               { label: '회의실 사용 중', value: summary?.rooms_in_use_count ?? 0, icon: DoorOpen, path: '/calendar' },
               { label: '담당 미팅', value: summary?.assigned_meeting_count ?? 0, icon: UsersRound, path: '/calendar' },
@@ -159,8 +205,39 @@ const DashboardCalendarPanel = () => {
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="rounded-lg border border-[#e5e5e5] bg-white">
-              <div className="flex items-center justify-between border-b border-[#e5e5e5] px-3 py-2">
-                <p className="text-sm font-bold text-[#111111]">{format(month, 'yyyy년 M월', { locale: ko })}</p>
+              <div className="flex flex-col gap-2 border-b border-[#e5e5e5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 rounded-full border-[#cacacb]"
+                    aria-label="이전 달"
+                    onClick={() => setCalendarMonth((current) => subMonths(current, 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <p className="min-w-[112px] text-center text-sm font-bold text-[#111111]">
+                    {format(calendarMonth, 'yyyy년 M월', { locale: ko })}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 rounded-full border-[#cacacb]"
+                    aria-label="다음 달"
+                    onClick={() => setCalendarMonth((current) => addMonths(current, 1))}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 rounded-full px-3 text-xs"
+                    disabled={isViewingCurrentMonth}
+                    onClick={() => setCalendarMonth(startOfMonth(new Date()))}
+                  >
+                    오늘
+                  </Button>
+                </div>
                 <Button variant="outline" size="sm" className="h-8 rounded-full border-[#cacacb] text-xs" onClick={() => openDialog('employee')}>
                   <Plus className="mr-1.5 h-3.5 w-3.5" /> 일정 추가
                 </Button>
@@ -180,31 +257,106 @@ const DashboardCalendarPanel = () => {
               </div>
               <div className="grid grid-cols-7">
                 {days.map((day) => {
-                  const dayEvents = events.filter((event) => eventOverlapsDay(event, day));
+                  const dayEvents = calendarEvents.filter((event) => eventOverlapsDay(event, day));
+                  const dotEvents = dayEvents.filter((event) => !isHolidayEvent(event));
+                  const hasHoliday = dayEvents.some(isHolidayEvent);
+                  const dayKey = format(day, 'yyyy-MM-dd');
                   return (
-                    <button
-                      key={day.toISOString()}
-                      type="button"
-                      onClick={() => navigate(`/calendar?date=${format(day, 'yyyy-MM-dd')}`)}
-                      className={cn(
-                        'min-h-[70px] border-b border-r border-[#e5e5e5] p-1.5 text-left transition-colors hover:bg-[#fafafa]',
-                        !isSameMonth(day, month) && 'bg-[#fafafa] text-[#9e9ea0]',
-                      )}
-                    >
-                      <span className={cn('inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold', isToday(day) && 'bg-[#111111] text-white')}>
-                        {format(day, 'd')}
-                      </span>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {dayEvents.slice(0, 4).map((event) => (
-                          <span
-                            key={event.id}
-                            className="h-1.5 w-1.5 rounded-full"
-                            style={{ backgroundColor: getCalendarEventAccent(event) }}
-                            title={event.title}
-                          />
-                        ))}
-                      </div>
-                    </button>
+                    <Popover key={day.toISOString()}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className={cn(
+                            'min-h-[70px] border-b border-r border-[#e5e5e5] p-1.5 text-left transition-colors hover:bg-[#fafafa] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111] focus-visible:ring-offset-1',
+                            !isSameMonth(day, calendarMonth) && 'bg-[#fafafa] text-[#9e9ea0]',
+                            hasHoliday && 'bg-red-500/10 hover:bg-red-500/15',
+                          )}
+                        >
+                          <span className={cn('inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold', isToday(day) && 'bg-[#111111] text-white')}>
+                            {format(day, 'd')}
+                          </span>
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            {dotEvents.slice(0, 4).map((event) => (
+                              <span
+                                key={event.id}
+                                className="h-1.5 w-1.5 rounded-full"
+                                style={{ backgroundColor: getCalendarEventAccent(event) }}
+                                title={event.title}
+                              />
+                            ))}
+                            {dotEvents.length > 4 && (
+                              <span className="text-[10px] font-semibold leading-none text-[#707072]">
+                                +{dotEvents.length - 4}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="start"
+                        sideOffset={6}
+                        className="w-[min(calc(100vw-2rem),360px)] rounded-lg border-[#d9d9da] bg-white p-0 shadow-lg"
+                      >
+                        <div className="border-b border-[#e5e5e5] px-3 py-2.5">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-bold text-[#111111]">{format(day, 'M월 d일 EEEE', { locale: ko })}</p>
+                            <Badge variant="outline" className="shrink-0 rounded-full px-2 py-0 text-[10px]">
+                              {dayEvents.length}건
+                            </Badge>
+                          </div>
+                        </div>
+                        {dayEvents.length > 0 ? (
+                          <ScrollArea className="max-h-[min(60vh,360px)]">
+                            <div className="space-y-2 p-3">
+                              {dayEvents
+                                .slice()
+                                .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
+                                .map((event) => {
+                                  const accent = getCalendarEventAccent(event);
+                                  const meta = getEventMeta(event);
+                                  return (
+                                    <button
+                                      key={event.id}
+                                      type="button"
+                                      onClick={() => openSourcePath(event, day)}
+                                      className="w-full rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-2.5 text-left transition-colors hover:border-[#cacacb] hover:bg-white"
+                                    >
+                                      <div className="flex items-start gap-2">
+                                        <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex items-start justify-between gap-2">
+                                            <p className="min-w-0 truncate text-sm font-semibold text-[#111111]">{event.title}</p>
+                                            <Badge variant="outline" className="shrink-0 rounded-full px-2 py-0 text-[10px]">
+                                              {CALENDAR_STATUS_LABELS[event.status]}
+                                            </Badge>
+                                          </div>
+                                          <p className="mt-1 text-xs font-medium text-[#707072]">{formatEventTime(event)}</p>
+                                          {meta && <p className="mt-0.5 truncate text-xs text-[#707072]">{meta}</p>}
+                                        </div>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                            </div>
+                          </ScrollArea>
+                        ) : (
+                          <div className="p-3">
+                            <div className="rounded-lg border border-dashed border-[#cacacb] bg-[#fafafa] p-4 text-center">
+                              <p className="text-sm font-semibold text-[#111111]">등록된 일정 없음</p>
+                              <p className="mt-1 text-xs text-[#707072]">이 날짜에 새 일정을 추가할 수 있습니다.</p>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex gap-2 border-t border-[#e5e5e5] p-3">
+                          <Button variant="outline" className="h-8 flex-1 rounded-full border-[#cacacb] text-xs" onClick={() => navigate(`/calendar?date=${dayKey}`)}>
+                            전체 캘린더에서 보기
+                          </Button>
+                          <Button className="h-8 flex-1 rounded-full bg-[#111111] text-xs text-white hover:bg-[#39393b]" onClick={() => openDialog('employee', dayKey)}>
+                            일정 추가
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   );
                 })}
               </div>
@@ -276,8 +428,8 @@ const DashboardCalendarPanel = () => {
       <CalendarEventDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        events={events}
-        defaultDate={format(new Date(), 'yyyy-MM-dd')}
+        events={dialogEvents}
+        defaultDate={selectedDate}
         defaultMode={dialogMode}
       />
     </>
