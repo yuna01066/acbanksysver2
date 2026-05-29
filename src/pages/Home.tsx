@@ -6,12 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calculator, Home as HomeIcon, Instagram, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette, Images, Loader2 } from "lucide-react";
 import LoginScreen from '@/components/LoginScreen';
+import DashboardCalendarPanel from '@/components/dashboard/DashboardCalendarPanel';
 import NotificationPanel from '@/components/NotificationPanel';
 import QuickAttendanceButton from '@/components/QuickAttendanceButton';
 import DailyQuoteCard from '@/components/DailyQuoteCard';
+import TodayWorkCard from '@/components/TodayWorkCard';
+import ChannelTalkInquiryCard from '@/components/ChannelTalkInquiryCard';
+import DashboardMeetingBookingCard from '@/components/DashboardMeetingBookingCard';
 
 import { useAuth } from '@/contexts/AuthContext';
 import TimeGreeting from '@/components/TimeGreeting';
+import OnlineEmployeesCard from '@/components/OnlineEmployeesCard';
+import TeamChatCard from '@/components/TeamChatCard';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,89 +26,16 @@ import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { isCompanyMasterEmail } from '@/lib/companyMaster';
 
-const DashboardCalendarPanel = lazy(() => import('@/components/dashboard/DashboardCalendarPanel'));
 const ProjectProgressCard = lazy(() => import('@/components/ProjectProgressCard'));
 const ActivityFeedCard = lazy(() => import('@/components/ActivityFeedCard'));
-const TodayWorkCard = lazy(() => import('@/components/TodayWorkCard'));
-const ChannelTalkInquiryCard = lazy(() => import('@/components/ChannelTalkInquiryCard'));
-const DashboardMeetingBookingCard = lazy(() => import('@/components/DashboardMeetingBookingCard'));
 const ImwebTopItemsCard = lazy(() => import('@/components/ImwebTopItemsCard'));
-const OnlineEmployeesCard = lazy(() => import('@/components/OnlineEmployeesCard'));
 const MeetingRequestPopup = lazy(() => import('@/components/MeetingRequestPopup'));
-const TeamChatCard = lazy(() => import('@/components/TeamChatCard'));
 
 const DashboardCardFallback = ({ className = '' }: { className?: string }) => (
   <div className={cn('min-h-[180px] rounded-2xl border border-border/70 bg-background/75 shadow-sm backdrop-blur', className)}>
     <div className="h-full animate-pulse rounded-2xl bg-muted/30" />
   </div>
 );
-
-const preloadDashboardRoute = (url?: string) => {
-  if (!url || /^https?:\/\//i.test(url)) return;
-
-  const path = url.split('?')[0];
-  switch (path) {
-    case '/attendance':
-      void import('@/pages/AttendancePage');
-      break;
-    case '/leave-management':
-      void import('@/pages/LeaveManagementPage');
-      break;
-    case '/recipients':
-      void import('@/pages/RecipientManagementPage');
-      break;
-    case '/project-management':
-      void import('@/pages/ProjectManagementPage');
-      break;
-    case '/material-orders':
-      void import('@/pages/MaterialOrdersPage');
-      break;
-    case '/calculator':
-      void import('@/pages/Calculator');
-      break;
-    case '/saved-quotes':
-      void import('@/pages/SavedQuotesPage');
-      break;
-    case '/performance-review':
-      void import('@/pages/PerformanceReviewPage');
-      break;
-    case '/channel-talk-leads':
-      void import('@/pages/ChannelTalkLeadsPage');
-      break;
-    case '/admin-settings':
-      void import('@/pages/AdminSettingsPage');
-      break;
-    case '/company-settings':
-      void import('@/pages/CompanySettingsPage');
-      break;
-    case '/sample-chip-inventory':
-      void import('@/pages/SampleChipInventoryPage');
-      break;
-    case '/portfolio':
-      void import('@/pages/PortfolioPage');
-      break;
-    case '/references':
-      void import('@/pages/ReferencePage');
-      break;
-    case '/exhibition-management':
-      void import('@/pages/ExhibitionManagementPage');
-      break;
-    case '/tax-invoices':
-      void import('@/pages/TaxInvoicesPage');
-      break;
-    case '/team-chat':
-      void import('@/pages/TeamChatPage');
-      break;
-    case '/my-page':
-      void import('@/pages/MyPage');
-      break;
-    case '/calendar':
-      void import('@/pages/CalendarPage');
-      break;
-    default:
-      break;
-  }
-};
 
 type DashboardLink = {
   title: string;
@@ -310,18 +243,12 @@ const Home = () => {
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={() => navigate('/team-chat')}
-                onMouseEnter={() => preloadDashboardRoute('/team-chat')}
-                onFocus={() => preloadDashboardRoute('/team-chat')}
-                onPointerDown={() => preloadDashboardRoute('/team-chat')}
                 title="팀챗"
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-background/75 shadow-sm backdrop-blur transition-colors hover:bg-accent/40 active:scale-95">
                 <MessageCircle className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
               <button
                 onClick={() => navigate('/my-page')}
-                onMouseEnter={() => preloadDashboardRoute('/my-page')}
-                onFocus={() => preloadDashboardRoute('/my-page')}
-                onPointerDown={() => preloadDashboardRoute('/my-page')}
                 title="마이페이지"
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-background/75 shadow-sm backdrop-blur transition-colors hover:bg-accent/40 active:scale-95">
                 <User className="h-[18px] w-[18px] text-muted-foreground" />
@@ -361,9 +288,6 @@ const Home = () => {
                     <button
                       key={i}
                       onClick={ql.action}
-                      onMouseEnter={() => preloadDashboardRoute(ql.url)}
-                      onFocus={() => preloadDashboardRoute(ql.url)}
-                      onPointerDown={() => preloadDashboardRoute(ql.url)}
                       className="group flex h-9 items-center gap-2 rounded-xl px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/45 hover:text-foreground sm:px-3"
                       title={ql.title}
                     >
@@ -384,19 +308,11 @@ const Home = () => {
               </div>
             </div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)_minmax(320px,0.9fr)]">
-              <Suspense fallback={<DashboardCardFallback className="min-h-[260px]" />}>
-                <TodayWorkCard notifications={notifications} />
-              </Suspense>
-              <Suspense fallback={<DashboardCardFallback className="min-h-[260px]" />}>
-                <DashboardMeetingBookingCard />
-              </Suspense>
-              <Suspense fallback={<DashboardCardFallback className="min-h-[260px]" />}>
-                <ChannelTalkInquiryCard />
-              </Suspense>
+              <TodayWorkCard notifications={notifications} />
+              <DashboardMeetingBookingCard />
+              <ChannelTalkInquiryCard />
             </div>
-            <Suspense fallback={<DashboardCardFallback className="min-h-[520px]" />}>
-              <DashboardCalendarPanel />
-            </Suspense>
+            <DashboardCalendarPanel />
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <Suspense fallback={<DashboardCardFallback />}>
                 <ImwebTopItemsCard />
@@ -412,12 +328,8 @@ const Home = () => {
 
           {/* Checked-in staff and team chat */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            <Suspense fallback={<DashboardCardFallback className="min-h-[360px]" />}>
-              <OnlineEmployeesCard />
-            </Suspense>
-            <Suspense fallback={<DashboardCardFallback className="min-h-[360px]" />}>
-              <TeamChatCard />
-            </Suspense>
+            <OnlineEmployeesCard />
+            <TeamChatCard />
           </div>
 
           {/* Links Grid */}
@@ -457,9 +369,6 @@ const Home = () => {
                     "group relative flex min-h-[92px] cursor-pointer items-center gap-3 rounded-2xl border border-border/70 bg-background/75 p-3 text-left shadow-sm backdrop-blur transition-colors hover:bg-accent/35 sm:p-4",
                     (isLocked || isAdminOnly || isMasterOnly) ? "opacity-50 cursor-not-allowed" : ""
                   )}
-                  onMouseEnter={() => preloadDashboardRoute(item.url)}
-                  onFocus={() => preloadDashboardRoute(item.url)}
-                  onPointerDown={() => preloadDashboardRoute(item.url)}
                   onClick={() => {
                     if (isLocked) { toast.error('로그인이 필요한 서비스입니다.'); navigate('/auth'); return; }
                     if (isAdminOnly) { toast.error('관리자 또는 중간관리자만 접근할 수 있습니다.'); return; }
