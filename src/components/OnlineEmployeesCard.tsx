@@ -120,11 +120,25 @@ const OnlineEmployeesCard: React.FC = () => {
     setStoredEmployeeWorkStatus(newStatus);
     setStatusPopoverOpen(false);
 
-    await presenceChannelRef.current?.track({ status: newStatus, online_at: new Date().toISOString() });
-    await supabase.rpc('upsert_employee_online_heartbeat' as any, {
-      _work_status: newStatus,
-      _user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
-    } as any);
+    try {
+      await presenceChannelRef.current?.track({ status: newStatus, online_at: new Date().toISOString() });
+    } catch (error) {
+      console.warn('[Presence] Realtime status update failed', error);
+    }
+
+    try {
+      const { error } = await supabase.rpc('upsert_employee_online_heartbeat' as any, {
+        _work_status: newStatus,
+        _user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      } as any);
+
+      if (error) {
+        console.warn('[Presence] Heartbeat status update failed', error);
+      }
+    } catch (error) {
+      console.warn('[Presence] Heartbeat status update failed', error);
+    }
+
     toast.success(`상태가 "${STATUS_CONFIG[newStatus].label}"(으)로 변경되었습니다`);
   }, []);
 

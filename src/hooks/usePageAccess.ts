@@ -21,12 +21,25 @@ export const usePageAccess = () => {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    if (authLoading || !user) {
+    let cancelled = false;
+
+    if (authLoading) {
+      setChecking(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!user) {
+      setAllowed(false);
       setChecking(false);
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
 
     const checkAccess = async () => {
+      setChecking(true);
       const pageKey = location.pathname;
 
       // Try exact match first, then parent path (e.g. /saved-quotes/abc → /saved-quotes)
@@ -36,11 +49,17 @@ export const usePageAccess = () => {
         pathsToCheck.push('/' + segments[0]);
       }
 
-      const { data: userOverrides } = await (supabase as any)
+      const { data: userOverrides, error: userOverridesError } = await (supabase as any)
         .from('page_access_permissions')
         .select('page_key, effect')
         .eq('user_id', user.id)
         .in('page_key', pathsToCheck);
+
+      if (cancelled) return;
+
+      if (userOverridesError) {
+        console.warn('[PageAccess] Failed to load user overrides', userOverridesError);
+      }
 
       const matchedOverride = pathsToCheck
         .map(path => userOverrides?.find((row) => row.page_key === path))
@@ -64,7 +83,12 @@ export const usePageAccess = () => {
         .in('page_key', pathsToCheck)
         .limit(pathsToCheck.length);
 
+      if (cancelled) return;
+
       if (error || !data || data.length === 0) {
+        if (error) {
+          console.warn('[PageAccess] Failed to load role access policy', error);
+        }
         // No restriction — open to all
         setAllowed(true);
       } else {
@@ -85,6 +109,7 @@ export const usePageAccess = () => {
           const basePath = '/' + segments[0];
           if (OWNER_BYPASS_PAGES.includes(basePath)) {
             const hasOwnData = await checkOwnership(user.id, basePath, pageKey);
+            if (cancelled) return;
             setAllowed(hasOwnData);
           } else {
             setAllowed(false);
@@ -95,6 +120,9 @@ export const usePageAccess = () => {
     };
 
     checkAccess();
+    return () => {
+      cancelled = true;
+    };
   }, [user, userRole, authLoading, location.pathname]);
 
   return { allowed, checking };

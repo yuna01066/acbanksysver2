@@ -27,6 +27,33 @@ const normalizeRedirectPath = (redirectTo?: string | null) => {
   return redirectTo;
 };
 
+const getLoginErrorMessage = (error: unknown) => {
+  const message = typeof (error as { message?: unknown })?.message === 'string'
+    ? (error as { message: string }).message
+    : '';
+  const normalizedMessage = message.toLowerCase();
+
+  if (message.includes('Invalid login credentials')) {
+    return '이메일 또는 비밀번호가 올바르지 않습니다.';
+  }
+
+  if (message.includes('Email not confirmed')) {
+    return '이메일 인증이 완료되지 않았습니다. 인증 메일을 확인해주세요.';
+  }
+
+  if (normalizedMessage.includes('rate limit') || normalizedMessage.includes('too many')) {
+    return '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.';
+  }
+
+  if (normalizedMessage.includes('failed to fetch') || normalizedMessage.includes('network')) {
+    return '로그인 서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.';
+  }
+
+  return message
+    ? `로그인에 실패했습니다. 오류: ${message}`
+    : '로그인에 실패했습니다. 다시 시도해주세요.';
+};
+
 const LoginScreen = ({ redirectTo, initialEmail = '', onSignupClick }: LoginScreenProps) => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
@@ -71,10 +98,9 @@ const LoginScreen = ({ redirectTo, initialEmail = '', onSignupClick }: LoginScre
     if (error) {
       if (error.message === 'PENDING_APPROVAL') {
         setPendingApproval(true);
-      } else if (error.message.includes('Invalid login credentials')) {
-        toast.error('이메일 또는 비밀번호가 올바르지 않습니다.');
       } else {
-        toast.error('로그인에 실패했습니다. 다시 시도해주세요.');
+        console.error('[LoginScreen] Sign in failed', error);
+        toast.error(getLoginErrorMessage(error));
       }
     } else {
       navigate(normalizeRedirectPath(redirectTo));
