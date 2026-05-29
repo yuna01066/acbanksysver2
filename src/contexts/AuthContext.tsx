@@ -61,19 +61,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
-    if (!error && data) {
-      setProfile(data);
-      setIsApproved(data.is_approved ?? false);
+    if (error) {
+      console.error('[Auth] Failed to load profile', error);
+      setProfile(null);
+      setIsApproved(false);
+      return { data: null, error };
     }
+
+    setProfile(data);
+    setIsApproved(data?.is_approved ?? false);
+    return { data, error: null };
   };
 
   const checkUserRole = async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', userId);
+
+    if (error) {
+      console.error('[Auth] Failed to load user roles', error);
+      setIsAdmin(false);
+      setIsModerator(false);
+      setIsManager(false);
+      setIsEmployee(false);
+      setUserRole(null);
+      return { data: null, error };
+    }
 
     if (data && data.length > 0) {
       const roles = data.map(r => r.role);
@@ -102,6 +118,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsEmployee(false);
       setUserRole(null);
     }
+
+    return { data, error: null };
+  };
+
+  const resetAuthState = () => {
+    setProfile(null);
+    setIsAdmin(false);
+    setIsModerator(false);
+    setIsManager(false);
+    setIsEmployee(false);
+    setIsApproved(false);
+    setUserRole(null);
+  };
+
+  const loadUserContext = async (userId: string) => {
+    await Promise.all([
+      fetchProfile(userId),
+      checkUserRole(userId),
+    ]);
   };
 
   useEffect(() => {
@@ -112,18 +147,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          setLoading(true);
           setTimeout(async () => {
-            await fetchProfile(session.user.id);
-            await checkUserRole(session.user.id);
+            try {
+              await loadUserContext(session.user.id);
+            } finally {
+              setLoading(false);
+            }
           }, 0);
         } else {
-          setProfile(null);
-          setIsAdmin(false);
-          setIsModerator(false);
-          setIsManager(false);
-          setIsEmployee(false);
-          setIsApproved(false);
-          setUserRole(null);
+          resetAuthState();
+          setLoading(false);
         }
       }
     );
@@ -134,9 +168,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        await fetchProfile(session.user.id);
-        await checkUserRole(session.user.id);
+        await loadUserContext(session.user.id);
       }
+      setLoading(false);
+    }).catch((error) => {
+      console.error('[Auth] Failed to restore session', error);
+      resetAuthState();
       setLoading(false);
     });
 
@@ -161,33 +198,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-    if (error) {
+      if (error) {
+        return { error };
+      }
+
+      // 로그인 성공 후 승인 여부 확인
+      if (data.user) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('is_approved')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error('[Auth] Failed to check approval after sign in', profileError);
+          return { error: profileError };
+        }
+
+        if (profileData && !profileData.is_approved) {
+          // 미승인 사용자는 로그아웃 처리
+          await supabase.auth.signOut();
+          return { error: { message: 'PENDING_APPROVAL' } };
+        }
+
+        setLoading(true);
+        await loadUserContext(data.user.id);
+        setLoading(false);
+        toast.success('로그인되었습니다!');
+      }
+
+      return { error: null };
+    } catch (error) {
+      console.error('[Auth] Unexpected sign in failure', error);
+      setLoading(false);
       return { error };
     }
-
-    // 로그인 성공 후 승인 여부 확인
-    if (data.user) {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('is_approved')
-        .eq('id', data.user.id)
-        .single();
-
-      if (profileData && !profileData.is_approved) {
-        // 미승인 사용자는 로그아웃 처리
-        await supabase.auth.signOut();
-        return { error: { message: 'PENDING_APPROVAL' } };
-      }
-      
-      toast.success('로그인되었습니다!');
-    }
-
-    return { error: null };
   };
 
   const signOut = async () => {

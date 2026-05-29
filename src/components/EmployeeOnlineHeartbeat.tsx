@@ -34,10 +34,18 @@ export function setStoredEmployeeWorkStatus(status: EmployeeWorkStatus) {
 
 const sendHeartbeat = async () => {
   const workStatus = getStoredEmployeeWorkStatus();
-  await supabase.rpc('upsert_employee_online_heartbeat' as any, {
-    _work_status: workStatus,
-    _user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
-  } as any);
+  try {
+    const { error } = await supabase.rpc('upsert_employee_online_heartbeat' as any, {
+      _work_status: workStatus,
+      _user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+    } as any);
+
+    if (error) {
+      console.warn('[Presence] Heartbeat failed', error);
+    }
+  } catch (error) {
+    console.warn('[Presence] Heartbeat failed', error);
+  }
 };
 
 const EmployeeOnlineHeartbeat = () => {
@@ -52,7 +60,11 @@ const EmployeeOnlineHeartbeat = () => {
       void sendHeartbeat();
     };
     const markOffline = () => {
-      void supabase.rpc('mark_employee_offline' as any);
+      void supabase.rpc('mark_employee_offline' as any).then(({ error }) => {
+        if (error) console.warn('[Presence] Mark offline failed', error);
+      }).catch((error) => {
+        console.warn('[Presence] Mark offline failed', error);
+      });
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') heartbeat();

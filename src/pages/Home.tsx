@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette, Images } from "lucide-react";
+import { Calculator, Home as HomeIcon, Instagram, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette, Images, Loader2 } from "lucide-react";
 import LoginScreen from '@/components/LoginScreen';
 import NotificationPanel from '@/components/NotificationPanel';
 import QuickAttendanceButton from '@/components/QuickAttendanceButton';
@@ -117,7 +117,7 @@ type DashboardLink = {
 
 const Home = () => {
   const navigate = useNavigate();
-  const { user, profile, signOut, isAdmin, isModerator } = useAuth();
+  const { user, profile, signOut, isAdmin, isModerator, loading: authLoading } = useAuth();
   const isMaster = isCompanyMasterEmail(user?.email || profile?.email);
   const { theme, setTheme } = useTheme();
   const [logoSpinning, setLogoSpinning] = useState(false);
@@ -277,6 +277,15 @@ const Home = () => {
     }
     link.action();
   };
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-transparent px-4 text-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">로그인 상태를 확인하고 있습니다.</p>
+      </div>
+    );
+  }
 
   // If not logged in, show login page
   if (!user) {
