@@ -5513,6 +5513,39 @@ export type Database = {
         }[]
       }
       cleanup_expired_quote_wizard_rows: { Args: never; Returns: number }
+      get_portfolio_post_main_images: {
+        Args: { p_post_ids: string[] }
+        Returns: {
+          access_level: string
+          caption: string
+          created_at: string
+          delete_error: string
+          delete_status: string
+          display_order: number
+          dominant_color: string
+          drive_file_id: string
+          drive_folder_id: string
+          drive_path: string
+          file_name: string
+          file_size: number
+          height: number
+          id: string
+          image_count: number
+          image_url: string
+          is_main: boolean
+          mime_type: string
+          post_id: string
+          storage_provider: string
+          taken_at: string
+          thumbnail_bucket: string
+          thumbnail_height: number
+          thumbnail_path: string
+          thumbnail_url: string
+          thumbnail_width: number
+          uploaded_by: string
+          width: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -5549,6 +5582,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          image_count: number
           keywords: string[]
           location: string
           materials: string[]
