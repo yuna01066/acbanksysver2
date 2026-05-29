@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, Users, Phone, Star, ArrowDownAZ, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import ProfileAvatarImage from '@/components/employee/ProfileAvatarImage';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export type AppRoleType = 'admin' | 'moderator' | 'manager' | 'employee';
@@ -193,7 +194,7 @@ const EmployeeListSidebar: React.FC<EmployeeListSidebarProps> = ({
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-sm font-bold text-primary shrink-0 overflow-hidden">
                   {emp.avatar_url ? (
-                    <img src={emp.avatar_url} alt={emp.full_name} className="w-full h-full object-cover" />
+                    <ProfileAvatarImage src={emp.avatar_url} alt={emp.full_name} className="w-full h-full object-cover" />
                   ) : (
                     emp.full_name?.charAt(0) || '?'
                   )}

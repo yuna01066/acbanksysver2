@@ -11,6 +11,7 @@ import LeaveAdjustmentDialog from './LeaveAdjustmentDialog';
 import { differenceInMonths, format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import ProfileAvatarImage from '@/components/employee/ProfileAvatarImage';
 
 interface EmployeeProfile {
   id: string;
@@ -187,7 +188,7 @@ const AdminLeaveOverview: React.FC<AdminLeaveOverviewProps> = ({
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-sm font-bold text-primary shrink-0 overflow-hidden">
                     {emp.avatar_url ? (
-                      <img src={emp.avatar_url} alt={emp.full_name} className="w-full h-full object-cover" />
+                      <ProfileAvatarImage src={emp.avatar_url} alt={emp.full_name} className="w-full h-full object-cover" />
                     ) : (
                       emp.full_name?.charAt(0) || '?'
                     )}
@@ -248,7 +249,7 @@ const AdminLeaveOverview: React.FC<AdminLeaveOverviewProps> = ({
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-lg font-bold text-primary overflow-hidden">
                     {selectedEmp.avatar_url ? (
-                      <img src={selectedEmp.avatar_url} alt={selectedEmp.full_name} className="w-full h-full object-cover" />
+                      <ProfileAvatarImage src={selectedEmp.avatar_url} alt={selectedEmp.full_name} className="w-full h-full object-cover" />
                     ) : (
                       selectedEmp.full_name?.charAt(0) || '?'
                     )}

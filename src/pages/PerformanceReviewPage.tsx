@@ -12,6 +12,7 @@ import { Star, Search, Loader2, User, Shield, AlertTriangle, CalendarDays, Arrow
 import PerformanceReviewPanel from '@/components/employee/PerformanceReviewPanel';
 import AdminReviewDashboard from '@/components/performance/AdminReviewDashboard';
 import IncidentReportPanel from '@/components/performance/IncidentReportPanel';
+import ProfileAvatarImage from '@/components/employee/ProfileAvatarImage';
 
 interface Employee {
   id: string;
@@ -181,7 +182,7 @@ const ReviewEmployeeList: React.FC = () => {
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
               {selectedEmployee.avatar_url ? (
-                <img src={selectedEmployee.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                <ProfileAvatarImage src={selectedEmployee.avatar_url} className="w-8 h-8 rounded-full object-cover" />
               ) : (
                 <User className="h-4 w-4 text-primary" />
               )}
@@ -261,7 +262,7 @@ const ReviewEmployeeList: React.FC = () => {
                   <CardContent className="p-4 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                       {emp.avatar_url ? (
-                        <img src={emp.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                        <ProfileAvatarImage src={emp.avatar_url} className="w-10 h-10 rounded-full object-cover" />
                       ) : (
                         <User className="h-5 w-5 text-primary" />
                       )}

@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, Send, User, Star, Target, TrendingUp, MessageSquare, Search, CheckCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
+import ProfileAvatarImage from '@/components/employee/ProfileAvatarImage';
 
 interface ReviewCycle {
   id: string;
@@ -296,7 +297,7 @@ const AdminReviewDashboard: React.FC = () => {
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 {selectedEmployee.avatar_url ? (
-                  <img src={selectedEmployee.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                  <ProfileAvatarImage src={selectedEmployee.avatar_url} className="w-8 h-8 rounded-full object-cover" />
                 ) : (
                   <User className="h-4 w-4 text-primary" />
                 )}
@@ -431,7 +432,7 @@ const AdminReviewDashboard: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                         {emp.avatar_url ? (
-                          <img src={emp.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+                          <ProfileAvatarImage src={emp.avatar_url} className="w-9 h-9 rounded-full object-cover" />
                         ) : (
                           <User className="h-4 w-4 text-primary" />
                         )}

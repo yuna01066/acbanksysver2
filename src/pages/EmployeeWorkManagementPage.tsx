@@ -15,6 +15,7 @@ import { ko } from 'date-fns/locale';
 import EmployeeAttendancePanel from '@/components/employee/EmployeeAttendancePanel';
 import EmployeeLeavePanel from '@/components/employee/EmployeeLeavePanel';
 import AvatarUpload from '@/components/employee/AvatarUpload';
+import ProfileAvatarImage from '@/components/employee/ProfileAvatarImage';
 import PerformanceReviewPanel from '@/components/employee/PerformanceReviewPanel';
 import ReviewCycleManager from '@/components/employee/ReviewCycleManager';
 import EmployeeIncidentList from '@/components/performance/EmployeeIncidentList';
@@ -158,7 +159,7 @@ const EmployeeWorkManagementPage = () => {
                     <button key={emp.id} onClick={() => setSelectedEmployee(emp)} className={cn("w-full text-left px-4 py-3 hover:bg-accent/50 transition-colors", selectedEmployee?.id === emp.id && "bg-accent border-l-2 border-l-primary")}>
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-sm font-bold text-primary shrink-0 overflow-hidden">
-                          {emp.avatar_url ? <img src={emp.avatar_url} alt={emp.full_name} className="w-full h-full object-cover" /> : emp.full_name?.charAt(0) || '?'}
+                          {emp.avatar_url ? <ProfileAvatarImage src={emp.avatar_url} alt={emp.full_name} className="w-full h-full object-cover" /> : emp.full_name?.charAt(0) || '?'}
                         </div>
                         <div className="min-w-0 flex-1">
                           <span className="text-sm font-medium truncate block">{emp.full_name}</span>
@@ -185,7 +186,7 @@ const EmployeeWorkManagementPage = () => {
                 <div className="p-6 border-b bg-card">
                   <div className="flex items-start gap-4">
                     <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-lg font-bold text-primary shrink-0 overflow-hidden">
-                      {selectedEmployee.avatar_url ? <img src={selectedEmployee.avatar_url} alt={selectedEmployee.full_name} className="w-full h-full object-cover" /> : selectedEmployee.full_name?.charAt(0) || '?'}
+                      {selectedEmployee.avatar_url ? <ProfileAvatarImage src={selectedEmployee.avatar_url} alt={selectedEmployee.full_name} className="w-full h-full object-cover" /> : selectedEmployee.full_name?.charAt(0) || '?'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
