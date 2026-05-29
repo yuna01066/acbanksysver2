@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,16 +7,20 @@ import { Badge } from "@/components/ui/badge";
 import { Calculator, Home as HomeIcon, Instagram, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette, Images, Loader2 } from "lucide-react";
 import LoginScreen from '@/components/LoginScreen';
 import DashboardCalendarPanel from '@/components/dashboard/DashboardCalendarPanel';
+import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
 import QuickAttendanceButton from '@/components/QuickAttendanceButton';
 import DailyQuoteCard from '@/components/DailyQuoteCard';
+import ActivityFeedCard from '@/components/ActivityFeedCard';
 import TodayWorkCard from '@/components/TodayWorkCard';
 import ChannelTalkInquiryCard from '@/components/ChannelTalkInquiryCard';
 import DashboardMeetingBookingCard from '@/components/DashboardMeetingBookingCard';
+import ImwebTopItemsCard from '@/components/ImwebTopItemsCard';
 
 import { useAuth } from '@/contexts/AuthContext';
 import TimeGreeting from '@/components/TimeGreeting';
 import OnlineEmployeesCard from '@/components/OnlineEmployeesCard';
+import MeetingRequestPopup from '@/components/MeetingRequestPopup';
 import TeamChatCard from '@/components/TeamChatCard';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useQuery } from '@tanstack/react-query';
@@ -25,17 +29,6 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { isCompanyMasterEmail } from '@/lib/companyMaster';
-
-const ProjectProgressCard = lazy(() => import('@/components/ProjectProgressCard'));
-const ActivityFeedCard = lazy(() => import('@/components/ActivityFeedCard'));
-const ImwebTopItemsCard = lazy(() => import('@/components/ImwebTopItemsCard'));
-const MeetingRequestPopup = lazy(() => import('@/components/MeetingRequestPopup'));
-
-const DashboardCardFallback = ({ className = '' }: { className?: string }) => (
-  <div className={cn('min-h-[180px] rounded-2xl border border-border/70 bg-background/75 shadow-sm backdrop-blur', className)}>
-    <div className="h-full animate-pulse rounded-2xl bg-muted/30" />
-  </div>
-);
 
 type DashboardLink = {
   title: string;
@@ -103,10 +96,10 @@ const Home = () => {
   });
 
   const quickLinks: DashboardLink[] = [
-    { title: "홈페이지", description: "", icon: HomeIcon, url: "https://acbank.co.kr", action: () => window.open("https://acbank.co.kr", "_blank") },
-    { title: "팀 채팅", description: "", icon: MessageCircle, url: "/team-chat", action: () => navigate("/team-chat") },
-    { title: "인스타그램", description: "", icon: Instagram, url: "https://www.instagram.com/acbank.co.kr/", action: () => window.open("https://www.instagram.com/acbank.co.kr/", "_blank") },
-    { title: "아크뱅크 노션", description: "", icon: BookOpen, url: "https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link", action: () => window.open("https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link", "_blank") },
+    { title: "홈페이지", description: "", icon: HomeIcon, action: () => window.open("https://acbank.co.kr", "_blank") },
+    { title: "팀 채팅", description: "", icon: MessageCircle, action: () => navigate("/team-chat") },
+    { title: "인스타그램", description: "", icon: Instagram, action: () => window.open("https://www.instagram.com/acbank.co.kr/", "_blank") },
+    { title: "아크뱅크 노션", description: "", icon: BookOpen, action: () => window.open("https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link", "_blank") },
   ];
 
   const links: DashboardLink[] = [{
@@ -241,15 +234,11 @@ const Home = () => {
               />
             </div>
             <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => navigate('/team-chat')}
-                title="팀챗"
+              <button onClick={() => navigate('/team-chat')} title="팀챗"
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-background/75 shadow-sm backdrop-blur transition-colors hover:bg-accent/40 active:scale-95">
                 <MessageCircle className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
-              <button
-                onClick={() => navigate('/my-page')}
-                title="마이페이지"
+              <button onClick={() => navigate('/my-page')} title="마이페이지"
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-background/75 shadow-sm backdrop-blur transition-colors hover:bg-accent/40 active:scale-95">
                 <User className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
@@ -314,15 +303,9 @@ const Home = () => {
             </div>
             <DashboardCalendarPanel />
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <Suspense fallback={<DashboardCardFallback />}>
-                <ImwebTopItemsCard />
-              </Suspense>
-              <Suspense fallback={<DashboardCardFallback />}>
-                <ActivityFeedCard />
-              </Suspense>
-              <Suspense fallback={<DashboardCardFallback />}>
-                <ProjectProgressCard />
-              </Suspense>
+              <ImwebTopItemsCard />
+              <ActivityFeedCard />
+              <ProjectProgressCard />
             </div>
           </div>
 
@@ -335,12 +318,12 @@ const Home = () => {
           {/* Links Grid */}
           {(() => {
             const secondaryLinks: DashboardLink[] = [
-              { title: "회사 설정", icon: Building2, description: "마스터 전용 민감정보 관리", url: "/company-settings", requiresAuth: true, requiresMaster: true, action: () => navigate("/company-settings") },
-              { title: "샘플칩 관리", icon: Palette, description: "샘플칩 재고 관리", url: "/sample-chip-inventory", requiresAuth: true, action: () => navigate("/sample-chip-inventory") },
-              { title: "포트폴리오", icon: Images, description: "인테리어·제작가공 사진 열람", url: "/portfolio", requiresAuth: true, action: () => navigate("/portfolio") },
-              { title: "레퍼런스", icon: Images, description: "상담용 이미지·메모 열람", url: "/references", requiresAuth: true, action: () => navigate("/references") },
-              { title: "박람회 관리", icon: Landmark, description: "박람회 일정·준비·상담 관리", url: "/exhibition-management", requiresAuth: true, action: () => navigate("/exhibition-management") },
-              { title: "세금계산서 관리", icon: Receipt, description: "세금계산서 발행·조회", url: "/tax-invoices", requiresAuth: true, action: () => navigate("/tax-invoices") },
+              { title: "회사 설정", icon: Building2, description: "마스터 전용 민감정보 관리", requiresAuth: true, requiresMaster: true, action: () => navigate("/company-settings") },
+              { title: "샘플칩 관리", icon: Palette, description: "샘플칩 재고 관리", requiresAuth: true, action: () => navigate("/sample-chip-inventory") },
+              { title: "포트폴리오", icon: Images, description: "인테리어·제작가공 사진 열람", requiresAuth: true, action: () => navigate("/portfolio") },
+              { title: "레퍼런스", icon: Images, description: "상담용 이미지·메모 열람", requiresAuth: true, action: () => navigate("/references") },
+              { title: "박람회 관리", icon: Landmark, description: "박람회 일정·준비·상담 관리", requiresAuth: true, action: () => navigate("/exhibition-management") },
+              { title: "세금계산서 관리", icon: Receipt, description: "세금계산서 발행·조회", requiresAuth: true, action: () => navigate("/tax-invoices") },
             ];
 
             const byTitle = new Map(links.map((link) => [link.title, link]));
@@ -437,9 +420,7 @@ const Home = () => {
           </div>
         </div>
       </div>
-      <Suspense fallback={null}>
-        <MeetingRequestPopup />
-      </Suspense>
+      <MeetingRequestPopup />
     </div>
   );
 };

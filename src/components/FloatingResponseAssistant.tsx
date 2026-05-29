@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, HelpCircle, X } from 'lucide-react';
@@ -16,7 +16,11 @@ import iconNight from '@/assets/hamzzi/icon_night.png';
 import iconParty from '@/assets/hamzzi/icon_party.png';
 import defaultResponseAssistantIcon from '@/assets/response-assistant-default-icon.png';
 import responseAssistantSpeechBubble from '@/assets/response-assistant-speech-bubble.png';
+import AssistantHomePanel from '@/components/assistant/AssistantHomePanel';
 import { Button } from '@/components/ui/button';
+import MeetingBookingWidget from '@/components/MeetingBookingWidget';
+import QuoteWizardPanel from '@/components/QuoteWizardPanel';
+import ResponseAssistantWidget from '@/components/ResponseAssistantWidget';
 import { useAuth } from '@/contexts/AuthContext';
 import type { AssistantEmbeddedTool, AssistantShortcutItem } from '@/hooks/useAssistantShortcuts';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,11 +44,6 @@ const HIDDEN_PATHS = [
 ];
 
 const FLOATING_RESPONSE_ASSISTANT_OPEN_KEY = 'acbank:floating-response-assistant-open';
-
-const AssistantHomePanel = lazy(() => import('@/components/assistant/AssistantHomePanel'));
-const MeetingBookingWidget = lazy(() => import('@/components/MeetingBookingWidget'));
-const QuoteWizardPanel = lazy(() => import('@/components/QuoteWizardPanel'));
-const ResponseAssistantWidget = lazy(() => import('@/components/ResponseAssistantWidget'));
 
 type AssistantTool = 'menu' | AssistantEmbeddedTool;
 type SpecialistTool = AssistantEmbeddedTool;
@@ -176,12 +175,6 @@ const readStoredOpenState = () => {
 const isSupportedIconValue = (value?: string | null) => (
   typeof value === 'string'
   && (/^data:image\/(png|jpe?g|webp|gif);base64,/.test(value) || value.startsWith('/'))
-);
-
-const AssistantPanelFallback = () => (
-  <div className="flex min-h-[360px] items-center justify-center rounded-[24px] bg-white text-xs font-semibold text-[#707072]">
-    도우미를 불러오는 중
-  </div>
 );
 
 const FloatingResponseAssistant: React.FC = () => {
@@ -381,39 +374,37 @@ const FloatingResponseAssistant: React.FC = () => {
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto bg-[#f5f5f5] p-3">
-              <Suspense fallback={<AssistantPanelFallback />}>
-                {activeTool === 'menu' && (
-                  <AssistantHomePanel onSelectShortcut={handleShortcutSelect} isTransitioning={Boolean(transitionTool)} />
-                )}
-                {activeTool === 'responseAssistant' && (
-                  <ResponseAssistantWidget
-                    embedded
-                    autoGuide={false}
-                    compact
-                    guideOpenSignal={guideOpenSignal}
-                    className="rounded-[24px] shadow-none"
-                  />
-                )}
-                {activeTool === 'quoteWizard' && (
-                  <QuoteWizardPanel
-                    embedded
-                    compact
-                    onOpenFullPage={openQuoteWizardFullPage}
-                    className="pb-1"
-                  />
-                )}
-                {activeTool === 'meetingBooking' && (
-                  <MeetingBookingWidget
-                    compactLayout
-                    showHeader={false}
-                    defaultAudienceType="client"
-                    maxItems={6}
-                    title="상담/미팅 예약"
-                    description="직원 미팅과 클라이언트 상담 일정을 빠르게 예약합니다."
-                    className="max-w-full overflow-hidden rounded-[24px] border-0 shadow-none"
-                  />
-                )}
-              </Suspense>
+              {activeTool === 'menu' && (
+                <AssistantHomePanel onSelectShortcut={handleShortcutSelect} isTransitioning={Boolean(transitionTool)} />
+              )}
+              {activeTool === 'responseAssistant' && (
+                <ResponseAssistantWidget
+                  embedded
+                  autoGuide={false}
+                  compact
+                  guideOpenSignal={guideOpenSignal}
+                  className="rounded-[24px] shadow-none"
+                />
+              )}
+              {activeTool === 'quoteWizard' && (
+                <QuoteWizardPanel
+                  embedded
+                  compact
+                  onOpenFullPage={openQuoteWizardFullPage}
+                  className="pb-1"
+                />
+              )}
+              {activeTool === 'meetingBooking' && (
+                <MeetingBookingWidget
+                  compactLayout
+                  showHeader={false}
+                  defaultAudienceType="client"
+                  maxItems={6}
+                  title="상담/미팅 예약"
+                  description="직원 미팅과 클라이언트 상담 일정을 빠르게 예약합니다."
+                  className="max-w-full overflow-hidden rounded-[24px] border-0 shadow-none"
+                />
+              )}
             </div>
           </section>
         </div>
