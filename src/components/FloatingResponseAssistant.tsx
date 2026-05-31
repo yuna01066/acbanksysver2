@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, HelpCircle, X } from 'lucide-react';
+import { toast } from 'sonner';
 import hamzziCelebration from '@/assets/hamzzi/hamzzi_celebration.png';
 import hamzziCheck from '@/assets/hamzzi/hamzzi_check.png';
 import hamzziCoffee from '@/assets/hamzzi/hamzzi_coffee.png';
@@ -22,7 +23,12 @@ import MeetingBookingWidget from '@/components/MeetingBookingWidget';
 import QuoteWizardPanel from '@/components/QuoteWizardPanel';
 import ResponseAssistantWidget from '@/components/ResponseAssistantWidget';
 import { useAuth } from '@/contexts/AuthContext';
-import type { AssistantEmbeddedTool, AssistantShortcutItem } from '@/hooks/useAssistantShortcuts';
+import {
+  getAssistantRole,
+  resolveAssistantShortcutAccess,
+  type AssistantEmbeddedTool,
+  type AssistantShortcutItem,
+} from '@/hooks/useAssistantShortcuts';
 import { supabase } from '@/integrations/supabase/client';
 import {
   HAMZZI_EVENT_NAME,
@@ -180,7 +186,7 @@ const isSupportedIconValue = (value?: string | null) => (
 const FloatingResponseAssistant: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, isModerator, isManager } = useAuth();
   const [open, setOpen] = useState(readStoredOpenState);
   const [activeTool, setActiveTool] = useState<AssistantTool>('menu');
   const [guideOpenSignal, setGuideOpenSignal] = useState(0);
@@ -211,6 +217,10 @@ const FloatingResponseAssistant: React.FC = () => {
   const responseAssistantIcon = isSupportedIconValue(iconSetting) ? iconSetting : defaultResponseAssistantIcon;
   const toolMeta = TOOL_META[activeTool];
   const activeSpriteTool = transitionTool ?? (activeTool === 'menu' ? null : activeTool);
+  const assistantRole = useMemo(
+    () => getAssistantRole(isAdmin, isModerator, isManager),
+    [isAdmin, isManager, isModerator],
+  );
 
   const closeAssistant = () => {
     if (toolTransitionTimerRef.current) {
@@ -261,6 +271,12 @@ const FloatingResponseAssistant: React.FC = () => {
   } : undefined;
 
   const handleShortcutSelect = (shortcut: AssistantShortcutItem) => {
+    const access = resolveAssistantShortcutAccess(shortcut, { role: assistantRole });
+    if (access.state !== 'enabled') {
+      toast.error(access.reason || '현재 권한으로 사용할 수 없는 기능입니다.');
+      return;
+    }
+
     setLauncherHintVisible(false);
     if (shortcut.target === 'tool' && shortcut.tool) {
       handleToolSelect(shortcut.tool);

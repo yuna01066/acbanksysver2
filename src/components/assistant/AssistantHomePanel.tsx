@@ -1,11 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, CheckCircle2, ChevronRight, Loader2, RotateCcw, Search, Settings2, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, CheckCircle2, ChevronRight, Loader2, Lock, RotateCcw, Search, Settings2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { useAssistantShortcuts, type AssistantShortcutItem } from '@/hooks/useAssistantShortcuts';
+import {
+  ASSISTANT_SHORTCUT_CATEGORY_LABELS,
+  useAssistantShortcuts,
+  type AssistantShortcutItem,
+} from '@/hooks/useAssistantShortcuts';
 import { useNotifications } from '@/hooks/useNotifications';
 import { toneClasses, useTodayWorkItems, type TodayWorkCategory } from '@/hooks/useTodayWorkItems';
 import { cn } from '@/lib/utils';
@@ -26,6 +30,16 @@ const SHORTCUT_TARGET_LABELS: Record<string, string> = {
   route: '내부 화면',
   external: '외부 링크',
 };
+
+function getShortcutWorkCount(shortcutId: string, categoryCounts: Record<TodayWorkCategory, number>) {
+  if (shortcutId === 'route-review-hub') return categoryCounts.approval;
+  if (shortcutId === 'route-calendar' || shortcutId === 'tool-meeting-booking') return categoryCounts.calendar;
+  if (shortcutId === 'route-saved-quotes' || shortcutId === 'tool-quote-wizard') return categoryCounts.quote;
+  if (shortcutId === 'route-projects') return categoryCounts.project;
+  if (shortcutId === 'route-attendance' || shortcutId === 'route-my-page') return categoryCounts.hr;
+  if (shortcutId === 'route-admin-settings') return categoryCounts.system;
+  return 0;
+}
 
 interface AssistantHomePanelProps {
   onSelectShortcut: (shortcut: AssistantShortcutItem) => void;
@@ -208,6 +222,7 @@ const AssistantHomePanel = ({ onSelectShortcut, isTransitioning }: AssistantHome
               <div className="grid grid-cols-2 gap-2">
                 {selectedShortcuts.map((shortcut) => {
                   const ShortcutIcon = shortcut.icon;
+                  const shortcutWorkCount = getShortcutWorkCount(shortcut.id, categoryCounts);
                   return (
                     <button
                       key={shortcut.id}
@@ -219,7 +234,14 @@ const AssistantHomePanel = ({ onSelectShortcut, isTransitioning }: AssistantHome
                       <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dedede] bg-white text-[#111111]">
                         <ShortcutIcon className="h-4 w-4" />
                       </span>
-                      <span className="mt-2 block truncate text-xs font-black text-[#111111]">{shortcut.label}</span>
+                      <span className="mt-2 flex min-w-0 items-center gap-1.5">
+                        <span className="truncate text-xs font-black text-[#111111]">{shortcut.label}</span>
+                        {shortcutWorkCount > 0 && (
+                          <span className="shrink-0 rounded-full bg-[#111111] px-1.5 py-0.5 text-[9px] font-black leading-none text-white">
+                            {shortcutWorkCount}
+                          </span>
+                        )}
+                      </span>
                       <span className="mt-0.5 block line-clamp-2 text-[10px] font-semibold leading-4 text-[#707072]">
                         {shortcut.description}
                       </span>
@@ -246,35 +268,39 @@ const AssistantShortcutSettingsDialog = ({
 }) => {
   const {
     availableShortcuts,
+    lockedShortcuts,
+    shortcutAccessMap,
     shortcutIds,
     roleDefaultIds,
     isLocalFallback,
     saveShortcutOrder,
-    resetToRoleDefault,
   } = useAssistantShortcuts();
   const [draftIds, setDraftIds] = useState<string[]>(shortcutIds);
   const [searchKeyword, setSearchKeyword] = useState('');
   const selectedIdSet = useMemo(() => new Set(draftIds), [draftIds]);
-  const saving = saveShortcutOrder.isPending || resetToRoleDefault.isPending;
+  const saving = saveShortcutOrder.isPending;
   const shortcutIdsKey = shortcutIds.join('|');
   const hasChanges = draftIds.join('|') !== shortcutIdsKey;
   const normalizedSearchKeyword = searchKeyword.trim().toLowerCase();
-  const orderedShortcuts = useMemo(() => {
-    const matchesSearch = (shortcut: AssistantShortcutItem) => {
-      if (!normalizedSearchKeyword) return true;
-      return (
+
+  const matchesSearch = useCallback((shortcut: AssistantShortcutItem) => {
+    if (!normalizedSearchKeyword) return true;
+    return (
       [
         shortcut.label,
         shortcut.description,
         shortcut.target,
+        shortcut.category,
+        ASSISTANT_SHORTCUT_CATEGORY_LABELS[shortcut.category],
         ...(shortcut.keywords || []),
       ]
         .join(' ')
         .toLowerCase()
         .includes(normalizedSearchKeyword)
-      );
-    };
+    );
+  }, [normalizedSearchKeyword]);
 
+  const groupedShortcuts = useMemo(() => {
     const shortcutMap = new Map(availableShortcuts.map((shortcut) => [shortcut.id, shortcut]));
     const selected = draftIds
       .map((id) => shortcutMap.get(id))
@@ -283,9 +309,10 @@ const AssistantShortcutSettingsDialog = ({
     const unselected = availableShortcuts
       .filter((shortcut) => !selectedIdSet.has(shortcut.id))
       .filter(matchesSearch);
+    const locked = lockedShortcuts.filter(matchesSearch);
 
-    return [...selected, ...unselected];
-  }, [availableShortcuts, draftIds, normalizedSearchKeyword, selectedIdSet]);
+    return { selected, unselected, locked };
+  }, [availableShortcuts, draftIds, lockedShortcuts, matchesSearch, selectedIdSet]);
 
   useEffect(() => {
     if (open) setDraftIds(shortcutIdsKey ? shortcutIdsKey.split('|') : []);
@@ -323,7 +350,107 @@ const AssistantShortcutSettingsDialog = ({
 
   const handleReset = () => {
     setDraftIds(roleDefaultIds);
-    resetToRoleDefault.mutate();
+  };
+
+  const renderShortcutRow = (shortcut: AssistantShortcutItem, locked = false) => {
+    const ShortcutIcon = shortcut.icon;
+    const selected = selectedIdSet.has(shortcut.id);
+    const orderIndex = draftIds.indexOf(shortcut.id);
+    const disabledByLimit = !selected && draftIds.length >= ASSISTANT_SHORTCUT_LIMIT;
+    const access = shortcutAccessMap.get(shortcut.id);
+    const disabled = locked || disabledByLimit;
+    const helpText = locked
+      ? access?.reason || '현재 권한으로 사용할 수 없습니다.'
+      : disabledByLimit
+        ? `최대 ${ASSISTANT_SHORTCUT_LIMIT}개까지 선택할 수 있습니다.`
+        : shortcut.description;
+
+    return (
+      <div
+        key={shortcut.id}
+        className={cn(
+          'grid grid-cols-[auto,1fr,auto] items-center gap-3 rounded-2xl border p-3',
+          selected ? 'border-[#111111] bg-[#fafafa]' : 'border-[#ececec] bg-white',
+          locked && 'border-dashed bg-[#fafafa] opacity-80',
+        )}
+      >
+        {locked ? (
+          <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#dedede] bg-white text-[#9e9ea0]">
+            <Lock className="h-3 w-3" />
+          </span>
+        ) : (
+          <Checkbox
+            checked={selected}
+            disabled={disabledByLimit}
+            onCheckedChange={() => toggleShortcut(shortcut.id)}
+            aria-label={`${shortcut.label} 바로가기 선택`}
+          />
+        )}
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => toggleShortcut(shortcut.id)}
+          className="grid min-w-0 grid-cols-[auto,1fr] items-center gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dedede] bg-white text-[#111111]">
+            <ShortcutIcon className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate text-sm font-black text-[#111111]">{shortcut.label}</span>
+              <Badge variant="outline" className="h-5 shrink-0 rounded-full px-1.5 text-[9px] font-bold">
+                {ASSISTANT_SHORTCUT_CATEGORY_LABELS[shortcut.category] || SHORTCUT_TARGET_LABELS[shortcut.target] || '기능'}
+              </Badge>
+              {selected && (
+                <Badge className="h-5 shrink-0 rounded-full bg-[#111111] px-1.5 text-[9px] font-bold text-white">
+                  {orderIndex + 1}
+                </Badge>
+              )}
+              {locked && (
+                <Badge variant="outline" className="h-5 shrink-0 rounded-full border-[#dedede] bg-white px-1.5 text-[9px] font-bold text-[#707072]">
+                  권한 필요
+                </Badge>
+              )}
+              {disabledByLimit && !locked && (
+                <Badge variant="outline" className="h-5 shrink-0 rounded-full border-amber-200 bg-amber-50 px-1.5 text-[9px] font-bold text-amber-700">
+                  최대 {ASSISTANT_SHORTCUT_LIMIT}개
+                </Badge>
+              )}
+            </span>
+            <span className={cn(
+              'mt-0.5 block truncate text-xs font-semibold',
+              locked || disabledByLimit ? 'text-[#9e9ea0]' : 'text-[#707072]',
+            )}>
+              {helpText}
+            </span>
+          </span>
+        </button>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={locked || !selected || orderIndex <= 0}
+            onClick={() => moveShortcut(shortcut.id, -1)}
+            className="h-8 w-8 rounded-full"
+            aria-label={`${shortcut.label} 위로 이동`}
+          >
+            <ArrowUp className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={locked || !selected || orderIndex < 0 || orderIndex >= draftIds.length - 1}
+            onClick={() => moveShortcut(shortcut.id, 1)}
+            className="h-8 w-8 rounded-full"
+            aria-label={`${shortcut.label} 아래로 이동`}
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -367,82 +494,31 @@ const AssistantShortcutSettingsDialog = ({
             />
           </div>
 
-          {orderedShortcuts.length === 0 ? (
+          {groupedShortcuts.selected.length + groupedShortcuts.unselected.length + groupedShortcuts.locked.length === 0 ? (
             <div className="flex min-h-32 flex-col items-center justify-center rounded-2xl border border-dashed border-[#dedede] bg-[#fafafa] px-4 text-center">
               <Search className="mb-2 h-7 w-7 text-[#9e9ea0]" />
               <p className="text-sm font-black text-[#111111]">검색 결과가 없습니다.</p>
               <p className="mt-1 text-xs font-medium text-[#707072]">다른 키워드로 다시 검색해보세요.</p>
             </div>
-          ) : orderedShortcuts.map((shortcut) => {
-            const ShortcutIcon = shortcut.icon;
-            const selected = selectedIdSet.has(shortcut.id);
-            const orderIndex = draftIds.indexOf(shortcut.id);
-            const disabledByLimit = !selected && draftIds.length >= ASSISTANT_SHORTCUT_LIMIT;
-            return (
-              <div
-                key={shortcut.id}
-                className={cn(
-                  'grid grid-cols-[auto,1fr,auto] items-center gap-3 rounded-2xl border p-3',
-                  selected ? 'border-[#111111] bg-[#fafafa]' : 'border-[#ececec] bg-white',
-                )}
-              >
-                <Checkbox
-                  checked={selected}
-                  disabled={disabledByLimit}
-                  onCheckedChange={() => toggleShortcut(shortcut.id)}
-                  aria-label={`${shortcut.label} 바로가기 선택`}
-                />
-                <button
-                  type="button"
-                  disabled={disabledByLimit}
-                  onClick={() => toggleShortcut(shortcut.id)}
-                  className="grid min-w-0 grid-cols-[auto,1fr] items-center gap-2 text-left disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dedede] bg-white text-[#111111]">
-                    <ShortcutIcon className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <span className="truncate text-sm font-black text-[#111111]">{shortcut.label}</span>
-                      <Badge variant="outline" className="h-5 shrink-0 rounded-full px-1.5 text-[9px] font-bold">
-                        {SHORTCUT_TARGET_LABELS[shortcut.target] || '기능'}
-                      </Badge>
-                      {selected && (
-                        <Badge className="h-5 shrink-0 rounded-full bg-[#111111] px-1.5 text-[9px] font-bold text-white">
-                          {orderIndex + 1}
-                        </Badge>
-                      )}
-                    </span>
-                    <span className="mt-0.5 block truncate text-xs font-semibold text-[#707072]">{shortcut.description}</span>
-                  </span>
-                </button>
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    disabled={!selected || orderIndex <= 0}
-                    onClick={() => moveShortcut(shortcut.id, -1)}
-                    className="h-8 w-8 rounded-full"
-                    aria-label={`${shortcut.label} 위로 이동`}
-                  >
-                    <ArrowUp className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    disabled={!selected || orderIndex < 0 || orderIndex >= draftIds.length - 1}
-                    onClick={() => moveShortcut(shortcut.id, 1)}
-                    className="h-8 w-8 rounded-full"
-                    aria-label={`${shortcut.label} 아래로 이동`}
-                  >
-                    <ArrowDown className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
+          ) : (
+            <div className="space-y-4">
+              {groupedShortcuts.selected.length > 0 && (
+                <ShortcutSection title="선택됨" count={groupedShortcuts.selected.length}>
+                  {groupedShortcuts.selected.map((shortcut) => renderShortcutRow(shortcut))}
+                </ShortcutSection>
+              )}
+              {groupedShortcuts.unselected.length > 0 && (
+                <ShortcutSection title="사용 가능" count={groupedShortcuts.unselected.length}>
+                  {groupedShortcuts.unselected.map((shortcut) => renderShortcutRow(shortcut))}
+                </ShortcutSection>
+              )}
+              {groupedShortcuts.locked.length > 0 && (
+                <ShortcutSection title="권한 필요" count={groupedShortcuts.locked.length}>
+                  {groupedShortcuts.locked.map((shortcut) => renderShortcutRow(shortcut, true))}
+                </ShortcutSection>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter className="shrink-0 border-t border-[#ececec] bg-white p-4 shadow-[0_-10px_24px_rgba(15,23,42,0.06)] sm:justify-between sm:space-x-0">
@@ -470,5 +546,25 @@ const AssistantShortcutSettingsDialog = ({
     </Dialog>
   );
 };
+
+const ShortcutSection = ({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: React.ReactNode;
+}) => (
+  <section className="space-y-2">
+    <div className="flex items-center justify-between px-1">
+      <p className="text-[11px] font-black text-[#111111]">{title}</p>
+      <Badge variant="outline" className="h-5 rounded-full px-2 text-[9px] font-bold">
+        {count}개
+      </Badge>
+    </div>
+    <div className="space-y-2">{children}</div>
+  </section>
+);
 
 export default AssistantHomePanel;
