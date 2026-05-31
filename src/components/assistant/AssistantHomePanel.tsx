@@ -256,10 +256,13 @@ const AssistantShortcutSettingsDialog = ({
   const [searchKeyword, setSearchKeyword] = useState('');
   const selectedIdSet = useMemo(() => new Set(draftIds), [draftIds]);
   const saving = saveShortcutOrder.isPending || resetToRoleDefault.isPending;
+  const shortcutIdsKey = shortcutIds.join('|');
+  const hasChanges = draftIds.join('|') !== shortcutIdsKey;
   const normalizedSearchKeyword = searchKeyword.trim().toLowerCase();
-  const filteredShortcuts = useMemo(() => {
-    if (!normalizedSearchKeyword) return availableShortcuts;
-    return availableShortcuts.filter((shortcut) => (
+  const orderedShortcuts = useMemo(() => {
+    const matchesSearch = (shortcut: AssistantShortcutItem) => {
+      if (!normalizedSearchKeyword) return true;
+      return (
       [
         shortcut.label,
         shortcut.description,
@@ -269,12 +272,24 @@ const AssistantShortcutSettingsDialog = ({
         .join(' ')
         .toLowerCase()
         .includes(normalizedSearchKeyword)
-    ));
-  }, [availableShortcuts, normalizedSearchKeyword]);
+      );
+    };
+
+    const shortcutMap = new Map(availableShortcuts.map((shortcut) => [shortcut.id, shortcut]));
+    const selected = draftIds
+      .map((id) => shortcutMap.get(id))
+      .filter((shortcut): shortcut is AssistantShortcutItem => Boolean(shortcut))
+      .filter(matchesSearch);
+    const unselected = availableShortcuts
+      .filter((shortcut) => !selectedIdSet.has(shortcut.id))
+      .filter(matchesSearch);
+
+    return [...selected, ...unselected];
+  }, [availableShortcuts, draftIds, normalizedSearchKeyword, selectedIdSet]);
 
   useEffect(() => {
-    if (open) setDraftIds(shortcutIds);
-  }, [open, shortcutIds]);
+    if (open) setDraftIds(shortcutIdsKey ? shortcutIdsKey.split('|') : []);
+  }, [open, shortcutIdsKey]);
 
   const toggleShortcut = (id: string) => {
     setDraftIds((current) => (
@@ -313,22 +328,29 @@ const AssistantShortcutSettingsDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto rounded-[24px] border-[#dedede] bg-white p-0">
-        <DialogHeader className="border-b border-[#ececec] px-5 py-4 text-left">
+      <DialogContent className="flex max-h-[90vh] max-w-lg flex-col overflow-hidden rounded-[24px] border-[#dedede] bg-white p-0">
+        <DialogHeader className="shrink-0 border-b border-[#ececec] px-5 py-4 text-left">
           <div className="flex items-start justify-between gap-3">
             <div>
               <DialogTitle className="text-base font-black text-[#111111]">햄찌 바로가기 설정</DialogTitle>
               <DialogDescription className="text-xs font-medium leading-5 text-[#707072]">
-                자주 쓰는 기능을 선택하고 위아래 버튼으로 첫 화면 순서를 조정하세요.
+                선택한 기능이 위에 표시됩니다. 위아래 버튼으로 첫 화면 순서를 조정하세요.
               </DialogDescription>
             </div>
-            <Badge variant="outline" className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold">
-              {draftIds.length}/{ASSISTANT_SHORTCUT_LIMIT}
-            </Badge>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <Badge variant="outline" className="rounded-full px-2.5 py-1 text-[10px] font-bold">
+                {draftIds.length}/{ASSISTANT_SHORTCUT_LIMIT}
+              </Badge>
+              {hasChanges && (
+                <Badge className="rounded-full bg-[#111111] px-2.5 py-0.5 text-[9px] font-bold text-white">
+                  변경됨
+                </Badge>
+              )}
+            </div>
           </div>
         </DialogHeader>
 
-        <div className="space-y-3 p-4">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
           {isLocalFallback && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs font-semibold leading-5 text-amber-700">
               Supabase migration 적용 전에는 바로가기 설정이 이 브라우저에만 임시 저장됩니다.
@@ -345,13 +367,13 @@ const AssistantShortcutSettingsDialog = ({
             />
           </div>
 
-          {filteredShortcuts.length === 0 ? (
+          {orderedShortcuts.length === 0 ? (
             <div className="flex min-h-32 flex-col items-center justify-center rounded-2xl border border-dashed border-[#dedede] bg-[#fafafa] px-4 text-center">
               <Search className="mb-2 h-7 w-7 text-[#9e9ea0]" />
               <p className="text-sm font-black text-[#111111]">검색 결과가 없습니다.</p>
               <p className="mt-1 text-xs font-medium text-[#707072]">다른 키워드로 다시 검색해보세요.</p>
             </div>
-          ) : filteredShortcuts.map((shortcut) => {
+          ) : orderedShortcuts.map((shortcut) => {
             const ShortcutIcon = shortcut.icon;
             const selected = selectedIdSet.has(shortcut.id);
             const orderIndex = draftIds.indexOf(shortcut.id);
@@ -385,6 +407,11 @@ const AssistantShortcutSettingsDialog = ({
                       <Badge variant="outline" className="h-5 shrink-0 rounded-full px-1.5 text-[9px] font-bold">
                         {SHORTCUT_TARGET_LABELS[shortcut.target] || '기능'}
                       </Badge>
+                      {selected && (
+                        <Badge className="h-5 shrink-0 rounded-full bg-[#111111] px-1.5 text-[9px] font-bold text-white">
+                          {orderIndex + 1}
+                        </Badge>
+                      )}
                     </span>
                     <span className="mt-0.5 block truncate text-xs font-semibold text-[#707072]">{shortcut.description}</span>
                   </span>
@@ -418,7 +445,7 @@ const AssistantShortcutSettingsDialog = ({
           })}
         </div>
 
-        <DialogFooter className="border-t border-[#ececec] p-4 sm:justify-between sm:space-x-0">
+        <DialogFooter className="shrink-0 border-t border-[#ececec] bg-white p-4 shadow-[0_-10px_24px_rgba(15,23,42,0.06)] sm:justify-between sm:space-x-0">
           <Button
             type="button"
             variant="outline"
@@ -432,11 +459,11 @@ const AssistantShortcutSettingsDialog = ({
           <Button
             type="button"
             onClick={handleSave}
-            disabled={saving || draftIds.length === 0}
+            disabled={saving || draftIds.length === 0 || !hasChanges}
             className="rounded-full bg-[#111111] text-white hover:bg-[#39393b]"
           >
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            저장
+            변경사항 저장
           </Button>
         </DialogFooter>
       </DialogContent>
