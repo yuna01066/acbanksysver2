@@ -637,7 +637,9 @@ serve(async (req) => {
 
       const redirectUri = `${supabaseUrl}/functions/v1/imweb-api/oauth-callback`;
       const state = appOrigin ? `${appOrigin}/imweb-management` : "/imweb-management";
-      const scope = "product:read order:read";
+      // Imweb requires site-info:write when issuing authorization codes.
+      // Product and order access remain read-only for app review stability.
+      const scope = "site-info:write product:read order:read";
 
       const authUrl = `${IMWEB_API_BASE}/oauth2/authorize?responseType=code&clientId=${encodeURIComponent(clientId)}&redirectUri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}&siteCode=${encodeURIComponent(siteCode)}`;
 
@@ -1022,7 +1024,7 @@ serve(async (req) => {
     // === UPDATE STOCK ===
     if (action === "update-stock" || action === "update-product-stock") {
       return new Response(JSON.stringify({
-        error: "승인 안정형 설정으로 아임웹 상품 재고 수정은 비활성화되었습니다. product:write 권한 없이 product:read/order:read만 사용합니다.",
+        error: "승인 안정형 설정으로 아임웹 상품 재고 수정은 비활성화되었습니다. product:write 권한 없이 site-info:write/product:read/order:read만 사용합니다.",
       }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
