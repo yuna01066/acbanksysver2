@@ -644,7 +644,7 @@ serve(async (req) => {
         /* ignore */
       }
 
-      const redirectUri = `${supabaseUrl}/functions/v1/imweb-api?action=oauth-callback`;
+      const redirectUri = `${supabaseUrl}/functions/v1/imweb-api/oauth-callback`;
       const state = appOrigin ? `${appOrigin}/imweb-management` : "/imweb-management";
       const scope = "product:read product:write order:read";
 
