@@ -3,25 +3,63 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-channel-talk-token",
 };
 
 const CHANNEL_API_BASE = "https://api.channel.io/open";
+const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 type JsonObject = Record<string, unknown>;
 
-type StaffProfile = {
-  id: string;
-  full_name: string | null;
-  email: string | null;
+type QuoteAnalysis = {
+  inquiry_type?: string | null;
+  item_name?: string | null;
+  dimensions?: string | null;
+  quantity?: string | null;
+  material?: string | null;
+  thickness?: string | null;
+  color?: string | null;
+  processing?: string[] | null;
+  desired_due_date?: string | null;
+  delivery_or_installation?: string | null;
+  confidence?: "low" | "medium" | "high" | null;
+  missing_fields?: string[];
+  summary?: string | null;
+  recommended_reply?: string | null;
 };
 
-type ChannelAction = "send_private_note" | "send_customer_reply" | "refresh_messages" | "mark_lead_closed";
+type QuoteTriage = {
+  priority: "normal" | "high";
+  recommendedTags: string[];
+  followUpQuestions: string[];
+};
+
+type ExtractedFile = {
+  id?: string;
+  key?: string;
+  name?: string;
+  contentType?: string;
+  size?: number;
+  raw: JsonObject;
+};
+
+type StoredLead = {
+  id: string;
+  channel_talk_user_chat_id: string;
+};
 
 function getEnv(name: string, required = true): string {
   const value = Deno.env.get(name);
   if (required && !value) throw new Error(`${name} is not configured`);
   return value || "";
+}
+
+function getServiceClient() {
+  return createClient(
+    getEnv("SUPABASE_URL"),
+    getEnv("SUPABASE_SERVICE_ROLE_KEY"),
+  );
 }
 
 function ok(body: JsonObject, status = 200) {
@@ -31,10 +69,6 @@ function ok(body: JsonObject, status = 200) {
   });
 }
 
-function getServiceClient() {
-  return createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"));
-}
-
 function firstString(...values: unknown[]): string | null {
   for (const value of values) {
     if (typeof value === "string" && value.trim()) return value.trim();
@@ -42,59 +76,8 @@ function firstString(...values: unknown[]): string | null {
   return null;
 }
 
-function firstIsoTimestamp(...values: unknown[]): string {
-  for (const value of values) {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      const millis = value > 1_000_000_000_000 ? value : value * 1000;
-      return new Date(millis).toISOString();
-    }
-    if (typeof value === "string" && value.trim()) {
-      const numeric = Number(value);
-      if (Number.isFinite(numeric) && /^\d+$/.test(value.trim())) {
-        const millis = numeric > 1_000_000_000_000 ? numeric : numeric * 1000;
-        return new Date(millis).toISOString();
-      }
-      const parsed = Date.parse(value);
-      if (!Number.isNaN(parsed)) return new Date(parsed).toISOString();
-    }
-  }
-  return new Date().toISOString();
-}
-
 function isObject(value: unknown): value is JsonObject {
   return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function parseJsonResponse(text: string): JsonObject {
-  if (!text) return {};
-  try {
-    const parsed = JSON.parse(text);
-    return isObject(parsed) ? parsed : { result: parsed };
-  } catch {
-    return { raw: text };
-  }
-}
-
-function normalizeSenderType(value: unknown): "user" | "manager" | "bot" | "system" | "unknown" {
-  if (typeof value !== "string") return "unknown";
-  const normalized = value.toLowerCase();
-  if (normalized === "user" || normalized === "manager" || normalized === "bot" || normalized === "system") {
-    return normalized;
-  }
-  if (/manager|staff|operator|admin/.test(normalized)) return "manager";
-  if (/bot/.test(normalized)) return "bot";
-  if (/system|workflow/.test(normalized)) return "system";
-  if (/user|customer|member/.test(normalized)) return "user";
-  return "unknown";
-}
-
-function buildStaffName(profile: StaffProfile | null, fallbackEmail?: string | null): string {
-  return firstString(profile?.full_name, fallbackEmail, profile?.email) || "아크뱅크 담당자";
-}
-
-function appendStaffSignature(body: string, staffName: string): string {
-  if (/담당자\s*:/i.test(body)) return body;
-  return `${body.trim()}\n\n담당자: ${staffName}`;
 }
 
 function walkObjects(value: unknown, visit: (obj: JsonObject) => void) {
@@ -107,8 +90,31 @@ function walkObjects(value: unknown, visit: (obj: JsonObject) => void) {
   Object.values(value).forEach((child) => walkObjects(child, visit));
 }
 
+function extractUserChatId(payload: JsonObject): string | null {
+  const entity = isObject(payload.entity) ? payload.entity : {};
+  const refers = isObject(payload.refers) ? payload.refers : {};
+  const userChat = isObject(refers.userChat) ? refers.userChat : {};
+
+  return firstString(
+    entity.userChatId,
+    entity.chatType === "userChat" ? entity.chatId : null,
+    userChat.id,
+    payload.userChatId,
+  );
+}
+
+function extractMessageId(payload: JsonObject): string | null {
+  const entity = isObject(payload.entity) ? payload.entity : {};
+  return firstString(entity.id, entity.messageId, payload.messageId);
+}
+
+function extractEventId(payload: JsonObject): string | null {
+  const event = isObject(payload.event) ? payload.event : {};
+  return firstString(event.id, payload.eventId, payload.id);
+}
+
 function extractMessageBody(payload: JsonObject): string | null {
-  const entity = isObject(payload.entity) ? payload.entity : payload;
+  const entity = isObject(payload.entity) ? payload.entity : {};
   const direct = firstString(
     entity.plainText,
     entity.text,
@@ -123,31 +129,78 @@ function extractMessageBody(payload: JsonObject): string | null {
 
   const blocks = Array.isArray(entity.blocks) ? entity.blocks : [];
   const blockText = blocks
-    .map((block) => (isObject(block) ? firstString(block.value, block.text, block.content) : null))
+    .map((block) => isObject(block) ? firstString(block.value, block.text, block.content) : null)
     .filter(Boolean)
     .join("\n");
   return blockText || null;
 }
 
-function extractMessageId(payload: JsonObject): string | null {
-  const message = isObject(payload.message) ? payload.message : {};
-  return firstString(payload.id, payload.messageId, message.id);
+function extractCustomer(payload: JsonObject) {
+  const refers = isObject(payload.refers) ? payload.refers : {};
+  const user = isObject(refers.user) ? refers.user : {};
+  const userProfile = isObject(user.profile) ? user.profile : {};
+  const entity = isObject(payload.entity) ? payload.entity : {};
+
+  return {
+    userId: firstString(user.id, entity.userId, entity.personId),
+    name: firstString(user.name, userProfile.name, entity.name),
+    company: firstString(userProfile.description, user.description),
+    phone: firstString(userProfile.mobileNumber, userProfile.phone, user.mobileNumber),
+    email: firstString(userProfile.email, user.email),
+  };
 }
 
-function extractFileKeys(payload: JsonObject): string[] {
-  const keys = new Set<string>();
+function isCustomerMessage(payload: JsonObject): boolean {
+  const entity = isObject(payload.entity) ? payload.entity : {};
+  const personType = firstString(entity.personType);
+  return !personType || personType === "user";
+}
+
+function getSenderType(payload: JsonObject): string {
+  const entity = isObject(payload.entity) ? payload.entity : {};
+  const personType = firstString(entity.personType);
+  if (personType === "user" || personType === "manager" || personType === "bot" || personType === "system") {
+    return personType;
+  }
+  return "user";
+}
+
+function extractFiles(payload: JsonObject): ExtractedFile[] {
+  const files = new Map<string, ExtractedFile>();
+
   walkObjects(payload, (obj) => {
-    const key = firstString(obj.key, obj.fileKey);
-    const name = firstString(obj.name, obj.fileName);
-    const contentType = firstString(obj.contentType, obj.mimeType, obj.type);
-    if (key && (name || contentType || key.includes("pub-file/") || key.includes("files/"))) {
-      keys.add(key);
-    }
+    const maybeKey = firstString(obj.key, obj.fileKey);
+    const maybeName = firstString(obj.name, obj.fileName);
+    const maybeType = firstString(obj.contentType, obj.mimeType, obj.type);
+    const looksLikeFile =
+      !!maybeKey &&
+      (
+        !!maybeName ||
+        !!maybeType ||
+        maybeKey.includes("pub-file/") ||
+        maybeKey.includes("files/")
+      );
+
+    if (!looksLikeFile || !maybeKey) return;
+
+    files.set(maybeKey, {
+      id: firstString(obj.id) || undefined,
+      key: maybeKey,
+      name: maybeName || maybeKey.split("/").pop() || "attachment",
+      contentType: maybeType || undefined,
+      size: typeof obj.size === "number" ? obj.size : undefined,
+      raw: obj,
+    });
   });
-  return [...keys];
+
+  return [...files.values()];
 }
 
-async function channelApi(path: string, init: RequestInit = {}, apiVersion = "v5"): Promise<Response> {
+async function channelApi(
+  path: string,
+  init: RequestInit = {},
+  apiVersion = "v5",
+): Promise<Response> {
   const accessKey = getEnv("CHANNEL_TALK_ACCESS_KEY");
   const accessSecret = getEnv("CHANNEL_TALK_ACCESS_SECRET");
   const headers = new Headers(init.headers);
@@ -159,149 +212,452 @@ async function channelApi(path: string, init: RequestInit = {}, apiVersion = "v5
   return fetch(`${CHANNEL_API_BASE}/${apiVersion}${path}`, { ...init, headers });
 }
 
-async function getAuthenticatedUser(req: Request, supabase: ReturnType<typeof createClient>) {
-  const authHeader = req.headers.get("Authorization") || "";
-  const token = authHeader.replace(/^Bearer\s+/i, "");
-  if (!token) throw new Error("Authorization token is required");
-
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user) throw new Error("Invalid authorization token");
-  return data.user;
-}
-
-async function loadStaffProfile(
-  supabase: ReturnType<typeof createClient>,
-  userId: string,
-): Promise<StaffProfile | null> {
-  const { data, error } = await supabase.from("profiles").select("id, full_name, email").eq("id", userId).maybeSingle();
-  if (error) {
-    console.warn("Failed to load Channel Talk staff profile", error);
-    return null;
+async function getSignedFileUrl(userChatId: string, fileKey: string): Promise<string> {
+  const path = `/user-chats/${encodeURIComponent(userChatId)}/messages/file?key=${encodeURIComponent(fileKey)}`;
+  let res = await channelApi(path, { method: "GET" }, "v5");
+  if (!res.ok && (res.status === 404 || res.status === 405)) {
+    res = await channelApi(path, { method: "GET" }, "v4");
   }
-  return data as StaffProfile | null;
+  if (!res.ok) {
+    throw new Error(`Channel Talk file URL failed: ${res.status} ${await res.text()}`);
+  }
+  const data = await res.json();
+  const signedUrl = firstString(data.result, data.url);
+  if (!signedUrl) throw new Error("Channel Talk file URL response did not include a URL");
+  return signedUrl;
 }
 
-async function loadLead(supabase: ReturnType<typeof createClient>, leadId: string, userId: string) {
-  const { data: canManage, error: accessError } = await supabase.rpc("can_manage_channel_talk_lead", {
-    _lead_id: leadId,
-    _user_id: userId,
+function inferMimeType(file: ExtractedFile, res: Response): string {
+  const fromHeader = res.headers.get("content-type");
+  const fromFile = file.contentType?.includes("/") ? file.contentType : null;
+  return firstString(fromHeader, fromFile) || "application/octet-stream";
+}
+
+function isAnalyzableMime(mimeType: string): boolean {
+  return mimeType.startsWith("image/") || mimeType === "application/pdf";
+}
+
+function needsPreviewFile(file: ExtractedFile): boolean {
+  const name = (file.name || file.key || "").toLowerCase();
+  return /\.(ai|eps|dwg|dxf|skp|3dm|stp|step|igs|iges|obj|cad)$/.test(name);
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function analyzeAttachment(file: ExtractedFile, bytes: Uint8Array, mimeType: string): Promise<QuoteAnalysis> {
+  if (!isAnalyzableMime(mimeType)) {
+    const previewNote = needsPreviewFile(file)
+      ? " 원본 파일은 보관하되, 빠른 자동 분석을 위해 PDF/JPG/PNG 미리보기 파일을 함께 요청해주세요."
+      : "";
+
+    return {
+      confidence: "low",
+      missing_fields: ["PDF/JPG/PNG 미리보기", "품목", "사이즈", "수량", "희망 납기"],
+      summary: `${file.name || "첨부파일"}은 자동 분석 지원 형식이 아니어서 수동 확인이 필요합니다.${previewNote}`,
+      recommended_reply: "원본 파일은 확인했습니다. 빠른 견적 확인을 위해 PDF, JPG 또는 PNG 미리보기 파일과 제작 품목, 사이즈, 수량, 희망 납기를 함께 알려주세요.",
+    };
+  }
+
+  const apiKey = getEnv("LOVABLE_API_KEY");
+  const base64 = bytesToBase64(bytes);
+  const prompt = `아크뱅크의 아크릴/공간 제작 견적 상담을 위한 첨부파일입니다.
+도면, 손그림 스케치, 제품 이미지, 레퍼런스 이미지, PDF에서 견적 검토에 필요한 정보를 추출하세요.
+AI/CAD/DXF/DWG/EPS 같은 원본 설계 파일은 원본 보관용이고, 자동 분석은 PDF/JPG/PNG 미리보기 기준으로 진행된다는 점을 전제로 누락 정보를 판단하세요.
+
+반드시 JSON만 응답하세요:
+{
+  "inquiry_type": "도면있음 | 레퍼런스 | 구상단계 | 재단가공 | 기타",
+  "item_name": "제작 품목",
+  "dimensions": "가로 x 세로 x 높이 또는 확인된 치수",
+  "quantity": "수량",
+  "material": "소재",
+  "thickness": "두께",
+  "color": "색상/투명도",
+  "processing": ["재단", "CNC", "레이저", "절곡", "접착", "인쇄", "기타"],
+  "desired_due_date": "희망 납기",
+  "delivery_or_installation": "배송/설치 여부",
+  "confidence": "low | medium | high",
+  "missing_fields": ["누락된 항목"],
+  "summary": "상담원이 바로 볼 한글 요약",
+  "recommended_reply": "고객에게 추가로 물어볼 짧은 문장"
+}
+
+치수/수량/두께는 확실하지 않으면 추정이라고 표시하고, 모르는 값은 null로 두세요.`;
+
+  const response = await fetch(AI_GATEWAY_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${base64}`,
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: 1800,
+    }),
   });
-  if (accessError) throw accessError;
-  if (!canManage) throw new Error("Channel Talk lead access denied");
 
-  const { data, error } = await supabase
-    .from("channel_talk_quote_leads")
-    .select("id, channel_talk_user_chat_id, status")
-    .eq("id", leadId)
-    .single();
-  if (error) throw error;
-  if (!data?.channel_talk_user_chat_id) throw new Error("Channel Talk userChatId is missing");
-  return data as { id: string; channel_talk_user_chat_id: string; status: string };
+  if (!response.ok) {
+    throw new Error(`AI analysis failed: ${response.status} ${await response.text()}`);
+  }
+
+  const result = await response.json();
+  const content = String(result.choices?.[0]?.message?.content || "");
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error(`AI analysis returned non-JSON content: ${content.slice(0, 200)}`);
+  return JSON.parse(jsonMatch[0]) as QuoteAnalysis;
 }
 
-async function logAction(
+function mergeAnalyses(analyses: QuoteAnalysis[]): QuoteAnalysis {
+  const merged: QuoteAnalysis = {
+    processing: [],
+    missing_fields: [],
+    confidence: "low",
+  };
+
+  for (const analysis of analyses) {
+    for (const key of [
+      "inquiry_type",
+      "item_name",
+      "dimensions",
+      "quantity",
+      "material",
+      "thickness",
+      "color",
+      "desired_due_date",
+      "delivery_or_installation",
+      "summary",
+      "recommended_reply",
+    ] as const) {
+      if (!merged[key] && analysis[key]) merged[key] = analysis[key] as never;
+    }
+
+    const processing = Array.isArray(analysis.processing) ? analysis.processing : [];
+    merged.processing = [...new Set([...(merged.processing || []), ...processing])];
+    const missing = Array.isArray(analysis.missing_fields) ? analysis.missing_fields : [];
+    merged.missing_fields = [...new Set([...(merged.missing_fields || []), ...missing])];
+
+    if (analysis.confidence === "high") merged.confidence = "high";
+    if (analysis.confidence === "medium" && merged.confidence === "low") merged.confidence = "medium";
+  }
+
+  return merged;
+}
+
+function uniq(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function hasAny(value: string | null | undefined, patterns: RegExp[]): boolean {
+  if (!value) return false;
+  return patterns.some((pattern) => pattern.test(value));
+}
+
+function deriveQuoteTriage(analysis: QuoteAnalysis): QuoteTriage {
+  const tags = ["견적문의", "자동분석완료"];
+  const inquiryType = analysis.inquiry_type || "";
+  const processing = (analysis.processing || []).join(" ");
+  const summary = analysis.summary || "";
+  const missing = analysis.missing_fields || [];
+
+  if (hasAny(inquiryType, [/도면/]) || analysis.dimensions) tags.push("도면있음");
+  if (hasAny(inquiryType, [/레퍼런스|사진|이미지/]) || hasAny(summary, [/사진|레퍼런스|이미지/])) tags.push("사진견적");
+  if (hasAny(inquiryType, [/구상/])) tags.push("구상단계");
+  if (hasAny(inquiryType, [/재단|가공/]) || hasAny(processing, [/재단|CNC|레이저|절곡|접착|인쇄/])) tags.push("재단가공");
+  if (hasAny(summary, [/설치|배송|현장/]) || analysis.delivery_or_installation) tags.push("배송설치확인");
+  if (analysis.desired_due_date || hasAny(summary, [/급|긴급|빠른|납기/])) tags.push("납기확인");
+  if (analysis.confidence === "low") tags.push("수동검토필요");
+
+  const followUpQuestions = missing.slice(0, 5).map((field) => `${field} 확인 필요`);
+  if (!analysis.quantity) followUpQuestions.push("제작 수량 확인 필요");
+  if (!analysis.dimensions) followUpQuestions.push("사이즈 확인 필요");
+  if (!analysis.desired_due_date) followUpQuestions.push("희망 납기 확인 필요");
+
+  return {
+    priority: missing.length >= 4 || analysis.confidence === "low" ? "normal" : "high",
+    recommendedTags: uniq(tags),
+    followUpQuestions: uniq(followUpQuestions).slice(0, 6),
+  };
+}
+
+function formatAnalysisMessage(analysis: QuoteAnalysis, files: ExtractedFile[], leadId?: string): string {
+  const missing = analysis.missing_fields?.length ? analysis.missing_fields.join(", ") : "없음";
+  const processing = analysis.processing?.length ? analysis.processing.join(", ") : "미확인";
+  const triage = deriveQuoteTriage(analysis);
+
+  return [
+    "[아크뱅크 견적 파일 자동분석]",
+    "",
+    "1) 상담 분류",
+    `- 리드 ID: ${leadId || "저장 전"}`,
+    `- 문의 유형: ${analysis.inquiry_type || "미확인"}`,
+    `- 추천 태그: ${triage.recommendedTags.join(", ")}`,
+    `- 검토 우선도: ${triage.priority === "high" ? "높음" : "보통"}`,
+    "",
+    "2) 파일/제작 정보",
+    `- 첨부파일: ${files.map((file) => file.name || file.key).join(", ")}`,
+    `- 품목: ${analysis.item_name || "미확인"}`,
+    `- 사이즈: ${analysis.dimensions || "미확인"}`,
+    `- 수량: ${analysis.quantity || "미확인"}`,
+    `- 소재/두께: ${[analysis.material, analysis.thickness].filter(Boolean).join(" / ") || "미확인"}`,
+    `- 색상: ${analysis.color || "미확인"}`,
+    `- 가공: ${processing}`,
+    `- 희망 납기: ${analysis.desired_due_date || "미확인"}`,
+    `- 배송/설치: ${analysis.delivery_or_installation || "미확인"}`,
+    "",
+    "3) 추가 확인 필요",
+    `- 누락 정보: ${missing}`,
+    `- 질문 후보: ${triage.followUpQuestions.length ? triage.followUpQuestions.join(" / ") : "없음"}`,
+    "",
+    "4) 상담원 메모",
+    `- 요약: ${analysis.summary || "자동 요약 없음"}`,
+    `- 고객에게 보낼 추천 답변: ${analysis.recommended_reply || "누락된 정보를 고객에게 확인해주세요."}`,
+  ].join("\n");
+}
+
+async function sendPrivateSummary(userChatId: string, message: string) {
+  const botName = encodeURIComponent("ACBANK 견적 분석");
+  const res = await channelApi(
+    `/user-chats/${encodeURIComponent(userChatId)}/messages?botName=${botName}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        blocks: [{ type: "text", value: message }],
+        options: ["private", "silent"],
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error(`Channel Talk summary message failed: ${res.status} ${await res.text()}`);
+  }
+}
+
+async function notifyAdmins(supabase: ReturnType<typeof createClient>, lead: JsonObject, analysis: QuoteAnalysis) {
+  const { data: roles, error: roleError } = await supabase
+    .from("user_roles")
+    .select("user_id, role")
+    .in("role", ["admin", "moderator"]);
+
+  if (roleError || !roles?.length) {
+    console.warn("No admin/moderator roles found for channel talk notification", roleError);
+    return;
+  }
+
+  const confidenceLabel = analysis.confidence === "high"
+    ? "신뢰도 높음"
+    : analysis.confidence === "medium"
+      ? "신뢰도 보통"
+      : "수동 검토 필요";
+  const missingCount = analysis.missing_fields?.length || 0;
+
+  const notifications = roles.map((role: { user_id: string }) => ({
+    user_id: role.user_id,
+    type: "channel_talk_quote_lead",
+    title: "채널톡 견적 문의 분석",
+    description: `${analysis.item_name || "견적 문의"} · ${confidenceLabel} · 누락 ${missingCount}건`,
+    data: {
+      lead_id: lead.id,
+      user_chat_id: lead.channel_talk_user_chat_id,
+      confidence: analysis.confidence || "low",
+      missing_fields: analysis.missing_fields || [],
+    },
+  }));
+
+  const { error } = await supabase.from("notifications").insert(notifications);
+  if (error) console.warn("Failed to insert channel talk notifications", error);
+}
+
+async function findExistingLead(
+  supabase: ReturnType<typeof createClient>,
+  userChatId: string,
+  messageId: string | null,
+  eventId: string | null,
+): Promise<StoredLead | null> {
+  if (messageId) {
+    const { data, error } = await supabase
+      .from("channel_talk_quote_leads")
+      .select("id, channel_talk_user_chat_id")
+      .eq("channel_talk_user_chat_id", userChatId)
+      .eq("channel_talk_message_id", messageId)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) return data as StoredLead;
+  }
+
+  if (eventId) {
+    const { data, error } = await supabase
+      .from("channel_talk_quote_leads")
+      .select("id, channel_talk_user_chat_id")
+      .eq("channel_talk_event_id", eventId)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) return data as StoredLead;
+  }
+
+  return null;
+}
+
+async function storeChannelMessage(
   supabase: ReturnType<typeof createClient>,
   params: {
     leadId: string;
-    action: ChannelAction;
-    userId: string;
-    status: "success" | "failed";
-    requestPayload?: JsonObject;
-    responsePayload?: JsonObject;
-    errorMessage?: string;
-    senderName?: string | null;
-    visibleSenderName?: string | null;
-    channelMessageId?: string | null;
+    userChatId: string;
+    messageId: string | null;
+    eventId: string | null;
+    body: string | null;
+    files: ExtractedFile[];
+    payload: JsonObject;
   },
 ) {
-  const { error } = await supabase.from("channel_talk_action_logs").insert({
+  const fileKeys = params.files.map((file) => file.key).filter(Boolean);
+  const row = {
     lead_id: params.leadId,
-    action: params.action,
-    requested_by: params.userId,
-    sender_name: params.senderName || null,
-    visible_sender_name: params.visibleSenderName || null,
-    channel_message_id: params.channelMessageId || null,
-    status: params.status,
-    request_payload: params.requestPayload || {},
-    response_payload: params.responsePayload || {},
-    error_message: params.errorMessage || null,
-  });
-  if (error) console.warn("Failed to write Channel Talk action log", error);
-}
-
-async function sendChannelMessage(userChatId: string, body: string, privateSilent: boolean) {
-  const botName = encodeURIComponent(privateSilent ? "ACBANK 내부 메모" : "ACBANK");
-  const payload: JsonObject = {
-    blocks: [{ type: "text", value: body }],
+    user_chat_id: params.userChatId,
+    message_id: params.messageId,
+    event_id: params.eventId,
+    sender_type: getSenderType(params.payload),
+    message_type: fileKeys.length > 0 ? "file" : "text",
+    body: params.body,
+    file_keys: fileKeys,
+    raw_payload: params.payload,
+    received_at: new Date().toISOString(),
   };
-  if (privateSilent) payload.options = ["private", "silent"];
 
-  let res = await channelApi(
-    `/user-chats/${encodeURIComponent(userChatId)}/messages?botName=${botName}`,
-    { method: "POST", body: JSON.stringify(payload) },
-    "v5",
-  );
-  if (!res.ok && (res.status === 404 || res.status === 405)) {
-    res = await channelApi(
-      `/user-chats/${encodeURIComponent(userChatId)}/messages?botName=${botName}`,
-      { method: "POST", body: JSON.stringify(payload) },
-      "v4",
-    );
-  }
-  const text = await res.text();
-  const parsed = parseJsonResponse(text);
-  if (!res.ok) throw new Error(`Channel Talk message failed: ${res.status} ${text}`);
-  return parsed;
+  const { error } = await supabase
+    .from("channel_talk_messages")
+    .upsert(row, { onConflict: "user_chat_id,message_id" });
+  if (error) console.warn("Failed to store Channel Talk message", error);
 }
 
-async function fetchChannelMessages(userChatId: string) {
-  let res = await channelApi(`/user-chats/${encodeURIComponent(userChatId)}/messages`, { method: "GET" }, "v5");
-  if (!res.ok && (res.status === 404 || res.status === 405)) {
-    res = await channelApi(`/user-chats/${encodeURIComponent(userChatId)}/messages`, { method: "GET" }, "v4");
+async function processWebhook(payload: JsonObject) {
+  if (!isCustomerMessage(payload)) return;
+
+  const files = extractFiles(payload);
+  const body = extractMessageBody(payload);
+  if (files.length === 0 && !body) return;
+
+  const userChatId = extractUserChatId(payload);
+  if (!userChatId) {
+    console.warn("Ignoring Channel Talk webhook without userChatId");
+    return;
   }
-  const text = await res.text();
-  const parsed = parseJsonResponse(text);
-  if (!res.ok) throw new Error(`Channel Talk messages fetch failed: ${res.status} ${text}`);
-  return parsed;
-}
 
-function normalizeMessageRows(leadId: string, userChatId: string, response: JsonObject) {
-  const source = Array.isArray(response.messages)
-    ? response.messages
-    : isObject(response.result) && Array.isArray(response.result.messages)
-      ? response.result.messages
-      : Array.isArray(response.result)
-        ? response.result
-        : [];
+  const customer = extractCustomer(payload);
+  const messageId = extractMessageId(payload);
+  const eventId = extractEventId(payload);
+  const supabase = getServiceClient();
+  const existingLead = await findExistingLead(supabase, userChatId, messageId, eventId);
+  if (existingLead) {
+    await storeChannelMessage(supabase, {
+      leadId: existingLead.id,
+      userChatId,
+      messageId,
+      eventId,
+      body,
+      files,
+      payload,
+    });
+    return;
+  }
 
-  return source
-    .filter(isObject)
-    .map((message) => {
-      const messageId = extractMessageId(message);
-      return {
-        lead_id: leadId,
-        user_chat_id: userChatId,
-        message_id: messageId,
-        event_id: firstString(message.eventId) || null,
-        sender_type: normalizeSenderType(firstString(message.personType, message.senderType)),
-        message_type: firstString(message.messageType, message.type) || "text",
-        body: extractMessageBody(message),
-        file_keys: extractFileKeys(message),
-        raw_payload: message,
-        received_at: firstIsoTimestamp(message.createdAt, message.created_at, message.updatedAt),
-      };
+  const analyses: QuoteAnalysis[] = [];
+
+  for (const file of files) {
+    if (!file.key) continue;
+    try {
+      const signedUrl = await getSignedFileUrl(userChatId, file.key);
+      const fileRes = await fetch(signedUrl);
+      if (!fileRes.ok) throw new Error(`File download failed: ${fileRes.status}`);
+      const bytes = new Uint8Array(await fileRes.arrayBuffer());
+      const mimeType = inferMimeType(file, fileRes);
+      analyses.push(await analyzeAttachment(file, bytes, mimeType));
+    } catch (error) {
+      console.error("Attachment analysis failed", file.key, error);
+      analyses.push({
+        confidence: "low",
+        missing_fields: ["PDF/JPG/PNG 미리보기", "품목", "사이즈", "수량", "희망 납기"],
+        summary: `${file.name || file.key} 자동 분석에 실패했습니다. PDF/JPG/PNG 미리보기가 없으면 수동 확인이 필요합니다.`,
+        recommended_reply: "첨부파일은 확인했습니다. 빠른 견적 확인을 위해 PDF, JPG 또는 PNG 미리보기 파일과 제작 품목, 사이즈, 수량, 희망 납기를 함께 알려주세요.",
+      });
+    }
+  }
+
+  if (analyses.length === 0) {
+    analyses.push({
+      inquiry_type: "quote",
+      confidence: "low",
+      missing_fields: [],
+      summary: body ? body.slice(0, 700) : "채널톡 일반 문의가 접수되었습니다.",
+      recommended_reply: "문의 내용 확인했습니다. 제작 품목, 사이즈, 수량, 희망 납기와 참고 자료가 있으면 함께 전달 부탁드립니다.",
+    });
+  }
+
+  const analysis = mergeAnalyses(analyses);
+  const triage = deriveQuoteTriage(analysis);
+
+  const { data: lead, error } = await supabase
+    .from("channel_talk_quote_leads")
+    .insert({
+      channel_talk_user_chat_id: userChatId,
+      channel_talk_user_id: customer.userId,
+      channel_talk_message_id: messageId,
+      channel_talk_event_id: eventId,
+      channel_talk_file_keys: files.map((file) => file.key).filter(Boolean),
+      customer_name: customer.name,
+      customer_company: customer.company,
+      customer_phone: customer.phone,
+      customer_email: customer.email,
+      inquiry_type: analysis.inquiry_type || "quote",
+      status: files.length === 0 ? "new" : analysis.confidence === "low" ? "needs_review" : "analyzed",
+      analysis: {
+        ...analysis,
+        triage,
+        source_body: body,
+      },
+      missing_fields: analysis.missing_fields || [],
+      raw_payload: payload,
     })
-    .filter((row) => row.message_id || row.body || row.file_keys.length);
-}
+    .select("id, channel_talk_user_chat_id")
+    .single();
 
-function extractChannelMessageId(response: JsonObject): string | null {
-  return firstString(
-    response.id,
-    response.messageId,
-    isObject(response.message) ? response.message.id : null,
-    isObject(response.result) ? response.result.id : null,
-    isObject(response.result) && isObject(response.result.message) ? response.result.message.id : null,
-  );
+  if (error) throw error;
+  if (!lead) throw new Error("Channel Talk lead insert returned no data");
+
+  await storeChannelMessage(supabase, {
+    leadId: lead.id,
+    userChatId,
+    messageId,
+    eventId,
+    body,
+    files,
+    payload,
+  });
+
+  if (files.length > 0) {
+    await sendPrivateSummary(userChatId, formatAnalysisMessage(analysis, files, lead.id));
+  }
+  await notifyAdmins(supabase, lead || {}, analysis);
 }
 
 serve(async (req) => {
@@ -313,154 +669,37 @@ serve(async (req) => {
     return ok({ error: "Method not allowed" }, 405);
   }
 
-  const supabase = getServiceClient();
-  let action: ChannelAction | undefined;
-  let leadId = "";
-  let userId = "";
-  let requestPayload: JsonObject = {};
-  let senderNameForLog: string | null = null;
-
   try {
-    const user = await getAuthenticatedUser(req, supabase);
-    userId = user.id;
-    const staffProfile = await loadStaffProfile(supabase, userId);
-    const staffName = buildStaffName(staffProfile, user.email);
-    senderNameForLog = staffName;
+    const expectedToken = getEnv("CHANNEL_TALK_WEBHOOK_TOKEN", false);
+    if (!expectedToken) {
+      console.error("Missing CHANNEL_TALK_WEBHOOK_TOKEN");
+      return ok({ error: "Webhook token is not configured" }, 500);
+    }
+    const url = new URL(req.url);
+    const providedToken =
+      req.headers.get("x-channel-talk-token") ||
+      req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      url.searchParams.get("token");
 
-    const payload = (await req.json()) as JsonObject;
-    requestPayload = payload;
-    action = payload.action as ChannelAction;
-    leadId = firstString(payload.leadId, payload.lead_id) || "";
-    const body = firstString(payload.body);
-    const draftId = firstString(payload.draftId, payload.draft_id);
-    const closeLead = Boolean(payload.closeLead);
-
-    if (!action) throw new Error("action is required");
-    if (!leadId) throw new Error("leadId is required");
-
-    const lead = await loadLead(supabase, leadId, userId);
-
-    if (action === "send_private_note" || action === "send_customer_reply") {
-      if (!body) throw new Error("body is required");
-      const finalBody = action === "send_customer_reply" ? appendStaffSignature(body, staffName) : body;
-      const visibleSenderName = action === "send_customer_reply" ? "ACBANK" : "ACBANK 내부 메모";
-      const response = await sendChannelMessage(
-        lead.channel_talk_user_chat_id,
-        finalBody,
-        action === "send_private_note",
-      );
-      const channelMessageId = extractChannelMessageId(response);
-      const storedMessageId = channelMessageId || `${action}-${crypto.randomUUID()}`;
-
-      await supabase.from("channel_talk_messages").upsert(
-        {
-          lead_id: lead.id,
-          user_chat_id: lead.channel_talk_user_chat_id,
-          message_id: storedMessageId,
-          sender_type: "manager",
-          message_type: action === "send_private_note" ? "private_note" : "customer_reply",
-          body: finalBody,
-          file_keys: [],
-          raw_payload: response,
-          received_at: new Date().toISOString(),
-        },
-        { onConflict: "user_chat_id,message_id" },
-      );
-
-      if (draftId && action === "send_customer_reply") {
-        await supabase
-          .from("channel_talk_reply_drafts")
-          .update({
-            status: "sent",
-            body: finalBody,
-            updated_by: userId,
-            sent_by: userId,
-            sent_at: new Date().toISOString(),
-            channel_message_id: channelMessageId,
-          })
-          .eq("id", draftId);
-      }
-
-      if (action === "send_customer_reply") {
-        await supabase
-          .from("channel_talk_quote_leads")
-          .update({
-            status: closeLead ? "closed" : "waiting_customer",
-            closed_at: closeLead ? new Date().toISOString() : null,
-          })
-          .eq("id", lead.id);
-      }
-
-      await logAction(supabase, {
-        leadId,
-        action,
-        userId,
-        status: "success",
-        requestPayload: {
-          body,
-          sentBody: finalBody,
-          draftId,
-          closeLead,
-          visibleSenderName,
-        },
-        responsePayload: response,
-        senderName: staffName,
-        visibleSenderName,
-        channelMessageId,
-      });
-      return ok({ success: true, channelMessageId, response });
+    if (providedToken !== expectedToken) {
+      return ok({ error: "Unauthorized" }, 401);
     }
 
-    if (action === "refresh_messages") {
-      const response = await fetchChannelMessages(lead.channel_talk_user_chat_id);
-      const rows = normalizeMessageRows(lead.id, lead.channel_talk_user_chat_id, response);
-      if (rows.length > 0) {
-        await supabase.from("channel_talk_messages").upsert(rows, { onConflict: "user_chat_id,message_id" });
-      }
-      await logAction(supabase, {
-        leadId,
-        action,
-        userId,
-        status: "success",
-        requestPayload: {},
-        responsePayload: { synced: rows.length },
-        senderName: staffName,
-      });
-      return ok({ success: true, synced: rows.length });
+    const payload = await req.json() as JsonObject;
+    const work = processWebhook(payload);
+    const edgeRuntime = (globalThis as unknown as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } }).EdgeRuntime;
+    if (edgeRuntime?.waitUntil) {
+      edgeRuntime.waitUntil(work);
+    } else {
+      await work;
     }
 
-    if (action === "mark_lead_closed") {
-      const { error } = await supabase
-        .from("channel_talk_quote_leads")
-        .update({ status: "closed", closed_at: new Date().toISOString() })
-        .eq("id", lead.id);
-      if (error) throw error;
-      await logAction(supabase, {
-        leadId,
-        action,
-        userId,
-        status: "success",
-        requestPayload: {},
-        senderName: staffName,
-      });
-      return ok({ success: true });
-    }
-
-    throw new Error(`Unsupported action: ${action}`);
+    return ok({ success: true, accepted: true }, 202);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    if (action && leadId && userId) {
-      await logAction(supabase, {
-        leadId,
-        action,
-        userId,
-        status: "failed",
-        requestPayload,
-        errorMessage: message,
-        senderName: senderNameForLog,
-      });
-    }
-    console.error("Channel Talk action error:", error);
-    return ok({ error: message }, /Unauthorized|authorization|access denied/i.test(message) ? 401 : 500);
+    console.error("Channel Talk webhook error:", error);
+    return ok(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      500,
+    );
   }
 });
