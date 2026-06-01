@@ -467,9 +467,11 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
+    const isPathCallback = url.pathname.endsWith("/oauth-callback");
 
     // === OAuth callback - no auth required ===
-    if (action === "oauth-callback") {
+    if (action === "oauth-callback" || isPathCallback) {
+
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
 
@@ -485,7 +487,8 @@ serve(async (req) => {
       }
 
       // The redirect URI must match exactly what was used in the authorize request
-      const redirectUri = `${supabaseUrl}/functions/v1/imweb-api?action=oauth-callback`;
+      const redirectUri = `${supabaseUrl}/functions/v1/imweb-api/oauth-callback`;
+
 
       const tokenBody = new URLSearchParams({
         clientId,
@@ -641,7 +644,7 @@ serve(async (req) => {
         /* ignore */
       }
 
-      const redirectUri = `${supabaseUrl}/functions/v1/imweb-api?action=oauth-callback`;
+      const redirectUri = `${supabaseUrl}/functions/v1/imweb-api/oauth-callback`;
       const state = appOrigin ? `${appOrigin}/imweb-management` : "/imweb-management";
       const scope = "product:read product:write order:read";
 
