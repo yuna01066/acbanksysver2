@@ -180,7 +180,7 @@ const DashboardCalendarPanel = () => {
           />
         </CardHeader>
 
-        <CardContent className="space-y-4 p-4">
+        <CardContent className="space-y-4 px-4 pb-4 pt-6">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[
               { label: '오늘 내 일정', value: summary?.today_count ?? todayEvents.length, icon: CalendarCheck2, path: '/calendar?view=day' },
