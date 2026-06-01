@@ -467,9 +467,11 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
+    const isPathCallback = url.pathname.endsWith("/oauth-callback");
 
     // === OAuth callback - no auth required ===
-    if (action === "oauth-callback") {
+    if (action === "oauth-callback" || isPathCallback) {
+
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
 
