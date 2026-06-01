@@ -225,57 +225,6 @@ export type Database = {
           },
         ]
       }
-      attendance_records: {
-        Row: {
-          check_in: string | null
-          check_in_location: Json | null
-          check_out: string | null
-          check_out_location: Json | null
-          created_at: string
-          date: string
-          id: string
-          location_memo: string | null
-          memo: string | null
-          status: string
-          updated_at: string
-          user_id: string
-          user_name: string
-          work_hours: number | null
-        }
-        Insert: {
-          check_in?: string | null
-          check_in_location?: Json | null
-          check_out?: string | null
-          check_out_location?: Json | null
-          created_at?: string
-          date?: string
-          id?: string
-          location_memo?: string | null
-          memo?: string | null
-          status?: string
-          updated_at?: string
-          user_id: string
-          user_name: string
-          work_hours?: number | null
-        }
-        Update: {
-          check_in?: string | null
-          check_in_location?: Json | null
-          check_out?: string | null
-          check_out_location?: Json | null
-          created_at?: string
-          date?: string
-          id?: string
-          location_memo?: string | null
-          memo?: string | null
-          status?: string
-          updated_at?: string
-          user_id?: string
-          user_name?: string
-          work_hours?: number | null
-        }
-        Relationships: []
-      }
       attendance_correction_requests: {
         Row: {
           attendance_record_id: string | null
@@ -337,6 +286,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      attendance_records: {
+        Row: {
+          check_in: string | null
+          check_in_location: Json | null
+          check_out: string | null
+          check_out_location: Json | null
+          created_at: string
+          date: string
+          id: string
+          location_memo: string | null
+          memo: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          user_name: string
+          work_hours: number | null
+        }
+        Insert: {
+          check_in?: string | null
+          check_in_location?: Json | null
+          check_out?: string | null
+          check_out_location?: Json | null
+          created_at?: string
+          date?: string
+          id?: string
+          location_memo?: string | null
+          memo?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          user_name: string
+          work_hours?: number | null
+        }
+        Update: {
+          check_in?: string | null
+          check_in_location?: Json | null
+          check_out?: string | null
+          check_out_location?: Json | null
+          created_at?: string
+          date?: string
+          id?: string
+          location_memo?: string | null
+          memo?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          user_name?: string
+          work_hours?: number | null
+        }
+        Relationships: []
       }
       calendar_event_participants: {
         Row: {
@@ -1761,6 +1761,90 @@ export type Database = {
         }
         Relationships: []
       }
+      imweb_order_links: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          created_by: string | null
+          due_date: string | null
+          id: string
+          imweb_order_id: string | null
+          imweb_order_no: string
+          link_status: string
+          memo: string | null
+          project_id: string | null
+          quote_id: string | null
+          recipient_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          id?: string
+          imweb_order_id?: string | null
+          imweb_order_no: string
+          link_status?: string
+          memo?: string | null
+          project_id?: string | null
+          quote_id?: string | null
+          recipient_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          id?: string
+          imweb_order_id?: string | null
+          imweb_order_no?: string
+          link_status?: string
+          memo?: string | null
+          project_id?: string | null
+          quote_id?: string | null
+          recipient_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imweb_order_links_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imweb_order_links_imweb_order_id_fkey"
+            columns: ["imweb_order_id"]
+            isOneToOne: false
+            referencedRelation: "imweb_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imweb_order_links_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imweb_order_links_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imweb_order_links_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imweb_orders: {
         Row: {
           buyer_email: string | null
@@ -1808,6 +1892,89 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      imweb_product_mappings: {
+        Row: {
+          auto_stock_sync: boolean
+          created_at: string
+          created_by: string | null
+          external_label: string | null
+          id: string
+          imweb_prod_no: string
+          imweb_product_id: string | null
+          inventory_source_type: string
+          material_order_id: string | null
+          memo: string | null
+          min_stock_qty: number
+          panel_size_id: string | null
+          reorder_qty: number
+          sample_chip_inventory_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          auto_stock_sync?: boolean
+          created_at?: string
+          created_by?: string | null
+          external_label?: string | null
+          id?: string
+          imweb_prod_no: string
+          imweb_product_id?: string | null
+          inventory_source_type?: string
+          material_order_id?: string | null
+          memo?: string | null
+          min_stock_qty?: number
+          panel_size_id?: string | null
+          reorder_qty?: number
+          sample_chip_inventory_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auto_stock_sync?: boolean
+          created_at?: string
+          created_by?: string | null
+          external_label?: string | null
+          id?: string
+          imweb_prod_no?: string
+          imweb_product_id?: string | null
+          inventory_source_type?: string
+          material_order_id?: string | null
+          memo?: string | null
+          min_stock_qty?: number
+          panel_size_id?: string | null
+          reorder_qty?: number
+          sample_chip_inventory_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imweb_product_mappings_imweb_product_id_fkey"
+            columns: ["imweb_product_id"]
+            isOneToOne: false
+            referencedRelation: "imweb_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imweb_product_mappings_material_order_id_fkey"
+            columns: ["material_order_id"]
+            isOneToOne: false
+            referencedRelation: "material_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imweb_product_mappings_panel_size_id_fkey"
+            columns: ["panel_size_id"]
+            isOneToOne: false
+            referencedRelation: "panel_sizes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imweb_product_mappings_sample_chip_inventory_id_fkey"
+            columns: ["sample_chip_inventory_id"]
+            isOneToOne: false
+            referencedRelation: "sample_chip_inventory"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imweb_products: {
         Row: {
@@ -2061,6 +2228,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      inventory_action_logs: {
+        Row: {
+          action_type: string
+          actor_id: string | null
+          actor_name: string | null
+          created_at: string
+          id: string
+          imweb_order_no: string | null
+          imweb_prod_no: string | null
+          metadata: Json
+          target_id: string | null
+          target_type: string
+        }
+        Insert: {
+          action_type: string
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string
+          id?: string
+          imweb_order_no?: string | null
+          imweb_prod_no?: string | null
+          metadata?: Json
+          target_id?: string | null
+          target_type: string
+        }
+        Update: {
+          action_type?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string
+          id?: string
+          imweb_order_no?: string | null
+          imweb_prod_no?: string | null
+          metadata?: Json
+          target_id?: string | null
+          target_type?: string
+        }
+        Relationships: []
       }
       kakao_chatbot_audit_logs: {
         Row: {
