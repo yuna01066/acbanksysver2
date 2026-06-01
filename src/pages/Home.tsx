@@ -1,12 +1,10 @@
 import { useState, useCallback } from 'react';
 import type { ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Instagram, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette, Images, Loader2 } from "lucide-react";
+import { Calculator, Home as HomeIcon, Camera, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette, Images, Loader2 } from "lucide-react";
 import LoginScreen from '@/components/LoginScreen';
 import DashboardCalendarPanel from '@/components/dashboard/DashboardCalendarPanel';
+import DashboardQuickLinksSection, { type DashboardQuickLinkItem } from '@/components/dashboard/DashboardQuickLinksSection';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
 import QuickAttendanceButton from '@/components/QuickAttendanceButton';
@@ -30,14 +28,10 @@ import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { isCompanyMasterEmail } from '@/lib/companyMaster';
 
-type DashboardLink = {
+type QuickIconLink = {
   title: string;
   icon: ComponentType<{ className?: string }>;
   description: string;
-  url?: string;
-  requiresAuth?: boolean;
-  requiresAdmin?: boolean;
-  requiresMaster?: boolean;
   action: () => void;
 };
 
@@ -95,95 +89,131 @@ const Home = () => {
     enabled: !!user,
   });
 
-  const quickLinks: DashboardLink[] = [
+  const quickLinks: QuickIconLink[] = [
     { title: "홈페이지", description: "", icon: HomeIcon, action: () => window.open("https://acbank.co.kr", "_blank") },
     { title: "팀 채팅", description: "", icon: MessageCircle, action: () => navigate("/team-chat") },
-    { title: "인스타그램", description: "", icon: Instagram, action: () => window.open("https://www.instagram.com/acbank.co.kr/", "_blank") },
+    { title: "인스타그램", description: "", icon: Camera, action: () => window.open("https://www.instagram.com/acbank.co.kr/", "_blank") },
     { title: "아크뱅크 노션", description: "", icon: BookOpen, action: () => window.open("https://www.notion.so/juhaeok/ACBANK-2025-253e58d2699680f3a8acd55f77302895?source=copy_link", "_blank") },
   ];
 
-  const links: DashboardLink[] = [{
+  const dashboardLinks: DashboardQuickLinkItem[] = [{
+    id: "attendance",
     title: "근태 관리",
     icon: Clock,
     description: "출퇴근 기록 및 휴가 관리",
-    url: "/attendance",
+    path: "/attendance",
+    category: "work",
+    priority: 10,
     requiresAuth: true,
     action: () => navigate("/attendance")
   }, {
+    id: "leave-management",
     title: "연차 관리",
     icon: CalendarDays,
     description: "연차 신청/승인/잔여일수 관리",
-    url: "/leave-management",
+    path: "/leave-management",
+    category: "work",
+    priority: 20,
     requiresAuth: true,
     action: () => navigate("/leave-management")
   }, {
+    id: "customers",
     title: "고객사 관리",
     icon: Building2,
     description: "거래처 정보 관리",
-    url: "/recipients",
+    path: "/recipients",
+    category: "quote-project",
+    priority: 10,
     requiresAuth: true,
     action: () => navigate("/recipients")
   }, {
+    id: "projects",
     title: "프로젝트 관리",
     icon: FolderOpen,
     description: "프로젝트별 견적·고객 연결",
-    url: "/project-management",
+    path: "/project-management",
+    category: "quote-project",
+    priority: 20,
     requiresAuth: true,
     action: () => navigate("/project-management")
   }, {
+    id: "material-orders",
     title: "원판 발주 관리",
     icon: Package,
     description: "자재 발주 내역 관리",
-    url: "/material-orders",
+    path: "/material-orders",
+    category: "quote-project",
+    priority: 30,
     requiresAuth: true,
     action: () => navigate("/material-orders")
   }, {
+    id: "yield-calculator",
     title: "수율 계산기",
     icon: TrendingUp,
     description: "패널 수율 최적화",
-    url: "/calculator?type=yield",
+    path: "/calculator?type=yield",
+    category: "quote-project",
+    priority: 40,
     requiresAuth: true,
     action: () => navigate("/calculator?type=yield")
   }, {
+    id: "quote-calculator",
     title: "견적 계산기",
     icon: Calculator,
     description: "스마트 판재 견적",
-    url: "/calculator?type=quote",
+    path: "/calculator?type=quote",
+    category: "quote-project",
+    priority: 50,
     requiresAuth: true,
     action: () => navigate("/calculator?type=quote")
   }, {
+    id: "saved-quotes",
     title: "발행 견적서 확인",
     icon: FileSpreadsheet,
     description: "저장된 견적서 관리",
-    url: "/saved-quotes",
+    path: "/saved-quotes",
+    category: "quote-project",
+    priority: 60,
     requiresAuth: true,
     action: () => navigate("/saved-quotes")
   }, {
+    id: "customer-consultation-form",
     title: "클라이언트 상담폼",
     icon: FileText,
     description: "상담 신청하기",
-    url: "https://acbank.co.kr/acbankform",
+    externalUrl: "https://acbank.co.kr/acbankform",
+    category: "external",
+    priority: 10,
     requiresAuth: true,
     action: () => window.open("https://acbank.co.kr/acbankform", "_blank")
   }, {
+    id: "performance-review",
     title: "업무 평가",
     icon: Star,
     description: activeCycle ? `진행중: ${activeCycle.title}` : "직원 업무 평가 작성",
-    url: "/performance-review",
+    path: "/performance-review",
+    category: "work",
+    priority: 30,
     requiresAuth: true,
     action: () => navigate("/performance-review")
   }, {
+    id: "channel-talk-leads",
     title: "채널톡 문의 분석함",
     icon: MessageSquareText,
     description: "AI 분석 문의 확인",
-    url: "/channel-talk-leads",
+    path: "/channel-talk-leads",
+    category: "management",
+    priority: 10,
     requiresAuth: true,
     action: () => navigate("/channel-talk-leads")
   }, {
+    id: "admin-settings",
     title: "관리자 설정",
     icon: Settings,
     description: "가격 및 옵션 관리",
-    url: "/admin-settings",
+    path: "/admin-settings",
+    category: "management",
+    priority: 80,
     requiresAuth: true,
     requiresAdmin: true,
     action: () => {
@@ -193,16 +223,68 @@ const Home = () => {
         toast.error('관리자 또는 중간관리자만 접근할 수 있습니다.');
       }
     }
+  }, {
+    id: "company-settings",
+    title: "회사 설정",
+    icon: Building2,
+    description: "마스터 전용 민감정보 관리",
+    path: "/company-settings",
+    category: "management",
+    priority: 90,
+    requiresAuth: true,
+    requiresMaster: true,
+    action: () => navigate("/company-settings")
+  }, {
+    id: "sample-chip-inventory",
+    title: "샘플칩 관리",
+    icon: Palette,
+    description: "샘플칩 재고 관리",
+    path: "/sample-chip-inventory",
+    category: "management",
+    priority: 20,
+    requiresAuth: true,
+    action: () => navigate("/sample-chip-inventory")
+  }, {
+    id: "portfolio",
+    title: "포트폴리오",
+    icon: Images,
+    description: "인테리어·제작가공 사진 열람",
+    path: "/portfolio",
+    category: "management",
+    priority: 30,
+    requiresAuth: true,
+    action: () => navigate("/portfolio")
+  }, {
+    id: "references",
+    title: "레퍼런스",
+    icon: Images,
+    description: "상담용 이미지·메모 열람",
+    path: "/references",
+    category: "management",
+    priority: 40,
+    requiresAuth: true,
+    action: () => navigate("/references")
+  }, {
+    id: "exhibition-management",
+    title: "박람회 관리",
+    icon: Landmark,
+    description: "박람회 일정·준비·상담 관리",
+    path: "/exhibition-management",
+    category: "management",
+    priority: 50,
+    requiresAuth: true,
+    action: () => navigate("/exhibition-management")
+  }, {
+    id: "tax-invoices",
+    title: "세금계산서 관리",
+    icon: Receipt,
+    description: "세금계산서 발행·조회",
+    path: "/tax-invoices",
+    category: "management",
+    priority: 60,
+    requiresAuth: true,
+    action: () => navigate("/tax-invoices")
   }];
-
-  const handleCardClick = (link: DashboardLink) => {
-    if (link.requiresAuth && !user) {
-      toast.error('로그인이 필요한 서비스입니다.');
-      navigate('/auth');
-      return;
-    }
-    link.action();
-  };
 
   if (authLoading && user) {
     return (
@@ -315,96 +397,13 @@ const Home = () => {
             <TeamChatCard />
           </div>
 
-          {/* Links Grid */}
-          {(() => {
-            const secondaryLinks: DashboardLink[] = [
-              { title: "회사 설정", icon: Building2, description: "마스터 전용 민감정보 관리", requiresAuth: true, requiresMaster: true, action: () => navigate("/company-settings") },
-              { title: "샘플칩 관리", icon: Palette, description: "샘플칩 재고 관리", requiresAuth: true, action: () => navigate("/sample-chip-inventory") },
-              { title: "포트폴리오", icon: Images, description: "인테리어·제작가공 사진 열람", requiresAuth: true, action: () => navigate("/portfolio") },
-              { title: "레퍼런스", icon: Images, description: "상담용 이미지·메모 열람", requiresAuth: true, action: () => navigate("/references") },
-              { title: "박람회 관리", icon: Landmark, description: "박람회 일정·준비·상담 관리", requiresAuth: true, action: () => navigate("/exhibition-management") },
-              { title: "세금계산서 관리", icon: Receipt, description: "세금계산서 발행·조회", requiresAuth: true, action: () => navigate("/tax-invoices") },
-            ];
-
-            const byTitle = new Map(links.map((link) => [link.title, link]));
-            const secondaryByTitle = new Map(secondaryLinks.map((link) => [link.title, link]));
-            const pickLinks = (titles: string[]) => titles
-              .map((title) => byTitle.get(title) || secondaryByTitle.get(title))
-              .filter(Boolean) as DashboardLink[];
-
-            const linkGroups = [
-              { title: "업무", items: pickLinks(["근태 관리", "연차 관리", "업무 평가"]) },
-              { title: "견적 · 프로젝트", items: pickLinks(["고객사 관리", "프로젝트 관리", "원판 발주 관리", "수율 계산기", "견적 계산기", "발행 견적서 확인"]) },
-              { title: "관리", items: pickLinks(["채널톡 문의 분석함", "샘플칩 관리", "포트폴리오", "레퍼런스", "박람회 관리", "세금계산서 관리", "관리자 설정", "회사 설정"]) },
-              { title: "외부", items: pickLinks(["클라이언트 상담폼"]) },
-            ].filter((group) => group.items.length > 0);
-
-            const renderCard = (item: DashboardLink, key: string) => {
-              const Icon = item.icon;
-              const isLocked = item.requiresAuth && !user;
-              const isAdminOnly = item.requiresAdmin && !isAdmin && !isModerator;
-              const isMasterOnly = item.requiresMaster && !isMaster;
-
-              return (
-                <div
-                  key={key}
-                  className={cn(
-                    "group relative flex min-h-[92px] cursor-pointer items-center gap-3 rounded-2xl border border-border/70 bg-background/75 p-3 text-left shadow-sm backdrop-blur transition-colors hover:bg-accent/35 sm:p-4",
-                    (isLocked || isAdminOnly || isMasterOnly) ? "opacity-50 cursor-not-allowed" : ""
-                  )}
-                  onClick={() => {
-                    if (isLocked) { toast.error('로그인이 필요한 서비스입니다.'); navigate('/auth'); return; }
-                    if (isAdminOnly) { toast.error('관리자 또는 중간관리자만 접근할 수 있습니다.'); return; }
-                    if (isMasterOnly) { toast.error('마스터 계정만 접근할 수 있습니다.'); return; }
-                    item.action();
-                  }}
-                >
-                  {isLocked && (
-                    <div className="absolute right-3 top-3">
-                      <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px]">로그인 필요</Badge>
-                    </div>
-                  )}
-                  {isAdminOnly && (
-                    <div className="absolute right-3 top-3">
-                      <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px]">관리자 전용</Badge>
-                    </div>
-                  )}
-                  {isMasterOnly && (
-                    <div className="absolute right-3 top-3">
-                      <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px]">마스터 전용</Badge>
-                    </div>
-                  )}
-                  <div className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-primary transition-colors",
-                    (isLocked || isAdminOnly || isMasterOnly) && "border-border bg-muted/50 text-muted-foreground"
-                  )}>
-                    {Icon && <Icon className="h-5 w-5" />}
-                  </div>
-                  <div className="min-w-0 pr-12 sm:pr-14">
-                    <h3 className="truncate text-sm font-semibold leading-5 text-foreground">{item.title}</h3>
-                    <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{item.description}</p>
-                  </div>
-                </div>
-              );
-            };
-
-            return (
-              <div className="mt-6 space-y-5">
-                {linkGroups.map((group) => (
-                  <section key={group.title} className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-px flex-1 bg-border/60" />
-                      <h2 className="shrink-0 text-xs font-semibold text-muted-foreground">{group.title}</h2>
-                      <div className="h-px flex-1 bg-border/60" />
-                    </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {group.items.map((item) => renderCard(item, `${group.title}-${item.title}`))}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            );
-          })()}
+          <DashboardQuickLinksSection
+            items={dashboardLinks}
+            isAuthenticated={Boolean(user)}
+            isAdmin={isAdmin}
+            isModerator={isModerator}
+            isMaster={isMaster}
+          />
 
           {/* Footer */}
           <div className="mt-16 text-center space-y-4">
