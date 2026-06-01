@@ -9,14 +9,12 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
   RefreshCw, Package, ShoppingCart, History,
-  Search, Wifi, WifiOff, Edit2, Check, Link2, Unlink
+  Search, Wifi, WifiOff, Link2, Unlink
 } from 'lucide-react';
 import { getSupabaseFunctionUrl } from '@/lib/supabaseFunctions';
 
@@ -31,8 +29,6 @@ const ImwebManagementPage: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [syncing, setSyncing] = useState<string | null>(null);
-  const [editStock, setEditStock] = useState<{ prodNo: string; name: string; qty: number } | null>(null);
-  const [newStockQty, setNewStockQty] = useState(0);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
   const [connecting, setConnecting] = useState(false);
 
@@ -191,21 +187,6 @@ const ImwebManagementPage: React.FC = () => {
       toast.error(err.message || '동기화 실패');
     } finally {
       setSyncing(null);
-    }
-  };
-
-  const updateStock = async () => {
-    if (!editStock) return;
-    try {
-      await callImwebApi('update-stock', {
-        prodNo: editStock.prodNo,
-        stockQty: newStockQty,
-      });
-      toast.success('재고 수량이 업데이트되었습니다.');
-      queryClient.invalidateQueries({ queryKey: ['imweb-products'] });
-      setEditStock(null);
-    } catch (err: any) {
-      toast.error(err.message || '업데이트 실패');
     }
   };
 
@@ -380,19 +361,18 @@ const ImwebManagementPage: React.FC = () => {
                         <TableHead className="text-right">재고</TableHead>
                         <TableHead>상태</TableHead>
                         <TableHead className="text-xs text-muted-foreground">마지막 동기화</TableHead>
-                        {canManage && <TableHead className="text-center">재고 수정</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {productsLoading ? (
                         <TableRow>
-                          <TableCell colSpan={canManage ? 8 : 7} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                             로딩 중...
                           </TableCell>
                         </TableRow>
                       ) : !products || products.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={canManage ? 8 : 7} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                             {searchTerm ? '검색 결과가 없습니다.' : '동기화된 상품이 없습니다. "상품 동기화" 버튼을 눌러주세요.'}
                           </TableCell>
                         </TableRow>
@@ -426,27 +406,6 @@ const ImwebManagementPage: React.FC = () => {
                                   ? format(new Date(prod.synced_at), 'MM/dd HH:mm', { locale: ko })
                                   : '-'}
                               </TableCell>
-                              {canManage && (
-                                <TableCell className="text-center">
-                                  {prod.stock_qty !== -1 && (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7"
-                                      onClick={() => {
-                                        setEditStock({
-                                          prodNo: prod.imweb_prod_no,
-                                          name: prod.name,
-                                          qty: prod.stock_qty ?? 0,
-                                        });
-                                        setNewStockQty(prod.stock_qty ?? 0);
-                                      }}
-                                    >
-                                      <Edit2 className="h-3 w-3" />
-                                    </Button>
-                                  )}
-                                </TableCell>
-                              )}
                             </TableRow>
                           );
                         })
@@ -588,35 +547,6 @@ const ImwebManagementPage: React.FC = () => {
         )}
       </div>
 
-      {/* Edit Stock Dialog */}
-      <Dialog open={!!editStock} onOpenChange={() => setEditStock(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>재고 수량 수정</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">{editStock?.name}</p>
-            <div>
-              <Label>현재 재고: {editStock?.qty}개</Label>
-            </div>
-            <div>
-              <Label>변경 수량</Label>
-              <Input
-                type="number"
-                min={0}
-                value={newStockQty}
-                onChange={e => setNewStockQty(Number(e.target.value))}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditStock(null)}>취소</Button>
-            <Button onClick={updateStock}>
-              <Check className="h-4 w-4 mr-1" /> 수정
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
