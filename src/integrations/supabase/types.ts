@@ -6051,6 +6051,10 @@ export type Database = {
         Args: { _request_id: string; _review_note?: string }
         Returns: string
       }
+      assistant_shortcut_ids_allowed: {
+        Args: { _ids: string[] }
+        Returns: boolean
+      }
       calendar_day_end_at: { Args: { _date: string }; Returns: string }
       calendar_day_start_at: { Args: { _date: string }; Returns: string }
       calendar_meeting_start_at: {
@@ -6136,6 +6140,10 @@ export type Database = {
       cleanup_expired_quote_wizard_rows: { Args: never; Returns: number }
       create_calendar_event: { Args: { payload: Json }; Returns: string }
       delete_calendar_event: { Args: { payload: Json }; Returns: string }
+      get_assistant_allowed_shortcut_ids: {
+        Args: { _user_id: string }
+        Returns: string[]
+      }
       get_calendar_dashboard_summary: {
         Args: { range_end: string; range_start: string; scope?: string }
         Returns: Json
@@ -6240,6 +6248,10 @@ export type Database = {
       reject_settings_change_request: {
         Args: { _request_id: string; _review_note?: string }
         Returns: string
+      }
+      save_assistant_shortcuts: {
+        Args: { shortcut_ids: string[] }
+        Returns: string[]
       }
       search_portfolio_posts: {
         Args: {
