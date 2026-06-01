@@ -312,9 +312,29 @@ const InventoryOpsPage: React.FC = () => {
       body: JSON.stringify(body || {}),
     });
     const result = await res.json();
-    if (!res.ok) throw new Error(result.error || '아임웹 API 호출에 실패했습니다.');
+    if (!res.ok) {
+      const err: Error & { notConnected?: boolean } = new Error(result.error || '아임웹 API 호출에 실패했습니다.');
+      if (result.notConnected) err.notConnected = true;
+      throw err;
+    }
     return result;
   };
+
+  const { data: imwebConnection } = useQuery({
+    queryKey: ['imweb-connection-status', user?.id],
+    enabled: Boolean(user) && canManage,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) return { connected: false };
+      const res = await fetch(`${IMWEB_API_URL}?action=check-connection`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const json = await res.json().catch(() => ({ connected: false }));
+      return { connected: Boolean(json?.connected) };
+    },
+  });
+  const isImwebConnected = imwebConnection?.connected === true;
 
   const { data = emptyData, isLoading } = useQuery({
     queryKey: ['inventory-ops', canManage, user?.id, dateRange],
@@ -414,7 +434,14 @@ const InventoryOpsPage: React.FC = () => {
       toast.success(`주문 동기화 완료: ${result.syncedCount || 0}건`);
       queryClient.invalidateQueries({ queryKey: ['inventory-ops'] });
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error & { notConnected?: boolean }) => {
+      if (error.notConnected) {
+        toast.error('아임웹 연결이 필요합니다. 연동 설정 페이지로 이동합니다.');
+        navigate('/imweb-management');
+        return;
+      }
+      toast.error(error.message);
+    },
   });
 
   const linkMutation = useMutation({
@@ -629,10 +656,11 @@ const InventoryOpsPage: React.FC = () => {
               <Button
                 className="rounded-full bg-foreground text-background hover:bg-foreground/90"
                 onClick={() => syncOrdersMutation.mutate()}
-                disabled={syncOrdersMutation.isPending}
+                disabled={syncOrdersMutation.isPending || !isImwebConnected}
+                title={!isImwebConnected ? '아임웹 연결이 필요합니다' : undefined}
               >
                 {syncOrdersMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                주문 증분 동기화
+                {isImwebConnected ? '주문 증분 동기화' : '아임웹 연결 필요'}
               </Button>
             )}
           </div>
