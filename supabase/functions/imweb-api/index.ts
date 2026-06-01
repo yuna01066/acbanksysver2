@@ -20,10 +20,7 @@ function getImwebClientSecret() {
 
 // --- Helper: get service-role supabase client for token storage ---
 function getServiceClient() {
-  return createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+  return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 }
 
 // --- Helper: get stored access token, refresh if needed ---
@@ -59,7 +56,8 @@ async function getImwebToken(): Promise<string> {
 async function refreshImwebToken(serviceClient: any, tokenId: string, refreshToken: string): Promise<string> {
   const clientId = getImwebClientId();
   const clientSecret = getImwebClientSecret();
-  if (!clientId || !clientSecret) throw new Error("IMWEB_CLIENT_ID/IMWEB_API_KEY or IMWEB_CLIENT_SECRET/IMWEB_API_SECRET not configured");
+  if (!clientId || !clientSecret)
+    throw new Error("IMWEB_CLIENT_ID/IMWEB_API_KEY or IMWEB_CLIENT_SECRET/IMWEB_API_SECRET not configured");
 
   const body = new URLSearchParams({
     clientId,
@@ -163,7 +161,12 @@ function normalizeTextKey(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function appendStat(map: Map<string, { label: string; quantity: number; amount: number }>, label: string, quantity: number, amount = 0) {
+function appendStat(
+  map: Map<string, { label: string; quantity: number; amount: number }>,
+  label: string,
+  quantity: number,
+  amount = 0,
+) {
   const normalizedLabel = label.trim();
   if (!normalizedLabel) return;
   const key = normalizeTextKey(normalizedLabel);
@@ -209,7 +212,15 @@ function extractOptionValue(item: JsonRecord, labels: string[]) {
         continue;
       }
       if (!isRecord(option)) continue;
-      const optionName = firstText(entryKey, option.name, option.label, option.key, option.optionName, option.option_name, option.title);
+      const optionName = firstText(
+        entryKey,
+        option.name,
+        option.label,
+        option.key,
+        option.optionName,
+        option.option_name,
+        option.title,
+      );
       const optionValue = firstText(
         option.value,
         option.text,
@@ -221,7 +232,8 @@ function extractOptionValue(item: JsonRecord, labels: string[]) {
         option.label,
       );
       const normalizedName = optionName.toLowerCase();
-      if (optionValue && optionValue !== optionName && labels.some((label) => normalizedName.includes(label))) return optionValue;
+      if (optionValue && optionValue !== optionName && labels.some((label) => normalizedName.includes(label)))
+        return optionValue;
     }
   }
 
@@ -282,14 +294,14 @@ function normalizeOrderItems(order: JsonRecord) {
   if (rawItems.length > 0) return rawItems;
 
   const rawData = isRecord(order.raw_data) ? order.raw_data : {};
-  return asArray(rawData.items).length > 0
-    ? asArray(rawData.items)
-    : asArray(rawData.orderItems);
+  return asArray(rawData.items).length > 0 ? asArray(rawData.items) : asArray(rawData.orderItems);
 }
 
 function orderIsCountable(status: unknown) {
   const normalized = String(status || "").toLowerCase();
-  return !["cancel", "cancelled", "canceled", "refund", "refunded", "failed"].some((token) => normalized.includes(token));
+  return !["cancel", "cancelled", "canceled", "refund", "refunded", "failed"].some((token) =>
+    normalized.includes(token),
+  );
 }
 
 function getOrderNoFromApi(order: JsonRecord) {
@@ -302,9 +314,14 @@ function buildImwebOrderUpsert(order: JsonRecord) {
     imweb_order_no: orderNo,
     order_date: firstText(order.orderDate, order.orderedAt, order.createdAt, order.created_at) || null,
     buyer_name: firstText(isRecord(order.orderer) ? order.orderer.name : "", order.buyerName, order.buyer_name) || null,
-    buyer_email: firstText(isRecord(order.orderer) ? order.orderer.email : "", order.buyerEmail, order.buyer_email) || null,
-    buyer_phone: firstText(isRecord(order.orderer) ? order.orderer.phone : "", order.buyerPhone, order.buyer_phone) || null,
-    total_price: toNumber(isRecord(order.price) ? order.price.totalPrice : undefined, toNumber(order.totalPrice ?? order.total_price, 0)),
+    buyer_email:
+      firstText(isRecord(order.orderer) ? order.orderer.email : "", order.buyerEmail, order.buyer_email) || null,
+    buyer_phone:
+      firstText(isRecord(order.orderer) ? order.orderer.phone : "", order.buyerPhone, order.buyer_phone) || null,
+    total_price: toNumber(
+      isRecord(order.price) ? order.price.totalPrice : undefined,
+      toNumber(order.totalPrice ?? order.total_price, 0),
+    ),
     order_status: firstText(order.orderStatus, order.status, order.order_status) || "ordered",
     items: asArray(order.items).length > 0 ? order.items : order.orderItems || [],
     raw_data: order,
@@ -380,18 +397,25 @@ async function getTopOrderItems(serviceClient: ReturnType<typeof createClient>, 
     for (const rawItem of items) {
       if (!isRecord(rawItem)) continue;
 
-      const productName = firstText(
-        rawItem.name,
-        rawItem.prodName,
-        rawItem.prod_name,
-        rawItem.productName,
-        rawItem.product_name,
-        rawItem.itemName,
-        rawItem.item_name,
-        isRecord(rawItem.product) ? rawItem.product.name : "",
-      ) || "상품명 미확인";
-      const quantity = Math.max(1, toNumber(rawItem.quantity ?? rawItem.qty ?? rawItem.count ?? rawItem.itemCount ?? rawItem.item_count, 1));
-      const amount = toNumber(rawItem.totalPrice ?? rawItem.total_price ?? rawItem.price ?? rawItem.salePrice ?? rawItem.sale_price, 0);
+      const productName =
+        firstText(
+          rawItem.name,
+          rawItem.prodName,
+          rawItem.prod_name,
+          rawItem.productName,
+          rawItem.product_name,
+          rawItem.itemName,
+          rawItem.item_name,
+          isRecord(rawItem.product) ? rawItem.product.name : "",
+        ) || "상품명 미확인";
+      const quantity = Math.max(
+        1,
+        toNumber(rawItem.quantity ?? rawItem.qty ?? rawItem.count ?? rawItem.itemCount ?? rawItem.item_count, 1),
+      );
+      const amount = toNumber(
+        rawItem.totalPrice ?? rawItem.total_price ?? rawItem.price ?? rawItem.salePrice ?? rawItem.sale_price,
+        0,
+      );
       const textBlob = collectText(rawItem).join(" ");
 
       appendStat(products, productName, quantity, amount);
@@ -527,18 +551,24 @@ serve(async (req) => {
         .limit(1)
         .single();
 
-      return new Response(JSON.stringify({ connected: !!tokenRow, token: tokenRow ? { scope: tokenRow.scope, createdAt: tokenRow.created_at, expiresAt: tokenRow.expires_at } : null }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          connected: !!tokenRow,
+          token: tokenRow
+            ? { scope: tokenRow.scope, createdAt: tokenRow.created_at, expiresAt: tokenRow.expires_at }
+            : null,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Aggregated dashboard data only. Requires login, but does not expose buyer/order PII.
     if (action === "top-order-items") {
       await requireFunctionAuth(req);
       const daysParam = Number(url.searchParams.get("days") || "90");
-      const days = Number.isFinite(daysParam)
-        ? Math.min(Math.max(Math.round(daysParam), 7), 365)
-        : 90;
+      const days = Number.isFinite(daysParam) ? Math.min(Math.max(Math.round(daysParam), 7), 365) : 90;
       const result = await getTopOrderItems(getServiceClient(), days);
       return new Response(JSON.stringify({ success: true, ...result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -561,13 +591,18 @@ serve(async (req) => {
 
       if (linkError) throw linkError;
 
-      const orderNos = Array.from(new Set((links || []).map((link: JsonRecord) => String(link.imweb_order_no)).filter(Boolean)));
-      const { data: orders, error: orderError } = orderNos.length > 0
-        ? await serviceClient
-          .from("imweb_orders")
-          .select("id, imweb_order_no, order_date, buyer_name, buyer_email, buyer_phone, total_price, order_status, items, synced_at")
-          .in("imweb_order_no", orderNos)
-        : { data: [], error: null };
+      const orderNos = Array.from(
+        new Set((links || []).map((link: JsonRecord) => String(link.imweb_order_no)).filter(Boolean)),
+      );
+      const { data: orders, error: orderError } =
+        orderNos.length > 0
+          ? await serviceClient
+              .from("imweb_orders")
+              .select(
+                "id, imweb_order_no, order_date, buyer_name, buyer_email, buyer_phone, total_price, order_status, items, synced_at",
+              )
+              .in("imweb_order_no", orderNos)
+          : { data: [], error: null };
 
       if (orderError) throw orderError;
 
@@ -592,7 +627,8 @@ serve(async (req) => {
       const supabaseUrl = Deno.env.get("SUPABASE_URL");
       if (!clientId || !siteCode) {
         return new Response(JSON.stringify({ error: "Missing IMWEB_CLIENT_ID or IMWEB_SITE_CODE" }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
@@ -601,7 +637,9 @@ serve(async (req) => {
       try {
         const body = await req.json();
         appOrigin = body.appOrigin || "";
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
 
       const redirectUri = `${supabaseUrl}/functions/v1/imweb-api?action=oauth-callback`;
       const state = appOrigin ? `${appOrigin}/imweb-management` : "/imweb-management";
@@ -615,11 +653,9 @@ serve(async (req) => {
     }
 
     const authHeader = req.headers.get("Authorization")!;
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     // Internal order link operations do not require a live Imweb token.
     if (action === "link-order") {
@@ -633,15 +669,17 @@ serve(async (req) => {
       }
 
       const serviceClient = authContext.supabaseAdmin;
-      const { data: profile } = await serviceClient
-        .from("profiles")
-        .select("full_name")
-        .eq("id", userId)
-        .maybeSingle();
+      const { data: profile } = await serviceClient.from("profiles").select("full_name").eq("id", userId).maybeSingle();
 
-      const status = firstText(body.linkStatus, body.link_status) || (
-        body.projectId ? "project_created" : body.quoteId ? "quote_created" : body.recipientId ? "linked_recipient" : "unlinked"
-      );
+      const status =
+        firstText(body.linkStatus, body.link_status) ||
+        (body.projectId
+          ? "project_created"
+          : body.quoteId
+            ? "quote_created"
+            : body.recipientId
+              ? "linked_recipient"
+              : "unlinked");
 
       const { data: order } = await serviceClient
         .from("imweb_orders")
@@ -703,19 +741,24 @@ serve(async (req) => {
           message: "아임웹 Ground API 연결 성공",
           totalProducts: result.data?.totalCount || result.data?.length || 0,
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     // === SYNC PRODUCTS ===
     if (action === "sync-products") {
-      const { data: profile } = await supabase
-        .from("profiles").select("full_name").eq("id", userId).single();
+      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", userId).single();
 
       const { data: syncLog } = await supabase
         .from("imweb_sync_logs")
-        .insert({ sync_type: "products", status: "running", user_id: userId, user_name: profile?.full_name || "Unknown" })
-        .select().single();
+        .insert({
+          sync_type: "products",
+          status: "running",
+          user_id: userId,
+          user_name: profile?.full_name || "Unknown",
+        })
+        .select()
+        .single();
 
       let page = 1;
       let totalSynced = 0;
@@ -749,7 +792,7 @@ serve(async (req) => {
                 raw_data: prod,
                 synced_at: new Date().toISOString(),
               },
-              { onConflict: "imweb_prod_no" }
+              { onConflict: "imweb_prod_no" },
             );
             totalSynced++;
           }
@@ -759,8 +802,14 @@ serve(async (req) => {
         }
 
         if (syncLog) {
-          await supabase.from("imweb_sync_logs")
-            .update({ status: "success", total_count: totalCount, synced_count: totalSynced, completed_at: new Date().toISOString() })
+          await supabase
+            .from("imweb_sync_logs")
+            .update({
+              status: "success",
+              total_count: totalCount,
+              synced_count: totalSynced,
+              completed_at: new Date().toISOString(),
+            })
             .eq("id", syncLog.id);
         }
 
@@ -769,8 +818,13 @@ serve(async (req) => {
         });
       } catch (err) {
         if (syncLog) {
-          await supabase.from("imweb_sync_logs")
-            .update({ status: "error", error_message: err instanceof Error ? err.message : String(err), completed_at: new Date().toISOString() })
+          await supabase
+            .from("imweb_sync_logs")
+            .update({
+              status: "error",
+              error_message: err instanceof Error ? err.message : String(err),
+              completed_at: new Date().toISOString(),
+            })
             .eq("id", syncLog.id);
         }
         throw err;
@@ -779,13 +833,13 @@ serve(async (req) => {
 
     // === SYNC ORDERS ===
     if (action === "sync-orders") {
-      const { data: profile } = await supabase
-        .from("profiles").select("full_name").eq("id", userId).single();
+      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", userId).single();
 
       const { data: syncLog } = await supabase
         .from("imweb_sync_logs")
         .insert({ sync_type: "orders", status: "running", user_id: userId, user_name: profile?.full_name || "Unknown" })
-        .select().single();
+        .select()
+        .single();
 
       let page = 1;
       let totalSynced = 0;
@@ -819,7 +873,7 @@ serve(async (req) => {
                 raw_data: order,
                 synced_at: new Date().toISOString(),
               },
-              { onConflict: "imweb_order_no" }
+              { onConflict: "imweb_order_no" },
             );
             totalSynced++;
           }
@@ -829,8 +883,14 @@ serve(async (req) => {
         }
 
         if (syncLog) {
-          await supabase.from("imweb_sync_logs")
-            .update({ status: "success", total_count: totalCount, synced_count: totalSynced, completed_at: new Date().toISOString() })
+          await supabase
+            .from("imweb_sync_logs")
+            .update({
+              status: "success",
+              total_count: totalCount,
+              synced_count: totalSynced,
+              completed_at: new Date().toISOString(),
+            })
             .eq("id", syncLog.id);
         }
 
@@ -839,8 +899,13 @@ serve(async (req) => {
         });
       } catch (err) {
         if (syncLog) {
-          await supabase.from("imweb_sync_logs")
-            .update({ status: "error", error_message: err instanceof Error ? err.message : String(err), completed_at: new Date().toISOString() })
+          await supabase
+            .from("imweb_sync_logs")
+            .update({
+              status: "error",
+              error_message: err instanceof Error ? err.message : String(err),
+              completed_at: new Date().toISOString(),
+            })
             .eq("id", syncLog.id);
         }
         throw err;
@@ -852,13 +917,18 @@ serve(async (req) => {
       const body = await req.json().catch(() => ({}));
       const days = Math.min(Math.max(Math.round(Number(body.days || 30)), 1), 365);
       const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-      const { data: profile } = await supabase
-        .from("profiles").select("full_name").eq("id", userId).single();
+      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", userId).single();
 
       const { data: syncLog } = await supabase
         .from("imweb_sync_logs")
-        .insert({ sync_type: "orders_incremental", status: "running", user_id: userId, user_name: profile?.full_name || "Unknown" })
-        .select().single();
+        .insert({
+          sync_type: "orders_incremental",
+          status: "running",
+          user_id: userId,
+          user_name: profile?.full_name || "Unknown",
+        })
+        .select()
+        .single();
 
       let page = 1;
       let totalSynced = 0;
@@ -901,8 +971,14 @@ serve(async (req) => {
         }
 
         if (syncLog) {
-          await supabase.from("imweb_sync_logs")
-            .update({ status: "success", total_count: totalCount, synced_count: totalSynced, completed_at: new Date().toISOString() })
+          await supabase
+            .from("imweb_sync_logs")
+            .update({
+              status: "success",
+              total_count: totalCount,
+              synced_count: totalSynced,
+              completed_at: new Date().toISOString(),
+            })
             .eq("id", syncLog.id);
         }
 
@@ -911,8 +987,13 @@ serve(async (req) => {
         });
       } catch (err) {
         if (syncLog) {
-          await supabase.from("imweb_sync_logs")
-            .update({ status: "error", error_message: err instanceof Error ? err.message : String(err), completed_at: new Date().toISOString() })
+          await supabase
+            .from("imweb_sync_logs")
+            .update({
+              status: "error",
+              error_message: err instanceof Error ? err.message : String(err),
+              completed_at: new Date().toISOString(),
+            })
             .eq("id", syncLog.id);
         }
         throw err;
@@ -950,13 +1031,15 @@ serve(async (req) => {
       const { prodNo, stockQty } = body;
       if (!prodNo || stockQty === undefined) {
         return new Response(JSON.stringify({ error: "prodNo and stockQty required" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
       const result = await imwebPatch(imwebToken, `/products/${prodNo}/stock-info`, { stockQty });
 
-      await supabase.from("imweb_products")
+      await supabase
+        .from("imweb_products")
         .update({ stock_qty: stockQty, synced_at: new Date().toISOString() })
         .eq("imweb_prod_no", String(prodNo));
 
@@ -983,19 +1066,17 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
     if (isAuthResponse(error)) return withCors(error, corsHeaders);
     console.error("Imweb API error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
     const isNotConnected = message.includes("IMWEB_NOT_CONNECTED");
-    return new Response(
-      JSON.stringify({ error: message, notConnected: isNotConnected }),
-      {
-        status: isNotConnected ? 403 : 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return new Response(JSON.stringify({ error: message, notConnected: isNotConnected }), {
+      status: isNotConnected ? 403 : 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
