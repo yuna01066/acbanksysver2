@@ -434,7 +434,14 @@ const InventoryOpsPage: React.FC = () => {
       toast.success(`주문 동기화 완료: ${result.syncedCount || 0}건`);
       queryClient.invalidateQueries({ queryKey: ['inventory-ops'] });
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error & { notConnected?: boolean }) => {
+      if (error.notConnected) {
+        toast.error('아임웹 연결이 필요합니다. 연동 설정 페이지로 이동합니다.');
+        navigate('/imweb-management');
+        return;
+      }
+      toast.error(error.message);
+    },
   });
 
   const linkMutation = useMutation({
