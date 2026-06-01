@@ -144,7 +144,7 @@ const DashboardCalendarPanel = () => {
   return (
     <>
       <Card className="overflow-hidden border-[#e5e5e5] bg-white shadow-sm">
-        <CardHeader className="border-b border-[#e5e5e5] pb-4">
+        <CardHeader className="pb-2">
           <BrandedCardHeader
             icon={CalendarCheck2}
             title="통합 캘린더"
