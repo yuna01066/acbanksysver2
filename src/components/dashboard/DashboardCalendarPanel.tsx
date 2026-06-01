@@ -205,7 +205,7 @@ const DashboardCalendarPanel = () => {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="rounded-lg border border-[#e5e5e5] bg-white">
+            <div className="overflow-hidden rounded-lg border border-[#e5e5e5] bg-white">
               <div className="flex flex-col gap-2 border-b border-[#e5e5e5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2">
                   <Button
