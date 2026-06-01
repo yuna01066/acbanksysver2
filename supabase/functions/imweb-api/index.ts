@@ -292,6 +292,65 @@ function orderIsCountable(status: unknown) {
   return !["cancel", "cancelled", "canceled", "refund", "refunded", "failed"].some((token) => normalized.includes(token));
 }
 
+function getOrderNoFromApi(order: JsonRecord) {
+  return String(order.orderNo || order.order_no || order.no || "").trim();
+}
+
+function buildImwebOrderUpsert(order: JsonRecord) {
+  const orderNo = getOrderNoFromApi(order);
+  return {
+    imweb_order_no: orderNo,
+    order_date: firstText(order.orderDate, order.orderedAt, order.createdAt, order.created_at) || null,
+    buyer_name: firstText(isRecord(order.orderer) ? order.orderer.name : "", order.buyerName, order.buyer_name) || null,
+    buyer_email: firstText(isRecord(order.orderer) ? order.orderer.email : "", order.buyerEmail, order.buyer_email) || null,
+    buyer_phone: firstText(isRecord(order.orderer) ? order.orderer.phone : "", order.buyerPhone, order.buyer_phone) || null,
+    total_price: toNumber(isRecord(order.price) ? order.price.totalPrice : undefined, toNumber(order.totalPrice ?? order.total_price, 0)),
+    order_status: firstText(order.orderStatus, order.status, order.order_status) || "ordered",
+    items: asArray(order.items).length > 0 ? order.items : order.orderItems || [],
+    raw_data: order,
+    synced_at: new Date().toISOString(),
+  };
+}
+
+function maskName(value: unknown) {
+  const text = firstText(value);
+  if (!text) return "";
+  if (text.length <= 1) return "*";
+  if (text.length === 2) return `${text[0]}*`;
+  return `${text[0]}${"*".repeat(Math.max(1, text.length - 2))}${text[text.length - 1]}`;
+}
+
+function maskEmail(value: unknown) {
+  const text = firstText(value);
+  if (!text || !text.includes("@")) return text ? "***" : "";
+  const [local, domain] = text.split("@");
+  return `${local.slice(0, 2)}***@${domain}`;
+}
+
+function maskPhone(value: unknown) {
+  const text = firstText(value);
+  if (!text) return "";
+  const digits = text.replace(/\D/g, "");
+  if (digits.length < 7) return "***";
+  return `${digits.slice(0, 3)}-****-${digits.slice(-4)}`;
+}
+
+function buildMaskedAssignedOrder(order: JsonRecord, link: JsonRecord) {
+  return {
+    id: order.id,
+    imweb_order_no: order.imweb_order_no,
+    order_date: order.order_date,
+    buyer_name: maskName(order.buyer_name),
+    buyer_email: maskEmail(order.buyer_email),
+    buyer_phone: maskPhone(order.buyer_phone),
+    total_price: order.total_price,
+    order_status: order.order_status,
+    items: order.items,
+    synced_at: order.synced_at,
+    link,
+  };
+}
+
 async function getTopOrderItems(serviceClient: ReturnType<typeof createClient>, days: number) {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await serviceClient
@@ -486,6 +545,43 @@ serve(async (req) => {
       });
     }
 
+    // Assigned user view. Uses service role and returns masked buyer PII.
+    if (action === "assigned-orders") {
+      const assignedAuth = await requireFunctionAuth(req);
+      const assignedUserId = assignedAuth.user!.id;
+      const serviceClient = assignedAuth.supabaseAdmin;
+
+      const { data: links, error: linkError } = await serviceClient
+        .from("imweb_order_links")
+        .select("*")
+        .eq("assigned_to", assignedUserId)
+        .neq("link_status", "archived")
+        .order("updated_at", { ascending: false })
+        .limit(100);
+
+      if (linkError) throw linkError;
+
+      const orderNos = Array.from(new Set((links || []).map((link: JsonRecord) => String(link.imweb_order_no)).filter(Boolean)));
+      const { data: orders, error: orderError } = orderNos.length > 0
+        ? await serviceClient
+          .from("imweb_orders")
+          .select("id, imweb_order_no, order_date, buyer_name, buyer_email, buyer_phone, total_price, order_status, items, synced_at")
+          .in("imweb_order_no", orderNos)
+        : { data: [], error: null };
+
+      if (orderError) throw orderError;
+
+      const orderMap = new Map((orders || []).map((order: JsonRecord) => [String(order.imweb_order_no), order]));
+      const maskedOrders = (links || []).map((link: JsonRecord) => {
+        const order = orderMap.get(String(link.imweb_order_no)) || { imweb_order_no: link.imweb_order_no };
+        return buildMaskedAssignedOrder(order, link);
+      });
+
+      return new Response(JSON.stringify({ success: true, orders: maskedOrders }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const authContext = await requireFunctionAuth(req, { allowedRoles: ["admin", "moderator"] });
     const userId = authContext.user!.id;
 
@@ -524,6 +620,77 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
+
+    // Internal order link operations do not require a live Imweb token.
+    if (action === "link-order") {
+      const body = await req.json();
+      const orderNo = firstText(body.orderNo, body.imweb_order_no);
+      if (!orderNo) {
+        return new Response(JSON.stringify({ error: "orderNo required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const serviceClient = authContext.supabaseAdmin;
+      const { data: profile } = await serviceClient
+        .from("profiles")
+        .select("full_name")
+        .eq("id", userId)
+        .maybeSingle();
+
+      const status = firstText(body.linkStatus, body.link_status) || (
+        body.projectId ? "project_created" : body.quoteId ? "quote_created" : body.recipientId ? "linked_recipient" : "unlinked"
+      );
+
+      const { data: order } = await serviceClient
+        .from("imweb_orders")
+        .select("id")
+        .eq("imweb_order_no", orderNo)
+        .maybeSingle();
+
+      const payload = {
+        imweb_order_id: order?.id ?? null,
+        imweb_order_no: orderNo,
+        recipient_id: body.recipientId || body.recipient_id || null,
+        quote_id: body.quoteId || body.quote_id || null,
+        project_id: body.projectId || body.project_id || null,
+        assigned_to: body.assignedTo || body.assigned_to || null,
+        due_date: body.dueDate || body.due_date || null,
+        memo: body.memo || null,
+        link_status: status,
+        created_by: userId,
+      };
+
+      const { data: link, error } = await serviceClient
+        .from("imweb_order_links")
+        .upsert(payload, { onConflict: "imweb_order_no" })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await serviceClient.from("inventory_action_logs").insert({
+        actor_id: userId,
+        actor_name: profile?.full_name || "Unknown",
+        action_type: "link_order",
+        target_type: "imweb_order",
+        target_id: link?.id ?? null,
+        imweb_order_no: orderNo,
+        metadata: {
+          linkStatus: status,
+          recipientId: payload.recipient_id,
+          quoteId: payload.quote_id,
+          projectId: payload.project_id,
+          assignedTo: payload.assigned_to,
+          dueDate: payload.due_date,
+        },
+      });
+
+      return new Response(JSON.stringify({ success: true, link }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const imwebToken = await getImwebToken();
 
@@ -680,8 +847,105 @@ serve(async (req) => {
       }
     }
 
+    // === INCREMENTAL SYNC ORDERS ===
+    if (action === "sync-orders-incremental") {
+      const body = await req.json().catch(() => ({}));
+      const days = Math.min(Math.max(Math.round(Number(body.days || 30)), 1), 365);
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      const { data: profile } = await supabase
+        .from("profiles").select("full_name").eq("id", userId).single();
+
+      const { data: syncLog } = await supabase
+        .from("imweb_sync_logs")
+        .insert({ sync_type: "orders_incremental", status: "running", user_id: userId, user_name: profile?.full_name || "Unknown" })
+        .select().single();
+
+      let page = 1;
+      let totalSynced = 0;
+      let totalCount = 0;
+      let reachedOlderOrders = false;
+
+      try {
+        while (!reachedOlderOrders) {
+          const result = await imwebGet(imwebToken, "/orders", { page: String(page), limit: "100" });
+
+          if (result.statusCode && result.statusCode !== 200) {
+            throw new Error(`Orders incremental list failed: ${JSON.stringify(result)}`);
+          }
+
+          const orders = result.data?.list || result.data || [];
+          totalCount = result.data?.totalCount || orders.length;
+
+          if (!Array.isArray(orders) || orders.length === 0) break;
+
+          for (const rawOrder of orders) {
+            const order = isRecord(rawOrder) ? rawOrder : {};
+            const upsertRow = buildImwebOrderUpsert(order);
+            const orderNo = String(upsertRow.imweb_order_no || "");
+            if (!orderNo) continue;
+
+            if (upsertRow.order_date) {
+              const orderedAt = new Date(String(upsertRow.order_date));
+              if (!Number.isNaN(orderedAt.getTime()) && orderedAt < since) {
+                reachedOlderOrders = true;
+                continue;
+              }
+            }
+
+            await supabase.from("imweb_orders").upsert(upsertRow, { onConflict: "imweb_order_no" });
+            totalSynced++;
+          }
+
+          if (orders.length < 100) break;
+          page++;
+        }
+
+        if (syncLog) {
+          await supabase.from("imweb_sync_logs")
+            .update({ status: "success", total_count: totalCount, synced_count: totalSynced, completed_at: new Date().toISOString() })
+            .eq("id", syncLog.id);
+        }
+
+        return new Response(JSON.stringify({ success: true, totalCount, syncedCount: totalSynced, days }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        if (syncLog) {
+          await supabase.from("imweb_sync_logs")
+            .update({ status: "error", error_message: err instanceof Error ? err.message : String(err), completed_at: new Date().toISOString() })
+            .eq("id", syncLog.id);
+        }
+        throw err;
+      }
+    }
+
+    // === SYNC SINGLE ORDER DETAIL ===
+    if (action === "sync-order-detail") {
+      const body = await req.json();
+      const orderNo = firstText(body.orderNo, body.imweb_order_no);
+      if (!orderNo) {
+        return new Response(JSON.stringify({ error: "orderNo required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const result = await imwebGet(imwebToken, `/orders/${encodeURIComponent(orderNo)}`);
+      if (result.statusCode && result.statusCode !== 200) {
+        throw new Error(`Order detail failed: ${JSON.stringify(result)}`);
+      }
+
+      const order = isRecord(result.data) ? result.data : isRecord(result) ? result : {};
+      const upsertRow = buildImwebOrderUpsert({ ...order, orderNo });
+      await supabase.from("imweb_orders").upsert(upsertRow, { onConflict: "imweb_order_no" });
+
+      return new Response(JSON.stringify({ success: true, order: upsertRow }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // === UPDATE STOCK ===
-    if (action === "update-stock") {
+    if (action === "update-stock" || action === "update-product-stock") {
       const body = await req.json();
       const { prodNo, stockQty } = body;
       if (!prodNo || stockQty === undefined) {
@@ -695,6 +959,14 @@ serve(async (req) => {
       await supabase.from("imweb_products")
         .update({ stock_qty: stockQty, synced_at: new Date().toISOString() })
         .eq("imweb_prod_no", String(prodNo));
+
+      await authContext.supabaseAdmin.from("inventory_action_logs").insert({
+        actor_id: userId,
+        action_type: "update_product_stock",
+        target_type: "imweb_product",
+        imweb_prod_no: String(prodNo),
+        metadata: { stockQty },
+      });
 
       return new Response(JSON.stringify({ success: true, result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

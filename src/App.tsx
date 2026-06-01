@@ -57,6 +57,7 @@ const QuoteTemplateManagementPage = lazy(() => import("./pages/QuoteTemplateMana
 const TaxInvoicesPage = lazy(() => import("./pages/TaxInvoicesPage"));
 const SampleChipInventoryPage = lazy(() => import("./pages/SampleChipInventoryPage"));
 const ImwebManagementPage = lazy(() => import("./pages/ImwebManagementPage"));
+const InventoryOpsPage = lazy(() => import("./pages/InventoryOpsPage"));
 const ExhibitionManagementPage = lazy(() => import("./pages/ExhibitionManagementPage"));
 const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
 const ReferencePage = lazy(() => import("./pages/ReferencePage"));
@@ -140,6 +141,7 @@ const App = () => (
               <Route path="/tax-invoices" element={<S><TaxInvoicesPage /></S>} />
               <Route path="/sample-chip-inventory" element={<SampleChipInventoryPage />} />
               <Route path="/imweb-management" element={<G><ImwebManagementPage /></G>} />
+              <Route path="/inventory-ops" element={<G><InventoryOpsPage /></G>} />
               <Route path="/exhibition-management" element={<G><ExhibitionManagementPage /></G>} />
               <Route path="/portfolio" element={<G><PortfolioPage /></G>} />
               <Route path="/references" element={<G><ReferencePage /></G>} />
