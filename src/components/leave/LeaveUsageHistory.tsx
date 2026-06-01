@@ -13,9 +13,10 @@ interface LeaveUsageHistoryProps {
   requests: LeaveRequest[];
   currentUserId: string;
   onCancel: (id: string) => Promise<void>;
+  compact?: boolean;
 }
 
-const LeaveUsageHistory: React.FC<LeaveUsageHistoryProps> = ({ requests, currentUserId, onCancel }) => {
+const LeaveUsageHistory: React.FC<LeaveUsageHistoryProps> = ({ requests, currentUserId, onCancel, compact = false }) => {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [includeRejected, setIncludeRejected] = useState(false);
@@ -45,8 +46,8 @@ const LeaveUsageHistory: React.FC<LeaveUsageHistoryProps> = ({ requests, current
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">사용한 기록</h2>
+      <div className={compact ? 'mb-3 flex flex-col gap-2' : 'flex items-center justify-between mb-4'}>
+        {!compact && <h2 className="text-lg font-semibold">사용한 기록</h2>}
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
             반려 기록 포함
@@ -74,18 +75,18 @@ const LeaveUsageHistory: React.FC<LeaveUsageHistoryProps> = ({ requests, current
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-lg bg-muted/30 border py-12 flex flex-col items-center justify-center text-muted-foreground">
+        <div className={compact ? 'rounded-lg bg-muted/30 border py-8 flex flex-col items-center justify-center text-muted-foreground' : 'rounded-lg bg-muted/30 border py-12 flex flex-col items-center justify-center text-muted-foreground'}>
           <Info className="h-6 w-6 mb-2" />
           <p className="text-sm">예정된 휴가가 없습니다.</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className={compact ? 'space-y-2' : 'space-y-3'}>
           {filtered.map(req => {
             const status = LEAVE_STATUS[req.status] || LEAVE_STATUS.pending;
             const canCancelReq = req.user_id === currentUserId && req.status === 'pending';
 
             return (
-              <div key={req.id} className="border rounded-lg p-4 flex items-center justify-between gap-3">
+              <div key={req.id} className={compact ? 'border rounded-lg p-3 flex items-start justify-between gap-3' : 'border rounded-lg p-4 flex items-center justify-between gap-3'}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <Badge variant="outline" className="text-xs">{getLeaveLabel(req.leave_type)}</Badge>

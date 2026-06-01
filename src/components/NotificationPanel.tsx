@@ -135,6 +135,7 @@ const NotificationPanel = ({
       case 'quote_modified':
         return <Edit className="h-4 w-4 text-accent" />;
       case 'leave_request':
+      case 'attendance_correction_request':
         return <CalendarDays className="h-4 w-4 text-yellow-500" />;
       case 'leave_approved':
         return <CalendarCheck className="h-4 w-4 text-green-500" />;
@@ -172,6 +173,7 @@ const NotificationPanel = ({
       notification.type === 'leave_request'
       || notification.type === 'leave_approved'
       || notification.type === 'leave_rejected'
+      || notification.type === 'attendance_correction_request'
       || notification.type === 'leave_expiry_warning'
       || notification.type === 'leave_promotion_summary'
       || notification.type === 'peer_feedback'
@@ -195,6 +197,7 @@ const NotificationPanel = ({
       case 'leave_request':
       case 'leave_approved':
       case 'leave_rejected':
+      case 'attendance_correction_request':
       case 'leave_expiry_warning':
       case 'leave_promotion_summary': return '근태';
       case 'peer_feedback':
@@ -531,14 +534,14 @@ const NotificationPanel = ({
                       </Button>
                     )}
 
-                    {(notification.type === 'leave_request' || notification.type === 'leave_approved' || notification.type === 'leave_rejected') && (
+                    {(notification.type === 'leave_request' || notification.type === 'leave_approved' || notification.type === 'leave_rejected' || notification.type === 'attendance_correction_request') && (
                       <Button
                         size="sm"
                         variant="outline"
                         className="h-7 text-xs"
                         onClick={() => {
                           onRemove(notification.id);
-                          navigate('/leave-management');
+                          navigate(notification.type === 'attendance_correction_request' ? '/attendance' : '/leave-management');
                           setOpen(false);
                         }}
                       >

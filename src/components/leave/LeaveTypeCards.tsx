@@ -4,11 +4,13 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Loader2, CalendarDays, Heart, Baby, Gem, Sparkles, AlertTriangle, Sun, Mail, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Loader2, CalendarDays, Heart, Baby, Gem, Sparkles, AlertTriangle, Sun, Mail, ChevronLeft, ChevronRight, ChevronDown, X } from 'lucide-react';
 import { calculateBusinessDays } from '@/hooks/useLeaveRequests';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isWeekend, isWithinInterval, isBefore, isAfter } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { LeavePolicy } from '@/hooks/useLeavePolicy';
+import { cn } from '@/lib/utils';
 
 export interface LeaveTypeConfig {
   key: string;
@@ -21,6 +23,9 @@ export interface LeaveTypeConfig {
 
 export const EXTENDED_LEAVE_TYPES: LeaveTypeConfig[] = [
   { key: 'annual', label: '연차', description: '1일', icon: CalendarDays, isPaid: true },
+  { key: 'half_am', label: '오전 반차', description: '0.5일', icon: CalendarDays, isHalf: true, isPaid: true },
+  { key: 'half_pm', label: '오후 반차', description: '0.5일', icon: CalendarDays, isHalf: true, isPaid: true },
+  { key: 'other', label: '기타', description: '직접 사유 입력', icon: CalendarDays },
   { key: 'family_care', label: '가족돌봄', description: '신청 시 1일 부여', icon: Heart },
   { key: 'infertility', label: '난임 치료', description: '매년 6일 부여', icon: Baby },
   { key: 'marriage_self', label: '결혼 - 본인', description: '신청 시 2일 부여', icon: Gem },
@@ -30,11 +35,11 @@ export const EXTENDED_LEAVE_TYPES: LeaveTypeConfig[] = [
   { key: 'summer', label: '여름(바캉스)', description: '매년 3일 부여', icon: Sun },
   { key: 'condolence_close', label: '조의 - 부모/배우자/자녀', description: '신청 시 5일 부여', icon: Mail },
   { key: 'condolence_extended', label: '조의 - 조부모/형제/자매', description: '신청 시 3일 부여', icon: Mail },
-  { key: 'half_am', label: '오전 반차', description: '0.5일', icon: CalendarDays, isHalf: true, isPaid: true },
-  { key: 'half_pm', label: '오후 반차', description: '0.5일', icon: CalendarDays, isHalf: true, isPaid: true },
   { key: 'sick', label: '병가', description: '신청 시 부여', icon: AlertTriangle },
   { key: 'unpaid', label: '무급휴가', description: '신청 시 부여', icon: CalendarDays },
 ];
+
+const QUICK_LEAVE_KEYS = new Set(['annual', 'half_am', 'half_pm', 'other']);
 
 interface LeaveTypeCardsProps {
   onSubmit: (params: {
@@ -53,6 +58,7 @@ const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 const LeaveTypeCards: React.FC<LeaveTypeCardsProps> = ({ onSubmit, remainingDays, leavePolicy, canRequest }) => {
   const [selectedType, setSelectedType] = useState<LeaveTypeConfig | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [step, setStep] = useState<'calendar' | 'reason'>('calendar');
   const [rangeStart, setRangeStart] = useState<Date | null>(null);
   const [rangeEnd, setRangeEnd] = useState<Date | null>(null);
@@ -176,35 +182,66 @@ const LeaveTypeCards: React.FC<LeaveTypeCardsProps> = ({ onSubmit, remainingDays
   };
 
   const nextMonth = addMonths(calendarMonth, 1);
+  const quickTypes = EXTENDED_LEAVE_TYPES.filter(type => QUICK_LEAVE_KEYS.has(type.key));
+  const detailTypes = EXTENDED_LEAVE_TYPES.filter(type => !QUICK_LEAVE_KEYS.has(type.key));
+  const renderLeaveTypeCard = (type: LeaveTypeConfig, compact = false) => {
+    const Icon = type.icon;
+    return (
+      <Card
+        key={type.key}
+        className={cn(
+          'cursor-pointer border bg-background/80 transition-all hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm',
+          compact ? 'p-3' : 'p-4'
+        )}
+        onClick={() => {
+          setSelectedType(type);
+          setStep('calendar');
+          setCalendarMonth(new Date());
+        }}
+      >
+        <div className={cn('flex gap-3', compact ? 'items-center' : 'flex-col')}>
+          <div className={cn(
+            'flex shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/5 text-primary',
+            compact ? 'h-8 w-8' : 'h-10 w-10'
+          )}>
+            <Icon className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{type.label}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{type.description}</p>
+          </div>
+        </div>
+      </Card>
+    );
+  };
 
   return (
     <>
       <div>
-        <h2 className="text-lg font-semibold mb-4">휴가 등록</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {EXTENDED_LEAVE_TYPES.map((type) => {
-            const Icon = type.icon;
-            return (
-              <Card
-                key={type.key}
-                className="p-4 cursor-pointer hover:border-primary/50 hover:shadow-sm transition-all group relative"
-                onClick={() => {
-                  setSelectedType(type);
-                  setStep('calendar');
-                  setCalendarMonth(new Date());
-                }}
-              >
-                <div className="flex flex-col gap-3">
-                  <Icon className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
-                  <div>
-                    <p className="text-sm font-medium">{type.label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{type.description}</p>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+        <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold">빠른 휴가 신청</h2>
+            <p className="text-sm text-muted-foreground">자주 쓰는 유형만 먼저 고르고, 상세 유형은 필요할 때 펼칩니다.</p>
+          </div>
+          <div className="text-xs text-muted-foreground">잔여 {remainingDays.toFixed(1)}일</div>
         </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {quickTypes.map(type => renderLeaveTypeCard(type))}
+        </div>
+
+        <Collapsible open={detailOpen} onOpenChange={setDetailOpen} className="mt-4">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-1 px-0 text-muted-foreground">
+              상세 휴가 유형
+              <ChevronDown className={cn('h-4 w-4 transition-transform', detailOpen && 'rotate-180')} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {detailTypes.map(type => renderLeaveTypeCard(type, true))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       <Dialog open={!!selectedType} onOpenChange={(open) => !open && handleClose()}>

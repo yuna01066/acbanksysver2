@@ -16,7 +16,11 @@ import {
 } from '@/utils/engagement';
 import { triggerHamzzi } from '@/lib/hamzziEvents';
 
-const QuickAttendanceButton = () => {
+interface QuickAttendanceButtonProps {
+  onAttendanceChanged?: () => void;
+}
+
+const QuickAttendanceButton = ({ onAttendanceChanged }: QuickAttendanceButtonProps = {}) => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const [todayRecord, setTodayRecord] = useState<any>(null);
@@ -156,6 +160,7 @@ const QuickAttendanceButton = () => {
         message: '출근 기록 완료. 오늘 업무 시작합니다.',
         description: streakCopy || undefined,
       });
+      onAttendanceChanged?.();
     } catch (e: any) {
       toast.error('출근 기록 실패: ' + (e.message || ''));
     } finally {
@@ -184,6 +189,7 @@ const QuickAttendanceButton = () => {
       toast.success('퇴근이 기록되었습니다.');
       triggerHamzzi('attendance_check_out');
       fetchTodayRecord();
+      onAttendanceChanged?.();
     } catch (e: any) {
       toast.error('퇴근 기록 실패: ' + (e.message || ''));
     } finally {

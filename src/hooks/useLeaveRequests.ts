@@ -29,6 +29,7 @@ export const LEAVE_TYPES: Record<string, string> = {
   sick: '병가',
   special: '특별휴가',
   unpaid: '무급휴가',
+  other: '기타',
   family_care: '가족돌봄',
   infertility: '난임 치료',
   marriage_self: '결혼 - 본인',
