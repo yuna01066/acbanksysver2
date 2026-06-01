@@ -1,6 +1,6 @@
 # Channel Talk Webhook
 
-Receives Channel Talk user chat message webhooks, detects customer file attachments, runs quote-oriented AI analysis, stores the result in `channel_talk_quote_leads`, and posts a private summary back to the Channel Talk user chat.
+Receives Channel Talk user chat message webhooks, stores customer messages in `channel_talk_messages`, detects customer file attachments, runs quote-oriented AI analysis, stores the result in `channel_talk_quote_leads`, and posts a private summary back to the Channel Talk user chat when files are analyzed.
 
 ## Webhook URL
 
@@ -32,5 +32,17 @@ SUPABASE_SERVICE_ROLE_KEY
 
 - The function ignores manager and bot messages to avoid loops.
 - Summary messages are sent with Channel Talk `private` and `silent` options, so they are intended for internal staff review.
+- Text-only customer messages are stored as leads without automatic customer replies.
 - JPG/PNG/WebP image attachments and PDFs are analyzed directly.
 - AI/CAD/DXF/DWG/EPS and other source files are treated as originals for manual review; the bot asks for a PDF/JPG/PNG preview file for faster automatic analysis.
+
+## Internal reply actions
+
+The `channel-talk-actions` function is JWT protected and supports:
+
+- `send_private_note`: sends a private/silent Channel Talk memo.
+- `send_customer_reply`: sends a staff-confirmed customer-visible reply.
+- `refresh_messages`: syncs recent UserChat messages into `channel_talk_messages`.
+- `mark_lead_closed`: closes the internal lead.
+
+All actions are written to `channel_talk_action_logs`.

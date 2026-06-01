@@ -24,7 +24,7 @@ type ChannelTalkInquiry = {
   created_at: string;
 };
 
-const ACTIVE_STATUSES = ['new', 'needs_review', 'analyzed'];
+const ACTIVE_STATUSES = ['new', 'needs_review', 'reply_draft', 'waiting_customer', 'analyzed'];
 
 const statusLabel = (status: string) => {
   switch (status) {
@@ -32,6 +32,10 @@ const statusLabel = (status: string) => {
       return { label: '신규', className: 'border-sky-200 bg-sky-50 text-sky-700' };
     case 'needs_review':
       return { label: '검토 필요', className: 'border-amber-200 bg-amber-50 text-amber-700' };
+    case 'reply_draft':
+      return { label: '답변 초안', className: 'border-violet-200 bg-violet-50 text-violet-700' };
+    case 'waiting_customer':
+      return { label: '답변 대기', className: 'border-indigo-200 bg-indigo-50 text-indigo-700' };
     case 'analyzed':
       return { label: '분석 완료', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' };
     default:
