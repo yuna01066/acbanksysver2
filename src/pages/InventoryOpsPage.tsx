@@ -312,9 +312,29 @@ const InventoryOpsPage: React.FC = () => {
       body: JSON.stringify(body || {}),
     });
     const result = await res.json();
-    if (!res.ok) throw new Error(result.error || '아임웹 API 호출에 실패했습니다.');
+    if (!res.ok) {
+      const err: Error & { notConnected?: boolean } = new Error(result.error || '아임웹 API 호출에 실패했습니다.');
+      if (result.notConnected) err.notConnected = true;
+      throw err;
+    }
     return result;
   };
+
+  const { data: imwebConnection } = useQuery({
+    queryKey: ['imweb-connection-status', user?.id],
+    enabled: Boolean(user) && canManage,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) return { connected: false };
+      const res = await fetch(`${IMWEB_API_URL}?action=check-connection`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const json = await res.json().catch(() => ({ connected: false }));
+      return { connected: Boolean(json?.connected) };
+    },
+  });
+  const isImwebConnected = imwebConnection?.connected === true;
 
   const { data = emptyData, isLoading } = useQuery({
     queryKey: ['inventory-ops', canManage, user?.id, dateRange],
