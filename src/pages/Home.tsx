@@ -12,7 +12,7 @@ import DailyQuoteCard from '@/components/DailyQuoteCard';
 import ActivityFeedCard from '@/components/ActivityFeedCard';
 import TodayWorkCard from '@/components/TodayWorkCard';
 import ChannelTalkInquiryCard from '@/components/ChannelTalkInquiryCard';
-import DashboardMeetingBookingCard from '@/components/DashboardMeetingBookingCard';
+import DashboardQuoteFollowUpCard from '@/components/DashboardQuoteFollowUpCard';
 import ImwebTopItemsCard from '@/components/ImwebTopItemsCard';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -397,7 +397,7 @@ const Home = () => {
             </div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)_minmax(320px,0.9fr)]">
               <TodayWorkCard notifications={notifications} />
-              <DashboardMeetingBookingCard />
+              <DashboardQuoteFollowUpCard />
               <ChannelTalkInquiryCard />
             </div>
             <DashboardCalendarPanel />
