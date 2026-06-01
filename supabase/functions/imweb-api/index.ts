@@ -487,7 +487,8 @@ serve(async (req) => {
       }
 
       // The redirect URI must match exactly what was used in the authorize request
-      const redirectUri = `${supabaseUrl}/functions/v1/imweb-api?action=oauth-callback`;
+      const redirectUri = `${supabaseUrl}/functions/v1/imweb-api/oauth-callback`;
+
 
       const tokenBody = new URLSearchParams({
         clientId,
