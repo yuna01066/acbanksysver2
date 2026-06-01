@@ -271,9 +271,8 @@ const DashboardCalendarPanel = () => {
                         <button
                           type="button"
                           className={cn(
-                            'min-h-[70px] border-[#e5e5e5] p-1.5 text-left transition-colors hover:bg-[#fafafa] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111] focus-visible:ring-offset-1',
+                            'min-h-[70px] border-b border-[#e5e5e5] p-1.5 text-left transition-colors hover:bg-[#fafafa] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111] focus-visible:ring-offset-1',
                             (index + 1) % 7 !== 0 && 'border-r',
-                            index < days.length - 7 && 'border-b',
                             !isSameMonth(day, calendarMonth) && 'bg-[#fafafa] text-[#9e9ea0]',
                             hasHoliday && 'bg-red-500/10 hover:bg-red-500/15',
                           )}
