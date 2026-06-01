@@ -56,6 +56,7 @@ const hrNotificationTypes = new Set([
   'leave_rejected',
   'leave_expiry_warning',
   'leave_promotion_summary',
+  'attendance_correction_request',
   'peer_feedback',
   'performance_review_summary',
   'contract_request',

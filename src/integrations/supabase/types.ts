@@ -276,6 +276,68 @@ export type Database = {
         }
         Relationships: []
       }
+      attendance_correction_requests: {
+        Row: {
+          attendance_record_id: string | null
+          created_at: string
+          date: string
+          handled_at: string | null
+          handled_by: string | null
+          handled_memo: string | null
+          id: string
+          reason: string
+          request_type: string
+          requested_check_in: string | null
+          requested_check_out: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          attendance_record_id?: string | null
+          created_at?: string
+          date: string
+          handled_at?: string | null
+          handled_by?: string | null
+          handled_memo?: string | null
+          id?: string
+          reason: string
+          request_type: string
+          requested_check_in?: string | null
+          requested_check_out?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          attendance_record_id?: string | null
+          created_at?: string
+          date?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          handled_memo?: string | null
+          id?: string
+          reason?: string
+          request_type?: string
+          requested_check_in?: string | null
+          requested_check_out?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_correction_requests_attendance_record_id_fkey"
+            columns: ["attendance_record_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_event_participants: {
         Row: {
           created_at: string

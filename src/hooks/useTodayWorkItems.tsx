@@ -99,6 +99,9 @@ export function getNotificationPath(notification: AppNotification): string {
   if (notification.type === 'contract_request' || notification.type === 'contract_signed' || notification.type === 'contract_rejected') {
     return '/my-page?tab=contracts';
   }
+  if (notification.type === 'attendance_correction_request') {
+    return '/attendance';
+  }
   if (notification.type === 'leave_request' || notification.type === 'leave_approved' || notification.type === 'leave_rejected') {
     return '/leave-management';
   }
@@ -315,7 +318,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
     const items: TodayWorkItem[] = [];
 
     unreadNotifications.forEach((notification) => {
-      const urgent = notification.type === 'leave_request' || notification.type === 'password_reset' || notification.type === 'pending_approval';
+      const urgent = notification.type === 'leave_request' || notification.type === 'attendance_correction_request' || notification.type === 'password_reset' || notification.type === 'pending_approval';
       items.push({
         id: notification.id,
         category: 'notification',
