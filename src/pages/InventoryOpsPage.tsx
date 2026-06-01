@@ -656,10 +656,11 @@ const InventoryOpsPage: React.FC = () => {
               <Button
                 className="rounded-full bg-foreground text-background hover:bg-foreground/90"
                 onClick={() => syncOrdersMutation.mutate()}
-                disabled={syncOrdersMutation.isPending}
+                disabled={syncOrdersMutation.isPending || !isImwebConnected}
+                title={!isImwebConnected ? '아임웹 연결이 필요합니다' : undefined}
               >
                 {syncOrdersMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                주문 증분 동기화
+                {isImwebConnected ? '주문 증분 동기화' : '아임웹 연결 필요'}
               </Button>
             )}
           </div>
