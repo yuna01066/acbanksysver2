@@ -222,6 +222,7 @@ const ResponseAssistantPage = () => {
 
   const selectedDraftText = generated?.draft.drafts_by_tone?.[activeTone] || '';
   const selectedRisk = generated ? riskInfo(generated.case.risk_level) : null;
+  const channelLeadId = param(searchParams, 'channel_lead_id');
 
   const generateDraft = useMutation({
     mutationFn: async () => {
@@ -249,12 +250,34 @@ const ResponseAssistantPage = () => {
       if (data?.error) throw new Error(data.error);
       return data as GeneratedResult;
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       setGenerated(result);
       const nextText = result.draft.drafts_by_tone?.firm || '';
       setActiveTone('firm');
       setEditableFinalText(nextText);
       queryClient.invalidateQueries({ queryKey: ['response-cases-recent'] });
+      if (channelLeadId && user?.id && nextText) {
+        try {
+          const { error: draftError } = await supabase
+            .from('channel_talk_reply_drafts' as any)
+            .insert({
+              lead_id: channelLeadId,
+              created_by: user.id,
+              updated_by: user.id,
+              body: nextText,
+              status: 'draft',
+            });
+          if (draftError) throw draftError;
+          const { error: leadError } = await supabase
+            .from('channel_talk_quote_leads')
+            .update({ status: 'reply_draft' })
+            .eq('id', channelLeadId);
+          if (leadError) throw leadError;
+          queryClient.invalidateQueries({ queryKey: ['channel-talk-leads'] });
+        } catch (error) {
+          toast.error(`채널톡 초안 연결 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+        }
+      }
       toast.success('응대 초안이 생성되었습니다.');
     },
     onError: (error: Error) => toast.error('초안 생성 실패: ' + error.message),

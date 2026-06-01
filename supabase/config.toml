@@ -51,6 +51,9 @@ verify_jwt = false
 [functions.channel-talk-webhook]
 verify_jwt = false
 
+[functions.channel-talk-actions]
+verify_jwt = true
+
 [functions.generate-response-draft]
 verify_jwt = true
 
