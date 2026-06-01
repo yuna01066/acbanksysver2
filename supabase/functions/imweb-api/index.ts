@@ -108,15 +108,6 @@ async function imwebGet(token: string, path: string, params?: Record<string, str
   return res.json();
 }
 
-async function imwebPatch(token: string, path: string, body: Record<string, unknown>) {
-  const res = await fetch(`${IMWEB_API_BASE}${path}`, {
-    method: "PATCH",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return res.json();
-}
-
 type JsonRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -1030,31 +1021,10 @@ serve(async (req) => {
 
     // === UPDATE STOCK ===
     if (action === "update-stock" || action === "update-product-stock") {
-      const body = await req.json();
-      const { prodNo, stockQty } = body;
-      if (!prodNo || stockQty === undefined) {
-        return new Response(JSON.stringify({ error: "prodNo and stockQty required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const result = await imwebPatch(imwebToken, `/products/${prodNo}/stock-info`, { stockQty });
-
-      await supabase
-        .from("imweb_products")
-        .update({ stock_qty: stockQty, synced_at: new Date().toISOString() })
-        .eq("imweb_prod_no", String(prodNo));
-
-      await authContext.supabaseAdmin.from("inventory_action_logs").insert({
-        actor_id: userId,
-        action_type: "update_product_stock",
-        target_type: "imweb_product",
-        imweb_prod_no: String(prodNo),
-        metadata: { stockQty },
-      });
-
-      return new Response(JSON.stringify({ success: true, result }), {
+      return new Response(JSON.stringify({
+        error: "승인 안정형 설정으로 아임웹 상품 재고 수정은 비활성화되었습니다. product:write 권한 없이 product:read/order:read만 사용합니다.",
+      }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

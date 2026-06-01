@@ -277,8 +277,6 @@ const InventoryOpsPage: React.FC = () => {
   const [selectedDetail, setSelectedDetail] = useState<SelectedDetail | null>(null);
   const [linkOrder, setLinkOrder] = useState<ImwebOrder | null>(null);
   const [mappingProduct, setMappingProduct] = useState<ImwebProduct | null>(null);
-  const [stockProduct, setStockProduct] = useState<ImwebProduct | null>(null);
-  const [stockQty, setStockQty] = useState('');
   const [linkDraft, setLinkDraft] = useState({
     recipientId: '',
     quoteId: '',
@@ -492,22 +490,6 @@ const InventoryOpsPage: React.FC = () => {
     onSuccess: () => {
       toast.success('상품 매핑이 저장되었습니다.');
       setMappingProduct(null);
-      queryClient.invalidateQueries({ queryKey: ['inventory-ops'] });
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
-
-  const stockMutation = useMutation({
-    mutationFn: async () => {
-      if (!stockProduct) throw new Error('상품을 선택해주세요.');
-      return callImwebApi('update-product-stock', {
-        prodNo: stockProduct.imweb_prod_no,
-        stockQty: Number(stockQty || 0),
-      });
-    },
-    onSuccess: () => {
-      toast.success('아임웹 상품 재고를 수정했습니다.');
-      setStockProduct(null);
       queryClient.invalidateQueries({ queryKey: ['inventory-ops'] });
     },
     onError: (error: Error) => toast.error(error.message),
@@ -774,10 +756,6 @@ const InventoryOpsPage: React.FC = () => {
                       sampleChips={data.sampleChips}
                       onSelect={setSelectedDetail}
                       onMap={canManage ? openMappingDialog : undefined}
-                      onStockEdit={canManage ? (product) => {
-                        setStockProduct(product);
-                        setStockQty(String(product.stock_qty ?? 0));
-                      } : undefined}
                     />
                   </TabsContent>
 
@@ -961,28 +939,6 @@ const InventoryOpsPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(stockProduct)} onOpenChange={(open) => !open && setStockProduct(null)}>
-        <DialogContent className="max-w-sm border-border bg-white">
-          <DialogHeader>
-            <DialogTitle>아임웹 재고 수정</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-foreground">{stockProduct?.name}</p>
-            <div className="space-y-2">
-              <Label>재고 수량</Label>
-              <Input type="number" value={stockQty} onChange={(event) => setStockQty(event.target.value)} className="rounded-lg border-border bg-white" />
-            </div>
-            <p className="text-xs text-muted-foreground">아임웹 상품 재고가 실제로 수정됩니다. 배송/환불 처리는 아임웹 관리자에서 진행하세요.</p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" className="rounded-full" onClick={() => setStockProduct(null)}>취소</Button>
-            <Button className="rounded-full bg-foreground text-background hover:bg-foreground/90" onClick={() => stockMutation.mutate()} disabled={stockMutation.isPending}>
-              {stockMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              수정
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </main>
   );
 };
@@ -1098,14 +1054,12 @@ function StockTable({
   sampleChips,
   onSelect,
   onMap,
-  onStockEdit,
 }: {
   products: ImwebProduct[];
   mappings: Map<string, ProductMapping>;
   sampleChips: SampleChipItem[];
   onSelect: (selected: SelectedDetail) => void;
   onMap?: (product: ImwebProduct) => void;
-  onStockEdit?: (product: ImwebProduct) => void;
 }) {
   return (
     <div className="grid gap-4 p-4 xl:grid-cols-2">
@@ -1150,9 +1104,6 @@ function StockTable({
                       <div className="flex justify-end gap-1">
                         {onMap && (
                           <Button variant="outline" size="sm" className="h-8 rounded-full" onClick={(event) => { event.stopPropagation(); onMap(product); }}>매핑</Button>
-                        )}
-                        {onStockEdit && (
-                          <Button variant="ghost" size="sm" className="h-8 rounded-full" onClick={(event) => { event.stopPropagation(); onStockEdit(product); }}>재고</Button>
                         )}
                       </div>
                     </TableCell>
