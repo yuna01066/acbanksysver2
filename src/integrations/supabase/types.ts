@@ -614,10 +614,127 @@ export type Database = {
         }
         Relationships: []
       }
+      channel_talk_action_logs: {
+        Row: {
+          action: string
+          channel_message_id: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          lead_id: string | null
+          request_payload: Json
+          requested_by: string | null
+          response_payload: Json
+          sender_name: string | null
+          status: string
+          visible_sender_name: string | null
+        }
+        Insert: {
+          action: string
+          channel_message_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          request_payload?: Json
+          requested_by?: string | null
+          response_payload?: Json
+          sender_name?: string | null
+          status: string
+          visible_sender_name?: string | null
+        }
+        Update: {
+          action?: string
+          channel_message_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          request_payload?: Json
+          requested_by?: string | null
+          response_payload?: Json
+          sender_name?: string | null
+          status?: string
+          visible_sender_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_talk_action_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "channel_talk_quote_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_talk_action_logs_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channel_talk_messages: {
+        Row: {
+          body: string | null
+          created_at: string
+          event_id: string | null
+          file_keys: string[]
+          id: string
+          lead_id: string | null
+          message_id: string | null
+          message_type: string
+          raw_payload: Json
+          received_at: string
+          sender_type: string
+          updated_at: string
+          user_chat_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          event_id?: string | null
+          file_keys?: string[]
+          id?: string
+          lead_id?: string | null
+          message_id?: string | null
+          message_type?: string
+          raw_payload?: Json
+          received_at?: string
+          sender_type?: string
+          updated_at?: string
+          user_chat_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          event_id?: string | null
+          file_keys?: string[]
+          id?: string
+          lead_id?: string | null
+          message_id?: string | null
+          message_type?: string
+          raw_payload?: Json
+          received_at?: string
+          sender_type?: string
+          updated_at?: string
+          user_chat_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_talk_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "channel_talk_quote_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_talk_quote_leads: {
         Row: {
           analysis: Json
           assigned_to: string | null
+          channel_talk_event_id: string | null
           channel_talk_file_keys: string[]
           channel_talk_message_id: string | null
           channel_talk_user_chat_id: string
@@ -641,6 +758,7 @@ export type Database = {
         Insert: {
           analysis?: Json
           assigned_to?: string | null
+          channel_talk_event_id?: string | null
           channel_talk_file_keys?: string[]
           channel_talk_message_id?: string | null
           channel_talk_user_chat_id: string
@@ -664,6 +782,7 @@ export type Database = {
         Update: {
           analysis?: Json
           assigned_to?: string | null
+          channel_talk_event_id?: string | null
           channel_talk_file_keys?: string[]
           channel_talk_message_id?: string | null
           channel_talk_user_chat_id?: string
@@ -704,6 +823,87 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channel_talk_reply_drafts: {
+        Row: {
+          body: string
+          channel_message_id: string | null
+          created_at: string
+          created_by: string
+          id: string
+          lead_id: string
+          reviewed_by: string | null
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          body: string
+          channel_message_id?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          lead_id: string
+          reviewed_by?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          body?: string
+          channel_message_id?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          lead_id?: string
+          reviewed_by?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_talk_reply_drafts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_talk_reply_drafts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "channel_talk_quote_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_talk_reply_drafts_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_talk_reply_drafts_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_talk_reply_drafts_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -6389,7 +6589,15 @@ export type Database = {
         }
         Returns: string
       }
+      can_access_channel_talk_inbox: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_access_feature: { Args: { _feature_key: string }; Returns: boolean }
+      can_manage_channel_talk_lead: {
+        Args: { _lead_id: string; _user_id: string }
+        Returns: boolean
+      }
       check_workplace_distance: {
         Args: { input_lat: number; input_lng: number }
         Returns: {
