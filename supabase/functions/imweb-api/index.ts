@@ -646,7 +646,7 @@ serve(async (req) => {
 
       const redirectUri = `${supabaseUrl}/functions/v1/imweb-api/oauth-callback`;
       const state = appOrigin ? `${appOrigin}/imweb-management` : "/imweb-management";
-      const scope = "product:read product:write order:read";
+      const scope = "product:read order:read";
 
       const authUrl = `${IMWEB_API_BASE}/oauth2/authorize?responseType=code&clientId=${encodeURIComponent(clientId)}&redirectUri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}&siteCode=${encodeURIComponent(siteCode)}`;
 
