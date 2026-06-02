@@ -97,11 +97,104 @@ const EVENT_LABELS: Record<string, string> = {
 const PROBATION_OPTIONS = ['수습 없음', '1개월', '2개월', '3개월', '6개월'];
 const MINIMUM_HOURLY_WAGE_2026 = 10320;
 const MINIMUM_MONTHLY_WAGE_2026 = 2156880;
+const MONTHLY_STANDARD_HOURS_2026 = 209;
+
+type PayBasis = 'monthly' | 'hourly' | 'annual';
+
+const PAY_BASIS_LABELS: Record<PayBasis, string> = {
+  monthly: '월급',
+  hourly: '시급',
+  annual: '연봉',
+};
+
+const PAY_BASIS_OPTIONS: Array<{ value: PayBasis; label: string; helper: string }> = [
+  { value: 'monthly', label: '월급', helper: '월 지급액' },
+  { value: 'hourly', label: '시급', helper: '209시간 환산' },
+  { value: 'annual', label: '연봉', helper: '12개월 환산' },
+];
 
 const formatNumber = (n: number | null | undefined) => {
   if (!n) return '';
   return n.toLocaleString('ko-KR');
 };
+
+const getPayBasis = (draft?: Partial<EmploymentContract> | null): PayBasis => {
+  const rawBasis = String(draft?.wage_basis || '').toLowerCase();
+  if (rawBasis.includes('시급') || rawBasis.includes('hour')) return 'hourly';
+  if (rawBasis.includes('연봉') || rawBasis.includes('annual')) return 'annual';
+  if (rawBasis.includes('월급') || rawBasis.includes('monthly')) return 'monthly';
+  if (draft?.monthly_salary && !draft?.annual_salary) return 'monthly';
+  if (draft?.annual_salary && !draft?.monthly_salary) return 'annual';
+  return 'monthly';
+};
+
+const getMonthlyEquivalent = (draft?: Partial<EmploymentContract> | null) => {
+  if (!draft) return null;
+  if (draft.monthly_salary && draft.monthly_salary > 0) return Math.round(draft.monthly_salary);
+  if (draft.annual_salary && draft.annual_salary > 0) return Math.round(draft.annual_salary / 12);
+  return null;
+};
+
+const getHourlyEquivalent = (draft?: Partial<EmploymentContract> | null) => {
+  if (!draft) return null;
+  const monthlyEquivalent = getMonthlyEquivalent(draft);
+  if (!monthlyEquivalent) return null;
+  return Math.round(monthlyEquivalent / MONTHLY_STANDARD_HOURS_2026);
+};
+
+const getPayInputAmount = (draft?: Partial<EmploymentContract> | null) => {
+  const basis = getPayBasis(draft);
+  if (basis === 'hourly') return getHourlyEquivalent(draft);
+  if (basis === 'annual') {
+    if (draft?.annual_salary && draft.annual_salary > 0) return Math.round(draft.annual_salary);
+    const monthlyEquivalent = getMonthlyEquivalent(draft);
+    return monthlyEquivalent ? monthlyEquivalent * 12 : null;
+  }
+  return getMonthlyEquivalent(draft);
+};
+
+const getPayInputPlaceholder = (basis: PayBasis) => {
+  if (basis === 'hourly') return '예: 10320';
+  if (basis === 'annual') return '예: 30000000';
+  return '예: 2156880';
+};
+
+const buildPayFields = (
+  draft: Partial<EmploymentContract>,
+  basis: PayBasis,
+  amount: number | null,
+): Partial<EmploymentContract> => {
+  if (!amount || amount <= 0) {
+    return {
+      wage_basis: PAY_BASIS_LABELS[basis],
+      annual_salary: null,
+      monthly_salary: null,
+      base_pay: null,
+    };
+  }
+
+  const monthlySalary = basis === 'hourly'
+    ? Math.round(amount * MONTHLY_STANDARD_HOURS_2026)
+    : basis === 'annual'
+      ? Math.round(amount / 12)
+      : Math.round(amount);
+  const annualSalary = basis === 'annual' ? Math.round(amount) : Math.round(monthlySalary * 12);
+  const fixedOvertimePay = Number(draft.fixed_overtime_pay || 0);
+
+  return {
+    wage_basis: PAY_BASIS_LABELS[basis],
+    annual_salary: annualSalary,
+    monthly_salary: monthlySalary,
+    base_pay: Math.max(monthlySalary - fixedOvertimePay, 0) || monthlySalary,
+  };
+};
+
+const normalizePayDraft = (draft: Partial<EmploymentContract>) => (
+  {
+    ...draft,
+    ...buildPayFields(draft, getPayBasis(draft), getPayInputAmount(draft)),
+  }
+);
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return '-';
@@ -258,6 +351,7 @@ const ContractManagement: React.FC = () => {
     work_type: '고정 근무제',
     work_days: '월,화,수,목,금요일',
     pay_day: selectedTemplate?.pay_day || 25,
+    wage_basis: PAY_BASIS_LABELS.monthly,
     other_allowances: [],
   });
 
@@ -312,6 +406,25 @@ const ContractManagement: React.FC = () => {
     });
   };
 
+  const updateDraftPayBasis = (userId: string, basis: PayBasis) => {
+    setDraftContracts((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(userId) || {};
+      const existingAmount = getPayInputAmount(existing);
+      next.set(userId, { ...existing, ...buildPayFields(existing, basis, existingAmount) });
+      return next;
+    });
+  };
+
+  const updateDraftPayAmount = (userId: string, amount: number | null) => {
+    setDraftContracts((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(userId) || {};
+      next.set(userId, { ...existing, ...buildPayFields(existing, getPayBasis(existing), amount) });
+      return next;
+    });
+  };
+
   const validationIssues = useMemo(() => {
     const issues: string[] = [];
     if (!selectedTemplate) issues.push('계약 양식을 선택하세요.');
@@ -336,11 +449,17 @@ const ContractManagement: React.FC = () => {
         issues.push(`${employeeName}: 계약 시작일이 필요합니다.`);
       }
       if (['labor', 'salary'].includes(selectedTemplate?.template_type || '')) {
-        const monthlyEquivalent = draft.monthly_salary
-          || (draft.annual_salary ? Math.floor(draft.annual_salary / 12) : null);
-        if (draft.contract_type !== 'part_time') {
+        const payBasis = getPayBasis(draft);
+        const payInputAmount = getPayInputAmount(draft);
+        const monthlyEquivalent = getMonthlyEquivalent(draft);
+        const hourlyEquivalent = getHourlyEquivalent(draft);
+        if (!payInputAmount) {
+          issues.push(`${employeeName}: 급여 형태와 금액이 필요합니다.`);
+        } else if (payBasis === 'hourly' && (!hourlyEquivalent || hourlyEquivalent < MINIMUM_HOURLY_WAGE_2026)) {
+          issues.push(`${employeeName}: 시급이 2026년 최저임금 시급 ${formatNumber(MINIMUM_HOURLY_WAGE_2026)}원보다 낮습니다.`);
+        } else if (draft.contract_type !== 'part_time') {
           if (!monthlyEquivalent) {
-            issues.push(`${employeeName}: 연봉 또는 월급이 필요합니다.`);
+            issues.push(`${employeeName}: 월 환산 급여가 필요합니다.`);
           } else if (monthlyEquivalent < MINIMUM_MONTHLY_WAGE_2026) {
             issues.push(`${employeeName}: 월 환산액이 2026년 최저임금 월환산액 ${formatNumber(MINIMUM_MONTHLY_WAGE_2026)}원보다 낮습니다.`);
           }
@@ -364,9 +483,12 @@ const ContractManagement: React.FC = () => {
 
   const buildContractPayload = (draft: Partial<EmploymentContract>, status: 'draft' | 'requested') => {
     const employee = employees.find((item) => item.id === draft.user_id);
+    const normalizedDraft = ['labor', 'salary'].includes(selectedTemplate?.template_type || '')
+      ? normalizePayDraft(draft)
+      : draft;
     const rendered_html = renderContractHtml({
       templateContent: selectedTemplateContent,
-      contract: draft,
+      contract: normalizedDraft,
       companyInfo,
       employee,
       companySealUrl: null,
@@ -374,7 +496,7 @@ const ContractManagement: React.FC = () => {
     });
 
     return {
-      ...draft,
+      ...normalizedDraft,
       status,
       template_id: selectedTemplateId,
       template_snapshot: selectedTemplate ? {
@@ -546,6 +668,7 @@ const ContractManagement: React.FC = () => {
     setCalculating(true);
     let calculated = 0;
     for (const [userId, draft] of draftContracts) {
+      if (getPayBasis(draft) !== 'annual') continue;
       if (!draft.annual_salary || draft.annual_salary <= 0) continue;
       try {
         const { data, error } = await supabase.functions.invoke('calculate-salary', {
@@ -565,7 +688,7 @@ const ContractManagement: React.FC = () => {
     }
     setCalculating(false);
     if (calculated > 0) toast.success(`${calculated}명의 급여가 자동 계산되었습니다.`);
-    else toast.info('연봉이 입력된 구성원이 없습니다.');
+    else toast.info('연봉 단위로 입력된 구성원이 없습니다.');
     setSalaryModalOpen(false);
   };
 
@@ -688,7 +811,7 @@ const ContractManagement: React.FC = () => {
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          <table className="w-full min-w-[1500px] border-collapse text-sm">
+          <table className="w-full min-w-[1720px] border-collapse text-sm">
             <thead className="sticky top-0 z-10 bg-white">
               <tr className="border-b border-[#cacacb]">
                 <th className="w-10 px-3 py-2 text-center">
@@ -704,7 +827,9 @@ const ContractManagement: React.FC = () => {
                 <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">수습</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">부서</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">직위</th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">연봉</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">급여 형태</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">급여액</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">월 환산</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">급여일</th>
               </tr>
             </thead>
@@ -712,6 +837,9 @@ const ContractManagement: React.FC = () => {
               {filteredEmployees.map((employee) => {
                 const isSelected = selectedEmployees.has(employee.id);
                 const draft = draftContracts.get(employee.id);
+                const payBasis = getPayBasis(draft);
+                const payInputAmount = getPayInputAmount(draft);
+                const monthlyEquivalent = getMonthlyEquivalent(draft);
                 return (
                   <tr key={employee.id} className={`border-b border-[#e5e5e5] hover:bg-[#fafafa] ${isSelected ? 'bg-[#fafafa]' : 'bg-white'}`}>
                     <td className="px-3 py-2 text-center">
@@ -770,7 +898,42 @@ const ContractManagement: React.FC = () => {
                       {isSelected ? <Input value={draft?.position || ''} onChange={(event) => updateDraft(employee.id, 'position', event.target.value)} className="h-8 w-[110px] text-xs" /> : '-'}
                     </td>
                     <td className="px-3 py-2">
-                      {isSelected ? <Input type="number" value={draft?.annual_salary || ''} onChange={(event) => updateDraft(employee.id, 'annual_salary', Number(event.target.value) || null)} className="h-8 w-[130px] text-xs" placeholder="원" /> : '-'}
+                      {isSelected ? (
+                        <Select value={payBasis} onValueChange={(value) => updateDraftPayBasis(employee.id, value as PayBasis)}>
+                          <SelectTrigger className="h-8 w-[100px] text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {PAY_BASIS_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                <div>
+                                  <div>{option.label}</div>
+                                  <div className="text-[11px] text-[#707072]">{option.helper}</div>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : '-'}
+                    </td>
+                    <td className="px-3 py-2">
+                      {isSelected ? (
+                        <Input
+                          type="number"
+                          value={payInputAmount || ''}
+                          onChange={(event) => updateDraftPayAmount(employee.id, Number(event.target.value) || null)}
+                          className="h-8 w-[130px] text-xs"
+                          placeholder={getPayInputPlaceholder(payBasis)}
+                        />
+                      ) : '-'}
+                    </td>
+                    <td className="px-3 py-2">
+                      {isSelected ? (
+                        <div className="min-w-[118px] text-xs">
+                          <p className="font-medium tabular-nums">{monthlyEquivalent ? `${formatNumber(monthlyEquivalent)}원` : '-'}</p>
+                          {payBasis === 'hourly' && (
+                            <p className="text-[11px] text-[#707072]">월 {MONTHLY_STANDARD_HOURS_2026}시간 기준</p>
+                          )}
+                        </div>
+                      ) : '-'}
                     </td>
                     <td className="px-3 py-2">
                       {isSelected ? <Input type="number" value={draft?.pay_day || 25} onChange={(event) => updateDraft(employee.id, 'pay_day', Number(event.target.value) || 25)} className="h-8 w-[80px] text-xs" /> : '-'}
@@ -801,7 +964,9 @@ const ContractManagement: React.FC = () => {
               <DialogTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> 급여 자동 계산</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <p className="text-sm text-[#707072]">선택한 구성원의 연봉을 입력하면 월급, 기본급, 고정초과근무수당을 자동으로 계산합니다.</p>
+              <p className="text-sm text-[#707072]">
+                연봉 단위로 입력한 구성원만 월급, 기본급, 고정초과근무수당을 자동 계산합니다. 월급/시급 계약은 작성 표에서 직접 입력하면 월 환산액이 자동 반영됩니다.
+              </p>
               <p className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] px-3 py-2 text-xs text-[#707072]">
                 2026년 최저임금 기준: 시급 {formatNumber(MINIMUM_HOURLY_WAGE_2026)}원, 월 환산액 {formatNumber(MINIMUM_MONTHLY_WAGE_2026)}원(주 40시간, 월 209시간 기준)
               </p>
@@ -809,10 +974,19 @@ const ContractManagement: React.FC = () => {
                 <div className="space-y-2">
                   {employees.filter((employee) => selectedEmployees.has(employee.id)).map((employee) => {
                     const draft = draftContracts.get(employee.id);
+                    const payBasis = getPayBasis(draft);
                     return (
                       <div key={employee.id} className="flex items-center gap-2 border-b py-2 last:border-0">
                         <span className="min-w-[90px] text-sm font-medium">{employee.full_name}</span>
-                        <Input type="number" placeholder="연봉 입력" value={draft?.annual_salary || ''} onChange={(event) => updateDraft(employee.id, 'annual_salary', Number(event.target.value) || null)} className="h-8 flex-1 text-sm" />
+                        <Badge variant="outline" className="rounded-full text-[11px]">{PAY_BASIS_LABELS[payBasis]}</Badge>
+                        <Input
+                          type="number"
+                          placeholder={payBasis === 'annual' ? '연봉 입력' : '표에서 직접 입력'}
+                          value={payBasis === 'annual' ? (draft?.annual_salary || '') : ''}
+                          onChange={(event) => updateDraftPayAmount(employee.id, Number(event.target.value) || null)}
+                          disabled={payBasis !== 'annual'}
+                          className="h-8 flex-1 text-sm"
+                        />
                         <span className="text-xs text-[#707072]">원</span>
                       </div>
                     );

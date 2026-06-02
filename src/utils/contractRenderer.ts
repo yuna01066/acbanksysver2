@@ -43,6 +43,38 @@ const formatNumber = (value?: number | string | null) => {
   return n.toLocaleString('ko-KR');
 };
 
+const MONTHLY_STANDARD_HOURS = 209;
+
+const getWageBasisLabel = (contract: Record<string, any>) => {
+  const rawBasis = String(contract.wage_basis || '').trim();
+  const normalizedBasis = rawBasis.toLowerCase();
+  if (normalizedBasis.includes('시급') || normalizedBasis.includes('hour')) return '시급';
+  if (normalizedBasis.includes('연봉') || normalizedBasis.includes('annual')) return '연봉';
+  if (normalizedBasis.includes('월급') || normalizedBasis.includes('monthly')) return '월급';
+  if (rawBasis && rawBasis !== '통상임금') return rawBasis;
+  if (contract.annual_salary && !contract.monthly_salary) return '연봉';
+  return '월급';
+};
+
+const getMonthlySalary = (contract: Record<string, any>) => {
+  if (contract.monthly_salary) return Number(contract.monthly_salary);
+  if (contract.annual_salary) return Math.round(Number(contract.annual_salary) / 12);
+  return null;
+};
+
+const getAnnualSalary = (contract: Record<string, any>) => {
+  if (contract.annual_salary) return Number(contract.annual_salary);
+  const monthlySalary = getMonthlySalary(contract);
+  return monthlySalary ? Math.round(monthlySalary * 12) : null;
+};
+
+const getHourlyWage = (contract: Record<string, any>) => {
+  if (contract.hourly_wage) return Number(contract.hourly_wage);
+  if (getWageBasisLabel(contract) !== '시급') return null;
+  const monthlySalary = getMonthlySalary(contract);
+  return monthlySalary ? Math.round(monthlySalary / MONTHLY_STANDARD_HOURS) : null;
+};
+
 export function contractSignaturePlaceholder() {
   return '<span data-contract-placeholder="구성원직인" style="display:inline-flex;align-items:center;justify-content:center;min-width:120px;min-height:48px;border:1px dashed #94a3b8;border-radius:4px;color:#64748b;font-size:12px;">서명 대기</span>';
 }
@@ -82,8 +114,11 @@ export function buildContractPlaceholderValues(input: ContractRenderInput): Reco
     주소: escapeHtml(employeeAddress),
     전화번호: escapeHtml(employee?.phone || ''),
     이메일: escapeHtml(employee?.email || ''),
-    연봉: escapeHtml(formatNumber(contract.annual_salary)),
-    월급: escapeHtml(formatNumber(contract.monthly_salary)),
+    급여형태: escapeHtml(getWageBasisLabel(contract)),
+    연봉: escapeHtml(formatNumber(getAnnualSalary(contract))),
+    월급: escapeHtml(formatNumber(getMonthlySalary(contract))),
+    시급: escapeHtml(formatNumber(getHourlyWage(contract))),
+    월소정근로시간: escapeHtml(String(MONTHLY_STANDARD_HOURS)),
     기본급: escapeHtml(formatNumber(contract.base_pay)),
     고정연장수당: escapeHtml(formatNumber(contract.fixed_overtime_pay)),
     고정연장시간: escapeHtml(contract.fixed_overtime_hours ?? contract.comprehensive_wage_hours ?? ''),
