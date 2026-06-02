@@ -17,10 +17,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -28,8 +24,9 @@ import { useContractTemplates, useEmploymentContracts, type EmploymentContract }
 import ContractTemplateSettings from './ContractTemplateSettings';
 import ContractPreviewDialog, { type ContractData } from './ContractPreviewDialog';
 import { PREBUILT_TEMPLATES } from './template-editor/prebuiltTemplates';
-import { renderContractHtml } from '@/utils/contractRenderer';
+import { contractDocumentCss, injectCompanySealIntoRenderedHtml, renderContractHtml } from '@/utils/contractRenderer';
 import { evaluateContractTemplateQuality } from '@/utils/contractTemplateQuality';
+import { sanitizeHtml } from '@/utils/sanitizeHtml';
 import { getDownloadUrl } from '@/services/documentFiles';
 
 interface EmployeeForContract {
@@ -246,9 +243,36 @@ const getContractTitle = (contract: EmploymentContract) => (
 
 const contractEventsTable = 'contract_events' as never;
 
-const getErrorMessage = (error: unknown) => (
-  error instanceof Error ? error.message : String(error || '')
-);
+const getErrorMessage = (error: unknown) => {
+  if (!error) return '알 수 없는 오류';
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string') return error;
+
+  if (typeof error === 'object') {
+    const record = error as Record<string, unknown>;
+    const parts = [
+      record.message,
+      record.error_description,
+      record.details,
+      record.hint,
+      record.code ? `code: ${record.code}` : null,
+      record.status ? `status: ${record.status}` : null,
+      record.statusText,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value));
+
+    if (parts.length > 0) return parts.join(' / ');
+
+    try {
+      return JSON.stringify(record);
+    } catch {
+      return Object.prototype.toString.call(error);
+    }
+  }
+
+  return String(error);
+};
 
 const ContractManagement: React.FC = () => {
   const { user, session, isAdmin, isModerator } = useAuth();
@@ -269,6 +293,8 @@ const ContractManagement: React.FC = () => {
   const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [finalReviewEmployeeId, setFinalReviewEmployeeId] = useState<string | null>(null);
+  const [reviewedContractKeys, setReviewedContractKeys] = useState<Set<string>>(new Set());
   const [historySearch, setHistorySearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [fromDate, setFromDate] = useState('');
@@ -569,6 +595,54 @@ const ContractManagement: React.FC = () => {
 
   const validIssueCount = validationItems.filter((issue) => issue.severity === 'error').length;
 
+  const reviewKeysByEmployee = useMemo(() => {
+    const next = new Map<string, string>();
+    for (const draft of selectedDrafts) {
+      if (!draft.user_id) continue;
+      next.set(draft.user_id, JSON.stringify({
+        user_id: draft.user_id,
+        template_id: selectedTemplateId,
+        template_updated_at: selectedTemplate?.updated_at || selectedTemplate?.created_at || null,
+        include_company_seal: includeCompanySeal,
+        company_seal_storage_path: includeCompanySeal ? (companyInfo?.company_seal_storage_path || null) : null,
+        contract_type: draft.contract_type || null,
+        contract_date: draft.contract_date || null,
+        birth_date: draft.birth_date || null,
+        contract_start_date: draft.contract_start_date || null,
+        contract_end_date: draft.contract_end_date || null,
+        probation_period: draft.probation_period || null,
+        department: draft.department || null,
+        position: draft.position || null,
+        work_type: draft.work_type || null,
+        work_days: draft.work_days || null,
+        wage_basis: draft.wage_basis || null,
+        annual_salary: draft.annual_salary || null,
+        monthly_salary: draft.monthly_salary || null,
+        base_pay: draft.base_pay || null,
+        fixed_overtime_pay: draft.fixed_overtime_pay || null,
+        fixed_overtime_hours: draft.fixed_overtime_hours || null,
+        pay_day: draft.pay_day || null,
+      }));
+    }
+    return next;
+  }, [companyInfo?.company_seal_storage_path, includeCompanySeal, selectedDrafts, selectedTemplate?.created_at, selectedTemplate?.updated_at, selectedTemplateId]);
+
+  const reviewedEmployeeIds = useMemo(() => (
+    selectedEditorEmployees
+      .filter((employee) => {
+        const reviewKey = reviewKeysByEmployee.get(employee.id);
+        return Boolean(reviewKey && reviewedContractKeys.has(reviewKey));
+      })
+      .map((employee) => employee.id)
+  ), [reviewKeysByEmployee, reviewedContractKeys, selectedEditorEmployees]);
+
+  const reviewedCount = reviewedEmployeeIds.length;
+  const allContractsReviewed = selectedEditorEmployees.length > 0 && reviewedCount === selectedEditorEmployees.length;
+  const selectedFinalReviewEmployee = selectedEditorEmployees.find((employee) => employee.id === finalReviewEmployeeId) || selectedEditorEmployees[0] || null;
+  const selectedFinalReviewDraft = selectedFinalReviewEmployee ? draftContracts.get(selectedFinalReviewEmployee.id) : null;
+  const selectedFinalReviewKey = selectedFinalReviewEmployee ? reviewKeysByEmployee.get(selectedFinalReviewEmployee.id) : null;
+  const selectedFinalReviewCompleted = Boolean(selectedFinalReviewKey && reviewedContractKeys.has(selectedFinalReviewKey));
+
   const scrollToValidationIssue = (issue: ContractValidationIssue) => {
     setActiveIssueKey(issue.key);
     if (issue.employeeId) {
@@ -638,6 +712,13 @@ const ContractManagement: React.FC = () => {
     };
   };
 
+  const selectedFinalReviewContract = selectedFinalReviewDraft
+    ? (buildContractPayload(selectedFinalReviewDraft, 'requested') as Partial<EmploymentContract>)
+    : null;
+  const selectedFinalReviewHtml = selectedFinalReviewContract?.rendered_html
+    ? sanitizeHtml(injectCompanySealIntoRenderedHtml(selectedFinalReviewContract.rendered_html, companySealUrl))
+    : null;
+
   const openDraftPreview = (employeeId: string) => {
     const draft = draftContracts.get(employeeId);
     if (!draft) return;
@@ -666,20 +747,61 @@ const ContractManagement: React.FC = () => {
       toast.error(validationIssues[0]);
       return;
     }
+    const firstUnreviewed = selectedEditorEmployees.find((employee) => {
+      const reviewKey = reviewKeysByEmployee.get(employee.id);
+      return !reviewKey || !reviewedContractKeys.has(reviewKey);
+    });
+    setFinalReviewEmployeeId((current) => (
+      current && selectedEmployees.has(current)
+        ? current
+        : (firstUnreviewed || selectedEditorEmployees[0])?.id || null
+    ));
     setSendConfirmOpen(true);
   };
 
+  const setSelectedFinalReviewCompleted = (checked: boolean) => {
+    if (!selectedFinalReviewKey) return;
+    setReviewedContractKeys((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(selectedFinalReviewKey);
+      else next.delete(selectedFinalReviewKey);
+      return next;
+    });
+  };
+
+  const markFinalReviewComplete = () => {
+    if (!selectedFinalReviewKey) return;
+    const reviewedKeysAfterClick = new Set(reviewedContractKeys);
+    reviewedKeysAfterClick.add(selectedFinalReviewKey);
+    setReviewedContractKeys(reviewedKeysAfterClick);
+
+    const currentIndex = selectedEditorEmployees.findIndex((employee) => employee.id === selectedFinalReviewEmployee?.id);
+    const orderedEmployees = [
+      ...selectedEditorEmployees.slice(currentIndex + 1),
+      ...selectedEditorEmployees.slice(0, Math.max(currentIndex, 0)),
+    ];
+    const nextUnreviewed = orderedEmployees.find((employee) => {
+      const reviewKey = reviewKeysByEmployee.get(employee.id);
+      return !reviewKey || !reviewedKeysAfterClick.has(reviewKey);
+    });
+    if (nextUnreviewed) setFinalReviewEmployeeId(nextUnreviewed.id);
+  };
+
   const handleRequest = async () => {
-    if (!user || validationIssues.length > 0) return;
+    if (!user || validationIssues.length > 0 || !allContractsReviewed) return;
     setSaving(true);
+    let requestStage = '계약 저장';
+    let contractsToSave: Partial<EmploymentContract>[] = [];
+    let createdContracts: EmploymentContract[] = [];
     try {
-      const contractsToSave = selectedDrafts.map((draft) => ({
+      contractsToSave = selectedDrafts.map((draft) => ({
         ...buildContractPayload(draft, 'requested'),
         requested_by: user.id,
         requested_at: new Date().toISOString(),
       }));
-      const createdContracts = await bulkCreate(contractsToSave);
+      createdContracts = await bulkCreate(contractsToSave);
 
+      requestStage = '알림 생성';
       const notifications = createdContracts.map((contract) => ({
         user_id: contract.user_id!,
         type: 'contract_request',
@@ -687,8 +809,12 @@ const ContractManagement: React.FC = () => {
         description: `${contract.user_name}님 앞으로 전자계약서가 발송되었습니다. 마이페이지에서 검토 후 서명해주세요.`,
         data: { contract_id: contract.id, contract_user_name: contract.user_name },
       }));
-      if (notifications.length > 0) await supabase.from('notifications').insert(notifications as never);
+      if (notifications.length > 0) {
+        const { error } = await supabase.from('notifications').insert(notifications as never);
+        if (error) throw error;
+      }
 
+      requestStage = '감사 기록';
       const events = createdContracts.map((contract) => ({
         contract_id: contract.id,
         actor_id: user.id,
@@ -701,15 +827,36 @@ const ContractManagement: React.FC = () => {
           company_seal_included: includeCompanySeal,
         },
       }));
-      if (events.length > 0) await supabase.from(contractEventsTable).insert(events as never);
+      if (events.length > 0) {
+        const { error } = await supabase.from(contractEventsTable).insert(events as never);
+        if (error) throw error;
+      }
 
       toast.success(`${createdContracts.length}명에게 계약을 요청했습니다.`);
       setSendConfirmOpen(false);
       setShowContractEditor(false);
       setSelectedEmployees(new Set());
       setDraftContracts(new Map());
+      setReviewedContractKeys(new Set());
     } catch (error: unknown) {
-      toast.error('요청 실패: ' + getErrorMessage(error));
+      console.error('[ContractManagement] contract request failed', {
+        stage: requestStage,
+        error,
+        selectedCount: selectedDrafts.length,
+        createdCount: createdContracts.length,
+        contractIds: createdContracts.map((contract) => contract.id),
+        payloadSummary: contractsToSave.map((contract) => ({
+          user_id: contract.user_id,
+          user_name: contract.user_name,
+          template_id: contract.template_id,
+          status: contract.status,
+          company_seal_included: contract.company_seal_included,
+        })),
+      });
+      const partialWarning = requestStage !== '계약 저장' && createdContracts.length > 0
+        ? ' 계약은 생성됐을 수 있으니 발송 내역을 확인한 뒤 재시도하세요.'
+        : '';
+      toast.error(`${requestStage} 실패: ${getErrorMessage(error)}${partialWarning}`);
     } finally {
       setSaving(false);
     }
@@ -1297,36 +1444,144 @@ const ContractManagement: React.FC = () => {
           </DialogContent>
         </Dialog>
 
-        <AlertDialog open={sendConfirmOpen} onOpenChange={setSendConfirmOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>전자계약을 발송하시겠습니까?</AlertDialogTitle>
-              <AlertDialogDescription>
-                발송 요약을 확인하세요. 문제가 없을 때만 계약 요청을 보낼 수 있습니다.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="grid gap-2 rounded-lg border bg-[#fafafa] p-3 text-sm sm:grid-cols-2">
-              <p><strong>양식</strong> {selectedTemplate.name}</p>
-              <p><strong>선택 직원</strong> {selectedEmployees.size}명</p>
-              <p><strong>직인</strong> {includeCompanySeal ? '포함' : '미포함'}</p>
-              <p><strong>급여 단위</strong> {selectedPaySummary}</p>
-              <p className="sm:col-span-2"><strong>계약기간</strong> {selectedContractPeriodSummary}</p>
-              <p className="sm:col-span-2"><strong>2026 최저임금</strong> 시급 {formatNumber(MINIMUM_HOURLY_WAGE_2026)}원 / 월환산 {formatNumber(MINIMUM_MONTHLY_WAGE_2026)}원</p>
+        <Dialog open={sendConfirmOpen} onOpenChange={setSendConfirmOpen}>
+          <DialogContent className="flex max-h-[92vh] max-w-[1120px] flex-col gap-0 overflow-hidden p-0">
+            <DialogHeader className="border-b border-[#e5e5e5] px-5 py-4">
+              <DialogTitle>전자계약 최종 검토</DialogTitle>
+              <p className="text-sm text-[#707072]">
+                선택된 직원 계약서를 모두 검토 완료해야 발송할 수 있습니다.
+              </p>
+            </DialogHeader>
+
+            <div className="grid min-h-0 flex-1 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
+              <aside className="min-h-0 border-r border-[#e5e5e5] bg-[#fafafa]">
+                <div className="border-b border-[#e5e5e5] bg-white px-4 py-3">
+                  <p className="text-sm font-semibold">검토 대상</p>
+                  <p className="text-xs text-[#707072]">{reviewedCount}/{selectedEditorEmployees.length}명 검토 완료</p>
+                </div>
+                <ScrollArea className="h-[58vh]">
+                  <div className="space-y-1 p-2">
+                    {selectedEditorEmployees.map((employee) => {
+                      const reviewKey = reviewKeysByEmployee.get(employee.id);
+                      const reviewed = Boolean(reviewKey && reviewedContractKeys.has(reviewKey));
+                      const active = selectedFinalReviewEmployee?.id === employee.id;
+                      return (
+                        <button
+                          key={employee.id}
+                          type="button"
+                          className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${active ? 'border-[#111111] bg-white' : 'border-transparent hover:border-[#e5e5e5] hover:bg-white'}`}
+                          onClick={() => setFinalReviewEmployeeId(employee.id)}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-sm font-medium">{employee.full_name}</span>
+                            <Badge variant="outline" className={`shrink-0 rounded-full text-[11px] ${reviewed ? 'border-emerald-200 text-emerald-700' : 'border-amber-200 text-amber-700'}`}>
+                              {reviewed ? '검토 완료' : '미검토'}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 truncate text-xs text-[#707072]">{employee.department || '-'} · {employee.position || '-'}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              </aside>
+
+              <main className="min-h-0 overflow-hidden bg-[#f5f5f5]">
+                <ScrollArea className="h-[66vh]">
+                  <style>{contractDocumentCss()}</style>
+                  <div className="px-4 py-5">
+                    {selectedFinalReviewHtml ? (
+                      <div dangerouslySetInnerHTML={{ __html: selectedFinalReviewHtml }} />
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-[#cacacb] bg-white px-6 py-16 text-center text-sm text-[#707072]">
+                        검토할 계약서를 선택하세요.
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </main>
+
+              <aside className="min-h-0 border-l border-[#e5e5e5] bg-white">
+                <ScrollArea className="h-[66vh]">
+                  <div className="space-y-4 p-4">
+                    <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm">
+                      <p className="font-semibold">{selectedFinalReviewEmployee?.full_name || '선택 직원'}</p>
+                      <div className="mt-2 space-y-1 text-xs text-[#707072]">
+                        <p><span className="text-[#111111]">양식</span> {selectedTemplate.name}</p>
+                        <p><span className="text-[#111111]">계약기간</span> {selectedFinalReviewDraft?.contract_start_date || '-'} ~ {selectedFinalReviewDraft?.contract_end_date || '무기한'}</p>
+                        <p><span className="text-[#111111]">급여 단위</span> {selectedFinalReviewDraft ? PAY_BASIS_LABELS[getPayBasis(selectedFinalReviewDraft)] : '-'}</p>
+                        <p><span className="text-[#111111]">월 환산</span> {formatNumber(getMonthlyEquivalent(selectedFinalReviewDraft)) || '-'}원</p>
+                        <p><span className="text-[#111111]">직인</span> {includeCompanySeal ? '포함' : '미포함'}</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-[#e5e5e5] p-3">
+                      <div className="flex items-start gap-2">
+                        <Checkbox
+                          id="final-review-confirm"
+                          checked={selectedFinalReviewCompleted}
+                          disabled={!selectedFinalReviewKey}
+                          onCheckedChange={(checked) => setSelectedFinalReviewCompleted(Boolean(checked))}
+                        />
+                        <Label htmlFor="final-review-confirm" className="text-sm leading-relaxed">
+                          이 계약서의 입력값, 급여, 계약기간, 직인 포함 여부를 최종 검토했습니다.
+                        </Label>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-3 w-full rounded-full"
+                        onClick={markFinalReviewComplete}
+                        disabled={!selectedFinalReviewKey}
+                      >
+                        검토 완료 후 다음으로
+                      </Button>
+                    </div>
+
+                    <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm">
+                      <p className="font-semibold">발송 요약</p>
+                      <div className="mt-2 space-y-1 text-xs text-[#707072]">
+                        <p>선택 직원 {selectedEmployees.size}명</p>
+                        <p>검토 완료 {reviewedCount}명</p>
+                        <p>직인 {includeCompanySeal ? '포함' : '미포함'}</p>
+                        <p>급여 단위 {selectedPaySummary}</p>
+                        <p>계약기간 {selectedContractPeriodSummary}</p>
+                      </div>
+                    </div>
+
+                    {(validationIssues.length > 0 || validationWarnings.length > 0) && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                        {validationIssues.length > 0
+                          ? `누락 ${validationIssues.length}건: ${validationIssues.slice(0, 3).join(' / ')}`
+                          : `경고 ${validationWarnings.length}건: ${validationWarnings.map((issue) => issue.message).slice(0, 3).join(' / ')}`}
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </aside>
             </div>
-            {(validationIssues.length > 0 || validationWarnings.length > 0) && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                {validationIssues.length > 0 ? `누락 ${validationIssues.length}건: ${validationIssues.slice(0, 3).join(' / ')}` : `경고 ${validationWarnings.length}건: ${validationWarnings.map((issue) => issue.message).slice(0, 3).join(' / ')}`}
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e5e5e5] bg-white px-5 py-3">
+              <p className="text-sm text-[#707072]">
+                {allContractsReviewed ? '모든 계약서 검토가 완료되었습니다.' : `미검토 ${selectedEditorEmployees.length - reviewedCount}건이 남았습니다.`}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" className="rounded-full" onClick={() => setSendConfirmOpen(false)} disabled={saving}>
+                  취소
+                </Button>
+                <Button
+                  onClick={handleRequest}
+                  disabled={saving || validationIssues.length > 0 || !allContractsReviewed}
+                  className="rounded-full bg-[#111111] text-white hover:bg-[#2a2a2a]"
+                >
+                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                  발송하기
+                </Button>
               </div>
-            )}
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={saving}>취소</AlertDialogCancel>
-              <AlertDialogAction onClick={(event) => { event.preventDefault(); handleRequest(); }} disabled={saving || validationIssues.length > 0} className="bg-[#111111] text-white hover:bg-[#2a2a2a]">
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                발송하기
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <ContractPreviewDialog open={!!previewContract} onOpenChange={(open) => !open && setPreviewContract(null)} contract={previewContract as ContractData} />
       </div>
