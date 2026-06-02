@@ -42,6 +42,17 @@ const getErrorMessage = (error: unknown) => (
   error instanceof Error ? error.message : String(error || '')
 );
 
+const getContractName = (contract: EmploymentContract) => (
+  contract.template_snapshot?.name || `${CONTRACT_TYPES[contract.contract_type] || contract.contract_type} 계약서`
+);
+
+const getPendingReviewState = (contract: EmploymentContract) => {
+  const reviewed = Boolean(contract.opened_at || contract.status === 'opened');
+  return reviewed
+    ? { label: '서명 가능', className: 'border-emerald-200 bg-emerald-50 text-emerald-700', icon: <CheckCircle2 className="h-3 w-3" /> }
+    : { label: '검토 전', className: 'border-amber-200 bg-amber-50 text-amber-700', icon: <Eye className="h-3 w-3" /> };
+};
+
 function dataUrlToBlob(dataUrl: string) {
   const [meta, base64] = dataUrl.split(',');
   const mime = meta.match(/data:(.*);base64/)?.[1] || 'application/octet-stream';
@@ -232,6 +243,43 @@ const MyContractsList: React.FC = () => {
 
   const pendingContracts = useMemo(() => contracts.filter(c => ['requested', 'opened'].includes(c.status)), [contracts]);
   const otherContracts = useMemo(() => contracts.filter(c => !['requested', 'opened'].includes(c.status)), [contracts]);
+  const signChecklist = useMemo(() => {
+    const profileName = (profile?.full_name || '').trim();
+    return [
+      {
+        key: 'review',
+        label: '계약 검토 완료',
+        done: Boolean(signingContract?.opened_at || signingContract?.status === 'opened'),
+      },
+      {
+        key: 'name',
+        label: '성명 재입력',
+        done: Boolean(confirmName.trim() && confirmName.trim() === profileName),
+      },
+      {
+        key: 'password',
+        label: '비밀번호 재확인',
+        done: Boolean(password),
+      },
+      {
+        key: 'signature',
+        label: '손서명 입력',
+        done: Boolean(signatureDataUrl),
+      },
+      {
+        key: 'preview',
+        label: '서명 미리보기 확인',
+        done: Boolean(signaturePreviewConfirmed),
+      },
+      {
+        key: 'agree',
+        label: '전자서명 동의',
+        done: agreed,
+      },
+    ];
+  }, [agreed, confirmName, password, profile?.full_name, signatureDataUrl, signaturePreviewConfirmed, signingContract]);
+  const missingSignRequirement = signChecklist.find((item) => !item.done)?.label;
+  const canSubmitSignature = Boolean(signingContract) && signChecklist.every((item) => item.done);
 
   if (loading) {
     return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>;
@@ -240,57 +288,57 @@ const MyContractsList: React.FC = () => {
   return (
     <div className="space-y-6">
       {pendingContracts.length > 0 && (
-        <Card className="border-primary/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-primary">
+        <Card className="border-[#cacacb] shadow-none">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-[#111111]">
               <PenLine className="h-5 w-5" />
               서명 대기 중인 계약서
             </CardTitle>
             <CardDescription>{pendingContracts.length}건의 계약서가 서명을 기다리고 있습니다.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {pendingContracts.map(contract => (
-              <Card key={contract.id} className="border-primary/20 bg-primary/5">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge className="text-xs bg-primary/10 text-primary border-0 gap-1">
-                          <PenLine className="h-3 w-3" />서명 대기
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(contract.created_at), 'yyyy.MM.dd', { locale: ko })}
-                        </span>
-                      </div>
-                      <p className="font-medium">
-                        {contract.template_snapshot?.name || `${CONTRACT_TYPES[contract.contract_type] || contract.contract_type} 계약서`}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        계약기간: {contract.contract_start_date || '-'} ~ {contract.contract_end_date || '무기한'}
-                        {contract.annual_salary && ` · 연봉 ${contract.annual_salary.toLocaleString()}원`}
-                      </p>
+          <CardContent className="space-y-2">
+            {pendingContracts.map(contract => {
+              const reviewState = getPendingReviewState(contract);
+              return (
+                <div key={contract.id} className="flex flex-col gap-3 rounded-lg border border-[#e5e5e5] bg-white p-3 transition-colors hover:bg-[#fafafa] sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className={`gap-1 rounded-full text-xs ${reviewState.className}`}>
+                        {reviewState.icon}
+                        {reviewState.label}
+                      </Badge>
+                      <Badge variant="outline" className="rounded-full text-xs border-[#e5e5e5] text-[#707072]">거절 가능</Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(contract.created_at), 'yyyy.MM.dd', { locale: ko })}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button variant="outline" size="sm" onClick={() => handlePreview(contract)}>
-                        검토
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => setRejectingContract(contract)}>
-                        거절
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white gap-1"
-                        disabled={!contract.opened_at && contract.status !== 'opened'}
-                        onClick={() => { setSigningContract(contract); resetSignForm(); }}
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        서명
-                      </Button>
-                    </div>
+                    <p className="truncate font-medium text-[#111111]">{getContractName(contract)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      계약기간: {contract.contract_start_date || '-'} ~ {contract.contract_end_date || '무기한'}
+                      {contract.monthly_salary && ` · 월급 ${contract.monthly_salary.toLocaleString()}원`}
+                      {!contract.monthly_salary && contract.annual_salary && ` · 연봉 ${contract.annual_salary.toLocaleString()}원`}
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button variant="outline" size="sm" className="rounded-full" onClick={() => handlePreview(contract)}>
+                      검토
+                    </Button>
+                    <Button size="sm" variant="outline" className="rounded-full border-red-200 text-red-700 hover:bg-red-50" onClick={() => setRejectingContract(contract)}>
+                      거절
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="rounded-full bg-[#111111] text-white hover:bg-[#2a2a2a] gap-1"
+                      disabled={!contract.opened_at && contract.status !== 'opened'}
+                      onClick={() => { setSigningContract(contract); resetSignForm(); }}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      서명
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       )}
@@ -366,13 +414,23 @@ const MyContractsList: React.FC = () => {
             {signingContract && (
               <div className="rounded-md border bg-muted/20 p-3 text-sm">
                 <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
-                  <p><span className="font-medium text-foreground">문서명</span> {signingContract.template_snapshot?.name || `${CONTRACT_TYPES[signingContract.contract_type] || signingContract.contract_type} 계약서`}</p>
+                  <p><span className="font-medium text-foreground">문서명</span> {getContractName(signingContract)}</p>
                   <p><span className="font-medium text-foreground">발송일</span> {signingContract.requested_at ? format(new Date(signingContract.requested_at), 'yyyy.MM.dd') : '-'}</p>
                   <p><span className="font-medium text-foreground">계약기간</span> {signingContract.contract_start_date || '-'} ~ {signingContract.contract_end_date || '무기한'}</p>
                   <p><span className="font-medium text-foreground">회사 직인</span> {signingContract.company_seal_included ? '포함' : '미포함'}</p>
                 </div>
               </div>
             )}
+            <div className="grid gap-2 rounded-md border bg-white p-3 sm:grid-cols-2">
+              {signChecklist.map((item) => (
+                <div key={item.key} className="flex items-center gap-2 text-sm">
+                  <span className={`flex h-5 w-5 items-center justify-center rounded-full border ${item.done ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-[#cacacb] bg-[#fafafa] text-[#9e9ea0]'}`}>
+                    {item.done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Clock className="h-3 w-3" />}
+                  </span>
+                  <span className={item.done ? 'text-[#111111]' : 'text-[#707072]'}>{item.label}</span>
+                </div>
+              ))}
+            </div>
             <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
               서명하면 최종 PDF가 생성되어 보관되며, 서명 시각·IP·브라우저 정보가 감사기록에 저장됩니다.
             </div>
@@ -421,10 +479,15 @@ const MyContractsList: React.FC = () => {
               <Button variant="outline" onClick={() => { setSigningContract(null); resetSignForm(); }} disabled={processing}>
                 취소
               </Button>
-              <Button onClick={handleSign} disabled={processing} className="bg-green-600 hover:bg-green-700 text-white">
+              <div className="flex flex-col items-end gap-1">
+                {missingSignRequirement && (
+                  <p className="text-xs text-amber-700">{missingSignRequirement} 후 서명할 수 있습니다.</p>
+                )}
+                <Button onClick={handleSign} disabled={processing || !canSubmitSignature} className="bg-[#111111] text-white hover:bg-[#2a2a2a]">
                 {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
                 서명 완료
-              </Button>
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
@@ -434,7 +497,7 @@ const MyContractsList: React.FC = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>계약서를 거절하시겠습니까?</AlertDialogTitle>
-            <AlertDialogDescription>거절 사유를 입력해주세요.</AlertDialogDescription>
+            <AlertDialogDescription>거절 사유를 5자 이상 입력해주세요. 입력한 사유는 관리자 계약 내역에 기록됩니다.</AlertDialogDescription>
           </AlertDialogHeader>
           <Textarea
             placeholder="거절 사유를 입력하세요..."

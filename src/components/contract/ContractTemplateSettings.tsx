@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { JSONContent } from '@tiptap/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, FileText, Pencil, Trash2, Loader2, FileSignature, DollarSign, ShieldCheck, FilePenLine } from 'lucide-react';
+import { Plus, FileText, Pencil, Trash2, Loader2, FileSignature, DollarSign, ShieldCheck, FilePenLine, Search } from 'lucide-react';
 import { type ContractTemplate } from '@/hooks/useContracts';
 import TemplateEditorDialog from './template-editor/TemplateEditorDialog';
 import { PREBUILT_TEMPLATES } from './template-editor/prebuiltTemplates';
@@ -26,28 +26,42 @@ const TEMPLATE_TYPES: Record<string, { label: string; icon: React.ReactNode; col
   labor: {
     label: '근로계약서',
     icon: <FileSignature className="h-5 w-5" />,
-    color: 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30',
+    color: 'text-[#111111] bg-white border border-[#e5e5e5]',
   },
   salary: {
     label: '연봉계약서',
     icon: <DollarSign className="h-5 w-5" />,
-    color: 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30',
+    color: 'text-[#111111] bg-white border border-[#e5e5e5]',
   },
   oath: {
     label: '서약서',
     icon: <ShieldCheck className="h-5 w-5" />,
-    color: 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30',
+    color: 'text-[#111111] bg-white border border-[#e5e5e5]',
   },
   privacy: {
     label: '동의서',
     icon: <FileSignature className="h-5 w-5" />,
-    color: 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30',
+    color: 'text-[#111111] bg-white border border-[#e5e5e5]',
   },
   custom: {
     label: '자유양식',
     icon: <FilePenLine className="h-5 w-5" />,
-    color: 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800',
+    color: 'text-[#111111] bg-white border border-[#e5e5e5]',
   },
+};
+
+const TYPE_FILTERS = [
+  { value: 'all', label: '전체' },
+  { value: 'labor', label: '근로' },
+  { value: 'salary', label: '연봉' },
+  { value: 'oath', label: '서약' },
+  { value: 'privacy', label: '개인정보' },
+  { value: 'custom', label: '자유양식' },
+];
+
+const formatTemplateDate = (value?: string) => {
+  if (!value) return '-';
+  return new Date(value).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
 };
 
 const ContractTemplateSettings: React.FC = () => {
@@ -56,6 +70,21 @@ const ContractTemplateSettings: React.FC = () => {
   const [editingTemplate, setEditingTemplate] = useState<ContractTemplateWithContent | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<ContractTemplate | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredTemplates = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return templates.filter((template) => {
+      if (typeFilter !== 'all' && template.template_type !== typeFilter) return false;
+      if (!query) return true;
+      return [
+        template.name,
+        template.description,
+        TEMPLATE_TYPES[template.template_type]?.label,
+      ].some((value) => String(value || '').toLowerCase().includes(query));
+    });
+  }, [searchQuery, templates, typeFilter]);
 
   const openCreate = () => {
     setEditingTemplate(undefined);
@@ -104,91 +133,116 @@ const ContractTemplateSettings: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold text-lg">계약서 양식 관리</h3>
-          <p className="text-sm text-muted-foreground">전자계약 양식을 생성하고 관리합니다. 기존 발송 계약은 수정된 양식의 영향을 받지 않습니다.</p>
+          <p className="text-sm text-muted-foreground">전자계약 양식을 생성하고 관리합니다.</p>
         </div>
         <Button onClick={openCreate} className="gap-1.5 rounded-full bg-[#111111] text-white hover:bg-[#2a2a2a]">
           <Plus className="h-4 w-4" /> 새 양식 만들기
         </Button>
       </div>
 
+      <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] px-3 py-2 text-sm text-[#707072]">
+        기존 발송 계약은 발송 당시 스냅샷과 PDF 기준으로 보존되며, 여기서 양식을 수정해도 기존 계약 내용에는 영향이 없습니다.
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-[#e5e5e5] bg-white p-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex gap-1 overflow-x-auto">
+          {TYPE_FILTERS.map((filter) => (
+            <Button
+              key={filter.value}
+              type="button"
+              variant={typeFilter === filter.value ? 'default' : 'outline'}
+              size="sm"
+              className={`shrink-0 rounded-full ${typeFilter === filter.value ? 'bg-[#111111] text-white hover:bg-[#2a2a2a]' : ''}`}
+              onClick={() => setTypeFilter(filter.value)}
+            >
+              {filter.label}
+            </Button>
+          ))}
+        </div>
+        <div className="relative w-full lg:w-80">
+          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#707072]" />
+          <Input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="양식명, 유형, 설명 검색"
+            className="h-9 rounded-full pl-9"
+          />
+        </div>
+      </div>
+
       {templates.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <FileText className="h-10 w-10 mx-auto mb-3 opacity-20" />
-            <p className="text-sm">등록된 계약서 양식이 없습니다.</p>
-            <p className="text-xs mt-1">새 양식을 만들어 계약서를 작성해보세요.</p>
-          </CardContent>
-        </Card>
+        <div className="rounded-lg border border-dashed border-[#cacacb] bg-white py-12 text-center text-muted-foreground">
+          <FileText className="h-10 w-10 mx-auto mb-3 opacity-20" />
+          <p className="text-sm">등록된 계약서 양식이 없습니다.</p>
+          <p className="text-xs mt-1">새 양식을 만들어 계약서를 작성해보세요.</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {templates.map(t => {
+        <div className="overflow-hidden rounded-lg border border-[#cacacb] bg-white">
+          <div className="hidden grid-cols-[minmax(260px,1fr)_120px_110px_140px_90px_120px_120px] gap-3 border-b border-[#cacacb] bg-[#fafafa] px-4 py-2 text-xs font-semibold text-[#707072] lg:grid">
+            <span>양식명</span>
+            <span>유형</span>
+            <span>활성</span>
+            <span>품질</span>
+            <span>급여일</span>
+            <span>최근 수정</span>
+            <span className="text-right">작업</span>
+          </div>
+          {filteredTemplates.length === 0 ? (
+            <div className="px-4 py-12 text-center text-sm text-[#707072]">검색 결과가 없습니다.</div>
+          ) : filteredTemplates.map(t => {
             const typeInfo = TEMPLATE_TYPES[t.template_type] || TEMPLATE_TYPES.labor;
             const templateContent = t.content
               || PREBUILT_TEMPLATES.find((template) => template.type === t.template_type)?.content
               || null;
             const quality = evaluateContractTemplateQuality(templateContent, { templateType: t.template_type });
             return (
-              <Card key={t.id} className={`transition-all border-[#cacacb] shadow-none ${!t.is_active ? 'opacity-50' : ''}`}>
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${typeInfo.color}`}>
-                        {typeInfo.icon}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm">{t.name}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="text-[11px]">{typeInfo.label}</Badge>
-                          <Badge variant="outline" className="text-[11px]">급여일 {t.pay_day}일</Badge>
-                          <Badge
-                            variant="outline"
-                            className={`text-[11px] ${quality.ok ? 'border-emerald-200 text-emerald-700' : 'border-red-200 text-red-700'}`}
-                          >
-                            {quality.ok ? '필수필드 충족' : '필수필드 부족'}
-                          </Badge>
-                          {quality.warnings.length > 0 && (
-                            <Badge variant="outline" className="text-[11px] border-amber-200 text-amber-700">
-                              검토 필요
-                            </Badge>
-                          )}
-                          {!t.is_active && (
-                            <Badge variant="secondary" className="text-[11px]">비활성</Badge>
-                          )}
-                        </div>
-                      </div>
+              <div key={t.id} className={`grid gap-3 border-b border-[#e5e5e5] px-4 py-3 last:border-0 lg:grid-cols-[minmax(260px,1fr)_120px_110px_140px_90px_120px_120px] lg:items-center ${!t.is_active ? 'bg-[#fafafa] opacity-70' : 'bg-white'}`}>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${typeInfo.color}`}>
+                      {typeInfo.icon}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteTarget(t)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{t.name}</p>
+                      {t.description && <p className="mt-1 truncate text-xs text-muted-foreground">{t.description}</p>}
                     </div>
                   </div>
-                  {t.description && (
-                    <p className="text-xs text-muted-foreground mb-3">{t.description}</p>
-                  )}
-                  {!quality.ok && (
-                    <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                      누락: {quality.missing.join(', ')}
-                    </p>
-                  )}
+                  {!quality.ok && <p className="mt-2 text-xs text-red-700">누락: {quality.missing.join(', ')}</p>}
+                  {quality.warnings.length > 0 && <p className="mt-1 text-xs text-amber-700">확인: {quality.warnings.join(' / ')}</p>}
+                </div>
+                <Badge variant="outline" className="w-fit rounded-full text-xs">{typeInfo.label}</Badge>
+                <div className="flex items-center gap-2">
+                  <Switch checked={t.is_active} onCheckedChange={() => handleToggleActive(t)} />
+                  <span className="text-xs text-[#707072]">{t.is_active ? '활성' : '비활성'}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge
+                    variant="outline"
+                    className={`rounded-full text-[11px] ${quality.ok ? 'border-emerald-200 text-emerald-700' : 'border-red-200 text-red-700'}`}
+                  >
+                    {quality.ok ? '필수필드 충족' : '필수필드 부족'}
+                  </Badge>
                   {quality.warnings.length > 0 && (
-                    <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                      확인: {quality.warnings.join(' / ')}
-                    </p>
+                    <Badge variant="outline" className="rounded-full border-amber-200 text-[11px] text-amber-700">
+                      검토 필요
+                    </Badge>
                   )}
-                  <div className="flex items-center justify-between pt-2 border-t">
-                    <span className="text-xs text-muted-foreground">활성 상태</span>
-                    <Switch checked={t.is_active} onCheckedChange={() => handleToggleActive(t)} />
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+                <span className="text-sm text-[#707072]">{t.pay_day}일</span>
+                <span className="text-sm text-[#707072]">{formatTemplateDate(t.updated_at || t.created_at)}</span>
+                <div className="flex items-center justify-end gap-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => openEdit(t)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-destructive" onClick={() => setDeleteTarget(t)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
             );
           })}
         </div>
