@@ -223,8 +223,8 @@ const DashboardCalendar = () => {
           userId: q.user_id,
         });
       }
-      if (q.desired_delivery_date) {
-        // 취소된 프로젝트 또는 취소된 견적서의 납기 희망일은 표시하지 않음
+      if (q.desired_delivery_date && (q as any).quote_status === 'won') {
+        // 수주된 견적서의 납기만 운영 캘린더에 표시
         const projectStatus = (q as { projects?: { status?: string } | null }).projects?.status;
         if (projectStatus === 'cancelled' || q.project_stage === 'cancelled') return;
         
@@ -519,7 +519,7 @@ const DashboardCalendar = () => {
             <FileText className="h-3 w-3 text-primary" /> 견적 발행일
           </span>
           <span className="flex items-center gap-1">
-            <Truck className="h-3 w-3 text-orange-500" /> 납기 희망일
+            <Truck className="h-3 w-3 text-orange-500" /> 납기 예정일
           </span>
           <span className="flex items-center gap-1">
             <BookOpen className="h-3 w-3 text-violet-500" /> Notion 프로젝트
