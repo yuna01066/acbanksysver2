@@ -243,7 +243,7 @@ const QuoteDraftToolbar = () => {
             </Badge>
             <Button variant="outline" size="sm" onClick={handleSave} className={actionButtonClassName}>
               <Save className="h-4 w-4 shrink-0" />
-              저장
+              초안 저장
             </Button>
             <Button variant="outline" size="sm" onClick={handleDuplicate} disabled={!activeDraftId} className={actionButtonClassName}>
               <Copy className="h-4 w-4 shrink-0" />
