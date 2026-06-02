@@ -22,9 +22,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { X, Save, Loader2, FileText, Eye, Pencil, FileSignature, DollarSign, ChevronDown, AlertTriangle, ShieldCheck, FilePenLine } from 'lucide-react';
+import {
+  X, Save, Loader2, FileText, Eye, Pencil, FileSignature, DollarSign, ChevronDown,
+  AlertTriangle, ShieldCheck, FilePenLine, RotateCcw,
+} from 'lucide-react';
 import EditorToolbar from './EditorToolbar';
 import PlaceholderSidebar from './PlaceholderSidebar';
 import { PREBUILT_TEMPLATES } from './prebuiltTemplates';
@@ -32,6 +39,10 @@ import { SAMPLE_DATA } from './placeholderFields';
 import type { ContractTemplate } from '@/hooks/useContracts';
 import { evaluateContractTemplateQuality } from '@/utils/contractTemplateQuality';
 import { sanitizeHtml } from '@/utils/sanitizeHtml';
+import {
+  resolveContractTemplateContent,
+  type ContractTemplateContentSource,
+} from '@/utils/contractTemplateContent';
 
 interface TemplateEditorDialogProps {
   open: boolean;
@@ -72,6 +83,9 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('edit');
   const [showTemplates, setShowTemplates] = useState(false);
+  const [contentSource, setContentSource] = useState<ContractTemplateContentSource>('empty');
+  const [fallbackTemplateName, setFallbackTemplateName] = useState('');
+  const [reloadDefaultOpen, setReloadDefaultOpen] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -120,8 +134,16 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
       setTemplateType(editingTemplate.template_type);
       setPayDay(editingTemplate.pay_day);
       setIsActive(editingTemplate.is_active);
-      if (editingTemplate.content && editor) {
-        editor.commands.setContent(editingTemplate.content);
+      const resolvedContent = resolveContractTemplateContent(editingTemplate);
+      setContentSource(resolvedContent.source);
+      setFallbackTemplateName(resolvedContent.prebuiltTemplateName || '');
+      setShowTemplates(false);
+      if (editor) {
+        if (resolvedContent.content) {
+          editor.commands.setContent(resolvedContent.content);
+        } else {
+          editor.commands.clearContent();
+        }
       }
     } else {
       setName('');
@@ -129,6 +151,8 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
       setTemplateType('labor');
       setPayDay(25);
       setIsActive(true);
+      setContentSource('empty');
+      setFallbackTemplateName('');
       editor?.commands.clearContent();
       setShowTemplates(true);
     }
@@ -139,9 +163,27 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
     editor.commands.setContent(tpl.content);
     if (!name) setName(tpl.name);
     setTemplateType(tpl.type);
+    setContentSource('prebuilt_fallback');
+    setFallbackTemplateName(tpl.name);
     setShowTemplates(false);
     toast.success(`"${tpl.name}" 템플릿이 적용되었습니다.`);
   }, [editor, name]);
+
+  const reloadDefaultTemplate = useCallback(() => {
+    if (!editor) return;
+    const resolvedContent = resolveContractTemplateContent({ template_type: templateType, name });
+    if (!resolvedContent.content) {
+      toast.error('이 유형에 적용할 기본 양식이 없습니다.');
+      setReloadDefaultOpen(false);
+      return;
+    }
+    editor.commands.setContent(resolvedContent.content);
+    setContentSource('prebuilt_fallback');
+    setFallbackTemplateName(resolvedContent.prebuiltTemplateName || '');
+    setShowTemplates(false);
+    setReloadDefaultOpen(false);
+    toast.success('기본 양식을 다시 불러왔습니다.');
+  }, [editor, name, templateType]);
 
   const handleSave = async () => {
     if (!name.trim()) { toast.error('양식 이름을 입력해주세요.'); return; }
@@ -212,6 +254,12 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
   const quality = evaluateContractTemplateQuality(editor?.getJSON() || null, { templateType });
   const showWarning = activeTab === 'edit' && !quality.ok;
   const showQualityNotes = activeTab === 'edit' && (quality.missing.length > 0 || quality.warnings.length > 0);
+  const showFallbackNotice = Boolean(editingTemplate) && contentSource === 'prebuilt_fallback';
+  const sourceLabel = contentSource === 'saved'
+    ? '저장된 본문'
+    : contentSource === 'prebuilt_fallback'
+      ? '기본 양식에서 복구'
+      : '본문 없음';
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
@@ -224,6 +272,11 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
           <span className="font-semibold text-sm">
             {editingTemplate ? '양식 수정' : '서식 추가'}
           </span>
+          {editingTemplate && (
+            <Badge variant="outline" className="text-[11px]">
+              {sourceLabel}
+            </Badge>
+          )}
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -237,10 +290,24 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
           </TabsList>
         </Tabs>
 
-        <Button onClick={handleSave} disabled={saving} size="sm" className="gap-1.5">
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-          저장하기
-        </Button>
+        <div className="flex items-center gap-2">
+          {editingTemplate && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 rounded-full"
+              onClick={() => setReloadDefaultOpen(true)}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              기본 양식 다시 불러오기
+            </Button>
+          )}
+          <Button onClick={handleSave} disabled={saving} size="sm" className="gap-1.5">
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            저장하기
+          </Button>
+        </div>
       </div>
 
       {/* Body */}
@@ -249,6 +316,16 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
         <div className="flex-1 flex flex-col overflow-hidden">
           {activeTab === 'edit' ? (
             <>
+              {showFallbackNotice && (
+                <div className="mx-6 mt-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-300">
+                  <FileText className="h-4 w-4 shrink-0" />
+                  <span>
+                    저장된 본문이 없어 {fallbackTemplateName ? `"${fallbackTemplateName}"` : '기본 양식'}을 불러왔습니다.
+                    저장하면 이 내용이 양식에 저장됩니다.
+                  </span>
+                </div>
+              )}
+
               {/* Warning banner */}
               {showQualityNotes && (
                 <div className="mx-6 mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-2.5 text-sm text-amber-800 dark:text-amber-300">
@@ -393,6 +470,23 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
         {/* Placeholder sidebar - only show in edit mode */}
         {activeTab === 'edit' && <PlaceholderSidebar editor={editor} />}
       </div>
+
+      <AlertDialog open={reloadDefaultOpen} onOpenChange={setReloadDefaultOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>기본 양식을 다시 불러오시겠습니까?</AlertDialogTitle>
+            <AlertDialogDescription>
+              현재 편집 중인 본문이 기본 양식 내용으로 교체됩니다. 저장 전 변경 내용은 복구할 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={reloadDefaultTemplate}>
+              불러오기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

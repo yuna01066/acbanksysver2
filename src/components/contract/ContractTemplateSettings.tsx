@@ -13,8 +13,8 @@ import { toast } from 'sonner';
 import { Plus, FileText, Pencil, Trash2, Loader2, FileSignature, DollarSign, ShieldCheck, FilePenLine, Search } from 'lucide-react';
 import { type ContractTemplate } from '@/hooks/useContracts';
 import TemplateEditorDialog from './template-editor/TemplateEditorDialog';
-import { PREBUILT_TEMPLATES } from './template-editor/prebuiltTemplates';
 import { evaluateContractTemplateQuality } from '@/utils/contractTemplateQuality';
+import { resolveContractTemplateContent } from '@/utils/contractTemplateContent';
 
 type ContractTemplateWithContent = ContractTemplate & { content?: JSONContent | null };
 
@@ -195,10 +195,8 @@ const ContractTemplateSettings: React.FC = () => {
             <div className="px-4 py-12 text-center text-sm text-[#707072]">검색 결과가 없습니다.</div>
           ) : filteredTemplates.map(t => {
             const typeInfo = TEMPLATE_TYPES[t.template_type] || TEMPLATE_TYPES.labor;
-            const templateContent = t.content
-              || PREBUILT_TEMPLATES.find((template) => template.type === t.template_type)?.content
-              || null;
-            const quality = evaluateContractTemplateQuality(templateContent, { templateType: t.template_type });
+            const resolvedContent = resolveContractTemplateContent(t);
+            const quality = evaluateContractTemplateQuality(resolvedContent.content, { templateType: t.template_type });
             return (
               <div key={t.id} className={`grid gap-3 border-b border-[#e5e5e5] px-4 py-3 last:border-0 lg:grid-cols-[minmax(260px,1fr)_120px_110px_140px_90px_120px_120px] lg:items-center ${!t.is_active ? 'bg-[#fafafa] opacity-70' : 'bg-white'}`}>
                 <div className="min-w-0">
@@ -220,6 +218,22 @@ const ContractTemplateSettings: React.FC = () => {
                   <span className="text-xs text-[#707072]">{t.is_active ? '활성' : '비활성'}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
+                  <Badge
+                    variant="outline"
+                    className={`rounded-full text-[11px] ${
+                      resolvedContent.source === 'saved'
+                        ? 'border-slate-200 text-slate-700'
+                        : resolvedContent.source === 'prebuilt_fallback'
+                          ? 'border-blue-200 text-blue-700'
+                          : 'border-red-200 text-red-700'
+                    }`}
+                  >
+                    {resolvedContent.source === 'saved'
+                      ? '저장된 본문'
+                      : resolvedContent.source === 'prebuilt_fallback'
+                        ? '기본 양식 사용 중'
+                        : '본문 없음'}
+                  </Badge>
                   <Badge
                     variant="outline"
                     className={`rounded-full text-[11px] ${quality.ok ? 'border-emerald-200 text-emerald-700' : 'border-red-200 text-red-700'}`}

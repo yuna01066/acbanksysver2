@@ -24,9 +24,9 @@ import { toast } from 'sonner';
 import { useContractTemplates, useEmploymentContracts, type EmploymentContract } from '@/hooks/useContracts';
 import ContractTemplateSettings from './ContractTemplateSettings';
 import ContractPreviewDialog, { type ContractData } from './ContractPreviewDialog';
-import { PREBUILT_TEMPLATES } from './template-editor/prebuiltTemplates';
 import { contractDocumentCss, injectCompanySealIntoRenderedHtml, renderContractHtml } from '@/utils/contractRenderer';
 import { evaluateContractTemplateQuality } from '@/utils/contractTemplateQuality';
+import { resolveContractTemplateContent } from '@/utils/contractTemplateContent';
 import { sanitizeHtml } from '@/utils/sanitizeHtml';
 import { getDownloadUrl } from '@/services/documentFiles';
 
@@ -380,12 +380,11 @@ const ContractManagement: React.FC = () => {
   }, [contracts]);
 
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
-  const selectedTemplateContent = useMemo(() => {
-    if (selectedTemplate?.content) return selectedTemplate.content;
-    return PREBUILT_TEMPLATES.find((template) => template.type === selectedTemplate?.template_type)?.content
-      || PREBUILT_TEMPLATES[0]?.content
-      || null;
-  }, [selectedTemplate]);
+  const selectedTemplateResolvedContent = useMemo(
+    () => resolveContractTemplateContent(selectedTemplate),
+    [selectedTemplate],
+  );
+  const selectedTemplateContent = selectedTemplateResolvedContent.content;
 
   const selectedTemplateQuality = useMemo(
     () => evaluateContractTemplateQuality(selectedTemplateContent, { templateType: selectedTemplate?.template_type }),
@@ -1792,10 +1791,8 @@ const ContractManagement: React.FC = () => {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {templates.map((template) => {
                   const typeInfo = TEMPLATE_TYPE_INFO[template.template_type] || TEMPLATE_TYPE_INFO.custom;
-                  const templateContent = template.content
-                    || PREBUILT_TEMPLATES.find((item) => item.type === template.template_type)?.content
-                    || null;
-                  const quality = evaluateContractTemplateQuality(templateContent, { templateType: template.template_type });
+                  const resolvedContent = resolveContractTemplateContent(template);
+                  const quality = evaluateContractTemplateQuality(resolvedContent.content, { templateType: template.template_type });
                   return (
                     <button
                       key={template.id}
@@ -1814,6 +1811,22 @@ const ContractManagement: React.FC = () => {
                             <p className="text-sm font-semibold">{template.name}</p>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <Badge variant="outline" className="rounded-full text-[11px]">{typeInfo.label}</Badge>
+                              <Badge
+                                variant="outline"
+                                className={`rounded-full text-[11px] ${
+                                  resolvedContent.source === 'saved'
+                                    ? 'border-slate-200 text-slate-700'
+                                    : resolvedContent.source === 'prebuilt_fallback'
+                                      ? 'border-blue-200 text-blue-700'
+                                      : 'border-red-200 text-red-700'
+                                }`}
+                              >
+                                {resolvedContent.source === 'saved'
+                                  ? '저장된 본문'
+                                  : resolvedContent.source === 'prebuilt_fallback'
+                                    ? '기본 양식 사용 중'
+                                    : '본문 없음'}
+                              </Badge>
                               <Badge variant="outline" className={`rounded-full text-[11px] ${quality.ok ? 'border-emerald-200 text-emerald-700' : 'border-red-200 text-red-700'}`}>{quality.ok ? '필수필드 충족' : '필수필드 부족'}</Badge>
                               {quality.warnings.length > 0 && <Badge variant="outline" className="rounded-full border-amber-200 text-[11px] text-amber-700">검토 필요</Badge>}
                             </div>
