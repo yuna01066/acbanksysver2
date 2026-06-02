@@ -5,10 +5,13 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
   Archive,
+  AtSign,
   Bell,
   Bot,
+  ChevronDown,
   Circle,
   Clipboard,
+  FilePlus,
   FileText,
   FolderOpen,
   Hash,
@@ -17,12 +20,17 @@ import {
   Loader2,
   MessageCircle,
   MessageSquareText,
+  Paperclip,
+  Plus,
   RefreshCw,
   Search,
   Send,
+  Smile,
   Sparkles,
+  Type,
   UserCheck,
   UserRound,
+  Wand2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,12 +39,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +63,8 @@ type LeadStatus =
 
 type InboxTab = 'active' | 'waiting' | 'hold' | 'closed';
 type QuickFilter = 'all' | 'unread' | 'mine' | 'unassigned' | 'closed';
+type ConversationStatus = 'active' | 'waiting_customer' | 'on_hold' | 'closed';
+type ComposerMode = 'customer' | 'private';
 
 type LeadAnalysis = {
   inquiry_type?: string | null;
@@ -79,6 +92,7 @@ type JsonRecord = Record<string, unknown>;
 
 type ChannelTalkLead = {
   id: string;
+  conversation_id?: string | null;
   channel_talk_user_chat_id: string;
   channel_talk_user_id: string | null;
   channel_talk_message_id: string | null;
@@ -101,6 +115,35 @@ type ChannelTalkLead = {
   updated_at: string;
 };
 
+type ChannelTalkConversation = {
+  id: string;
+  user_chat_id: string;
+  channel_talk_user_id: string | null;
+  customer_name: string | null;
+  customer_company: string | null;
+  customer_phone: string | null;
+  customer_email: string | null;
+  status: ConversationStatus | string;
+  assigned_to: string | null;
+  assigned_at: string | null;
+  assigned_by: string | null;
+  memo: string | null;
+  close_reason: string | null;
+  last_message_at: string | null;
+  last_customer_message_at: string | null;
+  last_staff_reply_at: string | null;
+  latest_lead_id: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ConversationRead = {
+  conversation_id: string;
+  user_id: string;
+  last_read_at: string;
+};
+
 type ProjectOption = {
   id: string;
   name: string;
@@ -115,6 +158,7 @@ type ProfileOption = {
 
 type ChannelTalkMessage = {
   id: string;
+  conversation_id: string | null;
   lead_id: string | null;
   user_chat_id: string;
   message_id: string | null;
@@ -127,7 +171,8 @@ type ChannelTalkMessage = {
 
 type ReplyDraft = {
   id: string;
-  lead_id: string;
+  conversation_id: string | null;
+  lead_id: string | null;
   created_by: string;
   updated_by: string | null;
   sent_by: string | null;
@@ -140,6 +185,7 @@ type ReplyDraft = {
 
 type ActionLog = {
   id: string;
+  conversation_id: string | null;
   lead_id: string | null;
   action: string;
   status: 'success' | 'failed' | string;
@@ -174,6 +220,13 @@ const STATUS_CONFIG: Record<LeadStatus, { label: string; className: string }> = 
   on_hold: { label: '보류', className: 'border-neutral-300 bg-neutral-200 text-neutral-800' },
 };
 
+const CONVERSATION_STATUS_CONFIG: Record<ConversationStatus, { label: string; className: string }> = {
+  active: { label: '진행중', className: 'border-neutral-950 bg-neutral-950 text-white' },
+  waiting_customer: { label: '답변대기', className: 'border-neutral-300 bg-white text-neutral-950' },
+  on_hold: { label: '보류', className: 'border-neutral-300 bg-neutral-100 text-neutral-800' },
+  closed: { label: '종료', className: 'border-neutral-200 bg-neutral-100 text-neutral-500' },
+};
+
 const inboxTabs: Array<{ value: InboxTab; label: string }> = [
   { value: 'active', label: '진행중' },
   { value: 'waiting', label: '답변대기' },
@@ -181,19 +234,67 @@ const inboxTabs: Array<{ value: InboxTab; label: string }> = [
   { value: 'closed', label: '종료' },
 ];
 
-const statusOptions: Array<{ value: LeadStatus; label: string }> = [
-  { value: 'new', label: '신규' },
-  { value: 'needs_review', label: '검토 필요' },
-  { value: 'analyzed', label: '분석 완료' },
-  { value: 'reply_draft', label: '답변 초안' },
+const internalMemoTemplates = [
+  '도면/PDF 미리보기 추가 요청 필요',
+  '사이즈·수량 확인 필요',
+  '납기 가능 여부 내부 확인 필요',
+  '견적 가능성 높음. 담당자 배정 후 응대',
+];
+
+const replyTemplates = [
+  {
+    id: 'greeting-basic',
+    tag: '#첫인사_기본',
+    title: '첫인사 기본',
+    body: '안녕하세요. 아크뱅크입니다.\n문의주신 내용 확인했습니다. 정확한 안내를 위해 필요한 정보를 확인 후 답변드리겠습니다.',
+  },
+  {
+    id: 'greeting-delay',
+    tag: '#첫인사_응답지연',
+    title: '첫인사 응답지연',
+    body: '안녕하세요. 아크뱅크입니다.\n답변이 늦어 죄송합니다. 문의주신 내용 확인 후 최대한 빠르게 안내드리겠습니다.',
+  },
+  {
+    id: 'request-drawing',
+    tag: '#정보요청_도면',
+    title: '도면/이미지 요청',
+    body: '정확한 견적을 위해 제작 도면 또는 참고 이미지를 함께 보내주세요.\n가능하면 사이즈, 수량, 두께, 색상 정보도 같이 전달 부탁드립니다.',
+  },
+  {
+    id: 'request-size',
+    tag: '#정보요청_사이즈수량',
+    title: '사이즈/수량 요청',
+    body: '정확한 견적을 위해 제작 사이즈, 수량, 두께, 색상 정보를 알려주세요.\n가공 방식이나 납기 희망일이 있으시면 함께 전달 부탁드립니다.',
+  },
+  {
+    id: 'closing-basic',
+    tag: '#끝인사_기본',
+    title: '끝인사 기본',
+    body: '안내드린 내용이 도움이 되었길 바랍니다.\n이후에도 궁금한 점 있으시면 언제든지 말씀해주세요.',
+  },
+  {
+    id: 'closing-long-wait',
+    tag: '#끝인사_장기미응답',
+    title: '끝인사 장기미응답',
+    body: '추가 확인이 필요하시면 언제든지 말씀해주세요.\n자료가 준비되면 이어서 확인 후 안내드리겠습니다.',
+  },
+];
+
+const emojiOptions = ['🙂', '😊', '👍', '🙏', '🙇', '✅', '📎', '📐', '📝', '⏰', '🚚', '✨'];
+
+const conversationStatusOptions: Array<{ value: ConversationStatus; label: string }> = [
+  { value: 'active', label: '진행중' },
   { value: 'waiting_customer', label: '고객 답변 대기' },
   { value: 'on_hold', label: '보류' },
-  { value: 'converted', label: '전환 완료' },
   { value: 'closed', label: '종료' },
 ];
 
 function statusInfo(status: string) {
   return STATUS_CONFIG[status as LeadStatus] || { label: status, className: 'border-muted bg-muted text-muted-foreground' };
+}
+
+function conversationStatusInfo(status: string) {
+  return CONVERSATION_STATUS_CONFIG[status as ConversationStatus] || { label: status, className: 'border-muted bg-muted text-muted-foreground' };
 }
 
 function confidenceLabel(confidence?: string | null) {
@@ -208,6 +309,9 @@ function getActionDisplay(action: string) {
   if (action === 'send_private_note') return { label: '내부 메모', className: 'border-amber-300 bg-amber-50 text-amber-900' };
   if (action === 'refresh_messages') return { label: '메시지 동기화', className: 'border-neutral-300 bg-white text-neutral-700' };
   if (action === 'mark_lead_closed') return { label: '상담 종료', className: 'border-neutral-300 bg-neutral-100 text-neutral-700' };
+  if (action === 'assign_conversation') return { label: '담당 변경', className: 'border-neutral-300 bg-neutral-100 text-neutral-900' };
+  if (action === 'mark_conversation_read') return { label: '읽음 처리', className: 'border-neutral-300 bg-white text-neutral-700' };
+  if (action === 'close_conversation') return { label: '상담 종료', className: 'border-neutral-300 bg-neutral-100 text-neutral-700' };
   return { label: action, className: 'border-neutral-300 bg-white text-neutral-700' };
 }
 
@@ -245,37 +349,72 @@ function normalizePhone(value?: string | null) {
   return (value || '').replace(/[^\d]/g, '');
 }
 
-function getLeadTitle(lead: ChannelTalkLead) {
-  return lead.analysis?.item_name || lead.customer_company || lead.customer_name || '채널톡 문의';
+function getConversationTitle(conversation: ChannelTalkConversation, lead?: ChannelTalkLead | null) {
+  return lead?.analysis?.item_name
+    || conversation.customer_company
+    || conversation.customer_name
+    || lead?.customer_company
+    || lead?.customer_name
+    || '채널톡 상담';
 }
 
-function getLeadCustomerLabel(lead: ChannelTalkLead) {
-  return [lead.customer_company, lead.customer_name].filter(Boolean).join(' / ') || lead.channel_talk_user_chat_id;
+function getConversationCustomerLabel(conversation: ChannelTalkConversation, lead?: ChannelTalkLead | null) {
+  return [
+    conversation.customer_company || lead?.customer_company,
+    conversation.customer_name || lead?.customer_name,
+  ].filter(Boolean).join(' / ') || conversation.user_chat_id;
 }
 
-function getLeadContact(lead: ChannelTalkLead) {
-  return lead.customer_phone || lead.customer_email || lead.channel_talk_user_id || '연락처 미확인';
+function getConversationContact(conversation: ChannelTalkConversation, lead?: ChannelTalkLead | null) {
+  return conversation.customer_phone
+    || conversation.customer_email
+    || lead?.customer_phone
+    || lead?.customer_email
+    || conversation.channel_talk_user_id
+    || '연락처 미확인';
 }
 
-function getMessagePreview(lead: ChannelTalkLead, message?: ChannelTalkMessage | null) {
-  return message?.body || lead.analysis?.source_body || lead.analysis?.summary || '저장된 메시지 요약이 없습니다.';
+function getConversationMessagePreview(
+  conversation: ChannelTalkConversation,
+  lead?: ChannelTalkLead | null,
+  message?: ChannelTalkMessage | null,
+) {
+  return message?.body || lead?.analysis?.source_body || lead?.analysis?.summary || conversation.memo || '저장된 메시지 요약이 없습니다.';
 }
 
-function isUnreadLike(lead: ChannelTalkLead, message?: ChannelTalkMessage | null) {
-  if (lead.status === 'new' || lead.status === 'needs_review') return true;
-  return message?.sender_type === 'user' && getInboxTab(lead.status) !== 'waiting' && getInboxTab(lead.status) !== 'closed';
+function isUnreadConversation(
+  conversation: ChannelTalkConversation,
+  message?: ChannelTalkMessage | null,
+  read?: ConversationRead | null,
+) {
+  if (conversation.status === 'closed') return false;
+  const customerTime = conversation.last_customer_message_at || (message?.sender_type === 'user' ? message.received_at : null);
+  if (!customerTime) return false;
+  if (!read?.last_read_at) return true;
+  return new Date(customerTime).getTime() > new Date(read.last_read_at).getTime();
 }
 
-function matchesLeadQuote(lead: ChannelTalkLead, quote: SavedQuoteOption) {
-  const leadCompany = normalizeText(lead.customer_company);
-  const leadName = normalizeText(lead.customer_name);
-  const leadEmail = normalizeText(lead.customer_email);
-  const leadPhone = normalizePhone(lead.customer_phone);
+function replyDelayLabel(conversation: ChannelTalkConversation) {
+  if (conversation.status === 'closed' || !conversation.last_customer_message_at) return null;
+  const customerAt = new Date(conversation.last_customer_message_at).getTime();
+  const staffAt = conversation.last_staff_reply_at ? new Date(conversation.last_staff_reply_at).getTime() : 0;
+  if (staffAt >= customerAt) return null;
+  const minutes = (Date.now() - customerAt) / 60000;
+  if (minutes >= 120) return '2시간+ 지연';
+  if (minutes >= 30) return '30분+ 지연';
+  return null;
+}
 
-  if (leadPhone && normalizePhone(quote.recipient_phone) === leadPhone) return true;
-  if (leadEmail && normalizeText(quote.recipient_email) === leadEmail) return true;
-  if (leadCompany && normalizeText(quote.recipient_company).includes(leadCompany)) return true;
-  if (leadName && normalizeText(quote.recipient_name).includes(leadName)) return true;
+function matchesConversationQuote(conversation: ChannelTalkConversation, lead: ChannelTalkLead | null, quote: SavedQuoteOption) {
+  const company = normalizeText(conversation.customer_company || lead?.customer_company);
+  const name = normalizeText(conversation.customer_name || lead?.customer_name);
+  const email = normalizeText(conversation.customer_email || lead?.customer_email);
+  const phone = normalizePhone(conversation.customer_phone || lead?.customer_phone);
+
+  if (phone && normalizePhone(quote.recipient_phone) === phone) return true;
+  if (email && normalizeText(quote.recipient_email) === email) return true;
+  if (company && normalizeText(quote.recipient_company).includes(company)) return true;
+  if (name && normalizeText(quote.recipient_name).includes(name)) return true;
   return false;
 }
 
@@ -347,13 +486,33 @@ function toResponseAssistantParams(lead: ChannelTalkLead) {
   return `/response-assistant?${params.toString()}`;
 }
 
+function getTemplateQuery(value: string, cursorPosition: number | null | undefined) {
+  const cursor = cursorPosition ?? value.length;
+  const textBeforeCursor = value.slice(0, cursor);
+  const match = textBeforeCursor.match(/#[^\s#]*$/);
+  return match ? match[0].slice(1).toLowerCase() : null;
+}
+
+function replaceTemplateTrigger(value: string, cursorPosition: number | null | undefined, body: string) {
+  const cursor = cursorPosition ?? value.length;
+  const before = value.slice(0, cursor);
+  const after = value.slice(cursor);
+  const nextBefore = before.replace(/#[^\s#]*$/, body);
+  return `${nextBefore}${after}`;
+}
+
+function hasTemplateSignature(value: string) {
+  return /#[^\s#]*$/.test(value);
+}
+
 const ChannelTalkLeadsPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { user, isAdmin, isModerator, isManager, isEmployee, isApproved, profile } = useAuth();
   const canReview = isApproved && (isAdmin || isModerator || isManager || isEmployee);
-  const selectedId = searchParams.get('id');
+  const selectedParamId = searchParams.get('conversationId') || searchParams.get('id');
+  const legacyLeadIdParam = searchParams.get('id');
 
   const [activeTab, setActiveTab] = useState<InboxTab>('active');
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
@@ -366,10 +525,48 @@ const ChannelTalkLeadsPage = () => {
   const [sendDraftId, setSendDraftId] = useState<string | null>(null);
   const [sendBody, setSendBody] = useState('');
   const [replyComposer, setReplyComposer] = useState('');
+  const [composerMode, setComposerMode] = useState<ComposerMode>('customer');
+  const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
+  const [templateQuery, setTemplateQuery] = useState('');
+  const [selectedTemplateIndex, setSelectedTemplateIndex] = useState(0);
   const [closeAfterSend, setCloseAfterSend] = useState(false);
-  const autoRefreshedLeadIds = useRef<Set<string>>(new Set());
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [pendingAssignConversation, setPendingAssignConversation] = useState<ChannelTalkConversation | null>(null);
+  const autoRefreshedConversationIds = useRef<Set<string>>(new Set());
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const { data: leads = [], isLoading } = useQuery<ChannelTalkLead[]>({
+  const { data: conversations = [], isLoading: isConversationsLoading } = useQuery<ChannelTalkConversation[]>({
+    queryKey: ['channel-talk-conversations'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('channel_talk_conversations' as any)
+        .select('*')
+        .order('last_message_at', { ascending: false, nullsFirst: false })
+        .limit(240);
+      if (error) throw error;
+      return ((data || []) as unknown) as ChannelTalkConversation[];
+    },
+    enabled: !!user,
+  });
+
+  const conversationIds = useMemo(() => conversations.map((conversation) => conversation.id), [conversations]);
+
+  const { data: reads = [] } = useQuery<ConversationRead[]>({
+    queryKey: ['channel-talk-conversation-reads', user?.id, conversationIds.join('|')],
+    queryFn: async () => {
+      if (!user || conversationIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('channel_talk_conversation_reads' as any)
+        .select('conversation_id, user_id, last_read_at')
+        .eq('user_id', user.id)
+        .in('conversation_id', conversationIds);
+      if (error) throw error;
+      return ((data || []) as unknown) as ConversationRead[];
+    },
+    enabled: !!user && conversationIds.length > 0,
+  });
+
+  const { data: leads = [], isLoading: isLeadsLoading } = useQuery<ChannelTalkLead[]>({
     queryKey: ['channel-talk-leads'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -383,22 +580,20 @@ const ChannelTalkLeadsPage = () => {
     enabled: !!user,
   });
 
-  const leadIds = useMemo(() => leads.map((lead) => lead.id), [leads]);
-
   const { data: recentMessages = [] } = useQuery<ChannelTalkMessage[]>({
-    queryKey: ['channel-talk-recent-messages', leadIds.join('|')],
+    queryKey: ['channel-talk-recent-messages', conversationIds.join('|')],
     queryFn: async () => {
-      if (leadIds.length === 0) return [];
+      if (conversationIds.length === 0) return [];
       const { data, error } = await supabase
         .from('channel_talk_messages' as any)
-        .select('id, lead_id, user_chat_id, message_id, sender_type, message_type, body, file_keys, received_at')
-        .in('lead_id', leadIds)
+        .select('id, conversation_id, lead_id, user_chat_id, message_id, sender_type, message_type, body, file_keys, received_at')
+        .in('conversation_id', conversationIds)
         .order('received_at', { ascending: false })
         .limit(500);
       if (error) throw error;
       return ((data || []) as unknown) as ChannelTalkMessage[];
     },
-    enabled: !!user && leadIds.length > 0,
+    enabled: !!user && conversationIds.length > 0,
   });
 
   const { data: projects = [] } = useQuery<ProjectOption[]>({
@@ -428,103 +623,167 @@ const ChannelTalkLeadsPage = () => {
     enabled: !!user && canReview,
   });
 
+  const leadsById = useMemo(() => {
+    const map = new Map<string, ChannelTalkLead>();
+    leads.forEach((lead) => map.set(lead.id, lead));
+    return map;
+  }, [leads]);
+
+  const leadsByConversationId = useMemo(() => {
+    const map = new Map<string, ChannelTalkLead[]>();
+    leads.forEach((lead) => {
+      if (!lead.conversation_id) return;
+      const current = map.get(lead.conversation_id) || [];
+      current.push(lead);
+      map.set(lead.conversation_id, current);
+    });
+    map.forEach((items) => items.sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime()));
+    return map;
+  }, [leads]);
+
+  const readByConversationId = useMemo(() => {
+    const map = new Map<string, ConversationRead>();
+    reads.forEach((read) => map.set(read.conversation_id, read));
+    return map;
+  }, [reads]);
+
+  const resolvedConversationId = useMemo(() => {
+    if (!selectedParamId) return null;
+    if (conversations.some((conversation) => conversation.id === selectedParamId)) return selectedParamId;
+    const legacyLead = leadsById.get(selectedParamId);
+    return legacyLead?.conversation_id || null;
+  }, [conversations, leadsById, selectedParamId]);
+
   const { data: messages = [] } = useQuery<ChannelTalkMessage[]>({
-    queryKey: ['channel-talk-messages', selectedId],
+    queryKey: ['channel-talk-messages', resolvedConversationId],
     queryFn: async () => {
-      if (!selectedId) return [];
+      if (!resolvedConversationId) return [];
       const { data, error } = await supabase
         .from('channel_talk_messages' as any)
-        .select('id, lead_id, user_chat_id, message_id, sender_type, message_type, body, file_keys, received_at')
-        .eq('lead_id', selectedId)
+        .select('id, conversation_id, lead_id, user_chat_id, message_id, sender_type, message_type, body, file_keys, received_at')
+        .eq('conversation_id', resolvedConversationId)
         .order('received_at', { ascending: false })
-        .limit(100);
+        .limit(150);
       if (error) throw error;
       return ((data || []) as unknown) as ChannelTalkMessage[];
     },
-    enabled: !!user && !!selectedId,
+    enabled: !!user && !!resolvedConversationId,
   });
 
   const { data: drafts = [] } = useQuery<ReplyDraft[]>({
-    queryKey: ['channel-talk-reply-drafts', selectedId],
+    queryKey: ['channel-talk-reply-drafts', resolvedConversationId],
     queryFn: async () => {
-      if (!selectedId) return [];
+      if (!resolvedConversationId) return [];
       const { data, error } = await supabase
         .from('channel_talk_reply_drafts' as any)
-        .select('id, lead_id, created_by, updated_by, sent_by, body, status, sent_at, channel_message_id, created_at')
-        .eq('lead_id', selectedId)
+        .select('id, conversation_id, lead_id, created_by, updated_by, sent_by, body, status, sent_at, channel_message_id, created_at')
+        .eq('conversation_id', resolvedConversationId)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return ((data || []) as unknown) as ReplyDraft[];
     },
-    enabled: !!user && !!selectedId,
+    enabled: !!user && !!resolvedConversationId,
   });
 
   const { data: actionLogs = [] } = useQuery<ActionLog[]>({
-    queryKey: ['channel-talk-action-logs', selectedId],
+    queryKey: ['channel-talk-action-logs', resolvedConversationId],
     queryFn: async () => {
-      if (!selectedId) return [];
+      if (!resolvedConversationId) return [];
       const { data, error } = await supabase
         .from('channel_talk_action_logs' as any)
-        .select('id, lead_id, action, status, sender_name, visible_sender_name, channel_message_id, error_message, created_at')
-        .eq('lead_id', selectedId)
+        .select('id, conversation_id, lead_id, action, status, sender_name, visible_sender_name, channel_message_id, error_message, created_at')
+        .eq('conversation_id', resolvedConversationId)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(80);
       if (error) throw error;
       return ((data || []) as unknown) as ActionLog[];
     },
-    enabled: !!user && !!selectedId,
+    enabled: !!user && !!resolvedConversationId,
   });
 
-  const latestMessageByLeadId = useMemo(() => {
+  const latestMessageByConversationId = useMemo(() => {
     const map = new Map<string, ChannelTalkMessage>();
     recentMessages.forEach((message) => {
-      if (message.lead_id && !map.has(message.lead_id)) {
-        map.set(message.lead_id, message);
+      if (message.conversation_id && !map.has(message.conversation_id)) {
+        map.set(message.conversation_id, message);
       }
     });
     return map;
   }, [recentMessages]);
 
-  const filteredLeads = useMemo(() => {
+  const duplicateContactKeys = useMemo(() => {
+    const counts = new Map<string, number>();
+    conversations.forEach((conversation) => {
+      const phone = normalizePhone(conversation.customer_phone);
+      const email = normalizeText(conversation.customer_email);
+      const key = phone ? `phone:${phone}` : email ? `email:${email}` : '';
+      if (!key) return;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
+  }, [conversations]);
+
+  const filteredConversations = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return leads
-      .filter((lead) => {
-        const latest = latestMessageByLeadId.get(lead.id);
-        if (getInboxTab(lead.status) !== activeTab) return false;
-        if (quickFilter === 'unread' && !isUnreadLike(lead, latest)) return false;
-        if (quickFilter === 'mine' && lead.assigned_to !== user?.id) return false;
-        if (quickFilter === 'unassigned' && lead.assigned_to) return false;
-        if (quickFilter === 'closed' && getInboxTab(lead.status) !== 'closed') return false;
+    return conversations
+      .filter((conversation) => {
+        const relatedLeads = leadsByConversationId.get(conversation.id) || [];
+        const lead = relatedLeads[0] || null;
+        const latest = latestMessageByConversationId.get(conversation.id);
+        const read = readByConversationId.get(conversation.id);
+        if (getInboxTab(conversation.status) !== activeTab) return false;
+        if (quickFilter === 'unread' && !isUnreadConversation(conversation, latest, read)) return false;
+        if (quickFilter === 'mine' && conversation.assigned_to !== user?.id) return false;
+        if (quickFilter === 'unassigned' && conversation.assigned_to) return false;
+        if (quickFilter === 'closed' && getInboxTab(conversation.status) !== 'closed') return false;
         if (!term) return true;
         const haystack = [
-          lead.customer_name,
-          lead.customer_company,
-          lead.customer_phone,
-          lead.customer_email,
-          lead.inquiry_type,
-          lead.analysis?.item_name,
-          lead.analysis?.summary,
-          lead.analysis?.source_body,
+          conversation.customer_name,
+          conversation.customer_company,
+          conversation.customer_phone,
+          conversation.customer_email,
+          conversation.user_chat_id,
+          lead?.inquiry_type,
+          lead?.analysis?.item_name,
+          lead?.analysis?.summary,
+          lead?.analysis?.source_body,
           latest?.body,
         ].filter(Boolean).join(' ').toLowerCase();
         return haystack.includes(term);
       })
       .sort((a, b) => {
-        const aDate = latestMessageByLeadId.get(a.id)?.received_at || a.updated_at || a.created_at;
-        const bDate = latestMessageByLeadId.get(b.id)?.received_at || b.updated_at || b.created_at;
+        const aDate = latestMessageByConversationId.get(a.id)?.received_at || a.last_message_at || a.updated_at || a.created_at;
+        const bDate = latestMessageByConversationId.get(b.id)?.received_at || b.last_message_at || b.updated_at || b.created_at;
         return new Date(bDate).getTime() - new Date(aDate).getTime();
       });
-  }, [activeTab, latestMessageByLeadId, leads, quickFilter, search, user?.id]);
+  }, [activeTab, conversations, latestMessageByConversationId, leadsByConversationId, quickFilter, readByConversationId, search, user?.id]);
+
+  const selectedConversation = useMemo(
+    () => conversations.find((conversation) => conversation.id === resolvedConversationId) || filteredConversations[0] || null,
+    [conversations, filteredConversations, resolvedConversationId],
+  );
+
+  const selectedConversationLeads = useMemo(
+    () => selectedConversation ? (leadsByConversationId.get(selectedConversation.id) || []) : [],
+    [leadsByConversationId, selectedConversation],
+  );
 
   const selectedLead = useMemo(
-    () => leads.find((lead) => lead.id === selectedId) || filteredLeads[0] || null,
-    [filteredLeads, leads, selectedId],
+    () => {
+      if (!selectedConversation) return null;
+      if (selectedConversation.latest_lead_id) {
+        const latest = leadsById.get(selectedConversation.latest_lead_id);
+        if (latest) return latest;
+      }
+      return selectedConversationLeads[0] || null;
+    },
+    [leadsById, selectedConversation, selectedConversationLeads],
   );
 
   const { data: recentQuotes = [] } = useQuery<SavedQuoteOption[]>({
-    queryKey: ['channel-talk-related-quotes', selectedLead?.id],
+    queryKey: ['channel-talk-related-quotes', selectedConversation?.id],
     queryFn: async () => {
-      if (!selectedLead) return [];
+      if (!selectedConversation) return [];
       const { data, error } = await supabase
         .from('saved_quotes')
         .select('id, quote_number, project_name, recipient_company, recipient_name, recipient_phone, recipient_email, total, quote_date, project_stage')
@@ -532,39 +791,46 @@ const ChannelTalkLeadsPage = () => {
         .limit(120);
       if (error) throw error;
       return (((data || []) as unknown) as SavedQuoteOption[])
-        .filter((quote) => matchesLeadQuote(selectedLead, quote))
+        .filter((quote) => matchesConversationQuote(selectedConversation, selectedLead, quote))
         .slice(0, 5);
     },
-    enabled: !!user && !!selectedLead,
+    enabled: !!user && !!selectedConversation,
   });
 
   const inboxCounts = useMemo(() => {
     const counts: Record<QuickFilter, number> = {
-      all: leads.length,
+      all: conversations.length,
       unread: 0,
       mine: 0,
       unassigned: 0,
       closed: 0,
     };
-    leads.forEach((lead) => {
-      const latest = latestMessageByLeadId.get(lead.id);
-      if (isUnreadLike(lead, latest)) counts.unread += 1;
-      if (lead.assigned_to === user?.id) counts.mine += 1;
-      if (!lead.assigned_to) counts.unassigned += 1;
-      if (getInboxTab(lead.status) === 'closed') counts.closed += 1;
+    conversations.forEach((conversation) => {
+      const latest = latestMessageByConversationId.get(conversation.id);
+      const read = readByConversationId.get(conversation.id);
+      if (isUnreadConversation(conversation, latest, read)) counts.unread += 1;
+      if (conversation.assigned_to === user?.id) counts.mine += 1;
+      if (!conversation.assigned_to) counts.unassigned += 1;
+      if (getInboxTab(conversation.status) === 'closed') counts.closed += 1;
     });
     return counts;
-  }, [latestMessageByLeadId, leads, user?.id]);
+  }, [conversations, latestMessageByConversationId, readByConversationId, user?.id]);
 
-  const currentLeadMessage = selectedLead ? latestMessageByLeadId.get(selectedLead.id) : null;
   const orderedMessages = useMemo(
     () => [...messages].sort((a, b) => new Date(a.received_at).getTime() - new Date(b.received_at).getTime()),
     [messages],
   );
-  const lastCustomerMessage = messages.find((message) => message.sender_type === 'user') || null;
-  const lastSendLog = actionLogs.find((log) => log.action === 'send_customer_reply' && log.status === 'success') || null;
-  const selectedAssignee = selectedLead?.assigned_to ? profiles.find((p) => p.id === selectedLead.assigned_to) : null;
+  const selectedAssignee = selectedConversation?.assigned_to ? profiles.find((p) => p.id === selectedConversation.assigned_to) : null;
   const senderDisplayName = profile?.full_name || user?.email || '아크뱅크 담당자';
+
+  const filteredReplyTemplates = useMemo(() => {
+    const query = templateQuery.trim().toLowerCase();
+    if (!query) return replyTemplates;
+    return replyTemplates.filter((template) => {
+      const haystack = `${template.tag} ${template.title} ${template.body}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [templateQuery]);
 
   const updateLead = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Record<string, unknown> }) => {
@@ -585,13 +851,34 @@ const ChannelTalkLeadsPage = () => {
     onError: (error: Error) => toast.error('업데이트 실패: ' + error.message),
   });
 
+  const updateConversation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Record<string, unknown> }) => {
+      const next = { ...updates };
+      if (next.status === 'closed' && !next.closed_at) next.closed_at = new Date().toISOString();
+      if (next.status && next.status !== 'closed') next.closed_at = null;
+
+      const { error } = await supabase
+        .from('channel_talk_conversations' as any)
+        .update(next)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channel-talk-conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['channel-talk-leads'] });
+      toast.success('상담 정보가 업데이트되었습니다.');
+    },
+    onError: (error: Error) => toast.error('상담 업데이트 실패: ' + error.message),
+  });
+
   const createReplyDraft = useMutation({
-    mutationFn: async ({ lead, body }: { lead: ChannelTalkLead; body?: string }) => {
+    mutationFn: async ({ lead, conversation, body }: { lead: ChannelTalkLead; conversation: ChannelTalkConversation; body?: string }) => {
       if (!user) throw new Error('로그인이 필요합니다.');
       const draftBody = body?.trim() || lead.analysis?.recommended_reply || '문의 내용 확인했습니다. 필요한 정보를 확인 후 안내드리겠습니다.';
       const { error } = await supabase
         .from('channel_talk_reply_drafts' as any)
         .insert({
+          conversation_id: conversation.id,
           lead_id: lead.id,
           created_by: user.id,
           updated_by: user.id,
@@ -606,8 +893,9 @@ const ChannelTalkLeadsPage = () => {
       if (leadError) throw leadError;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channel-talk-conversations'] });
       queryClient.invalidateQueries({ queryKey: ['channel-talk-leads'] });
-      queryClient.invalidateQueries({ queryKey: ['channel-talk-reply-drafts', selectedId] });
+      queryClient.invalidateQueries({ queryKey: ['channel-talk-reply-drafts', resolvedConversationId] });
       toast.success('응대 초안을 저장했습니다.');
     },
     onError: (error: Error) => toast.error('초안 저장 실패: ' + error.message),
@@ -623,11 +911,13 @@ const ChannelTalkLeadsPage = () => {
       return data;
     },
     onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['channel-talk-conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['channel-talk-conversation-reads'] });
       queryClient.invalidateQueries({ queryKey: ['channel-talk-leads'] });
       queryClient.invalidateQueries({ queryKey: ['channel-talk-recent-messages'] });
-      queryClient.invalidateQueries({ queryKey: ['channel-talk-messages', selectedId] });
-      queryClient.invalidateQueries({ queryKey: ['channel-talk-reply-drafts', selectedId] });
-      queryClient.invalidateQueries({ queryKey: ['channel-talk-action-logs', selectedId] });
+      queryClient.invalidateQueries({ queryKey: ['channel-talk-messages', resolvedConversationId] });
+      queryClient.invalidateQueries({ queryKey: ['channel-talk-reply-drafts', resolvedConversationId] });
+      queryClient.invalidateQueries({ queryKey: ['channel-talk-action-logs', resolvedConversationId] });
       setSendDialogOpen(false);
       setSendDraftId(null);
       setSendBody('');
@@ -698,28 +988,48 @@ const ChannelTalkLeadsPage = () => {
   }, [selectedLead?.id, selectedLead?.analysis?.recommended_reply]);
 
   useEffect(() => {
-    if (!selectedId && filteredLeads[0]) {
-      setSearchParams({ id: filteredLeads[0].id }, { replace: true });
+    if (legacyLeadIdParam && resolvedConversationId && legacyLeadIdParam !== resolvedConversationId) {
+      setSearchParams({ conversationId: resolvedConversationId }, { replace: true });
+      return;
     }
-  }, [filteredLeads, selectedId, setSearchParams]);
+    if (!selectedParamId && filteredConversations[0]) {
+      setSearchParams({ conversationId: filteredConversations[0].id }, { replace: true });
+    }
+  }, [filteredConversations, legacyLeadIdParam, resolvedConversationId, selectedParamId, setSearchParams]);
 
   useEffect(() => {
-    if (!selectedLead || autoRefreshedLeadIds.current.has(selectedLead.id)) return;
-    autoRefreshedLeadIds.current.add(selectedLead.id);
+    if (!selectedConversation || autoRefreshedConversationIds.current.has(selectedConversation.id)) return;
+    autoRefreshedConversationIds.current.add(selectedConversation.id);
     supabase.functions
       .invoke('channel-talk-actions', {
-        body: { action: 'refresh_messages', leadId: selectedLead.id },
+        body: { action: 'refresh_messages', conversationId: selectedConversation.id, leadId: selectedLead?.id },
       })
       .then(({ data, error }) => {
         if (error || data?.error) {
           console.warn('Channel Talk auto refresh failed', error || data?.error);
           return;
         }
+        queryClient.invalidateQueries({ queryKey: ['channel-talk-conversations'] });
         queryClient.invalidateQueries({ queryKey: ['channel-talk-recent-messages'] });
-        queryClient.invalidateQueries({ queryKey: ['channel-talk-messages', selectedLead.id] });
-        queryClient.invalidateQueries({ queryKey: ['channel-talk-action-logs', selectedLead.id] });
+        queryClient.invalidateQueries({ queryKey: ['channel-talk-messages', selectedConversation.id] });
+        queryClient.invalidateQueries({ queryKey: ['channel-talk-action-logs', selectedConversation.id] });
       });
-  }, [queryClient, selectedLead]);
+  }, [queryClient, selectedConversation, selectedLead?.id]);
+
+  useEffect(() => {
+    if (!selectedConversation || !user) return;
+    supabase.functions
+      .invoke('channel-talk-actions', {
+        body: { action: 'mark_conversation_read', conversationId: selectedConversation.id },
+      })
+      .then(({ data, error }) => {
+        if (error || data?.error) {
+          console.warn('Channel Talk mark read failed', error || data?.error);
+          return;
+        }
+        queryClient.invalidateQueries({ queryKey: ['channel-talk-conversation-reads'] });
+      });
+  }, [queryClient, selectedConversation?.id, user]);
 
   const openProjectDialog = (lead: ChannelTalkLead) => {
     const analysis = lead.analysis || {};
@@ -738,17 +1048,126 @@ const ChannelTalkLeadsPage = () => {
     toast.success('채널톡 내부 메모 내용이 복사되었습니다.');
   };
 
-  const openSendDialog = (mode: 'private' | 'customer', lead: ChannelTalkLead, draft?: ReplyDraft, bodyOverride?: string) => {
+  const openSendDialog = (mode: 'private' | 'customer', lead: ChannelTalkLead, draft?: ReplyDraft, bodyOverride?: string, closeAfter = false) => {
     setSendMode(mode);
     setSendDraftId(draft?.id || null);
     setSendBody(bodyOverride || draft?.body || (mode === 'private' ? buildInternalMemo(lead) : replyComposer || lead.analysis?.recommended_reply || ''));
-    setCloseAfterSend(false);
+    setCloseAfterSend(closeAfter);
     setSendDialogOpen(true);
   };
 
-  const runRefreshSelected = () => {
+  const handleComposerChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = event.target.value;
+    setReplyComposer(value);
+    const query = getTemplateQuery(value, event.target.selectionStart);
+    if (query !== null) {
+      setTemplateQuery(query);
+      setSelectedTemplateIndex(0);
+      setTemplateMenuOpen(true);
+      return;
+    }
+    setTemplateMenuOpen(false);
+  };
+
+  const insertComposerText = (text: string) => {
+    const textarea = composerRef.current;
+    const current = replyComposer;
+    const start = textarea?.selectionStart ?? current.length;
+    const end = textarea?.selectionEnd ?? current.length;
+    const next = `${current.slice(0, start)}${text}${current.slice(end)}`;
+    setReplyComposer(next);
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      const cursor = start + text.length;
+      textarea?.setSelectionRange(cursor, cursor);
+    });
+  };
+
+  const insertReplyTemplate = (template: typeof replyTemplates[number]) => {
+    const textarea = composerRef.current;
+    const cursor = textarea?.selectionStart ?? replyComposer.length;
+    const next = hasTemplateSignature(replyComposer.slice(0, cursor))
+      ? replaceTemplateTrigger(replyComposer, cursor, template.body)
+      : [replyComposer.trim(), template.body].filter(Boolean).join('\n\n');
+    setReplyComposer(next);
+    setTemplateMenuOpen(false);
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      const nextCursor = next.length;
+      textarea?.setSelectionRange(nextCursor, nextCursor);
+    });
+  };
+
+  const handleComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'j') {
+      event.preventDefault();
+      applyRecommendedReply();
+      return;
+    }
+    if (templateMenuOpen && filteredReplyTemplates.length > 0) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setSelectedTemplateIndex((index) => (index + 1) % filteredReplyTemplates.length);
+        return;
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setSelectedTemplateIndex((index) => (index - 1 + filteredReplyTemplates.length) % filteredReplyTemplates.length);
+        return;
+      }
+      if (event.key === 'Enter' || event.key === 'Tab') {
+        event.preventDefault();
+        insertReplyTemplate(filteredReplyTemplates[selectedTemplateIndex] || filteredReplyTemplates[0]);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setTemplateMenuOpen(false);
+      }
+    }
+  };
+
+  const applyRecommendedReply = () => {
+    const fallback = composerMode === 'private'
+      ? selectedLead ? buildInternalMemo(selectedLead) : '상담 검토가 필요합니다.'
+      : selectedLead?.analysis?.recommended_reply || '문의 내용 확인했습니다. 필요한 정보를 확인 후 안내드리겠습니다.';
+    setReplyComposer((current) => [current.trim(), fallback].filter(Boolean).join('\n\n'));
+    requestAnimationFrame(() => composerRef.current?.focus());
+  };
+
+  const openComposerSendDialog = (mode: ComposerMode = composerMode, closeConversation = false) => {
     if (!selectedLead) return;
-    channelAction.mutate({ action: 'refresh_messages', leadId: selectedLead.id });
+    openSendDialog(
+      mode === 'private' ? 'private' : 'customer',
+      selectedLead,
+      undefined,
+      replyComposer || (mode === 'private' ? buildInternalMemo(selectedLead) : selectedLead.analysis?.recommended_reply || ''),
+      closeConversation,
+    );
+  };
+
+  const handleUnsupportedComposerFeature = (label: string) => {
+    toast.info(`${label} 기능은 채널톡 파일/버튼 API 연동 후 활성화할 수 있습니다.`);
+  };
+
+  const handleAssignConversation = (conversation: ChannelTalkConversation, force = false) => {
+    if (!user) return;
+    if (conversation.assigned_to && conversation.assigned_to !== user.id && !force) {
+      setPendingAssignConversation(conversation);
+      setAssignDialogOpen(true);
+      return;
+    }
+    channelAction.mutate({
+      action: 'assign_conversation',
+      conversationId: conversation.id,
+      leadId: selectedLead?.id,
+      force,
+    });
+  };
+
+  const runRefreshSelected = () => {
+    if (!selectedConversation) return;
+    channelAction.mutate({ action: 'refresh_messages', conversationId: selectedConversation.id, leadId: selectedLead?.id });
   };
 
   if (!user) {
@@ -812,7 +1231,7 @@ const ChannelTalkLeadsPage = () => {
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h2 className="text-base font-semibold">수신 상담</h2>
-                <p className="text-xs text-muted-foreground">{filteredLeads.length}건 표시</p>
+                <p className="text-xs text-muted-foreground">{filteredConversations.length}건 표시</p>
               </div>
               <Button
                 variant="outline"
@@ -852,25 +1271,33 @@ const ChannelTalkLeadsPage = () => {
 
           <ScrollArea className="h-[calc(100vh-260px)] min-h-[520px]">
             <div className="space-y-1 p-2">
-              {isLoading ? (
+              {isConversationsLoading || isLeadsLoading ? (
                 <div className="flex h-40 items-center justify-center">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-              ) : filteredLeads.length === 0 ? (
+              ) : filteredConversations.length === 0 ? (
                 <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
                   조건에 맞는 상담이 없습니다.
                 </div>
-              ) : filteredLeads.map((lead) => {
-                const latest = latestMessageByLeadId.get(lead.id);
-                const s = statusInfo(lead.status);
-                const confidence = confidenceLabel(lead.analysis?.confidence);
-                const isSelected = selectedLead?.id === lead.id;
-                const assignee = lead.assigned_to ? profiles.find((p) => p.id === lead.assigned_to) : null;
+              ) : filteredConversations.map((conversation) => {
+                const relatedLeads = leadsByConversationId.get(conversation.id) || [];
+                const lead = relatedLeads[0] || null;
+                const latest = latestMessageByConversationId.get(conversation.id);
+                const s = conversationStatusInfo(conversation.status);
+                const confidence = confidenceLabel(lead?.analysis?.confidence);
+                const isSelected = selectedConversation?.id === conversation.id;
+                const assignee = conversation.assigned_to ? profiles.find((p) => p.id === conversation.assigned_to) : null;
+                const missingCount = relatedLeads.reduce((sum, item) => sum + (item.missing_fields?.length || 0), 0);
+                const phone = normalizePhone(conversation.customer_phone);
+                const email = normalizeText(conversation.customer_email);
+                const duplicateKey = phone ? `phone:${phone}` : email ? `email:${email}` : '';
+                const hasPotentialDuplicate = duplicateKey && (duplicateContactKeys.get(duplicateKey) || 0) > 1;
+                const delayLabel = replyDelayLabel(conversation);
                 return (
                   <button
-                    key={lead.id}
+                    key={conversation.id}
                     type="button"
-                    onClick={() => setSearchParams({ id: lead.id }, { replace: true })}
+                    onClick={() => setSearchParams({ conversationId: conversation.id }, { replace: true })}
                   className={cn(
                     'w-full rounded-2xl border border-transparent p-3 text-left transition-colors hover:bg-neutral-50',
                     isSelected && 'border-neutral-950/30 bg-neutral-50 shadow-sm',
@@ -878,25 +1305,40 @@ const ChannelTalkLeadsPage = () => {
                   >
                     <div className="flex items-start gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-neutral-200 bg-white text-sm font-semibold text-neutral-950">
-                        {(lead.customer_name || lead.customer_company || 'C').slice(0, 1)}
+                        {(conversation.customer_name || conversation.customer_company || lead?.customer_name || lead?.customer_company || 'C').slice(0, 1)}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="truncate text-sm font-semibold">{getLeadTitle(lead)}</p>
+                          <p className="truncate text-sm font-semibold">{getConversationTitle(conversation, lead)}</p>
                           <span className="shrink-0 text-[10px] text-muted-foreground">
-                            {formatDateTime(latest?.received_at || lead.updated_at)}
+                            {formatDateTime(latest?.received_at || conversation.last_message_at || conversation.updated_at)}
                           </span>
                         </div>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">{getLeadCustomerLabel(lead)}</p>
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">{getConversationCustomerLabel(conversation, lead)}</p>
                         <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                          {getMessagePreview(lead, latest)}
+                          {getConversationMessagePreview(conversation, lead, latest)}
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           <Badge variant="outline" className={cn('h-5 text-[10px]', s.className)}>{s.label}</Badge>
-                          <Badge variant="outline" className={cn('h-5 text-[10px]', confidence.className)}>{confidence.label}</Badge>
-                          {lead.missing_fields?.length > 0 && (
+                          {lead && <Badge variant="outline" className={cn('h-5 text-[10px]', confidence.className)}>{confidence.label}</Badge>}
+                          {relatedLeads.length > 1 && (
+                            <Badge variant="outline" className="h-5 border-neutral-300 bg-white text-[10px] text-neutral-700">
+                              AI {relatedLeads.length}건
+                            </Badge>
+                          )}
+                          {missingCount > 0 && (
                             <Badge variant="outline" className="h-5 border-neutral-300 bg-neutral-100 text-[10px] text-neutral-800">
-                              누락 {lead.missing_fields.length}
+                              누락 {missingCount}
+                            </Badge>
+                          )}
+                          {hasPotentialDuplicate && (
+                            <Badge variant="outline" className="h-5 border-neutral-300 bg-white text-[10px] text-neutral-700">
+                              잠재 중복
+                            </Badge>
+                          )}
+                          {delayLabel && (
+                            <Badge variant="outline" className="h-5 border-red-300 bg-red-50 text-[10px] text-red-700">
+                              {delayLabel}
                             </Badge>
                           )}
                           <span className="ml-auto truncate text-[10px] text-muted-foreground">
@@ -913,7 +1355,7 @@ const ChannelTalkLeadsPage = () => {
         </section>
 
         <Card className="flex h-[calc(100vh-170px)] min-h-[680px] flex-col overflow-hidden rounded-3xl border-neutral-200 bg-white shadow-sm">
-          {!selectedLead ? (
+          {!selectedConversation ? (
             <CardContent className="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
               <MessageSquareText className="mb-3 h-10 w-10 opacity-30" />
               <p className="text-sm">상담을 선택하세요.</p>
@@ -924,13 +1366,13 @@ const ChannelTalkLeadsPage = () => {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h2 className="truncate text-lg font-semibold">{getLeadTitle(selectedLead)}</h2>
-                      <Badge variant="outline" className={statusInfo(selectedLead.status).className}>
-                        {statusInfo(selectedLead.status).label}
+                      <h2 className="truncate text-lg font-semibold">{getConversationTitle(selectedConversation, selectedLead)}</h2>
+                      <Badge variant="outline" className={conversationStatusInfo(selectedConversation.status).className}>
+                        {conversationStatusInfo(selectedConversation.status).label}
                       </Badge>
                     </div>
                     <p className="mt-1 truncate text-sm text-muted-foreground">
-                      {getLeadCustomerLabel(selectedLead)} · {getLeadContact(selectedLead)}
+                      {getConversationCustomerLabel(selectedConversation, selectedLead)} · {getConversationContact(selectedConversation, selectedLead)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -943,10 +1385,10 @@ const ChannelTalkLeadsPage = () => {
                         variant="outline"
                         size="sm"
                         className="h-9 gap-1.5 rounded-full"
-                        onClick={() => updateLead.mutate({ id: selectedLead.id, updates: { assigned_to: user.id, status: selectedLead.status === 'new' ? 'analyzed' : selectedLead.status } })}
+                        onClick={() => handleAssignConversation(selectedConversation)}
                       >
                         <UserCheck className="h-3.5 w-3.5" />
-                        나에게 배정
+                        담당하기
                       </Button>
                     )}
                   </div>
@@ -1027,56 +1469,294 @@ const ChannelTalkLeadsPage = () => {
               </ScrollArea>
 
               <div className="border-t border-neutral-200 bg-white p-4">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">
-                    채널톡에는 <span className="font-medium text-neutral-950">ACBANK</span>로 전송됩니다. 실제 전송자 {senderDisplayName}은 내부 로그에만 남습니다.
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 rounded-full"
-                      onClick={() => setReplyComposer(selectedLead.analysis?.recommended_reply || '')}
-                    >
-                      추천 답변
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 rounded-full"
-                      onClick={() => createReplyDraft.mutate({ lead: selectedLead, body: replyComposer })}
-                      disabled={!canReview || !replyComposer.trim() || createReplyDraft.isPending}
-                    >
-                      초안 저장
-                    </Button>
+                <div className={cn(
+                  'relative rounded-3xl border-2 bg-white p-3 shadow-sm transition-colors',
+                  composerMode === 'private' ? 'border-amber-300' : 'border-neutral-950',
+                )}>
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex rounded-2xl bg-neutral-100 p-1 text-sm font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setComposerMode('customer')}
+                        className={cn(
+                          'rounded-xl px-3 py-1.5 transition-colors',
+                          composerMode === 'customer' ? 'bg-white text-neutral-950 shadow-sm' : 'text-neutral-500 hover:text-neutral-950',
+                        )}
+                      >
+                        고객응대
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setComposerMode('private')}
+                        className={cn(
+                          'rounded-xl px-3 py-1.5 transition-colors',
+                          composerMode === 'private' ? 'bg-amber-100 text-amber-950 shadow-sm' : 'text-neutral-500 hover:text-neutral-950',
+                        )}
+                      >
+                        내부대화
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {composerMode === 'customer'
+                        ? '채널톡에는 ACBANK로 전송됩니다. 실제 전송자는 내부 로그에만 남습니다.'
+                        : '내부용 · 고객 비노출 메모로 전송됩니다.'}
+                    </p>
                   </div>
-                </div>
-                <Textarea
-                  value={replyComposer}
-                  onChange={(event) => setReplyComposer(event.target.value)}
-                  className="min-h-24 rounded-2xl border-neutral-300 bg-white text-sm focus-visible:ring-neutral-950"
-                  placeholder="고객에게 보낼 답변을 작성하세요."
-                />
-                <div className="mt-3 flex flex-wrap justify-between gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 rounded-full border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100"
-                    onClick={() => openSendDialog('private', selectedLead, undefined, replyComposer || buildInternalMemo(selectedLead))}
-                    disabled={!canReview}
-                  >
-                    <MessageSquareText className="h-3.5 w-3.5" />
-                    내부용 메모 전송
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="gap-1.5 rounded-full bg-neutral-950 text-white hover:bg-neutral-800"
-                    onClick={() => openSendDialog('customer', selectedLead, undefined, replyComposer)}
-                    disabled={!canReview || !replyComposer.trim()}
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                    채널톡 답장 전송
-                  </Button>
+
+                  {templateMenuOpen && filteredReplyTemplates.length > 0 && (
+                    <div className="absolute bottom-[calc(100%-86px)] left-4 z-20 grid w-[min(720px,calc(100%-2rem))] grid-cols-[260px_minmax(0,1fr)] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl">
+                      <div className="max-h-64 overflow-y-auto border-r border-neutral-100 p-2">
+                        {filteredReplyTemplates.map((template, index) => (
+                          <button
+                            key={template.id}
+                            type="button"
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              insertReplyTemplate(template);
+                            }}
+                            className={cn(
+                              'block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold transition-colors',
+                              index === selectedTemplateIndex ? 'bg-neutral-100 text-neutral-950' : 'text-neutral-700 hover:bg-neutral-50',
+                            )}
+                          >
+                            {template.tag}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="max-h-64 overflow-y-auto p-4">
+                        <p className="text-xs font-semibold text-neutral-500">
+                          {filteredReplyTemplates[selectedTemplateIndex]?.title || filteredReplyTemplates[0]?.title}
+                        </p>
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">
+                          {filteredReplyTemplates[selectedTemplateIndex]?.body || filteredReplyTemplates[0]?.body}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <Textarea
+                    ref={composerRef}
+                    value={replyComposer}
+                    onChange={handleComposerChange}
+                    onKeyDown={handleComposerKeyDown}
+                    className="min-h-28 resize-none border-0 bg-transparent px-0 text-base shadow-none focus-visible:ring-0"
+                    placeholder={composerMode === 'customer'
+                      ? '무엇을 써볼까요? #으로 템플릿, ⌘+J로 추천 답변'
+                      : '내부 검토 메모를 작성하세요. 고객에게 보이지 않습니다.'}
+                  />
+
+                  <TooltipProvider>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-3">
+                      <div className="flex items-center gap-1 text-neutral-500">
+                        <Popover>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <PopoverTrigger asChild>
+                                <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-xl">
+                                  <Plus className="h-5 w-5" />
+                                </Button>
+                              </PopoverTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>추가</TooltipContent>
+                          </Tooltip>
+                          <PopoverContent align="start" side="top" className="w-80 rounded-2xl p-2">
+                            <button
+                              type="button"
+                              className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left hover:bg-neutral-50"
+                              onClick={() => handleUnsupportedComposerFeature('파일 및 이미지')}
+                            >
+                              <span className="rounded-xl bg-neutral-100 p-2">
+                                <Paperclip className="h-4 w-4" />
+                              </span>
+                              <span>
+                                <span className="block text-sm font-semibold">파일 및 이미지</span>
+                                <span className="text-xs text-muted-foreground">사진, PDF, 도면 파일 전송 준비 기능</span>
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left hover:bg-neutral-50"
+                              onClick={() => handleUnsupportedComposerFeature('버튼')}
+                            >
+                              <span className="rounded-xl bg-neutral-100 p-2">
+                                <FilePlus className="h-4 w-4" />
+                              </span>
+                              <span>
+                                <span className="block text-sm font-semibold">버튼</span>
+                                <span className="text-xs text-muted-foreground">외부 링크나 키패드 버튼 추가</span>
+                              </span>
+                            </button>
+                          </PopoverContent>
+                        </Popover>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9 rounded-xl"
+                              onClick={() => insertComposerText('안녕하세요. 아크뱅크입니다.\n')}
+                            >
+                              <Type className="h-5 w-5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>기본 인사 삽입</TooltipContent>
+                        </Tooltip>
+
+                        <Popover>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <PopoverTrigger asChild>
+                                <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-xl">
+                                  <Smile className="h-5 w-5" />
+                                </Button>
+                              </PopoverTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>이모티콘</TooltipContent>
+                          </Tooltip>
+                          <PopoverContent align="start" side="top" className="w-64 rounded-2xl">
+                            <div className="grid grid-cols-6 gap-1">
+                              {emojiOptions.map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  className="rounded-xl p-2 text-xl hover:bg-neutral-100"
+                                  onClick={() => insertComposerText(emoji)}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+
+                        <Popover>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <PopoverTrigger asChild>
+                                <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-xl">
+                                  <AtSign className="h-5 w-5" />
+                                </Button>
+                              </PopoverTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>내부 멘션</TooltipContent>
+                          </Tooltip>
+                          <PopoverContent align="start" side="top" className="w-64 rounded-2xl p-2">
+                            <p className="px-2 pb-2 text-xs font-semibold text-muted-foreground">내부 메모용 멘션</p>
+                            <div className="max-h-56 overflow-y-auto">
+                              {profiles.slice(0, 20).map((p) => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-neutral-50"
+                                  onClick={() => insertComposerText(`@${p.full_name || p.id} `)}
+                                >
+                                  {p.full_name || p.id}
+                                </button>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+
+                        <Popover>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <PopoverTrigger asChild>
+                                <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-xl">
+                                  <Hash className="h-5 w-5" />
+                                </Button>
+                              </PopoverTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>응대 템플릿</TooltipContent>
+                          </Tooltip>
+                          <PopoverContent align="start" side="top" className="w-80 rounded-2xl p-2">
+                            {replyTemplates.map((template) => (
+                              <button
+                                key={template.id}
+                                type="button"
+                                className="block w-full rounded-xl px-3 py-2 text-left hover:bg-neutral-50"
+                                onClick={() => insertReplyTemplate(template)}
+                              >
+                                <span className="block text-sm font-semibold">{template.tag}</span>
+                                <span className="line-clamp-1 text-xs text-muted-foreground">{template.body}</span>
+                              </button>
+                            ))}
+                          </PopoverContent>
+                        </Popover>
+
+                        <div className="mx-1 h-6 w-px bg-neutral-200" />
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9 rounded-xl"
+                              onClick={applyRecommendedReply}
+                              disabled={!selectedLead && composerMode === 'customer'}
+                            >
+                              <Wand2 className="h-5 w-5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>AI 추천문 삽입</TooltipContent>
+                        </Tooltip>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9 rounded-xl"
+                          onClick={() => selectedLead && createReplyDraft.mutate({ lead: selectedLead, conversation: selectedConversation, body: replyComposer })}
+                          disabled={!canReview || !selectedLead || !replyComposer.trim() || createReplyDraft.isPending}
+                        >
+                          초안 저장
+                        </Button>
+                        <div className="flex overflow-hidden rounded-xl">
+                          <Button
+                            size="sm"
+                            className={cn(
+                              'h-10 rounded-none rounded-l-xl px-5 text-white',
+                              composerMode === 'private' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-neutral-950 hover:bg-neutral-800',
+                            )}
+                            onClick={() => openComposerSendDialog(composerMode)}
+                            disabled={!canReview || !selectedLead || (!replyComposer.trim() && composerMode === 'customer')}
+                          >
+                            <Send className="mr-1.5 h-4 w-4" />
+                            {composerMode === 'private' ? '내부 전송' : '전송'}
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="sm"
+                                className={cn(
+                                  'h-10 rounded-none rounded-r-xl border-l border-white/20 px-2 text-white',
+                                  composerMode === 'private' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-neutral-950 hover:bg-neutral-800',
+                                )}
+                                disabled={!canReview || !selectedLead}
+                              >
+                                <ChevronDown className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="rounded-2xl">
+                              <DropdownMenuItem onClick={() => openComposerSendDialog('customer')}>
+                                고객에게 답장 전송
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openComposerSendDialog('private')}>
+                                내부용 메모 전송
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => openComposerSendDialog('customer', true)}>
+                                전송 후 상담 종료
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </div>
+                  </TooltipProvider>
                 </div>
               </div>
             </>
@@ -1084,7 +1764,7 @@ const ChannelTalkLeadsPage = () => {
         </Card>
 
         <aside className="space-y-4">
-          {!selectedLead ? (
+          {!selectedConversation ? (
             <Card className="rounded-3xl border-dashed">
               <CardContent className="py-12 text-center text-sm text-muted-foreground">상담을 선택하면 고객 정보가 표시됩니다.</CardContent>
             </Card>
@@ -1099,10 +1779,10 @@ const ChannelTalkLeadsPage = () => {
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   {[
-                    ['고객', getLeadCustomerLabel(selectedLead)],
-                    ['연락처', selectedLead.customer_phone || '미확인'],
-                    ['이메일', selectedLead.customer_email || '미확인'],
-                    ['UserChat', selectedLead.channel_talk_user_chat_id],
+                    ['고객', getConversationCustomerLabel(selectedConversation, selectedLead)],
+                    ['연락처', selectedConversation.customer_phone || selectedLead?.customer_phone || '미확인'],
+                    ['이메일', selectedConversation.customer_email || selectedLead?.customer_email || '미확인'],
+                    ['UserChat', selectedConversation.user_chat_id],
                   ].map(([label, value]) => (
                     <div key={label} className="flex gap-3 rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                       <span className="w-16 shrink-0 text-xs text-muted-foreground">{label}</span>
@@ -1125,14 +1805,14 @@ const ChannelTalkLeadsPage = () => {
                       <div>
                         <Label className="text-xs">상태</Label>
                         <Select
-                          value={selectedLead.status}
-                          onValueChange={(value) => updateLead.mutate({ id: selectedLead.id, updates: { status: value } })}
+                          value={selectedConversation.status}
+                          onValueChange={(value) => updateConversation.mutate({ id: selectedConversation.id, updates: { status: value } })}
                         >
                           <SelectTrigger className="mt-1 h-9 rounded-xl">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {statusOptions.map((option) => (
+                            {conversationStatusOptions.map((option) => (
                               <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                             ))}
                           </SelectContent>
@@ -1141,8 +1821,8 @@ const ChannelTalkLeadsPage = () => {
                       <div>
                         <Label className="text-xs">담당자</Label>
                         <Select
-                          value={selectedLead.assigned_to || 'none'}
-                          onValueChange={(value) => updateLead.mutate({ id: selectedLead.id, updates: { assigned_to: value === 'none' ? null : value } })}
+                          value={selectedConversation.assigned_to || 'none'}
+                          onValueChange={(value) => updateConversation.mutate({ id: selectedConversation.id, updates: { assigned_to: value === 'none' ? null : value, assigned_at: value === 'none' ? null : new Date().toISOString(), assigned_by: value === 'none' ? null : user.id } })}
                         >
                           <SelectTrigger className="mt-1 h-9 rounded-xl">
                             <SelectValue placeholder="담당자 선택" />
@@ -1158,13 +1838,13 @@ const ChannelTalkLeadsPage = () => {
                       <div>
                         <Label className="text-xs">내부 메모</Label>
                         <Textarea
-                          key={selectedLead.id}
-                          defaultValue={selectedLead.memo || ''}
+                          key={selectedConversation.id}
+                          defaultValue={selectedConversation.memo || ''}
                           placeholder="상담 진행 메모"
                           className="mt-1 min-h-20 rounded-xl text-xs"
                           onBlur={(event) => {
-                            if (event.target.value !== (selectedLead.memo || '')) {
-                              updateLead.mutate({ id: selectedLead.id, updates: { memo: event.target.value || null } });
+                            if (event.target.value !== (selectedConversation.memo || '')) {
+                              updateConversation.mutate({ id: selectedConversation.id, updates: { memo: event.target.value || null } });
                             }
                           }}
                         />
@@ -1187,32 +1867,45 @@ const ChannelTalkLeadsPage = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    <Badge variant="outline" className={confidenceLabel(selectedLead.analysis?.confidence).className}>
-                      {confidenceLabel(selectedLead.analysis?.confidence).label}
-                    </Badge>
-                    {selectedLead.missing_fields?.length > 0 && (
-                      <Badge variant="outline" className="border-neutral-300 bg-neutral-100 text-neutral-800">누락 {selectedLead.missing_fields.length}</Badge>
-                    )}
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-                    {selectedLead.analysis?.summary || selectedLead.analysis?.source_body || '자동 요약이 없습니다.'}
-                  </p>
-                  <div className="grid gap-2 text-xs">
-                    {[
-                      ['품목', selectedLead.analysis?.item_name],
-                      ['사이즈', selectedLead.analysis?.dimensions],
-                      ['수량', selectedLead.analysis?.quantity],
-                      ['소재/두께', [selectedLead.analysis?.material, selectedLead.analysis?.thickness].filter(Boolean).join(' / ')],
-                      ['가공', joinValue(selectedLead.analysis?.processing)],
-                      ['희망 납기', selectedLead.analysis?.desired_due_date],
-                    ].map(([label, value]) => (
-                      <div key={label} className="flex gap-2">
-                        <span className="w-16 shrink-0 text-muted-foreground">{label}</span>
-                        <span className="font-medium">{value || '미확인'}</span>
+                  {!selectedLead ? (
+                    <p className="rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
+                      이 상담에 연결된 AI 분석 리드가 없습니다.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Badge variant="outline" className={confidenceLabel(selectedLead.analysis?.confidence).className}>
+                          {confidenceLabel(selectedLead.analysis?.confidence).label}
+                        </Badge>
+                        {selectedConversationLeads.length > 1 && (
+                          <Badge variant="outline" className="border-neutral-300 bg-white text-neutral-700">
+                            분석 {selectedConversationLeads.length}건
+                          </Badge>
+                        )}
+                        {selectedLead.missing_fields?.length > 0 && (
+                          <Badge variant="outline" className="border-neutral-300 bg-neutral-100 text-neutral-800">누락 {selectedLead.missing_fields.length}</Badge>
+                        )}
                       </div>
-                    ))}
-                  </div>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                        {selectedLead.analysis?.summary || selectedLead.analysis?.source_body || '자동 요약이 없습니다.'}
+                      </p>
+                      <div className="grid gap-2 text-xs">
+                        {[
+                          ['품목', selectedLead.analysis?.item_name],
+                          ['사이즈', selectedLead.analysis?.dimensions],
+                          ['수량', selectedLead.analysis?.quantity],
+                          ['소재/두께', [selectedLead.analysis?.material, selectedLead.analysis?.thickness].filter(Boolean).join(' / ')],
+                          ['가공', joinValue(selectedLead.analysis?.processing)],
+                          ['희망 납기', selectedLead.analysis?.desired_due_date],
+                        ].map(([label, value]) => (
+                          <div key={label} className="flex gap-2">
+                            <span className="w-16 shrink-0 text-muted-foreground">{label}</span>
+                            <span className="font-medium">{value || '미확인'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
@@ -1253,8 +1946,9 @@ const ChannelTalkLeadsPage = () => {
                 <CardContent className="space-y-2">
                   {canReview && (
                     <Select
-                      value={selectedLead.project_id || 'none'}
-                      onValueChange={(value) => updateLead.mutate({ id: selectedLead.id, updates: { project_id: value === 'none' ? null : value, status: value === 'none' ? selectedLead.status : 'converted' } })}
+                      value={selectedLead?.project_id || 'none'}
+                      onValueChange={(value) => selectedLead && updateLead.mutate({ id: selectedLead.id, updates: { project_id: value === 'none' ? null : value, status: value === 'none' ? selectedLead.status : 'converted' } })}
+                      disabled={!selectedLead}
                     >
                       <SelectTrigger className="h-9 rounded-xl">
                         <SelectValue placeholder="기존 프로젝트 선택" />
@@ -1267,19 +1961,19 @@ const ChannelTalkLeadsPage = () => {
                       </SelectContent>
                     </Select>
                   )}
-                  <Button variant="outline" size="sm" className="w-full gap-1.5 rounded-xl" onClick={() => selectedLead.project_id && navigate(`/project-management?id=${selectedLead.project_id}`)} disabled={!selectedLead.project_id}>
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 rounded-xl" onClick={() => selectedLead?.project_id && navigate(`/project-management?id=${selectedLead.project_id}`)} disabled={!selectedLead?.project_id}>
                     <LinkIcon className="h-3.5 w-3.5" />
                     연결 프로젝트 열기
                   </Button>
-                  <Button size="sm" className="w-full gap-1.5 rounded-xl bg-neutral-950 text-white hover:bg-neutral-800" onClick={() => navigate(toQuoteDraftParams(selectedLead))}>
+                  <Button size="sm" className="w-full gap-1.5 rounded-xl bg-neutral-950 text-white hover:bg-neutral-800" onClick={() => selectedLead && navigate(toQuoteDraftParams(selectedLead))} disabled={!selectedLead}>
                     <FileText className="h-3.5 w-3.5" />
                     견적 초안 만들기
                   </Button>
-                  <Button variant="outline" size="sm" className="w-full gap-1.5 rounded-xl" onClick={() => navigate(toResponseAssistantParams(selectedLead))}>
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 rounded-xl" onClick={() => selectedLead && navigate(toResponseAssistantParams(selectedLead))} disabled={!selectedLead}>
                     <Send className="h-3.5 w-3.5" />
                     응대 초안 만들기
                   </Button>
-                  <Button variant="outline" size="sm" className="w-full gap-1.5 rounded-xl" onClick={() => openProjectDialog(selectedLead)}>
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 rounded-xl" onClick={() => selectedLead && openProjectDialog(selectedLead)} disabled={!selectedLead}>
                     <FolderOpen className="h-3.5 w-3.5" />
                     프로젝트 후보 만들기
                   </Button>
@@ -1315,11 +2009,11 @@ const ChannelTalkLeadsPage = () => {
                     })}
                   </div>
                   <div className="space-y-1">
-                    {selectedLead.channel_talk_file_keys?.length ? selectedLead.channel_talk_file_keys.map((key) => (
+                    {selectedLead?.channel_talk_file_keys?.length ? selectedLead.channel_talk_file_keys.map((key) => (
                       <div key={key} className="truncate rounded-lg border border-neutral-100 bg-neutral-50 px-2 py-1 font-mono text-[10px] text-muted-foreground">{key}</div>
                     )) : <p className="text-xs text-muted-foreground">첨부파일 키가 없습니다.</p>}
                   </div>
-                  <Button variant="outline" size="sm" className="w-full gap-1.5 rounded-xl" onClick={() => copyMemo(selectedLead)}>
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 rounded-xl" onClick={() => selectedLead && copyMemo(selectedLead)} disabled={!selectedLead}>
                     <Clipboard className="h-3.5 w-3.5" />
                     분석 메모 복사
                   </Button>
@@ -1358,6 +2052,39 @@ const ChannelTalkLeadsPage = () => {
               >
                 {createProject.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 프로젝트 생성
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {canReview && pendingAssignConversation && (
+        <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>상담 담당자 변경</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              <p>
+                현재 <span className="font-semibold">
+                  {profiles.find((p) => p.id === pendingAssignConversation.assigned_to)?.full_name || '다른 담당자'}
+                </span>
+                가 담당 중입니다.
+              </p>
+              <p className="text-muted-foreground">이 상담의 메인 담당자를 나에게 변경할까요?</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>취소</Button>
+              <Button
+                className="bg-neutral-950 text-white hover:bg-neutral-800"
+                onClick={() => {
+                  handleAssignConversation(pendingAssignConversation, true);
+                  setAssignDialogOpen(false);
+                }}
+                disabled={channelAction.isPending}
+              >
+                {channelAction.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                나에게 변경
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1412,6 +2139,7 @@ const ChannelTalkLeadsPage = () => {
               <Button
                 onClick={() => selectedLead && channelAction.mutate({
                   action: sendMode === 'private' ? 'send_private_note' : 'send_customer_reply',
+                  conversationId: selectedConversation?.id,
                   leadId: selectedLead.id,
                   body: sendBody,
                   draftId: sendDraftId,

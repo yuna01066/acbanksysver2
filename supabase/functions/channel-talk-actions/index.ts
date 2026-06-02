@@ -16,11 +16,29 @@ type StaffProfile = {
   email: string | null;
 };
 
+type ChannelConversation = {
+  id: string;
+  user_chat_id: string;
+  status: string;
+  assigned_to: string | null;
+  latest_lead_id: string | null;
+};
+
+type ChannelLead = {
+  id: string;
+  channel_talk_user_chat_id: string;
+  status: string;
+  conversation_id: string | null;
+};
+
 type ChannelAction =
   | "send_private_note"
   | "send_customer_reply"
   | "refresh_messages"
-  | "mark_lead_closed";
+  | "mark_lead_closed"
+  | "assign_conversation"
+  | "mark_conversation_read"
+  | "close_conversation";
 
 function getEnv(name: string, required = true): string {
   const value = Deno.env.get(name);
@@ -188,7 +206,7 @@ async function loadStaffProfile(supabase: ReturnType<typeof createClient>, userI
   return data as StaffProfile | null;
 }
 
-async function loadLead(supabase: ReturnType<typeof createClient>, leadId: string, userId: string) {
+async function loadLead(supabase: ReturnType<typeof createClient>, leadId: string, userId: string): Promise<ChannelLead> {
   const { data: canManage, error: accessError } = await supabase.rpc(
     "can_manage_channel_talk_lead",
     { _lead_id: leadId, _user_id: userId },
@@ -198,18 +216,63 @@ async function loadLead(supabase: ReturnType<typeof createClient>, leadId: strin
 
   const { data, error } = await supabase
     .from("channel_talk_quote_leads")
-    .select("id, channel_talk_user_chat_id, status")
+    .select("id, channel_talk_user_chat_id, status, conversation_id")
     .eq("id", leadId)
     .single();
   if (error) throw error;
   if (!data?.channel_talk_user_chat_id) throw new Error("Channel Talk userChatId is missing");
-  return data as { id: string; channel_talk_user_chat_id: string; status: string };
+  return data as ChannelLead;
+}
+
+async function loadConversation(
+  supabase: ReturnType<typeof createClient>,
+  conversationId: string,
+  userId: string,
+): Promise<ChannelConversation> {
+  const { data: canManage, error: accessError } = await supabase.rpc(
+    "can_manage_channel_talk_conversation",
+    { _conversation_id: conversationId, _user_id: userId },
+  );
+  if (accessError) throw accessError;
+  if (!canManage) throw new Error("Channel Talk conversation access denied");
+
+  const { data, error } = await supabase
+    .from("channel_talk_conversations")
+    .select("id, user_chat_id, status, assigned_to, latest_lead_id")
+    .eq("id", conversationId)
+    .single();
+  if (error) throw error;
+  if (!data?.user_chat_id) throw new Error("Channel Talk userChatId is missing");
+  return data as ChannelConversation;
+}
+
+async function loadConversationFromUserChat(
+  supabase: ReturnType<typeof createClient>,
+  userChatId: string,
+  userId: string,
+): Promise<ChannelConversation> {
+  const { data, error } = await supabase
+    .from("channel_talk_conversations")
+    .select("id, user_chat_id, status, assigned_to, latest_lead_id")
+    .eq("user_chat_id", userChatId)
+    .single();
+  if (error) throw error;
+  if (!data?.id) throw new Error("Channel Talk conversation is missing");
+
+  const { data: canManage, error: accessError } = await supabase.rpc(
+    "can_manage_channel_talk_conversation",
+    { _conversation_id: data.id, _user_id: userId },
+  );
+  if (accessError) throw accessError;
+  if (!canManage) throw new Error("Channel Talk conversation access denied");
+  return data as ChannelConversation;
 }
 
 async function logAction(
   supabase: ReturnType<typeof createClient>,
   params: {
-    leadId: string;
+    leadId?: string | null;
+    conversationId?: string | null;
     action: ChannelAction;
     userId: string;
     status: "success" | "failed";
@@ -222,7 +285,8 @@ async function logAction(
   },
 ) {
   const { error } = await supabase.from("channel_talk_action_logs").insert({
-    lead_id: params.leadId,
+    lead_id: params.leadId || null,
+    conversation_id: params.conversationId || null,
     action: params.action,
     requested_by: params.userId,
     sender_name: params.senderName || null,
@@ -280,7 +344,7 @@ async function fetchChannelMessages(userChatId: string) {
   return parsed;
 }
 
-function normalizeMessageRows(leadId: string, userChatId: string, response: JsonObject) {
+function normalizeMessageRows(conversationId: string, leadId: string | null, userChatId: string, response: JsonObject) {
   const source = Array.isArray(response.messages)
     ? response.messages
     : isObject(response.result) && Array.isArray(response.result.messages)
@@ -295,6 +359,7 @@ function normalizeMessageRows(leadId: string, userChatId: string, response: Json
       const messageId = extractMessageId(message);
       return {
         lead_id: leadId,
+        conversation_id: conversationId,
         user_chat_id: userChatId,
         message_id: messageId,
         event_id: firstString(message.eventId) || null,
@@ -331,6 +396,7 @@ serve(async (req) => {
   const supabase = getServiceClient();
   let action: ChannelAction | undefined;
   let leadId = "";
+  let conversationId = "";
   let userId = "";
   let requestPayload: JsonObject = {};
   let senderNameForLog: string | null = null;
@@ -346,37 +412,166 @@ serve(async (req) => {
     requestPayload = payload;
     action = payload.action as ChannelAction;
     leadId = firstString(payload.leadId, payload.lead_id) || "";
+    conversationId = firstString(payload.conversationId, payload.conversation_id) || "";
+    const userChatId = firstString(payload.userChatId, payload.user_chat_id);
     const body = firstString(payload.body);
     const draftId = firstString(payload.draftId, payload.draft_id);
     const closeLead = Boolean(payload.closeLead);
+    const closeReason = firstString(payload.closeReason, payload.close_reason);
+    const forceAssign = Boolean(payload.force);
 
     if (!action) throw new Error("action is required");
-    if (!leadId) throw new Error("leadId is required");
 
-    const lead = await loadLead(supabase, leadId, userId);
+    let lead: ChannelLead | null = null;
+    let conversation: ChannelConversation | null = null;
+
+    if (conversationId) {
+      conversation = await loadConversation(supabase, conversationId, userId);
+    }
+
+    if (leadId) {
+      lead = await loadLead(supabase, leadId, userId);
+      if (!conversation && lead.conversation_id) {
+        conversation = await loadConversation(supabase, lead.conversation_id, userId);
+        conversationId = conversation.id;
+      }
+    }
+
+    if (!conversation && userChatId) {
+      conversation = await loadConversationFromUserChat(supabase, userChatId, userId);
+      conversationId = conversation.id;
+    }
+
+    if (!lead && conversation?.latest_lead_id) {
+      try {
+        lead = await loadLead(supabase, conversation.latest_lead_id, userId);
+        leadId = lead.id;
+      } catch (error) {
+        console.warn("Failed to load latest Channel Talk lead", error);
+      }
+    }
+
+    if (action === "assign_conversation") {
+      if (!conversation) throw new Error("conversationId is required");
+      if (conversation.assigned_to && conversation.assigned_to !== userId && !forceAssign) {
+        return ok({
+          error: "Conversation is already assigned",
+          assignedTo: conversation.assigned_to,
+          requiresConfirmation: true,
+        }, 409);
+      }
+
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from("channel_talk_conversations")
+        .update({
+          assigned_to: userId,
+          assigned_at: now,
+          assigned_by: userId,
+          status: conversation.status === "closed" ? "active" : conversation.status,
+        })
+        .eq("id", conversation.id);
+      if (error) throw error;
+
+      await supabase
+        .from("channel_talk_quote_leads")
+        .update({ assigned_to: userId })
+        .eq("conversation_id", conversation.id);
+
+      await logAction(supabase, {
+        leadId: lead?.id || null,
+        conversationId: conversation.id,
+        action,
+        userId,
+        status: "success",
+        requestPayload: { forceAssign },
+        senderName: staffName,
+      });
+
+      return ok({ success: true, assignedTo: userId });
+    }
+
+    if (action === "mark_conversation_read") {
+      if (!conversation) throw new Error("conversationId is required");
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from("channel_talk_conversation_reads")
+        .upsert({
+          conversation_id: conversation.id,
+          user_id: userId,
+          last_read_at: now,
+        }, { onConflict: "conversation_id,user_id" });
+      if (error) throw error;
+
+      await logAction(supabase, {
+        leadId: lead?.id || null,
+        conversationId: conversation.id,
+        action,
+        userId,
+        status: "success",
+        requestPayload: {},
+        senderName: staffName,
+      });
+      return ok({ success: true });
+    }
+
+    if (action === "close_conversation") {
+      if (!conversation) throw new Error("conversationId is required");
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from("channel_talk_conversations")
+        .update({
+          status: "closed",
+          closed_at: now,
+          close_reason: closeReason,
+        })
+        .eq("id", conversation.id);
+      if (error) throw error;
+
+      await supabase
+        .from("channel_talk_quote_leads")
+        .update({ status: "closed", closed_at: now })
+        .eq("conversation_id", conversation.id);
+
+      await logAction(supabase, {
+        leadId: lead?.id || null,
+        conversationId: conversation.id,
+        action,
+        userId,
+        status: "success",
+        requestPayload: { closeReason },
+        senderName: staffName,
+      });
+      return ok({ success: true });
+    }
+
+    if (!conversation) throw new Error("conversationId or leadId is required");
+    const conversationLeadId = lead?.id || conversation.latest_lead_id || null;
 
     if (action === "send_private_note" || action === "send_customer_reply") {
       if (!body) throw new Error("body is required");
       const finalBody = body;
       const visibleSenderName = action === "send_customer_reply" ? "ACBANK" : "ACBANK 내부 메모";
       const response = await sendChannelMessage(
-        lead.channel_talk_user_chat_id,
+        conversation.user_chat_id,
         finalBody,
         action === "send_private_note",
       );
       const channelMessageId = extractChannelMessageId(response);
       const storedMessageId = channelMessageId || `${action}-${crypto.randomUUID()}`;
+      const now = new Date().toISOString();
 
       await supabase.from("channel_talk_messages").upsert({
-        lead_id: lead.id,
-        user_chat_id: lead.channel_talk_user_chat_id,
+        lead_id: conversationLeadId,
+        conversation_id: conversation.id,
+        user_chat_id: conversation.user_chat_id,
         message_id: storedMessageId,
         sender_type: "manager",
         message_type: action === "send_private_note" ? "private_note" : "customer_reply",
         body: finalBody,
         file_keys: [],
         raw_payload: response,
-        received_at: new Date().toISOString(),
+        received_at: now,
       }, { onConflict: "user_chat_id,message_id" });
 
       if (draftId && action === "send_customer_reply") {
@@ -387,7 +582,7 @@ serve(async (req) => {
             body: finalBody,
             updated_by: userId,
             sent_by: userId,
-            sent_at: new Date().toISOString(),
+            sent_at: now,
             channel_message_id: channelMessageId,
           })
           .eq("id", draftId);
@@ -395,16 +590,32 @@ serve(async (req) => {
 
       if (action === "send_customer_reply") {
         await supabase
+          .from("channel_talk_conversations")
+          .update({
+            status: closeLead ? "closed" : "waiting_customer",
+            closed_at: closeLead ? now : null,
+            last_staff_reply_at: now,
+            last_message_at: now,
+          })
+          .eq("id", conversation.id);
+
+        await supabase
           .from("channel_talk_quote_leads")
           .update({
             status: closeLead ? "closed" : "waiting_customer",
-            closed_at: closeLead ? new Date().toISOString() : null,
+            closed_at: closeLead ? now : null,
           })
-          .eq("id", lead.id);
+          .eq("conversation_id", conversation.id);
+      } else {
+        await supabase
+          .from("channel_talk_conversations")
+          .update({ last_message_at: now })
+          .eq("id", conversation.id);
       }
 
       await logAction(supabase, {
-        leadId,
+        leadId: conversationLeadId,
+        conversationId: conversation.id,
         action,
         userId,
         status: "success",
@@ -424,15 +635,35 @@ serve(async (req) => {
     }
 
     if (action === "refresh_messages") {
-      const response = await fetchChannelMessages(lead.channel_talk_user_chat_id);
-      const rows = normalizeMessageRows(lead.id, lead.channel_talk_user_chat_id, response);
+      const response = await fetchChannelMessages(conversation.user_chat_id);
+      const rows = normalizeMessageRows(conversation.id, conversationLeadId, conversation.user_chat_id, response);
       if (rows.length > 0) {
         await supabase
           .from("channel_talk_messages")
           .upsert(rows, { onConflict: "user_chat_id,message_id" });
+
+        const lastMessageAt = rows.reduce((latest, row) => (
+          new Date(row.received_at).getTime() > new Date(latest).getTime() ? row.received_at : latest
+        ), rows[0].received_at);
+        const lastCustomerMessageAt = rows
+          .filter((row) => row.sender_type === "user")
+          .reduce<string | null>((latest, row) => !latest || new Date(row.received_at).getTime() > new Date(latest).getTime() ? row.received_at : latest, null);
+        const lastStaffReplyAt = rows
+          .filter((row) => row.sender_type !== "user" && row.message_type !== "private_note")
+          .reduce<string | null>((latest, row) => !latest || new Date(row.received_at).getTime() > new Date(latest).getTime() ? row.received_at : latest, null);
+
+        await supabase
+          .from("channel_talk_conversations")
+          .update({
+            last_message_at: lastMessageAt,
+            last_customer_message_at: lastCustomerMessageAt,
+            last_staff_reply_at: lastStaffReplyAt,
+          })
+          .eq("id", conversation.id);
       }
       await logAction(supabase, {
-        leadId,
+        leadId: conversationLeadId,
+        conversationId: conversation.id,
         action,
         userId,
         status: "success",
@@ -444,13 +675,22 @@ serve(async (req) => {
     }
 
     if (action === "mark_lead_closed") {
+      if (!lead) throw new Error("leadId is required");
+      const now = new Date().toISOString();
       const { error } = await supabase
         .from("channel_talk_quote_leads")
-        .update({ status: "closed", closed_at: new Date().toISOString() })
+        .update({ status: "closed", closed_at: now })
         .eq("id", lead.id);
       if (error) throw error;
+      if (conversation) {
+        await supabase
+          .from("channel_talk_conversations")
+          .update({ status: "closed", closed_at: now })
+          .eq("id", conversation.id);
+      }
       await logAction(supabase, {
         leadId,
+        conversationId: conversation?.id || null,
         action,
         userId,
         status: "success",
@@ -463,9 +703,10 @@ serve(async (req) => {
     throw new Error(`Unsupported action: ${action}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    if (action && leadId && userId) {
+    if (action && userId && (leadId || conversationId)) {
       await logAction(supabase, {
-        leadId,
+        leadId: leadId || null,
+        conversationId: conversationId || null,
         action,
         userId,
         status: "failed",

@@ -47,6 +47,13 @@ type ExtractedFile = {
 type StoredLead = {
   id: string;
   channel_talk_user_chat_id: string;
+  conversation_id: string | null;
+};
+
+type StoredConversation = {
+  id: string;
+  user_chat_id: string;
+  latest_lead_id: string | null;
 };
 
 function getEnv(name: string, required = true): string {
@@ -435,7 +442,27 @@ function formatAnalysisMessage(analysis: QuoteAnalysis, files: ExtractedFile[], 
   ].join("\n");
 }
 
-async function sendPrivateSummary(userChatId: string, message: string) {
+function parseJsonResponse(text: string): JsonObject {
+  if (!text) return {};
+  try {
+    const parsed = JSON.parse(text);
+    return isObject(parsed) ? parsed : { result: parsed };
+  } catch {
+    return { raw: text };
+  }
+}
+
+function extractChannelMessageId(response: JsonObject): string | null {
+  return firstString(
+    response.id,
+    response.messageId,
+    isObject(response.message) ? response.message.id : null,
+    isObject(response.result) ? response.result.id : null,
+    isObject(response.result) && isObject(response.result.message) ? response.result.message.id : null,
+  );
+}
+
+async function sendPrivateSummary(userChatId: string, message: string): Promise<JsonObject> {
   const botName = encodeURIComponent("ACBANK 견적 분석");
   const res = await channelApi(
     `/user-chats/${encodeURIComponent(userChatId)}/messages?botName=${botName}`,
@@ -447,10 +474,12 @@ async function sendPrivateSummary(userChatId: string, message: string) {
       }),
     },
   );
+  const text = await res.text();
 
   if (!res.ok) {
-    throw new Error(`Channel Talk summary message failed: ${res.status} ${await res.text()}`);
+    throw new Error(`Channel Talk summary message failed: ${res.status} ${text}`);
   }
+  return parseJsonResponse(text);
 }
 
 async function notifyAdmins(supabase: ReturnType<typeof createClient>, lead: JsonObject, analysis: QuoteAnalysis) {
@@ -478,6 +507,7 @@ async function notifyAdmins(supabase: ReturnType<typeof createClient>, lead: Jso
     description: `${analysis.item_name || "견적 문의"} · ${confidenceLabel} · 누락 ${missingCount}건`,
     data: {
       lead_id: lead.id,
+      conversation_id: lead.conversation_id,
       user_chat_id: lead.channel_talk_user_chat_id,
       confidence: analysis.confidence || "low",
       missing_fields: analysis.missing_fields || [],
@@ -486,6 +516,48 @@ async function notifyAdmins(supabase: ReturnType<typeof createClient>, lead: Jso
 
   const { error } = await supabase.from("notifications").insert(notifications);
   if (error) console.warn("Failed to insert channel talk notifications", error);
+}
+
+async function ensureConversation(
+  supabase: ReturnType<typeof createClient>,
+  params: {
+    userChatId: string;
+    customer: ReturnType<typeof extractCustomer>;
+    lastMessageAt?: string;
+  },
+): Promise<StoredConversation> {
+  const now = params.lastMessageAt || new Date().toISOString();
+  const { data, error } = await supabase
+    .from("channel_talk_conversations")
+    .upsert({
+      user_chat_id: params.userChatId,
+      channel_talk_user_id: params.customer.userId,
+      customer_name: params.customer.name,
+      customer_company: params.customer.company,
+      customer_phone: params.customer.phone,
+      customer_email: params.customer.email,
+      status: "active",
+      last_message_at: now,
+      last_customer_message_at: now,
+    }, { onConflict: "user_chat_id" })
+    .select("id, user_chat_id, latest_lead_id")
+    .single();
+
+  if (error) throw error;
+  if (!data?.id) throw new Error("Channel Talk conversation upsert returned no data");
+  return data as StoredConversation;
+}
+
+async function touchConversation(
+  supabase: ReturnType<typeof createClient>,
+  conversationId: string,
+  updates: JsonObject,
+) {
+  const { error } = await supabase
+    .from("channel_talk_conversations")
+    .update({ ...updates, last_message_at: new Date().toISOString() })
+    .eq("id", conversationId);
+  if (error) console.warn("Failed to update Channel Talk conversation", error);
 }
 
 async function findExistingLead(
@@ -497,7 +569,7 @@ async function findExistingLead(
   if (messageId) {
     const { data, error } = await supabase
       .from("channel_talk_quote_leads")
-      .select("id, channel_talk_user_chat_id")
+      .select("id, channel_talk_user_chat_id, conversation_id")
       .eq("channel_talk_user_chat_id", userChatId)
       .eq("channel_talk_message_id", messageId)
       .maybeSingle();
@@ -508,7 +580,7 @@ async function findExistingLead(
   if (eventId) {
     const { data, error } = await supabase
       .from("channel_talk_quote_leads")
-      .select("id, channel_talk_user_chat_id")
+      .select("id, channel_talk_user_chat_id, conversation_id")
       .eq("channel_talk_event_id", eventId)
       .maybeSingle();
     if (error) throw error;
@@ -522,6 +594,7 @@ async function storeChannelMessage(
   supabase: ReturnType<typeof createClient>,
   params: {
     leadId: string;
+    conversationId: string;
     userChatId: string;
     messageId: string | null;
     eventId: string | null;
@@ -533,6 +606,7 @@ async function storeChannelMessage(
   const fileKeys = params.files.map((file) => file.key).filter(Boolean);
   const row = {
     lead_id: params.leadId,
+    conversation_id: params.conversationId,
     user_chat_id: params.userChatId,
     message_id: params.messageId,
     event_id: params.eventId,
@@ -548,6 +622,36 @@ async function storeChannelMessage(
     .from("channel_talk_messages")
     .upsert(row, { onConflict: "user_chat_id,message_id" });
   if (error) console.warn("Failed to store Channel Talk message", error);
+}
+
+async function storePrivateAnalysisMessage(
+  supabase: ReturnType<typeof createClient>,
+  params: {
+    leadId: string;
+    conversationId: string;
+    userChatId: string;
+    body: string;
+    response: JsonObject;
+  },
+) {
+  const channelMessageId = extractChannelMessageId(params.response);
+  const messageId = channelMessageId || `ai-private-${params.leadId}`;
+  const { error } = await supabase
+    .from("channel_talk_messages")
+    .upsert({
+      lead_id: params.leadId,
+      conversation_id: params.conversationId,
+      user_chat_id: params.userChatId,
+      message_id: messageId,
+      sender_type: "bot",
+      message_type: "private_note",
+      body: params.body,
+      file_keys: [],
+      raw_payload: params.response,
+      received_at: new Date().toISOString(),
+    }, { onConflict: "user_chat_id,message_id" });
+
+  if (error) console.warn("Failed to store Channel Talk private analysis note", error);
 }
 
 async function processWebhook(payload: JsonObject) {
@@ -567,16 +671,27 @@ async function processWebhook(payload: JsonObject) {
   const messageId = extractMessageId(payload);
   const eventId = extractEventId(payload);
   const supabase = getServiceClient();
+  const conversation = await ensureConversation(supabase, {
+    userChatId,
+    customer,
+    lastMessageAt: new Date().toISOString(),
+  });
+
   const existingLead = await findExistingLead(supabase, userChatId, messageId, eventId);
   if (existingLead) {
     await storeChannelMessage(supabase, {
       leadId: existingLead.id,
+      conversationId: existingLead.conversation_id || conversation.id,
       userChatId,
       messageId,
       eventId,
       body,
       files,
       payload,
+    });
+    await touchConversation(supabase, existingLead.conversation_id || conversation.id, {
+      last_customer_message_at: new Date().toISOString(),
+      status: "active",
     });
     return;
   }
@@ -623,6 +738,7 @@ async function processWebhook(payload: JsonObject) {
       channel_talk_user_id: customer.userId,
       channel_talk_message_id: messageId,
       channel_talk_event_id: eventId,
+      conversation_id: conversation.id,
       channel_talk_file_keys: files.map((file) => file.key).filter(Boolean),
       customer_name: customer.name,
       customer_company: customer.company,
@@ -638,7 +754,7 @@ async function processWebhook(payload: JsonObject) {
       missing_fields: analysis.missing_fields || [],
       raw_payload: payload,
     })
-    .select("id, channel_talk_user_chat_id")
+    .select("id, channel_talk_user_chat_id, conversation_id")
     .single();
 
   if (error) throw error;
@@ -646,6 +762,7 @@ async function processWebhook(payload: JsonObject) {
 
   await storeChannelMessage(supabase, {
     leadId: lead.id,
+    conversationId: conversation.id,
     userChatId,
     messageId,
     eventId,
@@ -654,8 +771,27 @@ async function processWebhook(payload: JsonObject) {
     payload,
   });
 
+  await touchConversation(supabase, conversation.id, {
+    channel_talk_user_id: customer.userId,
+    customer_name: customer.name,
+    customer_company: customer.company,
+    customer_phone: customer.phone,
+    customer_email: customer.email,
+    last_customer_message_at: new Date().toISOString(),
+    latest_lead_id: lead.id,
+    status: "active",
+  });
+
   if (files.length > 0) {
-    await sendPrivateSummary(userChatId, formatAnalysisMessage(analysis, files, lead.id));
+    const privateNote = formatAnalysisMessage(analysis, files, lead.id);
+    const response = await sendPrivateSummary(userChatId, privateNote);
+    await storePrivateAnalysisMessage(supabase, {
+      leadId: lead.id,
+      conversationId: conversation.id,
+      userChatId,
+      body: privateNote,
+      response,
+    });
   }
   await notifyAdmins(supabase, lead || {}, analysis);
 }
