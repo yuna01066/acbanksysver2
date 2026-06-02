@@ -632,15 +632,15 @@ async function findExistingLead(
 async function findActiveLead(
   supabase: ReturnType<typeof createClient>,
   userChatId: string,
-  conversationId: string,
 ): Promise<StoredLead | null> {
   const { data, error } = await supabase
     .from("channel_talk_quote_leads")
     .select("id, channel_talk_user_chat_id, conversation_id, channel_talk_file_keys, analysis, missing_fields, status, message_count, last_message_at")
     .eq("channel_talk_user_chat_id", userChatId)
-    .eq("conversation_id", conversationId)
     .in("status", ACTIVE_LEAD_STATUSES)
+    .order("last_message_at", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -800,7 +800,7 @@ async function processWebhook(payload: JsonObject) {
     return;
   }
 
-  const activeLead = await findActiveLead(supabase, userChatId, conversation.id);
+  const activeLead = await findActiveLead(supabase, userChatId);
   const analyses: QuoteAnalysis[] = [];
 
   for (const file of files) {
