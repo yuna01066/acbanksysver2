@@ -674,9 +674,101 @@ export type Database = {
           },
         ]
       }
+      channel_talk_conversations: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          assigned_to: string | null
+          channel_talk_user_id: string | null
+          close_reason: string | null
+          closed_at: string | null
+          created_at: string
+          customer_company: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          id: string
+          last_customer_message_at: string | null
+          last_message_at: string | null
+          last_staff_reply_at: string | null
+          latest_lead_id: string | null
+          memo: string | null
+          status: string
+          updated_at: string
+          user_chat_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_to?: string | null
+          channel_talk_user_id?: string | null
+          close_reason?: string | null
+          closed_at?: string | null
+          created_at?: string
+          customer_company?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          last_customer_message_at?: string | null
+          last_message_at?: string | null
+          last_staff_reply_at?: string | null
+          latest_lead_id?: string | null
+          memo?: string | null
+          status?: string
+          updated_at?: string
+          user_chat_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_to?: string | null
+          channel_talk_user_id?: string | null
+          close_reason?: string | null
+          closed_at?: string | null
+          created_at?: string
+          customer_company?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          last_customer_message_at?: string | null
+          last_message_at?: string | null
+          last_staff_reply_at?: string | null
+          latest_lead_id?: string | null
+          memo?: string | null
+          status?: string
+          updated_at?: string
+          user_chat_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_talk_conversations_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_talk_conversations_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_talk_conversations_latest_lead_id_fkey"
+            columns: ["latest_lead_id"]
+            isOneToOne: false
+            referencedRelation: "channel_talk_quote_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_talk_messages: {
         Row: {
           body: string | null
+          conversation_id: string | null
           created_at: string
           event_id: string | null
           file_keys: string[]
@@ -692,6 +784,7 @@ export type Database = {
         }
         Insert: {
           body?: string | null
+          conversation_id?: string | null
           created_at?: string
           event_id?: string | null
           file_keys?: string[]
@@ -707,6 +800,7 @@ export type Database = {
         }
         Update: {
           body?: string | null
+          conversation_id?: string | null
           created_at?: string
           event_id?: string | null
           file_keys?: string[]
@@ -721,6 +815,13 @@ export type Database = {
           user_chat_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "channel_talk_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "channel_talk_conversations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "channel_talk_messages_lead_id_fkey"
             columns: ["lead_id"]
@@ -740,6 +841,7 @@ export type Database = {
           channel_talk_user_chat_id: string
           channel_talk_user_id: string | null
           closed_at: string | null
+          conversation_id: string | null
           converted_quote_id: string | null
           created_at: string
           customer_company: string | null
@@ -768,6 +870,7 @@ export type Database = {
           channel_talk_user_chat_id: string
           channel_talk_user_id?: string | null
           closed_at?: string | null
+          conversation_id?: string | null
           converted_quote_id?: string | null
           created_at?: string
           customer_company?: string | null
@@ -796,6 +899,7 @@ export type Database = {
           channel_talk_user_chat_id?: string
           channel_talk_user_id?: string | null
           closed_at?: string | null
+          conversation_id?: string | null
           converted_quote_id?: string | null
           created_at?: string
           customer_company?: string | null
@@ -821,6 +925,13 @@ export type Database = {
             columns: ["assigned_to"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_talk_quote_leads_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "channel_talk_conversations"
             referencedColumns: ["id"]
           },
           {
