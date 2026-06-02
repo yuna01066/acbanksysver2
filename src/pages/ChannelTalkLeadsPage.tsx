@@ -31,6 +31,7 @@ import {
   UserCheck,
   UserRound,
   Wand2,
+  X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -65,6 +66,18 @@ type InboxTab = 'active' | 'waiting' | 'hold' | 'closed';
 type QuickFilter = 'all' | 'unread' | 'mine' | 'unassigned' | 'closed';
 type ConversationStatus = 'active' | 'waiting_customer' | 'on_hold' | 'closed';
 type ComposerMode = 'customer' | 'private';
+
+type ComposerAttachmentLink = {
+  id: string;
+  name: string;
+  url: string;
+};
+
+type ComposerButtonLink = {
+  id: string;
+  title: string;
+  url: string;
+};
 
 type LeadAnalysis = {
   inquiry_type?: string | null;
@@ -529,6 +542,14 @@ const ChannelTalkLeadsPage = () => {
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
   const [templateQuery, setTemplateQuery] = useState('');
   const [selectedTemplateIndex, setSelectedTemplateIndex] = useState(0);
+  const [composerAttachmentLinks, setComposerAttachmentLinks] = useState<ComposerAttachmentLink[]>([]);
+  const [composerButtons, setComposerButtons] = useState<ComposerButtonLink[]>([]);
+  const [attachmentDialogOpen, setAttachmentDialogOpen] = useState(false);
+  const [buttonDialogOpen, setButtonDialogOpen] = useState(false);
+  const [attachmentName, setAttachmentName] = useState('');
+  const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [buttonTitle, setButtonTitle] = useState('');
+  const [buttonUrl, setButtonUrl] = useState('');
   const [closeAfterSend, setCloseAfterSend] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [pendingAssignConversation, setPendingAssignConversation] = useState<ChannelTalkConversation | null>(null);
@@ -921,7 +942,11 @@ const ChannelTalkLeadsPage = () => {
       setSendDialogOpen(false);
       setSendDraftId(null);
       setSendBody('');
-      if (variables.action === 'send_customer_reply') setReplyComposer('');
+      if (variables.action === 'send_customer_reply') {
+        setReplyComposer('');
+        setComposerAttachmentLinks([]);
+        setComposerButtons([]);
+      }
       toast.success(variables.action === 'refresh_messages' ? '채널톡 메시지를 동기화했습니다.' : '채널톡 액션을 처리했습니다.');
     },
     onError: (error: Error) => toast.error('채널톡 액션 실패: ' + error.message),
@@ -1146,8 +1171,50 @@ const ChannelTalkLeadsPage = () => {
     );
   };
 
-  const handleUnsupportedComposerFeature = (label: string) => {
-    toast.info(`${label} 기능은 채널톡 파일/버튼 API 연동 후 활성화할 수 있습니다.`);
+  const addAttachmentLink = () => {
+    const url = attachmentUrl.trim();
+    if (!/^https?:\/\//i.test(url)) {
+      toast.error('첨부 링크는 http 또는 https URL이어야 합니다.');
+      return;
+    }
+    setComposerAttachmentLinks((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        name: attachmentName.trim() || '첨부 링크',
+        url,
+      },
+    ].slice(0, 5));
+    setAttachmentName('');
+    setAttachmentUrl('');
+    setAttachmentDialogOpen(false);
+  };
+
+  const addComposerButton = () => {
+    const url = buttonUrl.trim();
+    if (!buttonTitle.trim()) {
+      toast.error('버튼 이름을 입력해주세요.');
+      return;
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      toast.error('버튼 링크는 http 또는 https URL이어야 합니다.');
+      return;
+    }
+    if (composerButtons.length >= 2) {
+      toast.error('버튼은 최대 2개까지 추가할 수 있습니다.');
+      return;
+    }
+    setComposerButtons((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        title: buttonTitle.trim(),
+        url,
+      },
+    ].slice(0, 2));
+    setButtonTitle('');
+    setButtonUrl('');
+    setButtonDialogOpen(false);
   };
 
   const handleAssignConversation = (conversation: ChannelTalkConversation, force = false) => {
@@ -1545,6 +1612,45 @@ const ChannelTalkLeadsPage = () => {
                       : '내부 검토 메모를 작성하세요. 고객에게 보이지 않습니다.'}
                   />
 
+                  {(composerAttachmentLinks.length > 0 || composerButtons.length > 0) && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {composerAttachmentLinks.map((link) => (
+                        <span
+                          key={link.id}
+                          className="inline-flex max-w-full items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs text-neutral-700"
+                        >
+                          <Paperclip className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{link.name}</span>
+                          <button
+                            type="button"
+                            className="rounded-full p-0.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-900"
+                            onClick={() => setComposerAttachmentLinks((current) => current.filter((item) => item.id !== link.id))}
+                            title="첨부 링크 제거"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                      {composerButtons.map((button) => (
+                        <span
+                          key={button.id}
+                          className="inline-flex max-w-full items-center gap-2 rounded-full border border-neutral-900 bg-white px-3 py-1.5 text-xs font-medium text-neutral-950"
+                        >
+                          <FilePlus className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{button.title}</span>
+                          <button
+                            type="button"
+                            className="rounded-full p-0.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-900"
+                            onClick={() => setComposerButtons((current) => current.filter((item) => item.id !== button.id))}
+                            title="버튼 제거"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   <TooltipProvider>
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-3">
                       <div className="flex items-center gap-1 text-neutral-500">
@@ -1563,27 +1669,27 @@ const ChannelTalkLeadsPage = () => {
                             <button
                               type="button"
                               className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left hover:bg-neutral-50"
-                              onClick={() => handleUnsupportedComposerFeature('파일 및 이미지')}
+                              onClick={() => setAttachmentDialogOpen(true)}
                             >
                               <span className="rounded-xl bg-neutral-100 p-2">
                                 <Paperclip className="h-4 w-4" />
                               </span>
                               <span>
                                 <span className="block text-sm font-semibold">파일 및 이미지</span>
-                                <span className="text-xs text-muted-foreground">사진, PDF, 도면 파일 전송 준비 기능</span>
+                                <span className="text-xs text-muted-foreground">Drive, 첨부 파일, 이미지 URL을 메시지에 추가</span>
                               </span>
                             </button>
                             <button
                               type="button"
                               className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left hover:bg-neutral-50"
-                              onClick={() => handleUnsupportedComposerFeature('버튼')}
+                              onClick={() => setButtonDialogOpen(true)}
                             >
                               <span className="rounded-xl bg-neutral-100 p-2">
                                 <FilePlus className="h-4 w-4" />
                               </span>
                               <span>
                                 <span className="block text-sm font-semibold">버튼</span>
-                                <span className="text-xs text-muted-foreground">외부 링크나 키패드 버튼 추가</span>
+                                <span className="text-xs text-muted-foreground">외부 링크 버튼을 최대 2개까지 추가</span>
                               </span>
                             </button>
                           </PopoverContent>
@@ -2091,6 +2197,92 @@ const ChannelTalkLeadsPage = () => {
         </Dialog>
       )}
 
+      {canReview && (
+        <Dialog open={attachmentDialogOpen} onOpenChange={setAttachmentDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>파일 및 이미지 링크 추가</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-muted-foreground">
+                현재는 URL 첨부 방식입니다. Drive 파일, 이미지, PDF 링크를 넣으면 고객 메시지 하단에 첨부 링크로 표시됩니다.
+              </div>
+              <div>
+                <Label>표시 이름</Label>
+                <Input
+                  value={attachmentName}
+                  onChange={(event) => setAttachmentName(event.target.value)}
+                  className="mt-1"
+                  placeholder="예: 제작 도면 PDF"
+                />
+              </div>
+              <div>
+                <Label>파일/이미지 URL</Label>
+                <Input
+                  value={attachmentUrl}
+                  onChange={(event) => setAttachmentUrl(event.target.value)}
+                  className="mt-1"
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAttachmentDialogOpen(false)}>취소</Button>
+              <Button
+                className="bg-neutral-950 text-white hover:bg-neutral-800"
+                onClick={addAttachmentLink}
+                disabled={!attachmentUrl.trim() || composerAttachmentLinks.length >= 5}
+              >
+                추가
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {canReview && (
+        <Dialog open={buttonDialogOpen} onOpenChange={setButtonDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>메시지 버튼 추가</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-muted-foreground">
+                고객 메시지에는 외부 링크 버튼을 최대 2개까지 함께 전송할 수 있습니다.
+              </div>
+              <div>
+                <Label>버튼 이름</Label>
+                <Input
+                  value={buttonTitle}
+                  onChange={(event) => setButtonTitle(event.target.value)}
+                  className="mt-1"
+                  placeholder="예: 견적서 보기"
+                />
+              </div>
+              <div>
+                <Label>버튼 링크</Label>
+                <Input
+                  value={buttonUrl}
+                  onChange={(event) => setButtonUrl(event.target.value)}
+                  className="mt-1"
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setButtonDialogOpen(false)}>취소</Button>
+              <Button
+                className="bg-neutral-950 text-white hover:bg-neutral-800"
+                onClick={addComposerButton}
+                disabled={!buttonTitle.trim() || !buttonUrl.trim() || composerButtons.length >= 2}
+              >
+                추가
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {canReview && selectedLead && (
         <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
           <DialogContent>
@@ -2122,6 +2314,16 @@ const ChannelTalkLeadsPage = () => {
                   <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-muted-foreground">
                     고객에게는 작성한 본문만 전송됩니다. 담당자명은 고객 본문에 자동 추가되지 않습니다.
                   </div>
+                  {(composerAttachmentLinks.length > 0 || composerButtons.length > 0) && (
+                    <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-muted-foreground">
+                      {composerAttachmentLinks.length > 0 && (
+                        <p>첨부 링크 {composerAttachmentLinks.length}개는 본문 하단에 링크로 추가됩니다.</p>
+                      )}
+                      {composerButtons.length > 0 && (
+                        <p>버튼 {composerButtons.length}개는 채널톡 메시지 버튼으로 함께 전송됩니다.</p>
+                      )}
+                    </div>
+                  )}
                   <label className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-muted-foreground">
                     <input
                       type="checkbox"
@@ -2144,6 +2346,8 @@ const ChannelTalkLeadsPage = () => {
                   body: sendBody,
                   draftId: sendDraftId,
                   closeLead: closeAfterSend,
+                  buttons: sendMode === 'customer' ? composerButtons.map((button) => ({ title: button.title, url: button.url })) : [],
+                  attachmentLinks: composerAttachmentLinks.map((link) => ({ name: link.name, url: link.url })),
                 })}
                 disabled={!sendBody.trim() || channelAction.isPending}
                 className="gap-1.5 bg-neutral-950 text-white hover:bg-neutral-800"

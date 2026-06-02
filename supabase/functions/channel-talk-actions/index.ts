@@ -31,6 +31,17 @@ type ChannelLead = {
   conversation_id: string | null;
 };
 
+type ChannelButton = {
+  title: string;
+  url: string;
+  colorVariant?: string;
+};
+
+type AttachmentLink = {
+  name: string;
+  url: string;
+};
+
 type ChannelAction =
   | "send_private_note"
   | "send_customer_reply"
@@ -115,6 +126,39 @@ function normalizeSenderType(value: unknown): "user" | "manager" | "bot" | "syst
 
 function buildStaffName(profile: StaffProfile | null, fallbackEmail?: string | null): string {
   return firstString(profile?.full_name, fallbackEmail, profile?.email) || "아크뱅크 담당자";
+}
+
+function normalizeButtons(value: unknown): ChannelButton[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isObject)
+    .map((item) => ({
+      title: firstString(item.title, item.label) || "",
+      url: firstString(item.url, item.href) || "",
+      colorVariant: firstString(item.colorVariant) || "cobalt",
+    }))
+    .filter((item) => item.title && /^https?:\/\//i.test(item.url))
+    .slice(0, 2);
+}
+
+function normalizeAttachmentLinks(value: unknown): AttachmentLink[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isObject)
+    .map((item) => ({
+      name: firstString(item.name, item.label, item.title) || "첨부 링크",
+      url: firstString(item.url, item.href) || "",
+    }))
+    .filter((item) => /^https?:\/\//i.test(item.url))
+    .slice(0, 5);
+}
+
+function appendAttachmentLinks(body: string, links: AttachmentLink[]) {
+  if (!links.length) return body;
+  const attachmentText = links
+    .map((link, index) => `${index + 1}. ${link.name}: ${link.url}`)
+    .join("\n");
+  return `${body.trim()}\n\n[첨부 링크]\n${attachmentText}`;
 }
 
 function walkObjects(value: unknown, visit: (obj: JsonObject) => void) {
@@ -300,11 +344,18 @@ async function logAction(
   if (error) console.warn("Failed to write Channel Talk action log", error);
 }
 
-async function sendChannelMessage(userChatId: string, body: string, privateSilent: boolean) {
+async function sendChannelMessage(userChatId: string, body: string, privateSilent: boolean, buttons: ChannelButton[] = []) {
   const botName = encodeURIComponent(privateSilent ? "ACBANK 내부 메모" : "ACBANK");
   const payload: JsonObject = {
     blocks: [{ type: "text", value: body }],
   };
+  if (!privateSilent && buttons.length > 0) {
+    payload.buttons = buttons.map((button) => ({
+      title: button.title,
+      url: button.url,
+      colorVariant: button.colorVariant || "cobalt",
+    }));
+  }
   if (privateSilent) payload.options = ["private", "silent"];
 
   let res = await channelApi(
@@ -415,6 +466,8 @@ serve(async (req) => {
     conversationId = firstString(payload.conversationId, payload.conversation_id) || "";
     const userChatId = firstString(payload.userChatId, payload.user_chat_id);
     const body = firstString(payload.body);
+    const buttons = normalizeButtons(payload.buttons);
+    const attachmentLinks = normalizeAttachmentLinks(payload.attachmentLinks);
     const draftId = firstString(payload.draftId, payload.draft_id);
     const closeLead = Boolean(payload.closeLead);
     const closeReason = firstString(payload.closeReason, payload.close_reason);
@@ -550,12 +603,13 @@ serve(async (req) => {
 
     if (action === "send_private_note" || action === "send_customer_reply") {
       if (!body) throw new Error("body is required");
-      const finalBody = body;
+      const finalBody = appendAttachmentLinks(body, attachmentLinks);
       const visibleSenderName = action === "send_customer_reply" ? "ACBANK" : "ACBANK 내부 메모";
       const response = await sendChannelMessage(
         conversation.user_chat_id,
         finalBody,
         action === "send_private_note",
+        action === "send_customer_reply" ? buttons : [],
       );
       const channelMessageId = extractChannelMessageId(response);
       const storedMessageId = channelMessageId || `${action}-${crypto.randomUUID()}`;
@@ -569,8 +623,12 @@ serve(async (req) => {
         sender_type: "manager",
         message_type: action === "send_private_note" ? "private_note" : "customer_reply",
         body: finalBody,
-        file_keys: [],
-        raw_payload: response,
+        file_keys: attachmentLinks.map((link) => link.url),
+        raw_payload: {
+          ...response,
+          composerButtons: buttons,
+          attachmentLinks,
+        },
         received_at: now,
       }, { onConflict: "user_chat_id,message_id" });
 
@@ -625,8 +683,14 @@ serve(async (req) => {
           draftId,
           closeLead,
           visibleSenderName,
+          buttons,
+          attachmentLinks,
         },
-        responsePayload: response,
+        responsePayload: {
+          ...response,
+          composerButtons: buttons,
+          attachmentLinks,
+        },
         senderName: staffName,
         visibleSenderName,
         channelMessageId,
