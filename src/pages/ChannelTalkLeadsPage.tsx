@@ -802,7 +802,7 @@ const ChannelTalkLeadsPage = () => {
                           <div>
                             <h3 className="text-sm font-semibold">고객 답변 작성</h3>
                             <p className="mt-1 text-xs text-muted-foreground">
-                              채널톡에는 ACBANK로 표시되고, 실제 전송자 {senderDisplayName}은 본문과 이력에 기록됩니다.
+                              채널톡에는 ACBANK로 표시되고, 실제 전송자 {senderDisplayName}은 전송 이력에 기록됩니다.
                             </p>
                           </div>
                           <Button
@@ -1146,7 +1146,7 @@ const ChannelTalkLeadsPage = () => {
                           : 'border-blue-200 bg-blue-50 text-blue-800',
                       )}>
                         {sendMode === 'customer'
-                          ? `고객에게 실제로 보이는 메시지입니다. 채널톡 표시 발신자는 ACBANK이며, 실제 전송자 ${senderDisplayName}은 본문 하단과 이력에 기록됩니다.`
+                          ? `고객에게 실제로 보이는 메시지입니다. 채널톡 표시 발신자는 ACBANK이며, 실제 전송자 ${senderDisplayName}은 내부 전송 이력에만 기록됩니다.`
                           : '채널톡 상담원만 보는 private/silent 내부 메모로 전송됩니다.'}
                       </div>
                       <div>
@@ -1161,7 +1161,7 @@ const ChannelTalkLeadsPage = () => {
                       {sendMode === 'customer' && (
                         <div className="space-y-2">
                           <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                            전송 시 본문에 <span className="font-semibold text-foreground">담당자: {senderDisplayName}</span> 문구가 자동 추가됩니다.
+                            고객에게는 작성한 본문만 전송됩니다. 실제 전송자는 내부 이력에서 확인할 수 있습니다.
                           </div>
                           <label className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                             <input

@@ -99,11 +99,6 @@ function buildStaffName(profile: StaffProfile | null, fallbackEmail?: string | n
   return firstString(profile?.full_name, fallbackEmail, profile?.email) || "아크뱅크 담당자";
 }
 
-function appendStaffSignature(body: string, staffName: string): string {
-  if (/담당자\s*:/i.test(body)) return body;
-  return `${body.trim()}\n\n담당자: ${staffName}`;
-}
-
 function walkObjects(value: unknown, visit: (obj: JsonObject) => void) {
   if (Array.isArray(value)) {
     value.forEach((item) => walkObjects(item, visit));
@@ -362,9 +357,7 @@ serve(async (req) => {
 
     if (action === "send_private_note" || action === "send_customer_reply") {
       if (!body) throw new Error("body is required");
-      const finalBody = action === "send_customer_reply"
-        ? appendStaffSignature(body, staffName)
-        : body;
+      const finalBody = body;
       const visibleSenderName = action === "send_customer_reply" ? "ACBANK" : "ACBANK 내부 메모";
       const response = await sendChannelMessage(
         lead.channel_talk_user_chat_id,
