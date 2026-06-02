@@ -118,6 +118,10 @@ type ChannelTalkLead = {
   status: LeadStatus | string;
   analysis: LeadAnalysis;
   missing_fields: string[];
+  last_message_text?: string | null;
+  last_message_at?: string | null;
+  last_channel_talk_message_id?: string | null;
+  message_count?: number | null;
   raw_payload: JsonRecord;
   project_id: string | null;
   assigned_to?: string | null;
@@ -392,7 +396,7 @@ function getConversationMessagePreview(
   lead?: ChannelTalkLead | null,
   message?: ChannelTalkMessage | null,
 ) {
-  return message?.body || lead?.analysis?.source_body || lead?.analysis?.summary || conversation.memo || '저장된 메시지 요약이 없습니다.';
+  return message?.body || lead?.last_message_text || lead?.analysis?.source_body || lead?.analysis?.summary || conversation.memo || '저장된 메시지 요약이 없습니다.';
 }
 
 function isUnreadConversation(
@@ -444,6 +448,8 @@ function buildInternalMemo(lead: ChannelTalkLead) {
     `- 고객: ${[lead.customer_company, lead.customer_name].filter(Boolean).join(' / ') || '미확인'}`,
     `- 연락처: ${lead.customer_phone || lead.customer_email || '미확인'}`,
     `- 문의 유형: ${analysis.inquiry_type || lead.inquiry_type || '미확인'}`,
+    `- 메시지 수: ${lead.message_count || 0}건`,
+    `- 마지막 메시지: ${lead.last_message_at ? formatDateTime(lead.last_message_at) : '미확인'}`,
     `- 추천 태그: ${joinValue(triage.recommendedTags) || '없음'}`,
     `- 누락 정보: ${missing}`,
     '',
@@ -1988,12 +1994,22 @@ const ChannelTalkLeadsPage = () => {
                             분석 {selectedConversationLeads.length}건
                           </Badge>
                         )}
+                        {(selectedLead.message_count || 0) > 0 && (
+                          <Badge variant="outline" className="border-neutral-300 bg-white text-neutral-700">
+                            메시지 {selectedLead.message_count}건
+                          </Badge>
+                        )}
+                        {selectedLead.last_message_at && (
+                          <Badge variant="outline" className="border-neutral-300 bg-white text-neutral-700">
+                            마지막 {formatDateTime(selectedLead.last_message_at)}
+                          </Badge>
+                        )}
                         {selectedLead.missing_fields?.length > 0 && (
                           <Badge variant="outline" className="border-neutral-300 bg-neutral-100 text-neutral-800">누락 {selectedLead.missing_fields.length}</Badge>
                         )}
                       </div>
                       <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-                        {selectedLead.analysis?.summary || selectedLead.analysis?.source_body || '자동 요약이 없습니다.'}
+                        {selectedLead.analysis?.summary || selectedLead.last_message_text || selectedLead.analysis?.source_body || '자동 요약이 없습니다.'}
                       </p>
                       <div className="grid gap-2 text-xs">
                         {[
