@@ -173,6 +173,8 @@ const isTodayValue = (value: string) => value === todayString();
 
 const getDateKey = (date: Date) => format(date, 'yyyy-MM-dd');
 
+const uniqueIds = (ids: string[]) => Array.from(new Set(ids.filter(Boolean)));
+
 const draftFromReservation = (reservation: MeetingReservationRow): MeetingDraft => ({
   audience_type: reservation.audience_type as MeetingAudienceType,
   employee_meeting_type: (reservation.employee_meeting_type || 'one_on_one') as EmployeeMeetingType,
@@ -186,7 +188,7 @@ const draftFromReservation = (reservation: MeetingReservationRow): MeetingDraft 
   recipient_id: reservation.recipient_id || 'none',
   client_name: reservation.client_name || '',
   client_contact: reservation.client_contact || '',
-  participant_ids: reservation.participant_ids || [],
+  participant_ids: (reservation.participant_ids || []).filter((id) => id !== reservation.created_by),
   status: (reservation.status || 'scheduled') as MeetingReservationStatus,
 });
 
@@ -315,32 +317,52 @@ const MeetingBookingWidget = ({
     return filtered.slice(0, maxItems);
   }, [maxItems, reservations, selectedCalendarDate]);
 
+  const sanitizeParticipantIds = (ids: string[]) => uniqueIds(ids).filter((id) => id !== user?.id);
+
   const getParticipantNames = (ids: string[]) =>
-    ids.map((id) => employees.find((employee) => employee.id === id)?.full_name).filter(Boolean) as string[];
+    sanitizeParticipantIds(ids)
+      .map((id) => employees.find((employee) => employee.id === id)?.full_name)
+      .filter(Boolean) as string[];
+
+  const getReservationParticipantNames = (reservation: MeetingReservationRow) => {
+    const participantIds = uniqueIds(reservation.participant_ids || []).filter((id) => id !== reservation.created_by);
+    if (participantIds.length === 0) {
+      return (reservation.participant_names || []).filter((name) => name && name !== reservation.created_by_name);
+    }
+
+    const namesFromDirectory = participantIds
+      .map((id) => employees.find((employee) => employee.id === id)?.full_name)
+      .filter(Boolean) as string[];
+
+    if (namesFromDirectory.length > 0) return namesFromDirectory;
+    return (reservation.participant_names || []).filter((name) => name && name !== reservation.created_by_name);
+  };
 
   const visibleEmployees = useMemo(() => {
     const keyword = participantSearch.trim().toLowerCase();
-    if (!keyword) return employees.slice(0, 8);
-    return employees
+    const employeeOptions = employees.filter((employee) => employee.id !== user?.id);
+    if (!keyword) return employeeOptions.slice(0, 8);
+    return employeeOptions
       .filter((employee) =>
         [employee.full_name, employee.department, employee.position]
           .filter(Boolean)
           .some((value) => value!.toLowerCase().includes(keyword)),
       )
       .slice(0, 8);
-  }, [employees, participantSearch]);
+  }, [employees, participantSearch, user?.id]);
 
   const visibleDetailEmployees = useMemo(() => {
     const keyword = detailParticipantSearch.trim().toLowerCase();
-    if (!keyword) return employees.slice(0, 8);
-    return employees
+    const employeeOptions = employees.filter((employee) => employee.id !== user?.id);
+    if (!keyword) return employeeOptions.slice(0, 8);
+    return employeeOptions
       .filter((employee) =>
         [employee.full_name, employee.department, employee.position]
           .filter(Boolean)
           .some((value) => value!.toLowerCase().includes(keyword)),
       )
       .slice(0, 8);
-  }, [detailParticipantSearch, employees]);
+  }, [detailParticipantSearch, employees, user?.id]);
 
   const validateDraft = (target: MeetingDraft, targetRecipient?: RecipientOption) => {
     if (!user || !profile) return '로그인 후 예약할 수 있습니다.';
@@ -350,7 +372,7 @@ const MeetingBookingWidget = ({
     if (
       target.audience_type === 'employee'
       && target.employee_meeting_type === 'one_on_one'
-      && target.participant_ids.length === 0
+      && sanitizeParticipantIds(target.participant_ids).length === 0
     ) {
       return '1:1 미팅은 참석 직원을 1명 이상 선택해주세요.';
     }
@@ -379,7 +401,7 @@ const MeetingBookingWidget = ({
       recipient_id: !isEmployeeMeeting && targetRecipient ? targetRecipient.id : null,
       client_name: !isEmployeeMeeting ? targetRecipient?.company_name || target.client_name.trim() || null : null,
       client_contact: !isEmployeeMeeting ? target.client_contact.trim() || targetRecipient?.contact_person || null : null,
-      participant_ids: target.participant_ids,
+      participant_ids: sanitizeParticipantIds(target.participant_ids),
       participant_names: getParticipantNames(target.participant_ids),
     };
   };
@@ -400,7 +422,9 @@ const MeetingBookingWidget = ({
     if (notifyAllEmployees) {
       employees.forEach((employee) => targetIds.add(employee.id));
     } else {
-      (reservation.participant_ids || []).forEach((id) => targetIds.add(id));
+      (reservation.participant_ids || [])
+        .filter((id) => id !== reservation.created_by)
+        .forEach((id) => targetIds.add(id));
     }
 
     if (includeCreator) targetIds.add(reservation.created_by);
@@ -537,6 +561,7 @@ const MeetingBookingWidget = ({
   };
 
   const toggleDraftParticipant = (employeeId: string) => {
+    if (employeeId === user?.id) return;
     setDraft((prev) => ({
       ...prev,
       participant_ids: prev.participant_ids.includes(employeeId)
@@ -546,6 +571,7 @@ const MeetingBookingWidget = ({
   };
 
   const toggleDetailParticipant = (employeeId: string) => {
+    if (employeeId === user?.id) return;
     setDetailDraft((prev) =>
       prev
         ? {
@@ -1262,11 +1288,12 @@ const MeetingBookingWidget = ({
                 listReservations.map((reservation) => {
                   const editable = canManageAll || reservation.created_by === user?.id;
                   const status = reservation.status as MeetingReservationStatus;
+                  const reservationParticipantNames = getReservationParticipantNames(reservation);
                   const displayPeople =
                     reservation.audience_type === 'client'
                       ? reservation.client_name || '클라이언트 미정'
-                      : reservation.participant_names.length > 0
-                      ? reservation.participant_names.join(', ')
+                      : reservationParticipantNames.length > 0
+                      ? reservationParticipantNames.join(', ')
                       : '참석자 미정';
 
                   return (
