@@ -748,7 +748,11 @@ export type Database = {
           customer_phone: string | null
           id: string
           inquiry_type: string
+          last_channel_talk_message_id: string | null
+          last_message_at: string | null
+          last_message_text: string | null
           memo: string | null
+          message_count: number
           missing_fields: string[]
           project_id: string | null
           raw_payload: Json
@@ -772,7 +776,11 @@ export type Database = {
           customer_phone?: string | null
           id?: string
           inquiry_type?: string
+          last_channel_talk_message_id?: string | null
+          last_message_at?: string | null
+          last_message_text?: string | null
           memo?: string | null
+          message_count?: number
           missing_fields?: string[]
           project_id?: string | null
           raw_payload?: Json
@@ -796,7 +804,11 @@ export type Database = {
           customer_phone?: string | null
           id?: string
           inquiry_type?: string
+          last_channel_talk_message_id?: string | null
+          last_message_at?: string | null
+          last_message_text?: string | null
           memo?: string | null
+          message_count?: number
           missing_fields?: string[]
           project_id?: string | null
           raw_payload?: Json
@@ -2968,6 +2980,7 @@ export type Database = {
         Row: {
           created_at: string
           data: Json | null
+          dedupe_key: string | null
           description: string
           id: string
           is_read: boolean
@@ -2978,6 +2991,7 @@ export type Database = {
         Insert: {
           created_at?: string
           data?: Json | null
+          dedupe_key?: string | null
           description: string
           id?: string
           is_read?: boolean
@@ -2988,6 +3002,7 @@ export type Database = {
         Update: {
           created_at?: string
           data?: Json | null
+          dedupe_key?: string | null
           description?: string
           id?: string
           is_read?: boolean
