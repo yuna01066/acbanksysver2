@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useEditor, EditorContent, type JSONContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -37,7 +37,7 @@ import PlaceholderSidebar from './PlaceholderSidebar';
 import { PREBUILT_TEMPLATES } from './prebuiltTemplates';
 import { SAMPLE_DATA } from './placeholderFields';
 import type { ContractTemplate } from '@/hooks/useContracts';
-import { evaluateContractTemplateQuality } from '@/utils/contractTemplateQuality';
+import { evaluateContractTemplateQuality, getManualContractPlaceholderFields } from '@/utils/contractTemplateQuality';
 import { sanitizeHtml } from '@/utils/sanitizeHtml';
 import {
   resolveContractTemplateContent,
@@ -227,6 +227,11 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
     }
   };
 
+  const manualPlaceholderFields = useMemo(
+    () => getManualContractPlaceholderFields(editor?.getJSON() || null),
+    [editor?.state.doc],
+  );
+
   // Preview: replace placeholders with sample data
   const getPreviewHtml = () => {
     if (!editor) return '';
@@ -236,7 +241,8 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
     html = html.replace(
       /<span[^>]*data-type="mention"[^>]*data-id="([^"]*)"[^>]*>[^<]*<\/span>/g,
       (_match, id) => {
-        const value = SAMPLE_DATA[id] || id;
+        const manualField = manualPlaceholderFields.find((field) => field.key === id);
+        const value = SAMPLE_DATA[id] || (manualField ? `[직접입력: ${manualField.label}]` : id);
         return `<span style="color:#2563eb;font-weight:600;text-decoration:underline">${value}</span>`;
       }
     );
@@ -245,6 +251,9 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
     for (const [key, value] of Object.entries(SAMPLE_DATA)) {
       html = html.split(`{{${key}}}`).join(`<span style="color:#2563eb;font-weight:600;text-decoration:underline">${value}</span>`);
     }
+    manualPlaceholderFields.forEach((field) => {
+      html = html.split(`{{${field.key}}}`).join(`<span style="color:#7c3aed;font-weight:600;text-decoration:underline">[직접입력: ${field.label}]</span>`);
+    });
 
     return sanitizeHtml(html);
   };
@@ -303,6 +312,16 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
               기본 양식 다시 불러오기
             </Button>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5 rounded-full"
+            onClick={() => setActiveTab('preview')}
+          >
+            <Eye className="h-3.5 w-3.5" />
+            신규 발송 미리보기
+          </Button>
           <Button onClick={handleSave} disabled={saving} size="sm" className="gap-1.5">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             저장하기
@@ -326,6 +345,14 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
                 </div>
               )}
 
+              <div className="mx-6 mt-3 rounded-lg border border-[#e5e5e5] bg-white px-4 py-2.5 text-sm text-[#3f3f46]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                  <span className="font-medium text-[#111111]">적용 범위</span>
+                  <span>저장 후 신규 발송부터 적용됩니다. 이미 발송·서명된 계약서는 저장된 스냅샷과 PDF가 유지됩니다.</span>
+                </div>
+              </div>
+
               {/* Warning banner */}
               {showQualityNotes && (
                 <div className="mx-6 mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-2.5 text-sm text-amber-800 dark:text-amber-300">
@@ -338,6 +365,20 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
                   <button onClick={() => {}} className="ml-auto text-amber-600 hover:text-amber-800">
                     <X className="h-3.5 w-3.5" />
                   </button>
+                </div>
+              )}
+
+              {manualPlaceholderFields.length > 0 && (
+                <div className="mx-6 mt-3 rounded-lg border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm text-violet-800">
+                  <div className="flex items-start gap-2">
+                    <FilePenLine className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="space-y-1">
+                      <p className="font-medium">직접 입력 필드 {manualPlaceholderFields.length}개가 있습니다.</p>
+                      <p className="text-xs leading-relaxed">
+                        {manualPlaceholderFields.map((field) => field.label).join(', ')} 값은 계약 작성 화면에서 직원별로 입력해야 발송할 수 있습니다.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
 

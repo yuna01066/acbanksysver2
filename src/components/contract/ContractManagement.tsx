@@ -25,7 +25,7 @@ import { useContractTemplates, useEmploymentContracts, type EmploymentContract }
 import ContractTemplateSettings from './ContractTemplateSettings';
 import ContractPreviewDialog, { type ContractData } from './ContractPreviewDialog';
 import { contractDocumentCss, injectCompanySealIntoRenderedHtml, renderContractHtml } from '@/utils/contractRenderer';
-import { evaluateContractTemplateQuality } from '@/utils/contractTemplateQuality';
+import { evaluateContractTemplateQuality, getManualContractPlaceholderFields } from '@/utils/contractTemplateQuality';
 import { resolveContractTemplateContent } from '@/utils/contractTemplateContent';
 import { sanitizeHtml } from '@/utils/sanitizeHtml';
 import { getDownloadUrl } from '@/services/documentFiles';
@@ -84,6 +84,10 @@ interface BulkApplyDraft {
   pay_amount: string;
   pay_day: string;
 }
+
+type ContractDraft = Partial<EmploymentContract> & {
+  custom_field_values?: Record<string, string>;
+};
 
 const CONTRACT_TYPES: Record<string, string> = {
   regular: '정규직',
@@ -230,6 +234,12 @@ const normalizePayDraft = (draft: Partial<EmploymentContract>) => (
   }
 );
 
+const getCustomFieldValues = (draft?: ContractDraft | null) => (
+  draft?.custom_field_values && typeof draft.custom_field_values === 'object'
+    ? draft.custom_field_values
+    : {}
+);
+
 const formatDateTime = (value?: string | null) => {
   if (!value) return '-';
   return format(new Date(value), 'yyyy.MM.dd HH:mm', { locale: ko });
@@ -292,7 +302,7 @@ const ContractManagement: React.FC = () => {
   const [includeCompanySeal, setIncludeCompanySeal] = useState(true);
   const [previewContract, setPreviewContract] = useState<Partial<EmploymentContract> | null>(null);
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
-  const [draftContracts, setDraftContracts] = useState<Map<string, Partial<EmploymentContract>>>(new Map());
+  const [draftContracts, setDraftContracts] = useState<Map<string, ContractDraft>>(new Map());
   const [salaryModalOpen, setSalaryModalOpen] = useState(false);
   const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
   const [calculating, setCalculating] = useState(false);
@@ -391,6 +401,11 @@ const ContractManagement: React.FC = () => {
     [selectedTemplate?.template_type, selectedTemplateContent],
   );
 
+  const manualPlaceholderFields = useMemo(
+    () => getManualContractPlaceholderFields(selectedTemplateContent),
+    [selectedTemplateContent],
+  );
+
   const filteredEmployees = useMemo(() => {
     const query = employeeSearch.trim().toLowerCase();
     if (!query) return employees;
@@ -406,7 +421,7 @@ const ContractManagement: React.FC = () => {
   const visibleAllSelected = filteredEmployees.length > 0
     && filteredEmployees.every((employee) => selectedEmployees.has(employee.id));
 
-  const createDefaultDraft = (employee: EmployeeForContract): Partial<EmploymentContract> => ({
+  const createDefaultDraft = (employee: EmployeeForContract): ContractDraft => ({
     template_id: selectedTemplateId,
     user_id: employee.id,
     user_name: employee.full_name,
@@ -426,6 +441,7 @@ const ContractManagement: React.FC = () => {
     pay_day: selectedTemplate?.pay_day || 25,
     wage_basis: PAY_BASIS_LABELS.monthly,
     other_allowances: [],
+    custom_field_values: {},
   });
 
   const toggleEmployee = (id: string) => {
@@ -479,6 +495,22 @@ const ContractManagement: React.FC = () => {
     });
   };
 
+  const updateDraftCustomField = (userId: string, fieldKey: string, value: string) => {
+    setDraftContracts((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(userId) || {};
+      const customValues = getCustomFieldValues(existing);
+      next.set(userId, {
+        ...existing,
+        custom_field_values: {
+          ...customValues,
+          [fieldKey]: value,
+        },
+      });
+      return next;
+    });
+  };
+
   const updateDraftPayBasis = (userId: string, basis: PayBasis) => {
     setDraftContracts((prev) => {
       const next = new Map(prev);
@@ -528,6 +560,12 @@ const ContractManagement: React.FC = () => {
         addIssue(`${employeeName}: 입력값을 다시 확인하세요.`, { employeeId, employeeName, field: 'draft' });
         continue;
       }
+      const customFieldValues = getCustomFieldValues(draft);
+      manualPlaceholderFields.forEach((field) => {
+        if (!String(customFieldValues[field.key] || '').trim()) {
+          addIssue(`${employeeName}: 직접 입력 필드 "${field.label}" 값이 필요합니다.`, { employeeId, employeeName, field: `custom:${field.key}` });
+        }
+      });
       if (!draft.contract_date) addIssue(`${employeeName}: 계약일이 필요합니다.`, { employeeId, employeeName, field: 'contract_date' });
       if (!draft.birth_date) addIssue(`${employeeName}: 생년월일이 필요합니다.`, { employeeId, employeeName, field: 'birth_date' });
       if (['labor', 'salary'].includes(selectedTemplate?.template_type || '') && !draft.contract_start_date) {
@@ -562,7 +600,7 @@ const ContractManagement: React.FC = () => {
       addIssue(warning, { severity: 'warning', field: `template-warning-${index}` });
     });
     return issues;
-  }, [companyInfo, draftContracts, employees, includeCompanySeal, selectedEmployees, selectedTemplate, selectedTemplateQuality]);
+  }, [companyInfo, draftContracts, employees, includeCompanySeal, manualPlaceholderFields, selectedEmployees, selectedTemplate, selectedTemplateQuality]);
 
   const validationIssues = useMemo(
     () => validationItems.filter((issue) => issue.severity === 'error').map((issue) => issue.message),
@@ -577,7 +615,7 @@ const ContractManagement: React.FC = () => {
   const selectedDrafts = useMemo(() => (
     Array.from(selectedEmployees)
       .map((id) => draftContracts.get(id))
-      .filter(Boolean) as Partial<EmploymentContract>[]
+      .filter(Boolean) as ContractDraft[]
   ), [draftContracts, selectedEmployees]);
 
   const selectedContractPeriodSummary = useMemo(() => {
@@ -631,6 +669,7 @@ const ContractManagement: React.FC = () => {
         fixed_overtime_pay: draft.fixed_overtime_pay || null,
         fixed_overtime_hours: draft.fixed_overtime_hours || null,
         pay_day: draft.pay_day || null,
+        custom_field_values: getCustomFieldValues(draft),
       }));
     }
     return next;
@@ -689,14 +728,18 @@ const ContractManagement: React.FC = () => {
     toast.success(`${selectedEmployees.size}명에게 공통값을 적용했습니다.`);
   };
 
-  const buildContractPayload = (draft: Partial<EmploymentContract>, status: 'draft' | 'requested') => {
+  const buildContractPayload = (draft: ContractDraft, status: 'draft' | 'requested') => {
     const employee = employees.find((item) => item.id === draft.user_id);
     const normalizedDraft = ['labor', 'salary'].includes(selectedTemplate?.template_type || '')
       ? normalizePayDraft(draft)
       : draft;
+    const { custom_field_values: customFieldValues = {}, ...persistableDraft } = normalizedDraft as ContractDraft;
     const rendered_html = renderContractHtml({
       templateContent: selectedTemplateContent,
-      contract: normalizedDraft,
+      contract: {
+        ...persistableDraft,
+        custom_field_values: customFieldValues,
+      },
       companyInfo,
       employee,
       companySealUrl: null,
@@ -704,7 +747,7 @@ const ContractManagement: React.FC = () => {
     });
 
     return {
-      ...normalizedDraft,
+      ...persistableDraft,
       status,
       template_id: selectedTemplateId,
       template_snapshot: selectedTemplate ? {
@@ -1069,7 +1112,8 @@ const ContractManagement: React.FC = () => {
       signed_pdf_storage_path: null,
       signed_pdf_document_file_id: null,
       content_sha256: null,
-    } as Partial<EmploymentContract>]]));
+      custom_field_values: {},
+    } as ContractDraft]]));
     setActiveTab('compose');
     setShowContractEditor(true);
   };
@@ -1193,10 +1237,19 @@ const ContractManagement: React.FC = () => {
               {validationWarnings.length > 0 && (
                 <Badge variant="outline" className="rounded-full border-amber-200 text-amber-700">경고 {validationWarnings.length}건</Badge>
               )}
+              {manualPlaceholderFields.length > 0 && (
+                <Badge variant="outline" className="rounded-full border-violet-200 text-violet-700">직접입력 {manualPlaceholderFields.length}개</Badge>
+              )}
               {includeCompanySeal && !companySealUrl && (
                 <Badge variant="outline" className="rounded-full border-amber-200 text-amber-700">직인 파일 필요</Badge>
               )}
             </div>
+
+            {manualPlaceholderFields.length > 0 && (
+              <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-800">
+                이 양식에는 자동 치환되지 않는 필드가 있습니다. 선택 직원별 `직접입력` 컬럼에서 {manualPlaceholderFields.map((field) => field.label).join(', ')} 값을 입력해야 발송할 수 있습니다.
+              </div>
+            )}
 
             <div className="rounded-lg border border-[#e5e5e5] bg-white p-3">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -1343,7 +1396,7 @@ const ContractManagement: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <table className="w-full min-w-[1940px] table-fixed border-collapse text-sm">
+              <table className={`w-full table-fixed border-collapse text-sm ${manualPlaceholderFields.length > 0 ? 'min-w-[2160px]' : 'min-w-[1940px]'}`}>
                 <colgroup>
                   <col style={{ width: 210 }} />
                   <col style={{ width: 88 }} />
@@ -1355,6 +1408,7 @@ const ContractManagement: React.FC = () => {
                   <col style={{ width: 108 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 120 }} />
+                  {manualPlaceholderFields.length > 0 && <col style={{ width: 220 }} />}
                   <col style={{ width: 118 }} />
                   <col style={{ width: 140 }} />
                   <col style={{ width: 132 }} />
@@ -1373,6 +1427,9 @@ const ContractManagement: React.FC = () => {
                     <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">수습</th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">부서</th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">직위</th>
+                    {manualPlaceholderFields.length > 0 && (
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">직접입력</th>
+                    )}
                     <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">급여 형태</th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">급여액</th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">월 환산</th>
@@ -1439,6 +1496,25 @@ const ContractManagement: React.FC = () => {
                         <td className="px-3 py-2">
                           <Input value={draft?.position || ''} onChange={(event) => updateDraft(employee.id, 'position', event.target.value)} className="h-8 w-[110px] text-xs" />
                         </td>
+                        {manualPlaceholderFields.length > 0 && (
+                          <td className="px-3 py-2">
+                            <div className="max-h-[132px] space-y-1 overflow-y-auto pr-1">
+                              {manualPlaceholderFields.map((field) => {
+                                const customValues = getCustomFieldValues(draft);
+                                return (
+                                  <Input
+                                    key={field.key}
+                                    value={customValues[field.key] || ''}
+                                    onChange={(event) => updateDraftCustomField(employee.id, field.key, event.target.value)}
+                                    className="h-8 w-[200px] text-xs"
+                                    placeholder={field.label}
+                                    aria-label={`${employee.full_name} ${field.label}`}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </td>
+                        )}
                         <td className="px-3 py-2">
                           <Select value={payBasis} onValueChange={(value) => updateDraftPayBasis(employee.id, value as PayBasis)}>
                             <SelectTrigger className="h-8 w-[100px] text-xs"><SelectValue /></SelectTrigger>
@@ -1667,6 +1743,12 @@ const ContractManagement: React.FC = () => {
                         <p><span className="text-[#111111]">급여 단위</span> {selectedFinalReviewDraft ? PAY_BASIS_LABELS[getPayBasis(selectedFinalReviewDraft)] : '-'}</p>
                         <p><span className="text-[#111111]">월 환산</span> {formatNumber(getMonthlyEquivalent(selectedFinalReviewDraft)) || '-'}원</p>
                         <p><span className="text-[#111111]">직인</span> {includeCompanySeal ? '포함' : '미포함'}</p>
+                        {manualPlaceholderFields.map((field) => (
+                          <p key={field.key}>
+                            <span className="text-[#111111]">{field.label}</span>{' '}
+                            {selectedFinalReviewDraft ? (getCustomFieldValues(selectedFinalReviewDraft)[field.key] || '-') : '-'}
+                          </p>
+                        ))}
                       </div>
                     </div>
 
@@ -1793,6 +1875,7 @@ const ContractManagement: React.FC = () => {
                   const typeInfo = TEMPLATE_TYPE_INFO[template.template_type] || TEMPLATE_TYPE_INFO.custom;
                   const resolvedContent = resolveContractTemplateContent(template);
                   const quality = evaluateContractTemplateQuality(resolvedContent.content, { templateType: template.template_type });
+                  const manualFields = getManualContractPlaceholderFields(resolvedContent.content);
                   return (
                     <button
                       key={template.id}
@@ -1829,6 +1912,7 @@ const ContractManagement: React.FC = () => {
                               </Badge>
                               <Badge variant="outline" className={`rounded-full text-[11px] ${quality.ok ? 'border-emerald-200 text-emerald-700' : 'border-red-200 text-red-700'}`}>{quality.ok ? '필수필드 충족' : '필수필드 부족'}</Badge>
                               {quality.warnings.length > 0 && <Badge variant="outline" className="rounded-full border-amber-200 text-[11px] text-amber-700">검토 필요</Badge>}
+                              {manualFields.length > 0 && <Badge variant="outline" className="rounded-full border-violet-200 text-[11px] text-violet-700">직접입력 {manualFields.length}</Badge>}
                             </div>
                           </div>
                         </div>

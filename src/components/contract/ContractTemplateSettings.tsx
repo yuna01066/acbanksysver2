@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { Plus, FileText, Pencil, Trash2, Loader2, FileSignature, DollarSign, ShieldCheck, FilePenLine, Search } from 'lucide-react';
 import { type ContractTemplate } from '@/hooks/useContracts';
 import TemplateEditorDialog from './template-editor/TemplateEditorDialog';
-import { evaluateContractTemplateQuality } from '@/utils/contractTemplateQuality';
+import { evaluateContractTemplateQuality, getManualContractPlaceholderFields } from '@/utils/contractTemplateQuality';
 import { resolveContractTemplateContent } from '@/utils/contractTemplateContent';
 
 type ContractTemplateWithContent = ContractTemplate & { content?: JSONContent | null };
@@ -197,6 +197,7 @@ const ContractTemplateSettings: React.FC = () => {
             const typeInfo = TEMPLATE_TYPES[t.template_type] || TEMPLATE_TYPES.labor;
             const resolvedContent = resolveContractTemplateContent(t);
             const quality = evaluateContractTemplateQuality(resolvedContent.content, { templateType: t.template_type });
+            const manualFields = getManualContractPlaceholderFields(resolvedContent.content);
             return (
               <div key={t.id} className={`grid gap-3 border-b border-[#e5e5e5] px-4 py-3 last:border-0 lg:grid-cols-[minmax(260px,1fr)_120px_110px_140px_90px_120px_120px] lg:items-center ${!t.is_active ? 'bg-[#fafafa] opacity-70' : 'bg-white'}`}>
                 <div className="min-w-0">
@@ -243,6 +244,11 @@ const ContractTemplateSettings: React.FC = () => {
                   {quality.warnings.length > 0 && (
                     <Badge variant="outline" className="rounded-full border-amber-200 text-[11px] text-amber-700">
                       검토 필요
+                    </Badge>
+                  )}
+                  {manualFields.length > 0 && (
+                    <Badge variant="outline" className="rounded-full border-violet-200 text-[11px] text-violet-700">
+                      직접입력 {manualFields.length}
                     </Badge>
                   )}
                 </div>

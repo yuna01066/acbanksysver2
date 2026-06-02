@@ -45,6 +45,45 @@ const formatNumber = (value?: number | string | null) => {
 
 const MONTHLY_STANDARD_HOURS = 209;
 
+export const SUPPORTED_CONTRACT_PLACEHOLDER_KEYS = [
+  '회사명',
+  '회사주소',
+  '사업자등록번호',
+  '대표자명',
+  '업태',
+  '업종',
+  '회사전화',
+  '회사이메일',
+  '회사직인',
+  '구성원직인',
+  '구성원이름',
+  '생년월일',
+  '부서',
+  '직위',
+  '직책',
+  '입사일',
+  '주소',
+  '전화번호',
+  '이메일',
+  '급여형태',
+  '연봉',
+  '월급',
+  '시급',
+  '월소정근로시간',
+  '기본급',
+  '고정연장수당',
+  '고정연장시간',
+  '급여일',
+  '계약일',
+  '계약시작일',
+  '계약종료일',
+  '수습시작일',
+  '수습종료일',
+  '수습기간',
+  '근무형태',
+  '근무요일',
+] as const;
+
 const getWageBasisLabel = (contract: Record<string, any>) => {
   const rawBasis = String(contract.wage_basis || '').trim();
   const normalizedBasis = rawBasis.toLowerCase();
@@ -91,8 +130,11 @@ export function buildContractPlaceholderValues(input: ContractRenderInput): Reco
   const { contract, companyInfo, employee, companySealUrl, signatureImageUrl, includeCompanySeal } = input;
   const companyAddress = [companyInfo?.address, companyInfo?.detail_address].filter(Boolean).join(' ');
   const employeeAddress = [employee?.address, employee?.detail_address].filter(Boolean).join(' ');
+  const customFieldValues = contract.custom_field_values && typeof contract.custom_field_values === 'object'
+    ? contract.custom_field_values as Record<string, unknown>
+    : {};
 
-  return {
+  const values: Record<string, string> = {
     회사명: escapeHtml(companyInfo?.company_name || 'ACRIVE'),
     회사주소: escapeHtml(companyAddress || companyInfo?.address || ''),
     사업자등록번호: escapeHtml(companyInfo?.business_number || ''),
@@ -132,6 +174,12 @@ export function buildContractPlaceholderValues(input: ContractRenderInput): Reco
     근무형태: escapeHtml(contract.work_type || '고정 근무제'),
     근무요일: escapeHtml(contract.work_days || '월,화,수,목,금요일'),
   };
+
+  Object.entries(customFieldValues).forEach(([key, value]) => {
+    if (key.trim()) values[key] = escapeHtml(value ?? '');
+  });
+
+  return values;
 }
 
 function replaceTextPlaceholders(text: string, values: Record<string, string>) {

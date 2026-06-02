@@ -1,4 +1,5 @@
 import type { JSONContent } from '@tiptap/react';
+import { SUPPORTED_CONTRACT_PLACEHOLDER_KEYS } from './contractRenderer';
 
 export interface ContractTemplateQuality {
   ok: boolean;
@@ -9,6 +10,11 @@ export interface ContractTemplateQuality {
 
 export interface ContractTemplateQualityOptions {
   templateType?: string | null;
+}
+
+export interface ManualContractPlaceholderField {
+  key: string;
+  label: string;
 }
 
 const REQUIRED_PLACEHOLDERS = ['계약일', '회사명', '대표자명', '구성원이름', '생년월일', '구성원직인', '회사직인'];
@@ -40,6 +46,25 @@ export function extractContractPlaceholderKeys(content: JSONContent | null | und
   const keys = new Set<string>();
   walkNode(content, keys, []);
   return keys;
+}
+
+const SUPPORTED_PLACEHOLDER_SET = new Set<string>(SUPPORTED_CONTRACT_PLACEHOLDER_KEYS);
+
+const toManualPlaceholderLabel = (key: string) => {
+  const customPrefix = 'custom_';
+  if (key.startsWith(customPrefix)) return key.slice(customPrefix.length).replace(/_/g, ' ').trim() || key;
+  return key;
+};
+
+export function getManualContractPlaceholderFields(content: JSONContent | null | undefined): ManualContractPlaceholderField[] {
+  const keys = extractContractPlaceholderKeys(content);
+  return Array.from(keys)
+    .filter((key) => key && !SUPPORTED_PLACEHOLDER_SET.has(key))
+    .sort((a, b) => a.localeCompare(b, 'ko'))
+    .map((key) => ({
+      key,
+      label: toManualPlaceholderLabel(key),
+    }));
 }
 
 function collectTemplateText(content: JSONContent | null | undefined) {
