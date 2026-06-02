@@ -62,6 +62,7 @@ const hrNotificationTypes = new Set([
   'contract_request',
   'contract_signed',
   'contract_rejected',
+  'contract_withdrawn',
   'profile_change_approved',
   'profile_change_rejected',
   'profile_change_request',

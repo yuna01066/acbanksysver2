@@ -36,6 +36,7 @@ const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; clas
   opened: { label: '검토 완료', icon: <Eye className="h-3.5 w-3.5" />, className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
   signed: { label: '서명 완료', icon: <CheckCircle2 className="h-3.5 w-3.5" />, className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
   rejected: { label: '거절됨', icon: <XCircle className="h-3.5 w-3.5" />, className: 'bg-destructive/10 text-destructive' },
+  withdrawn: { label: '회수됨', icon: <XCircle className="h-3.5 w-3.5" />, className: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-900/30 dark:text-zinc-300' },
 };
 
 const getErrorMessage = (error: unknown) => (
@@ -136,6 +137,10 @@ const MyContractsList: React.FC = () => {
 
   const handleSign = async () => {
     if (!signingContract || !user || !profile) return;
+    if (!['requested', 'opened'].includes(signingContract.status)) {
+      toast.error('회수되었거나 처리 완료된 계약서는 서명할 수 없습니다.');
+      return;
+    }
     if (!signingContract.opened_at && signingContract.status !== 'opened') {
       toast.error('계약서를 먼저 검토한 뒤 서명할 수 있습니다.');
       return;
@@ -204,6 +209,10 @@ const MyContractsList: React.FC = () => {
 
   const handleReject = async () => {
     if (!rejectingContract || !user) return;
+    if (!['requested', 'opened'].includes(rejectingContract.status)) {
+      toast.error('회수되었거나 처리 완료된 계약서는 거절할 수 없습니다.');
+      return;
+    }
     if (rejectReason.trim().length < 5) {
       toast.error('거절 사유를 5자 이상 입력해주세요.');
       return;
@@ -376,6 +385,8 @@ const MyContractsList: React.FC = () => {
                       {contract.contract_start_date || '-'} ~ {contract.contract_end_date || '무기한'}
                       {contract.signed_at && ` · 서명일: ${format(new Date(contract.signed_at), 'yyyy.MM.dd')}`}
                       {contract.rejected_reason && ` · 거절 사유: ${contract.rejected_reason}`}
+                      {contract.withdrawn_at && ` · 회수일: ${format(new Date(contract.withdrawn_at), 'yyyy.MM.dd')}`}
+                      {contract.withdrawn_reason && ` · 회수 사유: ${contract.withdrawn_reason}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5">
