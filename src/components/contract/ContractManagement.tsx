@@ -4,7 +4,7 @@ import { ko } from 'date-fns/locale';
 import {
   AlertTriangle, Bell, CheckCircle2, Clock, DollarSign, Download,
   Eye, FilePenLine, FileText, Filter, History, Loader2, RotateCw, Save, Search,
-  Send, Settings2, ShieldCheck, Sparkles, Stamp, Users, X, XCircle,
+  Send, Settings2, ShieldCheck, Sparkles, Stamp, Trash2, Users, X, XCircle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -51,7 +52,7 @@ interface ContractEvent {
   contract_id: string;
   actor_id: string | null;
   actor_role: string | null;
-  event_type: 'requested' | 'opened' | 'signed' | 'rejected' | 'downloaded';
+  event_type: 'requested' | 'opened' | 'signed' | 'rejected' | 'downloaded' | 'withdrawn';
   ip_address: string | null;
   user_agent: string | null;
   metadata: Record<string, unknown>;
@@ -104,6 +105,7 @@ const STATUS_LABELS: Record<string, { label: string; className: string; icon: Re
   opened: { label: '열람됨', className: 'bg-amber-50 text-amber-700', icon: <Eye className="h-3 w-3" /> },
   signed: { label: '서명 완료', className: 'bg-emerald-50 text-emerald-700', icon: <CheckCircle2 className="h-3 w-3" /> },
   rejected: { label: '거절', className: 'bg-red-50 text-red-700', icon: <XCircle className="h-3 w-3" /> },
+  withdrawn: { label: '회수됨', className: 'bg-zinc-100 text-zinc-700', icon: <XCircle className="h-3 w-3" /> },
 };
 
 const EVENT_LABELS: Record<string, string> = {
@@ -112,6 +114,7 @@ const EVENT_LABELS: Record<string, string> = {
   signed: '서명 완료',
   rejected: '거절',
   downloaded: 'PDF 다운로드',
+  withdrawn: '계약 회수',
 };
 
 const PROBATION_OPTIONS = ['수습 없음', '1개월', '2개월', '3개월', '6개월'];
@@ -233,6 +236,7 @@ const formatDateTime = (value?: string | null) => {
 };
 
 const getDisplayStatus = (contract: EmploymentContract) => {
+  if (contract.status === 'withdrawn') return 'withdrawn';
   if (contract.status === 'requested' && contract.opened_at) return 'opened';
   return contract.status || 'draft';
 };
@@ -277,7 +281,7 @@ const getErrorMessage = (error: unknown) => {
 const ContractManagement: React.FC = () => {
   const { user, session, isAdmin, isModerator } = useAuth();
   const { templates, loading: templatesLoading } = useContractTemplates();
-  const { contracts, loading: contractsLoading, bulkCreate } = useEmploymentContracts();
+  const { contracts, loading: contractsLoading, bulkCreate, refresh: refreshContracts } = useEmploymentContracts();
   const [activeTab, setActiveTab] = useState('compose');
   const [showContractEditor, setShowContractEditor] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -302,6 +306,12 @@ const ContractManagement: React.FC = () => {
   const [contractEvents, setContractEvents] = useState<ContractEvent[]>([]);
   const [auditContract, setAuditContract] = useState<EmploymentContract | null>(null);
   const [detailContract, setDetailContract] = useState<EmploymentContract | null>(null);
+  const [withdrawDialogContract, setWithdrawDialogContract] = useState<EmploymentContract | null>(null);
+  const [withdrawReason, setWithdrawReason] = useState('');
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [deleteDialogContract, setDeleteDialogContract] = useState<EmploymentContract | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletingContract, setDeletingContract] = useState(false);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [bulkApplyDraft, setBulkApplyDraft] = useState<BulkApplyDraft>(DEFAULT_BULK_APPLY_DRAFT);
   const [activeIssueKey, setActiveIssueKey] = useState<string | null>(null);
@@ -906,6 +916,135 @@ const ContractManagement: React.FC = () => {
       toast.success('앱 내부 알림을 다시 발송했습니다.');
     } catch (error: unknown) {
       toast.error('재알림 실패: ' + getErrorMessage(error));
+    }
+  };
+
+  const canWithdrawContract = (contract: EmploymentContract) => (
+    ['requested', 'opened'].includes(contract.status)
+  );
+
+  const canDeleteUnsignedContract = (contract: EmploymentContract) => (
+    (isAdmin || isModerator)
+    && contract.status !== 'signed'
+    && !contract.signed_at
+    && !contract.signature_storage_path
+    && !contract.signed_pdf_storage_path
+  );
+
+  const openWithdrawDialog = (contract: EmploymentContract) => {
+    setWithdrawDialogContract(contract);
+    setWithdrawReason('');
+  };
+
+  const openDeleteDialog = (contract: EmploymentContract) => {
+    setDeleteDialogContract(contract);
+    setDeleteConfirmText('');
+  };
+
+  const handleWithdrawContract = async () => {
+    if (!user || !withdrawDialogContract) return;
+
+    const contract = withdrawDialogContract;
+    if (!canWithdrawContract(contract)) {
+      toast.error('서명 대기 또는 열람된 계약만 회수할 수 있습니다.');
+      return;
+    }
+
+    setWithdrawing(true);
+    const withdrawnAt = new Date().toISOString();
+    const reason = withdrawReason.trim();
+
+    try {
+      const { data, error } = await supabase
+        .from('employment_contracts')
+        .update({
+          status: 'withdrawn',
+          withdrawn_at: withdrawnAt,
+          withdrawn_by: user.id,
+          withdrawn_reason: reason || null,
+          notes: reason ? `회수됨: ${reason}` : '회수됨',
+        } as any)
+        .eq('id', contract.id)
+        .in('status', ['requested', 'opened'])
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error('이미 서명/거절/회수된 계약은 회수할 수 없습니다.');
+
+      const { error: eventError } = await supabase.from(contractEventsTable).insert({
+        contract_id: contract.id,
+        actor_id: user.id,
+        actor_role: isAdmin ? 'admin' : isModerator ? 'moderator' : 'admin',
+        event_type: 'withdrawn',
+        metadata: { reason: reason || null },
+      } as never);
+      if (eventError) throw eventError;
+
+      await supabase
+        .from('notifications')
+        .update({ is_read: true } as never)
+        .eq('user_id', contract.user_id)
+        .eq('type', 'contract_request')
+        .filter('data->>contract_id', 'eq', contract.id);
+
+      await supabase.from('notifications').insert({
+        user_id: contract.user_id,
+        type: 'contract_withdrawn',
+        title: '전자계약이 회수되었습니다',
+        description: `${getContractTitle(contract)} 계약 요청이 관리자에 의해 회수되었습니다.${reason ? ` 사유: ${reason}` : ''}`,
+        data: { contract_id: contract.id, withdrawn: true },
+      } as never);
+
+      toast.success('계약 요청을 회수했습니다.');
+      setWithdrawDialogContract(null);
+      setWithdrawReason('');
+      setDetailContract((current) => (
+        current?.id === contract.id
+          ? {
+            ...current,
+            status: 'withdrawn',
+            withdrawn_at: withdrawnAt,
+            withdrawn_by: user.id,
+            withdrawn_reason: reason || null,
+            notes: reason ? `회수됨: ${reason}` : '회수됨',
+          }
+          : current
+      ));
+      await refreshContracts();
+    } catch (error: unknown) {
+      toast.error('회수 실패: ' + getErrorMessage(error));
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
+  const handleDeleteUnsignedContract = async () => {
+    if (!deleteDialogContract) return;
+
+    const contract = deleteDialogContract;
+    if (!canDeleteUnsignedContract(contract)) {
+      toast.error('서명 완료 또는 서명 증적이 있는 계약은 삭제할 수 없습니다.');
+      return;
+    }
+    if (deleteConfirmText.trim() !== '삭제') {
+      toast.error('삭제를 실행하려면 확인 문구를 입력해주세요.');
+      return;
+    }
+
+    setDeletingContract(true);
+    try {
+      await invokeContractAction({ action: 'delete_unsigned', contractId: contract.id });
+      toast.success('서명 전 계약을 삭제했습니다.');
+      setDeleteDialogContract(null);
+      setDeleteConfirmText('');
+      setDetailContract((current) => (current?.id === contract.id ? null : current));
+      setAuditContract((current) => (current?.id === contract.id ? null : current));
+      await refreshContracts();
+    } catch (error: unknown) {
+      toast.error('삭제 실패: ' + getErrorMessage(error));
+    } finally {
+      setDeletingContract(false);
     }
   };
 
@@ -1783,6 +1922,26 @@ const ContractManagement: React.FC = () => {
                               <Bell className="h-3.5 w-3.5" /> 재알림
                             </Button>
                           )}
+                          {canWithdrawContract(contract) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 rounded-full gap-1 border-red-200 text-red-700 hover:bg-red-50"
+                              onClick={(event) => { event.stopPropagation(); openWithdrawDialog(contract); }}
+                            >
+                              <XCircle className="h-3.5 w-3.5" /> 회수
+                            </Button>
+                          )}
+                          {canDeleteUnsignedContract(contract) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 rounded-full gap-1 border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+                              onClick={(event) => { event.stopPropagation(); openDeleteDialog(contract); }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> 삭제
+                            </Button>
+                          )}
                           {contract.status === 'rejected' && (
                             <Button variant="outline" size="sm" className="h-8 rounded-full gap-1" onClick={(event) => { event.stopPropagation(); handlePrepareResend(contract); }}>
                               <RotateCw className="h-3.5 w-3.5" /> 재발송
@@ -1868,12 +2027,18 @@ const ContractManagement: React.FC = () => {
                     <p><span className="text-[#707072]">발송일</span><br />{formatDateTime(detailContract.requested_at || detailContract.created_at)}</p>
                     <p><span className="text-[#707072]">열람일</span><br />{formatDateTime(detailContract.opened_at)}</p>
                     <p><span className="text-[#707072]">서명일</span><br />{formatDateTime(detailContract.signed_at)}</p>
+                    <p><span className="text-[#707072]">회수일</span><br />{formatDateTime(detailContract.withdrawn_at)}</p>
                     <p><span className="text-[#707072]">마지막 다운로드</span><br />{lastDownload ? formatDateTime(lastDownload.created_at) : '-'}</p>
                     <p><span className="text-[#707072]">회사 직인</span><br />{detailContract.company_seal_included ? '포함' : '미포함'}</p>
                   </div>
                   {detailContract.rejected_reason && (
                     <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                       거절 사유: {detailContract.rejected_reason}
+                    </div>
+                  )}
+                  {detailContract.withdrawn_reason && (
+                    <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
+                      회수 사유: {detailContract.withdrawn_reason}
                     </div>
                   )}
                 </div>
@@ -1890,6 +2055,24 @@ const ContractManagement: React.FC = () => {
                   {['requested', 'opened'].includes(detailContract.status) && (
                     <Button variant="outline" className="rounded-full" onClick={() => handleReminder(detailContract)}>
                       <Bell className="mr-2 h-4 w-4" /> 재알림 보내기
+                    </Button>
+                  )}
+                  {canWithdrawContract(detailContract) && (
+                    <Button
+                      variant="outline"
+                      className="rounded-full border-red-200 text-red-700 hover:bg-red-50"
+                      onClick={() => openWithdrawDialog(detailContract)}
+                    >
+                      <XCircle className="mr-2 h-4 w-4" /> 계약 회수
+                    </Button>
+                  )}
+                  {canDeleteUnsignedContract(detailContract) && (
+                    <Button
+                      variant="outline"
+                      className="rounded-full border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+                      onClick={() => openDeleteDialog(detailContract)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> 서명 전 계약 삭제
                     </Button>
                   )}
                   {detailContract.status === 'rejected' && (
@@ -1931,6 +2114,124 @@ const ContractManagement: React.FC = () => {
           })()}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={!!withdrawDialogContract} onOpenChange={(open) => {
+        if (!open && !withdrawing) {
+          setWithdrawDialogContract(null);
+          setWithdrawReason('');
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>계약 요청을 회수하시겠습니까?</DialogTitle>
+            <p className="text-sm text-[#707072]">
+              회수하면 직원은 더 이상 이 계약서를 검토, 서명 또는 거절할 수 없습니다. 계약 row와 감사 기록은 보존됩니다.
+            </p>
+          </DialogHeader>
+          {withdrawDialogContract && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm">
+                <p className="font-semibold text-[#111111]">{getContractTitle(withdrawDialogContract)}</p>
+                <p className="mt-1 text-[#707072]">
+                  {withdrawDialogContract.user_name} · {withdrawDialogContract.contract_start_date || '-'} ~ {withdrawDialogContract.contract_end_date || '무기한'}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="withdraw-reason">회수 사유</Label>
+                <Textarea
+                  id="withdraw-reason"
+                  value={withdrawReason}
+                  onChange={(event) => setWithdrawReason(event.target.value)}
+                  placeholder="예: 계약 조건 수정 후 재발송 예정"
+                  className="min-h-24"
+                />
+                <p className="text-xs text-[#707072]">사유는 직원과 관리자 상세 내역에 함께 표시됩니다.</p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  className="rounded-full"
+                  disabled={withdrawing}
+                  onClick={() => {
+                    setWithdrawDialogContract(null);
+                    setWithdrawReason('');
+                  }}
+                >
+                  취소
+                </Button>
+                <Button
+                  className="rounded-full bg-red-600 text-white hover:bg-red-700"
+                  disabled={withdrawing}
+                  onClick={handleWithdrawContract}
+                >
+                  {withdrawing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
+                  회수하기
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteDialogContract} onOpenChange={(open) => {
+        if (!open && !deletingContract) {
+          setDeleteDialogContract(null);
+          setDeleteConfirmText('');
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>서명 전 계약을 삭제하시겠습니까?</DialogTitle>
+            <p className="text-sm text-[#707072]">
+              서명 완료 전 계약만 삭제할 수 있습니다. 삭제하면 계약 row, 감사 이벤트, 계약 관련 알림이 제거되며 복구할 수 없습니다.
+            </p>
+          </DialogHeader>
+          {deleteDialogContract && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm">
+                <p className="font-semibold text-[#111111]">{getContractTitle(deleteDialogContract)}</p>
+                <p className="mt-1 text-[#707072]">
+                  {deleteDialogContract.user_name} · 상태 {STATUS_LABELS[getDisplayStatus(deleteDialogContract)]?.label || deleteDialogContract.status}
+                </p>
+              </div>
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                서명 완료, 서명 이미지, 최종 PDF가 있는 계약은 삭제가 차단됩니다.
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="delete-contract-confirm">확인 문구</Label>
+                <Input
+                  id="delete-contract-confirm"
+                  value={deleteConfirmText}
+                  onChange={(event) => setDeleteConfirmText(event.target.value)}
+                  placeholder="삭제"
+                />
+                <p className="text-xs text-[#707072]">삭제하려면 입력칸에 <span className="font-semibold text-[#111111]">삭제</span>를 입력하세요.</p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  className="rounded-full"
+                  disabled={deletingContract}
+                  onClick={() => {
+                    setDeleteDialogContract(null);
+                    setDeleteConfirmText('');
+                  }}
+                >
+                  취소
+                </Button>
+                <Button
+                  className="rounded-full bg-red-600 text-white hover:bg-red-700"
+                  disabled={deletingContract || deleteConfirmText.trim() !== '삭제'}
+                  onClick={handleDeleteUnsignedContract}
+                >
+                  {deletingContract ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                  삭제 처리
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ContractPreviewDialog open={!!previewContract} onOpenChange={(open) => !open && setPreviewContract(null)} contract={previewContract as ContractData} />
     </div>

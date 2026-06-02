@@ -51,6 +51,9 @@ export interface EmploymentContract {
   signed_at: string | null;
   rejected_at?: string | null;
   rejected_reason?: string | null;
+  withdrawn_at?: string | null;
+  withdrawn_by?: string | null;
+  withdrawn_reason?: string | null;
   signed_by_name?: string | null;
   template_snapshot?: any | null;
   rendered_html?: string | null;

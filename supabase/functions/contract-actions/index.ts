@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-type ContractAction = 'opened' | 'signed' | 'rejected' | 'downloaded';
+type ContractAction = 'opened' | 'signed' | 'rejected' | 'downloaded' | 'delete_unsigned';
 
 function json(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = body.action as ContractAction;
     const contractId = body.contractId as string | undefined;
-    if (!contractId || !['opened', 'signed', 'rejected', 'downloaded'].includes(action)) {
+    if (!contractId || !['opened', 'signed', 'rejected', 'downloaded', 'delete_unsigned'].includes(action)) {
       return json({ error: 'Invalid contract action.' }, 400);
     }
 
@@ -126,7 +126,44 @@ Deno.serve(async (req) => {
       user_agent: req.headers.get('user-agent'),
     };
 
+    if (action === 'delete_unsigned') {
+      if (!isAdmin && !isModerator) {
+        return json({ error: '관리자 또는 중간관리자만 계약을 삭제할 수 있습니다.' }, 403);
+      }
+
+      const hasSignedEvidence = contract.status === 'signed'
+        || Boolean(contract.signed_at)
+        || Boolean(contract.signature_storage_path)
+        || Boolean(contract.signed_pdf_storage_path);
+      if (hasSignedEvidence) {
+        return json({ error: '서명 완료 또는 서명 증적이 있는 계약은 삭제할 수 없습니다.' }, 409);
+      }
+
+      const { data: deletedContract, error: deleteError } = await supabaseAdmin
+        .from('employment_contracts')
+        .delete()
+        .eq('id', contractId)
+        .neq('status', 'signed')
+        .is('signed_at', null)
+        .select('id')
+        .maybeSingle();
+      if (deleteError) throw deleteError;
+      if (!deletedContract) {
+        return json({ error: '이미 서명되었거나 삭제할 수 없는 계약입니다.' }, 409);
+      }
+
+      await supabaseAdmin
+        .from('notifications')
+        .delete()
+        .filter('data->>contract_id', 'eq', contractId);
+
+      return json({ success: true });
+    }
+
     if (action === 'opened') {
+      if (!['requested', 'opened'].includes(contract.status)) {
+        return json({ error: '회수되었거나 처리 완료된 계약서는 열람 처리할 수 없습니다.' }, 409);
+      }
       if (!contract.opened_at || contract.status === 'requested') {
         await supabaseAdmin
           .from('employment_contracts')

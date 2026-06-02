@@ -152,6 +152,7 @@ const NotificationPanel = ({
       case 'contract_request':
       case 'contract_signed':
       case 'contract_rejected':
+      case 'contract_withdrawn':
         return <PenLine className="h-4 w-4 text-green-600" />;
       default:
         return <Bell className="h-4 w-4" />;
@@ -180,6 +181,7 @@ const NotificationPanel = ({
       || notification.type === 'contract_request'
       || notification.type === 'contract_signed'
       || notification.type === 'contract_rejected'
+      || notification.type === 'contract_withdrawn'
     ) return 'hr';
     return 'system';
   };
@@ -204,7 +206,8 @@ const NotificationPanel = ({
       case 'performance_review_summary': return '평가';
       case 'contract_request':
       case 'contract_signed':
-      case 'contract_rejected': return '계약';
+      case 'contract_rejected':
+      case 'contract_withdrawn': return '계약';
       case 'system':
       default: return '공지';
     }
@@ -518,7 +521,7 @@ const NotificationPanel = ({
                       </Button>
                     )}
 
-                    {(notification.type === 'contract_request' || notification.type === 'contract_signed' || notification.type === 'contract_rejected') && (
+                    {(notification.type === 'contract_request' || notification.type === 'contract_signed' || notification.type === 'contract_rejected' || notification.type === 'contract_withdrawn') && (
                       <Button
                         size="sm"
                         variant="outline"

@@ -96,7 +96,7 @@ export function getNotificationPath(notification: AppNotification): string {
   if (notification.type === 'meeting_reservation' || notification.type === 'meeting_reservation_status') {
     return notification.data?.meetingReservationId ? `/meeting-reservations?id=${notification.data.meetingReservationId}` : '/meeting-reservations';
   }
-  if (notification.type === 'contract_request' || notification.type === 'contract_signed' || notification.type === 'contract_rejected') {
+  if (notification.type === 'contract_request' || notification.type === 'contract_signed' || notification.type === 'contract_rejected' || notification.type === 'contract_withdrawn') {
     return '/my-page?tab=contracts';
   }
   if (notification.type === 'attendance_correction_request') {
