@@ -70,6 +70,7 @@ interface SavedQuote {
   recipient_company: string | null;
   recipient_phone: string | null;
   recipient_email: string | null;
+  recipient_id?: string | null;
   recipient_address: string | null;
   recipient_memo: string | null;
   desired_delivery_date: string | null;

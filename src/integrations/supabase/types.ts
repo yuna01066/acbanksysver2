@@ -5465,6 +5465,7 @@ export type Database = {
           recipient_address: string | null
           recipient_company: string | null
           recipient_email: string | null
+          recipient_id: string | null
           recipient_memo: string | null
           recipient_name: string | null
           recipient_phone: string | null
@@ -5514,6 +5515,7 @@ export type Database = {
           recipient_address?: string | null
           recipient_company?: string | null
           recipient_email?: string | null
+          recipient_id?: string | null
           recipient_memo?: string | null
           recipient_name?: string | null
           recipient_phone?: string | null
@@ -5563,6 +5565,7 @@ export type Database = {
           recipient_address?: string | null
           recipient_company?: string | null
           recipient_email?: string | null
+          recipient_id?: string | null
           recipient_memo?: string | null
           recipient_name?: string | null
           recipient_phone?: string | null
@@ -5597,6 +5600,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_quotes_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
             referencedColumns: ["id"]
           },
           {

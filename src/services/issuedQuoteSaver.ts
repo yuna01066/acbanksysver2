@@ -9,6 +9,7 @@ import { buildIssuedQuoteDrivePath, toDrivePathText } from '@/utils/documentOrga
 import { formatPricingVersionDisplayName } from '@/utils/pricingVersionDisplay';
 import { type QuoteStyleType } from '@/utils/quoteStyle';
 import { formatQuoteProjectTitle } from '@/utils/quoteNaming';
+import { upsertRecipientFromQuoteRecipient } from '@/services/recipientUpsert';
 
 interface SaveIssuedQuoteParams {
   userId: string;
@@ -37,6 +38,7 @@ interface ExistingSavedQuoteForUpdate {
   recipient_email?: string | null;
   recipient_address?: string | null;
   recipient_memo?: string | null;
+  recipient_id?: string | null;
   desired_delivery_date?: string | null;
   valid_until?: string | null;
   delivery_period?: string | null;
@@ -88,6 +90,7 @@ const fetchExistingSavedQuote = async (quoteId: string): Promise<ExistingSavedQu
       recipient_email,
       recipient_address,
       recipient_memo,
+      recipient_id,
       desired_delivery_date,
       valid_until,
       delivery_period,
@@ -267,6 +270,11 @@ export async function saveIssuedQuote({
     projectName: resolvedProjectName,
     companyName: resolvedCompanyName,
   });
+  const recipientUpsert = await upsertRecipientFromQuoteRecipient({
+    userId,
+    recipient: resolvedRecipient,
+  });
+  const resolvedRecipientId = recipientUpsert.recipientId || existingQuote?.recipient_id || null;
 
   const quoteData = {
     quote_number: resolvedQuoteNumber,
@@ -278,6 +286,7 @@ export async function saveIssuedQuote({
     recipient_email: resolvedEmail,
     recipient_address: resolvedDeliveryAddress,
     recipient_memo: resolvedClientMemo,
+    recipient_id: resolvedRecipientId,
     desired_delivery_date: resolvedDesiredDeliveryDate,
     project_stage: 'quote_issued',
     quote_status: 'sent',

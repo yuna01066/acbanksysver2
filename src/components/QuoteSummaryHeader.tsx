@@ -117,20 +117,20 @@ const QuoteSummaryHeader = ({
                       내부용 견적서
                     </> : <>
                       <Users className="w-4 h-4" />
-                      고객용 견적서
+                      고객용 미리보기
                     </>}
                 </Button>}
-              {onSaveQuote && <Button variant="outline" onClick={onSaveQuote} disabled={isSaving} className="flex items-center gap-2 text-green-600 border-green-600 hover:bg-green-50">
+              {onSaveQuote && <Button onClick={onSaveQuote} disabled={isSaving} className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700">
                   <Save className="w-4 h-4" />
-                  {isSaving ? '저장 중...' : '견적서 발행'}
+                  {isSaving ? '발행 중...' : '발행 및 저장'}
                 </Button>}
               <Button variant="outline" onClick={onClearQuotes} disabled={isSaving} className="flex items-center gap-2 text-red-600 border-red-600 hover:bg-red-50">
                 <Trash2 className="w-4 h-4" />
                 전체 삭제
               </Button>
-              <Button onClick={() => onPrintPDF()} disabled={isSaving} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+              <Button variant="outline" onClick={() => onPrintPDF()} disabled={isSaving} className="flex items-center gap-2 text-slate-700 border-slate-300 hover:bg-slate-50">
                 <Download className="w-4 h-4" />
-                PDF 출력
+                미리보기 PDF
               </Button>
             </>
           )}

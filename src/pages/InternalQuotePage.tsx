@@ -61,7 +61,6 @@ const InternalQuotePage = () => {
   const quoteStyle = detectQuoteStyleFromItems(quotes);
   const quoteStyleProfile = getQuoteStyleProfile(quoteStyle);
   const quoteNumber = recipient?.quoteNumber || generateQuoteNumber();
-  const savedQuoteSessionKey = `acbank_saved_quote_id:${quoteNumber}`;
   const quoteProjectTitle = formatQuoteProjectTitle({
     projectName: recipient?.projectName,
     companyName: recipient?.companyName,
@@ -83,7 +82,6 @@ const InternalQuotePage = () => {
       const subtotal = getTotalPrice();
       const tax = subtotal * 0.1;
       const total = getTotalPriceWithTax();
-      const existingSavedQuoteId = savedQuoteId || window.sessionStorage.getItem(savedQuoteSessionKey);
 
       const result = await saveIssuedQuote({
         userId: user.id,
@@ -94,11 +92,10 @@ const InternalQuotePage = () => {
         subtotal,
         tax,
         total,
-        existingQuoteId: existingSavedQuoteId,
+        existingQuoteId: savedQuoteId,
       });
 
       setSavedQuoteId(result.quoteId);
-      window.sessionStorage.setItem(savedQuoteSessionKey, result.quoteId);
 
       if (successMode === 'celebrate') {
         if (result.inserted) {
@@ -136,14 +133,10 @@ const InternalQuotePage = () => {
   };
 
   const handlePrintPDF = async () => {
-    const quoteId = await persistCurrentQuote('autosave');
-    if (!quoteId) return;
     window.setTimeout(() => window.print(), 80);
   };
 
   const handleViewCustomerQuote = async () => {
-    const quoteId = await persistCurrentQuote('autosave');
-    if (!quoteId) return;
     navigate('/customer-quotes-summary');
   };
 
@@ -151,14 +144,13 @@ const InternalQuotePage = () => {
     const quoteId = await persistCurrentQuote('celebrate');
     if (quoteId) {
       await markActiveDraftIssued(quoteId);
-      window.sessionStorage.removeItem(savedQuoteSessionKey);
       clearQuotes({ deleteAttachments: false });
       navigate(`/saved-quotes/${quoteId}`);
     }
   };
 
   const handleClearQuotes = () => {
-    window.sessionStorage.removeItem(savedQuoteSessionKey);
+    setSavedQuoteId(null);
     clearQuotes();
   };
 

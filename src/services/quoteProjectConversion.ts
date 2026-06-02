@@ -13,6 +13,7 @@ export interface QuoteForProjectConversion {
   recipient_email: string | null;
   recipient_address?: string | null;
   recipient_memo?: string | null;
+  recipient_id?: string | null;
   desired_delivery_date?: string | null;
   total: number;
   items: unknown;
@@ -55,12 +56,14 @@ export async function convertQuoteToProject({
     throw new Error('이미 프로젝트에 연결된 견적입니다.');
   }
 
-  let recipientId: string | null = null;
-  if (quote.recipient_company?.trim()) {
+  let recipientId: string | null = quote.recipient_id || null;
+  if (!recipientId && quote.recipient_company?.trim()) {
     const { data: recipient, error: recipientError } = await supabase
       .from('recipients')
       .select('id')
+      .eq('user_id', quote.user_id || actorId)
       .eq('company_name', quote.recipient_company.trim())
+      .eq('contact_person', quote.recipient_name?.trim() || quote.recipient_company.trim())
       .maybeSingle();
 
     if (recipientError) throw recipientError;
