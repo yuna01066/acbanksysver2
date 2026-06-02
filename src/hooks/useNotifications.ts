@@ -13,6 +13,49 @@ export interface AppNotification {
   source: 'admin_generated' | 'db_stored';
 }
 
+type MeetingNotificationType = 'meeting_reservation' | 'meeting_reservation_status';
+
+type MeetingReservationNotificationState = {
+  id: string;
+  meeting_date: string;
+  start_time: string;
+  end_time: string | null;
+  status: string;
+};
+
+const MEETING_NOTIFICATION_TYPES = new Set<string>(['meeting_reservation', 'meeting_reservation_status']);
+const supabaseAny = supabase as any;
+
+function getMeetingReservationId(notification: any) {
+  const data = notification?.data;
+  if (!data || typeof data !== 'object') return null;
+  const reservationId = data.meetingReservationId;
+  return typeof reservationId === 'string' && reservationId.length > 0 ? reservationId : null;
+}
+
+function getMeetingEndAt(reservation: MeetingReservationNotificationState) {
+  const startAt = new Date(`${reservation.meeting_date}T${reservation.start_time || '00:00'}:00+09:00`);
+  const explicitEndAt = reservation.end_time
+    ? new Date(`${reservation.meeting_date}T${reservation.end_time}:00+09:00`)
+    : null;
+
+  if (explicitEndAt && !Number.isNaN(explicitEndAt.getTime()) && explicitEndAt > startAt) {
+    return explicitEndAt;
+  }
+
+  if (!Number.isNaN(startAt.getTime())) {
+    const fallbackEndAt = new Date(startAt);
+    fallbackEndAt.setMinutes(fallbackEndAt.getMinutes() + 60);
+    return fallbackEndAt;
+  }
+
+  return new Date(`${reservation.meeting_date}T23:59:59+09:00`);
+}
+
+function isMeetingNotificationType(type: string): type is MeetingNotificationType {
+  return MEETING_NOTIFICATION_TYPES.has(type);
+}
+
 export const useNotifications = () => {
   const { user, userRole } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -83,7 +126,55 @@ export const useNotifications = () => {
       .limit(50);
 
     if (storedNotifications) {
-      storedNotifications.forEach((n: any) => {
+      const meetingReservationIds = Array.from(
+        new Set(
+          storedNotifications
+            .filter((n: any) => isMeetingNotificationType(n.type))
+            .map(getMeetingReservationId)
+            .filter(Boolean),
+        ),
+      ) as string[];
+
+      const meetingReservationsById = new Map<string, MeetingReservationNotificationState>();
+      let canEvaluateMeetingNotifications = true;
+      if (meetingReservationIds.length > 0) {
+        const { data: meetingReservations, error: meetingReservationsError } = await supabaseAny
+          .from('meeting_reservations')
+          .select('id, meeting_date, start_time, end_time, status')
+          .in('id', meetingReservationIds);
+
+        if (meetingReservationsError) {
+          canEvaluateMeetingNotifications = false;
+        } else {
+          (meetingReservations || []).forEach((reservation: MeetingReservationNotificationState) => {
+            meetingReservationsById.set(reservation.id, reservation);
+          });
+        }
+      }
+
+      const staleNotificationIds: string[] = [];
+      const activeStoredNotifications = storedNotifications.filter((n: any) => {
+        if (!isMeetingNotificationType(n.type) || !canEvaluateMeetingNotifications) return true;
+
+        const reservationId = getMeetingReservationId(n);
+        if (!reservationId) return true;
+
+        const reservation = meetingReservationsById.get(reservationId);
+        const isStale =
+          !reservation
+          || reservation.status === 'completed'
+          || reservation.status === 'canceled'
+          || getMeetingEndAt(reservation).getTime() <= Date.now();
+
+        if (isStale) staleNotificationIds.push(n.id);
+        return !isStale;
+      });
+
+      if (staleNotificationIds.length > 0) {
+        await supabase.from('notifications').update({ is_read: true }).in('id', staleNotificationIds);
+      }
+
+      activeStoredNotifications.forEach((n: any) => {
         items.push({
           id: `notif-${n.id}`,
           type: n.type,

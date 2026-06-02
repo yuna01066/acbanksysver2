@@ -81,6 +81,16 @@ function normalizeCalendarEvent(raw: any): InternalCalendarEvent {
     ? rawSourceSubtype
     : manualPresentation.source_subtype || rawSourceSubtype || 'default';
   const resourceIds = Array.isArray(raw?.resource_ids) ? raw.resource_ids : [];
+  const createdBy = raw?.created_by ? String(raw.created_by) : null;
+  const rawParticipantIds = Array.isArray(raw?.participant_ids) ? raw.participant_ids.map(String) : [];
+  const rawParticipantNames = Array.isArray(raw?.participant_names) ? raw.participant_names.map(String) : [];
+  const participantEntries = rawParticipantIds
+    .map((id, index) => ({ id, name: rawParticipantNames[index] }))
+    .filter(({ id }) => !createdBy || id !== createdBy);
+  const participantIds = participantEntries.map(({ id }) => id);
+  const participantNames = rawParticipantIds.length > 0
+    ? participantEntries.map(({ name }) => name).filter(Boolean)
+    : rawParticipantNames.filter((name) => name !== raw?.created_by_name);
   const normalized = {
     id: String(raw?.id || crypto.randomUUID()),
     title: String(raw?.title || '일정'),
@@ -102,8 +112,8 @@ function normalizeCalendarEvent(raw: any): InternalCalendarEvent {
     team_department: raw?.team_department ?? null,
     client_name: raw?.client_name ?? null,
     client_contact: raw?.client_contact ?? null,
-    participant_ids: Array.isArray(raw?.participant_ids) ? raw.participant_ids : [],
-    participant_names: Array.isArray(raw?.participant_names) ? raw.participant_names : [],
+    participant_ids: participantIds,
+    participant_names: participantNames,
     resource_ids: resourceIds,
     resource_names: Array.isArray(raw?.resource_names) ? raw.resource_names : [],
     can_edit: Boolean(raw?.can_edit) && (sourceType === 'manual' || sourceType === 'meeting_reservation'),
