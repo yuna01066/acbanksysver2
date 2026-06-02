@@ -1154,12 +1154,12 @@ const ContractManagement: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid min-h-0 flex-1 overflow-hidden xl:grid-cols-[280px_minmax(0,1fr)_320px]">
+        <div className="grid min-h-0 flex-1 overflow-hidden xl:grid-cols-[320px_minmax(0,1fr)_300px]">
           <aside className="min-h-0 border-r border-[#e5e5e5] bg-white">
-            <div className="flex items-center justify-between border-b border-[#e5e5e5] px-3 py-2">
+            <div className="flex items-center justify-between border-b border-[#e5e5e5] bg-white px-4 py-3">
               <div>
                 <p className="text-sm font-semibold">직원 선택</p>
-                <p className="text-xs text-[#707072]">표시 {filteredEmployees.length}명</p>
+                <p className="text-xs text-[#707072]">선택 {selectedEmployees.size}명 · 표시 {filteredEmployees.length}명</p>
               </div>
               <Button variant="outline" size="sm" className="h-8 rounded-full" onClick={toggleVisibleEmployees}>
                 {visibleAllSelected ? '표시 해제' : '표시 선택'}
@@ -1177,15 +1177,15 @@ const ContractManagement: React.FC = () => {
                     <button
                       key={employee.id}
                       type="button"
-                      className={`flex w-full items-center gap-2 rounded-lg border px-2 py-2 text-left transition-colors ${isSelected ? 'border-[#111111] bg-[#fafafa]' : 'border-transparent hover:border-[#e5e5e5] hover:bg-[#fafafa]'}`}
+                      className={`flex min-h-[56px] w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${isSelected ? 'border-[#111111] bg-[#fafafa]' : 'border-transparent hover:border-[#e5e5e5] hover:bg-[#fafafa]'}`}
                       onClick={() => toggleEmployee(employee.id)}
                     >
-                      <Checkbox checked={isSelected} className="pointer-events-none" />
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#111111] text-xs font-semibold text-white">
+                      <Checkbox checked={isSelected} className="pointer-events-none shrink-0" />
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#111111] text-xs font-semibold text-white">
                         {employee.full_name[0]}
                       </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{employee.full_name}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold leading-5">{employee.full_name}</p>
                         <p className="truncate text-xs text-[#707072]">{employee.department || '-'} · {employee.position || '-'}</p>
                       </div>
                     </button>
@@ -1205,24 +1205,41 @@ const ContractManagement: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <table className="w-full min-w-[1540px] border-collapse text-sm">
+              <table className="w-full min-w-[1940px] table-fixed border-collapse text-sm">
+                <colgroup>
+                  <col style={{ width: 210 }} />
+                  <col style={{ width: 88 }} />
+                  <col style={{ width: 150 }} />
+                  <col style={{ width: 150 }} />
+                  <col style={{ width: 118 }} />
+                  <col style={{ width: 150 }} />
+                  <col style={{ width: 150 }} />
+                  <col style={{ width: 108 }} />
+                  <col style={{ width: 130 }} />
+                  <col style={{ width: 120 }} />
+                  <col style={{ width: 118 }} />
+                  <col style={{ width: 140 }} />
+                  <col style={{ width: 132 }} />
+                  <col style={{ width: 86 }} />
+                  <col style={{ width: 90 }} />
+                </colgroup>
                 <thead className="sticky top-0 z-10 bg-white">
                   <tr className="border-b border-[#cacacb]">
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">구성원</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">미리보기</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">계약일</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">생년월일</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">계약유형</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">시작일</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">종료일</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">수습</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">부서</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">직위</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">급여 형태</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">급여액</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">월 환산</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-[#707072]">급여일</th>
-                    <th className="px-3 py-2 text-right text-xs font-semibold text-[#707072]">작업</th>
+                    <th className="sticky left-0 z-20 border-r border-[#e5e5e5] bg-white px-4 py-3 text-left text-xs font-semibold text-[#707072]">구성원</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">미리보기</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">계약일</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">생년월일</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">계약유형</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">시작일</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">종료일</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">수습</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">부서</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">직위</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">급여 형태</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">급여액</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">월 환산</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-[#707072]">급여일</th>
+                    <th className="px-3 py-3 text-right text-xs font-semibold text-[#707072]">작업</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1236,16 +1253,16 @@ const ContractManagement: React.FC = () => {
                       <tr
                         key={employee.id}
                         ref={(node) => { draftRowRefs.current[employee.id] = node; }}
-                        className={`border-b border-[#e5e5e5] bg-white hover:bg-[#fafafa] ${hasActiveIssue ? 'bg-amber-50 outline outline-1 outline-amber-300' : ''}`}
+                        className={`group border-b border-[#e5e5e5] bg-white hover:bg-[#fafafa] ${hasActiveIssue ? 'bg-amber-50 outline outline-1 outline-amber-300' : ''}`}
                       >
-                        <td className="px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#111111] text-xs font-semibold text-white">
+                        <td className={`sticky left-0 z-[1] border-r border-[#e5e5e5] px-4 py-3 ${hasActiveIssue ? 'bg-amber-50' : 'bg-white group-hover:bg-[#fafafa]'}`}>
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#111111] text-xs font-semibold text-white">
                               {employee.full_name[0]}
                             </div>
-                            <div>
-                              <p className="font-medium">{employee.full_name}</p>
-                              <p className="text-xs text-[#707072]">{employee.department || '-'} · {employee.position || '-'}</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-semibold leading-5">{employee.full_name}</p>
+                              <p className="truncate text-xs text-[#707072]">{employee.department || '-'} · {employee.position || '-'}</p>
                             </div>
                           </div>
                         </td>
