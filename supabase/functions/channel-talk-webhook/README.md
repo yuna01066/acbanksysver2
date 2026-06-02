@@ -15,6 +15,8 @@ Recommended Channel Talk webhook scopes:
 - User chat message
 - User chat opened, if you also want to log first-open events later
 
+Use Channel Talk Webhooks for inbound consultation sync. Channel Talk custom functions are intended for staff/AI helper actions such as internal customer lookup, quote lookup, or stock lookup, not for passive message ingestion.
+
 ## Required Secrets
 
 Set these in Supabase function secrets. Do not commit real values.
@@ -33,6 +35,7 @@ SUPABASE_SERVICE_ROLE_KEY
 - The function ignores manager and bot messages to avoid loops.
 - Summary messages are sent with Channel Talk `private` and `silent` options, so they are intended for internal staff review.
 - Text-only customer messages are stored as leads without automatic customer replies.
+- Repeated messages in the same active inquiry update the existing lead and notification instead of creating a new notification row every time.
 - JPG/PNG/WebP image attachments and PDFs are analyzed directly.
 - AI/CAD/DXF/DWG/EPS and other source files are treated as originals for manual review; the bot asks for a PDF/JPG/PNG preview file for faster automatic analysis.
 

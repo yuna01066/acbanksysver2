@@ -21,6 +21,9 @@ type ChannelTalkInquiry = {
   status: string;
   analysis: Record<string, any>;
   missing_fields: string[];
+  last_message_text: string | null;
+  last_message_at: string | null;
+  message_count: number | null;
   created_at: string;
 };
 
@@ -51,6 +54,7 @@ const confidenceLabel = (confidence?: string | null) => {
 
 const inquiryTypeLabel = (type?: string | null) => {
   if (!type || type === 'quote') return '견적 문의';
+  if (type === 'general') return '일반 상담';
   if (type === 'drawing') return '도면 문의';
   if (type === 'production') return '제작 문의';
   return type;
@@ -66,8 +70,9 @@ const ChannelTalkInquiryCard = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('channel_talk_quote_leads' as any)
-        .select('id, customer_name, customer_company, inquiry_type, status, analysis, missing_fields, created_at')
+        .select('id, customer_name, customer_company, inquiry_type, status, analysis, missing_fields, last_message_text, last_message_at, message_count, created_at')
         .in('status', ACTIVE_STATUSES)
+        .order('last_message_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
         .limit(12);
 
@@ -138,8 +143,9 @@ const ChannelTalkInquiryCard = () => {
                 const title = inquiry.analysis?.item_name
                   || inquiry.customer_company
                   || inquiry.customer_name
-                  || '채널톡 문의';
+                  || (inquiry.inquiry_type === 'general' ? '채널톡 일반 상담' : '채널톡 문의');
                 const customer = [inquiry.customer_company, inquiry.customer_name].filter(Boolean).join(' · ') || '고객 미확인';
+                const preview = inquiry.last_message_text || inquiry.analysis?.summary || inquiry.analysis?.source_body || '분석 요약이 없습니다.';
 
                 return (
                   <button
@@ -159,6 +165,9 @@ const ChannelTalkInquiryCard = () => {
                       <Badge variant="outline" className={cn('text-[10px]', status.className)}>{status.label}</Badge>
                       <Badge variant="outline" className={cn('text-[10px]', confidence.className)}>{confidence.label}</Badge>
                       <Badge variant="outline" className="text-[10px]">{inquiryTypeLabel(inquiry.analysis?.inquiry_type || inquiry.inquiry_type)}</Badge>
+                      {(inquiry.message_count || 0) > 1 && (
+                        <Badge variant="outline" className="text-[10px]">메시지 {inquiry.message_count}건</Badge>
+                      )}
                       {inquiry.missing_fields?.length > 0 && (
                         <Badge variant="outline" className="border-amber-200 text-[10px] text-amber-700">
                           누락 {inquiry.missing_fields.length}
@@ -166,10 +175,10 @@ const ChannelTalkInquiryCard = () => {
                       )}
                     </div>
                     <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                      {inquiry.analysis?.summary || '분석 요약이 없습니다.'}
+                      {preview}
                     </p>
                     <p className="mt-2 text-[10px] text-muted-foreground/70">
-                      {formatDistanceToNow(new Date(inquiry.created_at), { addSuffix: true, locale: ko })}
+                      {formatDistanceToNow(new Date(inquiry.last_message_at || inquiry.created_at), { addSuffix: true, locale: ko })}
                     </p>
                   </button>
                 );
