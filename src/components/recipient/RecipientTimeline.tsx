@@ -26,8 +26,9 @@ interface TimelineItem {
   navigateTo?: string;
 }
 
-const mergeById = <T extends { id: string }>(groups: T[][]) => {
-  const map = new Map<string, T>();
+type QuoteTimelineRow = { id: string; quote_number: string; quote_date: string; project_name: string | null; total: number | null; project_stage: string | null };
+const mergeById = (groups: QuoteTimelineRow[][]): QuoteTimelineRow[] => {
+  const map = new Map<string, QuoteTimelineRow>();
   groups.flat().forEach((item) => map.set(item.id, item));
   return Array.from(map.values());
 };
@@ -87,7 +88,7 @@ const RecipientTimeline: React.FC<Props> = ({ recipientId, recipientIds = [], co
 
       const timeline: TimelineItem[] = [];
 
-      mergeById(quoteResults.map(result => result.data || [])).forEach((q) => {
+      mergeById(quoteResults.map(result => (result.data || []) as QuoteTimelineRow[])).forEach((q) => {
         const stageInfo = getStageInfo(q.project_stage);
         timeline.push({
           id: q.id,
