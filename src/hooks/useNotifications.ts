@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export interface AppNotification {
   id: string;
-  type: 'password_reset' | 'pending_approval' | 'system' | 'quote_update' | 'approval_complete' | 'quote_modified' | 'leave_request' | 'leave_approved' | 'leave_rejected' | 'leave_expiry_warning' | 'leave_promotion_summary' | 'attendance_correction_request' | 'peer_feedback' | 'performance_review_summary' | 'project_mention' | 'channel_talk_quote_lead' | 'meeting_reservation' | 'meeting_reservation_status' | 'contract_request' | 'contract_signed' | 'contract_rejected' | 'contract_withdrawn' | 'approval_request' | 'approval_approved' | 'approval_rejected';
+  type: 'password_reset' | 'pending_approval' | 'system' | 'quote_update' | 'approval_complete' | 'quote_modified' | 'leave_request' | 'leave_approved' | 'leave_rejected' | 'leave_expiry_warning' | 'leave_promotion_summary' | 'attendance_correction_request' | 'peer_feedback' | 'performance_review_summary' | 'project_mention' | 'channel_talk_quote_lead' | 'client_consultation_lead' | 'meeting_reservation' | 'meeting_reservation_status' | 'contract_request' | 'contract_signed' | 'contract_rejected' | 'contract_withdrawn' | 'approval_request' | 'approval_approved' | 'approval_rejected';
   title: string;
   description: string;
   data?: Record<string, any>;

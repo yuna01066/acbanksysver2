@@ -105,6 +105,9 @@ export function getNotificationPath(notification: AppNotification): string {
   if (notification.type === 'channel_talk_quote_lead' && notification.data?.lead_id) {
     return `/channel-talk-leads?id=${notification.data.lead_id}`;
   }
+  if (notification.type === 'client_consultation_lead' && notification.data?.leadId) {
+    return `/channel-talk-leads?source=imweb&id=${notification.data.leadId}`;
+  }
   if (notification.type === 'meeting_reservation' || notification.type === 'meeting_reservation_status') {
     return notification.data?.meetingReservationId ? `/meeting-reservations?id=${notification.data.meetingReservationId}` : '/meeting-reservations';
   }

@@ -51,6 +51,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import ClientConsultationLeadInbox from '@/components/client-consultation/ClientConsultationLeadInbox';
 
 type LeadStatus =
   | 'new'
@@ -64,6 +65,7 @@ type LeadStatus =
 
 type InboxTab = 'active' | 'waiting' | 'hold' | 'closed';
 type QuickFilter = 'all' | 'unread' | 'mine' | 'unassigned' | 'closed';
+type LeadSourceMode = 'channel_talk' | 'client_form';
 type ConversationStatus = 'active' | 'waiting_customer' | 'on_hold' | 'closed';
 type ComposerMode = 'customer' | 'private';
 
@@ -532,6 +534,7 @@ const ChannelTalkLeadsPage = () => {
   const canReview = isApproved && (isAdmin || isModerator || isManager || isEmployee);
   const selectedParamId = searchParams.get('conversationId') || searchParams.get('id');
   const legacyLeadIdParam = searchParams.get('id');
+  const [sourceMode, setSourceMode] = useState<LeadSourceMode>(() => searchParams.get('source') === 'imweb' ? 'client_form' : 'channel_talk');
 
   const [activeTab, setActiveTab] = useState<InboxTab>('active');
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
@@ -1011,6 +1014,10 @@ const ChannelTalkLeadsPage = () => {
   });
 
   useEffect(() => {
+    setSourceMode(searchParams.get('source') === 'imweb' ? 'client_form' : 'channel_talk');
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!selectedLead) {
       setReplyComposer('');
       return;
@@ -1019,6 +1026,7 @@ const ChannelTalkLeadsPage = () => {
   }, [selectedLead?.id, selectedLead?.analysis?.recommended_reply]);
 
   useEffect(() => {
+    if (sourceMode === 'client_form') return;
     if (legacyLeadIdParam && resolvedConversationId && legacyLeadIdParam !== resolvedConversationId) {
       setSearchParams({ conversationId: resolvedConversationId }, { replace: true });
       return;
@@ -1026,9 +1034,10 @@ const ChannelTalkLeadsPage = () => {
     if (!selectedParamId && filteredConversations[0]) {
       setSearchParams({ conversationId: filteredConversations[0].id }, { replace: true });
     }
-  }, [filteredConversations, legacyLeadIdParam, resolvedConversationId, selectedParamId, setSearchParams]);
+  }, [filteredConversations, legacyLeadIdParam, resolvedConversationId, selectedParamId, setSearchParams, sourceMode]);
 
   useEffect(() => {
+    if (sourceMode === 'client_form') return;
     if (!selectedConversation || autoRefreshedConversationIds.current.has(selectedConversation.id)) return;
     autoRefreshedConversationIds.current.add(selectedConversation.id);
     supabase.functions
@@ -1045,9 +1054,10 @@ const ChannelTalkLeadsPage = () => {
         queryClient.invalidateQueries({ queryKey: ['channel-talk-messages', selectedConversation.id] });
         queryClient.invalidateQueries({ queryKey: ['channel-talk-action-logs', selectedConversation.id] });
       });
-  }, [queryClient, selectedConversation, selectedLead?.id]);
+  }, [queryClient, selectedConversation, selectedLead?.id, sourceMode]);
 
   useEffect(() => {
+    if (sourceMode === 'client_form') return;
     if (!selectedConversation || !user) return;
     supabase.functions
       .invoke('channel-talk-actions', {
@@ -1060,7 +1070,7 @@ const ChannelTalkLeadsPage = () => {
         }
         queryClient.invalidateQueries({ queryKey: ['channel-talk-conversation-reads'] });
       });
-  }, [queryClient, selectedConversation?.id, user]);
+  }, [queryClient, selectedConversation?.id, user, sourceMode]);
 
   const openProjectDialog = (lead: ChannelTalkLead) => {
     const analysis = lead.analysis || {};
@@ -1243,6 +1253,19 @@ const ChannelTalkLeadsPage = () => {
     channelAction.mutate({ action: 'refresh_messages', conversationId: selectedConversation.id, leadId: selectedLead?.id });
   };
 
+  const handleSourceModeChange = (value: LeadSourceMode) => {
+    setSourceMode(value);
+    const next = new URLSearchParams(searchParams);
+    next.delete('conversationId');
+    next.delete('id');
+    if (value === 'client_form') {
+      next.set('source', 'imweb');
+    } else {
+      next.delete('source');
+    }
+    setSearchParams(next, { replace: true });
+  };
+
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
@@ -1254,13 +1277,47 @@ const ChannelTalkLeadsPage = () => {
   return (
     <PageShell maxWidth="full">
       <PageHeader
-        eyebrow="Channel Talk"
-        title="채널톡 상담 인박스"
+        eyebrow="Consultation Leads"
+        title="상담 리드함"
         description={canReview
-          ? '채널톡 문의를 내부 시스템에서 확인하고, 고객 답장·내부 메모·견적/프로젝트 연결까지 처리합니다.'
-          : '승인된 내부 직원만 채널톡 상담 인박스를 사용할 수 있습니다.'}
+          ? '채널톡 문의와 아임웹 상담폼 리드를 내부 시스템에서 확인하고 견적/프로젝트로 연결합니다.'
+          : '승인된 내부 직원만 상담 리드함을 사용할 수 있습니다.'}
         icon={<Inbox className="h-5 w-5" />}
       />
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-neutral-200 bg-white p-2 shadow-sm">
+        <div className="flex rounded-2xl bg-neutral-100 p-1 text-sm font-semibold">
+          <button
+            type="button"
+            onClick={() => handleSourceModeChange('channel_talk')}
+            className={cn(
+              'rounded-xl px-4 py-2 transition-colors',
+              sourceMode === 'channel_talk' ? 'bg-neutral-950 text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-950',
+            )}
+          >
+            채널톡
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSourceModeChange('client_form')}
+            className={cn(
+              'rounded-xl px-4 py-2 transition-colors',
+              sourceMode === 'client_form' ? 'bg-neutral-950 text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-950',
+            )}
+          >
+            아임웹 폼
+          </button>
+        </div>
+        <p className="px-2 text-xs text-muted-foreground">
+          {sourceMode === 'client_form'
+            ? '아임웹 iframe 상담폼으로 들어온 리드를 검토합니다.'
+            : '채널톡 웹훅과 메시지 동기화로 들어온 상담을 처리합니다.'}
+        </p>
+      </div>
+
+      {sourceMode === 'client_form' ? (
+        <ClientConsultationLeadInbox />
+      ) : (
 
       <div className="grid gap-4 xl:grid-cols-[72px_360px_minmax(0,1fr)_330px]">
         <aside className="rounded-3xl border border-neutral-200 bg-white p-2 shadow-sm">
@@ -2145,6 +2202,7 @@ const ChannelTalkLeadsPage = () => {
           )}
         </aside>
       </div>
+      )}
 
       {canReview && selectedLead && (
         <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>

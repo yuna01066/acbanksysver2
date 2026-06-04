@@ -152,6 +152,7 @@ const NotificationPanel = ({
       case 'project_mention':
         return <FolderOpen className="h-4 w-4 text-blue-500" />;
       case 'channel_talk_quote_lead':
+      case 'client_consultation_lead':
         return <MessageSquareText className="h-4 w-4 text-emerald-500" />;
       case 'contract_request':
       case 'contract_signed':
@@ -177,6 +178,7 @@ const NotificationPanel = ({
       || notification.type === 'project_mention'
       || notification.type === 'performance_review_summary'
       || notification.type === 'channel_talk_quote_lead'
+      || notification.type === 'client_consultation_lead'
       || notification.type === 'meeting_reservation'
       || notification.type === 'meeting_reservation_status'
     ) return 'work';
@@ -207,6 +209,7 @@ const NotificationPanel = ({
       case 'quote_modified': return '견적';
       case 'project_mention': return '프로젝트';
       case 'channel_talk_quote_lead': return '채널톡';
+      case 'client_consultation_lead': return '아임웹 폼';
       case 'meeting_reservation':
       case 'meeting_reservation_status': return '미팅';
       case 'leave_request':
@@ -531,6 +534,22 @@ const NotificationPanel = ({
                       >
                         <MessageSquareText className="h-3 w-3 mr-1" />
                         분석 열기
+                      </Button>
+                    )}
+
+                    {notification.type === 'client_consultation_lead' && notification.data?.leadId && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          onRemove(notification.id);
+                          navigate(`/channel-talk-leads?source=imweb&id=${notification.data?.leadId}`);
+                          setOpen(false);
+                        }}
+                      >
+                        <MessageSquareText className="h-3 w-3 mr-1" />
+                        리드 열기
                       </Button>
                     )}
 

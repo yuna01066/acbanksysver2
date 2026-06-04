@@ -26,6 +26,7 @@ const QuotesSummaryPage = lazy(() => import("./pages/QuotesSummaryPage"));
 const CustomerQuotesSummaryPage = lazy(() => import("./pages/CustomerQuotesSummaryPage"));
 const InternalQuotePage = lazy(() => import("./pages/InternalQuotePage"));
 const EmbedCodePage = lazy(() => import("./pages/EmbedCodePage"));
+const ClientConsultationWidgetPage = lazy(() => import("./pages/ClientConsultationWidgetPage"));
 const AdminSettingsPage = lazy(() => import("./pages/AdminSettingsPage"));
 const PriceManagement = lazy(() => import("./pages/PriceManagement"));
 const PanelManagementPage = lazy(() => import("./pages/PanelManagementPage"));
@@ -82,6 +83,19 @@ const ProjectRouteRedirect = () => {
   return <Navigate to={`/project-management${location.search}`} replace />;
 };
 
+const AppChrome = () => {
+  const location = useLocation();
+  const isPublicWidget = location.pathname === "/client-consultation-widget";
+  if (isPublicWidget) return null;
+  return (
+    <>
+      <EmployeeOnlineHeartbeat />
+      <GlobalQuickNav />
+      <FloatingResponseAssistant />
+    </>
+  );
+};
+
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
   <QueryClientProvider client={queryClient}>
@@ -91,9 +105,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <QuoteProvider>
-            <EmployeeOnlineHeartbeat />
-            <GlobalQuickNav />
-            <FloatingResponseAssistant />
+            <AppChrome />
             <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
               <Routes>
               <Route path="/" element={<Index />} />
@@ -104,6 +116,7 @@ const App = () => (
               <Route path="/customer-quotes-summary" element={<G><CustomerQuotesSummaryPage /></G>} />
               <Route path="/internal-quote" element={<InternalQuotePage />} />
               <Route path="/embed-code" element={<EmbedCodePage />} />
+              <Route path="/client-consultation-widget" element={<ClientConsultationWidgetPage />} />
               <Route path="/admin-settings" element={<AdminSettingsPage />} />
               <Route path="/price-management" element={<PriceManagement />} />
               <Route path="/panel-management" element={<PanelManagementPage />} />

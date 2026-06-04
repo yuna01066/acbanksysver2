@@ -181,11 +181,11 @@ const Home = () => {
     title: "클라이언트 상담폼",
     icon: FileText,
     description: "상담 신청하기",
-    externalUrl: "https://acbank.co.kr/acbankform",
+    path: "/client-consultation-widget?source=imweb-acbankform",
     category: "external",
     priority: 10,
     requiresAuth: true,
-    action: () => window.open("https://acbank.co.kr/acbankform", "_blank")
+    action: () => navigate("/client-consultation-widget?source=imweb-acbankform")
   }, {
     id: "performance-review",
     title: "업무 평가",
