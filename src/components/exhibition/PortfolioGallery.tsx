@@ -1476,7 +1476,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
 
   const applySavedFilter = useCallback((filter: SavedPortfolioFilter) => {
     setSearchQuery(filter.searchQuery);
-    setActiveCategoryFilter(filter.categoryFilter);
+    setActiveCategoryFilter(getPortfolioCategoryKey(filter.categoryFilter));
     setActiveKeywordFilter(filter.keywordFilter);
   }, []);
 
