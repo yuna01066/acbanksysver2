@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { addDays, format, startOfDay } from 'date-fns';
@@ -8,21 +8,27 @@ import {
   Bell,
   Briefcase,
   CalendarDays,
+  CalendarPlus,
   CheckCircle2,
+  CheckSquare2,
   ChevronRight,
+  Clock3,
   ClipboardCheck,
   FileText,
   GraduationCap,
   ListChecks,
   Loader2,
   PenLine,
+  Plus,
   Receipt,
   Wallet,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import QuickAttendanceButton from '@/components/QuickAttendanceButton';
+import CalendarEventDialog from '@/components/calendar/CalendarEventDialog';
 import { MyPageActionPanel, MyPageEmptyState, MyPageSectionHeader } from '@/components/mypage/MyPageLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,10 +37,12 @@ import { useLeavePolicy } from '@/hooks/useLeavePolicy';
 import { useLeaveAdjustments } from '@/hooks/useLeaveAdjustments';
 import { useDocumentBox, useEmployeeDocuments } from '@/hooks/useDocumentBox';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useCalendarEvents, useCalendarTasks } from '@/hooks/useInternalCalendar';
+import { useCalendarEvents, useCalendarTasks, useCreateCalendarTask, useUpdateCalendarTask } from '@/hooks/useInternalCalendar';
 import { TAX_YEAR, STATUS_LABELS, useYearEndTax } from '@/hooks/useYearEndTax';
 import { useEmployeeHrTasks, useMyHrProfile, usePayStatements, useProfileChangeReviewQueue } from '@/hooks/useHrSelfService';
 import { cn } from '@/lib/utils';
+import type { CalendarTask, InternalCalendarEvent } from '@/types/internalCalendar';
+import { toast } from 'sonner';
 
 type OverviewMetricProps = {
   title: string;
@@ -75,6 +83,20 @@ const hrNotificationTypes = new Set([
   'hr_task',
 ]);
 
+function isPersonalCalendarEvent(event: InternalCalendarEvent, userId?: string) {
+  if (!userId || event.created_by !== userId || event.source_type !== 'manual') return false;
+  return event.source_subtype === 'personal' || event.metadata?.calendar_kind === 'personal';
+}
+
+function formatScheduleTime(event: InternalCalendarEvent) {
+  if (event.all_day) return '종일';
+  return format(new Date(event.starts_at), 'HH:mm');
+}
+
+function getSchedulePath(dateKey: string) {
+  return `/my-page?tab=schedule&view=day&date=${dateKey}`;
+}
+
 function OverviewMetric({
   title,
   value,
@@ -111,6 +133,8 @@ function OverviewMetric({
 const MyPageOverview: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAdmin, isModerator } = useAuth();
+  const [personalEventDialogOpen, setPersonalEventDialogOpen] = useState(false);
+  const [quickTaskTitle, setQuickTaskTitle] = useState('');
   const canReview = isAdmin || isModerator;
   const { data: hrProfile } = useMyHrProfile();
   const { requests } = useLeaveRequests();
@@ -137,6 +161,8 @@ const MyPageOverview: React.FC = () => {
     rangeEnd: todayEnd.toISOString(),
     enabled: !!user,
   });
+  const createCalendarTask = useCreateCalendarTask();
+  const updateCalendarTask = useUpdateCalendarTask();
 
   const { data: contracts = [], isLoading: contractsLoading } = useQuery({
     queryKey: ['my-contract-summary', user?.id],
@@ -184,6 +210,7 @@ const MyPageOverview: React.FC = () => {
   const todayEvents = calendarEvents
     .filter((event) => new Date(event.starts_at).getTime() < todayEnd.getTime() && new Date(event.ends_at).getTime() > todayStart.getTime())
     .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+  const personalTodayEvents = todayEvents.filter((event) => isPersonalCalendarEvent(event, user?.id));
   const openCalendarTasks = calendarTasks
     .filter((task) => task.task_date === todayDateKey && task.status !== 'completed' && task.status !== 'archived')
     .sort((a, b) => a.title.localeCompare(b.title, 'ko'));
@@ -228,10 +255,10 @@ const MyPageOverview: React.FC = () => {
       ? {
         id: 'calendar-tasks',
         title: `오늘 할 일 ${openCalendarTasks.length}건`,
-        description: openCalendarTasks[0]?.title || '오늘 다이어리 업무를 확인하세요.',
+        description: openCalendarTasks[0]?.title || '오늘 개인 스케줄을 확인하세요.',
         icon: ListChecks,
         tone: 'primary' as const,
-        path: '/my-page?tab=diary',
+        path: getSchedulePath(todayDateKey),
       }
       : null,
     hrNotifications.length > 0
@@ -245,6 +272,51 @@ const MyPageOverview: React.FC = () => {
       }
       : null,
   ].filter(Boolean);
+
+  const schedulePath = getSchedulePath(todayDateKey);
+  const schedulePreviewEvents = personalTodayEvents.slice(0, 3);
+  const schedulePreviewTasks = openCalendarTasks.slice(0, 3);
+  const hasSchedulePreview = schedulePreviewEvents.length > 0 || schedulePreviewTasks.length > 0;
+  const quickTaskBusy = createCalendarTask.isPending || updateCalendarTask.isPending;
+
+  const handleQuickTaskSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const title = quickTaskTitle.trim();
+    if (!title) {
+      toast.error('추가할 할 일을 입력해주세요.');
+      return;
+    }
+    try {
+      await createCalendarTask.mutateAsync({
+        title,
+        task_date: todayDateKey,
+        priority: 'normal',
+        status: 'open',
+      });
+      setQuickTaskTitle('');
+      toast.success('오늘 할 일이 추가되었습니다.');
+    } catch (error: any) {
+      toast.error(error?.message || '할 일 추가에 실패했습니다.');
+    }
+  };
+
+  const handleToggleTask = async (task: CalendarTask) => {
+    const nextStatus = task.status === 'completed' ? 'open' : 'completed';
+    try {
+      await updateCalendarTask.mutateAsync({
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        task_date: task.task_date,
+        priority: task.priority,
+        status: nextStatus,
+        linked_event_id: task.linked_event_id,
+      });
+      toast.success(nextStatus === 'completed' ? '할 일을 완료했습니다.' : '할 일을 다시 열었습니다.');
+    } catch (error: any) {
+      toast.error(error?.message || '할 일 상태 변경에 실패했습니다.');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -260,30 +332,129 @@ const MyPageOverview: React.FC = () => {
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             처리 항목을 불러오는 중입니다.
           </div>
-        ) : focusItems.length === 0 ? (
-          <MyPageEmptyState title="오늘 바로 처리할 HR 업무가 없습니다." description="필요한 항목이 생기면 이 영역에 먼저 표시됩니다." />
         ) : (
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {focusItems.slice(0, 6).map((item) => {
-              if (!item) return null;
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="flex items-start gap-3 rounded-lg border bg-background p-3 text-left transition-colors hover:bg-accent/30"
-                  onClick={() => navigate(item.path)}
-                >
-                  <div className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border', toneClass[item.tone])}>
-                    <Icon className="h-4 w-4" />
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+            <div className="rounded-lg border bg-background p-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-semibold">오늘 개인 스케줄</p>
+                    <Badge variant="outline" className="rounded-full text-[11px]">
+                      일정 {personalTodayEvents.length} · 할 일 {openCalendarTasks.length}
+                    </Badge>
                   </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{item.title}</p>
-                    <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">{item.description}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    개인 일정과 오늘 할 일을 빠르게 확인하고 추가합니다.
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button variant="outline" size="sm" className="h-8 rounded-full" onClick={() => setPersonalEventDialogOpen(true)}>
+                    <CalendarPlus className="mr-1.5 h-3.5 w-3.5" />
+                    일정 추가
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-8 rounded-full" onClick={() => navigate(schedulePath)}>
+                    전체보기
+                    <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              {hasSchedulePreview ? (
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">개인 일정</p>
+                    {schedulePreviewEvents.length === 0 ? (
+                      <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
+                        오늘 등록된 개인 일정이 없습니다.
+                      </div>
+                    ) : (
+                      schedulePreviewEvents.map((event) => (
+                        <button
+                          key={event.id}
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors hover:bg-accent/30"
+                          onClick={() => navigate(schedulePath)}
+                        >
+                          <Clock3 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="w-11 shrink-0 text-xs font-semibold text-foreground">{formatScheduleTime(event)}</span>
+                          <span className="min-w-0 truncate text-xs text-muted-foreground">{event.title}</span>
+                        </button>
+                      ))
+                    )}
                   </div>
-                </button>
-              );
-            })}
+
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">오늘 할 일</p>
+                    {schedulePreviewTasks.length === 0 ? (
+                      <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
+                        오늘 남은 개인 할 일이 없습니다.
+                      </div>
+                    ) : (
+                      schedulePreviewTasks.map((task) => (
+                        <button
+                          key={task.id}
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors hover:bg-accent/30"
+                          onClick={() => handleToggleTask(task)}
+                          disabled={quickTaskBusy}
+                        >
+                          <CheckSquare2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{task.title}</span>
+                          <Badge variant="outline" className="shrink-0 rounded-full text-[10px]">
+                            완료 처리
+                          </Badge>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 rounded-lg border border-dashed bg-muted/20 p-4 text-center text-xs text-muted-foreground">
+                  오늘 등록된 개인 스케줄이 없습니다.
+                </div>
+              )}
+
+              <form className="mt-3 flex flex-col gap-2 sm:flex-row" onSubmit={handleQuickTaskSubmit}>
+                <Input
+                  value={quickTaskTitle}
+                  onChange={(event) => setQuickTaskTitle(event.target.value)}
+                  placeholder="오늘 할 일 빠르게 추가"
+                  className="h-9 text-sm"
+                />
+                <Button type="submit" size="sm" className="h-9 shrink-0" disabled={quickTaskBusy}>
+                  {createCalendarTask.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1.5 h-3.5 w-3.5" />}
+                  할 일 추가
+                </Button>
+              </form>
+            </div>
+
+            {focusItems.length === 0 ? (
+              <MyPageEmptyState title="오늘 바로 처리할 HR 업무가 없습니다." description="필요한 항목이 생기면 이 영역에 먼저 표시됩니다." />
+            ) : (
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-1">
+                {focusItems.slice(0, 6).map((item) => {
+                  if (!item) return null;
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="flex items-start gap-3 rounded-lg border bg-background p-3 text-left transition-colors hover:bg-accent/30"
+                      onClick={() => navigate(item.path)}
+                    >
+                      <div className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border', toneClass[item.tone])}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{item.title}</p>
+                        <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">{item.description}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </MyPageActionPanel>
@@ -306,12 +477,12 @@ const MyPageOverview: React.FC = () => {
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <OverviewMetric
                   title="오늘 일정"
-                  value={`${todayEvents.length}건`}
-                  description={todayEvents[0]?.title || '오늘 등록된 개인 일정이 없습니다.'}
+                  value={`${personalTodayEvents.length}건`}
+                  description={personalTodayEvents[0]?.title || '오늘 등록된 개인 일정이 없습니다.'}
                   icon={CalendarDays}
-                  tone={todayEvents.length > 0 ? 'primary' : 'neutral'}
+                  tone={personalTodayEvents.length > 0 ? 'primary' : 'neutral'}
                   actionLabel="일정 열기"
-                  onClick={() => navigate('/my-page?tab=diary')}
+                  onClick={() => navigate(schedulePath)}
                 />
                 <OverviewMetric
                   title="내 할 일"
@@ -319,8 +490,8 @@ const MyPageOverview: React.FC = () => {
                   description={openCalendarTasks[0]?.title || '오늘 남은 할 일이 없습니다.'}
                   icon={ListChecks}
                   tone={openCalendarTasks.length > 0 ? 'warning' : 'success'}
-                  actionLabel="다이어리 열기"
-                  onClick={() => navigate('/my-page?tab=diary')}
+                  actionLabel="스케줄 열기"
+                  onClick={() => navigate(schedulePath)}
                 />
                 <OverviewMetric
                   title="잔여 연차"
@@ -507,6 +678,16 @@ const MyPageOverview: React.FC = () => {
           </Card>
         )}
       </section>
+
+      <CalendarEventDialog
+        open={personalEventDialogOpen}
+        onOpenChange={setPersonalEventDialogOpen}
+        events={personalTodayEvents}
+        defaultDate={todayDateKey}
+        defaultStartTime="09:00"
+        defaultMode="personal"
+        personalOnly
+      />
     </div>
   );
 };
