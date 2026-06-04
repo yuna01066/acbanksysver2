@@ -7,7 +7,10 @@ export type HamzziEventType =
   | 'attendance_check_out'
   | 'lunch_time'
   | 'late_night'
-  | 'hidden_click';
+  | 'hidden_click'
+  | 'work_complete'
+  | 'delivery_complete'
+  | 'dashboard_checkpoint';
 
 export type HamzziEventDetail = {
   type: HamzziEventType;
@@ -73,6 +76,17 @@ export const triggerHamzzi = (type: HamzziEventType, detail: Omit<HamzziEventDet
   window.dispatchEvent(new CustomEvent<HamzziEventDetail>(HAMZZI_EVENT_NAME, {
     detail: { type, ...detail },
   }));
+};
+
+export const triggerDailyHamzzi = (
+  flag: string,
+  type: HamzziEventType,
+  detail: Omit<HamzziEventDetail, 'type'> = {},
+  date = new Date(),
+) => {
+  if (!markDailyFlag(flag, date)) return false;
+  triggerHamzzi(type, detail);
+  return true;
 };
 
 export const triggerQuoteIssuedHamzzi = (issuedCount = 1, confirmedTodayCount?: number) => {

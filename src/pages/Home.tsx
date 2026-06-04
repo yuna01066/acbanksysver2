@@ -272,15 +272,15 @@ const Home = () => {
             </div>
             <div className="flex items-center justify-end gap-2">
               <button onClick={() => navigate('/team-chat')} title="팀챗"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-none transition-colors hover:border-foreground/20 hover:bg-muted hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20">
+                className="dashboard-top-action flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-none transition-colors hover:border-foreground/20 hover:bg-muted hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20">
                 <MessageCircle className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
               <button onClick={() => navigate('/my-page')} title="마이페이지"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-none transition-colors hover:border-foreground/20 hover:bg-muted hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20">
+                className="dashboard-top-action flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-none transition-colors hover:border-foreground/20 hover:bg-muted hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20">
                 <User className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
               <button onClick={signOut}
-                className="flex h-10 shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-muted-foreground shadow-none transition-colors hover:border-foreground/20 hover:bg-muted hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 sm:px-4">
+                className="dashboard-top-action flex h-10 shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-muted-foreground shadow-none transition-colors hover:border-foreground/20 hover:bg-muted hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 sm:px-4">
                 <LogOut className="h-4 w-4" />
                 <span className="hidden xs:inline sm:inline">로그아웃</span>
               </button>
@@ -292,7 +292,7 @@ const Home = () => {
             <div className="inline-block rounded-lg border border-border bg-card px-1 py-1 shadow-none" onClick={handleLogoClick}>
               <div
                 className={cn(
-                  "cursor-pointer select-none rounded-md px-8 py-2.5 transition-colors hover:bg-muted sm:px-12",
+                  "dashboard-logo-sweep cursor-pointer select-none rounded-md px-8 py-2.5 transition-colors hover:bg-muted sm:px-12",
                   logoSpinning && "logo-spin-3d"
                 )}
               >
@@ -314,7 +314,7 @@ const Home = () => {
                     <button
                       key={i}
                       onClick={ql.action}
-                      className="group flex h-9 items-center gap-2 rounded-full px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 sm:px-3"
+                      className="dashboard-quick-link group flex h-9 items-center gap-2 rounded-full px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 sm:px-3"
                       title={ql.title}
                     >
                       <QIcon className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
