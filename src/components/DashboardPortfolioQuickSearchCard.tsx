@@ -160,7 +160,7 @@ export default function DashboardPortfolioQuickSearchCard() {
   if (!user) return null;
 
   return (
-    <Card className="flex h-full w-full flex-col">
+    <Card className="flex h-full w-full flex-col rounded-lg border-border bg-card shadow-none">
       <CardHeader className="pb-3">
         <BrandedCardHeader
           icon={Images}
@@ -173,7 +173,7 @@ export default function DashboardPortfolioQuickSearchCard() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 rounded-lg px-2 text-xs"
+                className="h-8 rounded-full px-2.5 text-xs"
                 onClick={() => navigate('/portfolio')}
               >
                 전체보기
@@ -182,7 +182,7 @@ export default function DashboardPortfolioQuickSearchCard() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1 rounded-lg px-2 text-xs"
+                className="h-8 gap-1 rounded-full px-2.5 text-xs"
                 onClick={() => navigate('/portfolio')}
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -202,7 +202,7 @@ export default function DashboardPortfolioQuickSearchCard() {
               if (event.key === 'Enter') navigate(buildPortfolioUrl(searchText, categoryKey));
             }}
             placeholder="키워드, 소재, 색상, 가공, 공간 검색"
-            className="h-10 rounded-xl pl-9 text-sm"
+            className="h-10 rounded-lg border-border bg-card pl-9 text-sm"
           />
         </div>
 
@@ -216,7 +216,7 @@ export default function DashboardPortfolioQuickSearchCard() {
                 'rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors',
                 categoryKey === filter.key
                   ? 'border-foreground bg-foreground text-background'
-                  : 'border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground',
+                  : 'border-border bg-card text-muted-foreground hover:border-foreground/40 hover:bg-muted hover:text-foreground',
               )}
             >
               {filter.label}
@@ -225,24 +225,24 @@ export default function DashboardPortfolioQuickSearchCard() {
         </div>
 
         {isSearching && isLoading ? (
-          <div className="flex min-h-[250px] flex-1 items-center justify-center rounded-xl border border-dashed bg-muted/20 text-sm text-muted-foreground">
+          <div className="flex min-h-[250px] flex-1 items-center justify-center rounded-lg border border-dashed bg-muted/20 text-sm text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             포트폴리오를 불러오는 중입니다.
           </div>
         ) : isSearching && items.length === 0 ? (
-          <div className="flex min-h-[250px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center text-sm text-muted-foreground">
+          <div className="flex min-h-[250px] flex-1 flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-4 text-center text-sm text-muted-foreground">
             <ImageIcon className="mb-2 h-8 w-8 text-muted-foreground/35" />
             검색 결과가 없습니다. 포트폴리오에서 새 사례를 등록해주세요.
           </div>
         ) : !isSearching && recentPosts.length === 0 ? (
-          <div className="flex min-h-[250px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center text-sm text-muted-foreground">
+          <div className="flex min-h-[250px] flex-1 flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-4 text-center text-sm text-muted-foreground">
             <ImageIcon className="mb-2 h-8 w-8 text-muted-foreground/35" />
             최근 조회한 포트폴리오가 없습니다.
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="mt-3 h-8 rounded-lg px-3 text-xs"
+              className="mt-3 h-8 rounded-full px-3 text-xs"
               onClick={() => navigate('/portfolio')}
             >
               포트폴리오 보기
@@ -255,7 +255,7 @@ export default function DashboardPortfolioQuickSearchCard() {
                 key={item.id}
                 type="button"
                 onClick={() => navigate(`/portfolio?q=${encodeURIComponent(item.title)}`)}
-                className="group overflow-hidden rounded-xl border bg-background text-left transition-colors hover:border-foreground/30 hover:bg-muted/20"
+                className="group overflow-hidden rounded-lg border border-border bg-card text-left transition-colors hover:border-foreground/30 hover:bg-muted"
               >
                 <div className="aspect-[4/3] overflow-hidden bg-muted/40">
                   {item.thumbnailUrl ? (
@@ -285,7 +285,7 @@ export default function DashboardPortfolioQuickSearchCard() {
                 key={item.id}
                 type="button"
                 onClick={() => navigate(buildPortfolioUrl(normalizedSearchText || item.title, categoryKey))}
-                className="group overflow-hidden rounded-xl border bg-background text-left transition-colors hover:border-foreground/30 hover:bg-muted/20"
+                className="group overflow-hidden rounded-lg border border-border bg-card text-left transition-colors hover:border-foreground/30 hover:bg-muted"
               >
                 <div className="aspect-[4/3] overflow-hidden bg-muted/40">
                   {item.thumbnail_url ? (

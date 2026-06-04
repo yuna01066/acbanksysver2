@@ -97,7 +97,7 @@ const DashboardQuickLinksSection = ({
   if (visibleItems.length === 0) return null;
 
   return (
-    <section className="mt-6 rounded-lg border border-border/70 bg-white p-3 shadow-none dark:bg-background/80 sm:p-4">
+    <section className="mt-6 rounded-lg border border-border bg-card p-3 shadow-none sm:p-4">
       <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold tracking-tight text-foreground">업무 바로가기</h2>
@@ -117,7 +117,7 @@ const DashboardQuickLinksSection = ({
                   'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   isActive
                     ? 'border-foreground bg-foreground text-background'
-                    : 'border-border/80 bg-white text-muted-foreground hover:border-foreground/30 hover:text-foreground dark:bg-background'
+                    : 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:bg-muted hover:text-foreground'
                 )}
               >
                 <span>{filter.label}</span>
@@ -140,10 +140,10 @@ const DashboardQuickLinksSection = ({
               key={item.id}
               type="button"
               onClick={item.action}
-              className="group flex min-h-[68px] w-full items-center gap-3 rounded-lg border border-border/70 bg-white px-3 py-2.5 text-left shadow-none transition-colors hover:border-foreground/25 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-background dark:hover:bg-muted/35"
+              className="group flex min-h-[68px] w-full items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5 text-left shadow-none transition-colors hover:border-foreground/25 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
               aria-label={`${item.title} 열기`}
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-white text-muted-foreground transition-colors group-hover:border-foreground/25 group-hover:text-foreground dark:bg-background">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors group-hover:border-foreground/25 group-hover:text-foreground">
                 <Icon className="h-[18px] w-[18px]" />
               </span>
               <span className="min-w-0 flex-1">

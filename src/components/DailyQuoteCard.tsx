@@ -46,7 +46,7 @@ const DailyQuoteCard: React.FC = () => {
   }, []);
 
   return (
-    <Card className="h-full w-full rounded-xl border-border bg-white shadow-none dark:bg-background">
+    <Card className="h-full w-full rounded-lg border-border bg-card shadow-none">
       <CardContent className="flex h-full min-h-[132px] items-center p-4 sm:p-5">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">

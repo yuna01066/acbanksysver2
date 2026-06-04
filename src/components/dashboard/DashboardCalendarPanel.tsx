@@ -143,17 +143,17 @@ const DashboardCalendarPanel = () => {
 
   return (
     <>
-      <Card className="overflow-hidden border-[#e5e5e5] bg-white shadow-sm">
+      <Card className="overflow-hidden rounded-lg border-border bg-card shadow-none">
         <CardHeader className="pb-2">
           <BrandedCardHeader
             icon={CalendarCheck2}
             title="통합 캘린더"
             subtitle="오늘 일정, 담당 미팅, 회의실 상태를 한 번에 확인합니다."
-            iconWrapClassName="border-[#cacacb] bg-white text-[#111111]"
+            iconWrapClassName="border-border bg-card text-foreground/70"
             actions={(
               <div className="flex flex-wrap items-center gap-2">
                 {canViewAll && (
-                  <div className="flex rounded-full border border-[#cacacb] bg-white p-1">
+                  <div className="flex rounded-full border border-border bg-card p-1">
                     {[
                       { value: 'my', label: '내 일정' },
                       { value: 'all', label: '전체 일정' },
@@ -164,7 +164,7 @@ const DashboardCalendarPanel = () => {
                         onClick={() => setScope(option.value as CalendarViewScope)}
                         className={cn(
                           'h-7 rounded-full px-2.5 text-xs font-semibold transition-colors',
-                          scope === option.value ? 'bg-[#111111] text-white' : 'text-[#707072] hover:text-[#111111]',
+                          scope === option.value ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
                         )}
                       >
                         {option.label}
@@ -194,36 +194,36 @@ const DashboardCalendarPanel = () => {
                   key={item.label}
                   type="button"
                   onClick={() => navigate(item.path)}
-                  className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-left transition-colors hover:border-[#cacacb]"
+                  className="rounded-lg border border-border bg-muted/25 p-3 text-left transition-colors hover:border-foreground/20 hover:bg-muted"
                 >
-                  <Icon className="h-4 w-4 text-[#707072]" />
-                  <p className="mt-2 text-xl font-bold leading-none text-[#111111]">{item.value}</p>
-                  <p className="mt-1 text-xs font-medium text-[#707072]">{item.label}</p>
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  <p className="mt-2 text-xl font-bold leading-none text-foreground">{item.value}</p>
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">{item.label}</p>
                 </button>
               );
             })}
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="overflow-hidden rounded-lg border border-[#e5e5e5] bg-white">
-              <div className="flex flex-col gap-2 border-b border-[#e5e5e5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="overflow-hidden rounded-lg border border-border bg-card">
+              <div className="flex flex-col gap-2 border-b border-border px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8 rounded-full border-[#cacacb]"
+                    className="h-8 w-8 rounded-full border-border"
                     aria-label="이전 달"
                     onClick={() => setCalendarMonth((current) => subMonths(current, 1))}
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <p className="min-w-[112px] text-center text-sm font-bold text-[#111111]">
+                  <p className="min-w-[112px] text-center text-sm font-bold text-foreground">
                     {format(calendarMonth, 'yyyy년 M월', { locale: ko })}
                   </p>
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8 rounded-full border-[#cacacb]"
+                    className="h-8 w-8 rounded-full border-border"
                     aria-label="다음 달"
                     onClick={() => setCalendarMonth((current) => addMonths(current, 1))}
                   >
@@ -239,16 +239,16 @@ const DashboardCalendarPanel = () => {
                     오늘
                   </Button>
                 </div>
-                <Button variant="outline" size="sm" className="h-8 rounded-full border-[#cacacb] text-xs" onClick={() => openDialog('employee')}>
+                <Button variant="outline" size="sm" className="h-8 rounded-full border-border text-xs" onClick={() => openDialog('employee')}>
                   <Plus className="mr-1.5 h-3.5 w-3.5" /> 일정 추가
                 </Button>
               </div>
-              <div className="grid grid-cols-7 border-b border-[#e5e5e5] bg-[#fafafa] text-center text-[11px] font-semibold text-[#707072]">
+              <div className="grid grid-cols-7 border-b border-border bg-muted/25 text-center text-[11px] font-semibold text-muted-foreground">
                 {WEEKDAY_LABELS.map((weekday) => (
                   <div key={weekday} className="py-1.5">{weekday}</div>
                 ))}
               </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 border-b border-[#e5e5e5] px-3 py-2 text-[11px] text-[#707072]">
+              <div className="flex flex-wrap gap-x-3 gap-y-1 border-b border-border px-3 py-2 text-[11px] text-muted-foreground">
                 {CALENDAR_EVENT_LEGEND.map((item) => (
                   <span key={item.key} className="inline-flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.accent }} />
@@ -271,13 +271,13 @@ const DashboardCalendarPanel = () => {
                         <button
                           type="button"
                           className={cn(
-                            'min-h-[70px] border-b border-[#e5e5e5] p-1.5 text-left transition-colors hover:bg-[#fafafa] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111] focus-visible:ring-offset-1',
+                            'min-h-[70px] border-b border-border p-1.5 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-1',
                             (index + 1) % 7 !== 0 && 'border-r',
-                            !isSameMonth(day, calendarMonth) && 'bg-[#fafafa] text-[#9e9ea0]',
+                            !isSameMonth(day, calendarMonth) && 'bg-muted/25 text-muted-foreground/60',
                             hasHoliday && 'bg-red-500/10 hover:bg-red-500/15',
                           )}
                         >
-                          <span className={cn('inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold', isToday(day) && 'bg-[#111111] text-white')}>
+                          <span className={cn('inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold', isToday(day) && 'bg-foreground text-background')}>
                             {format(day, 'd')}
                           </span>
                           <div className="mt-1 flex flex-wrap items-center gap-1">
@@ -290,7 +290,7 @@ const DashboardCalendarPanel = () => {
                               />
                             ))}
                             {dotEvents.length > 4 && (
-                              <span className="text-[10px] font-semibold leading-none text-[#707072]">
+                              <span className="text-[10px] font-semibold leading-none text-muted-foreground">
                                 +{dotEvents.length - 4}
                               </span>
                             )}
@@ -300,11 +300,11 @@ const DashboardCalendarPanel = () => {
                       <PopoverContent
                         align="start"
                         sideOffset={6}
-                        className="w-[min(calc(100vw-2rem),360px)] rounded-lg border-[#d9d9da] bg-white p-0 shadow-lg"
+                        className="w-[min(calc(100vw-2rem),360px)] rounded-lg border-border bg-card p-0 shadow-lg"
                       >
-                        <div className="border-b border-[#e5e5e5] px-3 py-2.5">
+                        <div className="border-b border-border px-3 py-2.5">
                           <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-bold text-[#111111]">{format(day, 'M월 d일 EEEE', { locale: ko })}</p>
+                            <p className="text-sm font-bold text-foreground">{format(day, 'M월 d일 EEEE', { locale: ko })}</p>
                             <Badge variant="outline" className="shrink-0 rounded-full px-2 py-0 text-[10px]">
                               {dayEvents.length}건
                             </Badge>
@@ -328,19 +328,19 @@ const DashboardCalendarPanel = () => {
                                         key={event.id}
                                         type="button"
                                         onClick={() => openSourcePath(event, day)}
-                                        className="w-full snap-start rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-2.5 text-left transition-colors hover:border-[#cacacb] hover:bg-white"
+                                        className="w-full snap-start rounded-lg border border-border bg-muted/25 p-2.5 text-left transition-colors hover:border-foreground/20 hover:bg-muted"
                                       >
                                         <div className="flex items-start gap-2">
                                           <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
                                           <div className="min-w-0 flex-1">
                                             <div className="flex items-start justify-between gap-2">
-                                              <p className="min-w-0 truncate text-sm font-semibold text-[#111111]">{event.title}</p>
+                                              <p className="min-w-0 truncate text-sm font-semibold text-foreground">{event.title}</p>
                                               <Badge variant="outline" className="shrink-0 rounded-full px-2 py-0 text-[10px]">
                                                 {CALENDAR_STATUS_LABELS[event.status]}
                                               </Badge>
                                             </div>
-                                            <p className="mt-1 text-xs font-medium text-[#707072]">{formatEventTime(event)}</p>
-                                            {meta && <p className="mt-0.5 truncate text-xs text-[#707072]">{meta}</p>}
+                                            <p className="mt-1 text-xs font-medium text-muted-foreground">{formatEventTime(event)}</p>
+                                            {meta && <p className="mt-0.5 truncate text-xs text-muted-foreground">{meta}</p>}
                                           </div>
                                         </div>
                                       </button>
@@ -349,8 +349,8 @@ const DashboardCalendarPanel = () => {
                               </div>
                             </ScrollArea>
                             {canSlidePopoverEvents && (
-                              <div className="pointer-events-none absolute inset-x-0 bottom-0 rounded-b-lg bg-gradient-to-t from-white via-white/95 to-transparent px-3 pb-2 pt-8">
-                                <p className="text-center text-[11px] font-semibold text-[#707072]">
+                              <div className="pointer-events-none absolute inset-x-0 bottom-0 rounded-b-lg border-t border-border bg-card/95 px-3 py-2">
+                                <p className="text-center text-[11px] font-semibold text-muted-foreground">
                                   목록을 슬라이드해 {dayEvents.length}건 전체 보기
                                 </p>
                               </div>
@@ -358,17 +358,17 @@ const DashboardCalendarPanel = () => {
                           </div>
                         ) : (
                           <div className="p-3">
-                            <div className="rounded-lg border border-dashed border-[#cacacb] bg-[#fafafa] p-4 text-center">
-                              <p className="text-sm font-semibold text-[#111111]">등록된 일정 없음</p>
-                              <p className="mt-1 text-xs text-[#707072]">이 날짜에 새 일정을 추가할 수 있습니다.</p>
+                            <div className="rounded-lg border border-dashed border-border bg-muted/25 p-4 text-center">
+                              <p className="text-sm font-semibold text-foreground">등록된 일정 없음</p>
+                              <p className="mt-1 text-xs text-muted-foreground">이 날짜에 새 일정을 추가할 수 있습니다.</p>
                             </div>
                           </div>
                         )}
-                        <div className="flex gap-2 border-t border-[#e5e5e5] p-3">
-                          <Button variant="outline" className="h-8 flex-1 rounded-full border-[#cacacb] text-xs" onClick={() => navigate(`/calendar?date=${dayKey}`)}>
+                        <div className="flex gap-2 border-t border-border p-3">
+                          <Button variant="outline" className="h-8 flex-1 rounded-full border-border text-xs" onClick={() => navigate(`/calendar?date=${dayKey}`)}>
                             전체 캘린더에서 보기
                           </Button>
-                          <Button className="h-8 flex-1 rounded-full bg-[#111111] text-xs text-white hover:bg-[#39393b]" onClick={() => openDialog('employee', dayKey)}>
+                          <Button className="h-8 flex-1 rounded-full bg-foreground text-xs text-background hover:bg-foreground/85" onClick={() => openDialog('employee', dayKey)}>
                             일정 추가
                           </Button>
                         </div>
@@ -380,10 +380,10 @@ const DashboardCalendarPanel = () => {
             </div>
 
             <div className="space-y-3">
-              <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
+              <div className="rounded-lg border border-border bg-muted/25 p-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-bold text-[#111111]">오늘 일정 타임라인</p>
-                  <ListChecks className="h-4 w-4 text-[#707072]" />
+                  <p className="text-sm font-bold text-foreground">오늘 일정 타임라인</p>
+                  <ListChecks className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div className="mt-3 space-y-2">
                   {upcomingEvents.length > 0 ? upcomingEvents.map((event) => (
@@ -391,36 +391,36 @@ const DashboardCalendarPanel = () => {
                       key={event.id}
                       type="button"
                       onClick={() => navigate(`/calendar?event=${event.id}`)}
-                      className="w-full rounded-lg border border-[#e5e5e5] bg-white p-2 text-left transition-colors hover:border-[#cacacb]"
+                      className="w-full rounded-lg border border-border bg-card p-2 text-left transition-colors hover:border-foreground/20 hover:bg-muted"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-semibold text-[#111111]">{event.title}</p>
+                        <p className="truncate text-sm font-semibold text-foreground">{event.title}</p>
                         <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px]">
                           {format(new Date(event.starts_at), 'M/d')}
                         </Badge>
                       </div>
-                      <p className="mt-1 truncate text-xs text-[#707072]">{formatEventTime(event)} · {event.location || event.resource_names.join(', ') || event.created_by_name}</p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">{formatEventTime(event)} · {event.location || event.resource_names.join(', ') || event.created_by_name}</p>
                     </button>
                   )) : (
-                    <p className="rounded-lg border border-dashed border-[#cacacb] bg-white p-3 text-sm text-[#707072]">
+                    <p className="rounded-lg border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">
                       예정된 일정이 없습니다.
                     </p>
                   )}
                 </div>
               </div>
 
-              <div className="rounded-lg border border-[#e5e5e5] bg-white p-3">
-                <p className="text-sm font-bold text-[#111111]">회의실 현황</p>
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-sm font-bold text-foreground">회의실 현황</p>
                 <div className="mt-3 grid gap-2">
                   {rooms.map((room) => (
-                    <div key={room.id} className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-2">
+                    <div key={room.id} className="rounded-lg border border-border bg-muted/25 p-2">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-[#111111]">{room.name}</p>
-                        <Badge variant="outline" className={cn('rounded-full px-2 py-0 text-[10px]', room.current_event && 'border-[#111111] bg-[#111111] text-white')}>
+                        <p className="text-sm font-semibold text-foreground">{room.name}</p>
+                        <Badge variant="outline" className={cn('rounded-full px-2 py-0 text-[10px]', room.current_event && 'border-foreground bg-foreground text-background')}>
                           {room.current_event ? '사용 중' : '비어 있음'}
                         </Badge>
                       </div>
-                      <p className="mt-1 truncate text-xs text-[#707072]">
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
                         {room.current_event
                           ? `${room.current_event.title} · ${format(new Date(room.current_event.ends_at), 'HH:mm')} 종료`
                           : room.next_event
@@ -433,9 +433,9 @@ const DashboardCalendarPanel = () => {
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                <Button variant="outline" className="h-9 rounded-full border-[#cacacb] text-xs" onClick={() => openDialog('employee')}>직원</Button>
-                <Button variant="outline" className="h-9 rounded-full border-[#cacacb] text-xs" onClick={() => openDialog('client')}>고객</Button>
-                <Button variant="outline" className="h-9 rounded-full border-[#cacacb] text-xs" onClick={() => openDialog('room')}>회의실</Button>
+                <Button variant="outline" className="h-9 rounded-full border-border text-xs" onClick={() => openDialog('employee')}>직원</Button>
+                <Button variant="outline" className="h-9 rounded-full border-border text-xs" onClick={() => openDialog('client')}>고객</Button>
+                <Button variant="outline" className="h-9 rounded-full border-border text-xs" onClick={() => openDialog('room')}>회의실</Button>
               </div>
             </div>
           </div>

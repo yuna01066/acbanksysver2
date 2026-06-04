@@ -31,7 +31,7 @@ export function BrandedCardHeader({
         {Icon && (
           <span
             className={cn(
-              'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/10 text-primary',
+              'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground/70',
               iconWrapClassName,
             )}
           >

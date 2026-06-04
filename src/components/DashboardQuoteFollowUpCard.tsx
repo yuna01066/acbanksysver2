@@ -52,18 +52,18 @@ const FOLLOW_UP_AFTER_DAYS = 3;
 const EXPIRING_SOON_DAYS = 3;
 const ACTIVE_LIMIT = 80;
 
-const toneClass = (tone: FollowUpReason['tone']) => {
+const toneDotClass = (tone: FollowUpReason['tone']) => {
   switch (tone) {
     case 'danger':
-      return 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300';
+      return 'bg-red-500';
     case 'warning':
-      return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300';
+      return 'bg-amber-500';
     case 'primary':
-      return 'border-primary/20 bg-primary/10 text-primary';
+      return 'bg-foreground';
     case 'success':
-      return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300';
+      return 'bg-emerald-500';
     default:
-      return 'border-border bg-muted/40 text-muted-foreground';
+      return 'bg-muted-foreground';
   }
 };
 
@@ -207,7 +207,7 @@ const DashboardQuoteFollowUpCard = () => {
   const followUpCount = followUps.filter((item) => item.reason.label === '후속 필요' || item.reason.label.includes('만료')).length;
 
   return (
-    <Card className="flex h-full flex-col overflow-hidden border-primary/10 bg-background/85 shadow-sm backdrop-blur">
+    <Card className="flex h-full flex-col overflow-hidden rounded-lg border-border bg-card shadow-none">
       <CardHeader className="pb-3">
         <BrandedCardHeader
           icon={FileText}
@@ -227,17 +227,20 @@ const DashboardQuoteFollowUpCard = () => {
             총 {followUps.length}건
           </Badge>
           {revisionCount > 0 && (
-            <Badge variant="outline" className={cn('rounded-full px-2.5 py-1', toneClass('danger'))}>
+            <Badge variant="outline" className="rounded-full border-border bg-card px-2.5 py-1 text-muted-foreground">
+              <span className={cn('mr-1.5 h-1.5 w-1.5 rounded-full', toneDotClass('danger'))} />
               수정 {revisionCount}
             </Badge>
           )}
           {followUpCount > 0 && (
-            <Badge variant="outline" className={cn('rounded-full px-2.5 py-1', toneClass('warning'))}>
+            <Badge variant="outline" className="rounded-full border-border bg-card px-2.5 py-1 text-muted-foreground">
+              <span className={cn('mr-1.5 h-1.5 w-1.5 rounded-full', toneDotClass('warning'))} />
               후속 {followUpCount}
             </Badge>
           )}
           {projectCount > 0 && (
-            <Badge variant="outline" className={cn('rounded-full px-2.5 py-1', toneClass('success'))}>
+            <Badge variant="outline" className="rounded-full border-border bg-card px-2.5 py-1 text-muted-foreground">
+              <span className={cn('mr-1.5 h-1.5 w-1.5 rounded-full', toneDotClass('success'))} />
               전환 {projectCount}
             </Badge>
           )}
@@ -249,7 +252,7 @@ const DashboardQuoteFollowUpCard = () => {
             견적 후속 항목을 불러오는 중입니다.
           </div>
         ) : visibleItems.length === 0 ? (
-          <div className="flex h-[340px] flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center sm:h-[360px]">
+          <div className="flex h-[340px] flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-4 text-center sm:h-[360px]">
             <AlertTriangle className="mb-2 h-9 w-9 text-muted-foreground/40" />
             <p className="text-sm font-medium">후속 확인이 필요한 견적이 없습니다.</p>
             <p className="mt-1 text-xs text-muted-foreground">수정 요청이나 만료 임박 견적이 생기면 이곳에 표시됩니다.</p>
@@ -266,7 +269,7 @@ const DashboardQuoteFollowUpCard = () => {
                     key={quote.id}
                     type="button"
                     onClick={() => navigate(`/saved-quotes/${quote.id}`)}
-                    className="group w-full rounded-xl border bg-card/80 p-3 text-left transition-colors hover:bg-accent/40"
+                    className="group w-full rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-muted"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -279,10 +282,11 @@ const DashboardQuoteFollowUpCard = () => {
                     </div>
 
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      <Badge variant="outline" className={cn('text-[10px]', toneClass(reason.tone))}>
+                      <Badge variant="outline" className="border-border bg-card text-[10px] text-muted-foreground">
+                        <span className={cn('mr-1.5 h-1.5 w-1.5 rounded-full', toneDotClass(reason.tone))} />
                         {reason.label}
                       </Badge>
-                      <Badge variant="outline" className={cn('text-[10px]', status.color)}>
+                      <Badge variant="outline" className="border-border bg-card text-[10px] text-muted-foreground">
                         {status.label}
                       </Badge>
                       {quote.assigned_to_name && (

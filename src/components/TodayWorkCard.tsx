@@ -7,12 +7,27 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import type { AppNotification } from '@/hooks/useNotifications';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
-import { toneClasses, useTodayWorkItems } from '@/hooks/useTodayWorkItems';
+import { useTodayWorkItems, type WorkItemTone } from '@/hooks/useTodayWorkItems';
 import { useNavigate } from 'react-router-dom';
 
 interface TodayWorkCardProps {
   notifications: AppNotification[];
 }
+
+const workToneDotClass = (tone: WorkItemTone) => {
+  switch (tone) {
+    case 'danger':
+      return 'bg-red-500';
+    case 'warning':
+      return 'bg-amber-500';
+    case 'success':
+      return 'bg-emerald-500';
+    case 'primary':
+      return 'bg-foreground';
+    default:
+      return 'bg-muted-foreground';
+  }
+};
 
 const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
   const navigate = useNavigate();
@@ -20,7 +35,7 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
   const shouldScrollWorkItems = workItems.length > 4;
 
   return (
-    <Card className="w-full overflow-hidden border-primary/10 bg-background/85 shadow-sm backdrop-blur">
+    <Card className="w-full overflow-hidden rounded-lg border-border bg-card shadow-none">
       <CardHeader className="pb-3">
         <BrandedCardHeader
           icon={CheckCircle2}
@@ -32,7 +47,8 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
                 총 {workItems.length}건
               </Badge>
               {urgentCount > 0 && (
-                <Badge className="rounded-full bg-amber-500/10 px-2.5 py-1 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300">
+                <Badge variant="outline" className="rounded-full border-border bg-card px-2.5 py-1 text-foreground">
+                  <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-amber-500" />
                   우선 확인 {urgentCount}건
                 </Badge>
               )}
@@ -47,8 +63,8 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
             업무 항목을 불러오는 중입니다.
           </div>
         ) : workItems.length === 0 ? (
-          <div className="flex min-h-[160px] flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center">
-            <CheckCircle2 className="mb-2 h-9 w-9 text-emerald-500" />
+          <div className="flex min-h-[160px] flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-4 text-center">
+            <CheckCircle2 className="mb-2 h-9 w-9 text-muted-foreground/35" />
             <p className="text-sm font-medium">현재 바로 처리할 항목이 없습니다.</p>
             <p className="mt-1 text-xs text-muted-foreground">캘린더와 최근 활동은 아래 카드에서 계속 확인할 수 있습니다.</p>
           </div>
@@ -61,15 +77,16 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
                     type="button"
                     onClick={item.onClick}
                     disabled={item.disabled}
-                    className="group grid w-full grid-cols-[auto,1fr,auto] items-center gap-3 rounded-xl border bg-card/80 p-3 text-left transition-colors hover:bg-accent/40 disabled:cursor-wait disabled:opacity-70"
+                    className="group grid w-full grid-cols-[auto,1fr,auto] items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-muted disabled:cursor-wait disabled:opacity-70"
                   >
-                    <div className={cn('flex h-9 w-9 items-center justify-center rounded-full border', toneClasses(item.tone))}>
+                    <div className="relative flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground/70">
+                      <span className={cn('absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-card', workToneDotClass(item.tone))} />
                       {item.icon}
                     </div>
                     <div className="min-w-0">
                       <div className="mb-1 flex flex-wrap items-center gap-2">
                         <p className="truncate text-sm font-semibold">{item.title}</p>
-                        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-medium', toneClasses(item.tone))}>
+                        <span className="inline-flex items-center rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                           {item.label}
                         </span>
                       </div>

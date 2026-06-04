@@ -53,7 +53,6 @@ type SecretEvent = {
   emoji: string;
   message: string;
   sub: string;
-  gradient: string;
   particles?: string[];
   sound?: { freq: number; type: OscillatorType };
 };
@@ -72,7 +71,6 @@ const getSecretEvent = (name: string): SecretEvent | null => {
       emoji: '🌠',
       message: '새로운 하루가 시작됩니다!',
       sub: `${name}님, 별이 빛나는 밤에 새 하루를 맞이하세요 ✨`,
-      gradient: 'from-indigo-500/20 via-purple-500/15 to-pink-500/10 dark:from-indigo-800/40 dark:via-purple-800/30 dark:to-pink-800/20',
       particles: ['⭐', '✨', '🌟', '💫', '🌙'],
     };
   }
@@ -83,7 +81,6 @@ const getSecretEvent = (name: string): SecretEvent | null => {
       emoji: '🦉',
       message: '밤올빼미 모드 활성화!',
       sub: `이 시간에 일하는 ${name}님은 진정한 야행성... 건강 조심하세요 🌙`,
-      gradient: 'from-slate-700/20 via-indigo-800/15 to-violet-900/10 dark:from-slate-900/50 dark:via-indigo-950/40 dark:to-violet-950/30',
       particles: ['🦉', '🌙', '⭐', '🌟'],
     };
   }
@@ -94,7 +91,6 @@ const getSecretEvent = (name: string): SecretEvent | null => {
       emoji: '🎉',
       message: '불금이다! 🔥',
       sub: `${name}님, 한 주 고생하셨습니다! 즐거운 주말 보내세요 🥳`,
-      gradient: 'from-orange-500/20 via-red-500/15 to-pink-500/10 dark:from-orange-800/40 dark:via-red-800/30 dark:to-pink-800/20',
       particles: ['🎊', '🎉', '🥳', '🔥', '💃'],
       sound: { freq: 523, type: 'triangle' as OscillatorType },
     };
@@ -106,7 +102,6 @@ const getSecretEvent = (name: string): SecretEvent | null => {
       emoji: '💪',
       message: '월요일도 힘내봅시다!',
       sub: `새로운 한 주가 시작됐어요. ${name}님 파이팅! ☕`,
-      gradient: 'from-blue-500/15 via-cyan-500/10 to-teal-500/10 dark:from-blue-800/30 dark:via-cyan-800/20 dark:to-teal-800/15',
       particles: ['💪', '☕', '🚀'],
     };
   }
@@ -118,7 +113,6 @@ const getSecretEvent = (name: string): SecretEvent | null => {
       emoji: '📅',
       message: `${monthNames[month]}의 시작!`,
       sub: `새로운 달, 새로운 시작! ${name}님의 ${monthNames[month]}도 응원합니다 🎯`,
-      gradient: 'from-emerald-500/15 via-green-500/10 to-lime-500/10 dark:from-emerald-800/30 dark:via-green-800/20 dark:to-lime-800/15',
       particles: ['🎯', '📅', '🌱', '✨'],
     };
   }
@@ -129,7 +123,6 @@ const getSecretEvent = (name: string): SecretEvent | null => {
       emoji: '🎄',
       message: '메리 크리스마스! 🎅',
       sub: `${name}님, 행복한 크리스마스 보내세요!`,
-      gradient: 'from-red-500/20 via-green-500/15 to-red-500/10 dark:from-red-800/40 dark:via-green-800/30 dark:to-red-800/20',
       particles: ['🎄', '🎅', '🎁', '⛄', '❄️', '🌟'],
     };
   }
@@ -140,7 +133,6 @@ const getSecretEvent = (name: string): SecretEvent | null => {
       emoji: '🎆',
       message: '새해 복 많이 받으세요!',
       sub: `${name}님, ${now.getFullYear()}년도 좋은 일만 가득하길! 🎊`,
-      gradient: 'from-yellow-500/20 via-amber-500/15 to-orange-500/10 dark:from-yellow-800/40 dark:via-amber-800/30 dark:to-orange-800/20',
       particles: ['🎆', '🎇', '🎊', '🎉', '✨', '🥂'],
       sound: { freq: 659, type: 'triangle' as OscillatorType },
     };
@@ -152,7 +144,6 @@ const getSecretEvent = (name: string): SecretEvent | null => {
       emoji: '🔔',
       message: `${h}시 정각!`,
       sub: '땡~ 시간은 금이에요 ⏰',
-      gradient: 'from-amber-400/15 via-yellow-400/10 to-orange-400/10 dark:from-amber-800/25 dark:via-yellow-800/15 dark:to-orange-800/10',
       sound: { freq: 440, type: 'sine' as OscillatorType },
     };
   }
@@ -313,7 +304,6 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl, attendance
             emoji: ce.emoji,
             message: ce.message,
             sub: (ce.sub_message || '').replace('{name}', name),
-            gradient: ce.gradient || 'from-primary/15 via-primary/10 to-accent/10',
             particles: ce.particles || undefined,
             sound: ce.sound_enabled ? { freq: ce.sound_freq || 440, type: 'triangle' as OscillatorType } : undefined,
           };
@@ -411,7 +401,7 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl, attendance
   const elapsedMins = elapsedMin % 60;
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border bg-white p-4 text-card-foreground shadow-none animate-fade-in dark:bg-background sm:p-5">
+    <div className="relative overflow-hidden rounded-lg border border-border bg-card p-4 text-card-foreground shadow-none animate-fade-in sm:p-5">
       {/* 🎯 시크릿 이벤트 배너 */}
       {showSecretBanner && secretEvent && (
         <>
@@ -421,7 +411,7 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl, attendance
             onClick={() => setShowSecretBanner(false)}
           >
             <div className="flex items-center gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-white text-lg dark:bg-background">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-lg">
                 {secretEvent.emoji}
               </span>
               <div className="min-w-0 flex-1">
@@ -439,7 +429,7 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl, attendance
           <div className="relative shrink-0">
             <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
               <PopoverTrigger asChild>
-                <Avatar className="h-14 w-14 shrink-0 cursor-pointer rounded-xl border border-border bg-muted shadow-none transition-transform hover:scale-[1.02] sm:h-20 sm:w-20">
+                <Avatar className="h-14 w-14 shrink-0 cursor-pointer rounded-lg border border-border bg-muted shadow-none transition-transform hover:scale-[1.02] sm:h-20 sm:w-20">
                   <AvatarImage src={avatarUrl || undefined} alt={name} className="object-cover" />
                   <AvatarFallback className="bg-muted text-foreground text-lg font-semibold sm:text-xl">
                     {name.charAt(0)}
@@ -538,10 +528,10 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl, attendance
         <div className={`mt-3 grid gap-2.5 ${upcomingEvents.length === 1 ? 'grid-cols-1' : upcomingEvents.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
           {upcomingEvents.map((ev) => {
             const typeConfig = {
-              conference: { label: '회의', badgeBg: 'bg-muted text-foreground', cardBorder: 'border-border', cardBg: 'bg-white dark:bg-background', icon: <Users className="h-3.5 w-3.5" /> },
-              meeting: { label: '미팅', badgeBg: 'bg-muted text-foreground', cardBorder: 'border-border', cardBg: 'bg-white dark:bg-background', icon: <Coffee className="h-3.5 w-3.5" /> },
-              event: { label: '이벤트', badgeBg: 'bg-muted text-foreground', cardBorder: 'border-border', cardBg: 'bg-white dark:bg-background', icon: <Calendar className="h-3.5 w-3.5" /> },
-            }[ev.eventType] || { label: '일정', badgeBg: 'bg-muted text-muted-foreground', cardBorder: 'border-border', cardBg: 'bg-white dark:bg-background', icon: <Calendar className="h-3.5 w-3.5" /> };
+              conference: { label: '회의', badgeBg: 'bg-muted text-foreground', cardBorder: 'border-border', cardBg: 'bg-card', icon: <Users className="h-3.5 w-3.5" /> },
+              meeting: { label: '미팅', badgeBg: 'bg-muted text-foreground', cardBorder: 'border-border', cardBg: 'bg-card', icon: <Coffee className="h-3.5 w-3.5" /> },
+              event: { label: '이벤트', badgeBg: 'bg-muted text-foreground', cardBorder: 'border-border', cardBg: 'bg-card', icon: <Calendar className="h-3.5 w-3.5" /> },
+            }[ev.eventType] || { label: '일정', badgeBg: 'bg-muted text-muted-foreground', cardBorder: 'border-border', cardBg: 'bg-card', icon: <Calendar className="h-3.5 w-3.5" /> };
 
             const formattedDate = ev.meeting_date
               ? new Date(ev.meeting_date + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' })
