@@ -45,6 +45,7 @@ const ACTION_LABELS: Record<string, { label: string; Icon: React.ElementType }> 
   project_linked: { label: '프로젝트 연결', Icon: FolderOpen },
   quote_reissued: { label: '견적 재발행', Icon: GitBranch },
   created_from_reissue: { label: '재발행본 생성', Icon: GitBranch },
+  quote_duplicated: { label: '견적 복제', Icon: FileText },
 };
 
 const formatValue = (actionType: string, value: string | null) => {
@@ -68,6 +69,12 @@ const buildDescription = (entry: ActivityEntry) => {
   }
   if (entry.action_type === 'created_from_reissue') {
     return `${entry.metadata?.originalQuoteNumber || entry.old_value || '원본'}에서 재발행됨`;
+  }
+  if (entry.action_type === 'quote_duplicated') {
+    if (entry.metadata?.source === 'original') {
+      return `${entry.metadata?.duplicatedQuoteNumber || entry.new_value || '복제본'} 복제본 생성`;
+    }
+    return `${entry.metadata?.originalQuoteNumber || entry.old_value || '원본'}에서 복제됨`;
   }
 
   if (entry.old_value || entry.new_value) {

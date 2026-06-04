@@ -48,12 +48,18 @@ const QuotePreviewSheet: React.FC<Props> = ({ quoteId, open, onOpenChange }) => 
   const items = quote ? (Array.isArray(quote.items) ? quote.items : []) : [];
 
   const stageLabels: Record<string, string> = {
+    reviewing: '검토중',
     quote_issued: '견적 발행',
+    revision_requested: '수정요청',
+    on_hold: '보류',
+    contracted: '수주',
     invoice_issued: '계산서 발행',
     in_progress: '진행중',
     panel_ordered: '원판발주',
     manufacturing: '제작중',
     completed: '제작완료',
+    delivery_scheduled: '납기 예정',
+    delivered: '납기 완료',
     cancelled: '취소',
   };
 

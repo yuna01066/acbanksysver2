@@ -10,21 +10,33 @@ interface Props {
 }
 
 const STAGE_LABELS: Record<string, string> = {
+  reviewing: '검토중',
   quote_issued: '견적 발행',
+  revision_requested: '수정요청',
+  on_hold: '보류',
+  contracted: '수주',
   invoice_issued: '계산서 발행',
   in_progress: '진행중',
   panel_ordered: '원판발주',
   manufacturing: '제작중',
   completed: '제작완료',
+  delivery_scheduled: '납기 예정',
+  delivered: '납기 완료',
 };
 
 const STAGE_COLORS: Record<string, string> = {
+  reviewing: 'bg-amber-400',
   quote_issued: 'bg-blue-400',
+  revision_requested: 'bg-violet-400',
+  on_hold: 'bg-zinc-400',
+  contracted: 'bg-emerald-400',
   invoice_issued: 'bg-purple-400',
   in_progress: 'bg-yellow-400',
   panel_ordered: 'bg-orange-400',
   manufacturing: 'bg-cyan-400',
   completed: 'bg-emerald-400',
+  delivery_scheduled: 'bg-sky-400',
+  delivered: 'bg-green-500',
 };
 
 const ProjectGanttChart: React.FC<Props> = ({ projectId }) => {
@@ -92,7 +104,7 @@ const ProjectGanttChart: React.FC<Props> = ({ projectId }) => {
       endDate: isAfter(end, start) ? end : addDays(start, 7),
       color: STAGE_COLORS[q.project_stage] || 'bg-primary',
       type: 'quote',
-      completed: q.project_stage === 'completed',
+      completed: q.project_stage === 'completed' || q.project_stage === 'delivered',
     });
   });
 

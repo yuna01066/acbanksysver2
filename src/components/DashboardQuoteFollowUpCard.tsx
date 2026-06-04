@@ -169,7 +169,7 @@ const DashboardQuoteFollowUpCard = () => {
         .select('id, quote_number, project_name, recipient_company, recipient_name, total, quote_date, valid_until, project_id, project_stage, quote_status, assigned_to, assigned_to_name, issuer_id, issuer_name, user_id, created_at, status_updated_at')
         .not('quote_status', 'eq', 'cancelled')
         .not('project_stage', 'eq', 'cancelled')
-        .not('project_stage', 'eq', 'completed')
+        .not('project_stage', 'eq', 'delivered')
         .order('status_updated_at', { ascending: false })
         .limit(ACTIVE_LIMIT);
 

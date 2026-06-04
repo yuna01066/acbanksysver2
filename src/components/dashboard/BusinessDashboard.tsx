@@ -11,6 +11,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, L
 import { format, subMonths, startOfMonth, endOfMonth, startOfYear, subYears } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { formatPrice } from '@/utils/priceCalculations';
+import { isFinalCompletedProjectStage } from '@/utils/quoteWorkflow';
 
 type PeriodType = '6m' | '12m' | 'ytd';
 
@@ -78,7 +79,7 @@ const BusinessDashboard: React.FC = () => {
     staleTime: 10 * 60 * 1000,
   });
 
-  const completedQuotes = useMemo(() => quotes?.filter(q => q.project_stage === 'completed') || [], [quotes]);
+  const completedQuotes = useMemo(() => quotes?.filter(q => isFinalCompletedProjectStage(q.project_stage)) || [], [quotes]);
   const allQuotes = quotes || [];
   const allExpenses = expenses || [];
   const allOrders = orders || [];
@@ -133,7 +134,7 @@ const BusinessDashboard: React.FC = () => {
       const name = q.issuer_name || '미지정';
       if (!map[name]) map[name] = { name, quoteCount: 0, completedCount: 0, revenue: 0, orderCount: 0 };
       map[name].quoteCount += 1;
-      if (q.project_stage === 'completed') {
+      if (isFinalCompletedProjectStage(q.project_stage)) {
         map[name].completedCount += 1;
         map[name].revenue += Number(q.total) || 0;
       }
@@ -164,7 +165,7 @@ const BusinessDashboard: React.FC = () => {
   const COLORS = ['hsl(var(--primary))', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#ec4899', '#14b8a6', '#f97316'];
 
   const kpiCards = [
-    { label: '매출 (제작완료)', value: formatPrice(totalRevenue) + '원', icon: DollarSign, color: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
+    { label: '매출 (완료)', value: formatPrice(totalRevenue) + '원', icon: DollarSign, color: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
     { label: '비용 (지출)', value: formatPrice(totalExpense) + '원', icon: TrendingDown, color: 'text-red-500', bgColor: 'bg-red-500/10' },
     { label: '영업이익', value: formatPrice(profit) + '원', icon: profit >= 0 ? TrendingUp : TrendingDown, color: profit >= 0 ? 'text-emerald-600' : 'text-red-500', bgColor: profit >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10' },
     { label: '전환율', value: `${conversionRate}%`, icon: FileSpreadsheet, color: 'text-blue-600', bgColor: 'bg-blue-500/10' },
@@ -229,7 +230,7 @@ const BusinessDashboard: React.FC = () => {
         <Card>
           <CardContent className="p-3 text-center">
             <p className="text-lg font-bold">{completedQuotes.length}</p>
-            <p className="text-[10px] text-muted-foreground">제작완료</p>
+            <p className="text-[10px] text-muted-foreground">완료</p>
           </CardContent>
         </Card>
         <Card>

@@ -9,24 +9,37 @@ import { formatPrice } from '@/utils/priceCalculations';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { format, subMonths, startOfMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { isFinalCompletedProjectStage } from '@/utils/quoteWorkflow';
 
 const STAGE_LABELS: Record<string, string> = {
+  reviewing: '검토중',
   quote_issued: '견적 발행',
+  revision_requested: '수정요청',
+  on_hold: '보류',
+  contracted: '수주',
   invoice_issued: '계산서 발행',
   in_progress: '진행중',
   panel_ordered: '원판발주',
   manufacturing: '제작중',
   completed: '제작완료',
+  delivery_scheduled: '납기 예정',
+  delivered: '납기 완료',
   cancelled: '취소',
 };
 
 const STAGE_COLORS: Record<string, string> = {
+  reviewing: '#f59e0b',
   quote_issued: '#3b82f6',
+  revision_requested: '#8b5cf6',
+  on_hold: '#71717a',
+  contracted: '#10b981',
   invoice_issued: '#6366f1',
   in_progress: '#f59e0b',
   panel_ordered: '#f97316',
   manufacturing: '#a855f7',
   completed: '#10b981',
+  delivery_scheduled: '#0ea5e9',
+  delivered: '#16a34a',
   cancelled: '#ef4444',
 };
 
@@ -105,7 +118,7 @@ const QuoteStatisticsCard: React.FC = () => {
 
   // Top clients
   const clientAmounts: Record<string, number> = {};
-  stats.filter((q) => q.project_stage === 'completed').forEach((q) => {
+  stats.filter((q) => isFinalCompletedProjectStage(q.project_stage)).forEach((q) => {
     const name = q.recipient_company || '미지정';
     clientAmounts[name] = (clientAmounts[name] || 0) + Number(q.total || 0);
   });
@@ -115,7 +128,7 @@ const QuoteStatisticsCard: React.FC = () => {
 
   // Summary numbers
   const totalAmount = stats.reduce((sum, q) => sum + (Number(q.total) || 0), 0);
-  const completedCount = stats.filter((q) => q.project_stage === 'completed').length;
+  const completedCount = stats.filter((q) => isFinalCompletedProjectStage(q.project_stage)).length;
   const conversionRate = stats.length > 0 ? Math.round((completedCount / stats.length) * 100) : 0;
 
   return (

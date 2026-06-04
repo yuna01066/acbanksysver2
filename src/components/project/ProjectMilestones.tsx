@@ -18,7 +18,9 @@ const FIXED_STAGES = [
   { key: 'invoice_issued', label: '계산서 발행' },
   { key: 'panel_ordered', label: '원판 발주' },
   { key: 'manufacturing', label: '제작 진행' },
-  { key: 'completed', label: '완료' },
+  { key: 'completed', label: '제작 완료' },
+  { key: 'delivery_scheduled', label: '납기 예정' },
+  { key: 'delivered', label: '납기 완료' },
 ];
 
 const ProjectMilestones: React.FC<Props> = ({ projectId }) => {

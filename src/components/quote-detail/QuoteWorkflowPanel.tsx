@@ -1,4 +1,4 @@
-import { ExternalLink, FolderOpen, Loader2, PlusCircle, RotateCcw, UserCheck } from 'lucide-react';
+import { Copy, ExternalLink, FolderOpen, Loader2, PlusCircle, RotateCcw, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
@@ -30,12 +30,14 @@ interface QuoteWorkflowPanelProps {
   isExpired?: boolean;
   canReissue?: boolean;
   reissuingQuote?: boolean;
+  duplicatingQuote?: boolean;
   reissuedQuoteId?: string | null;
   reissuedFromQuoteId?: string | null;
   onStageChanged: (stage: string) => void;
   onAssigneeChanged: (assigneeId: string | null, assigneeName: string | null) => void;
   onConvertProject: () => void;
   onReissueQuote: () => void;
+  onDuplicateQuote: () => void;
 }
 
 const QuoteWorkflowPanel = ({
@@ -51,12 +53,14 @@ const QuoteWorkflowPanel = ({
   isExpired,
   canReissue,
   reissuingQuote,
+  duplicatingQuote,
   reissuedQuoteId,
   reissuedFromQuoteId,
   onStageChanged,
   onAssigneeChanged,
   onConvertProject,
   onReissueQuote,
+  onDuplicateQuote,
 }: QuoteWorkflowPanelProps) => {
   const navigate = useNavigate();
   const stageInfo = getStageInfo(projectStage);
@@ -148,6 +152,27 @@ const QuoteWorkflowPanel = ({
             users={users}
             onAssigneeChanged={onAssigneeChanged}
           />
+        </div>
+
+        <div className="border-t pt-3">
+          <div className="mb-2 text-[11px] font-medium text-muted-foreground">견적 액션</div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-start gap-2"
+            onClick={onDuplicateQuote}
+            disabled={duplicatingQuote}
+          >
+            {duplicatingQuote ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+            견적서 복제
+          </Button>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+            새 견적번호와 오늘 날짜로 복사본을 생성합니다.
+          </p>
         </div>
 
         <div className="border-t pt-3">

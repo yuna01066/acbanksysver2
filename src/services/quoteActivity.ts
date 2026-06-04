@@ -11,7 +11,8 @@ export type QuoteActivityAction =
   | 'project_converted'
   | 'project_linked'
   | 'quote_reissued'
-  | 'created_from_reissue';
+  | 'created_from_reissue'
+  | 'quote_duplicated';
 
 interface LogQuoteActivityParams {
   quoteId: string;

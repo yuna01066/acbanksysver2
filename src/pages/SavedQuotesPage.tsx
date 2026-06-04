@@ -15,9 +15,9 @@ import { getPaymentStatusInfo } from '@/components/project/PaymentStatusSelect';
 import { PageHeader, PageShell, SearchFilterBar } from '@/components/layout/PageLayout';
 import { formatQuoteProjectTitle } from '@/utils/quoteNaming';
 import { convertQuoteToProject } from '@/services/quoteProjectConversion';
-import { secureRandomNumericString } from '@/utils/secureRandom';
-import { isQuoteExpired, normalizeProjectStage, projectStageToLegacyQuoteStatus } from '@/utils/quoteWorkflow';
+import { isQuoteExpired, isReissueProtectedProjectStage, normalizeProjectStage, projectStageToLegacyQuoteStatus } from '@/utils/quoteWorkflow';
 import { reissueSavedQuote } from '@/services/quoteReissue';
+import { duplicateSavedQuote } from '@/services/quoteDuplicate';
 
 interface LinkedProject {
   id: string;
@@ -166,12 +166,10 @@ const SavedQuotesPage = () => {
   };
 
   const canReissueQuote = (quote: SavedQuote) => {
-    const stage = normalizeProjectStage(quote.project_stage, quote.quote_status);
-    const protectedStages = ['contracted', 'invoice_issued', 'in_progress', 'panel_ordered', 'manufacturing', 'completed'];
     return isQuoteExpired(quote.valid_until)
       && !quote.reissued_quote_id
       && !quote.project_id
-      && !protectedStages.includes(stage);
+      && !isReissueProtectedProjectStage(quote.project_stage, quote.quote_status);
   };
 
   const fetchUsers = async () => {
@@ -402,16 +400,6 @@ const SavedQuotesPage = () => {
     }
   };
 
-  const generateNewQuoteNumber = () => {
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hour = String(now.getHours()).padStart(2, '0');
-    const minute = String(now.getMinutes()).padStart(2, '0');
-    const sequence = secureRandomNumericString(0, 99, 2);
-    return `${month}${day}${hour}${minute}${sequence}`;
-  };
-
   const handleDuplicateQuote = async (quoteId: string) => {
     if (!user) {
       toast.error('로그인이 필요합니다.');
@@ -419,69 +407,12 @@ const SavedQuotesPage = () => {
     }
 
     try {
-      const { data: originalQuote, error: fetchError } = await supabase
-        .from('saved_quotes')
-        .select('*')
-        .eq('id', quoteId)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-      if (!originalQuote) {
-        toast.error('원본 견적서를 찾을 수 없습니다.');
-        return;
-      }
-
-      const newQuoteNumber = generateNewQuoteNumber();
-
-      const originalAttachments = Array.isArray(originalQuote.attachments)
-        ? (originalQuote.attachments as Array<{ type?: string }>)
-        : [];
-      const filteredAttachments = originalAttachments.filter((attachment) => attachment?.type !== 'quote_pdf');
-      
-      const duplicateData = {
-        quote_number: newQuoteNumber,
-        quote_date: new Date().toISOString(),
-        quote_date_display: originalQuote.quote_date_display,
-        project_name: originalQuote.project_name ? `${originalQuote.project_name} (복사본)` : '(복사본)',
-        recipient_name: originalQuote.recipient_name,
-        recipient_company: originalQuote.recipient_company,
-        recipient_phone: originalQuote.recipient_phone,
-        recipient_email: originalQuote.recipient_email,
-        recipient_address: originalQuote.recipient_address,
-        recipient_memo: originalQuote.recipient_memo,
-        items: originalQuote.items,
-        subtotal: originalQuote.subtotal,
-        tax: originalQuote.tax,
-        total: originalQuote.total,
-        user_id: user.id,
-        valid_until: originalQuote.valid_until,
-        delivery_period: originalQuote.delivery_period,
-        payment_condition: originalQuote.payment_condition,
-        issuer_id: originalQuote.issuer_id,
-        issuer_name: originalQuote.issuer_name,
-        issuer_email: originalQuote.issuer_email,
-        issuer_phone: originalQuote.issuer_phone,
-        issuer_department: originalQuote.issuer_department,
-        issuer_position: originalQuote.issuer_position,
-        project_stage: 'quote_issued',
-        quote_status: 'sent',
-        assigned_to: originalQuote.issuer_id || user.id,
-        assigned_to_name: originalQuote.issuer_name || profile?.full_name || user.email,
-        status_updated_at: new Date().toISOString(),
-        custom_color_name: originalQuote.custom_color_name,
-        custom_opacity: originalQuote.custom_opacity,
-        attachments: filteredAttachments,
-        desired_delivery_date: originalQuote.desired_delivery_date,
-      };
-
-      const { data: newQuote, error: insertError } = await supabase
-        .from('saved_quotes')
-        .insert(duplicateData as never)
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-
+      await duplicateSavedQuote({
+        quoteId,
+        actorId: user.id,
+        actorName: profile?.full_name || user.email || '알 수 없음',
+        actorEmail: user.email,
+      });
       toast.success('견적서가 복제되었습니다.');
       fetchQuotes();
     } catch (error) {

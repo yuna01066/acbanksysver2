@@ -40,8 +40,9 @@ import { formatPricingVersionDisplayName } from "@/utils/pricingVersionDisplay";
 import { formatQuoteProjectTitle } from "@/utils/quoteNaming";
 import { convertQuoteToProject } from "@/services/quoteProjectConversion";
 import { logQuoteActivity } from "@/services/quoteActivity";
-import { isQuoteExpired, normalizeProjectStage, projectStageToLegacyQuoteStatus } from "@/utils/quoteWorkflow";
+import { isQuoteExpired, isReissueProtectedProjectStage, normalizeProjectStage, projectStageToLegacyQuoteStatus } from "@/utils/quoteWorkflow";
 import { reissueSavedQuote } from "@/services/quoteReissue";
+import { duplicateSavedQuote } from "@/services/quoteDuplicate";
 import type { QuoteAssigneeOption } from "@/components/QuoteAssigneeSelect";
 import { normalizeQuoteItems } from "@/utils/quoteItemIdentity";
 
@@ -142,6 +143,7 @@ const SavedQuoteDetailPage = () => {
   const [assigneeUsers, setAssigneeUsers] = useState<QuoteAssigneeOption[]>([]);
   const [convertingProject, setConvertingProject] = useState(false);
   const [reissuingQuote, setReissuingQuote] = useState(false);
+  const [duplicatingQuote, setDuplicatingQuote] = useState(false);
   const [quoteDefaults, setQuoteDefaults] = useState({
     quote_bank_info: '신한은행 140-014-544315 (주)아크뱅크',
     quote_notes: '- 견적서의 유효기간은 발행일로부터 14일 입니다.\n- 운송비 및 부가세는 별도 입니다.',
@@ -702,6 +704,31 @@ const SavedQuoteDetailPage = () => {
     }
   };
 
+  const handleDuplicateQuote = async () => {
+    if (!quote || !user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    setDuplicatingQuote(true);
+    try {
+      const newQuote = await duplicateSavedQuote({
+        quoteId: quote.id,
+        actorId: user.id,
+        actorName: profile?.full_name || user.email || '알 수 없음',
+        actorEmail: user.email,
+      });
+
+      toast.success(`견적서가 ${newQuote.quote_number}번으로 복제되었습니다.`);
+      navigate(`/saved-quotes/${newQuote.id}`);
+    } catch (error) {
+      console.error('Error duplicating quote:', error);
+      toast.error(error instanceof Error ? error.message : '견적서 복제에 실패했습니다.');
+    } finally {
+      setDuplicatingQuote(false);
+    }
+  };
+
   const handlePrintPDF = (mode: QuoteViewMode = viewMode) => {
     setPrintModeOverride(mode);
     window.setTimeout(() => {
@@ -770,11 +797,10 @@ const SavedQuoteDetailPage = () => {
   });
   const snapshotItemsCount = items.filter((item: any) => item?.calculationSnapshot).length;
   const quoteExpired = isQuoteExpired(quote.valid_until);
-  const protectedReissueStages = ['contracted', 'invoice_issued', 'in_progress', 'panel_ordered', 'manufacturing', 'completed'];
   const canReissueQuote = quoteExpired
     && !quote.reissued_quote_id
     && !quote.project_id
-    && !protectedReissueStages.includes(normalizeProjectStage(quote.project_stage, quote.quote_status));
+    && !isReissueProtectedProjectStage(quote.project_stage, quote.quote_status);
 
   return (
     <>
@@ -1017,10 +1043,12 @@ const SavedQuoteDetailPage = () => {
             reissuingQuote={reissuingQuote}
             reissuedQuoteId={quote.reissued_quote_id}
             reissuedFromQuoteId={quote.reissued_from_quote_id}
+            duplicatingQuote={duplicatingQuote}
             onStageChanged={handleStageChanged}
             onAssigneeChanged={handleAssigneeChanged}
             onConvertProject={handleConvertProject}
             onReissueQuote={handleReissueQuote}
+            onDuplicateQuote={handleDuplicateQuote}
           />
           {/* 원판 발주 */}
           {id && <QuoteMaterialOrders quoteId={id} />}
