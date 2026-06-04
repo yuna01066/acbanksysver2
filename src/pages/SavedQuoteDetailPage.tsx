@@ -43,6 +43,7 @@ import { logQuoteActivity } from "@/services/quoteActivity";
 import { isQuoteExpired, normalizeProjectStage, projectStageToLegacyQuoteStatus } from "@/utils/quoteWorkflow";
 import { reissueSavedQuote } from "@/services/quoteReissue";
 import type { QuoteAssigneeOption } from "@/components/QuoteAssigneeSelect";
+import { normalizeQuoteItems } from "@/utils/quoteItemIdentity";
 
 interface SavedQuote {
   id: string;
@@ -261,10 +262,11 @@ const SavedQuoteDetailPage = () => {
 
       if (error) throw error;
 
+      const normalizedItems = normalizeQuoteItems(Array.isArray(data.items) ? data.items : []);
       const formattedData = {
         ...data,
         project_stage: normalizeProjectStage(data.project_stage, data.quote_status),
-        items: Array.isArray(data.items) ? data.items : []
+        items: normalizedItems,
       };
       
       // 현재 로그인한 사용자의 프로필 정보 가져오기
@@ -416,8 +418,9 @@ const SavedQuoteDetailPage = () => {
     if (!id) return;
 
     try {
+      const normalizedEditedItems = normalizeQuoteItems(editedItems);
       const itemCalculatedSubtotal = Math.round(
-        editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0) / 100
+        normalizedEditedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0) / 100
       ) * 100;
       const itemCalculatedTax = Math.round(itemCalculatedSubtotal * 0.1);
       const itemCalculatedTotal = itemCalculatedSubtotal + itemCalculatedTax;
@@ -496,7 +499,7 @@ const SavedQuoteDetailPage = () => {
           issuer_email: getTextForSave('issuerEmail', quote.issuer_email),
           issuer_phone: getTextForSave('issuerPhone', quote.issuer_phone),
           attachments: allAttachments,
-          items: editedItems,
+          items: normalizedEditedItems,
           calculation_snapshot: {
             ...(quote.calculation_snapshot && typeof quote.calculation_snapshot === 'object' ? quote.calculation_snapshot : {}),
             schemaVersion: Math.max(Number(quote.calculation_snapshot?.schemaVersion) || 1, 2),
@@ -509,7 +512,7 @@ const SavedQuoteDetailPage = () => {
             autoCalculatedTotal,
             manualTotalAdjustment: manualTotalAdjustment
               ?? (!editedItemsTouched ? (quote.calculation_snapshot?.manualTotalAdjustment || null) : null),
-            items: editedItems.map(item => ({
+            items: normalizedEditedItems.map(item => ({
               id: item.id,
               totalPrice: item.totalPrice,
               quantity: item.quantity || 1,
@@ -597,20 +600,20 @@ const SavedQuoteDetailPage = () => {
     }
   };
 
-  const handleItemUpdate = (index: number, updatedItem: any) => {
-    const newItems = [...editedItems];
-    newItems[index] = updatedItem;
-    setEditedItems(newItems);
+  const handleItemUpdate = (itemId: string, updatedItem: any) => {
+    setEditedItems(prev => normalizeQuoteItems(prev).map(item =>
+      item.id === itemId ? { ...updatedItem, id: itemId } : item
+    ));
     setEditedItemsTouched(true);
   };
 
-  const handleItemRemove = (index: number) => {
+  const handleItemRemove = (itemId: string) => {
     if (editedItems.length <= 1) {
       toast.error('최소 1개의 견적 항목이 필요합니다.');
       return;
     }
-    const newItems = editedItems.filter((_, i) => i !== index);
-    setEditedItems(newItems);
+
+    setEditedItems(prev => normalizeQuoteItems(prev).filter(item => item.id !== itemId));
     setEditedItemsTouched(true);
   };
 
@@ -904,7 +907,7 @@ const SavedQuoteDetailPage = () => {
                     <>
                       {editedItems.map((item: any, index: number) => (
                         <EditableQuoteItem
-                          key={index}
+                          key={item.id}
                           item={item}
                           index={index}
                           onUpdate={handleItemUpdate}
@@ -925,7 +928,7 @@ const SavedQuoteDetailPage = () => {
                     items.map((item: any, index: number) => (
                       activeMode === 'customer' ? (
                         <CustomerQuoteCard
-                          key={index}
+                          key={item.id || index}
                           quote={item}
                           index={index}
                           onRemove={() => {}}
@@ -935,7 +938,7 @@ const SavedQuoteDetailPage = () => {
                         />
                       ) : (
                         <QuoteCard
-                          key={index}
+                          key={item.id || index}
                           quote={item}
                           index={index}
                           onRemove={() => {}}

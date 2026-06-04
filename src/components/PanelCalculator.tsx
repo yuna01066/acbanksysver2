@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,9 +32,10 @@ import EdgeFinishingOption from "./EdgeFinishingOption";
 import ManualProductEntry, { ManualProductItem } from "./ManualProductEntry";
 import type { Database } from '@/integrations/supabase/types';
 import { formatPricingVersionDisplayName } from '@/utils/pricingVersionDisplay';
-import { secureRandomToken } from '@/utils/secureRandom';
+import { createQuoteItemId, normalizeQuoteItems } from '@/utils/quoteItemIdentity';
 
 const DEFAULT_COLOR_MIXING_COST = 40000;
+const CALCULATOR_RECOVERY_STORAGE_KEY = 'acbank_calculator_recovery_v1';
 
 type PricingVersion = Pick<
   Database['public']['Tables']['panel_pricing_versions']['Row'],
@@ -52,14 +53,54 @@ type SavedQuoteItem = Partial<QuoteDraft> & {
   [key: string]: unknown;
 };
 
+type CalculatorRecoveryDraft = {
+  version: 1;
+  savedAt: string;
+  state: {
+    currentStep: number;
+    calculatorType: 'quote' | 'yield';
+    selectedMaterialId: string | null;
+    selectedQualityId: string | null;
+    selectedThickness: string;
+    selectedSize: string;
+    selectedSizes: SizeQuantitySelection[];
+    selectedColor: string;
+    selectedColorHex: string;
+    selectedColorType: string;
+    customColorName: string;
+    customOpacity: string;
+    selectedSurface: string;
+    colorMixingCost: number;
+    selectedProcessing: string;
+    selectedProcessingName: string;
+    selectedAdhesion: string;
+    selectedFilm: string;
+    selectedBaseType: string;
+    qty: number;
+    isComplex: boolean;
+    polishedEdgeLengthMm: number;
+    edgeFinishing: boolean;
+    bulgwang: boolean;
+    tapung: boolean;
+    mugwangPainting: boolean;
+    selectedAdditionalOptions: Record<string, number>;
+    manualProductItems: ManualProductItem[];
+    editMode: string | null;
+    savedQuoteId: string | null;
+    draftQuoteId: string | null;
+    savedQuoteItemId: string | null;
+    legacyItemIndex: number | null;
+  };
+};
+
 const toSavedQuoteItems = (items: unknown): SavedQuoteItem[] => {
   if (!Array.isArray(items)) return [];
 
-  return items
+  return normalizeQuoteItems(items
     .filter((item): item is Record<string, unknown> => (
       Boolean(item) && typeof item === 'object' && !Array.isArray(item)
     ))
-    .map(item => ({ ...item }));
+    .map(item => ({ ...item } as SavedQuoteItem)));
 };
 
 const calculateSavedQuoteSubtotal = (items: SavedQuoteItem[]) => (
@@ -141,7 +182,10 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
   const [editMode, setEditMode] = useState<string | null>(null);
   const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
   const [draftQuoteId, setDraftQuoteId] = useState<string | null>(null);
-  const [itemIndex, setItemIndex] = useState<number | null>(null);
+  const [savedQuoteItemId, setSavedQuoteItemId] = useState<string | null>(null);
+  const [legacyItemIndex, setLegacyItemIndex] = useState<number | null>(null);
+  const [pendingRecoveryDraft, setPendingRecoveryDraft] = useState<CalculatorRecoveryDraft | null>(null);
+  const skipRecoveryPromptRef = useRef(false);
   
   // 고급 옵션 상태
   const [qty, setQty] = useState<number>(1);
@@ -162,6 +206,209 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
   
   // 제품 제작 수동 입력 상태
   const [manualProductItems, setManualProductItems] = useState<ManualProductItem[]>([]);
+
+  const hasRecoverableCalculatorState = () => (
+    currentStep > 1
+    || calculatorType !== resolvedInitialType
+    || Boolean(selectedMaterial)
+    || Boolean(selectedQuality)
+    || Boolean(selectedThickness)
+    || Boolean(selectedSize)
+    || selectedSizes.length > 0
+    || Boolean(selectedColor)
+    || Boolean(selectedColorHex)
+    || Boolean(selectedProcessing)
+    || manualProductItems.length > 0
+    || Boolean(editMode)
+    || Boolean(savedQuoteId)
+    || Boolean(draftQuoteId)
+    || Boolean(savedQuoteItemId)
+  );
+
+  const buildCalculatorRecoveryDraft = (): CalculatorRecoveryDraft => ({
+    version: 1,
+    savedAt: new Date().toISOString(),
+    state: {
+      currentStep,
+      calculatorType,
+      selectedMaterialId: selectedMaterial?.id || null,
+      selectedQualityId: selectedQuality?.id || null,
+      selectedThickness,
+      selectedSize,
+      selectedSizes,
+      selectedColor,
+      selectedColorHex,
+      selectedColorType,
+      customColorName,
+      customOpacity,
+      selectedSurface,
+      colorMixingCost,
+      selectedProcessing,
+      selectedProcessingName,
+      selectedAdhesion,
+      selectedFilm,
+      selectedBaseType,
+      qty,
+      isComplex,
+      polishedEdgeLengthMm,
+      edgeFinishing,
+      bulgwang,
+      tapung,
+      mugwangPainting,
+      selectedAdditionalOptions,
+      manualProductItems,
+      editMode,
+      savedQuoteId,
+      draftQuoteId,
+      savedQuoteItemId,
+      legacyItemIndex,
+    },
+  });
+
+  const saveCalculatorRecoveryDraft = () => {
+    if (typeof window === 'undefined') return;
+
+    if (!hasRecoverableCalculatorState()) {
+      window.localStorage.removeItem(CALCULATOR_RECOVERY_STORAGE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(CALCULATOR_RECOVERY_STORAGE_KEY, JSON.stringify(buildCalculatorRecoveryDraft()));
+  };
+
+  const clearCalculatorRecoveryDraft = () => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(CALCULATOR_RECOVERY_STORAGE_KEY);
+    }
+    setPendingRecoveryDraft(null);
+  };
+
+  const applyCalculatorRecoveryDraft = (draft: CalculatorRecoveryDraft) => {
+    const state = draft.state;
+    const allQualities = [...CASTING_QUALITIES, ...OTHER_ACRYLIC_QUALITIES];
+    const material = state.selectedMaterialId
+      ? MATERIALS.find(candidate => candidate.id === state.selectedMaterialId) || null
+      : null;
+    const quality = state.selectedQualityId
+      ? allQualities.find(candidate => candidate.id === state.selectedQualityId) || null
+      : null;
+
+    skipRecoveryPromptRef.current = true;
+    setCurrentStep(state.currentStep);
+    setCalculatorType(state.calculatorType);
+    setSelectedMaterial(material);
+    setSelectedQuality(quality);
+    setSelectedThickness(state.selectedThickness);
+    setSelectedSize(state.selectedSize);
+    setSelectedSizes(Array.isArray(state.selectedSizes) ? state.selectedSizes : []);
+    setSelectedColor(state.selectedColor);
+    setSelectedColorHex(state.selectedColorHex);
+    setSelectedColorType(state.selectedColorType);
+    setCustomColorName(state.customColorName);
+    setCustomOpacity(state.customOpacity);
+    setSelectedSurface(state.selectedSurface);
+    setColorMixingCost(Number(state.colorMixingCost) || DEFAULT_COLOR_MIXING_COST);
+    setSelectedProcessing(state.selectedProcessing);
+    setSelectedProcessingName(state.selectedProcessingName);
+    setSelectedAdhesion(state.selectedAdhesion);
+    setSelectedFilm(state.selectedFilm);
+    setSelectedBaseType(state.selectedBaseType);
+    setQty(Number(state.qty) || 1);
+    setIsComplex(Boolean(state.isComplex));
+    setPolishedEdgeLengthMm(Number(state.polishedEdgeLengthMm) || 0);
+    setEdgeFinishing(Boolean(state.edgeFinishing));
+    setBulgwang(Boolean(state.bulgwang));
+    setTapung(Boolean(state.tapung));
+    setMugwangPainting(Boolean(state.mugwangPainting));
+    setSelectedAdditionalOptions(state.selectedAdditionalOptions || {});
+    setManualProductItems(Array.isArray(state.manualProductItems) ? state.manualProductItems : []);
+    setEditMode(state.editMode);
+    setSavedQuoteId(state.savedQuoteId);
+    setDraftQuoteId(state.draftQuoteId);
+    setSavedQuoteItemId(state.savedQuoteItemId);
+    setLegacyItemIndex(state.legacyItemIndex);
+    setPendingRecoveryDraft(null);
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || skipRecoveryPromptRef.current) return;
+    if (searchParams.get('editMode') || searchParams.get('addToQuote') || searchParams.get('channelLeadId')) return;
+
+    try {
+      const raw = window.localStorage.getItem(CALCULATOR_RECOVERY_STORAGE_KEY);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as CalculatorRecoveryDraft;
+      const savedAt = new Date(parsed.savedAt);
+      const isFresh = !Number.isNaN(savedAt.getTime()) && Date.now() - savedAt.getTime() < 1000 * 60 * 60 * 24;
+
+      if (parsed.version === 1 && parsed.state && isFresh) {
+        setPendingRecoveryDraft(parsed);
+      } else {
+        window.localStorage.removeItem(CALCULATOR_RECOVERY_STORAGE_KEY);
+      }
+    } catch (error) {
+      console.warn('Failed to parse calculator recovery draft:', error);
+      window.localStorage.removeItem(CALCULATOR_RECOVERY_STORAGE_KEY);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (pendingRecoveryDraft) return;
+
+    const timer = window.setTimeout(saveCalculatorRecoveryDraft, 500);
+    const saveOnHide = () => {
+      if (document.visibilityState === 'hidden') saveCalculatorRecoveryDraft();
+    };
+    const saveOnPageExit = () => saveCalculatorRecoveryDraft();
+
+    document.addEventListener('visibilitychange', saveOnHide);
+    window.addEventListener('pagehide', saveOnPageExit);
+    window.addEventListener('beforeunload', saveOnPageExit);
+
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', saveOnHide);
+      window.removeEventListener('pagehide', saveOnPageExit);
+      window.removeEventListener('beforeunload', saveOnPageExit);
+    };
+  }, [
+    currentStep,
+    calculatorType,
+    selectedMaterial,
+    selectedQuality,
+    selectedThickness,
+    selectedSize,
+    selectedSizes,
+    selectedColor,
+    selectedColorHex,
+    selectedColorType,
+    customColorName,
+    customOpacity,
+    selectedSurface,
+    colorMixingCost,
+    selectedProcessing,
+    selectedProcessingName,
+    selectedAdhesion,
+    selectedFilm,
+    selectedBaseType,
+    qty,
+    isComplex,
+    polishedEdgeLengthMm,
+    edgeFinishing,
+    bulgwang,
+    tapung,
+    mugwangPainting,
+    selectedAdditionalOptions,
+    manualProductItems,
+    editMode,
+    savedQuoteId,
+    draftQuoteId,
+    savedQuoteItemId,
+    legacyItemIndex,
+    pendingRecoveryDraft,
+  ]);
   
   // URL 파라미터에서 편집 데이터 복원
   useEffect(() => {
@@ -170,7 +417,8 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
     if (addToQuoteId) {
       setEditMode('addToSaved');
       setSavedQuoteId(addToQuoteId);
-      setItemIndex(null);
+      setSavedQuoteItemId(null);
+      setLegacyItemIndex(null);
       return;
     }
 
@@ -221,12 +469,14 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         setEditMode(editModeParam);
         setDraftQuoteId(draftQuoteIdParam);
         setSavedQuoteId(null);
-        setItemIndex(null);
+        setSavedQuoteItemId(null);
+        setLegacyItemIndex(null);
       } else {
         setEditMode(editModeParam);
         setSavedQuoteId(searchParams.get('savedQuoteId'));
         setDraftQuoteId(null);
-        setItemIndex(searchParams.get('itemIndex') ? parseInt(searchParams.get('itemIndex')!) : null);
+        setSavedQuoteItemId(searchParams.get('itemId'));
+        setLegacyItemIndex(searchParams.get('itemIndex') ? parseInt(searchParams.get('itemIndex')!) : null);
       }
 
       if (editModeParam === 'draft' && (
@@ -639,7 +889,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
     // 제품 제작 모드일 경우 수동 입력 단계로 이동
     if (material.id === 'manual-product') {
       setManualProductItems([{ 
-        id: Date.now().toString(), 
+        id: createQuoteItemId(),
         itemNumber: '', 
         name: '', 
         quantity: 1, 
@@ -974,6 +1224,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
 
       updateQuote(draftQuoteId, quoteData);
       toast.success('견적 항목이 수정되었습니다.');
+      clearCalculatorRecoveryDraft();
       setEditMode(null);
       setDraftQuoteId(null);
       navigate('/internal-quote');
@@ -981,7 +1232,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
     }
 
     // 편집 모드일 때: 저장된 견적서의 해당 항목을 업데이트
-    if (editMode === 'saved' && savedQuoteId && itemIndex !== null) {
+    if (editMode === 'saved' && savedQuoteId && (savedQuoteItemId || legacyItemIndex !== null)) {
       try {
         // 기존 견적서 데이터 가져오기
         const { data: existingQuote, error: fetchError } = await supabase
@@ -994,14 +1245,22 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
 
         // items 배열 업데이트
         const items = toSavedQuoteItems(existingQuote.items);
-        if (itemIndex >= 0 && itemIndex < items.length) {
-          const existingItem = items[itemIndex];
-          items[itemIndex] = {
-            ...existingItem,
-            ...quoteData,
-            id: existingItem?.id // 기존 ID 유지
-          };
+        const targetIndex = savedQuoteItemId
+          ? items.findIndex(item => item.id === savedQuoteItemId)
+          : legacyItemIndex ?? -1;
+
+        if (targetIndex < 0 || targetIndex >= items.length) {
+          toast.error('수정할 저장 견적 항목을 찾을 수 없습니다.');
+          return;
         }
+
+        const existingItem = items[targetIndex];
+        items[targetIndex] = {
+          ...existingItem,
+          ...quoteData,
+          id: existingItem.id || savedQuoteItemId || createQuoteItemId(),
+          createdAt: existingItem.createdAt || new Date().toISOString(),
+        };
 
         // 총액 재계산
         const newSubtotal = calculateSavedQuoteSubtotal(items);
@@ -1038,12 +1297,14 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         if (updateError) throw updateError;
 
         alert('견적 항목이 수정되었습니다!');
+        clearCalculatorRecoveryDraft();
         
         // 편집 모드 초기화 및 저장된 견적서 상세 페이지로 이동
         setEditMode(null);
         setSavedQuoteId(null);
         setDraftQuoteId(null);
-        setItemIndex(null);
+        setSavedQuoteItemId(null);
+        setLegacyItemIndex(null);
         navigate(`/saved-quotes/${savedQuoteId}`);
         return;
       } catch (error) {
@@ -1067,7 +1328,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         const items = toSavedQuoteItems(existingQuote.items);
         items.push({
           ...quoteData,
-          id: Date.now().toString(),
+          id: createQuoteItemId(),
           createdAt: new Date().toISOString()
         });
 
@@ -1104,6 +1365,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         if (updateError) throw updateError;
 
         alert('새 견적 항목이 추가되었습니다!');
+        clearCalculatorRecoveryDraft();
         setEditMode(null);
         setSavedQuoteId(null);
         setDraftQuoteId(null);
@@ -1118,6 +1380,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
 
     // 일반 모드: 새 견적 추가
     addQuote(quoteData);
+    clearCalculatorRecoveryDraft();
 
     // Reset form for new quote - 모든 상태 초기화
     setCurrentStep(1);
@@ -1241,6 +1504,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
 
       updateQuote(draftQuoteId, quoteDataList[0]);
       toast.success('견적 항목이 수정되었습니다.');
+      clearCalculatorRecoveryDraft();
       setEditMode(null);
       setDraftQuoteId(null);
       setManualProductItems([]);
@@ -1266,7 +1530,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         quoteDataList.forEach(qd => {
           items.push({
             ...qd,
-            id: `${Date.now()}-${secureRandomToken(4)}`,
+            id: createQuoteItemId(),
             createdAt: new Date().toISOString()
           });
         });
@@ -1304,6 +1568,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         if (updateError) throw updateError;
 
         alert(`${validItems.length}개의 제품 제작 항목이 견적서에 추가되었습니다!`);
+        clearCalculatorRecoveryDraft();
         setEditMode(null);
         setSavedQuoteId(null);
         setDraftQuoteId(null);
@@ -1322,6 +1587,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
 
     // 일반 모드: 새 견적 추가
     quoteDataList.forEach(qd => addQuote(qd));
+    clearCalculatorRecoveryDraft();
 
     // 리셋
     setManualProductItems([]);
@@ -1432,6 +1698,38 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
           </div>
         </CardHeader>
         <CardContent className="p-5 sm:p-7 space-y-7">
+          {pendingRecoveryDraft && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="font-semibold">이전 계산기 작성 상태가 있습니다.</div>
+                  <div className="mt-1 text-xs text-amber-800">
+                    저장 시각 {new Date(pendingRecoveryDraft.savedAt).toLocaleString('ko-KR')} 기준의 선택값을 복구할 수 있습니다.
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="bg-amber-900 text-white hover:bg-amber-800"
+                    onClick={() => applyCalculatorRecoveryDraft(pendingRecoveryDraft)}
+                  >
+                    복구
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="border-amber-300 bg-white"
+                    onClick={clearCalculatorRecoveryDraft}
+                  >
+                    삭제
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 수율 계산기 */}
           {currentStep === -1 && <YieldCalculator onBack={handleBackToCalculatorSelection} onPanelSelect={panelData => handlePanelSelectFromYield(panelData)} />}
           
@@ -1675,10 +1973,12 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
                     onClick={() => {
                       const currentSavedQuoteId = savedQuoteId;
                       const isDraftEdit = editMode === 'draft';
+                      clearCalculatorRecoveryDraft();
                       setEditMode(null);
                       setSavedQuoteId(null);
                       setDraftQuoteId(null);
-                      setItemIndex(null);
+                      setSavedQuoteItemId(null);
+                      setLegacyItemIndex(null);
                       navigate(isDraftEdit ? '/internal-quote' : `/saved-quotes/${currentSavedQuoteId}`);
                     }}
                     className="px-8"
@@ -1714,12 +2014,14 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
                   const currentSavedQuoteId = savedQuoteId;
                   const isDraftEdit = editMode === 'draft';
                   const shouldReturnToSavedQuote = Boolean(currentSavedQuoteId && editMode === 'addToSaved');
+                  clearCalculatorRecoveryDraft();
                   setManualProductItems([]);
                   setSelectedMaterial(null);
                   setEditMode(null);
                   setSavedQuoteId(null);
                   setDraftQuoteId(null);
-                  setItemIndex(null);
+                  setSavedQuoteItemId(null);
+                  setLegacyItemIndex(null);
 
                   if (isDraftEdit) {
                     navigate('/internal-quote');
