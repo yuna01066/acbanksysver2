@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   CalendarDays,
+  Briefcase,
   FileText,
   GraduationCap,
   LayoutDashboard,
@@ -16,7 +17,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader, PageShell } from '@/components/layout/PageLayout';
 import EmployeeDocumentsPanel from '@/components/employee/EmployeeDocumentsPanel';
 import MyAttendanceLeaveSection from '@/components/mypage/MyAttendanceLeaveSection';
+import MyCalendarDiarySection from '@/components/mypage/MyCalendarDiarySection';
 import MyContractSalarySection from '@/components/mypage/MyContractSalarySection';
+import MyPageBusinessSection from '@/components/mypage/MyPageBusinessSection';
 import MyHrTasksSection from '@/components/mypage/MyHrTasksSection';
 import MyPageOverview from '@/components/mypage/MyPageOverview';
 import MyProfileSelfService from '@/components/mypage/MyProfileSelfService';
@@ -25,8 +28,10 @@ import MyTaxSection from '@/components/mypage/MyTaxSection';
 
 const TAB_CONFIG = [
   { value: 'overview', label: '개요', icon: LayoutDashboard },
-  { value: 'profile', label: '내 인사정보', icon: User },
+  { value: 'diary', label: '일정·다이어리', icon: CalendarDays },
+  { value: 'profile', label: '내 정보', icon: User },
   { value: 'attendance', label: '근태·연차', icon: CalendarDays },
+  { value: 'business', label: '업무·평가', icon: Briefcase },
   { value: 'contract', label: '계약·급여', icon: PenLine },
   { value: 'documents', label: '문서함', icon: FileText },
   { value: 'tax', label: '연말정산', icon: Receipt },
@@ -39,7 +44,12 @@ const MyPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab') || 'overview';
-  const currentTab = TAB_CONFIG.some(tab => tab.value === requestedTab) ? requestedTab : 'overview';
+  const normalizedTab = requestedTab === 'hr'
+    ? searchParams.get('hrTab') === 'contracts'
+      ? 'contract'
+      : 'profile'
+    : requestedTab;
+  const currentTab = TAB_CONFIG.some(tab => tab.value === normalizedTab) ? normalizedTab : 'overview';
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -91,12 +101,20 @@ const MyPage = () => {
           <MyPageOverview />
         </TabsContent>
 
+        <TabsContent value="diary" className="mt-0">
+          <MyCalendarDiarySection />
+        </TabsContent>
+
         <TabsContent value="profile" className="mt-0">
           <MyProfileSelfService />
         </TabsContent>
 
         <TabsContent value="attendance" className="mt-0">
           <MyAttendanceLeaveSection />
+        </TabsContent>
+
+        <TabsContent value="business" className="mt-0">
+          <MyPageBusinessSection />
         </TabsContent>
 
         <TabsContent value="contract" className="mt-0">

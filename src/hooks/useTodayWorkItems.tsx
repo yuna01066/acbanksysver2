@@ -115,13 +115,13 @@ export function getNotificationPath(notification: AppNotification): string {
     return '/my-page?tab=contracts';
   }
   if (notification.type === 'attendance_correction_request') {
-    return '/attendance';
+    return '/my-page?tab=attendance';
   }
   if (notification.type === 'approval_request' || notification.type === 'approval_approved' || notification.type === 'approval_rejected') {
     return notification.data?.projectId ? `/project-management?id=${notification.data.projectId}` : '/review-hub';
   }
   if (notification.type === 'leave_request' || notification.type === 'leave_approved' || notification.type === 'leave_rejected') {
-    return '/leave-management';
+    return '/my-page?tab=attendance';
   }
   if (notification.type === 'peer_feedback') return '/my-page';
   if (notification.type === 'performance_review_summary') return '/my-page?tab=business';
@@ -384,7 +384,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
           tone: 'warning',
           icon: <ClipboardCheck className="h-4 w-4" />,
           actionLabel: '승인',
-          onClick: () => navigate('/leave-management'),
+          onClick: () => navigate('/review-hub'),
           priority: 12,
           sortAt: leave.start_date,
         });

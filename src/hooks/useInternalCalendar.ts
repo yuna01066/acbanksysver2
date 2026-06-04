@@ -3,6 +3,7 @@ import { addDays, endOfMonth, format, startOfDay, startOfMonth } from 'date-fns'
 import { supabase } from '@/integrations/supabase/client';
 import type {
   CalendarDashboardSummary,
+  CalendarDiaryEntry,
   CalendarDirectoryUser,
   CalendarEventDeletePayload,
   CalendarEventDraftPayload,
@@ -10,6 +11,10 @@ import type {
   CalendarSubscription,
   CalendarTask,
   CalendarTaskDraftPayload,
+  CalendarTeam,
+  CalendarTeamDraftPayload,
+  CalendarUserSettings,
+  CalendarUserSettingsDraft,
   CalendarViewScope,
   InternalCalendarEvent,
 } from '@/types/internalCalendar';
@@ -19,7 +24,9 @@ import {
   getCalendarEventIconType,
   type CalendarIconType,
   type CalendarRecurrenceRule,
+  type CalendarSourceFilter,
   type CalendarSourceType,
+  type CalendarViewMode,
 } from '@/types/internalCalendar';
 
 const supabaseAny = supabase as any;
@@ -37,6 +44,40 @@ export const getCalendarMonthRange = (month: Date) => ({
   rangeStart: startOfMonth(month).toISOString(),
   rangeEnd: addDays(endOfMonth(month), 1).toISOString(),
 });
+
+const DEFAULT_USER_SETTINGS: Omit<CalendarUserSettings, 'user_id'> = {
+  default_view: 'month',
+  visible_calendar_keys: ['mine', 'company'],
+  source_filters: ['quote', 'project', 'meeting', 'people', 'room'],
+  calendar_colors: {},
+  week_starts_on: 0,
+  workday_start: '09:00',
+  workday_end: '18:00',
+};
+
+function normalizeCalendarUserSettings(userId: string, raw?: any): CalendarUserSettings {
+  const sourceFilters = Array.isArray(raw?.source_filters) && raw.source_filters.length > 0
+    ? raw.source_filters.map(String)
+    : DEFAULT_USER_SETTINGS.source_filters;
+  const defaultView = ['month', 'week', 'day'].includes(String(raw?.default_view))
+    ? String(raw.default_view) as CalendarViewMode
+    : DEFAULT_USER_SETTINGS.default_view;
+
+  return {
+    user_id: userId,
+    default_view: defaultView,
+    visible_calendar_keys: Array.isArray(raw?.visible_calendar_keys) && raw.visible_calendar_keys.length > 0
+      ? raw.visible_calendar_keys.map(String)
+      : DEFAULT_USER_SETTINGS.visible_calendar_keys,
+    source_filters: sourceFilters as CalendarSourceFilter[],
+    calendar_colors: raw?.calendar_colors && typeof raw.calendar_colors === 'object' ? raw.calendar_colors : {},
+    week_starts_on: Number.isInteger(raw?.week_starts_on) ? raw.week_starts_on : DEFAULT_USER_SETTINGS.week_starts_on,
+    workday_start: raw?.workday_start || DEFAULT_USER_SETTINGS.workday_start,
+    workday_end: raw?.workday_end || DEFAULT_USER_SETTINGS.workday_end,
+    created_at: raw?.created_at,
+    updated_at: raw?.updated_at,
+  };
+}
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -614,6 +655,228 @@ export function useCalendarSubscriptions(userId?: string | null) {
     },
     enabled: !!userId,
     staleTime: 60 * 1000,
+  });
+}
+
+export function useCalendarUserSettings(userId?: string | null) {
+  return useQuery<CalendarUserSettings>({
+    queryKey: ['calendar-user-settings', userId],
+    queryFn: async () => {
+      if (!userId) throw new Error('로그인이 필요합니다.');
+      const { data, error } = await supabaseAny
+        .from('calendar_user_settings')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (error) throw error;
+      return normalizeCalendarUserSettings(userId, data);
+    },
+    enabled: !!userId,
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useSaveCalendarUserSettings(userId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (draft: CalendarUserSettingsDraft) => {
+      if (!userId) throw new Error('로그인이 필요합니다.');
+      const payload = {
+        user_id: userId,
+        ...draft,
+        updated_at: new Date().toISOString(),
+      };
+      const { data, error } = await supabaseAny
+        .from('calendar_user_settings')
+        .upsert(payload, { onConflict: 'user_id' })
+        .select('*')
+        .single();
+      if (error) throw error;
+      return normalizeCalendarUserSettings(userId, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-user-settings', userId] });
+    },
+  });
+}
+
+export function useCalendarDiaryEntry(date: string, enabled = true) {
+  return useQuery<CalendarDiaryEntry | null>({
+    queryKey: ['calendar-diary-entry', date],
+    queryFn: async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) throw new Error('로그인이 필요합니다.');
+      const { data, error } = await supabaseAny
+        .from('calendar_diary_entries')
+        .select('*')
+        .eq('owner_id', userId)
+        .eq('diary_date', date)
+        .maybeSingle();
+      if (error) throw error;
+      return data as CalendarDiaryEntry | null;
+    },
+    enabled,
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useSaveCalendarDiaryEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ diary_date, content }: { diary_date: string; content: string }) => {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) throw new Error('로그인이 필요합니다.');
+      const { data, error } = await supabaseAny
+        .from('calendar_diary_entries')
+        .upsert({
+          owner_id: userId,
+          diary_date,
+          content,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'owner_id,diary_date' })
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data as CalendarDiaryEntry;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-diary-entry', variables.diary_date] });
+    },
+  });
+}
+
+function normalizeCalendarTeam(raw: any): CalendarTeam {
+  const memberRows = Array.isArray(raw?.calendar_team_members) ? raw.calendar_team_members : [];
+  return {
+    id: String(raw.id),
+    name: String(raw.name || '팀 캘린더'),
+    description: raw.description ?? null,
+    color: raw.color || '#2563eb',
+    is_active: Boolean(raw.is_active),
+    created_by: raw.created_by ?? null,
+    created_at: raw.created_at,
+    updated_at: raw.updated_at,
+    members: memberRows.map((member: any) => ({
+      id: String(member.id),
+      team_id: String(member.team_id),
+      user_id: String(member.user_id),
+      role: member.role === 'owner' ? 'owner' : 'member',
+      full_name: member.profile_directory?.full_name || '구성원',
+      department: member.profile_directory?.department ?? null,
+      position: member.profile_directory?.position ?? null,
+    })),
+  };
+}
+
+export function useCalendarTeams() {
+  return useQuery<CalendarTeam[]>({
+    queryKey: ['calendar-teams'],
+    queryFn: async () => {
+      const { data, error } = await supabaseAny
+        .from('calendar_teams')
+        .select(`
+          *,
+          calendar_team_members (
+            id,
+            team_id,
+            user_id,
+            role,
+            profile_directory:user_id (
+              full_name,
+              department,
+              position
+            )
+          )
+        `)
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+      if (error) throw error;
+      return (data || []).map(normalizeCalendarTeam);
+    },
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useSaveCalendarTeam() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: CalendarTeamDraftPayload) => {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) throw new Error('로그인이 필요합니다.');
+
+      const teamPayload = {
+        name: payload.name.trim(),
+        description: payload.description?.trim() || null,
+        color: payload.color || '#2563eb',
+        is_active: true,
+        created_by: userId,
+      };
+      if (!teamPayload.name) throw new Error('팀 이름을 입력해주세요.');
+
+      const { data: team, error: teamError } = payload.id
+        ? await supabaseAny
+            .from('calendar_teams')
+            .update({ ...teamPayload, updated_at: new Date().toISOString() })
+            .eq('id', payload.id)
+            .select('*')
+            .single()
+        : await supabaseAny
+            .from('calendar_teams')
+            .insert(teamPayload)
+            .select('*')
+            .single();
+      if (teamError) throw teamError;
+
+      const teamId = String(team.id);
+      await supabaseAny
+        .from('calendar_team_members')
+        .delete()
+        .eq('team_id', teamId);
+
+      const memberIds = Array.from(new Set([userId, ...payload.member_ids]));
+      if (memberIds.length > 0) {
+        const { error: memberError } = await supabaseAny
+          .from('calendar_team_members')
+          .insert(memberIds.map((memberId) => ({
+            team_id: teamId,
+            user_id: memberId,
+            role: memberId === userId ? 'owner' : 'member',
+          })));
+        if (memberError) throw memberError;
+      }
+
+      return teamId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-teams'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+    },
+  });
+}
+
+export function useArchiveCalendarTeam() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (teamId: string) => {
+      const { error } = await supabaseAny
+        .from('calendar_teams')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', teamId);
+      if (error) throw error;
+      return teamId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-teams'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-subscriptions'] });
+    },
   });
 }
 

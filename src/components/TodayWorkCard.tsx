@@ -96,9 +96,9 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
             <FolderOpen className="h-3.5 w-3.5" />
             프로젝트
           </Button>
-          <Button variant="outline" size="sm" className="justify-start gap-2" onClick={() => navigate('/leave-management')}>
+          <Button variant="outline" size="sm" className="justify-start gap-2" onClick={() => navigate('/review-hub')}>
             <ClipboardCheck className="h-3.5 w-3.5" />
-            승인
+            검토
           </Button>
         </div>
       </CardContent>

@@ -17,6 +17,7 @@ import {
   toSeoulDateTime,
   useCalendarDirectory,
   useCalendarResources,
+  useCalendarTeams,
   useCreateCalendarEvent,
   useUpdateCalendarEvent,
 } from '@/hooks/useInternalCalendar';
@@ -302,6 +303,7 @@ const CalendarEventDialog = ({
   const [employeeSearch, setEmployeeSearch] = useState('');
   const { data: employees = [], isLoading: isEmployeesLoading } = useCalendarDirectory();
   const { data: resources = [], isLoading: isResourcesLoading } = useCalendarResources();
+  const { data: teams = [] } = useCalendarTeams();
   const createEvent = useCreateCalendarEvent();
   const updateEvent = useUpdateCalendarEvent();
   const saving = createEvent.isPending || updateEvent.isPending;
@@ -312,9 +314,8 @@ const CalendarEventDialog = ({
     setEmployeeSearch('');
   }, [defaultDate, defaultMode, event, open]);
 
-  const departmentOptions = useMemo(() => {
-    return [...new Set(employees.map((employee) => employee.department).filter(Boolean) as string[])].sort();
-  }, [employees]);
+  const selectedTeam = teams.find((team) => team.id === draft.teamDepartment);
+  const selectedTeamMemberIds = selectedTeam?.members.map((member) => member.user_id) || [];
 
   const visibleEmployees = useMemo(() => {
     const keyword = employeeSearch.trim().toLowerCase();
@@ -429,12 +430,16 @@ const CalendarEventDialog = ({
       status: draft.status,
       source_type: 'manual' as const,
       source_subtype: modeDefaults.sourceSubtype,
-      accent: modeDefaults.accent,
+      accent: draft.mode === 'team' ? selectedTeam?.color || modeDefaults.accent : modeDefaults.accent,
       icon_type: modeDefaults.iconType,
       team_department: draft.mode === 'personal' ? null : draft.teamDepartment || null,
       client_name: draft.mode === 'client' ? draft.clientName.trim() || null : null,
       client_contact: draft.mode === 'client' ? draft.clientContact.trim() || null : null,
-      participant_ids: draft.mode === 'client' || draft.mode === 'holiday' || draft.mode === 'personal' ? [] : draft.selectedUserIds,
+      participant_ids: draft.mode === 'team'
+        ? selectedTeamMemberIds
+        : draft.mode === 'client' || draft.mode === 'holiday' || draft.mode === 'personal'
+          ? []
+          : draft.selectedUserIds,
       assignee_ids: draft.mode === 'client' ? draft.selectedUserIds : [],
       resource_ids: draft.mode === 'holiday' || draft.mode === 'personal' ? [] : draft.selectedResourceIds,
       recurrence_rule: recurrenceRule,
@@ -443,6 +448,7 @@ const CalendarEventDialog = ({
         ...baseMetadata,
         calendar_kind: calendarKind,
         calendar_label: MODE_OPTIONS.find((option) => option.value === calendarKind)?.label || '일정',
+        ...(draft.mode === 'team' && selectedTeam ? { team_calendar_id: selectedTeam.id, team_calendar_name: selectedTeam.name } : {}),
         ...(draft.mode === 'event' || draft.mode === 'holiday' ? { employee_meeting_type: 'all_hands' } : {}),
       },
     };
@@ -648,11 +654,19 @@ const CalendarEventDialog = ({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">팀 지정 안함</SelectItem>
-                    {departmentOptions.map((department) => (
-                      <SelectItem key={department} value={department}>{department}</SelectItem>
+                    {draft.teamDepartment && !selectedTeam && (
+                      <SelectItem value={draft.teamDepartment}>기존 팀 · {draft.teamDepartment}</SelectItem>
+                    )}
+                    {teams.map((team) => (
+                      <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {draft.mode === 'team' && (
+                  <p className="text-[11px] font-medium text-[#707072]">
+                    {selectedTeam ? `${selectedTeam.members.length}명에게 상세 공개됩니다.` : '관리자가 만든 팀 캘린더를 선택하세요.'}
+                  </p>
+                )}
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-xs font-semibold text-[#39393b]">장소</Label>
@@ -771,7 +785,20 @@ const CalendarEventDialog = ({
               </div>
             </div>
 
-            {draft.mode !== 'holiday' && draft.mode !== 'personal' && renderEmployeePicker(draft.mode === 'client' ? '담당자 지정' : '참석자 지정')}
+            {draft.mode !== 'holiday' && draft.mode !== 'personal' && draft.mode !== 'team' && renderEmployeePicker(draft.mode === 'client' ? '담당자 지정' : '참석자 지정')}
+
+            {draft.mode === 'team' && selectedTeam && (
+              <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
+                <Label className="text-xs font-semibold text-[#39393b]">팀 구성원</Label>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {selectedTeam.members.map((member) => (
+                    <Badge key={member.user_id} variant="outline" className="rounded-full bg-white px-2 py-1 text-[11px]">
+                      {member.full_name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-[#39393b]">내용</Label>
@@ -866,7 +893,13 @@ const CalendarEventDialog = ({
                 <div className="flex justify-between gap-3">
                   <dt className="text-[#707072]">대상</dt>
                   <dd className="font-semibold text-[#111111]">
-                    {draft.mode === 'holiday' ? '회사 공용' : draft.mode === 'personal' ? '본인' : `${draft.selectedUserIds.length}명`}
+                    {draft.mode === 'holiday'
+                      ? '회사 공용'
+                      : draft.mode === 'personal'
+                        ? '본인'
+                        : draft.mode === 'team'
+                          ? selectedTeam ? `${selectedTeam.name} ${selectedTeam.members.length}명` : '팀 미선택'
+                          : `${draft.selectedUserIds.length}명`}
                   </dd>
                 </div>
               </dl>

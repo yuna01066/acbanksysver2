@@ -1,13 +1,12 @@
 import { useState, useCallback } from 'react';
 import type { ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calculator, Home as HomeIcon, Camera, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette, Images, Loader2 } from "lucide-react";
+import { Calculator, Home as HomeIcon, Camera, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, FolderOpen, Package, Receipt, Landmark, Palette, Images, Loader2 } from "lucide-react";
 import LoginScreen from '@/components/LoginScreen';
 import DashboardCalendarPanel from '@/components/dashboard/DashboardCalendarPanel';
 import DashboardQuickLinksSection, { type DashboardQuickLinkItem } from '@/components/dashboard/DashboardQuickLinksSection';
 import ProjectProgressCard from '@/components/ProjectProgressCard';
 import NotificationPanel from '@/components/NotificationPanel';
-import QuickAttendanceButton from '@/components/QuickAttendanceButton';
 import DailyQuoteCard from '@/components/DailyQuoteCard';
 import ActivityFeedCard from '@/components/ActivityFeedCard';
 import TodayWorkCard from '@/components/TodayWorkCard';
@@ -21,8 +20,6 @@ import OnlineEmployeesCard from '@/components/OnlineEmployeesCard';
 import MeetingRequestPopup from '@/components/MeetingRequestPopup';
 import TeamChatCard from '@/components/TeamChatCard';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
@@ -76,19 +73,6 @@ const Home = () => {
 
     setTimeout(() => setLogoSpinning(false), 700);
   }, [logoSpinning, theme, setTheme]);
-  const { data: activeCycle } = useQuery({
-    queryKey: ['active-review-cycle'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('performance_review_cycles')
-        .select('title')
-        .eq('status', 'active')
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!user,
-  });
-
   const quickLinks: QuickIconLink[] = [
     { title: "홈페이지", description: "", icon: HomeIcon, action: () => window.open("https://acbank.co.kr", "_blank") },
     { title: "팀 채팅", description: "", icon: MessageCircle, action: () => navigate("/team-chat") },
@@ -97,26 +81,6 @@ const Home = () => {
   ];
 
   const dashboardLinks: DashboardQuickLinkItem[] = [{
-    id: "attendance",
-    title: "근태 관리",
-    icon: Clock,
-    description: "출퇴근 기록 및 휴가 관리",
-    path: "/attendance",
-    category: "work",
-    priority: 10,
-    requiresAuth: true,
-    action: () => navigate("/attendance")
-  }, {
-    id: "leave-management",
-    title: "연차 관리",
-    icon: CalendarDays,
-    description: "연차 신청/승인/잔여일수 관리",
-    path: "/leave-management",
-    category: "work",
-    priority: 20,
-    requiresAuth: true,
-    action: () => navigate("/leave-management")
-  }, {
     id: "customers",
     title: "고객사 관리",
     icon: Building2,
@@ -186,16 +150,6 @@ const Home = () => {
     priority: 10,
     requiresAuth: true,
     action: () => navigate("/client-consultation-widget?source=imweb-acbankform")
-  }, {
-    id: "performance-review",
-    title: "업무 평가",
-    icon: Star,
-    description: activeCycle ? `진행중: ${activeCycle.title}` : "직원 업무 평가 작성",
-    path: "/performance-review",
-    category: "work",
-    priority: 30,
-    requiresAuth: true,
-    action: () => navigate("/performance-review")
   }, {
     id: "channel-talk-leads",
     title: "채널톡 문의 분석함",
@@ -373,10 +327,7 @@ const Home = () => {
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
               <TimeGreeting name={profile?.full_name || user.email?.split('@')[0] || '사용자'} avatarUrl={profile?.avatar_url} />
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                <QuickAttendanceButton />
-                <DailyQuoteCard />
-              </div>
+              <DailyQuoteCard />
             </div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)_minmax(320px,0.9fr)]">
               <TodayWorkCard notifications={notifications} />
