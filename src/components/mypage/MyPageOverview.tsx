@@ -1,17 +1,19 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { addDays, format, startOfDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
   AlertCircle,
   Bell,
+  Briefcase,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
   FileText,
   GraduationCap,
+  ListChecks,
   Loader2,
   PenLine,
   Receipt,
@@ -28,6 +30,7 @@ import { useLeavePolicy } from '@/hooks/useLeavePolicy';
 import { useLeaveAdjustments } from '@/hooks/useLeaveAdjustments';
 import { useDocumentBox, useEmployeeDocuments } from '@/hooks/useDocumentBox';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useCalendarEvents, useCalendarTasks } from '@/hooks/useInternalCalendar';
 import { TAX_YEAR, STATUS_LABELS, useYearEndTax } from '@/hooks/useYearEndTax';
 import { useEmployeeHrTasks, useMyHrProfile, usePayStatements, useProfileChangeReviewQueue } from '@/hooks/useHrSelfService';
 import { cn } from '@/lib/utils';
@@ -119,6 +122,20 @@ const MyPageOverview: React.FC = () => {
   const { data: tasks = [], isLoading: tasksLoading } = useEmployeeHrTasks();
   const { data: payStatements = [] } = usePayStatements();
   const { data: reviewQueue = [] } = useProfileChangeReviewQueue(canReview);
+  const todayStart = startOfDay(new Date());
+  const todayEnd = addDays(todayStart, 1);
+  const todayDateKey = format(todayStart, 'yyyy-MM-dd');
+  const { data: calendarEvents = [], isLoading: calendarLoading } = useCalendarEvents({
+    rangeStart: todayStart.toISOString(),
+    rangeEnd: todayEnd.toISOString(),
+    scope: 'my',
+    enabled: !!user,
+  });
+  const { data: calendarTasks = [], isLoading: calendarTasksLoading } = useCalendarTasks({
+    rangeStart: todayStart.toISOString(),
+    rangeEnd: todayEnd.toISOString(),
+    enabled: !!user,
+  });
 
   const { data: contracts = [], isLoading: contractsLoading } = useQuery({
     queryKey: ['my-contract-summary', user?.id],
@@ -163,12 +180,18 @@ const MyPageOverview: React.FC = () => {
     return documents.filter((document) => document.category_id === category.id).length === 0;
   });
   const pendingTasks = tasks.filter((task) => task.status !== 'completed' && task.status !== 'cancelled');
+  const todayEvents = calendarEvents
+    .filter((event) => new Date(event.starts_at).getTime() < todayEnd.getTime() && new Date(event.ends_at).getTime() > todayStart.getTime())
+    .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+  const openCalendarTasks = calendarTasks
+    .filter((task) => task.task_date === todayDateKey && task.status !== 'completed' && task.status !== 'archived')
+    .sort((a, b) => a.title.localeCompare(b.title, 'ko'));
   const hrNotifications = notifications.filter((notification) => !notification.is_read && hrNotificationTypes.has(notification.type));
   const latestPay = payStatements[0];
   const taxStatus = tax.settlement?.status || 'not_started';
   const taxStatusLabel = STATUS_LABELS[taxStatus]?.label || '미시작';
 
-  const isLoading = contractsLoading || tasksLoading || tax.loading;
+  const isLoading = contractsLoading || tasksLoading || tax.loading || calendarLoading || calendarTasksLoading;
 
   return (
     <div className="space-y-6">
@@ -188,6 +211,24 @@ const MyPageOverview: React.FC = () => {
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <OverviewMetric
+                  title="오늘 일정"
+                  value={`${todayEvents.length}건`}
+                  description={todayEvents[0]?.title || '오늘 등록된 개인 일정이 없습니다.'}
+                  icon={CalendarDays}
+                  tone={todayEvents.length > 0 ? 'primary' : 'neutral'}
+                  actionLabel="일정 열기"
+                  onClick={() => navigate('/my-page?tab=diary')}
+                />
+                <OverviewMetric
+                  title="내 할 일"
+                  value={`${openCalendarTasks.length}건`}
+                  description={openCalendarTasks[0]?.title || '오늘 남은 할 일이 없습니다.'}
+                  icon={ListChecks}
+                  tone={openCalendarTasks.length > 0 ? 'warning' : 'success'}
+                  actionLabel="다이어리 열기"
+                  onClick={() => navigate('/my-page?tab=diary')}
+                />
                 <OverviewMetric
                   title="잔여 연차"
                   value={`${leaveSummary.remainingDays.toFixed(1)}일`}
@@ -241,6 +282,15 @@ const MyPageOverview: React.FC = () => {
                   tone={pendingTasks.length > 0 ? 'primary' : 'success'}
                   actionLabel="과제 보기"
                   onClick={() => navigate('/my-page?tab=tasks')}
+                />
+                <OverviewMetric
+                  title="업무·평가"
+                  value="확인"
+                  description="업무평가 결과와 피드백을 한 곳에서 확인합니다."
+                  icon={Briefcase}
+                  tone="neutral"
+                  actionLabel="업무 탭 열기"
+                  onClick={() => navigate('/my-page?tab=business')}
                 />
               </div>
             )}

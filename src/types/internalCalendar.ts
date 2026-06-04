@@ -18,6 +18,8 @@ export type CalendarDeleteMode = 'cancel' | 'hard_delete';
 export type CalendarTaskPriority = 'low' | 'normal' | 'high';
 export type CalendarTaskStatus = 'open' | 'completed' | 'archived';
 export type CalendarRecurrenceFrequency = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type CalendarViewMode = 'month' | 'week' | 'day';
+export type CalendarTeamRole = 'owner' | 'member';
 export type CalendarIconType =
   | 'calendar'
   | 'quote'
@@ -102,6 +104,60 @@ export type CalendarTaskDraftPayload = {
   linked_event_id?: string | null;
 };
 
+export type CalendarUserSettings = {
+  user_id: string;
+  default_view: CalendarViewMode;
+  visible_calendar_keys: string[];
+  source_filters: CalendarSourceFilter[];
+  calendar_colors: Record<string, string>;
+  week_starts_on: number;
+  workday_start: string;
+  workday_end: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type CalendarUserSettingsDraft = Partial<Omit<CalendarUserSettings, 'user_id' | 'created_at' | 'updated_at'>>;
+
+export type CalendarDiaryEntry = {
+  id: string;
+  owner_id: string;
+  diary_date: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CalendarTeamMember = {
+  id: string;
+  team_id: string;
+  user_id: string;
+  role: CalendarTeamRole;
+  full_name: string;
+  department: string | null;
+  position: string | null;
+};
+
+export type CalendarTeam = {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  members: CalendarTeamMember[];
+};
+
+export type CalendarTeamDraftPayload = {
+  id?: string;
+  name: string;
+  description?: string | null;
+  color?: string;
+  member_ids: string[];
+};
+
 export type CalendarResource = {
   id: string;
   name: string;
@@ -124,6 +180,7 @@ export type CalendarSubscription = {
   display_name: string | null;
   color: string | null;
   is_visible: boolean;
+  display_order?: number;
 };
 
 export type CalendarDirectoryUser = {

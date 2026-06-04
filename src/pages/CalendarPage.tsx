@@ -31,10 +31,13 @@ import {
   ListChecks,
   Loader2,
   MapPin,
+  NotebookPen,
   Palmtree,
   PartyPopper,
   Plus,
+  Save,
   Search,
+  Settings2,
   Trash2,
   Truck,
   UsersRound,
@@ -46,6 +49,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { PageHeader, PageShell } from '@/components/layout/PageLayout';
 import CalendarEventDialog from '@/components/calendar/CalendarEventDialog';
 import CalendarEventDeleteActions from '@/components/calendar/CalendarEventDeleteActions';
@@ -54,13 +58,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
   getCalendarMonthRange,
+  useArchiveCalendarTeam,
+  useCalendarDiaryEntry,
   useCalendarTasks,
+  useCalendarTeams,
+  useCalendarUserSettings,
   useCreateCalendarTask,
   useCalendarDirectory,
   useCalendarEvents,
   useCalendarResources,
   useCalendarSubscriptions,
   useDeleteCalendarTask,
+  useSaveCalendarDiaryEntry,
+  useSaveCalendarTeam,
+  useSaveCalendarUserSettings,
   useUpdateCalendarEvent,
   useUpdateCalendarTask,
 } from '@/hooks/useInternalCalendar';
@@ -180,8 +191,19 @@ const CalendarPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
   const [taskPriority, setTaskPriority] = useState<CalendarTaskPriority>('normal');
+  const [diaryDraft, setDiaryDraft] = useState('');
+  const [teamName, setTeamName] = useState('');
+  const [teamDescription, setTeamDescription] = useState('');
+  const [teamColor, setTeamColor] = useState('#2563eb');
+  const [teamMemberTarget, setTeamMemberTarget] = useState('');
+  const [teamMemberIds, setTeamMemberIds] = useState<string[]>([]);
+  const [workdayStart, setWorkdayStart] = useState('09:00');
+  const [workdayEnd, setWorkdayEnd] = useState('18:00');
 
   const { rangeStart, rangeEnd } = getCalendarMonthRange(currentMonth);
+  const selectedDateKey = format(selectedDate, 'yyyy-MM-dd');
+  const { data: userSettings } = useCalendarUserSettings(user?.id);
+  const saveUserSettings = useSaveCalendarUserSettings(user?.id);
   const { data: events = [], isLoading: isEventsLoading } = useCalendarEvents({
     rangeStart,
     rangeEnd,
@@ -191,10 +213,15 @@ const CalendarPage = () => {
   const { data: resources = [] } = useCalendarResources();
   const { data: employees = [] } = useCalendarDirectory();
   const { data: subscriptions = [] } = useCalendarSubscriptions(user?.id);
+  const { data: teams = [] } = useCalendarTeams();
   const { data: tasks = [] } = useCalendarTasks({ rangeStart, rangeEnd, enabled: !!user });
+  const { data: diaryEntry } = useCalendarDiaryEntry(selectedDateKey, !!user);
   const createTask = useCreateCalendarTask();
   const updateTask = useUpdateCalendarTask();
   const deleteTask = useDeleteCalendarTask();
+  const saveDiaryEntry = useSaveCalendarDiaryEntry();
+  const saveTeam = useSaveCalendarTeam();
+  const archiveTeam = useArchiveCalendarTeam();
   const updateEvent = useUpdateCalendarEvent();
 
   useEffect(() => {
@@ -225,23 +252,51 @@ const CalendarPage = () => {
 
   useEffect(() => {
     if (initializedCalendars) return;
-    const next = new Set<string>(['mine', 'company']);
-    if (profile?.department) next.add(`team:${profile.department}`);
-    resources.forEach((resource) => next.add(`resource:${resource.id}`));
-    subscriptions
-      .filter((subscription) => subscription.is_visible)
-      .forEach((subscription) => {
-        if (subscription.target_type === 'user' && subscription.target_user_id) next.add(`user:${subscription.target_user_id}`);
-        if (subscription.target_type === 'team' && subscription.target_department) next.add(`team:${subscription.target_department}`);
-        if (subscription.target_type === 'resource' && subscription.target_resource_id) next.add(`resource:${subscription.target_resource_id}`);
-      });
+    if (!userSettings) return;
+    const savedKeys = userSettings.created_at ? userSettings.visible_calendar_keys : null;
+    const next = new Set<string>(savedKeys && savedKeys.length > 0 ? savedKeys : ['mine', 'company']);
+    if (!savedKeys) {
+      if (profile?.department) next.add(`team:${profile.department}`);
+      resources.forEach((resource) => next.add(`resource:${resource.id}`));
+      teams
+        .filter((team) => team.members.some((member) => member.user_id === user?.id))
+        .forEach((team) => next.add(`team:${team.id}`));
+      subscriptions
+        .filter((subscription) => subscription.is_visible)
+        .forEach((subscription) => {
+          if (subscription.target_type === 'user' && subscription.target_user_id) next.add(`user:${subscription.target_user_id}`);
+          if (subscription.target_type === 'team' && subscription.target_department) next.add(`team:${subscription.target_department}`);
+          if (subscription.target_type === 'resource' && subscription.target_resource_id) next.add(`resource:${subscription.target_resource_id}`);
+        });
+    }
     setActiveCalendars(next);
-    if (resources.length > 0 || subscriptions.length > 0 || profile?.department) setInitializedCalendars(true);
-  }, [initializedCalendars, profile?.department, resources, subscriptions]);
+    setSourceFilters(new Set(userSettings.source_filters.length > 0 ? userSettings.source_filters : DEFAULT_SOURCE_FILTERS));
+    setViewMode(userSettings.default_view);
+    setInitializedCalendars(true);
+  }, [initializedCalendars, profile?.department, resources, subscriptions, teams, user?.id, userSettings]);
+
+  useEffect(() => {
+    setDiaryDraft(diaryEntry?.content || '');
+  }, [diaryEntry?.content, selectedDateKey]);
+
+  useEffect(() => {
+    if (!userSettings) return;
+    setWorkdayStart(userSettings.workday_start || '09:00');
+    setWorkdayEnd(userSettings.workday_end || '18:00');
+  }, [userSettings]);
 
   const departmentOptions = useMemo(() => {
     return [...new Set(employees.map((employee) => employee.department).filter(Boolean) as string[])].sort();
   }, [employees]);
+
+  const teamById = useMemo(() => {
+    return new Map(teams.map((team) => [team.id, team]));
+  }, [teams]);
+
+  const getTeamDisplayName = (teamKey: string | null | undefined) => {
+    if (!teamKey) return '';
+    return teamById.get(teamKey)?.name || teamKey;
+  };
 
   const visibleEvents = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
@@ -252,12 +307,12 @@ const CalendarPage = () => {
         || [...calendarKeys].some((key) => activeCalendars.has(key));
       const sourceVisible = sourceFilters.has(getCalendarSourceFilter(event));
       const queryVisible = !keyword
-        || [event.title, event.description, event.location, event.created_by_name, event.client_name, event.team_department]
+        || [event.title, event.description, event.location, event.created_by_name, event.client_name, event.team_department, getTeamDisplayName(event.team_department)]
           .filter(Boolean)
           .some((value) => value!.toLowerCase().includes(keyword));
       return calendarVisible && sourceVisible && queryVisible;
     });
-  }, [activeCalendars, canViewAll, events, scope, searchQuery, sourceFilters, user?.id]);
+  }, [activeCalendars, canViewAll, events, scope, searchQuery, sourceFilters, teamById, user?.id]);
 
   const calendarDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentMonth));
@@ -292,11 +347,36 @@ const CalendarPage = () => {
     ),
   );
 
+  const persistUserSettings = (partial: {
+    default_view?: CalendarViewMode;
+    visible_calendar_keys?: string[];
+    source_filters?: CalendarSourceFilter[];
+    workday_start?: string;
+    workday_end?: string;
+  }) => {
+    if (!user) return;
+    saveUserSettings.mutate({
+      default_view: partial.default_view || viewMode,
+      visible_calendar_keys: partial.visible_calendar_keys || [...activeCalendars],
+      source_filters: partial.source_filters || [...sourceFilters],
+      calendar_colors: userSettings?.calendar_colors || {},
+      week_starts_on: userSettings?.week_starts_on ?? 0,
+      workday_start: partial.workday_start || userSettings?.workday_start || '09:00',
+      workday_end: partial.workday_end || userSettings?.workday_end || '18:00',
+    });
+  };
+
+  const changeViewMode = (nextViewMode: CalendarViewMode) => {
+    setViewMode(nextViewMode);
+    persistUserSettings({ default_view: nextViewMode });
+  };
+
   const toggleCalendar = (key: string) => {
     setActiveCalendars((current) => {
       const next = new Set(current);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      persistUserSettings({ visible_calendar_keys: [...next] });
       return next;
     });
   };
@@ -306,7 +386,9 @@ const CalendarPage = () => {
       const next = new Set(current);
       if (next.has(filter)) next.delete(filter);
       else next.add(filter);
-      return next.size === 0 ? new Set(DEFAULT_SOURCE_FILTERS) : next;
+      const normalized = next.size === 0 ? new Set(DEFAULT_SOURCE_FILTERS) : next;
+      persistUserSettings({ source_filters: [...normalized] });
+      return normalized;
     });
   };
 
@@ -333,7 +415,6 @@ const CalendarPage = () => {
     if (!event.can_edit && openSourcePath(event)) return;
   };
 
-  const selectedDateKey = format(selectedDate, 'yyyy-MM-dd');
   const selectedDateEvents = visibleEvents
     .filter((event) => eventOverlapsDay(event, selectedDate))
     .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
@@ -450,9 +531,48 @@ const CalendarPage = () => {
       return;
     }
 
-    setActiveCalendars((current) => new Set(current).add(`user:${target.id}`));
+    const nextKeys = new Set(activeCalendars).add(`user:${target.id}`);
+    setActiveCalendars(nextKeys);
+    persistUserSettings({ visible_calendar_keys: [...nextKeys] });
     setSubscriptionTarget('');
     toast.success(`${target.full_name} 캘린더를 구독했습니다.`);
+    queryClient.invalidateQueries({ queryKey: ['calendar-subscriptions'] });
+    queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+  };
+
+  const handleSubscribeTeam = async (teamId: string) => {
+    if (!user) return;
+    const team = teams.find((item) => item.id === teamId);
+    if (!team) return;
+    const existing = subscriptions.find(
+      (subscription) => subscription.target_type === 'team' && subscription.target_department === team.id,
+    );
+
+    const { error } = existing
+      ? await supabaseAny
+          .from('calendar_subscriptions')
+          .update({ is_visible: true, display_name: team.name, color: team.color })
+          .eq('id', existing.id)
+      : await supabaseAny
+          .from('calendar_subscriptions')
+          .insert({
+            subscriber_id: user.id,
+            target_type: 'team',
+            target_department: team.id,
+            display_name: team.name,
+            color: team.color,
+            is_visible: true,
+          });
+
+    if (error) {
+      toast.error('팀 캘린더 구독에 실패했습니다.');
+      return;
+    }
+
+    const nextKeys = new Set(activeCalendars).add(`team:${team.id}`);
+    setActiveCalendars(nextKeys);
+    persistUserSettings({ visible_calendar_keys: [...nextKeys] });
+    toast.success(`${team.name} 캘린더를 구독했습니다.`);
     queryClient.invalidateQueries({ queryKey: ['calendar-subscriptions'] });
     queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
   };
@@ -468,11 +588,99 @@ const CalendarPage = () => {
       setActiveCalendars((current) => {
         const next = new Set(current);
         next.delete(`user:${subscription.target_user_id}`);
+        persistUserSettings({ visible_calendar_keys: [...next] });
+        return next;
+      });
+    }
+    if (subscription.target_department) {
+      setActiveCalendars((current) => {
+        const next = new Set(current);
+        next.delete(`team:${subscription.target_department}`);
+        persistUserSettings({ visible_calendar_keys: [...next] });
         return next;
       });
     }
     queryClient.invalidateQueries({ queryKey: ['calendar-subscriptions'] });
     queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+  };
+
+  const handleAddTeamMember = () => {
+    if (!teamMemberTarget) return;
+    setTeamMemberIds((current) => current.includes(teamMemberTarget) ? current : [...current, teamMemberTarget]);
+    setTeamMemberTarget('');
+  };
+
+  const handleCreateTeam = async () => {
+    if (!teamName.trim()) {
+      toast.error('팀 이름을 입력해주세요.');
+      return;
+    }
+    try {
+      const nextTeamName = teamName.trim();
+      const nextTeamColor = teamColor;
+      const teamId = await saveTeam.mutateAsync({
+        name: nextTeamName,
+        description: teamDescription,
+        color: nextTeamColor,
+        member_ids: teamMemberIds,
+      });
+      if (user) {
+        const { error: subscriptionError } = await supabaseAny
+          .from('calendar_subscriptions')
+          .insert({
+            subscriber_id: user.id,
+            target_type: 'team',
+            target_department: teamId,
+            display_name: nextTeamName,
+            color: nextTeamColor,
+            is_visible: true,
+          });
+        if (subscriptionError) throw subscriptionError;
+        const nextKeys = new Set(activeCalendars).add(`team:${teamId}`);
+        setActiveCalendars(nextKeys);
+        persistUserSettings({ visible_calendar_keys: [...nextKeys] });
+      }
+      setTeamName('');
+      setTeamDescription('');
+      setTeamColor('#2563eb');
+      setTeamMemberIds([]);
+      toast.success('팀 캘린더를 만들었습니다.');
+      queryClient.invalidateQueries({ queryKey: ['calendar-subscriptions'] });
+    } catch (error: any) {
+      toast.error(error?.message || '팀 캘린더 생성에 실패했습니다.');
+    }
+  };
+
+  const handleArchiveTeam = async (teamId: string) => {
+    try {
+      await archiveTeam.mutateAsync(teamId);
+      setActiveCalendars((current) => {
+        const next = new Set(current);
+        next.delete(`team:${teamId}`);
+        persistUserSettings({ visible_calendar_keys: [...next] });
+        return next;
+      });
+      toast.success('팀 캘린더를 비활성화했습니다.');
+    } catch (error: any) {
+      toast.error(error?.message || '팀 캘린더 비활성화에 실패했습니다.');
+    }
+  };
+
+  const handleSaveDiary = async () => {
+    try {
+      await saveDiaryEntry.mutateAsync({
+        diary_date: selectedDateKey,
+        content: diaryDraft,
+      });
+      toast.success('개인 다이어리를 저장했습니다.');
+    } catch (error: any) {
+      toast.error(error?.message || '다이어리 저장에 실패했습니다.');
+    }
+  };
+
+  const handleSaveWorkdaySettings = () => {
+    persistUserSettings({ workday_start: workdayStart, workday_end: workdayEnd });
+    toast.success('캘린더 보기 설정을 저장했습니다.');
   };
 
   const renderCalendarToggle = (key: string, title: string, description?: string) => {
@@ -548,7 +756,7 @@ const CalendarPage = () => {
         </span>
         {!compact && (
           <span className="block truncate pl-4 text-[11px] opacity-70">
-            {[event.location, event.resource_names.join(', '), event.client_name].filter(Boolean).join(' · ') || event.created_by_name}
+            {[event.location, event.resource_names.join(', '), event.client_name, getTeamDisplayName(event.team_department)].filter(Boolean).join(' · ') || event.created_by_name}
           </span>
         )}
         {!compact && (event.recurrence_rule || event.reminder_minutes.length > 0) && (
@@ -600,10 +808,10 @@ const CalendarPage = () => {
 
       <section className="grid gap-3 sm:grid-cols-4">
         {[
-          { label: '오늘 일정', value: todayEvents.length, action: () => setViewMode('day') },
+          { label: '오늘 일정', value: todayEvents.length, action: () => changeViewMode('day') },
           { label: '다음 일정', value: nextEvent ? formatEventTime(nextEvent) : '-', action: () => nextEvent && setSelectedEvent(nextEvent) },
-          { label: '회의실 사용 중', value: roomsInUse.length, action: () => setViewMode('day') },
-          { label: '이번 달 표시', value: visibleEvents.length, action: () => setViewMode('month') },
+          { label: '회의실 사용 중', value: roomsInUse.length, action: () => changeViewMode('day') },
+          { label: '이번 달 표시', value: visibleEvents.length, action: () => changeViewMode('month') },
         ].map((item) => (
           <button
             key={item.label}
@@ -635,6 +843,37 @@ const CalendarPage = () => {
 
       <section className="grid min-h-[720px] gap-4 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
         <aside className="space-y-4 rounded-lg border border-[#e5e5e5] bg-white p-4">
+          <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
+            <div className="flex items-center gap-2">
+              <Settings2 className="h-4 w-4 text-[#707072]" />
+              <p className="text-xs font-bold uppercase text-[#707072]">내 보기 설정</p>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div>
+                <p className="mb-1 text-[11px] font-semibold text-[#707072]">시작</p>
+                <Input
+                  type="time"
+                  value={workdayStart}
+                  onChange={(event) => setWorkdayStart(event.target.value)}
+                  className="h-9 rounded-lg border-[#cacacb] bg-white text-xs"
+                />
+              </div>
+              <div>
+                <p className="mb-1 text-[11px] font-semibold text-[#707072]">종료</p>
+                <Input
+                  type="time"
+                  value={workdayEnd}
+                  onChange={(event) => setWorkdayEnd(event.target.value)}
+                  className="h-9 rounded-lg border-[#cacacb] bg-white text-xs"
+                />
+              </div>
+            </div>
+            <Button variant="outline" className="mt-2 h-8 w-full rounded-full border-[#cacacb] text-xs" onClick={handleSaveWorkdaySettings}>
+              <Save className="mr-1.5 h-3.5 w-3.5" />
+              설정 저장
+            </Button>
+          </div>
+
           <div className="space-y-2">
             <p className="text-xs font-bold uppercase text-[#707072]">내 캘린더</p>
             {renderCalendarToggle('mine', '내 캘린더', profile?.department || '개인 일정')}
@@ -643,10 +882,117 @@ const CalendarPage = () => {
 
           <div className="space-y-2">
             <p className="text-xs font-bold uppercase text-[#707072]">팀 캘린더</p>
+            {teams.length > 0 ? teams.map((team) => {
+              const isMember = team.members.some((member) => member.user_id === user?.id);
+              const subscription = subscriptions.find((item) => item.target_type === 'team' && item.target_department === team.id);
+              return (
+                <div key={team.id} className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    {(isMember || subscription) ? renderCalendarToggle(`team:${team.id}`, team.name, isMember ? `${team.members.length}명 · 내 팀` : `${team.members.length}명 · 구독 중`) : (
+                      <div className="rounded-lg border border-[#e5e5e5] bg-white px-3 py-2">
+                        <p className="truncate text-sm font-semibold text-[#111111]">{team.name}</p>
+                        <p className="truncate text-xs text-[#707072]">{team.members.length}명 · 구독 가능</p>
+                      </div>
+                    )}
+                  </div>
+                  {subscription ? (
+                    <Button variant="ghost" size="sm" className="h-8 rounded-full px-2 text-xs" onClick={() => handleUnsubscribe(subscription)}>
+                      해제
+                    </Button>
+                  ) : !isMember ? (
+                    <Button variant="outline" size="sm" className="h-8 rounded-full border-[#cacacb] px-2 text-xs" onClick={() => handleSubscribeTeam(team.id)}>
+                      구독
+                    </Button>
+                  ) : null}
+                  {canViewAll && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-[#9e9ea0] hover:text-red-600" onClick={() => handleArchiveTeam(team.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              );
+            }) : (
+              <div className="rounded-lg border border-dashed border-[#e5e5e5] p-3 text-sm text-[#707072]">등록된 팀 캘린더가 없습니다.</div>
+            )}
+            {canViewAll && (
+              <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
+                <div className="flex items-center gap-2">
+                  <Settings2 className="h-4 w-4 text-[#707072]" />
+                  <p className="text-xs font-bold text-[#111111]">팀 만들기</p>
+                </div>
+                <div className="mt-2 grid gap-2">
+                  <Input
+                    value={teamName}
+                    onChange={(event) => setTeamName(event.target.value)}
+                    placeholder="팀 이름"
+                    className="h-9 rounded-lg border-[#cacacb] bg-white text-sm"
+                  />
+                  <Input
+                    value={teamDescription}
+                    onChange={(event) => setTeamDescription(event.target.value)}
+                    placeholder="설명"
+                    className="h-9 rounded-lg border-[#cacacb] bg-white text-sm"
+                  />
+                  <div className="grid grid-cols-[44px_1fr_auto] gap-2">
+                    <Input
+                      type="color"
+                      value={teamColor}
+                      onChange={(event) => setTeamColor(event.target.value)}
+                      className="h-9 rounded-lg border-[#cacacb] bg-white p-1"
+                    />
+                    <Select value={teamMemberTarget} onValueChange={setTeamMemberTarget}>
+                      <SelectTrigger className="h-9 rounded-lg border-[#cacacb] bg-white text-xs">
+                        <SelectValue placeholder="구성원 추가" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {employees.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id}>
+                            {employee.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" className="h-9 rounded-lg border-[#cacacb] px-3 text-xs" onClick={handleAddTeamMember}>
+                      추가
+                    </Button>
+                  </div>
+                  {teamMemberIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {teamMemberIds.map((memberId) => {
+                        const employee = employees.find((item) => item.id === memberId);
+                        return (
+                          <button
+                            key={memberId}
+                            type="button"
+                            onClick={() => setTeamMemberIds((current) => current.filter((id) => id !== memberId))}
+                            className="rounded-full border border-[#cacacb] bg-white px-2 py-1 text-[11px] font-semibold text-[#39393b]"
+                          >
+                            {employee?.full_name || '구성원'} ×
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <Button
+                    type="button"
+                    className="h-9 rounded-full bg-[#111111] text-xs text-white hover:bg-[#39393b]"
+                    disabled={saveTeam.isPending}
+                    onClick={handleCreateTeam}
+                  >
+                    {saveTeam.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1.5 h-3.5 w-3.5" />}
+                    팀 캘린더 생성
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-bold uppercase text-[#707072]">부서 캘린더</p>
             {departmentOptions.length > 0 ? departmentOptions.map((department) =>
-              renderCalendarToggle(`team:${department}`, department, department === profile?.department ? '내 소속팀' : '팀 일정'),
+              renderCalendarToggle(`team:${department}`, department, department === profile?.department ? '내 소속 부서' : '부서 일정'),
             ) : (
-              <div className="rounded-lg border border-dashed border-[#e5e5e5] p-3 text-sm text-[#707072]">등록된 팀 정보가 없습니다.</div>
+              <div className="rounded-lg border border-dashed border-[#e5e5e5] p-3 text-sm text-[#707072]">등록된 부서 정보가 없습니다.</div>
             )}
           </div>
 
@@ -736,7 +1082,7 @@ const CalendarPage = () => {
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => setViewMode(option.value as CalendarViewMode)}
+                    onClick={() => changeViewMode(option.value as CalendarViewMode)}
                     className={cn(
                       'h-8 rounded-full px-3 text-xs font-semibold transition-colors',
                       viewMode === option.value ? 'bg-[#111111] text-white' : 'text-[#707072] hover:text-[#111111]',
@@ -805,7 +1151,7 @@ const CalendarPage = () => {
                             className="text-[10px] font-semibold text-[#707072] hover:text-[#111111]"
                             onClick={() => {
                               setSelectedDate(day);
-                              setViewMode('day');
+                              changeViewMode('day');
                             }}
                           >
                             +{visibleDayEvents.length - 3}건 더보기
@@ -974,6 +1320,31 @@ const CalendarPage = () => {
                   </p>
                 )}
               </div>
+            </div>
+
+            <div className="mt-3 rounded-lg border border-[#e5e5e5] bg-white p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <NotebookPen className="h-4 w-4 text-[#707072]" />
+                  <p className="text-sm font-bold text-[#111111]">개인 메모</p>
+                </div>
+                <Badge variant="secondary" className="rounded-full px-2 py-0 text-[10px]">본인만</Badge>
+              </div>
+              <Textarea
+                value={diaryDraft}
+                onChange={(event) => setDiaryDraft(event.target.value)}
+                placeholder="오늘의 일정 메모, 업무 회고, 준비할 내용을 적어두세요."
+                className="mt-2 min-h-28 rounded-lg border-[#cacacb] bg-white text-sm"
+              />
+              <Button
+                variant="outline"
+                className="mt-2 h-8 w-full rounded-full border-[#cacacb] text-xs"
+                disabled={saveDiaryEntry.isPending}
+                onClick={handleSaveDiary}
+              >
+                {saveDiaryEntry.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
+                다이어리 저장
+              </Button>
             </div>
           </div>
 
