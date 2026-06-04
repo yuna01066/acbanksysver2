@@ -451,7 +451,7 @@ export function useCalendarTasks({
         .order('task_date', { ascending: true })
         .order('created_at', { ascending: true });
       if (error) throw error;
-      return (data || []) as CalendarTask[];
+      return (data || []) as unknown as CalendarTask[];
     },
     enabled,
     staleTime: 30 * 1000,
@@ -480,7 +480,7 @@ export function useCreateCalendarTask() {
         .select('*')
         .single();
       if (error) throw error;
-      return data as CalendarTask;
+      return data as unknown as CalendarTask;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] });
@@ -509,7 +509,7 @@ export function useUpdateCalendarTask() {
         .select('*')
         .single();
       if (error) throw error;
-      return data as CalendarTask;
+      return data as unknown as CalendarTask;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] });

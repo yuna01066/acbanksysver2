@@ -1,10 +1,7 @@
-import type { Quote } from '@/contexts/QuoteContext';
 import { secureRandomToken } from '@/utils/secureRandom';
 
-type QuoteItemLike = Partial<Quote> & {
+type QuoteItemLike = {
   id?: string;
-  createdAt?: Date | string;
-  [key: string]: unknown;
 };
 
 export const createQuoteItemId = () => {
