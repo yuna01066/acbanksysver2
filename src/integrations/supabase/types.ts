@@ -1562,45 +1562,60 @@ export type Database = {
       }
       client_consultation_items: {
         Row: {
+          color_code: string | null
           color_name: string | null
+          color_option_id: string | null
           created_at: string
           height: string | null
           id: string
           item_name: string | null
           lead_id: string
+          material_name: string | null
+          material_quality_id: string | null
           memo: string | null
           processing_options: string[]
           quantity: string | null
+          sheet_size: string | null
           sort_order: number
           thickness: string | null
           unit: string | null
           width: string | null
         }
         Insert: {
+          color_code?: string | null
           color_name?: string | null
+          color_option_id?: string | null
           created_at?: string
           height?: string | null
           id?: string
           item_name?: string | null
           lead_id: string
+          material_name?: string | null
+          material_quality_id?: string | null
           memo?: string | null
           processing_options?: string[]
           quantity?: string | null
+          sheet_size?: string | null
           sort_order?: number
           thickness?: string | null
           unit?: string | null
           width?: string | null
         }
         Update: {
+          color_code?: string | null
           color_name?: string | null
+          color_option_id?: string | null
           created_at?: string
           height?: string | null
           id?: string
           item_name?: string | null
           lead_id?: string
+          material_name?: string | null
+          material_quality_id?: string | null
           memo?: string | null
           processing_options?: string[]
           quantity?: string | null
+          sheet_size?: string | null
           sort_order?: number
           thickness?: string | null
           unit?: string | null
@@ -1625,6 +1640,7 @@ export type Database = {
           closed_at: string | null
           color_code: string | null
           color_name: string | null
+          consultation_type: string
           converted_quote_draft_id: string | null
           converted_quote_id: string | null
           created_at: string
@@ -1670,6 +1686,7 @@ export type Database = {
           closed_at?: string | null
           color_code?: string | null
           color_name?: string | null
+          consultation_type?: string
           converted_quote_draft_id?: string | null
           converted_quote_id?: string | null
           created_at?: string
@@ -1715,6 +1732,7 @@ export type Database = {
           closed_at?: string | null
           color_code?: string | null
           color_name?: string | null
+          consultation_type?: string
           converted_quote_draft_id?: string | null
           converted_quote_id?: string | null
           created_at?: string
