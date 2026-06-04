@@ -22,7 +22,16 @@ const RecipientSalesStats: React.FC<Props> = ({ companyName }) => {
       const quotes = data || [];
       const totalAmount = quotes.reduce((s, q) => s + (q.total || 0), 0);
       const avgAmount = quotes.length > 0 ? totalAmount / quotes.length : 0;
-      const contractedQuotes = quotes.filter(q => ['contracted', 'completed', 'delivered'].includes(q.project_stage || ''));
+      const contractedQuotes = quotes.filter(q => [
+        'contracted',
+        'invoice_issued',
+        'in_progress',
+        'panel_ordered',
+        'manufacturing',
+        'completed',
+        'delivery_scheduled',
+        'delivered',
+      ].includes(q.project_stage || ''));
       const contractedAmount = contractedQuotes.reduce((s, q) => s + (q.total || 0), 0);
       const conversionRate = quotes.length > 0 ? (contractedQuotes.length / quotes.length * 100) : 0;
 

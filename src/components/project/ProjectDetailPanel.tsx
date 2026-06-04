@@ -37,22 +37,34 @@ interface Props {
 }
 
 const stageLabels: Record<string, string> = {
+  reviewing: '검토중',
   quote_issued: '견적 발행',
+  revision_requested: '수정요청',
+  on_hold: '보류',
+  contracted: '수주',
   invoice_issued: '계산서 발행',
   in_progress: '진행중',
   panel_ordered: '원판발주',
   manufacturing: '제작중',
   completed: '제작완료',
+  delivery_scheduled: '납기 예정',
+  delivered: '납기 완료',
   cancelled: '취소',
 };
 
 const stageColors: Record<string, string> = {
+  reviewing: 'bg-amber-50 text-amber-700 border-amber-200',
   quote_issued: 'bg-blue-50 text-blue-700 border-blue-200',
+  revision_requested: 'bg-violet-50 text-violet-700 border-violet-200',
+  on_hold: 'bg-zinc-100 text-zinc-700 border-zinc-200',
+  contracted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   invoice_issued: 'bg-purple-50 text-purple-700 border-purple-200',
   in_progress: 'bg-yellow-50 text-yellow-700 border-yellow-200',
   panel_ordered: 'bg-orange-50 text-orange-700 border-orange-200',
   manufacturing: 'bg-cyan-50 text-cyan-700 border-cyan-200',
   completed: 'bg-green-50 text-green-700 border-green-200',
+  delivery_scheduled: 'bg-sky-50 text-sky-700 border-sky-200',
+  delivered: 'bg-green-100 text-green-800 border-green-200',
   cancelled: 'bg-red-50 text-red-600 border-red-200',
 };
 

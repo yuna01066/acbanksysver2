@@ -15,6 +15,7 @@ import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 import { isMissingMeetingReservationsTableError } from '@/lib/meetingReservationErrors';
+import { isCalendarDeliveryProjectStage, normalizeProjectStage } from '@/utils/quoteWorkflow';
 
 interface CalendarEvent {
   id: string;
@@ -25,6 +26,7 @@ interface CalendarEvent {
   url?: string;
   assignee?: string;
   assigneeIds?: string[];
+  deliveryState?: 'scheduled' | 'completed';
 }
 
 interface MeetingReservationCalendarRow {
@@ -59,7 +61,7 @@ const DashboardCalendar = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('saved_quotes')
-        .select('id, project_name, quote_date, desired_delivery_date, quote_number, user_id, project_id, project_stage, projects(status)')
+        .select('id, project_name, quote_date, desired_delivery_date, quote_number, user_id, project_id, project_stage, quote_status, projects(status)')
         .order('quote_date', { ascending: false });
       if (error) throw error;
       return data;
@@ -223,19 +225,22 @@ const DashboardCalendar = () => {
           userId: q.user_id,
         });
       }
-      if (q.desired_delivery_date && (q as any).quote_status === 'won') {
-        // 수주된 견적서의 납기만 운영 캘린더에 표시
+      const projectStage = normalizeProjectStage(q.project_stage, (q as any).quote_status);
+      if (q.desired_delivery_date && isCalendarDeliveryProjectStage(projectStage)) {
+        // 수주 이후 단계의 납기만 운영 캘린더에 표시
         const projectStatus = (q as { projects?: { status?: string } | null }).projects?.status;
-        if (projectStatus === 'cancelled' || q.project_stage === 'cancelled') return;
+        if (projectStatus === 'cancelled' || projectStage === 'cancelled') return;
         
         const deliveryDate = new Date(q.desired_delivery_date);
         if (!isNaN(deliveryDate.getTime())) {
+          const deliveryCompleted = projectStage === 'delivered';
           result.push({
             id: q.id,
-            projectName: q.project_name || `견적 ${q.quote_number}`,
+            projectName: `${deliveryCompleted ? '납기 완료' : '납기 예정'} · ${q.project_name || `견적 ${q.quote_number}`}`,
             type: 'delivery',
             date: deliveryDate,
             userId: q.user_id,
+            deliveryState: deliveryCompleted ? 'completed' : 'scheduled',
           });
         }
       }
@@ -602,7 +607,9 @@ const DashboardCalendar = () => {
                         event.type === 'quote'
                           ? "bg-primary/10 text-primary"
                           : event.type === 'delivery'
-                          ? "bg-orange-500/10 text-orange-600"
+                          ? event.deliveryState === 'completed'
+                            ? "bg-emerald-500/10 text-emerald-700"
+                            : "bg-orange-500/10 text-orange-600"
                           : event.type === 'meeting'
                           ? "bg-amber-500/10 text-amber-700"
                           : event.type === 'meeting_reservation'

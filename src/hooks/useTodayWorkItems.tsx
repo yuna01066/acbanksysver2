@@ -240,7 +240,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
         .select('id, quote_number, project_name, recipient_company, desired_delivery_date, project_stage, user_id')
         .gte('desired_delivery_date', todayString())
         .lte('desired_delivery_date', plusDaysString(7))
-        .not('project_stage', 'eq', 'completed')
+        .not('project_stage', 'eq', 'delivered')
         .not('project_stage', 'eq', 'cancelled')
         .order('desired_delivery_date', { ascending: true })
         .limit(8);

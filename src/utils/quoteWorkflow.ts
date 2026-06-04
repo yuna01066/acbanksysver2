@@ -60,6 +60,18 @@ export const QUOTE_PROJECT_STAGES = [
     color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   },
   {
+    value: 'delivery_scheduled',
+    label: '납기 예정',
+    description: '제작 완료 후 납품 또는 설치 예정인 상태입니다.',
+    color: 'bg-sky-50 text-sky-700 border-sky-200',
+  },
+  {
+    value: 'delivered',
+    label: '납기 완료',
+    description: '고객 납품 또는 설치가 완료된 상태입니다.',
+    color: 'bg-green-100 text-green-800 border-green-200',
+  },
+  {
     value: 'cancelled',
     label: '취소',
     description: '취소 또는 종료된 상태입니다.',
@@ -81,6 +93,33 @@ export type LegacyQuoteStatus =
 const PROJECT_STAGE_VALUES = new Set<string>(QUOTE_PROJECT_STAGES.map((stage) => stage.value));
 
 export const DEFAULT_PROJECT_STAGE: ProjectStageValue = 'quote_issued';
+
+export const REISSUE_PROTECTED_PROJECT_STAGES = new Set<ProjectStageValue>([
+  'contracted',
+  'invoice_issued',
+  'in_progress',
+  'panel_ordered',
+  'manufacturing',
+  'completed',
+  'delivery_scheduled',
+  'delivered',
+]);
+
+export const FINAL_COMPLETED_PROJECT_STAGES = new Set<ProjectStageValue>([
+  'completed',
+  'delivered',
+]);
+
+export const CALENDAR_DELIVERY_PROJECT_STAGES = new Set<ProjectStageValue>([
+  'contracted',
+  'invoice_issued',
+  'in_progress',
+  'panel_ordered',
+  'manufacturing',
+  'completed',
+  'delivery_scheduled',
+  'delivered',
+]);
 
 export function isProjectStage(value: unknown): value is ProjectStageValue {
   return typeof value === 'string' && PROJECT_STAGE_VALUES.has(value);
@@ -110,6 +149,18 @@ export function normalizeProjectStage(stage?: string | null, legacyStatus?: stri
   return legacyQuoteStatusToProjectStage(legacyStatus || stage);
 }
 
+export function isReissueProtectedProjectStage(stage?: string | null, legacyStatus?: string | null): boolean {
+  return REISSUE_PROTECTED_PROJECT_STAGES.has(normalizeProjectStage(stage, legacyStatus));
+}
+
+export function isFinalCompletedProjectStage(stage?: string | null, legacyStatus?: string | null): boolean {
+  return FINAL_COMPLETED_PROJECT_STAGES.has(normalizeProjectStage(stage, legacyStatus));
+}
+
+export function isCalendarDeliveryProjectStage(stage?: string | null, legacyStatus?: string | null): boolean {
+  return CALENDAR_DELIVERY_PROJECT_STAGES.has(normalizeProjectStage(stage, legacyStatus));
+}
+
 export function projectStageToLegacyQuoteStatus(stage?: string | null): LegacyQuoteStatus {
   switch (normalizeProjectStage(stage)) {
     case 'reviewing':
@@ -124,6 +175,8 @@ export function projectStageToLegacyQuoteStatus(stage?: string | null): LegacyQu
     case 'panel_ordered':
     case 'manufacturing':
     case 'completed':
+    case 'delivery_scheduled':
+    case 'delivered':
       return 'won';
     case 'cancelled':
       return 'cancelled';

@@ -21,30 +21,41 @@ interface QuoteProject {
 }
 
 const STAGE_ORDER: Record<string, number> = {
-  'quote_issued': 1,
-  'invoice_issued': 2,
-  'in_progress': 3,
-  'panel_ordered': 4,
-  'manufacturing': 5,
-  'completed': 6,
+  'reviewing': 1,
+  'quote_issued': 2,
+  'revision_requested': 2,
+  'on_hold': 2,
+  'contracted': 3,
+  'invoice_issued': 4,
+  'in_progress': 5,
+  'panel_ordered': 6,
+  'manufacturing': 7,
+  'completed': 8,
+  'delivery_scheduled': 9,
+  'delivered': 10,
   'cancelled': 0,
 };
 
 const STAGE_LABELS: Record<string, string> = {
+  'reviewing': '검토중',
   'quote_issued': '견적 발행',
+  'revision_requested': '수정요청',
+  'on_hold': '보류',
+  'contracted': '수주',
   'invoice_issued': '계산서 발행',
   'in_progress': '진행중',
   'panel_ordered': '원판발주',
   'manufacturing': '제작중',
   'completed': '제작완료',
+  'delivery_scheduled': '납기 예정',
+  'delivered': '납기 완료',
   'cancelled': '취소',
 };
 
 function getQuoteProgress(stage: string): number {
   const order = STAGE_ORDER[stage] ?? 0;
   if (stage === 'cancelled') return 0;
-  // 6 stages total (excluding cancelled), map to percentage
-  return Math.round((order / 6) * 100);
+  return Math.round((order / 10) * 100);
 }
 
 function getNotionProgress(startDate: string, endDate: string, status: string): number {
@@ -90,7 +101,7 @@ const ProjectProgressCard = () => {
       const { data, error } = await supabase
         .from('saved_quotes')
         .select('id, project_name, project_stage, quote_number, desired_delivery_date')
-        .not('project_stage', 'eq', 'completed')
+        .not('project_stage', 'eq', 'delivered')
         .not('project_stage', 'eq', 'cancelled')
         .not('desired_delivery_date', 'is', null)
         .order('created_at', { ascending: false })
