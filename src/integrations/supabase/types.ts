@@ -504,6 +504,33 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_diary_entries: {
+        Row: {
+          content: string
+          created_at: string
+          diary_date: string
+          id: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          diary_date: string
+          id?: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          diary_date?: string
+          id?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       calendar_event_participants: {
         Row: {
           created_at: string
@@ -859,6 +886,110 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      calendar_team_members: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: string
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_teams: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      calendar_user_settings: {
+        Row: {
+          calendar_colors: Json
+          created_at: string
+          default_view: string
+          source_filters: string[]
+          updated_at: string
+          user_id: string
+          visible_calendar_keys: string[]
+          week_starts_on: number
+          workday_end: string
+          workday_start: string
+        }
+        Insert: {
+          calendar_colors?: Json
+          created_at?: string
+          default_view?: string
+          source_filters?: string[]
+          updated_at?: string
+          user_id: string
+          visible_calendar_keys?: string[]
+          week_starts_on?: number
+          workday_end?: string
+          workday_start?: string
+        }
+        Update: {
+          calendar_colors?: Json
+          created_at?: string
+          default_view?: string
+          source_filters?: string[]
+          updated_at?: string
+          user_id?: string
+          visible_calendar_keys?: string[]
+          week_starts_on?: number
+          workday_end?: string
+          workday_start?: string
+        }
+        Relationships: []
       }
       category_logic_slots: {
         Row: {
