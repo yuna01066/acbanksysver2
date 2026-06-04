@@ -13,11 +13,12 @@ interface LeaveSummaryCardsProps {
   expiredDays?: number;
   expiringSoonDays?: number;
   expirationDate?: Date | null;
+  compact?: boolean;
 }
 
 const LeaveSummaryCards: React.FC<LeaveSummaryCardsProps> = ({
   totalDays, usedDays, pendingDays, remainingDays, unitLabel = '일', allowAdvanceUse = false,
-  expiredDays = 0, expiringSoonDays = 0, expirationDate = null,
+  expiredDays = 0, expiringSoonDays = 0, expirationDate = null, compact = false,
 }) => {
   const cards = [
     { icon: Calendar, label: '총 연차', value: totalDays, color: 'text-primary' },
@@ -28,15 +29,15 @@ const LeaveSummaryCards: React.FC<LeaveSummaryCardsProps> = ({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {cards.map((c, i) => (
-          <Card key={i} className="border">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-1">
+          <Card key={i} className="border shadow-none">
+            <CardContent className={compact ? 'p-3' : 'p-4'}>
+              <div className="mb-1 flex items-center gap-2">
                 <c.icon className={`h-4 w-4 ${c.color}`} />
                 <span className="text-xs text-muted-foreground">{c.label}</span>
               </div>
-              <div className={`text-2xl font-bold ${c.color}`}>
+              <div className={`${compact ? 'text-xl' : 'text-2xl'} font-semibold ${c.color}`}>
                 {c.value}<span className="text-sm font-normal ml-1">{unitLabel}</span>
               </div>
             </CardContent>

@@ -6,9 +6,9 @@ import { CheckCircle2, ChevronRight, GraduationCap, Loader2, RotateCcw } from 'l
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmployeeHrTask, useEmployeeHrTasks } from '@/hooks/useHrSelfService';
+import { MyPageEmptyState, MyPageSectionHeader } from '@/components/mypage/MyPageLayout';
 
 const taskTypeLabels: Record<string, string> = {
   onboarding: '온보딩',
@@ -115,27 +115,21 @@ const MyHrTasksSection: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <GraduationCap className="h-4 w-4 text-primary" />
-            교육·온보딩
-          </CardTitle>
-          <CardDescription>관리자가 배정한 온보딩, 교육, 문서 제출, 정책 확인 과제를 처리합니다.</CardDescription>
-        </CardHeader>
-      </Card>
+    <div className="space-y-5">
+      <MyPageSectionHeader
+        title="교육·온보딩"
+        description="관리자가 배정한 온보딩, 교육, 문서 제출, 정책 확인 과제를 처리합니다."
+        icon={<GraduationCap className="h-4 w-4" />}
+      />
 
       <Tabs defaultValue="active" className="space-y-4">
-        <TabsList>
+        <TabsList className="h-auto rounded-xl bg-muted/70 p-1">
           <TabsTrigger value="active">진행 중 {activeTasks.length}</TabsTrigger>
           <TabsTrigger value="completed">완료 {completedTasks.length}</TabsTrigger>
         </TabsList>
         <TabsContent value="active" className="space-y-3">
           {activeTasks.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
-              진행 중인 교육·온보딩 과제가 없습니다.
-            </div>
+            <MyPageEmptyState title="진행 중인 교육·온보딩 과제가 없습니다." description="새 과제가 배정되면 이곳에서 처리할 수 있습니다." />
           ) : (
             activeTasks.map((task) => (
               <TaskCard key={task.id} task={task} onComplete={completeTask} onReopen={reopenTask} />
@@ -144,9 +138,7 @@ const MyHrTasksSection: React.FC = () => {
         </TabsContent>
         <TabsContent value="completed" className="space-y-3">
           {completedTasks.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
-              완료된 과제가 없습니다.
-            </div>
+            <MyPageEmptyState title="완료된 과제가 없습니다." description="완료한 과제는 이 탭에 보관됩니다." />
           ) : (
             completedTasks.map((task) => (
               <TaskCard key={task.id} task={task} onComplete={completeTask} onReopen={reopenTask} />

@@ -38,6 +38,7 @@ import {
   useProfileChangeRequests,
   useProfileChangeReviewQueue,
 } from '@/hooks/useHrSelfService';
+import { MyPageEmptyState, MyPageSectionHeader } from '@/components/mypage/MyPageLayout';
 
 type DirectFieldKey = (typeof DIRECT_PROFILE_FIELDS)[number];
 
@@ -179,7 +180,7 @@ const ProfileChangeReviewQueue: React.FC = () => {
 
   return (
     <>
-      <Card className="border">
+      <Card className="border shadow-none">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <ShieldCheck className="h-4 w-4 text-primary" />
@@ -192,9 +193,7 @@ const ProfileChangeReviewQueue: React.FC = () => {
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : queue.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-              승인 대기 중인 변경 요청이 없습니다.
-            </div>
+            <MyPageEmptyState title="승인 대기 중인 변경 요청이 없습니다." />
           ) : (
             queue.map((request) => (
               <div key={request.id} className="rounded-lg border p-4">
@@ -401,7 +400,13 @@ const MyProfileSelfService: React.FC = () => {
   return (
     <>
       <div className="space-y-6">
-        <Card className="border">
+        <MyPageSectionHeader
+          title="내 정보"
+          description="직접 수정 가능한 정보와 관리자 승인 요청이 필요한 인사 기준 정보를 분리해 관리합니다."
+          icon={<User className="h-4 w-4" />}
+        />
+
+        <Card className="border shadow-none">
           <CardHeader>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex min-w-0 items-center gap-4">
@@ -486,10 +491,10 @@ const MyProfileSelfService: React.FC = () => {
           </CardContent>
         </Card>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="space-y-4">
             {readonlySections.map((section) => (
-              <Card key={section.title} className="border">
+              <Card key={section.title} className="border shadow-none">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
                     {section.icon}
@@ -506,7 +511,7 @@ const MyProfileSelfService: React.FC = () => {
               </Card>
             ))}
 
-            <Card className="border">
+            <Card className="border shadow-none">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">근로기준법 적용</CardTitle>
               </CardHeader>
@@ -517,7 +522,7 @@ const MyProfileSelfService: React.FC = () => {
           </div>
 
           <div className="space-y-4">
-            <Card className="border">
+            <Card className="border shadow-none">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Clock className="h-4 w-4 text-primary" />
@@ -526,9 +531,7 @@ const MyProfileSelfService: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 {changeRequests.length === 0 ? (
-                  <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    접수된 변경 요청이 없습니다.
-                  </div>
+                  <MyPageEmptyState title="접수된 변경 요청이 없습니다." description="조직, 직무, 입사, 급여 같은 기준 정보 변경은 요청으로 접수하세요." />
                 ) : (
                   changeRequests.slice(0, 6).map((request) => (
                     <div key={request.id} className="space-y-2">

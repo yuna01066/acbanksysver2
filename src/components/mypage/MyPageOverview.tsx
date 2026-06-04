@@ -23,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import QuickAttendanceButton from '@/components/QuickAttendanceButton';
+import { MyPageActionPanel, MyPageEmptyState, MyPageSectionHeader } from '@/components/mypage/MyPageLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeaveRequests, calculatePolicyBasedLeaveDays } from '@/hooks/useLeaveRequests';
@@ -192,11 +193,103 @@ const MyPageOverview: React.FC = () => {
   const taxStatusLabel = STATUS_LABELS[taxStatus]?.label || '미시작';
 
   const isLoading = contractsLoading || tasksLoading || tax.loading || calendarLoading || calendarTasksLoading;
+  const focusItems = [
+    pendingContracts > 0
+      ? {
+        id: 'contracts',
+        title: `서명 대기 계약 ${pendingContracts}건`,
+        description: '전자계약을 검토하고 서명해야 합니다.',
+        icon: PenLine,
+        tone: 'warning' as const,
+        path: '/my-page?tab=contract',
+      }
+      : null,
+    missingDocuments.length > 0
+      ? {
+        id: 'documents',
+        title: `제출 필요 문서 ${missingDocuments.length}건`,
+        description: missingDocuments.slice(0, 2).map((item) => item.name).join(', '),
+        icon: FileText,
+        tone: 'warning' as const,
+        path: '/my-page?tab=documents',
+      }
+      : null,
+    pendingTasks.length > 0
+      ? {
+        id: 'tasks',
+        title: `진행 중 HR 과제 ${pendingTasks.length}건`,
+        description: pendingTasks[0]?.title || '관리자가 배정한 과제를 확인하세요.',
+        icon: GraduationCap,
+        tone: 'primary' as const,
+        path: '/my-page?tab=tasks',
+      }
+      : null,
+    openCalendarTasks.length > 0
+      ? {
+        id: 'calendar-tasks',
+        title: `오늘 할 일 ${openCalendarTasks.length}건`,
+        description: openCalendarTasks[0]?.title || '오늘 다이어리 업무를 확인하세요.',
+        icon: ListChecks,
+        tone: 'primary' as const,
+        path: '/my-page?tab=diary',
+      }
+      : null,
+    hrNotifications.length > 0
+      ? {
+        id: 'notifications',
+        title: `새 HR 알림 ${hrNotifications.length}건`,
+        description: hrNotifications[0]?.title || '알림 내용을 확인하세요.',
+        icon: Bell,
+        tone: 'warning' as const,
+        path: '/my-page?tab=overview',
+      }
+      : null,
+  ].filter(Boolean);
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Card className="border">
+      <MyPageSectionHeader
+        title="개요"
+        description="오늘 처리할 HR 업무와 내 상태를 먼저 확인합니다."
+        icon={<ClipboardCheck className="h-4 w-4" />}
+      />
+
+      <MyPageActionPanel title="오늘 처리 필요" description="서명, 문서 제출, 과제, 알림처럼 당장 확인해야 할 항목만 모았습니다.">
+        {isLoading ? (
+          <div className="flex min-h-[86px] items-center justify-center text-sm text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            처리 항목을 불러오는 중입니다.
+          </div>
+        ) : focusItems.length === 0 ? (
+          <MyPageEmptyState title="오늘 바로 처리할 HR 업무가 없습니다." description="필요한 항목이 생기면 이 영역에 먼저 표시됩니다." />
+        ) : (
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {focusItems.slice(0, 6).map((item) => {
+              if (!item) return null;
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="flex items-start gap-3 rounded-lg border bg-background p-3 text-left transition-colors hover:bg-accent/30"
+                  onClick={() => navigate(item.path)}
+                >
+                  <div className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border', toneClass[item.tone])}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{item.title}</p>
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">{item.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </MyPageActionPanel>
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <Card className="border shadow-none">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <ClipboardCheck className="h-4 w-4 text-primary" />
@@ -297,11 +390,11 @@ const MyPageOverview: React.FC = () => {
           </CardContent>
         </Card>
 
-        <QuickAttendanceButton />
+        <QuickAttendanceButton variant="compact" />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <Card className="border">
+        <Card className="border shadow-none">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
               <Bell className="h-4 w-4 text-primary" />
@@ -332,7 +425,7 @@ const MyPageOverview: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="border">
+        <Card className="border shadow-none">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
               <GraduationCap className="h-4 w-4 text-primary" />
@@ -367,7 +460,7 @@ const MyPageOverview: React.FC = () => {
         </Card>
 
         {canReview ? (
-          <Card className="border">
+          <Card className="border shadow-none">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <ClipboardCheck className="h-4 w-4 text-primary" />
@@ -391,7 +484,7 @@ const MyPageOverview: React.FC = () => {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border">
+          <Card className="border shadow-none">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <CheckCircle2 className="h-4 w-4 text-primary" />

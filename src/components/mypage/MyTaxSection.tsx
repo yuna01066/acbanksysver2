@@ -9,6 +9,7 @@ import TaxDeductionsTab from '@/components/year-end-tax/TaxDeductionsTab';
 import TaxDocumentsTab from '@/components/year-end-tax/TaxDocumentsTab';
 import TaxSummaryTab from '@/components/year-end-tax/TaxSummaryTab';
 import { STATUS_LABELS, TAX_YEAR, useYearEndTax } from '@/hooks/useYearEndTax';
+import { MyPageSectionHeader } from '@/components/mypage/MyPageLayout';
 
 const editableStatuses = ['not_started', 'in_progress', 'revision_requested'];
 
@@ -26,28 +27,41 @@ const MyTaxSection: React.FC = () => {
 
   if (!tax.settlement) {
     return (
-      <Card className="border">
-        <CardHeader className="text-center">
-          <CardTitle className="flex items-center justify-center gap-2">
-            <Receipt className="h-5 w-5 text-primary" />
-            {TAX_YEAR}년 귀속 연말정산
-          </CardTitle>
-          <CardDescription>연말정산 자료 입력을 시작하세요.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex justify-center">
-          <Button onClick={() => tax.initSettlement()} size="lg">
-            <FileText className="mr-2 h-5 w-5" />
-            연말정산 시작하기
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <MyPageSectionHeader
+          title="연말정산"
+          description="부양가족, 공제자료, 제출 서류를 단계별로 입력합니다."
+          icon={<Receipt className="h-4 w-4" />}
+        />
+        <Card className="border shadow-none">
+          <CardHeader className="text-center">
+            <CardTitle className="flex items-center justify-center gap-2">
+              <Receipt className="h-5 w-5 text-primary" />
+              {TAX_YEAR}년 귀속 연말정산
+            </CardTitle>
+            <CardDescription>연말정산 자료 입력을 시작하세요.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Button onClick={() => tax.initSettlement()} size="lg">
+              <FileText className="mr-2 h-5 w-5" />
+              연말정산 시작하기
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <Card className="border">
-        <CardHeader>
+      <MyPageSectionHeader
+        title="연말정산"
+        description="진행 상태를 확인하고 다음 입력 단계로 이동합니다."
+        icon={<Receipt className="h-4 w-4" />}
+      />
+
+      <Card className="border shadow-none">
+        <CardHeader className="pb-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>{TAX_YEAR}년 귀속 연말정산</CardTitle>
@@ -69,7 +83,7 @@ const MyTaxSection: React.FC = () => {
       </Card>
 
       <Tabs defaultValue="dependents" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid h-auto w-full grid-cols-4 rounded-xl bg-muted/70 p-1">
           <TabsTrigger value="dependents" className="text-xs sm:text-sm">부양가족</TabsTrigger>
           <TabsTrigger value="deductions" className="text-xs sm:text-sm">공제자료</TabsTrigger>
           <TabsTrigger value="documents" className="text-xs sm:text-sm">서류제출</TabsTrigger>

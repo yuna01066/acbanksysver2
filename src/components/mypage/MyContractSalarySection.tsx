@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { getDownloadUrl } from '@/services/documentFiles';
 import { useHrRequests, usePayStatements } from '@/hooks/useHrSelfService';
+import { MyPageEmptyState, MyPageSectionHeader } from '@/components/mypage/MyPageLayout';
 
 const hrRequestTypeLabels: Record<string, string> = {
   employment_certificate: '재직증명서',
@@ -83,13 +84,19 @@ const MyContractSalarySection: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="space-y-6">
+    <div className="space-y-5">
+      <MyPageSectionHeader
+        title="계약·급여"
+        description="전자계약 서명, 급여명세 확인, 증명서·급여 문의 요청을 처리합니다."
+        icon={<Wallet className="h-4 w-4" />}
+      />
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-4">
           <MyContractsList />
 
-          <Card className="border">
-            <CardHeader>
+          <Card className="border shadow-none">
+            <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Wallet className="h-4 w-4 text-primary" />
                 급여명세
@@ -102,9 +109,7 @@ const MyContractSalarySection: React.FC = () => {
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : payStatements.length === 0 ? (
-                <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-                  게시된 급여명세가 없습니다.
-                </div>
+                <MyPageEmptyState title="게시된 급여명세가 없습니다." description="급여명세가 게시되면 이곳에서 확인할 수 있습니다." />
               ) : (
                 payStatements.map((statement) => (
                   <div key={statement.id} className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -134,9 +139,9 @@ const MyContractSalarySection: React.FC = () => {
           </Card>
         </div>
 
-        <div className="space-y-6">
-          <Card className="border">
-            <CardHeader>
+        <div className="space-y-4">
+          <Card className="border shadow-none">
+            <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <FileQuestion className="h-4 w-4 text-primary" />
                 HR 요청
@@ -176,7 +181,7 @@ const MyContractSalarySection: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card className="border">
+          <Card className="border shadow-none">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">내 요청 내역</CardTitle>
             </CardHeader>
@@ -186,9 +191,7 @@ const MyContractSalarySection: React.FC = () => {
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : hrRequests.length === 0 ? (
-                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  접수된 HR 요청이 없습니다.
-                </div>
+                <MyPageEmptyState title="접수된 HR 요청이 없습니다." description="증명서 발급이나 급여 문의가 필요하면 위에서 요청하세요." />
               ) : (
                 hrRequests.slice(0, 8).map((request) => {
                   const status = hrRequestStatusLabels[request.status] || hrRequestStatusLabels.pending;
