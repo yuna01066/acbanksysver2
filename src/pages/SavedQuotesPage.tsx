@@ -519,7 +519,11 @@ const SavedQuotesPage = () => {
           : item
       )));
 
-      toast.success('견적서 기준 프로젝트가 생성되었습니다.');
+      if (project.approvalRequestError) {
+        toast.warning(`프로젝트 생성 완료, 품의 생성 실패: ${project.approvalRequestError}`);
+      } else {
+        toast.success('견적서 기준 프로젝트와 개시 품의가 생성되었습니다.');
+      }
       navigate(`/project-management?id=${project.id}`);
     } catch (error) {
       console.error('Error creating project from quote:', error);

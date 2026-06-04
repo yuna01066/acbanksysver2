@@ -1,5 +1,6 @@
 import { ExternalLink, FolderOpen, Loader2, PlusCircle, RotateCcw, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import ProjectStageSelect from '@/components/ProjectStageSelect';
 import QuoteAssigneeSelect, { type QuoteAssigneeOption } from '@/components/QuoteAssigneeSelect';
 import { getStageInfo } from '@/utils/quoteWorkflow';
+import { supabase } from '@/integrations/supabase/client';
+import { getApprovalStatusClass, getApprovalStatusLabel } from '@/services/approvalRequests';
 
 interface LinkedProject {
   id: string;
@@ -57,6 +60,22 @@ const QuoteWorkflowPanel = ({
 }: QuoteWorkflowPanelProps) => {
   const navigate = useNavigate();
   const stageInfo = getStageInfo(projectStage);
+  const { data: projectStartApproval } = useQuery({
+    queryKey: ['quote-workflow-project-approval', linkedProject?.id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('approval_requests')
+        .select('id, status')
+        .eq('related_project_id', linkedProject?.id)
+        .eq('request_type', 'project_start')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { id: string; status: any } | null;
+    },
+    enabled: !!linkedProject?.id,
+  });
 
   return (
     <Card className="print:hidden">
@@ -149,6 +168,11 @@ const QuoteWorkflowPanel = ({
               {linkedProject.payment_status && (
                 <Badge variant="outline" className="mt-2 text-xs">
                   {linkedProject.payment_status}
+                </Badge>
+              )}
+              {projectStartApproval && (
+                <Badge variant="secondary" className={`mt-2 rounded-full border text-xs ${getApprovalStatusClass(projectStartApproval.status)}`}>
+                  개시 품의 {getApprovalStatusLabel(projectStartApproval.status)}
                 </Badge>
               )}
             </button>

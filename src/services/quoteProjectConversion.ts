@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatQuoteProjectTitle } from '@/utils/quoteNaming';
 import { logQuoteActivity } from '@/services/quoteActivity';
 import { projectStageToLegacyQuoteStatus } from '@/utils/quoteWorkflow';
+import { createApprovalRequest } from '@/services/approvalRequests';
 
 export interface QuoteForProjectConversion {
   id: string;
@@ -28,6 +29,8 @@ export interface ConvertedProject {
   name: string;
   status: string;
   payment_status: string | null;
+  approvalRequestId?: string | null;
+  approvalRequestError?: string | null;
 }
 
 interface ConvertQuoteToProjectParams {
@@ -45,6 +48,27 @@ const buildProjectDescription = (quote: QuoteForProjectConversion) => {
   ].filter(Boolean);
 
   return lines.join('\n');
+};
+
+const mapQuoteItemsForProject = (items: unknown) => (
+  Array.isArray(items)
+    ? items.map((item: any) => ({
+        id: item?.id,
+        name: item?.name || item?.projectName || item?.description || '견적 항목',
+        quantity: item?.quantity || 1,
+        totalPrice: item?.totalPrice || item?.total || 0,
+        material: item?.material,
+        size: item?.size || item?.sizeName,
+      }))
+    : []
+);
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message?: unknown }).message || '알 수 없는 오류');
+  }
+  return String(error || '알 수 없는 오류');
 };
 
 export async function convertQuoteToProject({
@@ -75,6 +99,21 @@ export async function convertQuoteToProject({
     companyName: quote.recipient_company,
   });
 
+  const quoteItemSnapshot = mapQuoteItemsForProject(quote.items);
+  const quoteSnapshot = {
+    sourceQuoteId: quote.id,
+    sourceQuoteNumber: quote.quote_number,
+    quoteTotal: quote.total,
+    desiredDeliveryDate: quote.desired_delivery_date || null,
+    recipientCompany: quote.recipient_company || null,
+    recipientName: quote.recipient_name || null,
+    recipientPhone: quote.recipient_phone || null,
+    recipientEmail: quote.recipient_email || null,
+    recipientAddress: quote.recipient_address || null,
+    recipientMemo: quote.recipient_memo || null,
+    items: quoteItemSnapshot,
+  };
+
   const { data: project, error: projectError } = await supabase
     .from('projects')
     .insert({
@@ -86,22 +125,7 @@ export async function convertQuoteToProject({
       contact_name: quote.recipient_name || null,
       contact_phone: quote.recipient_phone || null,
       contact_email: quote.recipient_email || null,
-      specs: {
-        sourceQuoteId: quote.id,
-        sourceQuoteNumber: quote.quote_number,
-        quoteTotal: quote.total,
-        desiredDeliveryDate: quote.desired_delivery_date || null,
-        recipientAddress: quote.recipient_address || null,
-        recipientMemo: quote.recipient_memo || null,
-        items: Array.isArray(quote.items)
-          ? quote.items.map((item: any) => ({
-              id: item?.id,
-              name: item?.name || item?.projectName || item?.description || '견적 항목',
-              quantity: item?.quantity || 1,
-              totalPrice: item?.totalPrice || 0,
-            }))
-          : [],
-      },
+      specs: quoteSnapshot,
       user_id: quote.user_id || actorId,
     } as never)
     .select('id, name, status, payment_status')
@@ -165,5 +189,37 @@ export async function convertQuoteToProject({
     console.warn('[QuoteProjectConversion] document_files link failed:', documentError);
   }
 
-  return project as ConvertedProject;
+  let approvalRequestId: string | null = null;
+  let approvalRequestError: string | null = null;
+  try {
+    approvalRequestId = await createApprovalRequest({
+      requestType: 'project_start',
+      title: `프로젝트 개시 품의 · ${project.name}`,
+      summary: `${quote.quote_number} 견적 기준 프로젝트 개시 승인 요청`,
+      amount: Number(quote.total || 0),
+      relatedQuoteId: quote.id,
+      relatedProjectId: project.id,
+      payloadSnapshot: {
+        quote: quoteSnapshot,
+        project: {
+          id: project.id,
+          name: project.name,
+          status: project.status,
+        },
+        convertedBy: {
+          actorId,
+          actorName,
+        },
+      },
+    });
+  } catch (approvalError) {
+    approvalRequestError = getErrorMessage(approvalError);
+    console.warn('[QuoteProjectConversion] project approval request failed:', approvalError);
+  }
+
+  return {
+    ...(project as ConvertedProject),
+    approvalRequestId,
+    approvalRequestError,
+  };
 }

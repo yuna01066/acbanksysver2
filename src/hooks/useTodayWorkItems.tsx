@@ -20,6 +20,7 @@ import {
   FolderOpen,
   GraduationCap,
   HardDrive,
+  ShieldCheck,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -79,6 +80,17 @@ interface DocumentSyncSummary {
   failed: number;
 }
 
+interface PendingApprovalRequest {
+  id: string;
+  request_type: string;
+  title: string;
+  summary: string | null;
+  amount: number | null;
+  requested_by_name: string | null;
+  related_project_id: string | null;
+  created_at: string;
+}
+
 const todayString = () => format(new Date(), 'yyyy-MM-dd');
 const plusDaysString = (days: number) => format(addDays(new Date(), days), 'yyyy-MM-dd');
 const TODAY_WORK_DISMISS_PREFIX = 'acbank:today-work-hidden:';
@@ -101,6 +113,9 @@ export function getNotificationPath(notification: AppNotification): string {
   }
   if (notification.type === 'attendance_correction_request') {
     return '/attendance';
+  }
+  if (notification.type === 'approval_request' || notification.type === 'approval_approved' || notification.type === 'approval_rejected') {
+    return notification.data?.projectId ? `/project-management?id=${notification.data.projectId}` : '/review-hub';
   }
   if (notification.type === 'leave_request' || notification.type === 'leave_approved' || notification.type === 'leave_rejected') {
     return '/leave-management';
@@ -281,6 +296,22 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
     staleTime: 60 * 1000,
   });
 
+  const { data: pendingApprovalRequests = [], isLoading: approvalsLoading } = useQuery({
+    queryKey: ['today-work-pending-approval-requests', canReview],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('approval_requests')
+        .select('id, request_type, title, summary, amount, requested_by_name, related_project_id, created_at')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(6);
+      if (error) throw error;
+      return (data || []) as PendingApprovalRequest[];
+    },
+    enabled: !!user && canReview,
+    staleTime: 60 * 1000,
+  });
+
   const { data: syncSummary = { pending: 0, failed: 0 }, isLoading: syncLoading } = useQuery({
     queryKey: ['today-work-document-sync-summary', canReview],
     queryFn: async (): Promise<DocumentSyncSummary> => {
@@ -353,6 +384,22 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
           onClick: () => navigate('/leave-management'),
           priority: 12,
           sortAt: leave.start_date,
+        });
+      });
+
+      pendingApprovalRequests.forEach((request) => {
+        items.push({
+          id: `approval-request-${request.id}`,
+          category: 'approval',
+          title: request.title,
+          description: `${request.requested_by_name || '요청자 미지정'} · ${request.amount != null ? `₩${Math.round(request.amount).toLocaleString()}` : '금액 미지정'}`,
+          label: '품의 승인',
+          tone: 'warning',
+          icon: <ShieldCheck className="h-4 w-4" />,
+          actionLabel: '승인',
+          onClick: () => navigate(request.related_project_id ? `/project-management?id=${request.related_project_id}` : '/review-hub'),
+          priority: 11,
+          sortAt: request.created_at,
         });
       });
 
@@ -495,7 +542,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
         return new Date(a.sortAt).getTime() - new Date(b.sortAt).getTime();
       })
       .slice(0, 12);
-  }, [activeProjects, calendarEvents, calendarTasks, canReview, hrTasks, navigate, pendingLeaves, syncSummary, unreadNotifications, upcomingQuotes]);
+  }, [activeProjects, calendarEvents, calendarTasks, canReview, hrTasks, navigate, pendingApprovalRequests, pendingLeaves, syncSummary, unreadNotifications, upcomingQuotes]);
 
   const visibleWorkItems = useMemo(
     () => workItems.filter((item) => !dismissedIds.includes(item.id)),
@@ -529,6 +576,6 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
     briefing,
     dismissItem,
     resetDismissedItems,
-    isLoading: quotesLoading || projectsLoading || leavesLoading || syncLoading || calendarLoading || calendarTasksLoading || hrTasksLoading,
+    isLoading: quotesLoading || projectsLoading || leavesLoading || approvalsLoading || syncLoading || calendarLoading || calendarTasksLoading || hrTasksLoading,
   };
 }

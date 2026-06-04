@@ -664,7 +664,11 @@ const SavedQuoteDetailPage = () => {
         quote_status: projectStageToLegacyQuoteStatus('contracted'),
       } as SavedQuote : prev);
       queryClient.invalidateQueries({ queryKey: ['quote-activity-history', quote.id] });
-      toast.success('견적서 기준 프로젝트가 생성되었습니다.');
+      if (project.approvalRequestError) {
+        toast.warning(`프로젝트 생성 완료, 품의 생성 실패: ${project.approvalRequestError}`);
+      } else {
+        toast.success('견적서 기준 프로젝트와 개시 품의가 생성되었습니다.');
+      }
     } catch (error) {
       console.error('Error converting quote to project:', error);
       toast.error(error instanceof Error ? error.message : '프로젝트 전환에 실패했습니다.');
