@@ -10,8 +10,9 @@ interface Props {
   recipientIds?: string[];
 }
 
-const mergeQuotes = <T extends { id: string }>(groups: T[][]) => {
-  const map = new Map<string, T>();
+type QuoteRow = { id: string; total: number | null; quote_date: string | null; project_stage: string | null };
+const mergeQuotes = (groups: QuoteRow[][]): QuoteRow[] => {
+  const map = new Map<string, QuoteRow>();
   groups.flat().forEach((quote) => map.set(quote.id, quote));
   return Array.from(map.values());
 };
@@ -20,14 +21,14 @@ const RecipientSalesStats: React.FC<Props> = ({ companyName, recipientIds = [] }
   const { data: stats } = useQuery({
     queryKey: ['recipient-sales-stats', companyName, recipientIds],
     queryFn: async () => {
-      const quoteGroups = [];
+      const quoteGroups: QuoteRow[][] = [];
       if (recipientIds.length > 0) {
         const { data, error } = await supabase
           .from('saved_quotes')
           .select('id, total, quote_date, project_stage')
           .in('recipient_id', recipientIds);
         if (error) throw error;
-        quoteGroups.push(data || []);
+        quoteGroups.push((data || []) as QuoteRow[]);
       }
 
       const { data, error } = await supabase
@@ -35,7 +36,7 @@ const RecipientSalesStats: React.FC<Props> = ({ companyName, recipientIds = [] }
         .select('id, total, quote_date, project_stage')
         .eq('recipient_company', companyName);
       if (error) throw error;
-      quoteGroups.push(data || []);
+      quoteGroups.push((data || []) as QuoteRow[]);
 
       const quotes = mergeQuotes(quoteGroups);
       const totalAmount = quotes.reduce((s, q) => s + (q.total || 0), 0);
