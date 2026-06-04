@@ -10,6 +10,7 @@ import { formatPricingVersionDisplayName } from '@/utils/pricingVersionDisplay';
 import { type QuoteStyleType } from '@/utils/quoteStyle';
 import { formatQuoteProjectTitle } from '@/utils/quoteNaming';
 import { upsertRecipientFromQuoteRecipient } from '@/services/recipientUpsert';
+import { normalizeQuoteItems } from '@/utils/quoteItemIdentity';
 
 interface SaveIssuedQuoteParams {
   userId: string;
@@ -202,12 +203,13 @@ export async function saveIssuedQuote({
   total,
   existingQuoteId,
 }: SaveIssuedQuoteParams): Promise<SaveIssuedQuoteResult> {
+  const normalizedQuotes = normalizeQuoteItems(quotes);
   const existingQuote = existingQuoteId
     ? await fetchExistingSavedQuote(existingQuoteId)
     : null;
-  const primaryPricingVersionId = quotes.find(q => q.pricingVersionId)?.pricingVersionId || null;
+  const primaryPricingVersionId = normalizedQuotes.find(q => q.pricingVersionId)?.pricingVersionId || null;
   const capturedAt = new Date().toISOString();
-  const primaryPricingSource = quotes.find(q => q.pricingVersionName || q.calculationSnapshot?.pricingVersion);
+  const primaryPricingSource = normalizedQuotes.find(q => q.pricingVersionName || q.calculationSnapshot?.pricingVersion);
   const primaryPricingVersionName = formatPricingVersionDisplayName({
     versionName: primaryPricingSource?.pricingVersionName || primaryPricingSource?.calculationSnapshot?.pricingVersion?.versionName,
     supplierName: primaryPricingSource?.calculationSnapshot?.pricingVersion?.supplierName,
@@ -302,7 +304,7 @@ export async function saveIssuedQuote({
     issuer_phone: resolvedIssuerPhone,
     issuer_department: resolvedIssuerDepartment,
     issuer_position: resolvedIssuerPosition,
-    items: quotes.map(q => ({ ...q })),
+    items: normalizedQuotes.map(q => ({ ...q })),
     pricing_version_id: primaryPricingVersionId,
     calculation_snapshot: {
       schemaVersion: 2,
@@ -315,14 +317,14 @@ export async function saveIssuedQuote({
       subtotal: Math.round(subtotal),
       tax: Math.round(tax),
       total: Math.round(total),
-      items: quotes.map(q => ({
+      items: normalizedQuotes.map(q => ({
         id: q.id,
         totalPrice: q.totalPrice,
         quantity: q.quantity,
         calculationSnapshot: q.calculationSnapshot || null,
       })),
       engineVersions: Array.from(new Set(
-        quotes
+        normalizedQuotes
           .map(q => q.calculationSnapshot?.snapshotVersion || q.calculationSnapshot?.calculationEngineVersion)
           .filter(Boolean)
       )),

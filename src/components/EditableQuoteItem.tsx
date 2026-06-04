@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -37,8 +37,8 @@ interface QuoteItem {
 interface EditableQuoteItemProps {
   item: QuoteItem;
   index: number;
-  onUpdate: (index: number, updatedItem: QuoteItem) => void;
-  onRemove: (index: number) => void;
+  onUpdate: (itemId: string, updatedItem: QuoteItem) => void;
+  onRemove: (itemId: string) => void;
   quoteId?: string;
 }
 
@@ -46,6 +46,10 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
   const [editedItem, setEditedItem] = useState<QuoteItem>(item);
+
+  useEffect(() => {
+    setEditedItem(item);
+  }, [item.id]);
 
   const handleEditInCalculator = () => {
     // 견적 데이터를 URL 파라미터로 전달하여 계산기로 이동
@@ -68,7 +72,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
       serialNumber: editedItem.serialNumber || '',
       editMode: 'saved',
       savedQuoteId: quoteId || '',
-      itemIndex: index.toString()
+      itemId: editedItem.id,
     });
     
     navigate(`/calculator?${quoteParams.toString()}`);
@@ -78,14 +82,14 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
     if (newQuantity >= 1) {
       const updated = { ...editedItem, quantity: newQuantity };
       setEditedItem(updated);
-      onUpdate(index, updated);
+      onUpdate(editedItem.id, updated);
     }
   };
 
   const handleTotalPriceChange = (newPrice: number) => {
     const updated = { ...editedItem, totalPrice: newPrice };
     setEditedItem(updated);
-    onUpdate(index, updated);
+    onUpdate(editedItem.id, updated);
   };
 
   const handleBreakdownChange = (breakdownIndex: number, field: 'label' | 'price', value: string | number) => {
@@ -100,14 +104,14 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
     const newTotalPrice = newBreakdown.reduce((sum, b) => sum + b.price, 0);
     const updated = { ...editedItem, breakdown: newBreakdown, totalPrice: newTotalPrice };
     setEditedItem(updated);
-    onUpdate(index, updated);
+    onUpdate(editedItem.id, updated);
   };
 
   const handleAddBreakdown = () => {
     const newBreakdown = [...editedItem.breakdown, { label: '새 항목', price: 0 }];
     const updated = { ...editedItem, breakdown: newBreakdown };
     setEditedItem(updated);
-    onUpdate(index, updated);
+    onUpdate(editedItem.id, updated);
   };
 
   const handleRemoveBreakdown = (breakdownIndex: number) => {
@@ -115,13 +119,13 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
     const newTotalPrice = newBreakdown.reduce((sum, b) => sum + b.price, 0);
     const updated = { ...editedItem, breakdown: newBreakdown, totalPrice: newTotalPrice };
     setEditedItem(updated);
-    onUpdate(index, updated);
+    onUpdate(editedItem.id, updated);
   };
 
   const handleFieldChange = (field: keyof QuoteItem, value: string) => {
     const updated = { ...editedItem, [field]: value };
     setEditedItem(updated);
-    onUpdate(index, updated);
+    onUpdate(editedItem.id, updated);
   };
 
   const unitPrice = editedItem.totalPrice;
@@ -182,7 +186,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onRemove(index)}
+              onClick={() => onRemove(editedItem.id)}
               className="text-red-600 border-red-300 hover:bg-red-50"
             >
               <Trash2 className="w-4 h-4" />

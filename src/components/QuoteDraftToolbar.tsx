@@ -266,6 +266,11 @@ const QuoteDraftToolbar = () => {
         {draftError && (
           <div className="mt-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
             {draftError}
+            {draftSaveStatus === 'error' && (
+              <span className="ml-1 text-red-500">
+                브라우저에는 임시 보관되며, 네트워크 복구 후 초안 저장을 다시 눌러주세요.
+              </span>
+            )}
           </div>
         )}
       </CardContent>

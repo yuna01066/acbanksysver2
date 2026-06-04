@@ -19,6 +19,7 @@ import {
 } from '@/services/quoteDrafts';
 import { detectQuoteStyleFromItems } from '@/utils/quoteStyle';
 import { secureRandomNumericString } from '@/utils/secureRandom';
+import { createQuoteItemId, normalizeQuoteItems } from '@/utils/quoteItemIdentity';
 
 export interface Quote {
   id: string;
@@ -137,6 +138,7 @@ interface QuoteContextType {
 
 const QuoteContext = createContext<QuoteContextType | undefined>(undefined);
 const QUOTE_DRAFT_STORAGE_KEY = 'acbank_quote_draft_v1';
+const USER_QUOTE_DRAFT_MIRROR_PREFIX = 'acbank_quote_draft_mirror_v1';
 const ACTIVE_DRAFT_STORAGE_PREFIX = 'acbank_active_quote_draft_id';
 
 const createBlankRecipient = (quoteNumber = ''): QuoteRecipient => ({
@@ -174,26 +176,21 @@ const restoreDate = (value: unknown): Date | null => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
-const loadLocalDraft = (): {
+const parseLocalDraftPayload = (raw: string | null): {
   quotes: Quote[];
   recipient: QuoteRecipient | null;
   quoteNumber: string;
 } => {
-  if (typeof window === 'undefined') {
-    return { quotes: [], recipient: null, quoteNumber: '' };
-  }
-
   try {
-    const raw = window.localStorage.getItem(QUOTE_DRAFT_STORAGE_KEY);
     if (!raw) return { quotes: [], recipient: null, quoteNumber: '' };
 
     const parsed = JSON.parse(raw);
     return {
       quotes: Array.isArray(parsed.quotes)
-        ? parsed.quotes.map((quote: Quote & { createdAt?: string }) => ({
+        ? normalizeQuoteItems(parsed.quotes.map((quote: Quote & { createdAt?: string }) => ({
           ...quote,
           createdAt: restoreDate(quote.createdAt) || new Date(),
-        }))
+        })))
         : [],
       recipient: parsed.recipient ? {
         ...parsed.recipient,
@@ -206,6 +203,14 @@ const loadLocalDraft = (): {
     console.warn('Failed to restore quote draft:', error);
     return { quotes: [], recipient: null, quoteNumber: '' };
   }
+};
+
+const loadLocalDraft = () => {
+  if (typeof window === 'undefined') {
+    return { quotes: [], recipient: null, quoteNumber: '' };
+  }
+
+  return parseLocalDraftPayload(window.localStorage.getItem(QUOTE_DRAFT_STORAGE_KEY));
 };
 
 export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
@@ -271,7 +276,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
       return null;
     }
 
-    const currentQuotes = quotesRef.current;
+    const currentQuotes = normalizeQuoteItems(quotesRef.current);
     const currentRecipient = buildDraftRecipient();
     const currentTitle = draftTitleRef.current || buildQuoteDraftTitle(currentRecipient);
 
@@ -326,9 +331,10 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   };
 
   const applyDraft = async (draft: QuoteDraftRecord) => {
+    const normalizedDraftItems = normalizeQuoteItems(draft.items);
     isHydratingDraftRef.current = true;
     try {
-      setQuotes(draft.items);
+      setQuotes(normalizedDraftItems);
       setRecipient(draft.recipient);
       setQuoteNumber(draft.recipient?.quoteNumber || '');
       setActiveDraftId(draft.id);
@@ -339,7 +345,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
       lastSavedSignatureRef.current = JSON.stringify({
         activeDraftId: draft.id,
         title: draft.title,
-        quotes: draft.items,
+        quotes: normalizedDraftItems,
         recipient: draft.recipient,
       });
       if (activeDraftStorageKey) window.localStorage.setItem(activeDraftStorageKey, draft.id);
@@ -359,6 +365,23 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     }
 
     window.localStorage.setItem(QUOTE_DRAFT_STORAGE_KEY, JSON.stringify({
+      quotes,
+      recipient,
+      quoteNumber,
+      savedAt: new Date().toISOString(),
+    }));
+  }, [quotes, recipient, quoteNumber, user]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !user) return;
+
+    const mirrorKey = `${USER_QUOTE_DRAFT_MIRROR_PREFIX}:${user.id}`;
+    if (quotes.length === 0 && !recipient && !quoteNumber) {
+      window.localStorage.removeItem(mirrorKey);
+      return;
+    }
+
+    window.localStorage.setItem(mirrorKey, JSON.stringify({
       quotes,
       recipient,
       quoteNumber,
@@ -416,6 +439,19 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
         }
 
         if (!hasDraftContent(quotesRef.current, recipientRef.current)) {
+          const mirrorDraft = parseLocalDraftPayload(
+            window.localStorage.getItem(`${USER_QUOTE_DRAFT_MIRROR_PREFIX}:${user.id}`)
+          );
+          if (mirrorDraft.quotes.length > 0 || mirrorDraft.recipient) {
+            setQuotes(mirrorDraft.quotes);
+            setRecipient(mirrorDraft.recipient);
+            setQuoteNumber(mirrorDraft.quoteNumber);
+            setDraftTitleState(buildQuoteDraftTitle(mirrorDraft.recipient));
+            setDraftSaveStatus('offline');
+            setDraftError('서버 초안 복구 전 로컬 임시 저장 상태를 먼저 불러왔습니다. 필요하면 초안 저장을 눌러 서버에 저장하세요.');
+            return;
+          }
+
           const drafts = await listQuoteDrafts('active');
           if (drafts.length > 0) {
             await applyDraft(drafts[0]);
@@ -462,7 +498,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   const addQuote = (quoteData: Omit<Quote, 'id' | 'createdAt'>) => {
     const newQuote: Quote = {
       ...quoteData,
-      id: Date.now().toString(),
+      id: createQuoteItemId(),
       createdAt: new Date()
     };
     setQuotes(prev => [...prev, newQuote]);

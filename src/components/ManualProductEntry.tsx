@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, ArrowRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { createQuoteItemId } from "@/utils/quoteItemIdentity";
 
 export interface ManualProductItem {
   id: string;
@@ -38,7 +39,7 @@ const PRODUCT_TYPE_OPTIONS = ['박스', '테이블/집기', '다각형/특수', 
 const BONDING_METHOD_OPTIONS = ['45도 무기포', '90도 무기포', '일반 접착', '접착 없음/별도'];
 
 const createEmptyItem = (): ManualProductItem => ({
-  id: Date.now().toString(),
+  id: createQuoteItemId(),
   itemNumber: '',
   name: '',
   quantity: 1,

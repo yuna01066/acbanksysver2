@@ -3,6 +3,7 @@ import type { Quote, QuoteRecipient } from '@/contexts/QuoteContext';
 import { detectQuoteStyleFromItems, type QuoteStyleType } from '@/utils/quoteStyle';
 import { saveIssuedQuote } from '@/services/issuedQuoteSaver';
 import { secureRandomNumericString } from '@/utils/secureRandom';
+import { normalizeQuoteItems } from '@/utils/quoteItemIdentity';
 
 export type QuoteDraftStatus = 'active' | 'issued' | 'archived';
 
@@ -60,12 +61,12 @@ export const normalizeDraftRecipient = (recipient: unknown): QuoteRecipient | nu
 
 export const normalizeDraftItems = (items: unknown): Quote[] => {
   if (!Array.isArray(items)) return [];
-  return items
+  return normalizeQuoteItems(items
     .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item))
     .map(item => ({
       ...(item as unknown as Quote),
       createdAt: restoreDate(item.createdAt) || new Date(),
-    }));
+    })));
 };
 
 const normalizeDraft = (row: any): QuoteDraftRecord => ({
@@ -105,13 +106,14 @@ export const buildQuoteDraftTitle = (recipient?: QuoteRecipient | null, fallback
 };
 
 const toDraftRow = ({ userId, title, recipient, items = [], quoteStyle }: QuoteDraftPayload) => {
-  const totals = calculateQuoteDraftTotals(items);
-  const style = quoteStyle || detectQuoteStyleFromItems(items);
+  const normalizedItems = normalizeQuoteItems(items);
+  const totals = calculateQuoteDraftTotals(normalizedItems);
+  const style = quoteStyle || detectQuoteStyleFromItems(normalizedItems);
   return {
     user_id: userId,
     title: (title || buildQuoteDraftTitle(recipient)).slice(0, 150),
     recipient: recipient || null,
-    items,
+    items: normalizedItems,
     subtotal: totals.subtotal,
     tax: totals.tax,
     total: totals.total,
@@ -156,17 +158,18 @@ export async function updateQuoteDraft(
   payload: Partial<QuoteDraftPayload> & { status?: QuoteDraftStatus; issuedQuoteId?: string | null; issuedAt?: string | null; lastOpenedAt?: string | null },
 ): Promise<QuoteDraftRecord> {
   const items = payload.items;
-  const totals = items ? calculateQuoteDraftTotals(items) : null;
+  const normalizedItems = items ? normalizeQuoteItems(items) : null;
+  const totals = normalizedItems ? calculateQuoteDraftTotals(normalizedItems) : null;
   const row: Record<string, unknown> = {};
 
   if (payload.title !== undefined) row.title = (payload.title || '새 견적 초안').slice(0, 150);
   if (payload.recipient !== undefined) row.recipient = payload.recipient;
   if (items !== undefined) {
-    row.items = items;
+    row.items = normalizedItems;
     row.subtotal = totals?.subtotal || 0;
     row.tax = totals?.tax || 0;
     row.total = totals?.total || 0;
-    row.quote_style = payload.quoteStyle || detectQuoteStyleFromItems(items);
+    row.quote_style = payload.quoteStyle || detectQuoteStyleFromItems(normalizedItems || []);
   } else if (payload.quoteStyle !== undefined) {
     row.quote_style = payload.quoteStyle;
   }
