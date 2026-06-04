@@ -33,9 +33,6 @@ verify_jwt = true
 [functions.google-drive]
 verify_jwt = true
 
-[functions.imweb-api]
-verify_jwt = false
-
 [functions.channel-talk-webhook]
 verify_jwt = false
 

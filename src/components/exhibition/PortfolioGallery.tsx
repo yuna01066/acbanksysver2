@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { useSearchParams } from 'react-router-dom';
 import {
   Upload, Trash2, Image as ImageIcon, Loader2, Plus,
   ChevronLeft, ChevronRight, Search, RefreshCw, Eye, X, Hash, Clock, TrendingUp, Pencil,
@@ -34,6 +35,16 @@ import {
   Save, RotateCcw, SlidersHorizontal, Layers, StarOff
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  getPortfolioCategoryKey,
+  getPortfolioCategoryKeywords,
+  getPortfolioCategoryLabel,
+  PORTFOLIO_CATEGORY_FILTERS,
+} from '@/lib/portfolioSearch';
+import {
+  hydratePortfolioThumbnailUrls,
+  PORTFOLIO_THUMBNAIL_BUCKET,
+} from '@/lib/portfolioThumbnails';
 
 type GalleryType = 'portfolio' | 'reference';
 
@@ -202,7 +213,6 @@ interface PortfolioGalleryProps {
 }
 
 const LEGACY_PORTFOLIO_FOLDER = ['포트폴리오'];
-const PORTFOLIO_THUMBNAIL_BUCKET = 'portfolio-thumbnails';
 const GALLERY_CONFIG: Record<GalleryType, {
   title: string;
   shortTitle: string;
@@ -293,16 +303,6 @@ const PORTFOLIO_SEARCH_SYNONYM_GROUPS = [
   ['인테리어', '공간', '쇼룸', '로비', '매장', '팝업'],
 ] as const;
 const HANGUL_INITIALS = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
-const PORTFOLIO_CATEGORY_FILTERS = [
-  { key: 'all', label: '전체', keywords: [] },
-  { key: 'interior', label: '인테리어', keywords: ['인테리어', '공간', '로비', '매장', '쇼룸', '오피스', '팝업'] },
-  { key: 'fabrication', label: '제작가공', keywords: ['제작가공', '제작', '가공', '레이저', 'cnc', '절곡', '접합'] },
-  { key: 'detail', label: '디테일', keywords: ['디테일', '마감', '코너', '접착', '모서리'] },
-  { key: 'signage', label: '사인/디스플레이', keywords: ['사인', '디스플레이', '진열', '전시', '팝업'] },
-] as const;
-
-const thumbnailSignedUrlCache = new Map<string, { url: string; expiresAt: number }>();
-
 function readJsonStorage<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -464,10 +464,6 @@ function isComposingText(event: React.KeyboardEvent): boolean {
   return Boolean(nativeEvent.isComposing) || event.keyCode === 229;
 }
 
-function getCategoryKeywords(categoryKey: string): string[] {
-  return [...(PORTFOLIO_CATEGORY_FILTERS.find(filter => filter.key === categoryKey)?.keywords || [])];
-}
-
 function makeDriveFileName(file: File): string {
   const dotIndex = file.name.lastIndexOf('.');
   const rawBase = dotIndex > 0 ? file.name.slice(0, dotIndex) : file.name;
@@ -592,51 +588,7 @@ async function fetchPortfolioDriveThumbnailFile(file: DriveFolderFile, folderId?
 }
 
 async function hydratePortfolioImages(data: PortfolioImage[]): Promise<PortfolioImage[]> {
-  const nextImages = data.map(image => ({ ...image }));
-  const pendingByBucket = new Map<string, Map<string, number[]>>();
-
-  nextImages.forEach((image, index) => {
-    if (!image.thumbnail_path) {
-      image.thumbnail_url = image.thumbnail_url || null;
-      return;
-    }
-
-    const bucket = image.thumbnail_bucket || PORTFOLIO_THUMBNAIL_BUCKET;
-    const cacheKey = `${bucket}/${image.thumbnail_path}`;
-    const cached = thumbnailSignedUrlCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      image.thumbnail_url = cached.url;
-      return;
-    }
-
-    const pathsByIndex = pendingByBucket.get(bucket) || new Map<string, number[]>();
-    const indexes = pathsByIndex.get(image.thumbnail_path) || [];
-    indexes.push(index);
-    pathsByIndex.set(image.thumbnail_path, indexes);
-    pendingByBucket.set(bucket, pathsByIndex);
-  });
-
-  await Promise.all(Array.from(pendingByBucket.entries()).map(async ([bucket, pathsByIndex]) => {
-    const paths = Array.from(pathsByIndex.keys());
-    const { data: signedUrls, error } = await supabase.storage
-      .from(bucket)
-      .createSignedUrls(paths, 60 * 60);
-    if (error || !signedUrls) return;
-
-    signedUrls.forEach((signedUrlResult) => {
-      if (!signedUrlResult.path || !signedUrlResult.signedUrl) return;
-      const indexes = pathsByIndex.get(signedUrlResult.path) || [];
-      indexes.forEach((index) => {
-        nextImages[index].thumbnail_url = signedUrlResult.signedUrl;
-      });
-      thumbnailSignedUrlCache.set(`${bucket}/${signedUrlResult.path}`, {
-        url: signedUrlResult.signedUrl,
-        expiresAt: Date.now() + 55 * 60 * 1000,
-      });
-    });
-  }));
-
-  return nextImages;
+  return hydratePortfolioThumbnailUrls(data) as Promise<PortfolioImage[]>;
 }
 
 async function fetchPortfolioListImages(postIds: string[]): Promise<Map<string, { image: PortfolioImage | null; imageCount: number }>> {
@@ -1236,6 +1188,7 @@ function SortableEditImageRow({
 
 const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) => {
   const galleryConfig = GALLERY_CONFIG[galleryType];
+  const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1260,9 +1213,9 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedPost, setSelectedPost] = useState<PortfolioPost | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || searchParams.get('search') || '');
   const [activeKeywordFilter, setActiveKeywordFilter] = useState<string | null>(null);
-  const [activeCategoryFilter, setActiveCategoryFilter] = useState('all');
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState(() => getPortfolioCategoryKey(searchParams.get('category')));
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [isManageMode, setIsManageMode] = useState(false);
   const [isConsultingMode, setIsConsultingMode] = useState(true);
@@ -1320,7 +1273,14 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
 
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const normalizedSearchQuery = deferredSearchQuery.trim();
-  const activeCategoryKeywords = useMemo(() => getCategoryKeywords(activeCategoryFilter), [activeCategoryFilter]);
+  const activeCategoryKeywords = useMemo(() => getPortfolioCategoryKeywords(activeCategoryFilter), [activeCategoryFilter]);
+
+  useEffect(() => {
+    const nextQuery = searchParams.get('q') || searchParams.get('search') || '';
+    const nextCategory = getPortfolioCategoryKey(searchParams.get('category'));
+    setSearchQuery(prev => (prev === nextQuery ? prev : nextQuery));
+    setActiveCategoryFilter(prev => (prev === nextCategory ? prev : nextCategory));
+  }, [searchParams]);
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
@@ -1496,7 +1456,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
     }
     const labelParts = [
       normalizedSearchQuery || null,
-      activeCategoryFilter !== 'all' ? PORTFOLIO_CATEGORY_FILTERS.find(filter => filter.key === activeCategoryFilter)?.label : null,
+      activeCategoryFilter !== 'all' ? getPortfolioCategoryLabel(activeCategoryFilter) : null,
       activeKeywordFilter ? `#${activeKeywordFilter}` : null,
     ].filter(Boolean);
     const nextFilter: SavedPortfolioFilter = {
