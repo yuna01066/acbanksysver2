@@ -16,6 +16,7 @@ import DashboardPortfolioQuickSearchCard from '@/components/DashboardPortfolioQu
 
 import { useAuth } from '@/contexts/AuthContext';
 import TimeGreeting from '@/components/TimeGreeting';
+import QuickAttendanceButton from '@/components/QuickAttendanceButton';
 import OnlineEmployeesCard from '@/components/OnlineEmployeesCard';
 import MeetingRequestPopup from '@/components/MeetingRequestPopup';
 import TeamChatCard from '@/components/TeamChatCard';
@@ -325,7 +326,11 @@ const Home = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
-              <TimeGreeting name={profile?.full_name || user.email?.split('@')[0] || '사용자'} avatarUrl={profile?.avatar_url} />
+              <TimeGreeting
+                name={profile?.full_name || user.email?.split('@')[0] || '사용자'}
+                avatarUrl={profile?.avatar_url}
+                attendanceAction={<QuickAttendanceButton variant="inline" />}
+              />
 
               <DailyQuoteCard />
             </div>
