@@ -1471,6 +1471,51 @@ export type Database = {
         }
         Relationships: []
       }
+      client_consultation_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          lead_id: string
+          metadata: Json
+          note: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          lead_id: string
+          metadata?: Json
+          note?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          lead_id?: string
+          metadata?: Json
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_consultation_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_consultation_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "client_consultation_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_consultation_files: {
         Row: {
           created_at: string
@@ -1515,6 +1560,62 @@ export type Database = {
           },
         ]
       }
+      client_consultation_items: {
+        Row: {
+          color_name: string | null
+          created_at: string
+          height: string | null
+          id: string
+          item_name: string | null
+          lead_id: string
+          memo: string | null
+          processing_options: string[]
+          quantity: string | null
+          sort_order: number
+          thickness: string | null
+          unit: string | null
+          width: string | null
+        }
+        Insert: {
+          color_name?: string | null
+          created_at?: string
+          height?: string | null
+          id?: string
+          item_name?: string | null
+          lead_id: string
+          memo?: string | null
+          processing_options?: string[]
+          quantity?: string | null
+          sort_order?: number
+          thickness?: string | null
+          unit?: string | null
+          width?: string | null
+        }
+        Update: {
+          color_name?: string | null
+          created_at?: string
+          height?: string | null
+          id?: string
+          item_name?: string | null
+          lead_id?: string
+          memo?: string | null
+          processing_options?: string[]
+          quantity?: string | null
+          sort_order?: number
+          thickness?: string | null
+          unit?: string | null
+          width?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_consultation_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "client_consultation_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_consultation_leads: {
         Row: {
           acrylic_type: string | null
@@ -1535,21 +1636,27 @@ export type Database = {
           delivery_address: string | null
           desired_delivery_date: string | null
           dimensions: string | null
+          follow_up_at: string | null
           id: string
           inquiry_body: string
           marketing_consent: boolean
           memo: string | null
           missing_fields: string[]
+          priority: string
           privacy_consent: boolean
           processing: string[]
           product_type: string | null
           project_id: string | null
           project_name: string | null
+          quality_score: number
           quantity: string | null
           raw_payload: Json
+          recipient_id: string | null
+          response_status: string
           sheet_size: string | null
           source: string
           status: string
+          submission_token: string | null
           submitter_ip_hash: string | null
           thickness: string | null
           updated_at: string
@@ -1574,21 +1681,27 @@ export type Database = {
           delivery_address?: string | null
           desired_delivery_date?: string | null
           dimensions?: string | null
+          follow_up_at?: string | null
           id?: string
           inquiry_body: string
           marketing_consent?: boolean
           memo?: string | null
           missing_fields?: string[]
+          priority?: string
           privacy_consent?: boolean
           processing?: string[]
           product_type?: string | null
           project_id?: string | null
           project_name?: string | null
+          quality_score?: number
           quantity?: string | null
           raw_payload?: Json
+          recipient_id?: string | null
+          response_status?: string
           sheet_size?: string | null
           source?: string
           status?: string
+          submission_token?: string | null
           submitter_ip_hash?: string | null
           thickness?: string | null
           updated_at?: string
@@ -1613,21 +1726,27 @@ export type Database = {
           delivery_address?: string | null
           desired_delivery_date?: string | null
           dimensions?: string | null
+          follow_up_at?: string | null
           id?: string
           inquiry_body?: string
           marketing_consent?: boolean
           memo?: string | null
           missing_fields?: string[]
+          priority?: string
           privacy_consent?: boolean
           processing?: string[]
           product_type?: string | null
           project_id?: string | null
           project_name?: string | null
+          quality_score?: number
           quantity?: string | null
           raw_payload?: Json
+          recipient_id?: string | null
+          response_status?: string
           sheet_size?: string | null
           source?: string
           status?: string
+          submission_token?: string | null
           submitter_ip_hash?: string | null
           thickness?: string | null
           updated_at?: string
@@ -1667,6 +1786,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_consultation_leads_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
             referencedColumns: ["id"]
           },
         ]
