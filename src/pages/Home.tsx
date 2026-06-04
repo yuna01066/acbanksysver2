@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calculator, Home as HomeIcon, Camera, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, Clock, CalendarDays, FolderOpen, Star, Package, PackageCheck, Receipt, Landmark, Palette, Images, Loader2 } from "lucide-react";
+import { Calculator, Home as HomeIcon, Camera, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, Clock, CalendarDays, FolderOpen, Star, Package, Receipt, Landmark, Palette, Images, Loader2 } from "lucide-react";
 import LoginScreen from '@/components/LoginScreen';
 import DashboardCalendarPanel from '@/components/dashboard/DashboardCalendarPanel';
 import DashboardQuickLinksSection, { type DashboardQuickLinkItem } from '@/components/dashboard/DashboardQuickLinksSection';
@@ -13,7 +13,7 @@ import ActivityFeedCard from '@/components/ActivityFeedCard';
 import TodayWorkCard from '@/components/TodayWorkCard';
 import ChannelTalkInquiryCard from '@/components/ChannelTalkInquiryCard';
 import DashboardQuoteFollowUpCard from '@/components/DashboardQuoteFollowUpCard';
-import ImwebTopItemsCard from '@/components/ImwebTopItemsCard';
+import DashboardPortfolioQuickSearchCard from '@/components/DashboardPortfolioQuickSearchCard';
 
 import { useAuth } from '@/contexts/AuthContext';
 import TimeGreeting from '@/components/TimeGreeting';
@@ -146,23 +146,6 @@ const Home = () => {
     priority: 30,
     requiresAuth: true,
     action: () => navigate("/material-orders")
-  }, {
-    id: "inventory-ops",
-    title: "재고·주문 센터",
-    icon: PackageCheck,
-    description: "아임웹 주문과 재고 통합 운영",
-    path: "/inventory-ops",
-    category: "quote-project",
-    priority: 35,
-    requiresAuth: true,
-    requiresAdmin: true,
-    action: () => {
-      if (isAdmin || isModerator) {
-        navigate("/inventory-ops");
-      } else {
-        toast.error('관리자 또는 중간관리자만 접근할 수 있습니다.');
-      }
-    }
   }, {
     id: "yield-calculator",
     title: "수율 계산기",
@@ -402,7 +385,7 @@ const Home = () => {
             </div>
             <DashboardCalendarPanel />
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <ImwebTopItemsCard />
+              <DashboardPortfolioQuickSearchCard />
               <ActivityFeedCard />
               <ProjectProgressCard />
             </div>

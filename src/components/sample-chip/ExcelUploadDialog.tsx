@@ -61,11 +61,11 @@ export const ExcelUploadDialog: React.FC<ExcelUploadDialogProps> = ({ open, onOp
       }
 
       const headers = Object.keys(jsonRows[0]);
-      const isImwebFormat = headers.includes('상품명') && headers.includes('자체 상품코드');
+      const isProductExportFormat = headers.includes('상품명') && headers.includes('자체 상품코드');
       const isSimpleFormat = headers.includes('색상명');
 
       const rows: ParsedRow[] = jsonRows.map(row => {
-        if (isImwebFormat) {
+        if (isProductExportFormat) {
           const productName = String(row['상품명'] || '').trim();
           const productCode = String(row['자체 상품코드'] || '').trim();
           const stockQty = parseInt(row['현재 재고수량']) || 0;
@@ -202,7 +202,7 @@ export const ExcelUploadDialog: React.FC<ExcelUploadDialogProps> = ({ open, onOp
           {/* Format info */}
           <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
             <p className="font-semibold mb-1">지원 형식:</p>
-            <p>• <b>아임웹 형식:</b> 상품명, 자체 상품코드, 현재 재고수량 컬럼 자동 인식</p>
+            <p>• <b>상품 엑셀 형식:</b> 상품명, 자체 상품코드, 현재 재고수량 컬럼 자동 인식</p>
             <p>• <b>간편 형식:</b> 색상명, 색상코드, 재고EA, 재고SET, 최소재고EA, 최소재고SET, 메모</p>
           </div>
 

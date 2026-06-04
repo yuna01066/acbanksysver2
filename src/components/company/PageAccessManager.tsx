@@ -27,8 +27,6 @@ const MANAGED_PAGES: PageDef[] = [
   { key: '/team-chat', label: '팀 채팅', description: '사내 메신저 및 팀 채팅' },
   { key: '/material-orders', label: '자재 발주', description: '자재 발주 요청 및 관리' },
   { key: '/tax-invoices', label: '세금계산서', description: '세금계산서 발행 및 조회' },
-  { key: '/imweb-management', label: '아임웹 관리', description: '아임웹 연동 주문/상품 관리' },
-  { key: '/inventory-ops', label: '재고·주문 센터', description: '아임웹 주문과 재고 통합 운영' },
   { key: '/exhibition-management', label: '전시회 관리', description: '전시회 일정 및 상담 관리' },
   { key: '/portfolio', label: '포트폴리오', description: '인테리어 및 제작가공 사진 포트폴리오' },
   { key: '/references', label: '레퍼런스', description: '상담용 레퍼런스 이미지 및 메모' },
