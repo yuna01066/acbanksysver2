@@ -6,7 +6,6 @@ import {
   ArrowRight,
   Building2,
   CalendarDays,
-  Check,
   CheckCircle2,
   ClipboardList,
   Copy,
@@ -44,10 +43,14 @@ import {
   CommandShortcut,
 } from '@/components/ui/command';
 import HomeLogoButton from '@/components/HomeLogoButton';
+import { CONSULTATION_UNKNOWN_OPTION, useAcrylicOptionCatalog } from '@/hooks/useAcrylicOptionCatalog';
 import { cn } from '@/lib/utils';
+
+type ConsultationType = '' | 'sheet_purchase' | 'fabrication' | 'design';
 
 type FormState = {
   source: string;
+  consultationType: ConsultationType;
   productPurpose: string;
   customerCompany: string;
   customerName: string;
@@ -57,6 +60,9 @@ type FormState = {
   projectName: string;
   productType: string;
   acrylicType: string;
+  materialQualityId: string;
+  materialName: string;
+  colorOptionId: string;
   colorName: string;
   colorCode: string;
   thickness: string;
@@ -78,9 +84,14 @@ type ConsultationItem = {
   width: string;
   height: string;
   thickness: string;
+  materialQualityId: string;
+  materialName: string;
+  colorOptionId: string;
   quantity: string;
   unit: string;
   colorName: string;
+  colorCode: string;
+  sheetSize: string;
   processingOptions: string[];
   memo: string;
 };
@@ -105,13 +116,12 @@ type SavedDraft = {
 };
 
 const steps = [
-  { id: 'contact', title: '연락처', description: '회신 받을 정보를 입력합니다.' },
-  { id: 'production', title: '제작 정보', description: '소재와 규격을 정리합니다.' },
-  { id: 'delivery', title: '자료·납기', description: '도면과 납기 정보를 첨부합니다.' },
+  { id: 'contact', title: '프로젝트·고객', description: '프로젝트와 회신 정보를 먼저 입력합니다.' },
+  { id: 'production', title: '문의 유형', description: '상담 유형에 맞는 제작 정보를 정리합니다.' },
+  { id: 'delivery', title: '자료·내용', description: '도면과 요청 내용을 첨부합니다.' },
   { id: 'review', title: '확인·동의', description: '입력 내용을 확인하고 접수합니다.' },
 ];
 
-const processingOptions = ['재단', '타공', '절곡', 'UV인쇄', '실크인쇄', '레이저각인', '접착', '조립', '현장설치'];
 const itemUnits = ['개', '세트', '장', 'm', '식'];
 const MAX_FILES = 6;
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -126,6 +136,38 @@ const productPurposeOptions = [
   { value: 'other', label: '기타', description: '도면 기준 특수 제작' },
 ];
 
+const consultationTypeOptions: Array<{
+  value: Exclude<ConsultationType, ''>;
+  label: string;
+  description: string;
+  helper: string;
+}> = [
+  {
+    value: 'sheet_purchase',
+    label: '원장 구매 문의',
+    description: '아크릴 원장 재고, 컬러, 두께, 규격 구매',
+    helper: '원장 사이즈와 수량을 중심으로 입력합니다.',
+  },
+  {
+    value: 'fabrication',
+    label: '제작·가공 문의',
+    description: '도면 기준 재단, 접착, 집기, 사인물 제작',
+    helper: '품목별 규격과 수량을 중심으로 입력합니다.',
+  },
+  {
+    value: 'design',
+    label: '디자인 문의',
+    description: '구조 제안, 레퍼런스 기반 시안, 제작 방향 상담',
+    helper: '사용 목적과 참고 자료를 중심으로 입력합니다.',
+  },
+];
+
+const consultationTypeLabels: Record<Exclude<ConsultationType, ''>, string> = {
+  sheet_purchase: '원장 구매 문의',
+  fabrication: '제작·가공 문의',
+  design: '디자인 문의',
+};
+
 const internalQuickLinks = [
   { title: '홈', description: '대시보드로 이동', path: '/', shortcut: 'Home' },
   { title: '상담 리드함', description: '아임웹 폼과 채널톡 문의 확인', path: '/channel-talk-leads?source=imweb', shortcut: 'Leads' },
@@ -136,6 +178,7 @@ const internalQuickLinks = [
 
 const initialForm = (source: string): FormState => ({
   source,
+  consultationType: '',
   productPurpose: '',
   customerCompany: '',
   customerName: '',
@@ -145,6 +188,9 @@ const initialForm = (source: string): FormState => ({
   projectName: '',
   productType: '',
   acrylicType: '',
+  materialQualityId: '',
+  materialName: '',
+  colorOptionId: '',
   colorName: '',
   colorCode: '',
   thickness: '',
@@ -172,9 +218,14 @@ function createConsultationItem(overrides: Partial<ConsultationItem> = {}): Cons
     width: '',
     height: '',
     thickness: '',
+    materialQualityId: '',
+    materialName: '',
+    colorOptionId: '',
     quantity: '',
     unit: '개',
     colorName: '',
+    colorCode: '',
+    sheetSize: '',
     processingOptions: [],
     memo: '',
     ...overrides,
@@ -191,29 +242,33 @@ function formatFileSize(size: number) {
   return `${size}B`;
 }
 
-function fieldFilled(value: string) {
-  return value.trim().length > 0;
+function fieldFilled(value?: string | null) {
+  return (value || '').trim().length > 0;
 }
 
 function itemHasContent(item: ConsultationItem) {
   return [
     item.itemName,
+    item.materialName,
     item.width,
     item.height,
     item.thickness,
     item.quantity,
     item.colorName,
+    item.sheetSize,
     item.memo,
-  ].some(fieldFilled) || item.processingOptions.length > 0;
+  ].some(fieldFilled);
 }
 
 function itemLabel(item: ConsultationItem, index: number) {
   const size = [item.width, item.height, item.thickness].filter(fieldFilled).join(' x ');
   return [
     `${index + 1}. ${item.itemName || '품목'}`,
+    item.materialName,
     size,
     item.quantity ? `${item.quantity}${item.unit || ''}` : '',
     item.colorName,
+    item.sheetSize,
   ].filter(Boolean).join(' · ');
 }
 
@@ -237,9 +292,18 @@ const ClientConsultationWidgetPage = () => {
 
   const progress = ((step + 1) / steps.length) * 100;
   const hasProductionInfo = useMemo(
-    () => fieldFilled(form.productType) || fieldFilled(form.productPurpose) || items.some(itemHasContent),
-    [form.productPurpose, form.productType, items],
+    () => (
+      fieldFilled(form.productType)
+      || fieldFilled(form.productPurpose)
+      || fieldFilled(form.materialName)
+      || fieldFilled(form.thickness)
+      || fieldFilled(form.quantity)
+      || items.some(itemHasContent)
+    ),
+    [form.materialName, form.productPurpose, form.productType, form.quantity, form.thickness, items],
   );
+  const hasMaterialSelection = fieldFilled(form.materialQualityId)
+    || items.some((item) => fieldFilled(item.materialQualityId));
 
   const currentValidation = useMemo(() => {
     const missing: string[] = [];
@@ -247,11 +311,21 @@ const ClientConsultationWidgetPage = () => {
       if (!fieldFilled(form.customerName)) missing.push('담당자명');
       if (!fieldFilled(form.customerPhone)) missing.push('연락처');
     }
-    if (step === 1 && !hasProductionInfo) missing.push('제작 품목 또는 품목 행');
+    if (step === 1) {
+      if (!form.consultationType) missing.push('문의 유형');
+      if (form.consultationType === 'sheet_purchase') {
+        if (!hasMaterialSelection) missing.push('소재');
+        if (!fieldFilled(form.quantity) && !items.some((item) => fieldFilled(item.quantity))) missing.push('수량');
+      } else if (form.consultationType === 'fabrication' && !hasProductionInfo) {
+        missing.push('제작 품목 또는 품목 행');
+      } else if (form.consultationType === 'design' && !fieldFilled(form.productPurpose) && !fieldFilled(form.productType)) {
+        missing.push('디자인 목적');
+      }
+    }
     if (step === 2 && !fieldFilled(form.inquiryBody)) missing.push('문의 내용');
     if (step === 3 && !form.privacyConsent) missing.push('개인정보 수집·이용 동의');
     return missing;
-  }, [form, hasProductionInfo, step]);
+  }, [form, hasMaterialSelection, hasProductionInfo, items, step]);
 
   const canGoNext = currentValidation.length === 0;
 
@@ -259,12 +333,15 @@ const ClientConsultationWidgetPage = () => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
-  const toggleProcessing = (value: string) => {
+  const updateConsultationType = (value: Exclude<ConsultationType, ''>) => {
     setForm((current) => ({
       ...current,
-      processing: current.processing.includes(value)
-        ? current.processing.filter((item) => item !== value)
-        : [...current.processing, value],
+      consultationType: value,
+      productType: !current.productType || Object.values(consultationTypeLabels).includes(current.productType)
+        ? consultationTypeLabels[value]
+        : current.productType,
+      sheetSize: value === 'sheet_purchase' ? current.sheetSize : '',
+      processing: [],
     }));
   };
 
@@ -285,16 +362,6 @@ const ClientConsultationWidgetPage = () => {
       const next = current.filter((item) => item.id !== id);
       return next.length > 0 ? next : [createConsultationItem()];
     });
-  };
-
-  const toggleItemProcessing = (id: string, value: string) => {
-    setItems((current) => current.map((item) => {
-      if (item.id !== id) return item;
-      const processingOptions = item.processingOptions.includes(value)
-        ? item.processingOptions.filter((option) => option !== value)
-        : [...item.processingOptions, value];
-      return { ...item, processingOptions };
-    }));
   };
 
   const moveItem = (id: string, direction: -1 | 1) => {
@@ -332,7 +399,11 @@ const ClientConsultationWidgetPage = () => {
       form.customerName,
       form.customerPhone,
       form.projectName,
+      form.consultationType,
       form.productType,
+      form.materialName,
+      form.desiredDeliveryDate,
+      form.deliveryAddress,
       form.inquiryBody,
     ].some(fieldFilled) || items.some(itemHasContent) || files.length > 0 || step > 0;
     if (!hasDraftContent) return;
@@ -354,7 +425,7 @@ const ClientConsultationWidgetPage = () => {
   const restoreSavedDraft = () => {
     if (!restoreDraft) return;
     setForm({ ...initialForm(source), ...restoreDraft.form, source });
-    setItems(restoreDraft.items?.length ? restoreDraft.items : [createConsultationItem()]);
+    setItems(restoreDraft.items?.length ? restoreDraft.items.map((item) => createConsultationItem(item)) : [createConsultationItem()]);
     setFiles((restoreDraft.files || []).map((file) => ({ ...file, previewUrl: undefined })));
     setSubmissionToken(restoreDraft.submissionToken || createSubmissionToken());
     setStep(Math.max(0, Math.min(steps.length - 1, Number(restoreDraft.step) || 0)));
@@ -451,7 +522,18 @@ const ClientConsultationWidgetPage = () => {
             submissionToken,
             items: items
               .filter(itemHasContent)
-              .map((item, index) => ({ ...item, sortOrder: index })),
+              .map((item, index) => ({
+                ...item,
+                materialQualityId: item.materialQualityId || form.materialQualityId,
+                materialName: item.materialName || form.materialName,
+                colorOptionId: item.colorOptionId || form.colorOptionId,
+                colorName: item.colorName || form.colorName,
+                colorCode: item.colorCode || form.colorCode,
+                thickness: item.thickness || form.thickness,
+                sheetSize: item.sheetSize || form.sheetSize,
+                processingOptions: [],
+                sortOrder: index,
+              })),
             files,
           },
         },
@@ -497,6 +579,7 @@ const ClientConsultationWidgetPage = () => {
             </div>
             <div className="mt-4 grid w-full max-w-lg gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-left text-sm sm:grid-cols-2">
               <Summary label="고객" value={[form.customerCompany, form.customerName].filter(Boolean).join(' · ') || '-'} />
+              <Summary label="문의 유형" value={form.consultationType ? consultationTypeLabels[form.consultationType] : '-'} />
               <Summary label="품목 행" value={`${items.filter(itemHasContent).length}개`} />
               <Summary label="첨부파일" value={`${files.length}개`} />
               <Summary label="응답 안내" value="영업일 기준 순차 확인" />
@@ -585,6 +668,9 @@ const ClientConsultationWidgetPage = () => {
           <CardContent className="p-4 sm:p-5">
             {step === 0 && (
               <div className="grid gap-4 sm:grid-cols-2">
+                <Field icon={<ClipboardList className="h-4 w-4" />} label="프로젝트명" className="sm:col-span-2">
+                  <Input value={form.projectName} onChange={(event) => updateField('projectName', event.target.value)} placeholder="예: 더현대 팝업 진열대 제작" />
+                </Field>
                 <Field icon={<Building2 className="h-4 w-4" />} label="회사명">
                   <Input value={form.customerCompany} onChange={(event) => updateField('customerCompany', event.target.value)} placeholder="회사명 또는 상호" />
                 </Field>
@@ -600,8 +686,11 @@ const ClientConsultationWidgetPage = () => {
                 <Field icon={<Mail className="h-4 w-4" />} label="이메일">
                   <Input value={form.customerEmail} onChange={(event) => updateField('customerEmail', event.target.value)} placeholder="quote@example.com" inputMode="email" />
                 </Field>
-                <Field label="프로젝트명">
-                  <Input value={form.projectName} onChange={(event) => updateField('projectName', event.target.value)} placeholder="예: 매장 사인물 제작" />
+                <Field icon={<CalendarDays className="h-4 w-4" />} label="희망 납기일">
+                  <Input type="date" value={form.desiredDeliveryDate} onChange={(event) => updateField('desiredDeliveryDate', event.target.value)} />
+                </Field>
+                <Field icon={<MapPin className="h-4 w-4" />} label="납기 주소" className="sm:col-span-2">
+                  <Input value={form.deliveryAddress} onChange={(event) => updateField('deliveryAddress', event.target.value)} placeholder="배송 또는 설치 주소" />
                 </Field>
               </div>
             )}
@@ -609,17 +698,16 @@ const ClientConsultationWidgetPage = () => {
             {step === 1 && (
               <div className="space-y-5">
                 <div>
-                  <Label className="text-sm font-semibold">제작 목적</Label>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {productPurposeOptions.map((option) => {
-                      const selected = form.productPurpose === option.value;
+                  <Label className="text-sm font-semibold">문의 유형</Label>
+                  <div className="mt-2 grid gap-2 lg:grid-cols-3">
+                    {consultationTypeOptions.map((option) => {
+                      const selected = form.consultationType === option.value;
                       return (
                         <button
                           key={option.value}
                           type="button"
                           onClick={() => {
-                            updateField('productPurpose', option.value);
-                            if (!fieldFilled(form.productType)) updateField('productType', option.label);
+                            updateConsultationType(option.value);
                           }}
                           className={cn(
                             'rounded-lg border p-3 text-left transition-colors',
@@ -635,83 +723,142 @@ const ClientConsultationWidgetPage = () => {
                     })}
                   </div>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field icon={<Package className="h-4 w-4" />} label="제작 품목">
-                    <Input value={form.productType} onChange={(event) => updateField('productType', event.target.value)} placeholder="예: 진열대, 명판, 박스, POP" />
-                  </Field>
-                  <Field label="아크릴 종류">
-                    <Input value={form.acrylicType} onChange={(event) => updateField('acrylicType', event.target.value)} placeholder="예: 투명, 백색, 흑색, 미러, 확산판" />
-                  </Field>
-                  <Field label="컬러/팬톤">
-                    <Input value={form.colorName} onChange={(event) => updateField('colorName', event.target.value)} placeholder="예: 팬톤 485C 또는 레퍼런스 컬러" />
-                  </Field>
-                  <Field label="컬러 코드">
-                    <Input value={form.colorCode} onChange={(event) => updateField('colorCode', event.target.value)} placeholder="예: #FFFFFF / Pantone" />
-                  </Field>
-                  <Field label="두께">
-                    <Input value={form.thickness} onChange={(event) => updateField('thickness', event.target.value)} placeholder="예: 3T, 5T, 10T" />
-                  </Field>
-                  <Field label="원장 사이즈">
-                    <Input value={form.sheetSize} onChange={(event) => updateField('sheetSize', event.target.value)} placeholder="예: 1220x2440, 1000x2000" />
-                  </Field>
-                  <Field label="수량">
-                    <Input value={form.quantity} onChange={(event) => updateField('quantity', event.target.value)} placeholder="예: 50개 / 2세트" />
-                  </Field>
-                  <Field label="규격">
-                    <Input value={form.dimensions} onChange={(event) => updateField('dimensions', event.target.value)} placeholder="예: 300x200x5T, 상세 규격 여러 개" />
-                  </Field>
-                </div>
-                <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <Label className="text-sm font-semibold">품목별 제작 정보</Label>
-                      <p className="mt-1 text-xs text-neutral-500">
-                        규격과 수량이 여러 개인 경우 행을 추가해 입력하면 내부 견적 초안으로 더 정확히 전환됩니다.
-                      </p>
+
+                {form.consultationType && (
+                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
+                    {consultationTypeOptions.find((option) => option.value === form.consultationType)?.helper}
+                  </div>
+                )}
+
+                {form.consultationType === 'sheet_purchase' && (
+                  <div className="space-y-4">
+                    <MaterialOptionFields
+                      materialQualityId={form.materialQualityId}
+                      thickness={form.thickness}
+                      colorOptionId={form.colorOptionId}
+                      sheetSize={form.sheetSize}
+                      showSheetSize
+                      onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
+                    />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="원장 구매 수량" required>
+                        <Input value={form.quantity} onChange={(event) => updateField('quantity', event.target.value)} placeholder="예: 3장 / 10장" />
+                      </Field>
+                      <Field label="구매 용도">
+                        <Input value={form.productType} onChange={(event) => updateField('productType', event.target.value)} placeholder="예: 매장 진열대 샘플 제작용" />
+                      </Field>
                     </div>
-                    <Button type="button" variant="outline" className="h-9 rounded-full bg-white" onClick={addItem}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      품목 추가
-                    </Button>
                   </div>
-                  <div className="mt-4 space-y-3">
-                    {items.map((item, index) => (
-                      <ConsultationItemEditor
-                        key={item.id}
-                        item={item}
-                        index={index}
-                        total={items.length}
-                        onChange={(patch) => updateItem(item.id, patch)}
-                        onRemove={() => removeItem(item.id)}
-                        onDuplicate={() => duplicateItem(item)}
-                        onMove={(direction) => moveItem(item.id, direction)}
-                        onToggleProcessing={(option) => toggleItemProcessing(item.id, option)}
-                      />
-                    ))}
+                )}
+
+                {form.consultationType === 'fabrication' && (
+                  <div className="space-y-5">
+                    <div>
+                      <Label className="text-sm font-semibold">제작 목적</Label>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {productPurposeOptions.map((option) => {
+                          const selected = form.productPurpose === option.value;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => {
+                                updateField('productPurpose', option.value);
+                                if (!fieldFilled(form.productType)) updateField('productType', option.label);
+                              }}
+                              className={cn(
+                                'rounded-lg border p-3 text-left transition-colors',
+                                selected ? 'border-neutral-950 bg-neutral-950 text-white' : 'border-neutral-200 bg-white hover:border-neutral-400',
+                              )}
+                            >
+                              <span className="text-sm font-semibold">{option.label}</span>
+                              <span className={cn('mt-1 block text-xs', selected ? 'text-neutral-200' : 'text-neutral-500')}>
+                                {option.description}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <MaterialOptionFields
+                      materialQualityId={form.materialQualityId}
+                      thickness={form.thickness}
+                      colorOptionId={form.colorOptionId}
+                      sheetSize=""
+                      showSheetSize={false}
+                      onChange={(patch) => setForm((current) => ({ ...current, ...patch, sheetSize: '' }))}
+                    />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field icon={<Package className="h-4 w-4" />} label="제작 품목">
+                        <Input value={form.productType} onChange={(event) => updateField('productType', event.target.value)} placeholder="예: 진열대, 명판, 박스, POP" />
+                      </Field>
+                      <Field label="대표 규격">
+                        <Input value={form.dimensions} onChange={(event) => updateField('dimensions', event.target.value)} placeholder="예: 300x200x5T, 상세 규격 여러 개" />
+                      </Field>
+                      <Field label="대표 수량">
+                        <Input value={form.quantity} onChange={(event) => updateField('quantity', event.target.value)} placeholder="예: 50개 / 2세트" />
+                      </Field>
+                    </div>
+                    <ItemRowsSection
+                      items={items}
+                      onAdd={addItem}
+                      onChange={updateItem}
+                      onRemove={removeItem}
+                      onDuplicate={duplicateItem}
+                      onMove={moveItem}
+                      showSheetSize={false}
+                    />
                   </div>
-                </div>
-                <div>
-                  <Label className="text-sm font-semibold">공통 가공 옵션</Label>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {processingOptions.map((option) => {
-                      const checked = form.processing.includes(option);
-                      return (
-                        <button
-                          key={option}
-                          type="button"
-                          onClick={() => toggleProcessing(option)}
-                          className={cn(
-                            'rounded-full border px-3 py-2 text-sm transition-colors',
-                            checked ? 'border-neutral-950 bg-neutral-950 text-white' : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400',
-                          )}
-                        >
-                          {checked && <Check className="mr-1 inline h-3.5 w-3.5" />}
-                          {option}
-                        </button>
-                      );
-                    })}
+                )}
+
+                {form.consultationType === 'design' && (
+                  <div className="space-y-5">
+                    <div>
+                      <Label className="text-sm font-semibold">디자인 목적</Label>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {productPurposeOptions.map((option) => {
+                          const selected = form.productPurpose === option.value;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => {
+                                updateField('productPurpose', option.value);
+                                if (!fieldFilled(form.productType)) updateField('productType', option.label);
+                              }}
+                              className={cn(
+                                'rounded-lg border p-3 text-left transition-colors',
+                                selected ? 'border-neutral-950 bg-neutral-950 text-white' : 'border-neutral-200 bg-white hover:border-neutral-400',
+                              )}
+                            >
+                              <span className="text-sm font-semibold">{option.label}</span>
+                              <span className={cn('mt-1 block text-xs', selected ? 'text-neutral-200' : 'text-neutral-500')}>
+                                {option.description}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field icon={<Package className="h-4 w-4" />} label="디자인 요청 대상">
+                        <Input value={form.productType} onChange={(event) => updateField('productType', event.target.value)} placeholder="예: 팝업 진열대 구조 제안" />
+                      </Field>
+                      <Field label="사용 위치/상황">
+                        <Input value={form.dimensions} onChange={(event) => updateField('dimensions', event.target.value)} placeholder="예: 백화점 팝업, 벽면 사인, 테이블 위 진열" />
+                      </Field>
+                    </div>
+                    <MaterialOptionFields
+                      materialQualityId={form.materialQualityId}
+                      thickness={form.thickness}
+                      colorOptionId={form.colorOptionId}
+                      sheetSize=""
+                      showSheetSize={false}
+                      optional
+                      onChange={(patch) => setForm((current) => ({ ...current, ...patch, sheetSize: '' }))}
+                    />
                   </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -789,14 +936,6 @@ const ClientConsultationWidgetPage = () => {
                     placeholder="제작 목적, 사용 위치, 원하는 마감, 참고 이미지 설명, 중요 납기 등을 적어주세요."
                   />
                 </Field>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field icon={<CalendarDays className="h-4 w-4" />} label="희망 납기일">
-                    <Input type="date" value={form.desiredDeliveryDate} onChange={(event) => updateField('desiredDeliveryDate', event.target.value)} />
-                  </Field>
-                  <Field icon={<MapPin className="h-4 w-4" />} label="납기 주소">
-                    <Input value={form.deliveryAddress} onChange={(event) => updateField('deliveryAddress', event.target.value)} placeholder="배송 또는 설치 주소" />
-                  </Field>
-                </div>
               </div>
             )}
 
@@ -804,7 +943,9 @@ const ClientConsultationWidgetPage = () => {
               <div className="space-y-5">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Summary label="고객" value={[form.customerCompany, form.customerName, form.customerPhone].filter(Boolean).join(' · ')} />
-                  <Summary label="품목" value={[form.productType, form.acrylicType, form.thickness].filter(Boolean).join(' · ') || '미입력'} />
+                  <Summary label="문의 유형" value={form.consultationType ? consultationTypeLabels[form.consultationType] : '미입력'} />
+                  <Summary label="소재" value={[form.materialName, form.thickness, form.colorName].filter(Boolean).join(' · ') || '미입력'} />
+                  <Summary label="품목" value={[form.productType, form.acrylicType].filter(Boolean).join(' · ') || '미입력'} />
                   <Summary label="규격/수량" value={[form.dimensions, form.quantity].filter(Boolean).join(' · ') || '미입력'} />
                   <Summary label="품목 행" value={`${items.filter(itemHasContent).length}개 입력`} />
                   <Summary label="납기" value={[form.desiredDeliveryDate, form.deliveryAddress].filter(Boolean).join(' · ') || '미입력'} />
@@ -952,8 +1093,20 @@ const InternalWidgetHeader = ({
   );
 };
 
-const Field = ({ label, required, icon, children }: { label: string; required?: boolean; icon?: React.ReactNode; children: React.ReactNode }) => (
-  <div className="space-y-2">
+const Field = ({
+  label,
+  required,
+  icon,
+  className,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  icon?: React.ReactNode;
+  className?: string;
+  children: React.ReactNode;
+}) => (
+  <div className={cn('space-y-2', className)}>
     <Label className="flex items-center gap-1.5 text-sm font-semibold">
       {icon}
       {label}
@@ -963,24 +1116,214 @@ const Field = ({ label, required, icon, children }: { label: string; required?: 
   </div>
 );
 
-const ConsultationItemEditor = ({
-  item,
-  index,
-  total,
+const SelectBox = ({
+  value,
+  onChange,
+  children,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  children: React.ReactNode;
+  disabled?: boolean;
+}) => (
+  <select
+    value={value}
+    onChange={(event) => onChange(event.target.value)}
+    disabled={disabled}
+    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    {children}
+  </select>
+);
+
+type MaterialPatch = Partial<Pick<FormState,
+  'materialQualityId' | 'materialName' | 'colorOptionId' | 'colorName' | 'colorCode' | 'thickness' | 'sheetSize'
+>>;
+
+const MaterialOptionFields = ({
+  materialQualityId,
+  thickness,
+  colorOptionId,
+  sheetSize,
+  showSheetSize,
+  optional,
+  compact,
+  className,
+  onChange,
+}: {
+  materialQualityId: string;
+  thickness: string;
+  colorOptionId: string;
+  sheetSize: string;
+  showSheetSize: boolean;
+  optional?: boolean;
+  compact?: boolean;
+  className?: string;
+  onChange: (patch: MaterialPatch) => void;
+}) => {
+  const { qualities, colorOptions, thicknessOptions, panelSizeOptions, isLoadingColors, isLoadingPanelSizes } =
+    useAcrylicOptionCatalog(materialQualityId, thickness);
+  const selectedQuality = qualities.find((quality) => quality.id === materialQualityId);
+
+  const handleMaterialChange = (value: string) => {
+    const quality = qualities.find((item) => item.id === value);
+    onChange({
+      materialQualityId: value,
+      materialName: value === CONSULTATION_UNKNOWN_OPTION ? '상담 후 결정' : quality?.name || '',
+      colorOptionId: '',
+      colorName: '',
+      colorCode: '',
+      thickness: '',
+      sheetSize: '',
+    });
+  };
+
+  const handleColorChange = (value: string) => {
+    const color = colorOptions.find((item) => item.id === value);
+    onChange({
+      colorOptionId: value,
+      colorName: value === CONSULTATION_UNKNOWN_OPTION ? '상담 후 결정' : color?.color_name || '',
+      colorCode: value === CONSULTATION_UNKNOWN_OPTION ? '' : color?.color_code || '',
+    });
+  };
+
+  const gridClass = compact ? 'grid gap-3 sm:grid-cols-2 xl:grid-cols-4' : 'grid gap-4 sm:grid-cols-2 lg:grid-cols-4';
+
+  return (
+    <div className={cn('rounded-lg border border-neutral-200 bg-white p-4', compact && 'p-3', className)}>
+      {!compact && (
+        <div className="mb-3">
+          <Label className="text-sm font-semibold">소재·컬러·두께</Label>
+          <p className="mt-1 text-xs text-neutral-500">
+            견적 계산기 기준 옵션을 사용합니다. 정확하지 않으면 상담 후 결정으로 남길 수 있습니다.
+          </p>
+        </div>
+      )}
+      <div className={gridClass}>
+        <Field label={optional ? '소재 선택' : '소재 선택'}>
+          <SelectBox value={materialQualityId} onChange={handleMaterialChange}>
+            <option value="">소재 선택</option>
+            <option value={CONSULTATION_UNKNOWN_OPTION}>상담 후 결정</option>
+            {qualities.map((quality) => (
+              <option key={quality.id} value={quality.id}>{quality.name}</option>
+            ))}
+          </SelectBox>
+        </Field>
+        <Field label="두께">
+          <SelectBox
+            value={thickness}
+            onChange={(value) => onChange({ thickness: value, sheetSize: '' })}
+            disabled={!materialQualityId}
+          >
+            <option value="">두께 선택</option>
+            <option value={CONSULTATION_UNKNOWN_OPTION}>상담 후 결정</option>
+            {thicknessOptions.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </SelectBox>
+        </Field>
+        <Field label="컬러">
+          <SelectBox
+            value={colorOptionId}
+            onChange={handleColorChange}
+            disabled={!materialQualityId || isLoadingColors}
+          >
+            <option value="">{isLoadingColors ? '컬러 불러오는 중' : '컬러 선택'}</option>
+            <option value={CONSULTATION_UNKNOWN_OPTION}>상담 후 결정</option>
+            {colorOptions.map((color) => (
+              <option key={color.id} value={color.id}>
+                {[color.color_name, color.pantone || color.color_code].filter(Boolean).join(' · ')}
+              </option>
+            ))}
+          </SelectBox>
+        </Field>
+        {showSheetSize && (
+          <Field label="원장 사이즈">
+            <SelectBox
+              value={sheetSize}
+              onChange={(value) => onChange({ sheetSize: value })}
+              disabled={!selectedQuality || !thickness || isLoadingPanelSizes}
+            >
+              <option value="">{isLoadingPanelSizes ? '사이즈 불러오는 중' : '원장 사이즈 선택'}</option>
+              <option value={CONSULTATION_UNKNOWN_OPTION}>상담 후 결정</option>
+              {panelSizeOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </SelectBox>
+          </Field>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ItemRowsSection = ({
+  items,
+  onAdd,
   onChange,
   onRemove,
   onDuplicate,
   onMove,
-  onToggleProcessing,
+  showSheetSize,
+}: {
+  items: ConsultationItem[];
+  onAdd: () => void;
+  onChange: (id: string, patch: Partial<ConsultationItem>) => void;
+  onRemove: (id: string) => void;
+  onDuplicate: (item: ConsultationItem) => void;
+  onMove: (id: string, direction: -1 | 1) => void;
+  showSheetSize: boolean;
+}) => (
+  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <Label className="text-sm font-semibold">품목별 제작 정보</Label>
+        <p className="mt-1 text-xs text-neutral-500">
+          규격과 수량이 여러 개인 경우 행을 추가해 입력하면 내부 견적 초안으로 더 정확히 전환됩니다.
+        </p>
+      </div>
+      <Button type="button" variant="outline" className="h-9 rounded-full bg-white" onClick={onAdd}>
+        <Plus className="mr-2 h-4 w-4" />
+        품목 추가
+      </Button>
+    </div>
+    <div className="mt-4 space-y-3">
+      {items.map((item, index) => (
+        <ConsultationItemEditor
+          key={item.id}
+          item={item}
+          index={index}
+          total={items.length}
+          showSheetSize={showSheetSize}
+          onChange={(patch) => onChange(item.id, patch)}
+          onRemove={() => onRemove(item.id)}
+          onDuplicate={() => onDuplicate(item)}
+          onMove={(direction) => onMove(item.id, direction)}
+        />
+      ))}
+    </div>
+  </div>
+);
+
+const ConsultationItemEditor = ({
+  item,
+  index,
+  total,
+  showSheetSize,
+  onChange,
+  onRemove,
+  onDuplicate,
+  onMove,
 }: {
   item: ConsultationItem;
   index: number;
   total: number;
+  showSheetSize: boolean;
   onChange: (patch: Partial<ConsultationItem>) => void;
   onRemove: () => void;
   onDuplicate: () => void;
   onMove: (direction: -1 | 1) => void;
-  onToggleProcessing: (option: string) => void;
 }) => (
   <div className="rounded-lg border border-neutral-200 bg-white p-3">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
@@ -1007,14 +1350,21 @@ const ConsultationItemEditor = ({
         <Field label="품목명">
           <Input value={item.itemName} onChange={(event) => onChange({ itemName: event.target.value })} placeholder="예: 진열대 상판" />
         </Field>
+        <MaterialOptionFields
+          materialQualityId={item.materialQualityId}
+          thickness={item.thickness}
+          colorOptionId={item.colorOptionId}
+          sheetSize={item.sheetSize}
+          showSheetSize={showSheetSize}
+          compact
+          className="sm:col-span-2 xl:col-span-4"
+          onChange={(patch) => onChange(patch as Partial<ConsultationItem>)}
+        />
         <Field label="가로">
           <Input value={item.width} onChange={(event) => onChange({ width: event.target.value })} placeholder="예: 300mm" />
         </Field>
         <Field label="세로">
           <Input value={item.height} onChange={(event) => onChange({ height: event.target.value })} placeholder="예: 200mm" />
-        </Field>
-        <Field label="두께">
-          <Input value={item.thickness} onChange={(event) => onChange({ thickness: event.target.value })} placeholder="예: 5T" />
         </Field>
         <Field label="수량">
           <Input value={item.quantity} onChange={(event) => onChange({ quantity: event.target.value })} placeholder="예: 20" />
@@ -1030,31 +1380,10 @@ const ConsultationItemEditor = ({
             ))}
           </select>
         </Field>
-        <Field label="색상">
-          <Input value={item.colorName} onChange={(event) => onChange({ colorName: event.target.value })} placeholder="예: 투명 / 팬톤 485C" />
-        </Field>
         <Field label="비고">
           <Input value={item.memo} onChange={(event) => onChange({ memo: event.target.value })} placeholder="예: 모서리 라운드" />
         </Field>
       </div>
-    </div>
-    <div className="mt-3 flex flex-wrap gap-2 border-t border-neutral-100 pt-3">
-      {processingOptions.map((option) => {
-        const checked = item.processingOptions.includes(option);
-        return (
-          <button
-            key={option}
-            type="button"
-            onClick={() => onToggleProcessing(option)}
-            className={cn(
-              'rounded-full border px-2.5 py-1.5 text-xs transition-colors',
-              checked ? 'border-neutral-950 bg-neutral-950 text-white' : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400',
-            )}
-          >
-            {option}
-          </button>
-        );
-      })}
     </div>
   </div>
 );

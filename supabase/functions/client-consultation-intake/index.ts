@@ -4,16 +4,23 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 type JsonObject = Record<string, unknown>;
 type NormalizedConsultationItem = {
   item_name: string | null;
+  material_quality_id: string | null;
+  material_name: string | null;
   width: string | null;
   height: string | null;
   thickness: string | null;
   quantity: string | null;
   unit: string | null;
+  color_option_id: string | null;
   color_name: string | null;
+  color_code: string | null;
+  sheet_size: string | null;
   processing_options: string[];
   memo: string | null;
   sort_order: number;
 };
+
+type ConsultationType = "sheet_purchase" | "fabrication" | "design";
 
 const BUCKET = "client-consultation-attachments";
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -35,6 +42,7 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif", "pdf", "zip", "doc", "docx", "xls", "xlsx"]);
 const ALLOWED_SOURCES = new Set(["imweb-acbankform", "internal-test", "manual"]);
+const ALLOWED_CONSULTATION_TYPES = new Set<ConsultationType>(["sheet_purchase", "fabrication", "design"]);
 
 function getEnv(name: string, required = true): string {
   const value = Deno.env.get(name);
@@ -158,6 +166,11 @@ function normalizeSource(value: unknown) {
   return ALLOWED_SOURCES.has(source) ? source : "imweb-acbankform";
 }
 
+function normalizeConsultationType(value: unknown): ConsultationType {
+  const next = text(value, 80) as ConsultationType;
+  return ALLOWED_CONSULTATION_TYPES.has(next) ? next : "fabrication";
+}
+
 async function sha256(value: string) {
   const bytes = new TextEncoder().encode(value);
   const hash = await crypto.subtle.digest("SHA-256", bytes);
@@ -169,10 +182,25 @@ function getClientIp(req: Request) {
   return forwarded || req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || "unknown";
 }
 
-function missingFields(payload: JsonObject) {
+function missingFields(payload: JsonObject, consultationType: ConsultationType, items: NormalizedConsultationItem[]) {
   const missing: string[] = [];
   if (!text(payload.customerName, 100)) missing.push("담당자명");
   if (!text(payload.customerPhone, 60)) missing.push("연락처");
+  if (!text(payload.consultationType, 80)) missing.push("문의 유형");
+  if (consultationType === "sheet_purchase") {
+    const hasMaterial = text(payload.materialQualityId, 120) || items.some((item) => item.material_quality_id);
+    const hasQuantity = text(payload.quantity, 120) || items.some((item) => item.quantity);
+    if (!hasMaterial) missing.push("소재");
+    if (!hasQuantity) missing.push("수량");
+  }
+  if (consultationType === "fabrication") {
+    const hasProduction = text(payload.productType, 120) || text(payload.productPurpose, 120) || items.length > 0;
+    if (!hasProduction) missing.push("제작 품목");
+  }
+  if (consultationType === "design") {
+    const hasDesignPurpose = text(payload.productPurpose, 120) || text(payload.productType, 120);
+    if (!hasDesignPurpose) missing.push("디자인 목적");
+  }
   if (!text(payload.inquiryBody, 4000)) missing.push("문의 내용");
   return missing;
 }
@@ -188,12 +216,17 @@ function normalizeItems(value: unknown): NormalizedConsultationItem[] {
         : [];
       return {
         item_name: optionalText(record.itemName ?? record.item_name, 160),
+        material_quality_id: optionalText(record.materialQualityId ?? record.material_quality_id, 120),
+        material_name: optionalText(record.materialName ?? record.material_name, 160),
         width: optionalText(record.width, 80),
         height: optionalText(record.height, 80),
         thickness: optionalText(record.thickness, 80),
         quantity: optionalText(record.quantity, 80),
         unit: optionalText(record.unit, 40),
+        color_option_id: optionalText(record.colorOptionId ?? record.color_option_id, 120),
         color_name: optionalText(record.colorName ?? record.color_name, 120),
+        color_code: optionalText(record.colorCode ?? record.color_code, 80),
+        sheet_size: optionalText(record.sheetSize ?? record.sheet_size, 120),
         processing_options: processing,
         memo: optionalText(record.memo, 500),
         sort_order: Number.isFinite(Number(record.sortOrder ?? record.sort_order))
@@ -203,11 +236,13 @@ function normalizeItems(value: unknown): NormalizedConsultationItem[] {
     })
     .filter((item) => [
       item.item_name,
+      item.material_name,
       item.width,
       item.height,
       item.thickness,
       item.quantity,
       item.color_name,
+      item.sheet_size,
       item.memo,
       item.processing_options.length ? "processing" : "",
     ].some(Boolean));
@@ -219,36 +254,45 @@ function itemSummary(items: NormalizedConsultationItem[]) {
       const size = [item.width, item.height, item.thickness].filter(Boolean).join(" x ");
       return [
         `${index + 1}. ${item.item_name || "품목"}`,
+        item.material_name,
         size,
         item.quantity ? `수량 ${item.quantity}${item.unit || ""}` : "",
-        item.color_name,
-        item.processing_options.length ? `가공 ${item.processing_options.join(", ")}` : "",
+        item.color_name ? `컬러 ${item.color_name}${item.color_code ? ` (${item.color_code})` : ""}` : "",
+        item.sheet_size ? `원장 ${item.sheet_size}` : "",
         item.memo,
       ].filter(Boolean).join(" / ");
     })
     .join("\n");
 }
 
-function qualityScore(payload: JsonObject, files: JsonObject[], items: NormalizedConsultationItem[]) {
+function qualityScore(payload: JsonObject, files: JsonObject[], items: NormalizedConsultationItem[], consultationType: ConsultationType) {
   let score = 0;
   if (text(payload.customerName, 100)) score += 10;
   if (text(payload.customerPhone, 80)) score += 10;
   if (text(payload.customerCompany, 160)) score += 5;
+  if (text(payload.projectName, 160)) score += 5;
+  if (consultationType) score += 10;
   if (text(payload.productType, 120) || text(payload.productPurpose, 120)) score += 10;
+  if (text(payload.materialName, 160) || items.some((item) => item.material_name)) score += 10;
+  if (text(payload.thickness, 80) || items.some((item) => item.thickness)) score += 5;
+  if (text(payload.colorName, 120) || items.some((item) => item.color_name)) score += 5;
+  if (consultationType === "sheet_purchase" && (text(payload.sheetSize, 120) || items.some((item) => item.sheet_size))) score += 10;
   if (items.length > 0) score += 20;
   if (items.some((item) => item.width && item.height)) score += 10;
   if (items.some((item) => item.quantity)) score += 10;
   if (text(payload.inquiryBody, 5000).length >= 20) score += 10;
   if (files.length > 0) score += 10;
   if (text(payload.desiredDeliveryDate, 20)) score += 5;
+  if (text(payload.deliveryAddress, 500)) score += 5;
   return Math.max(0, Math.min(100, score));
 }
 
 function buildSummary(payload: JsonObject) {
   return [
+    payload.consultationType,
     payload.customerCompany,
     payload.customerName,
-    payload.acrylicType,
+    payload.materialName || payload.acrylicType,
     payload.dimensions,
     payload.quantity,
   ].map((value) => text(value, 120)).filter(Boolean).join(" · ");
@@ -274,6 +318,7 @@ async function notifyReviewers(supabase: ReturnType<typeof getServiceClient>, le
     data: {
       leadId,
       source: text(payload.source, 80) || "imweb-acbankform",
+      consultationType: normalizeConsultationType(payload.consultationType),
       customerCompany: text(payload.customerCompany, 120),
       customerName: text(payload.customerName, 80),
     },
@@ -335,13 +380,14 @@ serve(async (req) => {
     return fail(origin, "개인정보 수집·이용 동의가 필요합니다.", 400);
   }
 
-  const missing = missingFields(payload);
+  const files = Array.isArray(payload.files) ? payload.files.map(asObject).slice(0, MAX_FILES) : [];
+  const items = normalizeItems(payload.items);
+  const consultationType = normalizeConsultationType(payload.consultationType);
+  const missing = missingFields(payload, consultationType, items);
   if (missing.length > 0) {
     return fail(origin, `필수 입력값이 부족합니다: ${missing.join(", ")}`, 400, { missingFields: missing });
   }
 
-  const files = Array.isArray(payload.files) ? payload.files.map(asObject).slice(0, MAX_FILES) : [];
-  const items = normalizeItems(payload.items);
   for (const file of files) {
     const fileError = validateFile({
       fileName: file.fileName || file.name,
@@ -382,11 +428,12 @@ serve(async (req) => {
 
   const row = {
     source,
+    consultation_type: consultationType,
     status: "new",
     priority: "normal",
     response_status: "not_contacted",
     submission_token: submissionToken,
-    quality_score: qualityScore(payload, files, items),
+    quality_score: qualityScore(payload, files, items, consultationType),
     customer_company: optionalText(payload.customerCompany, 160),
     customer_name: text(payload.customerName, 100),
     customer_position: optionalText(payload.customerPosition, 80),
@@ -394,7 +441,7 @@ serve(async (req) => {
     customer_email: optionalText(payload.customerEmail, 160),
     project_name: optionalText(payload.projectName, 160),
     product_type: optionalText(payload.productType, 120),
-    acrylic_type: optionalText(payload.acrylicType, 120),
+    acrylic_type: optionalText(payload.acrylicType, 120) || optionalText(payload.materialName, 160),
     color_name: optionalText(payload.colorName, 120),
     color_code: optionalText(payload.colorCode, 80),
     thickness: optionalText(payload.thickness, 80),
@@ -458,6 +505,7 @@ serve(async (req) => {
       note: "상담폼이 접수되었습니다.",
       metadata: {
         source,
+        consultationType,
         itemCount: items.length,
         fileCount: files.length,
         qualityScore: row.quality_score,

@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils';
 
 type ClientLeadStatus = 'new' | 'needs_review' | 'converted' | 'closed' | 'on_hold';
 type ClientLeadFilter = 'all' | ClientLeadStatus;
+type ConsultationType = 'sheet_purchase' | 'fabrication' | 'design';
 
 type ClientConsultationFile = {
   id: string;
@@ -57,6 +58,7 @@ type ClientConsultationLead = {
   id: string;
   source: string;
   status: ClientLeadStatus;
+  consultation_type: ConsultationType | null;
   customer_company: string | null;
   customer_name: string;
   customer_position: string | null;
@@ -98,12 +100,17 @@ type ClientConsultationItem = {
   id: string;
   lead_id: string;
   item_name: string | null;
+  material_quality_id: string | null;
+  material_name: string | null;
   width: string | null;
   height: string | null;
   thickness: string | null;
   quantity: string | null;
   unit: string | null;
+  color_option_id: string | null;
   color_name: string | null;
+  color_code: string | null;
+  sheet_size: string | null;
   processing_options: string[] | null;
   memo: string | null;
   sort_order: number | null;
@@ -165,6 +172,38 @@ const responseStatusOptions = [
   { value: 'quoted', label: '견적 전환' },
   { value: 'done', label: '종료' },
 ] as const;
+
+const consultationTypeOptions: Record<ConsultationType, { label: string; shortLabel: string }> = {
+  sheet_purchase: { label: '원장 구매 문의', shortLabel: '원장 구매' },
+  fabrication: { label: '제작·가공 문의', shortLabel: '제작·가공' },
+  design: { label: '디자인 문의', shortLabel: '디자인' },
+};
+
+function consultationTypeLabel(value?: ConsultationType | null) {
+  return value ? consultationTypeOptions[value]?.label || value : '유형 미지정';
+}
+
+function consultationTypeShortLabel(value?: ConsultationType | null) {
+  return value ? consultationTypeOptions[value]?.shortLabel || value : '미지정';
+}
+
+function productionSummary(lead: ClientConsultationLead) {
+  return [
+    lead.product_type,
+    lead.acrylic_type,
+    lead.thickness,
+    [lead.color_name, lead.color_code].filter(Boolean).join(' / '),
+    lead.sheet_size,
+  ].filter(Boolean).join(' · ') || '-';
+}
+
+function itemSizeSummary(item: ClientConsultationItem) {
+  return [item.width, item.height, item.thickness].filter(Boolean).join(' x ') || '-';
+}
+
+function itemColorSummary(item: ClientConsultationItem) {
+  return [item.color_name, item.color_code].filter(Boolean).join(' / ') || '-';
+}
 
 function formatDateTime(value: string | null | undefined) {
   if (!value) return '-';
@@ -229,6 +268,7 @@ function buildQuoteRecipient(lead: ClientConsultationLead): QuoteRecipient {
   }));
 
   const memoParts = [
+    `문의 유형: ${consultationTypeLabel(lead.consultation_type)}`,
     lead.inquiry_body,
     lead.items?.length ? `품목별 제작 정보:\n${lead.items
       .slice()
@@ -237,10 +277,11 @@ function buildQuoteRecipient(lead: ClientConsultationLead): QuoteRecipient {
         const size = [item.width, item.height, item.thickness].filter(Boolean).join(' x ');
         return [
           `${index + 1}. ${item.item_name || '품목'}`,
+          item.material_name,
           size,
           item.quantity ? `수량 ${item.quantity}${item.unit || ''}` : '',
-          item.color_name,
-          item.processing_options?.length ? `가공 ${item.processing_options.join(', ')}` : '',
+          item.color_name ? `컬러 ${item.color_name}${item.color_code ? ` (${item.color_code})` : ''}` : '',
+          item.sheet_size ? `원장 ${item.sheet_size}` : '',
           item.memo,
         ].filter(Boolean).join(' / ');
       }).join('\n')}` : '',
@@ -251,7 +292,6 @@ function buildQuoteRecipient(lead: ClientConsultationLead): QuoteRecipient {
     lead.sheet_size ? `원장: ${lead.sheet_size}` : '',
     lead.dimensions ? `규격: ${lead.dimensions}` : '',
     lead.quantity ? `수량: ${lead.quantity}` : '',
-    lead.processing?.length ? `가공: ${lead.processing.join(', ')}` : '',
     lead.files?.length ? `첨부파일: ${lead.files.map((file) => file.file_name).join(', ')}` : '',
   ].filter(Boolean);
 
@@ -371,15 +411,23 @@ const ClientConsultationLeadInbox = () => {
         lead.project_name,
         lead.product_type,
         lead.acrylic_type,
+        lead.consultation_type ? consultationTypeLabel(lead.consultation_type) : null,
+        lead.color_name,
+        lead.color_code,
+        lead.sheet_size,
         lead.dimensions,
         lead.inquiry_body,
         ...(lead.items || []).flatMap((item) => [
           item.item_name,
+          item.material_name,
+          item.material_quality_id,
           item.width,
           item.height,
           item.thickness,
           item.quantity,
           item.color_name,
+          item.color_code,
+          item.sheet_size,
           item.memo,
         ]),
       ].filter(Boolean).join(' ').toLowerCase();
@@ -498,8 +546,10 @@ const ClientConsultationLeadInbox = () => {
           specs: {
             source: 'client_consultation_lead',
             clientConsultationLeadId: lead.id,
+            consultationType: lead.consultation_type,
             productType: lead.product_type,
             acrylicType: lead.acrylic_type,
+            materialName: lead.acrylic_type,
             color: lead.color_name,
             thickness: lead.thickness,
             sheetSize: lead.sheet_size,
@@ -511,13 +561,17 @@ const ClientConsultationLeadInbox = () => {
               .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
               .map((item) => ({
                 itemName: item.item_name,
+                materialQualityId: item.material_quality_id,
+                materialName: item.material_name,
                 width: item.width,
                 height: item.height,
                 thickness: item.thickness,
                 quantity: item.quantity,
                 unit: item.unit,
+                colorOptionId: item.color_option_id,
                 colorName: item.color_name,
-                processingOptions: item.processing_options || [],
+                colorCode: item.color_code,
+                sheetSize: item.sheet_size,
                 memo: item.memo,
               })),
             desiredDeliveryDate: lead.desired_delivery_date,
@@ -676,8 +730,13 @@ const ClientConsultationLeadInbox = () => {
                     </Badge>
                   </div>
                   <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{lead.inquiry_body}</p>
-                  <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                    <span>{formatDateTime(lead.created_at)}</span>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-2">
+                      <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px]">
+                        {consultationTypeShortLabel(lead.consultation_type)}
+                      </Badge>
+                      {formatDateTime(lead.created_at)}
+                    </span>
                     <span className="flex items-center gap-2">
                       {lead.quality_score !== null && lead.quality_score !== undefined && (
                         <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px]">
@@ -712,9 +771,14 @@ const ClientConsultationLeadInbox = () => {
                       접수 {formatDateTime(selectedLead.created_at)} · source {selectedLead.source}
                     </p>
                   </div>
-                  <Badge variant="outline" className={cn('rounded-full px-3 py-1', statusBadgeClass(selectedLead.status))}>
-                    {statusOptions.find((option) => option.value === selectedLead.status)?.label || selectedLead.status}
-                  </Badge>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline" className="rounded-full px-3 py-1">
+                      {consultationTypeShortLabel(selectedLead.consultation_type)}
+                    </Badge>
+                    <Badge variant="outline" className={cn('rounded-full px-3 py-1', statusBadgeClass(selectedLead.status))}>
+                      {statusOptions.find((option) => option.value === selectedLead.status)?.label || selectedLead.status}
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-5 p-5">
@@ -734,11 +798,12 @@ const ClientConsultationLeadInbox = () => {
                 ) : null}
                 <InfoGrid
                   items={[
+                    { icon: <MessageSquareText className="h-4 w-4" />, label: '문의 유형', value: consultationTypeLabel(selectedLead.consultation_type) },
                     { icon: <UserCheck className="h-4 w-4" />, label: '고객', value: [selectedLead.customer_company, selectedLead.customer_name, selectedLead.customer_position].filter(Boolean).join(' · ') },
                     { icon: <Phone className="h-4 w-4" />, label: '연락처', value: selectedLead.customer_phone },
                     { icon: <Mail className="h-4 w-4" />, label: '이메일', value: selectedLead.customer_email || '-' },
                     { icon: <CalendarDays className="h-4 w-4" />, label: '희망 납기', value: selectedLead.desired_delivery_date || '-' },
-                    { icon: <Package className="h-4 w-4" />, label: '제작 정보', value: [selectedLead.product_type, selectedLead.acrylic_type, selectedLead.thickness].filter(Boolean).join(' · ') || '-' },
+                    { icon: <Package className="h-4 w-4" />, label: '제작 정보', value: productionSummary(selectedLead) },
                     { icon: <MapPin className="h-4 w-4" />, label: '납기 주소', value: selectedLead.delivery_address || '-' },
                   ]}
                 />
@@ -757,12 +822,13 @@ const ClientConsultationLeadInbox = () => {
                       <table className="w-full min-w-[720px] text-left text-sm">
                         <thead className="border-b text-xs text-muted-foreground">
                           <tr>
-                            <th className="py-2 pr-3">품목</th>
-                            <th className="py-2 pr-3">규격</th>
-                            <th className="py-2 pr-3">수량</th>
-                            <th className="py-2 pr-3">색상</th>
-                            <th className="py-2 pr-3">가공</th>
-                            <th className="py-2">비고</th>
+	                            <th className="py-2 pr-3">품목</th>
+	                            <th className="py-2 pr-3">소재</th>
+	                            <th className="py-2 pr-3">규격</th>
+	                            <th className="py-2 pr-3">수량</th>
+	                            <th className="py-2 pr-3">컬러</th>
+	                            <th className="py-2 pr-3">원장</th>
+	                            <th className="py-2">비고</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -772,10 +838,11 @@ const ClientConsultationLeadInbox = () => {
                             .map((item) => (
                               <tr key={item.id} className="border-b last:border-0">
                                 <td className="py-2 pr-3 font-medium">{item.item_name || '-'}</td>
-                                <td className="py-2 pr-3">{[item.width, item.height, item.thickness].filter(Boolean).join(' x ') || '-'}</td>
+                                <td className="py-2 pr-3">{item.material_name || '-'}</td>
+                                <td className="py-2 pr-3">{itemSizeSummary(item)}</td>
                                 <td className="py-2 pr-3">{item.quantity ? `${item.quantity}${item.unit || ''}` : '-'}</td>
-                                <td className="py-2 pr-3">{item.color_name || '-'}</td>
-                                <td className="py-2 pr-3">{item.processing_options?.length ? item.processing_options.join(', ') : '-'}</td>
+                                <td className="py-2 pr-3">{itemColorSummary(item)}</td>
+                                <td className="py-2 pr-3">{item.sheet_size || '-'}</td>
                                 <td className="py-2">{item.memo || '-'}</td>
                               </tr>
                             ))}
@@ -786,15 +853,15 @@ const ClientConsultationLeadInbox = () => {
                 </div>
 
                 <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
-                  <p className="text-sm font-semibold">규격·수량·가공</p>
-                  <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                    <FieldLine label="규격" value={selectedLead.dimensions || '-'} />
-                    <FieldLine label="수량" value={selectedLead.quantity || '-'} />
-                    <FieldLine label="원장" value={selectedLead.sheet_size || '-'} />
-                    <FieldLine label="컬러" value={[selectedLead.color_name, selectedLead.color_code].filter(Boolean).join(' / ') || '-'} />
-                    <FieldLine label="가공" value={selectedLead.processing?.length ? selectedLead.processing.join(', ') : '-'} />
-                  </div>
-                </div>
+	                  <p className="text-sm font-semibold">규격·수량·소재</p>
+	                  <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+	                    <FieldLine label="규격" value={selectedLead.dimensions || '-'} />
+	                    <FieldLine label="수량" value={selectedLead.quantity || '-'} />
+	                    <FieldLine label="소재" value={selectedLead.acrylic_type || '-'} />
+	                    <FieldLine label="원장" value={selectedLead.sheet_size || '-'} />
+	                    <FieldLine label="컬러" value={[selectedLead.color_name, selectedLead.color_code].filter(Boolean).join(' / ') || '-'} />
+	                  </div>
+	                </div>
 
                 <div>
                   <p className="text-sm font-semibold">문의 내용</p>
