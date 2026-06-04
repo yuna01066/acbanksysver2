@@ -33,17 +33,17 @@ type FeedbackType = 'recognition' | 'feedback' | 'one_on_one' | 'meeting';
 type WorkStatus = 'available' | 'busy' | 'focusing' | 'meeting';
 
 const FEEDBACK_CONFIG: Record<FeedbackType, { label: string; emoji: string; placeholder: string; color: string }> = {
-  recognition: { label: '인정 보내기', emoji: '❤️', placeholder: '동료의 어떤 점이 인상적이었는지 알려주세요...', color: 'text-pink-600' },
-  feedback: { label: '피드백 보내기', emoji: '💬', placeholder: '도움이 될 만한 피드백을 남겨주세요...', color: 'text-blue-600' },
-  one_on_one: { label: '업무 요청', emoji: '🙏', placeholder: '요청할 업무 내용을 간단히 적어주세요...', color: 'text-amber-600' },
-  meeting: { label: '1:1 미팅 요청', emoji: '☕', placeholder: '미팅 주제나 이유를 간단히 적어주세요...', color: 'text-orange-600' },
+  recognition: { label: '인정 보내기', emoji: '❤️', placeholder: '동료의 어떤 점이 인상적이었는지 알려주세요...', color: 'text-muted-foreground' },
+  feedback: { label: '피드백 보내기', emoji: '💬', placeholder: '도움이 될 만한 피드백을 남겨주세요...', color: 'text-muted-foreground' },
+  one_on_one: { label: '업무 요청', emoji: '🙏', placeholder: '요청할 업무 내용을 간단히 적어주세요...', color: 'text-muted-foreground' },
+  meeting: { label: '1:1 미팅 요청', emoji: '☕', placeholder: '미팅 주제나 이유를 간단히 적어주세요...', color: 'text-muted-foreground' },
 };
 
 const STATUS_CONFIG: Record<WorkStatus, { label: string; emoji: string; color: string; borderColor: string; dotColor: string }> = {
-  available: { label: '여유', emoji: '🟢', color: 'text-green-600', borderColor: 'border-green-200 dark:border-green-800', dotColor: 'bg-green-500' },
-  busy: { label: '바쁨', emoji: '🔴', color: 'text-red-600', borderColor: 'border-red-200 dark:border-red-800', dotColor: 'bg-red-500' },
-  focusing: { label: '집중 중', emoji: '🟡', color: 'text-yellow-600', borderColor: 'border-yellow-200 dark:border-yellow-800', dotColor: 'bg-yellow-500' },
-  meeting: { label: '미팅 중', emoji: '🟣', color: 'text-purple-600', borderColor: 'border-purple-200 dark:border-purple-800', dotColor: 'bg-purple-500' },
+  available: { label: '여유', emoji: '🟢', color: 'text-muted-foreground', borderColor: 'border-border', dotColor: 'bg-green-500' },
+  busy: { label: '바쁨', emoji: '🔴', color: 'text-muted-foreground', borderColor: 'border-border', dotColor: 'bg-red-500' },
+  focusing: { label: '집중 중', emoji: '🟡', color: 'text-muted-foreground', borderColor: 'border-border', dotColor: 'bg-yellow-500' },
+  meeting: { label: '미팅 중', emoji: '🟣', color: 'text-muted-foreground', borderColor: 'border-border', dotColor: 'bg-purple-500' },
 };
 
 const OnlineEmployeesCard: React.FC = () => {
@@ -291,7 +291,7 @@ const OnlineEmployeesCard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="glass-card p-5">
+      <div className="rounded-lg border border-border bg-card p-5 shadow-none">
         <div className="flex items-center justify-center py-4">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
@@ -301,7 +301,7 @@ const OnlineEmployeesCard: React.FC = () => {
 
   return (
     <>
-      <div className="glass-card flex h-full min-h-[360px] flex-col p-5 animate-fade-in">
+      <div className="flex h-full min-h-[360px] flex-col rounded-lg border border-border bg-card p-5 shadow-none animate-fade-in">
         <div className="mb-4">
           <BrandedCardHeader
             icon={Users2}
@@ -328,14 +328,13 @@ const OnlineEmployeesCard: React.FC = () => {
                 )}
               </div>
             }
-            iconClassName="text-emerald-500"
-            iconWrapClassName="border-emerald-500/10 bg-emerald-500/10"
+            iconWrapClassName="border-border bg-card text-foreground/70"
           />
         </div>
 
         <div className="flex-1">
           {employees.length === 0 ? (
-            <div className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center">
+            <div className="flex min-h-[220px] flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-4 text-center">
               <Users2 className="mb-2 h-8 w-8 text-muted-foreground/35" />
               <p className="text-sm text-muted-foreground">현재 출근한 직원이 없습니다.</p>
             </div>
@@ -353,10 +352,10 @@ const OnlineEmployeesCard: React.FC = () => {
                           <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
                             <PopoverTrigger asChild>
                               <Avatar
-                                className={`h-14 w-14 cursor-pointer rounded-xl border ${statusCfg.borderColor} shadow-sm ring-2 ring-primary/20 transition-transform hover:scale-[1.03]`}
+                                className={`h-14 w-14 cursor-pointer rounded-lg border ${statusCfg.borderColor} shadow-none ring-2 ring-border transition-transform hover:scale-[1.03]`}
                               >
                                 <AvatarImage src={emp.avatar_url || undefined} alt={emp.user_name} className="object-cover" />
-                                <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-sm font-semibold">
+                                <AvatarFallback className="rounded-lg bg-muted text-sm font-semibold text-foreground">
                                   {emp.user_name.charAt(0)}
                                 </AvatarFallback>
                               </Avatar>
@@ -404,13 +403,13 @@ const OnlineEmployeesCard: React.FC = () => {
                         <div className="flex flex-col items-center gap-1.5">
                           <div className="relative">
                             <Avatar
-                              className={`h-12 w-12 cursor-pointer rounded-xl border ${statusCfg.borderColor} shadow-sm transition-transform hover:scale-[1.03]`}
+                              className={`h-12 w-12 cursor-pointer rounded-lg border ${statusCfg.borderColor} shadow-none transition-transform hover:scale-[1.03]`}
                               onClick={() => {
                                 setActiveEmpId(activeEmpId === emp.user_id ? null : emp.user_id);
                               }}
                             >
                               <AvatarImage src={emp.avatar_url || undefined} alt={emp.user_name} className="object-cover" />
-                              <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-sm font-semibold">
+                              <AvatarFallback className="rounded-lg bg-muted text-sm font-semibold text-foreground">
                                 {emp.user_name.charAt(0)}
                               </AvatarFallback>
                             </Avatar>
@@ -433,22 +432,22 @@ const OnlineEmployeesCard: React.FC = () => {
                             <div className="bg-card border rounded-lg shadow-lg p-1.5 flex gap-1 whitespace-nowrap">
                               <button
                                 onClick={() => { openFeedbackDialog(emp, 'recognition'); setActiveEmpId(null); }}
-                                className="p-1.5 rounded-md hover:bg-pink-50 dark:hover:bg-pink-950/30 transition-colors text-sm"
+                                className="rounded-md p-1.5 text-sm transition-colors hover:bg-muted"
                                 title="인정 보내기"
                               >❤️</button>
                               <button
                                 onClick={() => { openFeedbackDialog(emp, 'feedback'); setActiveEmpId(null); }}
-                                className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors text-sm"
+                                className="rounded-md p-1.5 text-sm transition-colors hover:bg-muted"
                                 title="피드백 보내기"
                               >💬</button>
                               <button
                                 onClick={() => { openFeedbackDialog(emp, 'one_on_one'); setActiveEmpId(null); }}
-                                className="p-1.5 rounded-md hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors text-sm"
+                                className="rounded-md p-1.5 text-sm transition-colors hover:bg-muted"
                                 title="업무 요청"
                               >🙏</button>
                               <button
                                 onClick={() => { openFeedbackDialog(emp, 'meeting'); setActiveEmpId(null); }}
-                                className="p-1.5 rounded-md hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-colors text-sm"
+                                className="rounded-md p-1.5 text-sm transition-colors hover:bg-muted"
                                 title="1:1 미팅 요청"
                               >☕</button>
                             </div>
@@ -479,7 +478,7 @@ const OnlineEmployeesCard: React.FC = () => {
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                 <Avatar className="h-10 w-10 rounded-lg">
                   <AvatarImage src={selectedEmployee.avatar_url || undefined} className="object-cover" />
-                  <AvatarFallback className="rounded-lg bg-primary/10 text-primary">
+                <AvatarFallback className="rounded-lg bg-muted text-foreground">
                     {selectedEmployee.user_name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>

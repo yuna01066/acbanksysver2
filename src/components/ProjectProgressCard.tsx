@@ -75,8 +75,8 @@ function getNotionProgress(startDate: string, endDate: string, status: string): 
 
 const STATUS_COLORS: Record<string, string> = {
   'not started': 'text-muted-foreground',
-  'in progress': 'text-amber-600',
-  'done': 'text-emerald-600',
+  'in progress': 'text-muted-foreground',
+  'done': 'text-muted-foreground',
 };
 
 function getStatusLabel(status: string): string {
@@ -140,7 +140,7 @@ const ProjectProgressCard = () => {
   const hasData = notionWithProgress.length > 0 || quoteWithProgress.length > 0;
 
   return (
-    <Card className="flex h-full min-h-[160px] w-full flex-col">
+    <Card className="flex h-full min-h-[160px] w-full flex-col rounded-lg border-border bg-card shadow-none">
       <CardHeader className="pb-2">
         <BrandedCardHeader icon={FileSpreadsheet} title="프로젝트 진행률" />
       </CardHeader>
@@ -150,7 +150,7 @@ const ProjectProgressCard = () => {
             <p className="text-sm text-muted-foreground">로딩 중...</p>
           </div>
         ) : !hasData ? (
-          <div className="flex min-h-[180px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center">
+          <div className="flex min-h-[180px] flex-1 flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-4 text-center">
             <FileSpreadsheet className="mb-2 h-8 w-8 text-muted-foreground/35" />
             <p className="text-sm text-muted-foreground">진행 중인 프로젝트가 없습니다</p>
           </div>
@@ -166,16 +166,16 @@ const ProjectProgressCard = () => {
                 className="block group"
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <BookOpen className="h-3 w-3 text-violet-500 shrink-0" />
-                  <span className="text-xs font-medium truncate flex-1 group-hover:text-violet-600 transition-colors">
+                  <BookOpen className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className="text-xs font-medium truncate flex-1 transition-colors group-hover:text-foreground">
                     {project.title}
                   </span>
-                  <Badge variant="outline" className={cn("text-[9px] px-1 py-0 h-4 shrink-0", STATUS_COLORS[project.status.toLowerCase()] || '')}>
+                  <Badge variant="outline" className={cn("h-4 shrink-0 border-border bg-card px-1 py-0 text-[9px]", STATUS_COLORS[project.status.toLowerCase()] || '')}>
                     {getStatusLabel(project.status)}
                   </Badge>
                   <span className="text-[10px] text-muted-foreground shrink-0">{project.progress}%</span>
                 </div>
-                <Progress value={project.progress} className="h-1.5 [&>div]:bg-violet-500" />
+                <Progress value={project.progress} className="h-1.5 bg-muted [&>div]:bg-foreground" />
                 {project.assignee && (
                   <p className="text-[10px] text-muted-foreground mt-0.5">{project.assignee}</p>
                 )}
@@ -190,16 +190,16 @@ const ProjectProgressCard = () => {
                 onClick={() => navigate(`/saved-quotes/${quote.id}`)}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <FileSpreadsheet className="h-3 w-3 text-primary shrink-0" />
-                  <span className="text-xs font-medium truncate flex-1 group-hover:text-primary transition-colors">
+                  <FileSpreadsheet className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className="text-xs font-medium truncate flex-1 transition-colors group-hover:text-foreground">
                     {quote.project_name || `견적 ${quote.quote_number}`}
                   </span>
-                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">
+                  <Badge variant="outline" className="h-4 shrink-0 border-border bg-card px-1 py-0 text-[9px] text-muted-foreground">
                     {STAGE_LABELS[quote.project_stage] || quote.project_stage}
                   </Badge>
                   <span className="text-[10px] text-muted-foreground shrink-0">{quote.progress}%</span>
                 </div>
-                <Progress value={quote.progress} className="h-1.5" />
+                <Progress value={quote.progress} className="h-1.5 bg-muted [&>div]:bg-foreground" />
               </div>
             ))}
           </div>

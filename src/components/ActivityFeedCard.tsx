@@ -22,12 +22,12 @@ interface ActivityLog {
   created_at: string;
 }
 
-const ACTION_CONFIG: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
-  quote_created: { icon: <FileText className="h-3.5 w-3.5" />, label: '견적 발행', color: 'text-green-600' },
-  quote_updated: { icon: <Edit className="h-3.5 w-3.5" />, label: '견적 수정', color: 'text-blue-600' },
-  stage_changed: { icon: <ArrowRightLeft className="h-3.5 w-3.5" />, label: '단계 변경', color: 'text-orange-600' },
-  quote_deleted: { icon: <Trash2 className="h-3.5 w-3.5" />, label: '견적 삭제', color: 'text-red-600' },
-  notion_edited: { icon: <BookOpen className="h-3.5 w-3.5" />, label: 'Notion 수정', color: 'text-purple-600' },
+const ACTION_CONFIG: Record<string, { icon: React.ReactNode; label: string; dotClassName: string }> = {
+  quote_created: { icon: <FileText className="h-3.5 w-3.5" />, label: '견적 발행', dotClassName: 'bg-emerald-500' },
+  quote_updated: { icon: <Edit className="h-3.5 w-3.5" />, label: '견적 수정', dotClassName: 'bg-muted-foreground' },
+  stage_changed: { icon: <ArrowRightLeft className="h-3.5 w-3.5" />, label: '단계 변경', dotClassName: 'bg-amber-500' },
+  quote_deleted: { icon: <Trash2 className="h-3.5 w-3.5" />, label: '견적 삭제', dotClassName: 'bg-red-500' },
+  notion_edited: { icon: <BookOpen className="h-3.5 w-3.5" />, label: 'Notion 수정', dotClassName: 'bg-muted-foreground' },
 };
 
 const ActivityFeedCard = () => {
@@ -119,7 +119,7 @@ const ActivityFeedCard = () => {
   if (!user) return null;
 
   return (
-    <Card className="flex h-full w-full flex-col">
+    <Card className="flex h-full w-full flex-col rounded-lg border-border bg-card shadow-none">
       <CardHeader className="pb-3">
         <BrandedCardHeader
           icon={Activity}
@@ -135,7 +135,7 @@ const ActivityFeedCard = () => {
       </CardHeader>
       <CardContent className="flex flex-1 flex-col pt-0">
         {allActivities.length === 0 ? (
-          <div className="flex min-h-[180px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center text-sm text-muted-foreground">
+          <div className="flex min-h-[180px] flex-1 flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-4 text-center text-sm text-muted-foreground">
             <Activity className="mb-2 h-8 w-8 text-muted-foreground/35" />
             최근 활동이 없습니다.
           </div>
@@ -149,10 +149,11 @@ const ActivityFeedCard = () => {
                 return (
                   <div
                     key={item.id}
-                    className={`flex items-start gap-2.5 rounded-xl border border-border/70 bg-background/70 p-2.5 ${isClickable ? 'cursor-pointer transition-colors hover:bg-accent/35' : ''}`}
+                    className={`flex items-start gap-2.5 rounded-lg border border-border bg-card p-2.5 ${isClickable ? 'cursor-pointer transition-colors hover:bg-muted' : ''}`}
                     onClick={() => isClickable && handleClick(item)}
                   >
-                    <div className={`mt-0.5 ${config.color}`}>
+                    <div className="relative mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground">
+                      <span className={`absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full ring-2 ring-card ${config.dotClassName}`} />
                       {config.icon}
                     </div>
                     <div className="flex-1 min-w-0">

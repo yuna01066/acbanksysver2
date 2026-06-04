@@ -32,24 +32,24 @@ const ACTIVE_STATUSES = ['new', 'needs_review', 'reply_draft', 'waiting_customer
 const statusLabel = (status: string) => {
   switch (status) {
     case 'new':
-      return { label: '신규', className: 'border-sky-200 bg-sky-50 text-sky-700' };
+      return { label: '신규', dotClassName: 'bg-sky-500' };
     case 'needs_review':
-      return { label: '검토 필요', className: 'border-amber-200 bg-amber-50 text-amber-700' };
+      return { label: '검토 필요', dotClassName: 'bg-amber-500' };
     case 'reply_draft':
-      return { label: '답변 초안', className: 'border-violet-200 bg-violet-50 text-violet-700' };
+      return { label: '답변 초안', dotClassName: 'bg-violet-500' };
     case 'waiting_customer':
-      return { label: '답변 대기', className: 'border-indigo-200 bg-indigo-50 text-indigo-700' };
+      return { label: '답변 대기', dotClassName: 'bg-muted-foreground' };
     case 'analyzed':
-      return { label: '분석 완료', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' };
+      return { label: '분석 완료', dotClassName: 'bg-emerald-500' };
     default:
-      return { label: status || '미분류', className: 'border-muted bg-muted text-muted-foreground' };
+      return { label: status || '미분류', dotClassName: 'bg-muted-foreground' };
   }
 };
 
 const confidenceLabel = (confidence?: string | null) => {
-  if (confidence === 'high') return { label: '신뢰도 높음', className: 'border-emerald-200 text-emerald-700' };
-  if (confidence === 'medium') return { label: '신뢰도 보통', className: 'border-blue-200 text-blue-700' };
-  return { label: '수동 검토', className: 'border-amber-200 text-amber-700' };
+  if (confidence === 'high') return { label: '신뢰도 높음', dotClassName: 'bg-emerald-500' };
+  if (confidence === 'medium') return { label: '신뢰도 보통', dotClassName: 'bg-sky-500' };
+  return { label: '수동 검토', dotClassName: 'bg-amber-500' };
 };
 
 const inquiryTypeLabel = (type?: string | null) => {
@@ -108,7 +108,7 @@ const ChannelTalkInquiryCard = () => {
   }, [queryClient, user]);
 
   return (
-    <Card className="flex h-full flex-col overflow-hidden border-primary/10 bg-background/85 shadow-sm backdrop-blur">
+    <Card className="flex h-full flex-col overflow-hidden rounded-lg border-border bg-card shadow-none">
       <CardHeader className="pb-3">
         <BrandedCardHeader
           icon={MessageSquareText}
@@ -129,7 +129,7 @@ const ChannelTalkInquiryCard = () => {
             채널톡 문의를 불러오는 중입니다.
           </div>
         ) : inquiries.length === 0 ? (
-          <div className="flex h-[340px] flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 text-center sm:h-[360px]">
+          <div className="flex h-[340px] flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-4 text-center sm:h-[360px]">
             <MessageSquareText className="mb-2 h-9 w-9 text-muted-foreground/40" />
             <p className="text-sm font-medium">최근 채널톡 분석 문의가 없습니다.</p>
             <p className="mt-1 text-xs text-muted-foreground">새 문의가 분석되면 이곳에 표시됩니다.</p>
@@ -152,7 +152,7 @@ const ChannelTalkInquiryCard = () => {
                     key={inquiry.id}
                     type="button"
                     onClick={() => navigate(`/channel-talk-leads?id=${inquiry.id}`)}
-                    className="group w-full rounded-xl border bg-card/80 p-3 text-left transition-colors hover:bg-accent/40"
+                    className="group w-full rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-muted"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -162,14 +162,21 @@ const ChannelTalkInquiryCard = () => {
                       <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      <Badge variant="outline" className={cn('text-[10px]', status.className)}>{status.label}</Badge>
-                      <Badge variant="outline" className={cn('text-[10px]', confidence.className)}>{confidence.label}</Badge>
+                      <Badge variant="outline" className="border-border bg-card text-[10px] text-muted-foreground">
+                        <span className={cn('mr-1.5 h-1.5 w-1.5 rounded-full', status.dotClassName)} />
+                        {status.label}
+                      </Badge>
+                      <Badge variant="outline" className="border-border bg-card text-[10px] text-muted-foreground">
+                        <span className={cn('mr-1.5 h-1.5 w-1.5 rounded-full', confidence.dotClassName)} />
+                        {confidence.label}
+                      </Badge>
                       <Badge variant="outline" className="text-[10px]">{inquiryTypeLabel(inquiry.analysis?.inquiry_type || inquiry.inquiry_type)}</Badge>
                       {(inquiry.message_count || 0) > 1 && (
                         <Badge variant="outline" className="text-[10px]">메시지 {inquiry.message_count}건</Badge>
                       )}
                       {inquiry.missing_fields?.length > 0 && (
-                        <Badge variant="outline" className="border-amber-200 text-[10px] text-amber-700">
+                        <Badge variant="outline" className="border-border bg-card text-[10px] text-muted-foreground">
+                          <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-amber-500" />
                           누락 {inquiry.missing_fields.length}
                         </Badge>
                       )}

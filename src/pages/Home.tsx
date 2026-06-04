@@ -69,7 +69,7 @@ const Home = () => {
     // Toggle theme after half rotation
     setTimeout(() => {
       setTheme(theme === 'dark' ? 'light' : 'dark');
-      toast(theme === 'dark' ? '☀️ 라이트 모드로 전환!' : '🌙 다크 모드로 전환!', { duration: 1500 });
+      toast(theme === 'dark' ? '라이트 모드로 전환했습니다.' : '다크 모드로 전환했습니다.', { duration: 1500 });
     }, 300);
 
     setTimeout(() => setLogoSpinning(false), 700);
@@ -272,52 +272,52 @@ const Home = () => {
             </div>
             <div className="flex items-center justify-end gap-2">
               <button onClick={() => navigate('/team-chat')} title="팀챗"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-background/75 shadow-sm backdrop-blur transition-colors hover:bg-accent/40 active:scale-95">
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-none transition-colors hover:border-foreground/20 hover:bg-muted hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20">
                 <MessageCircle className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
               <button onClick={() => navigate('/my-page')} title="마이페이지"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-background/75 shadow-sm backdrop-blur transition-colors hover:bg-accent/40 active:scale-95">
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-none transition-colors hover:border-foreground/20 hover:bg-muted hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20">
                 <User className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
               <button onClick={signOut}
-                className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-border/70 bg-background/75 px-3 text-[13px] font-medium text-muted-foreground shadow-sm backdrop-blur transition-colors hover:bg-accent/40 active:scale-95 sm:px-4">
+                className="flex h-10 shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-muted-foreground shadow-none transition-colors hover:border-foreground/20 hover:bg-muted hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 sm:px-4">
                 <LogOut className="h-4 w-4" />
                 <span className="hidden xs:inline sm:inline">로그아웃</span>
               </button>
             </div>
           </div>
 
-          {/* Header – subtle metal logo, kept from the original tone */}
+          {/* Header */}
           <div className="mb-6 space-y-2 text-center animate-fade-up sm:mb-8">
-            <div className="inline-block logo-neon-wrap rounded-[22px] p-[4px]" onClick={handleLogoClick}>
+            <div className="inline-block rounded-lg border border-border bg-card px-1 py-1 shadow-none" onClick={handleLogoClick}>
               <div
                 className={cn(
-                  "cursor-pointer select-none rounded-[18px] px-8 py-2.5 logo-metal sm:px-12",
+                  "cursor-pointer select-none rounded-md px-8 py-2.5 transition-colors hover:bg-muted sm:px-12",
                   logoSpinning && "logo-spin-3d"
                 )}
               >
-                <h1 className="bg-gradient-to-b from-slate-600 to-slate-900 bg-clip-text text-3xl font-black leading-none tracking-[3px] text-transparent dark:from-slate-200 dark:to-slate-500 sm:text-[36px]">
+                <h1 className="text-3xl font-black leading-none tracking-[3px] text-foreground sm:text-[36px]">
                   ACBANK
                 </h1>
               </div>
             </div>
-            <p className="text-[11px] sm:text-[12px] font-medium tracking-[0.22em] uppercase" style={{ color: 'hsl(220 8% 42%)' }}>Management System</p>
+            <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground sm:text-[12px]">Management System</p>
           </div>
 
           <div className="mb-6 space-y-4 sm:space-y-5">
             {/* Quick icon links */}
             <div className="flex justify-center sm:justify-end">
-              <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-2xl border border-border/60 bg-background/70 p-1.5 shadow-sm backdrop-blur">
+              <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-full border border-border bg-card p-1.5 shadow-none">
                 {quickLinks.map((ql, i) => {
                   const QIcon = ql.icon;
                   return (
                     <button
                       key={i}
                       onClick={ql.action}
-                      className="group flex h-9 items-center gap-2 rounded-xl px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/45 hover:text-foreground sm:px-3"
+                      className="group flex h-9 items-center gap-2 rounded-full px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 sm:px-3"
                       title={ql.title}
                     >
-                      <QIcon className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+                      <QIcon className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
                       <span>{ql.title}</span>
                     </button>
                   );
@@ -363,7 +363,7 @@ const Home = () => {
 
           {/* Footer */}
           <div className="mt-16 text-center space-y-4">
-            <div className="glass-surface rounded-2xl p-5">
+            <div className="rounded-lg border border-border bg-card p-5 shadow-none">
               <p className="text-[12px] text-muted-foreground leading-relaxed">
                 본 프로그램은 아크뱅크 내부용 시스템 프로그램으로, 무단 복제 및 배포, 유출을 금지하고 있습니다.<br />
                 위반 시 법적인 책임을 질 수 있습니다.

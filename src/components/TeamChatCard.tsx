@@ -252,7 +252,7 @@ const TeamChatCard: React.FC = () => {
   };
 
   return (
-    <div className="glass-card flex h-[360px] flex-col animate-fade-in sm:h-[400px]">
+    <div className="flex h-[360px] flex-col rounded-lg border border-border bg-card shadow-none animate-fade-in sm:h-[400px]">
       {/* Header */}
       <div className="shrink-0 border-b border-border/70 p-4">
         <BrandedCardHeader
@@ -270,7 +270,7 @@ const TeamChatCard: React.FC = () => {
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 py-8 text-center">
+            <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center">
               <MessageSquare className="mx-auto mb-2 h-8 w-8 text-muted-foreground/35" />
               <p className="text-sm text-muted-foreground">아직 메시지가 없습니다</p>
             </div>
@@ -287,7 +287,7 @@ const TeamChatCard: React.FC = () => {
                   {!isMine && (
                     <Avatar className="h-7 w-7 rounded-lg shrink-0">
                       <AvatarImage src={msg.avatar_url || undefined} className="object-cover" />
-                      <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-xs font-semibold">
+                      <AvatarFallback className="rounded-lg bg-muted text-xs font-semibold text-foreground">
                         {msg.user_name.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
@@ -307,10 +307,10 @@ const TeamChatCard: React.FC = () => {
                         </button>
                       )}
                       <div
-                        className={`rounded-xl px-3 py-1.5 text-sm break-words shadow-sm ${
+                        className={`rounded-lg px-3 py-1.5 text-sm break-words shadow-none ${
                           isMine
-                            ? 'bg-primary/85 text-primary-foreground rounded-br-sm'
-                            : 'border border-border/70 bg-background/80 rounded-bl-sm'
+                            ? 'bg-foreground text-background rounded-br-sm'
+                            : 'border border-border bg-card rounded-bl-sm'
                         }`}
                       >
                         <MessageContent message={msg.message} isMine={isMine} />
