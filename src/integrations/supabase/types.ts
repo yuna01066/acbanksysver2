@@ -376,6 +376,44 @@ export type Database = {
           },
         ]
       }
+      calendar_event_reminders: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          is_sent: boolean
+          reminder_minutes: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          is_sent?: boolean
+          reminder_minutes: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          is_sent?: boolean
+          reminder_minutes?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_reminders_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_event_resources: {
         Row: {
           created_at: string
@@ -428,6 +466,9 @@ export type Database = {
           location: string | null
           metadata: Json
           recipient_id: string | null
+          recurrence_exception_date: string | null
+          recurrence_parent_id: string | null
+          recurrence_rule: Json | null
           source_id: string | null
           source_path: string | null
           source_subtype: string
@@ -454,6 +495,9 @@ export type Database = {
           location?: string | null
           metadata?: Json
           recipient_id?: string | null
+          recurrence_exception_date?: string | null
+          recurrence_parent_id?: string | null
+          recurrence_rule?: Json | null
           source_id?: string | null
           source_path?: string | null
           source_subtype?: string
@@ -480,6 +524,9 @@ export type Database = {
           location?: string | null
           metadata?: Json
           recipient_id?: string | null
+          recurrence_exception_date?: string | null
+          recurrence_parent_id?: string | null
+          recurrence_rule?: Json | null
           source_id?: string | null
           source_path?: string | null
           source_subtype?: string
@@ -497,6 +544,13 @@ export type Database = {
             columns: ["recipient_id"]
             isOneToOne: false
             referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_recurrence_parent_id_fkey"
+            columns: ["recurrence_parent_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
             referencedColumns: ["id"]
           },
         ]
@@ -542,6 +596,7 @@ export type Database = {
           color: string | null
           created_at: string
           display_name: string | null
+          display_order: number
           id: string
           is_visible: boolean
           subscriber_id: string
@@ -555,6 +610,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           display_name?: string | null
+          display_order?: number
           id?: string
           is_visible?: boolean
           subscriber_id: string
@@ -568,6 +624,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           display_name?: string | null
+          display_order?: number
           id?: string
           is_visible?: boolean
           subscriber_id?: string
@@ -583,6 +640,56 @@ export type Database = {
             columns: ["target_resource_id"]
             isOneToOne: false
             referencedRelation: "calendar_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          linked_event_id: string | null
+          owner_id: string
+          priority: string
+          status: string
+          task_date: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          linked_event_id?: string | null
+          owner_id: string
+          priority?: string
+          status?: string
+          task_date: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          linked_event_id?: string | null
+          owner_id?: string
+          priority?: string
+          status?: string
+          task_date?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_tasks_linked_event_id_fkey"
+            columns: ["linked_event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
             referencedColumns: ["id"]
           },
         ]
@@ -6881,6 +6988,10 @@ export type Database = {
           metadata: Json
           participant_ids: string[]
           participant_names: string[]
+          recurrence_exception_date: string
+          recurrence_parent_id: string
+          recurrence_rule: Json
+          reminder_minutes: number[]
           resource_ids: string[]
           resource_names: string[]
           source_id: string
