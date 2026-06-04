@@ -20,6 +20,7 @@ import {
 } from '@/hooks/useInternalCalendar';
 import { cn } from '@/lib/utils';
 import type { CalendarTask, InternalCalendarEvent } from '@/types/internalCalendar';
+import { MyPageEmptyState, MyPageSectionHeader } from '@/components/mypage/MyPageLayout';
 
 function overlapsDay(event: InternalCalendarEvent, day: Date) {
   const dayStart = startOfDay(day).getTime();
@@ -115,17 +116,11 @@ const MyCalendarDiarySection: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <Card className="border">
-        <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CalendarDays className="h-4 w-4 text-primary" />
-              일정·다이어리
-            </CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
-              내 일정, 할 일, 개인 메모를 날짜별로 관리합니다.
-            </p>
-          </div>
+      <MyPageSectionHeader
+        title="일정·다이어리"
+        description="내 일정, 할 일, 개인 메모를 날짜별로 관리합니다."
+        icon={<CalendarDays className="h-4 w-4" />}
+        action={(
           <div className="flex items-center gap-2">
             <Input
               type="date"
@@ -138,11 +133,11 @@ const MyCalendarDiarySection: React.FC = () => {
               <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </div>
-        </CardHeader>
-      </Card>
+        )}
+      />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <Card className="border">
+        <Card className="border shadow-none">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center justify-between text-sm">
               <span>{format(selectedDate, 'M월 d일 EEEE 일정', { locale: ko })}</span>
@@ -174,15 +169,13 @@ const MyCalendarDiarySection: React.FC = () => {
                 </div>
               </button>
             )) : (
-              <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-                이 날짜에 등록된 일정이 없습니다.
-              </div>
+              <MyPageEmptyState title="이 날짜에 등록된 일정이 없습니다." />
             )}
           </CardContent>
         </Card>
 
         <div className="space-y-4">
-          <Card className="border">
+          <Card className="border shadow-none">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2">

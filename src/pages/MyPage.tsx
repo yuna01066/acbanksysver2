@@ -14,13 +14,14 @@ import {
   User,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PageHeader, PageShell } from '@/components/layout/PageLayout';
+import { PageShell } from '@/components/layout/PageLayout';
 import EmployeeDocumentsPanel from '@/components/employee/EmployeeDocumentsPanel';
 import MyAttendanceLeaveSection from '@/components/mypage/MyAttendanceLeaveSection';
 import MyCalendarDiarySection from '@/components/mypage/MyCalendarDiarySection';
 import MyContractSalarySection from '@/components/mypage/MyContractSalarySection';
 import MyPageBusinessSection from '@/components/mypage/MyPageBusinessSection';
 import MyHrTasksSection from '@/components/mypage/MyHrTasksSection';
+import { MyPageSectionHeader } from '@/components/mypage/MyPageLayout';
 import MyPageOverview from '@/components/mypage/MyPageOverview';
 import MyProfileSelfService from '@/components/mypage/MyProfileSelfService';
 import MySecuritySection from '@/components/mypage/MySecuritySection';
@@ -66,77 +67,94 @@ const MyPage = () => {
   };
 
   return (
-    <PageShell maxWidth="7xl" className="bg-gradient-to-br from-background via-background to-primary/5">
-      <PageHeader
-        title="마이페이지"
-        description={`${profile?.full_name || user.email}님의 인사 정보, 근태, 계약, 문서, 연말정산, HR 요청을 한 곳에서 처리합니다.`}
-        icon={<User className="h-5 w-5" />}
-        actions={(
-          <Button variant="outline" onClick={signOut}>
-            로그아웃
-          </Button>
-        )}
-      />
-
-      <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
-        <div className="overflow-x-auto pb-1">
-          <TabsList className="flex h-auto w-max min-w-full justify-start gap-1 rounded-lg p-1">
-            {TAB_CONFIG.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className="min-h-10 shrink-0 gap-2 whitespace-nowrap px-3 text-xs sm:text-sm"
-                >
-                  <Icon className="h-4 w-4" />
-                  {tab.label}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+    <PageShell maxWidth="7xl" className="bg-muted/20">
+      <div className="space-y-5">
+        <div className="rounded-xl border bg-background px-5 py-4 shadow-none">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-primary">
+                <User className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-2xl font-semibold tracking-normal">마이페이지</h1>
+                <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                  {profile?.full_name || user.email}님의 근태, 계약, 문서, 연말정산, HR 요청을 한 곳에서 처리합니다.
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" className="h-10 shrink-0 rounded-full px-5" onClick={signOut}>
+              로그아웃
+            </Button>
+          </div>
         </div>
 
-        <TabsContent value="overview" className="mt-0">
-          <MyPageOverview />
-        </TabsContent>
+        <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-5">
+          <div className="sticky top-2 z-20 overflow-x-auto rounded-xl border bg-background/95 p-1 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
+            <TabsList className="flex h-auto w-max min-w-full justify-start gap-1 bg-transparent p-0">
+              {TAB_CONFIG.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className="min-h-9 shrink-0 gap-2 rounded-lg px-3 text-xs font-medium data-[state=active]:bg-muted data-[state=active]:shadow-none sm:text-sm"
+                  >
+                    <Icon className="h-4 w-4" />
+                    {tab.label}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </div>
 
-        <TabsContent value="diary" className="mt-0">
-          <MyCalendarDiarySection />
-        </TabsContent>
+          <TabsContent value="overview" className="mt-0">
+            <MyPageOverview />
+          </TabsContent>
 
-        <TabsContent value="profile" className="mt-0">
-          <MyProfileSelfService />
-        </TabsContent>
+          <TabsContent value="diary" className="mt-0">
+            <MyCalendarDiarySection />
+          </TabsContent>
 
-        <TabsContent value="attendance" className="mt-0">
-          <MyAttendanceLeaveSection />
-        </TabsContent>
+          <TabsContent value="profile" className="mt-0">
+            <MyProfileSelfService />
+          </TabsContent>
 
-        <TabsContent value="business" className="mt-0">
-          <MyPageBusinessSection />
-        </TabsContent>
+          <TabsContent value="attendance" className="mt-0">
+            <MyAttendanceLeaveSection />
+          </TabsContent>
 
-        <TabsContent value="contract" className="mt-0">
-          <MyContractSalarySection />
-        </TabsContent>
+          <TabsContent value="business" className="mt-0">
+            <MyPageBusinessSection />
+          </TabsContent>
 
-        <TabsContent value="documents" className="mt-0">
-          <EmployeeDocumentsPanel userId={user.id} />
-        </TabsContent>
+          <TabsContent value="contract" className="mt-0">
+            <MyContractSalarySection />
+          </TabsContent>
 
-        <TabsContent value="tax" className="mt-0">
-          <MyTaxSection />
-        </TabsContent>
+          <TabsContent value="documents" className="mt-0">
+            <div className="space-y-4">
+              <MyPageSectionHeader
+                title="문서함"
+                description="제출 필요 문서와 제출 완료 문서를 확인하고 업로드합니다."
+                icon={<FileText className="h-4 w-4" />}
+              />
+              <EmployeeDocumentsPanel userId={user.id} />
+            </div>
+          </TabsContent>
 
-        <TabsContent value="tasks" className="mt-0">
-          <MyHrTasksSection />
-        </TabsContent>
+          <TabsContent value="tax" className="mt-0">
+            <MyTaxSection />
+          </TabsContent>
 
-        <TabsContent value="security" className="mt-0">
-          <MySecuritySection />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="tasks" className="mt-0">
+            <MyHrTasksSection />
+          </TabsContent>
+
+          <TabsContent value="security" className="mt-0">
+            <MySecuritySection />
+          </TabsContent>
+        </Tabs>
+      </div>
     </PageShell>
   );
 };

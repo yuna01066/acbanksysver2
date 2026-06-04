@@ -18,9 +18,10 @@ import { triggerHamzzi } from '@/lib/hamzziEvents';
 
 interface QuickAttendanceButtonProps {
   onAttendanceChanged?: () => void;
+  variant?: 'default' | 'compact';
 }
 
-const QuickAttendanceButton = ({ onAttendanceChanged }: QuickAttendanceButtonProps = {}) => {
+const QuickAttendanceButton = ({ onAttendanceChanged, variant = 'default' }: QuickAttendanceButtonProps = {}) => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const [todayRecord, setTodayRecord] = useState<any>(null);
@@ -219,7 +220,7 @@ const QuickAttendanceButton = ({ onAttendanceChanged }: QuickAttendanceButtonPro
   if (fetching) {
     return (
       <Card className="h-full w-full border-primary/10 bg-background/75 shadow-sm">
-        <CardContent className="flex min-h-[104px] items-center justify-center p-4">
+        <CardContent className={`flex items-center justify-center p-4 ${variant === 'compact' ? 'min-h-[76px]' : 'min-h-[104px]'}`}>
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
@@ -233,11 +234,11 @@ const QuickAttendanceButton = ({ onAttendanceChanged }: QuickAttendanceButtonPro
   return (
     <>
       <Card className="h-full w-full border-primary/10 bg-background/75 shadow-sm">
-        <CardContent className="flex h-full min-h-[104px] items-center p-4">
+        <CardContent className={`flex h-full items-center ${variant === 'compact' ? 'min-h-[76px] p-3' : 'min-h-[104px] p-4'}`}>
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/10 bg-primary/10">
-                <Clock className="h-5 w-5 text-primary" />
+              <div className={`flex shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/10 ${variant === 'compact' ? 'h-9 w-9' : 'h-10 w-10'}`}>
+                <Clock className={`${variant === 'compact' ? 'h-4 w-4' : 'h-5 w-5'} text-primary`} />
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold">근태 관리</p>

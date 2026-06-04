@@ -17,6 +17,7 @@ import QuickAttendanceButton from '@/components/QuickAttendanceButton';
 import LeaveSummaryCards from '@/components/leave/LeaveSummaryCards';
 import LeaveTypeCards from '@/components/leave/LeaveTypeCards';
 import LeaveUsageHistory from '@/components/leave/LeaveUsageHistory';
+import { MyPageMetricCard, MyPageSectionHeader } from '@/components/mypage/MyPageLayout';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -81,44 +82,6 @@ const CorrectionStatusBadge = ({ status }: { status: string }) => {
   };
   const info = config[status] || config.pending;
   return <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', info.className)}>{info.label}</span>;
-};
-
-const MetricCard = ({
-  icon: Icon,
-  label,
-  value,
-  description,
-  tone = 'default',
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  description: string;
-  tone?: 'default' | 'success' | 'warning' | 'primary';
-}) => {
-  const toneClass = {
-    default: 'border-border bg-card text-foreground',
-    success: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300',
-    warning: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300',
-    primary: 'border-primary/20 bg-primary/5 text-primary',
-  }[tone];
-
-  return (
-    <Card className="border">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-muted-foreground">{label}</p>
-            <p className="mt-1 truncate text-2xl font-semibold tracking-normal">{value}</p>
-            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{description}</p>
-          </div>
-          <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border', toneClass)}>
-            <Icon className="h-4 w-4" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
 };
 
 const MyAttendanceLeaveSection: React.FC = () => {
@@ -326,6 +289,12 @@ const MyAttendanceLeaveSection: React.FC = () => {
 
   return (
     <div className="space-y-5">
+      <MyPageSectionHeader
+        title="근태·연차"
+        description="오늘 출퇴근, 이번 달 기록, 연차 신청과 정정 요청을 한 화면에서 처리합니다."
+        icon={<CalendarDays className="h-4 w-4" />}
+      />
+
       {!profile?.join_date && (
         <Alert>
           <AlertTitle>입사일 확인 필요</AlertTitle>
@@ -335,8 +304,8 @@ const MyAttendanceLeaveSection: React.FC = () => {
         </Alert>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,420px),1fr]">
-        <Card className="border">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,360px),1fr]">
+        <Card className="border shadow-none">
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -350,7 +319,7 @@ const MyAttendanceLeaveSection: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <QuickAttendanceButton onAttendanceChanged={refreshAttendanceQueries} />
+            <QuickAttendanceButton onAttendanceChanged={refreshAttendanceQueries} variant="compact" />
             <div className="grid grid-cols-3 gap-2 rounded-lg border bg-muted/20 p-3 text-sm">
               <div>
                 <p className="text-xs text-muted-foreground">출근</p>
@@ -373,33 +342,33 @@ const MyAttendanceLeaveSection: React.FC = () => {
         </Card>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            icon={CheckCircle2}
+          <MyPageMetricCard
+            icon={<CheckCircle2 className="h-4 w-4" />}
             label="정상 기록"
             value={`${attendanceSummary.completedDays}일`}
             description="이번 달 출퇴근이 모두 기록된 일수"
             tone="success"
           />
-          <MetricCard
-            icon={AlertCircle}
+          <MyPageMetricCard
+            icon={<AlertCircle className="h-4 w-4" />}
             label="누락·오류"
             value={`${attendanceSummary.issueCount}건`}
             description="퇴근 누락, 지각, 결근 등 확인 필요 기록"
-            tone={attendanceSummary.issueCount > 0 ? 'warning' : 'default'}
+            tone={attendanceSummary.issueCount > 0 ? 'warning' : 'neutral'}
           />
-          <MetricCard
-            icon={TimerReset}
+          <MyPageMetricCard
+            icon={<TimerReset className="h-4 w-4" />}
             label="총 근무시간"
             value={formatHours(attendanceSummary.workHours)}
             description="출퇴근이 완료된 기록 기준"
             tone="primary"
           />
-          <MetricCard
-            icon={CalendarClock}
+          <MyPageMetricCard
+            icon={<CalendarClock className="h-4 w-4" />}
             label="정정 대기"
             value={`${attendanceSummary.pendingCorrections}건`}
             description="관리자 확인을 기다리는 정정 요청"
-            tone={attendanceSummary.pendingCorrections > 0 ? 'warning' : 'default'}
+            tone={attendanceSummary.pendingCorrections > 0 ? 'warning' : 'neutral'}
           />
         </div>
       </div>
@@ -414,11 +383,12 @@ const MyAttendanceLeaveSection: React.FC = () => {
         expiredDays={leaveSummary.expiration.expiredDays}
         expiringSoonDays={leaveSummary.expiration.expiringSoonDays}
         expirationDate={leaveSummary.expiration.expirationDate}
+        compact
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr),420px]">
-        <Card className="border">
-          <CardHeader>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr),380px]">
+        <Card className="border shadow-none">
+          <CardHeader className="pb-3">
             <CardTitle className="text-base">휴가 신청</CardTitle>
           </CardHeader>
           <CardContent>
@@ -431,8 +401,8 @@ const MyAttendanceLeaveSection: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="border">
-          <CardHeader>
+        <Card className="border shadow-none">
+          <CardHeader className="pb-3">
             <CardTitle className="text-base">최근 기록</CardTitle>
           </CardHeader>
           <CardContent>
