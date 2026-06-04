@@ -196,6 +196,172 @@ export type Database = {
           },
         ]
       }
+      approval_request_events: {
+        Row: {
+          actor_id: string | null
+          actor_name: string | null
+          approval_request_id: string
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json
+          note: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name?: string | null
+          approval_request_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json
+          note?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string | null
+          approval_request_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_request_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_request_events_approval_request_id_fkey"
+            columns: ["approval_request_id"]
+            isOneToOne: false
+            referencedRelation: "approval_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approval_requests: {
+        Row: {
+          amount: number | null
+          cancelled_at: string | null
+          created_at: string
+          id: string
+          payload_snapshot: Json
+          priority: string
+          related_internal_document_id: string | null
+          related_material_order_id: string | null
+          related_project_id: string | null
+          related_quote_id: string | null
+          request_type: string
+          requested_by: string
+          requested_by_name: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewed_by_name: string | null
+          status: string
+          submitted_at: string
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          cancelled_at?: string | null
+          created_at?: string
+          id?: string
+          payload_snapshot?: Json
+          priority?: string
+          related_internal_document_id?: string | null
+          related_material_order_id?: string | null
+          related_project_id?: string | null
+          related_quote_id?: string | null
+          request_type: string
+          requested_by?: string
+          requested_by_name?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          status?: string
+          submitted_at?: string
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          cancelled_at?: string | null
+          created_at?: string
+          id?: string
+          payload_snapshot?: Json
+          priority?: string
+          related_internal_document_id?: string | null
+          related_material_order_id?: string | null
+          related_project_id?: string | null
+          related_quote_id?: string | null
+          request_type?: string
+          requested_by?: string
+          requested_by_name?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          status?: string
+          submitted_at?: string
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_requests_related_internal_document_id_fkey"
+            columns: ["related_internal_document_id"]
+            isOneToOne: false
+            referencedRelation: "internal_project_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_related_material_order_id_fkey"
+            columns: ["related_material_order_id"]
+            isOneToOne: false
+            referencedRelation: "material_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_related_project_id_fkey"
+            columns: ["related_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_related_quote_id_fkey"
+            columns: ["related_quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assistant_user_preferences: {
         Row: {
           created_at: string
@@ -1173,6 +1339,206 @@ export type Database = {
           user_name?: string
         }
         Relationships: []
+      }
+      client_consultation_files: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          id: string
+          lead_id: string
+          metadata: Json
+          mime_type: string | null
+          storage_bucket: string
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          lead_id: string
+          metadata?: Json
+          mime_type?: string | null
+          storage_bucket?: string
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          lead_id?: string
+          metadata?: Json
+          mime_type?: string | null
+          storage_bucket?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_consultation_files_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "client_consultation_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_consultation_leads: {
+        Row: {
+          acrylic_type: string | null
+          assigned_at: string | null
+          assigned_by: string | null
+          assigned_to: string | null
+          closed_at: string | null
+          color_code: string | null
+          color_name: string | null
+          converted_quote_draft_id: string | null
+          converted_quote_id: string | null
+          created_at: string
+          customer_company: string | null
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string
+          customer_position: string | null
+          delivery_address: string | null
+          desired_delivery_date: string | null
+          dimensions: string | null
+          id: string
+          inquiry_body: string
+          marketing_consent: boolean
+          memo: string | null
+          missing_fields: string[]
+          privacy_consent: boolean
+          processing: string[]
+          product_type: string | null
+          project_id: string | null
+          project_name: string | null
+          quantity: string | null
+          raw_payload: Json
+          sheet_size: string | null
+          source: string
+          status: string
+          submitter_ip_hash: string | null
+          thickness: string | null
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          acrylic_type?: string | null
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_to?: string | null
+          closed_at?: string | null
+          color_code?: string | null
+          color_name?: string | null
+          converted_quote_draft_id?: string | null
+          converted_quote_id?: string | null
+          created_at?: string
+          customer_company?: string | null
+          customer_email?: string | null
+          customer_name: string
+          customer_phone: string
+          customer_position?: string | null
+          delivery_address?: string | null
+          desired_delivery_date?: string | null
+          dimensions?: string | null
+          id?: string
+          inquiry_body: string
+          marketing_consent?: boolean
+          memo?: string | null
+          missing_fields?: string[]
+          privacy_consent?: boolean
+          processing?: string[]
+          product_type?: string | null
+          project_id?: string | null
+          project_name?: string | null
+          quantity?: string | null
+          raw_payload?: Json
+          sheet_size?: string | null
+          source?: string
+          status?: string
+          submitter_ip_hash?: string | null
+          thickness?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          acrylic_type?: string | null
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_to?: string | null
+          closed_at?: string | null
+          color_code?: string | null
+          color_name?: string | null
+          converted_quote_draft_id?: string | null
+          converted_quote_id?: string | null
+          created_at?: string
+          customer_company?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string
+          customer_position?: string | null
+          delivery_address?: string | null
+          desired_delivery_date?: string | null
+          dimensions?: string | null
+          id?: string
+          inquiry_body?: string
+          marketing_consent?: boolean
+          memo?: string | null
+          missing_fields?: string[]
+          privacy_consent?: boolean
+          processing?: string[]
+          product_type?: string | null
+          project_id?: string | null
+          project_name?: string | null
+          quantity?: string | null
+          raw_payload?: Json
+          sheet_size?: string | null
+          source?: string
+          status?: string
+          submitter_ip_hash?: string | null
+          thickness?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_consultation_leads_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_consultation_leads_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_consultation_leads_converted_quote_draft_id_fkey"
+            columns: ["converted_quote_draft_id"]
+            isOneToOne: false
+            referencedRelation: "quote_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_consultation_leads_converted_quote_id_fkey"
+            columns: ["converted_quote_id"]
+            isOneToOne: false
+            referencedRelation: "saved_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_consultation_leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       color_mixing_costs: {
         Row: {
@@ -6939,9 +7305,17 @@ export type Database = {
         Returns: boolean
       }
       can_access_feature: { Args: { _feature_key: string }; Returns: boolean }
+      can_access_project_approval: {
+        Args: { _project_id: string; _user_id?: string }
+        Returns: boolean
+      }
       can_manage_channel_talk_lead: {
         Args: { _lead_id: string; _user_id: string }
         Returns: boolean
+      }
+      cancel_approval_request: {
+        Args: { _note?: string; _request_id: string }
+        Returns: string
       }
       check_workplace_distance: {
         Args: { input_lat: number; input_lng: number }
@@ -6959,6 +7333,7 @@ export type Database = {
         }[]
       }
       cleanup_expired_quote_wizard_rows: { Args: never; Returns: number }
+      create_approval_request: { Args: { _payload: Json }; Returns: string }
       create_calendar_event: { Args: { payload: Json }; Returns: string }
       delete_calendar_event: { Args: { payload: Json }; Returns: string }
       get_assistant_allowed_shortcut_ids: {
@@ -7053,6 +7428,7 @@ export type Database = {
           width: number
         }[]
       }
+      get_profile_display_name: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -7070,8 +7446,16 @@ export type Database = {
         Returns: boolean
       }
       mark_employee_offline: { Args: never; Returns: undefined }
+      notify_approval_reviewers: {
+        Args: { _request_id: string }
+        Returns: undefined
+      }
       reject_settings_change_request: {
         Args: { _request_id: string; _review_note?: string }
+        Returns: string
+      }
+      review_approval_request: {
+        Args: { _decision: string; _request_id: string; _review_note?: string }
         Returns: string
       }
       save_assistant_shortcuts: {
