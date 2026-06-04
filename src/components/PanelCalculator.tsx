@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -149,7 +149,9 @@ interface PanelCalculatorProps {
 
 const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [rawSearchParams] = useSearchParams();
+  const searchKey = rawSearchParams.toString();
+  const searchParams = useMemo(() => new URLSearchParams(searchKey), [searchKey]);
   const resolvedInitialType: 'quote' | 'yield' = initialType === 'yield' ? 'yield' : 'quote';
   const {
     addQuote,
@@ -186,6 +188,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
   const [legacyItemIndex, setLegacyItemIndex] = useState<number | null>(null);
   const [pendingRecoveryDraft, setPendingRecoveryDraft] = useState<CalculatorRecoveryDraft | null>(null);
   const skipRecoveryPromptRef = useRef(false);
+  const restoredSearchKeyRef = useRef<string | null>(null);
   
   // 고급 옵션 상태
   const [qty, setQty] = useState<number>(1);
@@ -351,7 +354,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
       console.warn('Failed to parse calculator recovery draft:', error);
       window.localStorage.removeItem(CALCULATOR_RECOVERY_STORAGE_KEY);
     }
-  }, [searchParams]);
+  }, [searchKey, searchParams]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -412,6 +415,9 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
   
   // URL 파라미터에서 편집 데이터 복원
   useEffect(() => {
+    const restoreKey = searchKey || '__calculator_default__';
+    if (restoredSearchKeyRef.current === restoreKey) return;
+
     // addToQuote 모드: 기존 발행 견적서에 새 항목 추가
     const addToQuoteId = searchParams.get('addToQuote');
     if (addToQuoteId) {
@@ -419,6 +425,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
       setSavedQuoteId(addToQuoteId);
       setSavedQuoteItemId(null);
       setLegacyItemIndex(null);
+      restoredSearchKeyRef.current = restoreKey;
       return;
     }
 
@@ -446,6 +453,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
       if (selectedColorParam) setSelectedColor(selectedColorParam);
 
       setCurrentStep(materialParam ? 2 : 1);
+      restoredSearchKeyRef.current = restoreKey;
       return;
     }
 
@@ -461,8 +469,11 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
           : false;
 
         if (!draftQuoteIdParam || !draftQuoteExists) {
+          // Draft items may still be hydrating from the quote draft store. Do not
+          // bounce away from the calculator before that restore has a chance to finish.
+          if (draftQuoteIdParam && quotes.length === 0) return;
           toast.error('수정할 임시 견적 항목을 찾을 수 없습니다.');
-          navigate(quotes.length > 0 ? '/internal-quote' : '/calculator?type=quote', { replace: true });
+          restoredSearchKeyRef.current = restoreKey;
           return;
         }
 
@@ -533,6 +544,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         setManualProductItems([restoredManualItem]);
         setCalculatorType('quote');
         setCurrentStep(100);
+        restoredSearchKeyRef.current = restoreKey;
         return;
       }
 
@@ -682,8 +694,10 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
       } else {
         setCurrentStep(1); // 소재 선택 단계
       }
+
+      restoredSearchKeyRef.current = restoreKey;
     }
-  }, [searchParams, quotes, navigate]);
+  }, [searchKey, searchParams, quotes, navigate]);
 
   useEffect(() => {
     const loadActivePricingVersion = async () => {
@@ -718,7 +732,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
 
     setCalculatorType(resolvedInitialType);
     setCurrentStep(resolvedInitialType === 'yield' ? -1 : 1);
-  }, [resolvedInitialType, searchParams, yieldAppliedSelection]);
+  }, [resolvedInitialType, searchKey, searchParams, yieldAppliedSelection]);
   
   // Convert all selected options (main slots + additional options) to processingType format
   const getProcessingTypeFromOptions = () => {
