@@ -376,6 +376,44 @@ export type Database = {
           },
         ]
       }
+      calendar_event_reminders: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          is_sent: boolean
+          reminder_minutes: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          is_sent?: boolean
+          reminder_minutes: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          is_sent?: boolean
+          reminder_minutes?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_reminders_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_event_resources: {
         Row: {
           created_at: string
@@ -428,6 +466,9 @@ export type Database = {
           location: string | null
           metadata: Json
           recipient_id: string | null
+          recurrence_exception_date: string | null
+          recurrence_parent_id: string | null
+          recurrence_rule: Json | null
           source_id: string | null
           source_path: string | null
           source_subtype: string
@@ -454,6 +495,9 @@ export type Database = {
           location?: string | null
           metadata?: Json
           recipient_id?: string | null
+          recurrence_exception_date?: string | null
+          recurrence_parent_id?: string | null
+          recurrence_rule?: Json | null
           source_id?: string | null
           source_path?: string | null
           source_subtype?: string
@@ -480,6 +524,9 @@ export type Database = {
           location?: string | null
           metadata?: Json
           recipient_id?: string | null
+          recurrence_exception_date?: string | null
+          recurrence_parent_id?: string | null
+          recurrence_rule?: Json | null
           source_id?: string | null
           source_path?: string | null
           source_subtype?: string
@@ -497,6 +544,13 @@ export type Database = {
             columns: ["recipient_id"]
             isOneToOne: false
             referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_recurrence_parent_id_fkey"
+            columns: ["recurrence_parent_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
             referencedColumns: ["id"]
           },
         ]
@@ -542,6 +596,7 @@ export type Database = {
           color: string | null
           created_at: string
           display_name: string | null
+          display_order: number
           id: string
           is_visible: boolean
           subscriber_id: string
@@ -555,6 +610,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           display_name?: string | null
+          display_order?: number
           id?: string
           is_visible?: boolean
           subscriber_id: string
@@ -568,6 +624,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           display_name?: string | null
+          display_order?: number
           id?: string
           is_visible?: boolean
           subscriber_id?: string
@@ -583,6 +640,56 @@ export type Database = {
             columns: ["target_resource_id"]
             isOneToOne: false
             referencedRelation: "calendar_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          linked_event_id: string | null
+          owner_id: string
+          priority: string
+          status: string
+          task_date: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          linked_event_id?: string | null
+          owner_id: string
+          priority?: string
+          status?: string
+          task_date: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          linked_event_id?: string | null
+          owner_id?: string
+          priority?: string
+          status?: string
+          task_date?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_tasks_linked_event_id_fkey"
+            columns: ["linked_event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
             referencedColumns: ["id"]
           },
         ]
@@ -1210,6 +1317,7 @@ export type Database = {
           business_type: string | null
           ceo_name: string | null
           company_name: string
+          company_seal_storage_path: string | null
           created_at: string
           detail_address: string | null
           email: string | null
@@ -1237,6 +1345,7 @@ export type Database = {
           business_type?: string | null
           ceo_name?: string | null
           company_name?: string
+          company_seal_storage_path?: string | null
           created_at?: string
           detail_address?: string | null
           email?: string | null
@@ -1264,6 +1373,7 @@ export type Database = {
           business_type?: string | null
           ceo_name?: string | null
           company_name?: string
+          company_seal_storage_path?: string | null
           created_at?: string
           detail_address?: string | null
           email?: string | null
@@ -1424,6 +1534,50 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      contract_events: {
+        Row: {
+          actor_id: string | null
+          actor_role: string | null
+          contract_id: string
+          created_at: string
+          event_type: string
+          id: string
+          ip_address: string | null
+          metadata: Json
+          user_agent: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_role?: string | null
+          contract_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          user_agent?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_role?: string | null
+          contract_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_events_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "employment_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contract_templates: {
         Row: {
@@ -1751,9 +1905,12 @@ export type Database = {
           annual_salary: number | null
           base_pay: number | null
           birth_date: string | null
+          company_seal_included: boolean
+          company_seal_storage_path: string | null
           comprehensive_wage_basis: string | null
           comprehensive_wage_hours: number | null
           comprehensive_wage_type: string | null
+          content_sha256: string | null
           contract_date: string
           contract_end_date: string | null
           contract_start_date: string | null
@@ -1765,6 +1922,7 @@ export type Database = {
           id: string
           monthly_salary: number | null
           notes: string | null
+          opened_at: string | null
           other_allowances: Json | null
           pay_day: number | null
           position: string | null
@@ -1772,16 +1930,28 @@ export type Database = {
           probation_period: string | null
           probation_salary_rate: number | null
           probation_start_date: string | null
+          rejected_at: string | null
+          rejected_reason: string | null
+          rendered_html: string | null
           requested_at: string | null
           requested_by: string | null
+          signature_storage_path: string | null
           signed_at: string | null
+          signed_by_name: string | null
+          signed_pdf_document_file_id: string | null
+          signed_pdf_storage_path: string | null
+          signed_rendered_html: string | null
           status: string
           template_id: string | null
+          template_snapshot: Json | null
           updated_at: string
           user_id: string
           user_name: string
           wage_basis: string | null
           wage_start_date: string | null
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+          withdrawn_reason: string | null
           work_days: string | null
           work_type: string | null
         }
@@ -1789,9 +1959,12 @@ export type Database = {
           annual_salary?: number | null
           base_pay?: number | null
           birth_date?: string | null
+          company_seal_included?: boolean
+          company_seal_storage_path?: string | null
           comprehensive_wage_basis?: string | null
           comprehensive_wage_hours?: number | null
           comprehensive_wage_type?: string | null
+          content_sha256?: string | null
           contract_date?: string
           contract_end_date?: string | null
           contract_start_date?: string | null
@@ -1803,6 +1976,7 @@ export type Database = {
           id?: string
           monthly_salary?: number | null
           notes?: string | null
+          opened_at?: string | null
           other_allowances?: Json | null
           pay_day?: number | null
           position?: string | null
@@ -1810,16 +1984,28 @@ export type Database = {
           probation_period?: string | null
           probation_salary_rate?: number | null
           probation_start_date?: string | null
+          rejected_at?: string | null
+          rejected_reason?: string | null
+          rendered_html?: string | null
           requested_at?: string | null
           requested_by?: string | null
+          signature_storage_path?: string | null
           signed_at?: string | null
+          signed_by_name?: string | null
+          signed_pdf_document_file_id?: string | null
+          signed_pdf_storage_path?: string | null
+          signed_rendered_html?: string | null
           status?: string
           template_id?: string | null
+          template_snapshot?: Json | null
           updated_at?: string
           user_id: string
           user_name: string
           wage_basis?: string | null
           wage_start_date?: string | null
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdrawn_reason?: string | null
           work_days?: string | null
           work_type?: string | null
         }
@@ -1827,9 +2013,12 @@ export type Database = {
           annual_salary?: number | null
           base_pay?: number | null
           birth_date?: string | null
+          company_seal_included?: boolean
+          company_seal_storage_path?: string | null
           comprehensive_wage_basis?: string | null
           comprehensive_wage_hours?: number | null
           comprehensive_wage_type?: string | null
+          content_sha256?: string | null
           contract_date?: string
           contract_end_date?: string | null
           contract_start_date?: string | null
@@ -1841,6 +2030,7 @@ export type Database = {
           id?: string
           monthly_salary?: number | null
           notes?: string | null
+          opened_at?: string | null
           other_allowances?: Json | null
           pay_day?: number | null
           position?: string | null
@@ -1848,20 +2038,39 @@ export type Database = {
           probation_period?: string | null
           probation_salary_rate?: number | null
           probation_start_date?: string | null
+          rejected_at?: string | null
+          rejected_reason?: string | null
+          rendered_html?: string | null
           requested_at?: string | null
           requested_by?: string | null
+          signature_storage_path?: string | null
           signed_at?: string | null
+          signed_by_name?: string | null
+          signed_pdf_document_file_id?: string | null
+          signed_pdf_storage_path?: string | null
+          signed_rendered_html?: string | null
           status?: string
           template_id?: string | null
+          template_snapshot?: Json | null
           updated_at?: string
           user_id?: string
           user_name?: string
           wage_basis?: string | null
           wage_start_date?: string | null
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdrawn_reason?: string | null
           work_days?: string | null
           work_type?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "employment_contracts_signed_pdf_document_file_id_fkey"
+            columns: ["signed_pdf_document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "employment_contracts_template_id_fkey"
             columns: ["template_id"]
@@ -6779,6 +6988,10 @@ export type Database = {
           metadata: Json
           participant_ids: string[]
           participant_names: string[]
+          recurrence_exception_date: string
+          recurrence_parent_id: string
+          recurrence_rule: Json
+          reminder_minutes: number[]
           resource_ids: string[]
           resource_names: string[]
           source_id: string
