@@ -451,7 +451,7 @@ export function useCalendarTasks({
         .order('task_date', { ascending: true })
         .order('created_at', { ascending: true });
       if (error) throw error;
-      return (data || []) as CalendarTask[];
+      return (data || []) as unknown as CalendarTask[];
     },
     enabled,
     staleTime: 30 * 1000,
