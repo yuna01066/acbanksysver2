@@ -248,7 +248,8 @@ const DashboardCalendarPanel = () => {
                   <div key={weekday} className="py-1.5">{weekday}</div>
                 ))}
               </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 border-b border-border px-3 py-2 text-[11px] text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-2 text-[11px] text-muted-foreground">
+                <span className="font-semibold text-foreground">색상 기준</span>
                 {CALENDAR_EVENT_LEGEND.map((item) => (
                   <span key={item.key} className="inline-flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.accent }} />

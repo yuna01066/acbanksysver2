@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { getQuoteStatusInfo } from '@/utils/quoteStatus';
 import { normalizeProjectStage, parseValidUntilDate } from '@/utils/quoteWorkflow';
+import { getDashboardSourceDotClass, type DashboardSourceKey } from '@/utils/dashboardSemanticColors';
 
 type FollowUpQuote = {
   id: string;
@@ -156,6 +157,10 @@ const getQuoteTitle = (quote: FollowUpQuote) => {
   return quote.project_name || quote.recipient_company || quote.recipient_name || `견적 ${quote.quote_number}`;
 };
 
+const getFollowUpSourceKey = (reason: FollowUpReason): DashboardSourceKey => {
+  return reason.label === '프로젝트 전환' ? 'project' : 'quote-issued';
+};
+
 const DashboardQuoteFollowUpCard = () => {
   const navigate = useNavigate();
   const { user, isAdmin, isModerator } = useAuth();
@@ -273,7 +278,10 @@ const DashboardQuoteFollowUpCard = () => {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold">{getQuoteTitle(quote)}</p>
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', getDashboardSourceDotClass(getFollowUpSourceKey(reason)))} />
+                          <p className="truncate text-sm font-semibold">{getQuoteTitle(quote)}</p>
+                        </div>
                         <p className="mt-0.5 truncate text-xs text-muted-foreground">
                           {quote.recipient_company || quote.recipient_name || '거래처 미확인'} · {formatCurrency(quote.total)}
                         </p>

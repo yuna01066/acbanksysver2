@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
+import { getDashboardSourceDotClass, type DashboardSourceKey } from '@/utils/dashboardSemanticColors';
 
 interface ActivityLog {
   id: string;
@@ -22,12 +23,12 @@ interface ActivityLog {
   created_at: string;
 }
 
-const ACTION_CONFIG: Record<string, { icon: React.ReactNode; label: string; dotClassName: string }> = {
-  quote_created: { icon: <FileText className="h-3.5 w-3.5" />, label: '견적 발행', dotClassName: 'bg-emerald-500' },
-  quote_updated: { icon: <Edit className="h-3.5 w-3.5" />, label: '견적 수정', dotClassName: 'bg-muted-foreground' },
-  stage_changed: { icon: <ArrowRightLeft className="h-3.5 w-3.5" />, label: '단계 변경', dotClassName: 'bg-amber-500' },
-  quote_deleted: { icon: <Trash2 className="h-3.5 w-3.5" />, label: '견적 삭제', dotClassName: 'bg-red-500' },
-  notion_edited: { icon: <BookOpen className="h-3.5 w-3.5" />, label: 'Notion 수정', dotClassName: 'bg-muted-foreground' },
+const ACTION_CONFIG: Record<string, { icon: React.ReactNode; label: string; sourceKey: DashboardSourceKey }> = {
+  quote_created: { icon: <FileText className="h-3.5 w-3.5" />, label: '견적 발행', sourceKey: 'quote-issued' },
+  quote_updated: { icon: <Edit className="h-3.5 w-3.5" />, label: '견적 수정', sourceKey: 'quote-issued' },
+  stage_changed: { icon: <ArrowRightLeft className="h-3.5 w-3.5" />, label: '단계 변경', sourceKey: 'project' },
+  quote_deleted: { icon: <Trash2 className="h-3.5 w-3.5" />, label: '견적 삭제', sourceKey: 'quote-issued' },
+  notion_edited: { icon: <BookOpen className="h-3.5 w-3.5" />, label: 'Notion 수정', sourceKey: 'notion' },
 };
 
 const ActivityFeedCard = () => {
@@ -153,7 +154,7 @@ const ActivityFeedCard = () => {
                     onClick={() => isClickable && handleClick(item)}
                   >
                     <div className="relative mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground">
-                      <span className={`absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full ring-2 ring-card ${config.dotClassName}`} />
+                      <span className={`absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full ring-2 ring-card ${getDashboardSourceDotClass(config.sourceKey)}`} />
                       {config.icon}
                     </div>
                     <div className="flex-1 min-w-0">

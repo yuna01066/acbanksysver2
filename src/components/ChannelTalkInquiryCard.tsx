@@ -12,6 +12,7 @@ import { BrandedCardHeader } from '@/components/ui/branded-card-header';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { getDashboardSourceDotClass } from '@/utils/dashboardSemanticColors';
 
 type ChannelTalkInquiry = {
   id: string;
@@ -156,7 +157,10 @@ const ChannelTalkInquiryCard = () => {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold">{title}</p>
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', getDashboardSourceDotClass('channel-talk'))} />
+                          <p className="truncate text-sm font-semibold">{title}</p>
+                        </div>
                         <p className="mt-0.5 truncate text-xs text-muted-foreground">{customer}</p>
                       </div>
                       <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />

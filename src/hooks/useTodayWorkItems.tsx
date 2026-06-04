@@ -28,6 +28,10 @@ import type { AppNotification } from '@/hooks/useNotifications';
 import { useEmployeeHrTasks } from '@/hooks/useHrSelfService';
 import { useCalendarEvents, useCalendarTasks } from '@/hooks/useInternalCalendar';
 import type { CalendarViewScope } from '@/types/internalCalendar';
+import {
+  getDashboardSourceKeyForCalendarEvent,
+  type DashboardSourceKey,
+} from '@/utils/dashboardSemanticColors';
 
 export type WorkItemTone = 'danger' | 'warning' | 'primary' | 'neutral' | 'success';
 export type TodayWorkCategory = 'notification' | 'approval' | 'calendar' | 'hr' | 'quote' | 'project' | 'system';
@@ -35,6 +39,7 @@ export type TodayWorkCategory = 'notification' | 'approval' | 'calendar' | 'hr' 
 export interface TodayWorkItem {
   id: string;
   category: TodayWorkCategory;
+  sourceKey: DashboardSourceKey;
   title: string;
   description: string;
   label: string;
@@ -129,6 +134,19 @@ export function getNotificationPath(notification: AppNotification): string {
     return `/meeting-reservations?event=${notification.data.eventId}`;
   }
   return '/';
+}
+
+function getNotificationSourceKey(notification: AppNotification): DashboardSourceKey {
+  if (notification.type === 'project_mention') return 'project';
+  if (notification.type === 'quote_update' || notification.type === 'quote_modified') return 'quote-issued';
+  if (notification.type === 'channel_talk_quote_lead' || notification.type === 'client_consultation_lead') return 'channel-talk';
+  if (notification.type === 'meeting_reservation' || notification.type === 'meeting_reservation_status') return 'meeting-reservation';
+  if (notification.type === 'approval_request' || notification.type === 'approval_approved' || notification.type === 'approval_rejected' || notification.type === 'pending_approval') return 'approval';
+  if (notification.type === 'leave_request' || notification.type === 'leave_approved' || notification.type === 'leave_rejected') return 'leave';
+  if (notification.type === 'attendance_correction_request' || notification.type === 'peer_feedback' || notification.type === 'performance_review_summary') return 'hr';
+  if (notification.type === 'contract_request' || notification.type === 'contract_signed' || notification.type === 'contract_rejected' || notification.type === 'contract_withdrawn') return 'hr';
+  if (notification.type === 'system' && notification.data?.eventId) return 'meeting';
+  return 'system';
 }
 
 export function formatDueLabel(dateString: string | null): { label: string; tone: WorkItemTone; isToday: boolean; priority: number } {
@@ -361,6 +379,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
       items.push({
         id: notification.id,
         category: 'notification',
+        sourceKey: getNotificationSourceKey(notification),
         title: notification.title,
         description: notification.description,
         label: '새 알림',
@@ -378,6 +397,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
         items.push({
           id: `leave-${leave.id}`,
           category: 'approval',
+          sourceKey: 'leave',
           title: `${leave.user_name} 연차 승인 대기`,
           description: `${leave.leave_type} · ${format(parseISO(leave.start_date), 'M/d', { locale: ko })}~${format(parseISO(leave.end_date), 'M/d', { locale: ko })} · ${leave.days}일`,
           label: '승인 필요',
@@ -394,6 +414,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
         items.push({
           id: `approval-request-${request.id}`,
           category: 'approval',
+          sourceKey: 'approval',
           title: request.title,
           description: `${request.requested_by_name || '요청자 미지정'} · ${request.amount != null ? `₩${Math.round(request.amount).toLocaleString()}` : '금액 미지정'}`,
           label: '품의 승인',
@@ -410,6 +431,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
         items.push({
           id: 'document-sync-failed',
           category: 'system',
+          sourceKey: 'system',
           title: `파일 동기화 실패 ${syncSummary.failed}건`,
           description: 'Drive 또는 외부 저장소 동기화 실패 항목을 확인해야 합니다.',
           label: '실패',
@@ -423,6 +445,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
         items.push({
           id: 'document-sync-pending',
           category: 'system',
+          sourceKey: 'system',
           title: `파일 동기화 대기 ${syncSummary.pending}건`,
           description: '최근 업로드 파일의 Drive 동기화 상태를 확인할 수 있습니다.',
           label: '대기',
@@ -446,6 +469,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
         items.push({
           id: `calendar-${event.id}`,
           category: 'calendar',
+          sourceKey: getDashboardSourceKeyForCalendarEvent(event),
           title: event.title,
           description: `${format(startsAt, 'M월 d일', { locale: ko })} · ${formatEventTime(event.starts_at, event.all_day)}${event.location ? ` · ${event.location}` : ''}`,
           label: isReminderDue ? '일정 알림' : isTodayEvent ? '오늘 일정' : '예정',
@@ -467,6 +491,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
         items.push({
           id: `calendar-task-${task.id}`,
           category: 'calendar',
+          sourceKey: 'calendar',
           title: task.title,
           description: task.description || `${format(parseISO(task.task_date), 'M월 d일', { locale: ko })} 개인 할 일`,
           label: due.isToday ? '오늘 할 일' : due.label,
@@ -489,6 +514,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
         items.push({
           id: `hr-task-${task.id}`,
           category: 'hr',
+          sourceKey: 'hr',
           title: task.title,
           description: task.description || '내 HR 업무를 확인해야 합니다.',
           label: due.label === '마감 미정' ? 'HR 업무' : due.label,
@@ -507,8 +533,9 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
       items.push({
         id: `quote-${quote.id}`,
         category: 'quote',
+        sourceKey: 'quote-delivery',
         title: quote.project_name || quote.recipient_company || `견적 ${quote.quote_number}`,
-        description: `납기 희망일 · ${quote.desired_delivery_date ? format(parseISO(quote.desired_delivery_date), 'yyyy. M. d', { locale: ko }) : '미정'}`,
+        description: `납기 예정일 · ${quote.desired_delivery_date ? format(parseISO(quote.desired_delivery_date), 'yyyy. M. d', { locale: ko }) : '미정'}`,
         label: due.label.replace('마감', '납기'),
         tone: due.tone,
         icon: <FileText className="h-4 w-4" />,
@@ -524,6 +551,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
       items.push({
         id: `project-${project.id}`,
         category: 'project',
+        sourceKey: 'project',
         title: project.name,
         description: `프로젝트 상태 · ${project.status}`,
         label: '진행중',
