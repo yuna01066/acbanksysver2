@@ -1,6 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Sparkles } from 'lucide-react';
+import { CheckCircle2, Sparkles } from 'lucide-react';
+import { triggerDailyHamzzi } from '@/lib/hamzziEvents';
+import { cn } from '@/lib/utils';
 
 const quotes = [
   { text: "성공은 매일 반복하는 작은 노력의 합이다.", author: "로버트 콜리어" },
@@ -36,7 +38,23 @@ const quotes = [
   { text: "긍정적인 생각이 긍정적인 결과를 만든다.", author: "격언" },
 ];
 
+const checkpoints = [
+  '오늘 처리할 일 중 하나를 먼저 닫기',
+  '납기 예정 건을 먼저 확인하기',
+  '발행 견적 중 답변 필요한 건 확인하기',
+  '채널톡 문의 중 미배정 건 정리하기',
+  '포트폴리오 사례 하나를 상담에 활용하기',
+];
+
+const getDateKey = (date = new Date()) => {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
 const DailyQuoteCard: React.FC = () => {
+  const [revealed, setRevealed] = useState(false);
+  const [autoHint, setAutoHint] = useState(false);
+
   const todayQuote = useMemo(() => {
     const today = new Date();
     const dayOfYear = Math.floor(
@@ -45,8 +63,59 @@ const DailyQuoteCard: React.FC = () => {
     return quotes[dayOfYear % quotes.length];
   }, []);
 
+  const todayCheckpoint = useMemo(() => {
+    const today = new Date();
+    const dayOfYear = Math.floor(
+      (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    return checkpoints[dayOfYear % checkpoints.length];
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const key = `acbank:dashboard-quote-hint:${getDateKey()}`;
+    try {
+      if (window.localStorage.getItem(key) === 'true') return;
+      window.localStorage.setItem(key, 'true');
+      setAutoHint(true);
+      const timer = window.setTimeout(() => setAutoHint(false), 2400);
+      return () => window.clearTimeout(timer);
+    } catch {
+      // Ignore restricted storage modes.
+    }
+  }, []);
+
+  const handleReveal = () => {
+    const nextRevealed = !revealed;
+    setRevealed(nextRevealed);
+    setAutoHint(false);
+    if (nextRevealed) {
+      triggerDailyHamzzi('dashboard-checkpoint', 'dashboard_checkpoint', {
+        message: '오늘 체크포인트를 열었습니다.',
+        description: todayCheckpoint,
+        durationMs: 3200,
+      });
+    }
+  };
+
   return (
-    <Card className="h-full w-full rounded-lg border-border bg-card shadow-none">
+    <Card
+      className={cn(
+        'dashboard-quote-card h-full w-full cursor-pointer rounded-2xl border-border bg-card shadow-none outline-none',
+        revealed && 'dashboard-quote-card--revealed',
+        autoHint && 'dashboard-quote-card--hint',
+      )}
+      role="button"
+      tabIndex={0}
+      onClick={handleReveal}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handleReveal();
+        }
+      }}
+      aria-expanded={revealed}
+    >
       <CardContent className="flex h-full min-h-[132px] items-center p-4 sm:p-5">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
@@ -56,6 +125,16 @@ const DailyQuoteCard: React.FC = () => {
             <p className="mb-2 text-sm font-semibold text-foreground">오늘의 한 줄</p>
             <p className="text-sm leading-relaxed text-foreground">"{todayQuote.text}"</p>
             <p className="mt-2 text-xs text-muted-foreground">— {todayQuote.author}</p>
+            <div
+              className="dashboard-checkpoint mt-3 overflow-hidden rounded-lg border border-border bg-muted/35 px-3 text-xs text-muted-foreground"
+              data-open={revealed ? 'true' : 'false'}
+            >
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-foreground" />
+                <span className="font-semibold text-foreground">오늘의 체크포인트</span>
+              </div>
+              <p className="mt-1 leading-relaxed">{todayCheckpoint}</p>
+            </div>
           </div>
         </div>
       </CardContent>

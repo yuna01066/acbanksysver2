@@ -130,6 +130,23 @@ const HAMZZI_REACTION_CONFIG: Record<HamzziEventType, HamzziReactionConfig> = {
     fallbackMessage: '숨겨진 햄찌 반응을 찾았습니다.',
     toneClass: 'border-violet-100 bg-white/95',
   },
+  work_complete: {
+    image: hamzziCheck,
+    badge: iconParty,
+    fallbackMessage: '오늘 근무 흐름이 완료됐습니다.',
+    toneClass: 'border-zinc-200 bg-white/95',
+  },
+  delivery_complete: {
+    image: hamzziCelebration,
+    badge: iconParty,
+    fallbackMessage: '납기 완료 처리됐습니다.',
+    toneClass: 'border-emerald-100 bg-white/95',
+  },
+  dashboard_checkpoint: {
+    image: hamzziThinking,
+    fallbackMessage: '오늘 체크포인트를 열었습니다.',
+    toneClass: 'border-slate-200 bg-white/95',
+  },
 };
 
 const HAMZZI_TOOL_SPRITES: Record<SpecialistTool, HamzziSpriteConfig> = {

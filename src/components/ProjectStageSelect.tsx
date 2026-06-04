@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useActivityLog } from '@/hooks/useActivityLog';
 import { logStageChange } from '@/hooks/useQuoteStageHistory';
+import { triggerDailyHamzzi } from '@/lib/hamzziEvents';
 import {
   getStageInfo,
   normalizeProjectStage,
@@ -78,6 +79,14 @@ const ProjectStageSelect = ({
       const userName = profile?.full_name || user?.email || '알 수 없음';
       if (user) {
         logStageChange(quoteId, normalizedCurrentStage, newStage, user.id, userName);
+      }
+
+      if (newStage === 'delivered') {
+        triggerDailyHamzzi(`delivery-complete:${quoteId}`, 'delivery_complete', {
+          message: '납기 완료 처리됐습니다.',
+          description: quoteNumber ? `견적 ${quoteNumber}` : undefined,
+          durationMs: 3400,
+        });
       }
 
       onStageChanged?.(newStage);

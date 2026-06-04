@@ -7,6 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { isMissingMeetingReservationsTableError } from '@/lib/meetingReservationErrors';
+import { triggerDailyHamzzi } from '@/lib/hamzziEvents';
+import { cn } from '@/lib/utils';
 
 type WorkStatus = 'available' | 'busy' | 'focusing' | 'meeting';
 
@@ -319,24 +321,6 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl, attendance
       setShowSecretBanner(true);
       secretSoundPlayed.current = eventKey;
 
-      if (event.sound) {
-        try {
-          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-          osc.type = event.sound.type;
-          osc.frequency.setValueAtTime(event.sound.freq, audioCtx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(event.sound.freq * 1.5, audioCtx.currentTime + 0.15);
-          osc.frequency.exponentialRampToValueAtTime(event.sound.freq * 0.8, audioCtx.currentTime + 0.3);
-          gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-          osc.start(audioCtx.currentTime);
-          osc.stop(audioCtx.currentTime + 0.5);
-        } catch (e) { /* audio not supported */ }
-      }
-
       const timer = setTimeout(() => setShowSecretBanner(false), 10000);
       return () => clearTimeout(timer);
     } else if (!event) {
@@ -399,15 +383,45 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl, attendance
   const elapsedMin = Math.max(0, Math.min(currentMin - workStart, workEnd - workStart));
   const elapsedHours = Math.floor(elapsedMin / 60);
   const elapsedMins = elapsedMin % 60;
+  const workProgressRounded = Math.round(workProgress);
+  const isWorkHalfMilestone = workProgress >= 50;
+  const isWorkComplete = workProgress >= 100;
+  const flowNotice = (() => {
+    if (currentMin >= 11 * 60 + 30 && currentMin < 13 * 60 + 30) {
+      return { icon: <Utensils className="h-3.5 w-3.5" />, text: '점심 리듬으로 전환할 시간입니다.' };
+    }
+    if (currentMin >= 17 * 60 + 30 && currentMin < 19 * 60) {
+      return { icon: <Clock className="h-3.5 w-3.5" />, text: '마감 전 확인할 업무를 정리하세요.' };
+    }
+    if (currentMin >= 19 * 60 && currentMin < 23 * 60 + 30) {
+      return { icon: <Moon className="h-3.5 w-3.5" />, text: '오늘의 업무 기록을 마무리해 주세요.' };
+    }
+    return null;
+  })();
+
+  useEffect(() => {
+    if (!isWorkComplete) return;
+    triggerDailyHamzzi('work-complete', 'work_complete', {
+      message: '오늘 근무 흐름이 완료됐습니다.',
+      description: '퇴근 전 마지막 확인만 남았습니다.',
+      durationMs: 3400,
+    });
+  }, [isWorkComplete]);
 
   return (
-    <div className="relative overflow-hidden rounded-lg border border-border bg-card p-4 text-card-foreground shadow-none animate-fade-in sm:p-5">
+    <div className="dashboard-greeting-card relative overflow-hidden rounded-2xl border border-border bg-card p-4 text-card-foreground shadow-none animate-fade-in sm:p-5">
+      {flowNotice && (
+        <div className="dashboard-flow-ribbon mb-3 flex w-fit items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm">
+          {flowNotice.icon}
+          <span>{flowNotice.text}</span>
+        </div>
+      )}
       {/* 🎯 시크릿 이벤트 배너 */}
       {showSecretBanner && secretEvent && (
         <>
           {/* 배너 */}
           <div
-            className="relative mb-3 cursor-pointer rounded-lg border border-border bg-muted/30 p-3"
+            className="dashboard-secret-ribbon relative mb-3 cursor-pointer rounded-lg border border-border bg-muted/30 p-3"
             onClick={() => setShowSecretBanner(false)}
           >
             <div className="flex items-center gap-3">
@@ -489,19 +503,23 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl, attendance
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-medium text-muted-foreground">오늘의 근무 진행률</span>
           </div>
-          <span className="text-xs font-semibold text-foreground tabular-nums">{Math.round(workProgress)}%</span>
+          <span className="text-xs font-semibold text-foreground tabular-nums">{workProgressRounded}%</span>
         </div>
 
         {/* Progress track */}
-        <div className="relative h-2 overflow-hidden rounded-full bg-muted">
+        <div className="dashboard-progress-track relative h-2 overflow-hidden rounded-full bg-muted">
           {/* Filled portion */}
           <div
-            className="absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-out"
+            className={cn(
+              'dashboard-progress-fill absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-out',
+              isWorkHalfMilestone && 'dashboard-progress-fill--milestone',
+              isWorkComplete && 'dashboard-progress-fill--complete',
+            )}
             style={{
               width: `${workProgress}%`,
-              background: 'hsl(var(--foreground))',
             }}
           />
+          {isWorkComplete && <span className="dashboard-progress-ripple" aria-hidden="true" />}
         </div>
 
         {/* Time markers */}

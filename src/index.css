@@ -720,6 +720,195 @@
   animation: logo-spin-3d 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
+/* Dashboard dynamic easter egg motion */
+@keyframes dashboard-light-sweep {
+  0% {
+    transform: translateX(-140%) skewX(-18deg);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.8;
+  }
+  58% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateX(180%) skewX(-18deg);
+    opacity: 0;
+  }
+}
+
+@keyframes dashboard-ribbon-slide {
+  0% {
+    opacity: 0;
+    transform: translateX(-14px) scale(0.98);
+  }
+  68% {
+    opacity: 1;
+    transform: translateX(3px) scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes dashboard-progress-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 hsl(var(--foreground) / 0);
+  }
+  50% {
+    box-shadow: 0 0 18px hsl(var(--foreground) / 0.32);
+  }
+}
+
+@keyframes dashboard-progress-ripple {
+  0% {
+    opacity: 0.38;
+    transform: translateX(-18%) scaleX(0.15);
+  }
+  72% {
+    opacity: 0.12;
+    transform: translateX(82%) scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(120%) scaleX(1);
+  }
+}
+
+@keyframes dashboard-card-hint {
+  0%, 100% {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+  38% {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 34px hsl(220 16% 0% / 0.08);
+  }
+}
+
+.dashboard-logo-sweep {
+  position: relative;
+  overflow: hidden;
+  transform-origin: center;
+}
+
+.dashboard-logo-sweep::after {
+  content: '';
+  position: absolute;
+  inset: -32% auto -32% 0;
+  width: 44%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(0 0% 100% / 0.18),
+    hsl(0 0% 100% / 0.7),
+    transparent
+  );
+  pointer-events: none;
+  transform: translateX(-140%) skewX(-18deg);
+}
+
+.dashboard-logo-sweep:hover::after,
+.dashboard-logo-sweep:focus-visible::after,
+.logo-spin-3d.dashboard-logo-sweep::after {
+  animation: dashboard-light-sweep 0.95s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dashboard-logo-sweep:hover {
+  transform: translateY(-1px) scale(1.015);
+}
+
+.dashboard-top-action,
+.dashboard-quick-link {
+  will-change: transform;
+}
+
+.dashboard-top-action:hover,
+.dashboard-quick-link:hover {
+  transform: translateY(-2px);
+}
+
+.dashboard-quick-link svg {
+  transition: transform 0.22s ease, color 0.22s ease;
+}
+
+.dashboard-quick-link:hover svg {
+  transform: translateY(-2px) scale(1.06);
+}
+
+.dashboard-greeting-card,
+.dashboard-quote-card {
+  transition: transform 0.24s ease, border-color 0.24s ease, box-shadow 0.24s ease;
+}
+
+.dashboard-greeting-card:hover,
+.dashboard-quote-card:hover,
+.dashboard-quote-card:focus-visible {
+  border-color: hsl(var(--foreground) / 0.18);
+  transform: translateY(-2px);
+}
+
+.dashboard-flow-ribbon,
+.dashboard-secret-ribbon {
+  animation: dashboard-ribbon-slide 0.48s cubic-bezier(0.2, 0.9, 0.2, 1.12) both;
+}
+
+.dashboard-progress-track {
+  isolation: isolate;
+}
+
+.dashboard-progress-fill {
+  background: hsl(var(--foreground));
+}
+
+.dashboard-progress-fill--milestone {
+  animation: dashboard-progress-glow 1.25s ease-out 1;
+}
+
+.dashboard-progress-fill--complete {
+  background: linear-gradient(90deg, hsl(var(--foreground)), hsl(220 16% 25%));
+  animation: dashboard-progress-glow 1.25s ease-out 1;
+}
+
+.dashboard-progress-ripple {
+  position: absolute;
+  inset: -4px 0;
+  z-index: 1;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.65), transparent);
+  transform-origin: left center;
+  animation: dashboard-progress-ripple 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) 1;
+}
+
+.dashboard-quote-card--hint {
+  animation: dashboard-card-hint 1.4s ease-out 1;
+}
+
+.dashboard-quote-card--revealed {
+  border-color: hsl(var(--foreground) / 0.22);
+}
+
+.dashboard-checkpoint {
+  max-height: 88px;
+  opacity: 1;
+  transition: max-height 0.32s ease, opacity 0.24s ease, padding 0.24s ease, border-color 0.24s ease;
+}
+
+.dashboard-checkpoint[data-open="false"] {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-color: transparent;
+  opacity: 0;
+}
+
+.dashboard-checkpoint[data-open="true"] {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
 /* Secret event animations */
 @keyframes secret-particle-fall {
   0% {
@@ -815,6 +1004,26 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .dashboard-logo-sweep::after,
+  .dashboard-top-action,
+  .dashboard-quick-link,
+  .dashboard-quick-link svg,
+  .dashboard-greeting-card,
+  .dashboard-quote-card,
+  .dashboard-flow-ribbon,
+  .dashboard-secret-ribbon,
+  .dashboard-progress-fill--milestone,
+  .dashboard-progress-ripple,
+  .dashboard-quote-card--hint {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .dashboard-progress-ripple {
+    opacity: 0 !important;
+  }
+
   .hamzzi-reaction-card,
   .hamzzi-reaction-image,
   .hamzzi-reaction-badge {
