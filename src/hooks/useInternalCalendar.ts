@@ -480,7 +480,7 @@ export function useCreateCalendarTask() {
         .select('*')
         .single();
       if (error) throw error;
-      return data as CalendarTask;
+      return data as unknown as CalendarTask;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] });
