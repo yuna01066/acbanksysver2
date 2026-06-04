@@ -29,7 +29,7 @@ import MyTaxSection from '@/components/mypage/MyTaxSection';
 
 const TAB_CONFIG = [
   { value: 'overview', label: '개요', icon: LayoutDashboard },
-  { value: 'diary', label: '일정·다이어리', icon: CalendarDays },
+  { value: 'schedule', label: '스케줄', icon: CalendarDays },
   { value: 'profile', label: '내 정보', icon: User },
   { value: 'attendance', label: '근태·연차', icon: CalendarDays },
   { value: 'business', label: '업무·평가', icon: Briefcase },
@@ -45,7 +45,9 @@ const MyPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab') || 'overview';
-  const normalizedTab = requestedTab === 'hr'
+  const normalizedTab = requestedTab === 'diary'
+    ? 'schedule'
+    : requestedTab === 'hr'
     ? searchParams.get('hrTab') === 'contracts'
       ? 'contract'
       : 'profile'
@@ -111,7 +113,7 @@ const MyPage = () => {
             <MyPageOverview />
           </TabsContent>
 
-          <TabsContent value="diary" className="mt-0">
+          <TabsContent value="schedule" className="mt-0">
             <MyCalendarDiarySection />
           </TabsContent>
 

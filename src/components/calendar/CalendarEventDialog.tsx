@@ -40,7 +40,9 @@ interface CalendarEventDialogProps {
   event?: InternalCalendarEvent | null;
   events?: InternalCalendarEvent[];
   defaultDate?: string;
+  defaultStartTime?: string;
   defaultMode?: CalendarDialogMode;
+  personalOnly?: boolean;
   onSaved?: (eventId: string) => void;
 }
 
@@ -218,10 +220,12 @@ function getRecurrenceInitial(rule: CalendarRecurrenceRule | null, startDate: Da
 function getInitialDraft({
   event,
   defaultDate,
+  defaultStartTime,
   defaultMode,
 }: {
   event?: InternalCalendarEvent | null;
   defaultDate?: string;
+  defaultStartTime?: string;
   defaultMode: CalendarDialogMode;
 }): Draft {
   if (!event) {
@@ -230,7 +234,7 @@ function getInitialDraft({
       mode: defaultMode,
       title: '',
       date: defaultDate || todayString(),
-      startTime: defaults.allDay ? '00:00' : '10:00',
+      startTime: defaults.allDay ? '00:00' : defaultStartTime || '10:00',
       durationMinutes: '60',
       description: '',
       location: '',
@@ -296,10 +300,18 @@ const CalendarEventDialog = ({
   event,
   events = [],
   defaultDate,
+  defaultStartTime,
   defaultMode = 'employee',
+  personalOnly = false,
   onSaved,
 }: CalendarEventDialogProps) => {
-  const [draft, setDraft] = useState<Draft>(() => getInitialDraft({ event, defaultDate, defaultMode }));
+  const effectiveDefaultMode = personalOnly ? 'personal' : defaultMode;
+  const [draft, setDraft] = useState<Draft>(() => getInitialDraft({
+    event,
+    defaultDate,
+    defaultStartTime,
+    defaultMode: effectiveDefaultMode,
+  }));
   const [employeeSearch, setEmployeeSearch] = useState('');
   const { data: employees = [], isLoading: isEmployeesLoading } = useCalendarDirectory();
   const { data: resources = [], isLoading: isResourcesLoading } = useCalendarResources();
@@ -310,9 +322,14 @@ const CalendarEventDialog = ({
 
   useEffect(() => {
     if (!open) return;
-    setDraft(getInitialDraft({ event, defaultDate, defaultMode }));
+    setDraft(getInitialDraft({
+      event,
+      defaultDate,
+      defaultStartTime,
+      defaultMode: effectiveDefaultMode,
+    }));
     setEmployeeSearch('');
-  }, [defaultDate, defaultMode, event, open]);
+  }, [defaultDate, defaultStartTime, effectiveDefaultMode, event, open]);
 
   const selectedTeam = teams.find((team) => team.id === draft.teamDepartment);
   const selectedTeamMemberIds = selectedTeam?.members.map((member) => member.user_id) || [];
@@ -372,6 +389,7 @@ const CalendarEventDialog = ({
   const validationError = useMemo(() => {
     if (!draft.title.trim()) return '일정 제목을 입력해주세요.';
     if (!draft.date || (!isAllDay && !draft.startTime)) return '일정 날짜와 시간을 선택해주세요.';
+    if (personalOnly) return '';
     if (draft.mode === 'team' && !draft.teamDepartment) {
       return '팀 일정을 등록하려면 팀 캘린더를 선택해주세요.';
     }
@@ -388,7 +406,7 @@ const CalendarEventDialog = ({
       return `${conflictingResourceNames.join(', ')}은 선택한 시간에 이미 예약되어 있습니다.`;
     }
     return '';
-  }, [conflictingResourceNames, draft.date, draft.mode, draft.selectedResourceIds.length, draft.selectedUserIds.length, draft.startTime, draft.teamDepartment, draft.title, isAllDay]);
+  }, [conflictingResourceNames, draft.date, draft.mode, draft.selectedResourceIds.length, draft.selectedUserIds.length, draft.startTime, draft.teamDepartment, draft.title, isAllDay, personalOnly]);
 
   const toggleWeekday = (weekday: number) => {
     setDraft((current) => {
@@ -415,9 +433,11 @@ const CalendarEventDialog = ({
     }
 
     const resourceLocation = selectedResources.map((resource) => resource.name).join(', ');
-    const calendarKind = draft.mode;
+    const calendarKind = personalOnly ? 'personal' : draft.mode;
     const baseMetadata = { ...(event?.metadata || {}) };
     delete baseMetadata.employee_meeting_type;
+    const payloadMode = personalOnly ? 'personal' : draft.mode;
+    const payloadDefaults = getModeDefaults(payloadMode);
     const payload = {
       ...(event ? { id: event.id } : {}),
       title: draft.title.trim(),
@@ -426,30 +446,30 @@ const CalendarEventDialog = ({
       ends_at: endIso,
       all_day: isAllDay,
       location: resourceLocation || draft.location.trim() || null,
-      visibility: draft.visibility,
+      visibility: personalOnly ? 'private' : draft.visibility,
       status: draft.status,
       source_type: 'manual' as const,
-      source_subtype: modeDefaults.sourceSubtype,
-      accent: draft.mode === 'team' ? selectedTeam?.color || modeDefaults.accent : modeDefaults.accent,
-      icon_type: modeDefaults.iconType,
-      team_department: draft.mode === 'personal' ? null : draft.teamDepartment || null,
-      client_name: draft.mode === 'client' ? draft.clientName.trim() || null : null,
-      client_contact: draft.mode === 'client' ? draft.clientContact.trim() || null : null,
-      participant_ids: draft.mode === 'team'
+      source_subtype: payloadDefaults.sourceSubtype,
+      accent: payloadMode === 'team' ? selectedTeam?.color || payloadDefaults.accent : payloadDefaults.accent,
+      icon_type: payloadDefaults.iconType,
+      team_department: payloadMode === 'personal' ? null : draft.teamDepartment || null,
+      client_name: payloadMode === 'client' ? draft.clientName.trim() || null : null,
+      client_contact: payloadMode === 'client' ? draft.clientContact.trim() || null : null,
+      participant_ids: payloadMode === 'team'
         ? selectedTeamMemberIds
-        : draft.mode === 'client' || draft.mode === 'holiday' || draft.mode === 'personal'
+        : payloadMode === 'client' || payloadMode === 'holiday' || payloadMode === 'personal'
           ? []
           : draft.selectedUserIds,
-      assignee_ids: draft.mode === 'client' ? draft.selectedUserIds : [],
-      resource_ids: draft.mode === 'holiday' || draft.mode === 'personal' ? [] : draft.selectedResourceIds,
+      assignee_ids: payloadMode === 'client' ? draft.selectedUserIds : [],
+      resource_ids: payloadMode === 'holiday' || payloadMode === 'personal' ? [] : draft.selectedResourceIds,
       recurrence_rule: recurrenceRule,
       reminder_minutes: draft.reminderMinutes,
       metadata: {
         ...baseMetadata,
         calendar_kind: calendarKind,
         calendar_label: MODE_OPTIONS.find((option) => option.value === calendarKind)?.label || '일정',
-        ...(draft.mode === 'team' && selectedTeam ? { team_calendar_id: selectedTeam.id, team_calendar_name: selectedTeam.name } : {}),
-        ...(draft.mode === 'event' || draft.mode === 'holiday' ? { employee_meeting_type: 'all_hands' } : {}),
+        ...(payloadMode === 'team' && selectedTeam ? { team_calendar_id: selectedTeam.id, team_calendar_name: selectedTeam.name } : {}),
+        ...(payloadMode === 'event' || payloadMode === 'holiday' ? { employee_meeting_type: 'all_hands' } : {}),
       },
     };
 
@@ -526,15 +546,18 @@ const CalendarEventDialog = ({
         <DialogHeader className="border-b border-[#e5e5e5] px-5 py-4 text-left">
           <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#111111]">
             <CalendarCheck2 className="h-5 w-5" />
-            {event ? '일정 수정' : '새 일정 예약'}
+            {personalOnly ? event ? '개인 일정 수정' : '새 개인 일정' : event ? '일정 수정' : '새 일정 예약'}
           </DialogTitle>
           <DialogDescription className="text-sm text-[#707072]">
-            참석자와 회의실을 함께 선택하면 각 캘린더에 자동으로 반영됩니다.
+            {personalOnly
+              ? '마이페이지 개인 스케줄러에 저장되며 상세 내용은 본인만 확인할 수 있습니다.'
+              : '참석자와 회의실을 함께 선택하면 각 캘린더에 자동으로 반영됩니다.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-4">
+            {!personalOnly && (
             <div className="grid gap-2 sm:grid-cols-4">
               {MODE_OPTIONS.map((option) => (
                 <button
@@ -566,6 +589,7 @@ const CalendarEventDialog = ({
                 </button>
               ))}
             </div>
+            )}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
@@ -627,6 +651,7 @@ const CalendarEventDialog = ({
                   </div>
                 </div>
               )}
+              {!personalOnly ? (
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-[#39393b]">공개 수준</Label>
                 <Select value={draft.visibility} onValueChange={(value) => setDraftField('visibility', value as CalendarEventVisibility)}>
@@ -646,6 +671,13 @@ const CalendarEventDialog = ({
                   </p>
                 )}
               </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-lg border border-[#e5e5e5] bg-[#fafafa] px-3 py-2 text-xs font-medium text-[#707072]">
+                  <LockKeyhole className="h-3.5 w-3.5" />
+                  본인만 상세 확인 가능한 비공개 일정으로 저장됩니다.
+                </div>
+              )}
+              {!personalOnly && (
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-[#39393b]">팀 캘린더</Label>
                 <Select value={draft.teamDepartment || 'none'} onValueChange={(value) => setDraftField('teamDepartment', value === 'none' ? '' : value)}>
@@ -668,6 +700,7 @@ const CalendarEventDialog = ({
                   </p>
                 )}
               </div>
+              )}
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-xs font-semibold text-[#39393b]">장소</Label>
                 <Input
