@@ -66,6 +66,23 @@ const InternalQuotePage = () => {
     companyName: recipient?.companyName,
   });
 
+  const getRecipientLinkDescription = (
+    status?: 'none' | 'linked' | 'created' | 'filled_missing' | 'created_new_contact',
+  ) => {
+    switch (status) {
+      case 'created':
+        return '신규 고객사로 자동 저장되었습니다.';
+      case 'created_new_contact':
+        return '기존 고객사에 새 담당자로 자동 저장되었습니다.';
+      case 'filled_missing':
+        return '기존 고객사에 연결하고 비어 있던 정보를 보강했습니다.';
+      case 'linked':
+        return '기존 고객사에 연결되었습니다.';
+      default:
+        return undefined;
+    }
+  };
+
   const persistCurrentQuote = async (successMode: 'celebrate' | 'autosave' | 'silent' = 'autosave') => {
     if (!user) {
       toast.error('로그인이 필요합니다.');
@@ -98,22 +115,33 @@ const InternalQuotePage = () => {
       setSavedQuoteId(result.quoteId);
 
       if (successMode === 'celebrate') {
+        const recipientDescription = getRecipientLinkDescription(result.recipientLinkStatus);
         if (result.inserted) {
           try {
             const todayQuoteCount = await getTodayQuoteCount(user.id);
             const celebration = getQuoteCelebrationCopy(todayQuoteCount);
-            toast.success(celebration.title, { description: celebration.description });
+            toast.success(celebration.title, {
+              description: recipientDescription
+                ? `${celebration.description} ${recipientDescription}`
+                : celebration.description,
+            });
             triggerQuoteIssuedHamzzi(1, todayQuoteCount);
           } catch (celebrationError) {
             console.warn('Quote celebration count failed:', celebrationError);
-            toast.success('견적서 발행 완료. 오늘도 한 건 처리했습니다.');
+            toast.success('견적서 발행 완료. 오늘도 한 건 처리했습니다.', {
+              description: recipientDescription,
+            });
             triggerQuoteIssuedHamzzi();
           }
         } else {
-          toast.success('견적서 변경사항이 저장되었습니다.');
+          toast.success('견적서 변경사항이 저장되었습니다.', {
+            description: recipientDescription,
+          });
         }
       } else if (successMode === 'autosave') {
-        toast.success(result.inserted ? '견적서가 자동 저장되었습니다.' : '견적서 변경사항이 자동 저장되었습니다.');
+        toast.success(result.inserted ? '견적서가 자동 저장되었습니다.' : '견적서 변경사항이 자동 저장되었습니다.', {
+          description: getRecipientLinkDescription(result.recipientLinkStatus),
+        });
       }
 
       logActivity(

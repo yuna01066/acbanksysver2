@@ -696,7 +696,11 @@ const SavedQuotesPage = () => {
                               className="flex max-w-full items-center gap-1.5 text-left text-sm font-medium text-primary hover:underline"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                navigate(`/recipients?company=${encodeURIComponent(quote.recipient_company!)}`);
+                                if (quote.recipient_id) {
+                                  navigate(`/recipients?id=${encodeURIComponent(quote.recipient_id)}`);
+                                } else {
+                                  navigate(`/recipients?company=${encodeURIComponent(quote.recipient_company!)}`);
+                                }
                               }}
                             >
                               <Building2 className="h-3.5 w-3.5 shrink-0" />
