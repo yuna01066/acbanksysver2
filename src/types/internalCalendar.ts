@@ -1,3 +1,5 @@
+import { DASHBOARD_SOURCE_COLORS } from '@/utils/dashboardSemanticColors';
+
 export type CalendarEventStatus = 'scheduled' | 'confirmed' | 'completed' | 'canceled';
 export type CalendarEventVisibility = 'private' | 'busy_only' | 'title_only' | 'details';
 export type CalendarSourceType =
@@ -285,23 +287,24 @@ export const CALENDAR_EVENT_LEGEND: Array<{
   iconType: CalendarIconType;
   accent: string;
 }> = [
-  { key: 'quote-issued', label: '견적 발행일', sourceType: 'quote', sourceSubtype: 'issued', iconType: 'quote', accent: '#2563eb' },
-  { key: 'quote-delivery', label: '납기 희망일', sourceType: 'quote', sourceSubtype: 'delivery', iconType: 'delivery', accent: '#f97316' },
-  { key: 'project', label: '프로젝트', sourceType: 'project', iconType: 'project', accent: '#059669' },
-  { key: 'notion', label: 'Notion 프로젝트', sourceType: 'notion', iconType: 'notion', accent: '#7c3aed' },
-  { key: 'meeting', label: '미팅', sourceType: 'peer_meeting', iconType: 'meeting', accent: '#b45309' },
-  { key: 'meeting-reservation', label: '미팅 예약', sourceType: 'meeting_reservation', iconType: 'meeting_reservation', accent: '#0284c7' },
-  { key: 'announcement-event', label: '이벤트', sourceType: 'announcement_event', iconType: 'event', accent: '#10b981' },
-  { key: 'holiday', label: '휴일', sourceType: 'holiday', iconType: 'holiday', accent: '#ef4444' },
-  { key: 'birthday', label: '생일', sourceType: 'birthday', iconType: 'birthday', accent: '#ec4899' },
-  { key: 'leave', label: '휴가', sourceType: 'leave', iconType: 'leave', accent: '#14b8a6' },
+  { key: 'quote-issued', label: '견적 발행일', sourceType: 'quote', sourceSubtype: 'issued', iconType: 'quote', accent: DASHBOARD_SOURCE_COLORS['quote-issued'].accent },
+  { key: 'quote-delivery', label: '납기 예정일', sourceType: 'quote', sourceSubtype: 'delivery', iconType: 'delivery', accent: DASHBOARD_SOURCE_COLORS['quote-delivery'].accent },
+  { key: 'quote-delivery-completed', label: '납기 완료', sourceType: 'quote', sourceSubtype: 'delivered', iconType: 'delivery', accent: DASHBOARD_SOURCE_COLORS['quote-delivery-completed'].accent },
+  { key: 'project', label: '프로젝트', sourceType: 'project', iconType: 'project', accent: DASHBOARD_SOURCE_COLORS.project.accent },
+  { key: 'notion', label: 'Notion 프로젝트', sourceType: 'notion', iconType: 'notion', accent: DASHBOARD_SOURCE_COLORS.notion.accent },
+  { key: 'meeting', label: '미팅', sourceType: 'peer_meeting', iconType: 'meeting', accent: DASHBOARD_SOURCE_COLORS.meeting.accent },
+  { key: 'meeting-reservation', label: '미팅 예약', sourceType: 'meeting_reservation', iconType: 'meeting_reservation', accent: DASHBOARD_SOURCE_COLORS['meeting-reservation'].accent },
+  { key: 'announcement-event', label: '이벤트', sourceType: 'announcement_event', iconType: 'event', accent: DASHBOARD_SOURCE_COLORS['announcement-event'].accent },
+  { key: 'holiday', label: '휴일', sourceType: 'holiday', iconType: 'holiday', accent: DASHBOARD_SOURCE_COLORS.holiday.accent },
+  { key: 'birthday', label: '생일', sourceType: 'birthday', iconType: 'birthday', accent: DASHBOARD_SOURCE_COLORS.birthday.accent },
+  { key: 'leave', label: '휴가', sourceType: 'leave', iconType: 'leave', accent: DASHBOARD_SOURCE_COLORS.leave.accent },
 ];
 
 export const DEFAULT_CALENDAR_ACCENT = '#111111';
 
 export function getCalendarEventAccent(event: Pick<InternalCalendarEvent, 'accent' | 'source_type' | 'source_subtype' | 'resource_ids'>) {
   if (event.accent) return event.accent;
-  if (event.resource_ids.length > 0) return '#4b5563';
+  if (event.resource_ids.length > 0) return DASHBOARD_SOURCE_COLORS.room.accent;
   const matched = CALENDAR_EVENT_LEGEND.find((item) =>
     item.sourceType === event.source_type
     && (!item.sourceSubtype || item.sourceSubtype === event.source_subtype),

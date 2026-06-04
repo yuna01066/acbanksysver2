@@ -11,6 +11,7 @@ import { BookOpen, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { differenceInDays, parseISO, isValid } from 'date-fns';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
+import { getDashboardSourceDotClass, type DashboardSourceKey } from '@/utils/dashboardSemanticColors';
 
 interface QuoteProject {
   id: string;
@@ -85,6 +86,13 @@ function getStatusLabel(status: string): string {
   if (s === 'in progress') return '진행중';
   if (s === 'not started') return '시작 전';
   return status;
+}
+
+function getQuoteProjectSourceKey(stage: string): DashboardSourceKey {
+  if (stage === 'quote_issued' || stage === 'revision_requested' || stage === 'on_hold' || stage === 'reviewing') return 'quote-issued';
+  if (stage === 'delivery_scheduled') return 'quote-delivery';
+  if (stage === 'delivered') return 'quote-delivery-completed';
+  return 'project';
 }
 
 const ProjectProgressCard = () => {
@@ -167,6 +175,7 @@ const ProjectProgressCard = () => {
               >
                 <div className="flex items-center gap-2 mb-1">
                   <BookOpen className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', getDashboardSourceDotClass('notion'))} />
                   <span className="text-xs font-medium truncate flex-1 transition-colors group-hover:text-foreground">
                     {project.title}
                   </span>
@@ -191,6 +200,7 @@ const ProjectProgressCard = () => {
               >
                 <div className="flex items-center gap-2 mb-1">
                   <FileSpreadsheet className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', getDashboardSourceDotClass(getQuoteProjectSourceKey(quote.project_stage)))} />
                   <span className="text-xs font-medium truncate flex-1 transition-colors group-hover:text-foreground">
                     {quote.project_name || `견적 ${quote.quote_number}`}
                   </span>

@@ -7,27 +7,13 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import type { AppNotification } from '@/hooks/useNotifications';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
-import { useTodayWorkItems, type WorkItemTone } from '@/hooks/useTodayWorkItems';
+import { useTodayWorkItems } from '@/hooks/useTodayWorkItems';
 import { useNavigate } from 'react-router-dom';
+import { getDashboardSourceDotClass } from '@/utils/dashboardSemanticColors';
 
 interface TodayWorkCardProps {
   notifications: AppNotification[];
 }
-
-const workToneDotClass = (tone: WorkItemTone) => {
-  switch (tone) {
-    case 'danger':
-      return 'bg-red-500';
-    case 'warning':
-      return 'bg-amber-500';
-    case 'success':
-      return 'bg-emerald-500';
-    case 'primary':
-      return 'bg-foreground';
-    default:
-      return 'bg-muted-foreground';
-  }
-};
 
 const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
   const navigate = useNavigate();
@@ -80,7 +66,7 @@ const TodayWorkCard = ({ notifications }: TodayWorkCardProps) => {
                     className="group grid w-full grid-cols-[auto,1fr,auto] items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-muted disabled:cursor-wait disabled:opacity-70"
                   >
                     <div className="relative flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground/70">
-                      <span className={cn('absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-card', workToneDotClass(item.tone))} />
+                      <span className={cn('absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-card', getDashboardSourceDotClass(item.sourceKey))} />
                       {item.icon}
                     </div>
                     <div className="min-w-0">
