@@ -29,6 +29,7 @@ import InternalProjectItemsCard from './InternalProjectItemsCard';
 import ProjectGanttChart from './ProjectGanttChart';
 import ProjectProfitability from './ProjectProfitability';
 import ProjectMilestones from './ProjectMilestones';
+import ProjectApprovalPanel from './ProjectApprovalPanel';
 
 interface Props {
   projectId: string;
@@ -279,6 +280,7 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
           <Tabs defaultValue="overview" className="w-full">
             <TabsList className="h-8 w-full justify-start bg-muted/50">
               <TabsTrigger value="overview" className="text-[11px] h-6 px-3">개요</TabsTrigger>
+              <TabsTrigger value="approvals" className="text-[11px] h-6 px-3">견적·품의</TabsTrigger>
               <TabsTrigger value="timeline" className="text-[11px] h-6 px-3">타임라인</TabsTrigger>
               <TabsTrigger value="profitability" className="text-[11px] h-6 px-3">수익성</TabsTrigger>
               <TabsTrigger value="milestones" className="text-[11px] h-6 px-3">마일스톤</TabsTrigger>
@@ -319,6 +321,14 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
                 <LinkedClientProjectCard linkedProjectId={(project as any).linked_project_id} />
               )}
               <ProjectUpdatesFeed projectId={projectId} projectName={project?.name} />
+            </TabsContent>
+
+            <TabsContent value="approvals" className="mt-3">
+              <ProjectApprovalPanel
+                projectId={projectId}
+                projectName={project.name}
+                linkedQuotes={linkedQuotes as any}
+              />
             </TabsContent>
 
             <TabsContent value="timeline" className="mt-3">

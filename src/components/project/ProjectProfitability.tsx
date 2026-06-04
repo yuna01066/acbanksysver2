@@ -59,6 +59,20 @@ const ProjectProfitability: React.FC<Props> = ({ projectId }) => {
     },
   });
 
+  const { data: approvedApprovalCost = 0 } = useQuery({
+    queryKey: ['project-profitability-approved-approvals', projectId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('approval_requests')
+        .select('amount')
+        .eq('related_project_id', projectId)
+        .eq('status', 'approved')
+        .in('request_type', ['purchase_request', 'expense_payment']);
+      if (error) throw error;
+      return (data || []).reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
+    },
+  });
+
   const customData = (project?.custom_data as any) || {};
   const [materialCostAdj, setMaterialCostAdj] = useState<string>('');
   const [processingCostAdj, setProcessingCostAdj] = useState<string>('');
@@ -128,6 +142,10 @@ const ProjectProfitability: React.FC<Props> = ({ projectId }) => {
           <div className="flex justify-between">
             <span className="text-muted-foreground">자동 집계 (영수증 + 입금 견적)</span>
             <span className="font-medium">₩{Math.round(autoCost).toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">승인된 구매/지출 품의</span>
+            <span className="font-medium text-emerald-700">₩{Math.round(approvedApprovalCost).toLocaleString()}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground shrink-0 w-[100px]">원자재비 (보정)</span>

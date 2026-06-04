@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart, Star, FolderOpen, MessageSquareText, PenLine } from 'lucide-react';
+import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart, Star, FolderOpen, MessageSquareText, PenLine, ShieldCheck } from 'lucide-react';
 import { AppNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -132,6 +132,10 @@ const NotificationPanel = ({
         return <FileText className="h-4 w-4 text-primary" />;
       case 'approval_complete':
         return <UserCheck className="h-4 w-4 text-primary" />;
+      case 'approval_request':
+      case 'approval_approved':
+      case 'approval_rejected':
+        return <ShieldCheck className="h-4 w-4 text-amber-600" />;
       case 'quote_modified':
         return <Edit className="h-4 w-4 text-accent" />;
       case 'leave_request':
@@ -160,7 +164,13 @@ const NotificationPanel = ({
   };
 
   const getGroup = (notification: AppNotification): NotificationFilter => {
-    if (notification.type === 'password_reset' || notification.type === 'pending_approval') return 'approval';
+    if (
+      notification.type === 'password_reset'
+      || notification.type === 'pending_approval'
+      || notification.type === 'approval_request'
+      || notification.type === 'approval_approved'
+      || notification.type === 'approval_rejected'
+    ) return 'approval';
     if (
       notification.type === 'quote_update'
       || notification.type === 'quote_modified'
@@ -190,6 +200,9 @@ const NotificationPanel = ({
     switch (type) {
       case 'password_reset': return '비밀번호';
       case 'pending_approval': return '가입 승인';
+      case 'approval_request':
+      case 'approval_approved':
+      case 'approval_rejected': return '품의';
       case 'quote_update':
       case 'quote_modified': return '견적';
       case 'project_mention': return '프로젝트';
@@ -534,6 +547,22 @@ const NotificationPanel = ({
                       >
                         <PenLine className="h-3 w-3 mr-1" />
                         계약서 보기
+                      </Button>
+                    )}
+
+                    {(notification.type === 'approval_request' || notification.type === 'approval_approved' || notification.type === 'approval_rejected') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          onRemove(notification.id);
+                          navigate(notification.data?.projectId ? `/project-management?id=${notification.data.projectId}` : '/review-hub');
+                          setOpen(false);
+                        }}
+                      >
+                        <ShieldCheck className="h-3 w-3 mr-1" />
+                        품의 보기
                       </Button>
                     )}
 

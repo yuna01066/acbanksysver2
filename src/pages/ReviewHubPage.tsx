@@ -16,6 +16,13 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
+import {
+  ApprovalRequestRecord,
+  getApprovalTypeLabel,
+  listPendingApprovalRequests,
+  reviewApprovalRequest,
+} from '@/services/approvalRequests';
+import { toast } from 'sonner';
 
 type LeaveReview = {
   id: string;
@@ -80,12 +87,14 @@ const ReviewHubPage = () => {
   const [quotes, setQuotes] = useState<QuoteReview[]>([]);
   const [projects, setProjects] = useState<ProjectReview[]>([]);
   const [approvals, setApprovals] = useState<ApprovalReview[]>([]);
+  const [approvalRequests, setApprovalRequests] = useState<ApprovalRequestRecord[]>([]);
   const [counts, setCounts] = useState({
     leaves: 0,
     documents: 0,
     quotes: 0,
     projects: 0,
     approvals: 0,
+    approvalRequests: 0,
   });
 
   const loadReviewData = useCallback(async () => {
@@ -97,6 +106,7 @@ const ReviewHubPage = () => {
         quoteResult,
         projectResult,
         approvalResult,
+        approvalRequestResult,
       ] = await Promise.all([
         supabase
           .from('leave_requests')
@@ -130,6 +140,7 @@ const ReviewHubPage = () => {
               .order('created_at', { ascending: false })
               .limit(5)
           : Promise.resolve({ data: [], count: 0, error: null }),
+        listPendingApprovalRequests(5),
       ]);
 
       if (leaveResult.error) throw leaveResult.error;
@@ -143,12 +154,14 @@ const ReviewHubPage = () => {
       setQuotes((quoteResult.data || []) as QuoteReview[]);
       setProjects((projectResult.data || []) as ProjectReview[]);
       setApprovals((approvalResult.data || []) as ApprovalReview[]);
+      setApprovalRequests(approvalRequestResult);
       setCounts({
         leaves: leaveResult.count || 0,
         documents: documentResult.count || 0,
         quotes: quoteResult.count || 0,
         projects: projectResult.count || 0,
         approvals: approvalResult.count || 0,
+        approvalRequests: approvalRequestResult.length,
       });
     } finally {
       setLoading(false);
@@ -165,9 +178,28 @@ const ReviewHubPage = () => {
   }, [authLoading, isAdmin, isModerator, loadReviewData, navigate]);
 
   const urgentCount = useMemo(
-    () => counts.leaves + counts.documents + counts.quotes + counts.approvals,
+    () => counts.leaves + counts.documents + counts.quotes + counts.approvals + counts.approvalRequests,
     [counts]
   );
+
+  const handleReviewApprovalRequest = async (request: ApprovalRequestRecord, decision: 'approved' | 'rejected') => {
+    const note = decision === 'rejected'
+      ? window.prompt('반려 사유를 입력하세요.') || ''
+      : window.prompt('검토 메모를 입력하세요. (선택)') || '';
+
+    if (decision === 'rejected' && note.trim().length < 2) {
+      toast.error('반려 사유를 입력해주세요.');
+      return;
+    }
+
+    try {
+      await reviewApprovalRequest(request.id, decision, note);
+      toast.success(decision === 'approved' ? '품의를 승인했습니다.' : '품의를 반려했습니다.');
+      loadReviewData();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '품의 검토에 실패했습니다.');
+    }
+  };
 
   const summaryCards = [
     {
@@ -193,6 +225,14 @@ const ReviewHubPage = () => {
       icon: FileText,
       path: '/saved-quotes',
       tone: counts.quotes > 0 ? 'text-blue-600' : 'text-emerald-600',
+    },
+    {
+      title: '품의 승인',
+      count: counts.approvalRequests,
+      description: '프로젝트/구매/지출 품의',
+      icon: ShieldCheck,
+      path: '/review-hub',
+      tone: counts.approvalRequests > 0 ? 'text-amber-600' : 'text-emerald-600',
     },
     {
       title: '가입 승인',
@@ -237,7 +277,7 @@ const ReviewHubPage = () => {
             />
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               {summaryCards.map((card) => {
                 const Icon = card.icon;
                 const disabled = card.adminOnly && !isAdmin;
@@ -263,6 +303,53 @@ const ReviewHubPage = () => {
         </Card>
 
         <div className="grid gap-5 lg:grid-cols-2">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <BrandedCardHeader icon={ShieldCheck} title="품의 승인 대기" />
+              <CardDescription>프로젝트 개시, 구매, 지출 품의를 승인하거나 반려합니다.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {approvalRequests.length === 0 ? (
+                <EmptyState text="대기 중인 품의 요청이 없습니다." />
+              ) : approvalRequests.map((request) => (
+                <ReviewRow
+                  key={request.id}
+                  icon={<ShieldCheck className="h-4 w-4 text-amber-600" />}
+                  title={`${getApprovalTypeLabel(request.request_type)} · ${request.title}`}
+                  description={`${request.requested_by_name || '요청자 미지정'} · ${request.amount != null ? formatCurrency(request.amount) : '금액 미지정'}`}
+                  badge="승인 대기"
+                  onClick={() => navigate(request.related_project_id ? `/project-management?id=${request.related_project_id}` : '/review-hub')}
+                  actions={(
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleReviewApprovalRequest(request, 'approved');
+                        }}
+                      >
+                        승인
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs text-red-600"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleReviewApprovalRequest(request, 'rejected');
+                        }}
+                      >
+                        반려
+                      </Button>
+                    </div>
+                  )}
+                />
+              ))}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <BrandedCardHeader icon={ClipboardCheck} title="휴가 승인 대기" />
@@ -388,12 +475,14 @@ const ReviewRow = ({
   description,
   badge,
   onClick,
+  actions,
 }: {
   icon: React.ReactNode;
   title: string;
   description: string;
   badge: string;
   onClick: () => void;
+  actions?: React.ReactNode;
 }) => (
   <button
     type="button"
@@ -407,9 +496,11 @@ const ReviewRow = ({
       <p className="truncate text-sm font-medium">{title}</p>
       <p className="truncate text-xs text-muted-foreground">{description}</p>
     </div>
-    <Badge variant="secondary" className="shrink-0 text-[10px]">
-      {badge}
-    </Badge>
+    {actions || (
+      <Badge variant="secondary" className="shrink-0 text-[10px]">
+        {badge}
+      </Badge>
+    )}
   </button>
 );
 
