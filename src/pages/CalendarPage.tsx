@@ -17,9 +17,11 @@ import { ko } from 'date-fns/locale';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CalendarCheck2,
+  BellRing,
   Cake,
   ChevronLeft,
   ChevronRight,
+  CheckSquare2,
   Clock3,
   Coffee,
   DoorOpen,
@@ -33,6 +35,7 @@ import {
   PartyPopper,
   Plus,
   Search,
+  Trash2,
   Truck,
   UsersRound,
   type LucideIcon,
@@ -51,10 +54,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
   getCalendarMonthRange,
+  useCalendarTasks,
+  useCreateCalendarTask,
   useCalendarDirectory,
   useCalendarEvents,
   useCalendarResources,
   useCalendarSubscriptions,
+  useDeleteCalendarTask,
+  useUpdateCalendarEvent,
+  useUpdateCalendarTask,
 } from '@/hooks/useInternalCalendar';
 import {
   CALENDAR_EVENT_LEGEND,
@@ -68,15 +76,23 @@ import {
   type CalendarResource,
   type CalendarSourceFilter,
   type CalendarSubscription,
+  type CalendarTask,
+  type CalendarTaskPriority,
   type CalendarViewScope,
   type InternalCalendarEvent,
 } from '@/types/internalCalendar';
 
 type CalendarViewMode = 'month' | 'week' | 'day';
+type CalendarDialogMode = 'personal' | 'team' | 'employee' | 'client' | 'room' | 'manual' | 'event' | 'holiday';
 
 const supabaseAny = supabase as any;
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const DEFAULT_SOURCE_FILTERS = CALENDAR_SOURCE_FILTERS.map((filter) => filter.value);
+const TASK_PRIORITY_LABELS: Record<CalendarTaskPriority, string> = {
+  low: '낮음',
+  normal: '보통',
+  high: '중요',
+};
 const CALENDAR_ICON_MAP: Record<CalendarIconType, LucideIcon> = {
   calendar: CalendarCheck2,
   quote: FileText,
@@ -156,12 +172,14 @@ const CalendarPage = () => {
   const [sourceFilters, setSourceFilters] = useState<Set<CalendarSourceFilter>>(() => new Set(DEFAULT_SOURCE_FILTERS));
   const [initializedCalendars, setInitializedCalendars] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<'employee' | 'client' | 'room' | 'manual' | 'event' | 'holiday'>('manual');
+  const [dialogMode, setDialogMode] = useState<CalendarDialogMode>('personal');
   const [dialogDate, setDialogDate] = useState(() => new Date());
   const [editingEvent, setEditingEvent] = useState<InternalCalendarEvent | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<InternalCalendarEvent | null>(null);
   const [subscriptionTarget, setSubscriptionTarget] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskPriority, setTaskPriority] = useState<CalendarTaskPriority>('normal');
 
   const { rangeStart, rangeEnd } = getCalendarMonthRange(currentMonth);
   const { data: events = [], isLoading: isEventsLoading } = useCalendarEvents({
@@ -173,6 +191,11 @@ const CalendarPage = () => {
   const { data: resources = [] } = useCalendarResources();
   const { data: employees = [] } = useCalendarDirectory();
   const { data: subscriptions = [] } = useCalendarSubscriptions(user?.id);
+  const { data: tasks = [] } = useCalendarTasks({ rangeStart, rangeEnd, enabled: !!user });
+  const createTask = useCreateCalendarTask();
+  const updateTask = useUpdateCalendarTask();
+  const deleteTask = useDeleteCalendarTask();
+  const updateEvent = useUpdateCalendarEvent();
 
   useEffect(() => {
     const dateParam = searchParams.get('date');
@@ -297,7 +320,7 @@ const CalendarPage = () => {
     return true;
   };
 
-  const openNewEvent = (mode: 'employee' | 'client' | 'room' | 'manual' | 'event' | 'holiday', date = selectedDate) => {
+  const openNewEvent = (mode: CalendarDialogMode, date = selectedDate) => {
     setDialogMode(mode);
     setEditingEvent(null);
     setSelectedDate(date);
@@ -308,6 +331,93 @@ const CalendarPage = () => {
   const openEvent = (event: InternalCalendarEvent) => {
     setSelectedEvent(event);
     if (!event.can_edit && openSourcePath(event)) return;
+  };
+
+  const selectedDateKey = format(selectedDate, 'yyyy-MM-dd');
+  const selectedDateEvents = visibleEvents
+    .filter((event) => eventOverlapsDay(event, selectedDate))
+    .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+  const selectedDateTasks = tasks
+    .filter((task) => task.task_date === selectedDateKey && task.status !== 'archived')
+    .sort((a, b) => {
+      const priorityOrder: Record<CalendarTaskPriority, number> = { high: 0, normal: 1, low: 2 };
+      return priorityOrder[a.priority] - priorityOrder[b.priority]
+        || Number(a.status === 'completed') - Number(b.status === 'completed')
+        || new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+
+  const handleCreateTask = async () => {
+    const title = taskTitle.trim();
+    if (!title) {
+      toast.error('할 일 제목을 입력해주세요.');
+      return;
+    }
+    try {
+      await createTask.mutateAsync({
+        title,
+        task_date: selectedDateKey,
+        priority: taskPriority,
+      });
+      setTaskTitle('');
+      setTaskPriority('normal');
+      toast.success('할 일을 추가했습니다.');
+    } catch (error: any) {
+      toast.error(error?.message || '할 일 추가에 실패했습니다.');
+    }
+  };
+
+  const handleToggleTask = async (task: CalendarTask) => {
+    try {
+      await updateTask.mutateAsync({
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        task_date: task.task_date,
+        priority: task.priority,
+        status: task.status === 'completed' ? 'open' : 'completed',
+        linked_event_id: task.linked_event_id,
+      });
+    } catch (error: any) {
+      toast.error(error?.message || '할 일 변경에 실패했습니다.');
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      await deleteTask.mutateAsync(taskId);
+      toast.success('할 일을 삭제했습니다.');
+    } catch (error: any) {
+      toast.error(error?.message || '할 일 삭제에 실패했습니다.');
+    }
+  };
+
+  const handleDropEvent = async (eventId: string, targetDay: Date) => {
+    const dragged = visibleEvents.find((item) => item.id === eventId);
+    if (!dragged || !dragged.can_edit || dragged.is_recurring_occurrence) return;
+
+    const currentStart = new Date(dragged.starts_at);
+    const currentEnd = new Date(dragged.ends_at);
+    const durationMs = currentEnd.getTime() - currentStart.getTime();
+    const nextStart = new Date(targetDay);
+    nextStart.setHours(currentStart.getHours(), currentStart.getMinutes(), currentStart.getSeconds(), currentStart.getMilliseconds());
+    const nextEnd = new Date(nextStart.getTime() + durationMs);
+
+    try {
+      await updateEvent.mutateAsync({
+        ...dragged,
+        id: dragged.series_event_id || dragged.id,
+        starts_at: nextStart.toISOString(),
+        ends_at: nextEnd.toISOString(),
+        participant_ids: dragged.participant_ids,
+        resource_ids: dragged.resource_ids,
+        metadata: dragged.metadata,
+        recurrence_rule: dragged.recurrence_rule,
+        reminder_minutes: dragged.reminder_minutes,
+      });
+      toast.success('일정 날짜를 변경했습니다.');
+    } catch (error: any) {
+      toast.error(error?.message || '일정 이동에 실패했습니다.');
+    }
   };
 
   const handleSubscribeUser = async () => {
@@ -408,14 +518,22 @@ const CalendarPage = () => {
     const accent = getCalendarEventAccent(event);
     const Icon = getCalendarIcon(event);
     const timeLabel = event.all_day ? '' : `${format(new Date(event.starts_at), 'HH:mm')} `;
+    const draggable = event.can_edit && !event.is_recurring_occurrence;
     return (
       <button
         key={event.id}
         type="button"
+        draggable={draggable}
+        onDragStart={(dragEvent) => {
+          if (!draggable) return;
+          dragEvent.dataTransfer.setData('text/calendar-event-id', event.id);
+          dragEvent.dataTransfer.effectAllowed = 'move';
+        }}
         onClick={() => openEvent(event)}
         className={cn(
           'w-full rounded-md border px-2 py-1 text-left transition-colors hover:border-[#111111]',
           compact ? 'text-[10px] leading-4' : 'text-xs leading-5',
+          draggable && 'cursor-grab active:cursor-grabbing',
         )}
         style={{
           borderColor: `${accent}33`,
@@ -431,6 +549,12 @@ const CalendarPage = () => {
         {!compact && (
           <span className="block truncate pl-4 text-[11px] opacity-70">
             {[event.location, event.resource_names.join(', '), event.client_name].filter(Boolean).join(' · ') || event.created_by_name}
+          </span>
+        )}
+        {!compact && (event.recurrence_rule || event.reminder_minutes.length > 0) && (
+          <span className="mt-1 flex gap-1 pl-4 text-[10px] font-semibold opacity-80">
+            {event.recurrence_rule && <span>반복</span>}
+            {event.reminder_minutes.length > 0 && <span>알림 {event.reminder_minutes.length}</span>}
           </span>
         )}
       </button>
@@ -466,7 +590,7 @@ const CalendarPage = () => {
                 ))}
               </div>
             )}
-            <Button className="h-9 rounded-full bg-[#111111] px-4 text-white hover:bg-[#39393b]" onClick={() => openNewEvent('manual')}>
+            <Button className="h-9 rounded-full bg-[#111111] px-4 text-white hover:bg-[#39393b]" onClick={() => openNewEvent('personal')}>
               <Plus className="mr-2 h-4 w-4" />
               일정 등록
             </Button>
@@ -643,6 +767,18 @@ const CalendarPage = () => {
                   return (
                     <div
                       key={day.toISOString()}
+                      onDragOver={(dragEvent) => {
+                        if (Array.from(dragEvent.dataTransfer.types).includes('text/calendar-event-id')) {
+                          dragEvent.preventDefault();
+                          dragEvent.dataTransfer.dropEffect = 'move';
+                        }
+                      }}
+                      onDrop={(dragEvent) => {
+                        const eventId = dragEvent.dataTransfer.getData('text/calendar-event-id');
+                        if (!eventId) return;
+                        dragEvent.preventDefault();
+                        handleDropEvent(eventId, day);
+                      }}
                       className={cn(
                         'min-h-[118px] border-b border-r border-[#e5e5e5] p-2',
                         muted && 'bg-[#fafafa] text-[#9e9ea0]',
@@ -653,7 +789,6 @@ const CalendarPage = () => {
                         type="button"
                         onClick={() => {
                           setSelectedDate(day);
-                          openNewEvent('manual', day);
                         }}
                         className={cn(
                           'flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold',
@@ -720,8 +855,11 @@ const CalendarPage = () => {
               <Button variant="outline" className="h-10 justify-start rounded-full border-[#cacacb]" onClick={() => openNewEvent('room')}>
                 <DoorOpen className="mr-2 h-4 w-4" /> 회의실 예약
               </Button>
-              <Button variant="outline" className="h-10 justify-start rounded-full border-[#cacacb]" onClick={() => openNewEvent('manual')}>
-                <CalendarCheck2 className="mr-2 h-4 w-4" /> 일반 일정
+              <Button variant="outline" className="h-10 justify-start rounded-full border-[#cacacb]" onClick={() => openNewEvent('personal')}>
+                <CalendarCheck2 className="mr-2 h-4 w-4" /> 개인 일정
+              </Button>
+              <Button variant="outline" className="h-10 justify-start rounded-full border-[#cacacb]" onClick={() => openNewEvent('team')}>
+                <UsersRound className="mr-2 h-4 w-4" /> 팀 일정
               </Button>
               <Button variant="outline" className="h-10 justify-start rounded-full border-[#cacacb]" onClick={() => openNewEvent('event')}>
                 <ListChecks className="mr-2 h-4 w-4" /> 이벤트
@@ -729,6 +867,113 @@ const CalendarPage = () => {
               <Button variant="outline" className="h-10 justify-start rounded-full border-[#cacacb]" onClick={() => openNewEvent('holiday')}>
                 <PartyPopper className="mr-2 h-4 w-4" /> 휴무일
               </Button>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-xs font-bold uppercase text-[#707072]">개인 다이어리</p>
+                <p className="mt-1 text-base font-bold text-[#111111]">{formatDateLabel(selectedDate)}</p>
+              </div>
+              <Button variant="outline" size="sm" className="h-8 rounded-full border-[#cacacb] text-xs" onClick={() => openNewEvent('personal', selectedDate)}>
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                일정
+              </Button>
+            </div>
+
+            <div className="mt-3 rounded-lg border border-[#e5e5e5] bg-white p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-bold text-[#111111]">이날 일정</p>
+                <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px]">{selectedDateEvents.length}건</Badge>
+              </div>
+              <div className="mt-2 max-h-44 space-y-1.5 overflow-y-auto pr-1">
+                {selectedDateEvents.length > 0 ? selectedDateEvents.map((event) => renderEventPill(event)) : (
+                  <button
+                    type="button"
+                    onClick={() => openNewEvent('personal', selectedDate)}
+                    className="w-full rounded-lg border border-dashed border-[#cacacb] bg-[#fafafa] p-3 text-left text-xs font-medium text-[#707072] hover:border-[#111111]"
+                  >
+                    등록된 일정이 없습니다. 개인 일정이나 팀 일정을 추가하세요.
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-lg border border-[#e5e5e5] bg-white p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-bold text-[#111111]">내 할 일</p>
+                <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px]">
+                  {selectedDateTasks.filter((task) => task.status !== 'completed').length}개 남음
+                </Badge>
+              </div>
+              <div className="mt-2 grid grid-cols-[1fr_86px] gap-2">
+                <Input
+                  value={taskTitle}
+                  onChange={(event) => setTaskTitle(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') handleCreateTask();
+                  }}
+                  placeholder="할 일 추가"
+                  className="h-9 rounded-full border-[#cacacb] bg-white text-sm"
+                />
+                <Select value={taskPriority} onValueChange={(value) => setTaskPriority(value as CalendarTaskPriority)}>
+                  <SelectTrigger className="h-9 rounded-full border-[#cacacb] bg-white text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(TASK_PRIORITY_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                variant="outline"
+                className="mt-2 h-8 w-full rounded-full border-[#cacacb] text-xs"
+                disabled={createTask.isPending}
+                onClick={handleCreateTask}
+              >
+                {createTask.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1.5 h-3.5 w-3.5" />}
+                할 일 추가
+              </Button>
+              <div className="mt-3 max-h-48 space-y-1.5 overflow-y-auto pr-1">
+                {selectedDateTasks.length > 0 ? selectedDateTasks.map((task) => {
+                  const done = task.status === 'completed';
+                  return (
+                    <div key={task.id} className="grid grid-cols-[auto,1fr,auto] items-center gap-2 rounded-lg border border-[#e5e5e5] bg-[#fafafa] px-2.5 py-2">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleTask(task)}
+                        className={cn(
+                          'flex h-6 w-6 items-center justify-center rounded-full border',
+                          done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-[#cacacb] bg-white text-[#707072]',
+                        )}
+                        aria-label={done ? '할 일 완료 해제' : '할 일 완료'}
+                      >
+                        <CheckSquare2 className="h-3.5 w-3.5" />
+                      </button>
+                      <div className="min-w-0">
+                        <p className={cn('truncate text-xs font-bold text-[#111111]', done && 'text-[#9e9ea0] line-through')}>{task.title}</p>
+                        <p className="text-[10px] font-semibold text-[#707072]">{TASK_PRIORITY_LABELS[task.priority]}</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-full text-[#9e9ea0] hover:text-red-600"
+                        onClick={() => handleDeleteTask(task.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  );
+                }) : (
+                  <p className="rounded-lg border border-dashed border-[#e5e5e5] bg-[#fafafa] p-3 text-xs font-medium text-[#707072]">
+                    이 날짜에 등록된 할 일이 없습니다.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -798,6 +1043,13 @@ const CalendarPage = () => {
                   <Badge variant="outline" className="rounded-full">{CALENDAR_STATUS_LABELS[selectedEvent.status]}</Badge>
                   {selectedEvent.is_redacted && <Badge variant="secondary" className="rounded-full">상세 제한</Badge>}
                   {!selectedEvent.can_edit && <Badge variant="secondary" className="rounded-full">읽기 전용</Badge>}
+                  {selectedEvent.recurrence_rule && <Badge variant="secondary" className="rounded-full">반복</Badge>}
+                  {selectedEvent.reminder_minutes.length > 0 && (
+                    <Badge variant="secondary" className="rounded-full">
+                      <BellRing className="mr-1 h-3 w-3" />
+                      알림 {selectedEvent.reminder_minutes.length}
+                    </Badge>
+                  )}
                 </div>
                 {selectedEvent.description && (
                   <p className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-xs leading-5 text-[#39393b]">
@@ -810,14 +1062,20 @@ const CalendarPage = () => {
                       variant="outline"
                       className="h-9 w-full rounded-full border-[#cacacb]"
                       onClick={() => {
-                        setEditingEvent(selectedEvent);
+                        setEditingEvent(selectedEvent.series_event_id ? {
+                          ...selectedEvent,
+                          id: selectedEvent.series_event_id,
+                          starts_at: selectedEvent.series_starts_at || selectedEvent.starts_at,
+                          ends_at: selectedEvent.series_ends_at || selectedEvent.ends_at,
+                          is_recurring_occurrence: false,
+                        } : selectedEvent);
                         setDialogOpen(true);
                       }}
                     >
-                      일정 수정
+                      {selectedEvent.is_recurring_occurrence ? '반복 원본 수정' : '일정 수정'}
                     </Button>
                     <CalendarEventDeleteActions
-                      event={selectedEvent}
+                      event={selectedEvent.series_event_id ? { ...selectedEvent, id: selectedEvent.series_event_id } : selectedEvent}
                       onDeleted={() => {
                         setSelectedEvent(null);
                         setEditingEvent(null);

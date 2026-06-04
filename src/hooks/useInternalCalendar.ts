@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { addDays, endOfMonth, format, startOfMonth } from 'date-fns';
+import { addDays, endOfMonth, format, startOfDay, startOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import type {
   CalendarDashboardSummary,
@@ -8,6 +8,8 @@ import type {
   CalendarEventDraftPayload,
   CalendarResource,
   CalendarSubscription,
+  CalendarTask,
+  CalendarTaskDraftPayload,
   CalendarViewScope,
   InternalCalendarEvent,
 } from '@/types/internalCalendar';
@@ -16,6 +18,7 @@ import {
   getCalendarEventAccent,
   getCalendarEventIconType,
   type CalendarIconType,
+  type CalendarRecurrenceRule,
   type CalendarSourceType,
 } from '@/types/internalCalendar';
 
@@ -107,6 +110,15 @@ function normalizeCalendarEvent(raw: any): InternalCalendarEvent {
     source_path: raw?.source_path ?? null,
     accent: manualPresentation.accent || raw?.accent || null,
     icon_type: (manualPresentation.icon_type || raw?.icon_type || null) as CalendarIconType | null,
+    recurrence_rule: normalizeRecurrenceRule(raw?.recurrence_rule),
+    recurrence_parent_id: raw?.recurrence_parent_id ?? null,
+    recurrence_exception_date: raw?.recurrence_exception_date ?? null,
+    reminder_minutes: Array.isArray(raw?.reminder_minutes) ? raw.reminder_minutes.map(Number).filter((value) => Number.isFinite(value)) : [],
+    series_event_id: raw?.series_event_id ?? null,
+    series_starts_at: raw?.series_starts_at ?? null,
+    series_ends_at: raw?.series_ends_at ?? null,
+    occurrence_date: raw?.occurrence_date ?? null,
+    is_recurring_occurrence: Boolean(raw?.is_recurring_occurrence),
     created_by: raw?.created_by ?? null,
     created_by_name: raw?.created_by_name || '시스템',
     team_department: raw?.team_department ?? null,
@@ -126,6 +138,124 @@ function normalizeCalendarEvent(raw: any): InternalCalendarEvent {
     accent: normalized.accent || getCalendarEventAccent(normalized) || DEFAULT_CALENDAR_ACCENT,
     icon_type: normalized.icon_type || getCalendarEventIconType(normalized),
   };
+}
+
+function normalizeRecurrenceRule(value: unknown): CalendarRecurrenceRule | null {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as Record<string, unknown>;
+  const frequency = String(candidate.frequency || '');
+  if (frequency !== 'daily' && frequency !== 'weekly' && frequency !== 'monthly' && frequency !== 'yearly') return null;
+  const interval = Math.max(1, Number(candidate.interval || 1));
+  const weekdays = Array.isArray(candidate.weekdays)
+    ? candidate.weekdays.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+    : undefined;
+  return {
+    frequency,
+    interval,
+    until: typeof candidate.until === 'string' && candidate.until ? candidate.until : null,
+    ...(weekdays && weekdays.length > 0 ? { weekdays } : {}),
+  };
+}
+
+function moveDateKeepingClock(source: Date, targetDate: Date) {
+  const next = new Date(targetDate);
+  next.setHours(source.getHours(), source.getMinutes(), source.getSeconds(), source.getMilliseconds());
+  return next;
+}
+
+function addRecurrenceStep(date: Date, rule: CalendarRecurrenceRule) {
+  const next = new Date(date);
+  const interval = Math.max(1, rule.interval || 1);
+  if (rule.frequency === 'daily') next.setDate(next.getDate() + interval);
+  if (rule.frequency === 'weekly') next.setDate(next.getDate() + interval * 7);
+  if (rule.frequency === 'monthly') next.setMonth(next.getMonth() + interval);
+  if (rule.frequency === 'yearly') next.setFullYear(next.getFullYear() + interval);
+  return next;
+}
+
+function sameCalendarDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate();
+}
+
+function isWeeklyRecurrenceMatch(baseDate: Date, targetDate: Date, rule: CalendarRecurrenceRule) {
+  const weekdays = rule.weekdays && rule.weekdays.length > 0 ? rule.weekdays : [baseDate.getDay()];
+  if (!weekdays.includes(targetDate.getDay())) return false;
+  const diffDays = Math.floor((targetDate.getTime() - startOfDay(baseDate).getTime()) / 86400000);
+  if (diffDays < 0) return false;
+  const diffWeeks = Math.floor(diffDays / 7);
+  return diffWeeks % Math.max(1, rule.interval || 1) === 0;
+}
+
+function expandRecurringEvents(events: InternalCalendarEvent[], rangeStart: string, rangeEnd: string) {
+  const expanded: InternalCalendarEvent[] = [];
+  const rangeStartDate = new Date(rangeStart);
+  const rangeEndDate = new Date(rangeEnd);
+
+  events.forEach((event) => {
+    if (!event.recurrence_rule || event.status === 'canceled') {
+      expanded.push(event);
+      return;
+    }
+
+    const rule = event.recurrence_rule;
+    const baseStart = new Date(event.starts_at);
+    const baseEnd = new Date(event.ends_at);
+    const durationMs = baseEnd.getTime() - baseStart.getTime();
+    const untilDate = rule.until ? new Date(`${rule.until}T23:59:59+09:00`) : rangeEndDate;
+    const expansionEnd = untilDate < rangeEndDate ? untilDate : rangeEndDate;
+    let cursor = new Date(baseStart);
+    let guard = 0;
+
+    if (rule.frequency === 'weekly') {
+      cursor = startOfDay(rangeStartDate > baseStart ? rangeStartDate : baseStart);
+      while (cursor < expansionEnd && guard < 370) {
+        if (isWeeklyRecurrenceMatch(baseStart, cursor, rule)) {
+          const occurrenceStart = moveDateKeepingClock(baseStart, cursor);
+          const occurrenceEnd = new Date(occurrenceStart.getTime() + durationMs);
+          if (eventOverlapsRange(occurrenceStart.toISOString(), occurrenceEnd.toISOString(), rangeStart, rangeEnd)) {
+            expanded.push({
+              ...event,
+              id: `${event.id}:occ:${format(occurrenceStart, 'yyyy-MM-dd')}`,
+              starts_at: occurrenceStart.toISOString(),
+              ends_at: occurrenceEnd.toISOString(),
+              series_event_id: event.id,
+              series_starts_at: event.starts_at,
+              series_ends_at: event.ends_at,
+              occurrence_date: format(occurrenceStart, 'yyyy-MM-dd'),
+              is_recurring_occurrence: !sameCalendarDay(occurrenceStart, baseStart),
+            });
+          }
+        }
+        cursor = addDays(cursor, 1);
+        guard += 1;
+      }
+      return;
+    }
+
+    while (cursor < rangeEndDate && guard < 370) {
+      const occurrenceEnd = new Date(cursor.getTime() + durationMs);
+      if (cursor <= expansionEnd && eventOverlapsRange(cursor.toISOString(), occurrenceEnd.toISOString(), rangeStart, rangeEnd)) {
+        expanded.push({
+          ...event,
+          id: `${event.id}:occ:${format(cursor, 'yyyy-MM-dd')}`,
+          starts_at: cursor.toISOString(),
+          ends_at: occurrenceEnd.toISOString(),
+          series_event_id: event.id,
+          series_starts_at: event.starts_at,
+          series_ends_at: event.ends_at,
+          occurrence_date: format(cursor, 'yyyy-MM-dd'),
+          is_recurring_occurrence: !sameCalendarDay(cursor, baseStart),
+        });
+      }
+      cursor = addRecurrenceStep(cursor, rule);
+      guard += 1;
+      if (cursor > expansionEnd) break;
+    }
+  });
+
+  return expanded.sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
 }
 
 function eventOverlapsRange(startsAt: string, endsAt: string, rangeStart: string, rangeEnd: string) {
@@ -289,15 +419,116 @@ export function useCalendarEvents({
         withCalendarTimeout(fetchNotionEvents(rangeStart, rangeEnd, scope), []),
       ]);
       if (error) throw error;
-      return [
+      return expandRecurringEvents([
         ...(data || []).map(normalizeCalendarEvent),
         ...birthdayEvents,
         ...notionEvents,
-      ].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+      ], rangeStart, rangeEnd);
     },
     enabled,
     retry: 1,
     staleTime: 60 * 1000,
+  });
+}
+
+export function useCalendarTasks({
+  rangeStart,
+  rangeEnd,
+  enabled = true,
+}: {
+  rangeStart: string;
+  rangeEnd: string;
+  enabled?: boolean;
+}) {
+  return useQuery<CalendarTask[]>({
+    queryKey: ['calendar-tasks', rangeStart, rangeEnd],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('calendar_tasks' as any)
+        .select('*')
+        .gte('task_date', format(new Date(rangeStart), 'yyyy-MM-dd'))
+        .lte('task_date', format(addDays(new Date(rangeEnd), -1), 'yyyy-MM-dd'))
+        .order('task_date', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data || []) as CalendarTask[];
+    },
+    enabled,
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useCreateCalendarTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: CalendarTaskDraftPayload) => {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) throw new Error('로그인이 필요합니다.');
+      const { data, error } = await supabase
+        .from('calendar_tasks' as any)
+        .insert({
+          owner_id: userId,
+          title: payload.title,
+          description: payload.description || null,
+          task_date: payload.task_date,
+          priority: payload.priority || 'normal',
+          status: payload.status || 'open',
+          linked_event_id: payload.linked_event_id || null,
+        })
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data as CalendarTask;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] });
+    },
+  });
+}
+
+export function useUpdateCalendarTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: CalendarTaskDraftPayload & { id: string }) => {
+      const nextStatus = payload.status;
+      const { data, error } = await supabase
+        .from('calendar_tasks' as any)
+        .update({
+          title: payload.title,
+          description: payload.description || null,
+          task_date: payload.task_date,
+          priority: payload.priority || 'normal',
+          status: nextStatus || 'open',
+          linked_event_id: payload.linked_event_id || null,
+          completed_at: nextStatus === 'completed' ? new Date().toISOString() : null,
+        })
+        .eq('id', payload.id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data as CalendarTask;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] });
+    },
+  });
+}
+
+export function useDeleteCalendarTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase.from('calendar_tasks' as any).delete().eq('id', taskId);
+      if (error) throw error;
+      return taskId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] });
+    },
   });
 }
 
@@ -376,6 +607,7 @@ export function useCalendarSubscriptions(userId?: string | null) {
         .from('calendar_subscriptions')
         .select('*')
         .eq('subscriber_id', userId)
+        .order('display_order', { ascending: true })
         .order('created_at', { ascending: true });
       if (error) throw error;
       return (data || []) as CalendarSubscription[];

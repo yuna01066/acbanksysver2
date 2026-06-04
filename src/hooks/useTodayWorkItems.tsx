@@ -25,7 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { AppNotification } from '@/hooks/useNotifications';
 import { useEmployeeHrTasks } from '@/hooks/useHrSelfService';
-import { useCalendarEvents } from '@/hooks/useInternalCalendar';
+import { useCalendarEvents, useCalendarTasks } from '@/hooks/useInternalCalendar';
 import type { CalendarViewScope } from '@/types/internalCalendar';
 
 export type WorkItemTone = 'danger' | 'warning' | 'primary' | 'neutral' | 'success';
@@ -307,6 +307,11 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
     scope: calendarScope,
     enabled: !!user,
   });
+  const { data: calendarTasks = [], isLoading: calendarTasksLoading } = useCalendarTasks({
+    rangeStart: calendarRangeStart,
+    rangeEnd: calendarRangeEnd,
+    enabled: !!user,
+  });
   const { data: hrTasks = [], isLoading: hrTasksLoading } = useEmployeeHrTasks();
 
   const unreadNotifications = useMemo(
@@ -386,19 +391,42 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
       .forEach((event) => {
         const startsAt = new Date(event.starts_at);
         const isTodayEvent = isSameDay(startsAt, new Date());
+        const minutesUntilStart = Math.round((startsAt.getTime() - Date.now()) / 60000);
+        const isReminderDue = event.reminder_minutes.some((minutes) => minutesUntilStart >= 0 && minutesUntilStart <= minutes);
         items.push({
           id: `calendar-${event.id}`,
           category: 'calendar',
           title: event.title,
           description: `${format(startsAt, 'M월 d일', { locale: ko })} · ${formatEventTime(event.starts_at, event.all_day)}${event.location ? ` · ${event.location}` : ''}`,
-          label: isTodayEvent ? '오늘 일정' : '예정',
-          tone: isTodayEvent ? 'primary' : 'neutral',
+          label: isReminderDue ? '일정 알림' : isTodayEvent ? '오늘 일정' : '예정',
+          tone: isReminderDue ? 'warning' : isTodayEvent ? 'primary' : 'neutral',
           icon: <CalendarClock className="h-4 w-4" />,
           actionLabel: '일정',
           onClick: () => navigate(event.source_path || `/calendar?date=${format(startsAt, 'yyyy-MM-dd')}&event=${event.id}`),
           isToday: isTodayEvent,
-          priority: isTodayEvent ? 20 : 55,
+          priority: isReminderDue ? 16 : isTodayEvent ? 20 : 55,
           sortAt: event.starts_at,
+        });
+      });
+
+    calendarTasks
+      .filter((task) => task.status === 'open')
+      .slice(0, 8)
+      .forEach((task) => {
+        const due = formatDueLabel(task.task_date);
+        items.push({
+          id: `calendar-task-${task.id}`,
+          category: 'calendar',
+          title: task.title,
+          description: task.description || `${format(parseISO(task.task_date), 'M월 d일', { locale: ko })} 개인 할 일`,
+          label: due.isToday ? '오늘 할 일' : due.label,
+          tone: task.priority === 'high' ? 'warning' : due.tone,
+          icon: <CheckCircle2 className="h-4 w-4" />,
+          actionLabel: '할 일',
+          onClick: () => navigate(`/calendar?date=${task.task_date}`),
+          isToday: due.isToday,
+          priority: task.priority === 'high' ? Math.min(due.priority, 18) : Math.min(due.priority + 5, 65),
+          sortAt: task.task_date,
         });
       });
 
@@ -467,7 +495,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
         return new Date(a.sortAt).getTime() - new Date(b.sortAt).getTime();
       })
       .slice(0, 12);
-  }, [activeProjects, calendarEvents, canReview, hrTasks, navigate, pendingLeaves, syncSummary, unreadNotifications, upcomingQuotes]);
+  }, [activeProjects, calendarEvents, calendarTasks, canReview, hrTasks, navigate, pendingLeaves, syncSummary, unreadNotifications, upcomingQuotes]);
 
   const visibleWorkItems = useMemo(
     () => workItems.filter((item) => !dismissedIds.includes(item.id)),
@@ -501,6 +529,6 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
     briefing,
     dismissItem,
     resetDismissedItems,
-    isLoading: quotesLoading || projectsLoading || leavesLoading || syncLoading || calendarLoading || hrTasksLoading,
+    isLoading: quotesLoading || projectsLoading || leavesLoading || syncLoading || calendarLoading || calendarTasksLoading || hrTasksLoading,
   };
 }
