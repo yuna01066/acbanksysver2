@@ -4,9 +4,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
   Archive,
+  AlertTriangle,
   CalendarDays,
   CheckCircle2,
+  Clock,
   Download,
+  History,
+  Link2,
   FileText,
   FolderOpen,
   Loader2,
@@ -23,6 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Attachment, QuoteRecipient } from '@/contexts/QuoteContext';
 import { createQuoteDraft } from '@/services/quoteDrafts';
+import { upsertRecipientFromQuoteRecipient } from '@/services/recipientUpsert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -70,19 +75,63 @@ type ClientConsultationLead = {
   inquiry_body: string;
   desired_delivery_date: string | null;
   delivery_address: string | null;
+  recipient_id: string | null;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  follow_up_at: string | null;
+  response_status: 'not_contacted' | 'contacted' | 'waiting_client' | 'quoted' | 'done';
+  submission_token: string | null;
+  quality_score: number | null;
   assigned_to: string | null;
   converted_quote_id: string | null;
   converted_quote_draft_id: string | null;
   project_id: string | null;
+  missing_fields: string[] | null;
   memo: string | null;
   created_at: string;
   updated_at: string;
   files?: ClientConsultationFile[];
+  items?: ClientConsultationItem[];
+  events?: ClientConsultationEvent[];
+};
+
+type ClientConsultationItem = {
+  id: string;
+  lead_id: string;
+  item_name: string | null;
+  width: string | null;
+  height: string | null;
+  thickness: string | null;
+  quantity: string | null;
+  unit: string | null;
+  color_name: string | null;
+  processing_options: string[] | null;
+  memo: string | null;
+  sort_order: number | null;
+  created_at: string;
+};
+
+type ClientConsultationEvent = {
+  id: string;
+  lead_id: string;
+  event_type: string;
+  actor_id: string | null;
+  note: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
 };
 
 type ProfileOption = {
   id: string;
   full_name: string | null;
+};
+
+type RecipientOption = {
+  id: string;
+  company_name: string | null;
+  contact_person: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
 };
 
 const statusOptions: Array<{ value: ClientLeadStatus; label: string }> = [
@@ -102,6 +151,21 @@ const filterOptions: Array<{ value: ClientLeadFilter; label: string }> = [
   { value: 'closed', label: '종료' },
 ];
 
+const priorityOptions = [
+  { value: 'low', label: '낮음' },
+  { value: 'normal', label: '보통' },
+  { value: 'high', label: '높음' },
+  { value: 'urgent', label: '긴급' },
+] as const;
+
+const responseStatusOptions = [
+  { value: 'not_contacted', label: '미응대' },
+  { value: 'contacted', label: '응대 완료' },
+  { value: 'waiting_client', label: '고객 회신 대기' },
+  { value: 'quoted', label: '견적 전환' },
+  { value: 'done', label: '종료' },
+] as const;
+
 function formatDateTime(value: string | null | undefined) {
   if (!value) return '-';
   const date = new Date(value);
@@ -118,6 +182,24 @@ function fileSizeLabel(size: number | null) {
 
 function getLeadTitle(lead: ClientConsultationLead) {
   return lead.project_name || lead.product_type || lead.customer_company || `${lead.customer_name} 상담 문의`;
+}
+
+function normalizeComparable(value?: string | null) {
+  return (value || '').replace(/\s+/g, '').replace(/[^\w가-힣@.]/g, '').toLowerCase();
+}
+
+function eventLabel(eventType: string) {
+  switch (eventType) {
+    case 'submitted': return '접수';
+    case 'assigned': return '담당자 지정';
+    case 'status_changed': return '상태 변경';
+    case 'recipient_linked': return '고객사 연결';
+    case 'quote_draft_created': return '견적 초안 전환';
+    case 'project_created': return '프로젝트 생성';
+    case 'closed': return '종료';
+    case 'memo_updated': return '메모 변경';
+    default: return eventType;
+  }
 }
 
 function statusBadgeClass(status: ClientLeadStatus) {
@@ -148,6 +230,20 @@ function buildQuoteRecipient(lead: ClientConsultationLead): QuoteRecipient {
 
   const memoParts = [
     lead.inquiry_body,
+    lead.items?.length ? `품목별 제작 정보:\n${lead.items
+      .slice()
+      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
+      .map((item, index) => {
+        const size = [item.width, item.height, item.thickness].filter(Boolean).join(' x ');
+        return [
+          `${index + 1}. ${item.item_name || '품목'}`,
+          size,
+          item.quantity ? `수량 ${item.quantity}${item.unit || ''}` : '',
+          item.color_name,
+          item.processing_options?.length ? `가공 ${item.processing_options.join(', ')}` : '',
+          item.memo,
+        ].filter(Boolean).join(' / ');
+      }).join('\n')}` : '',
     lead.product_type ? `제작 품목: ${lead.product_type}` : '',
     lead.acrylic_type ? `아크릴 종류: ${lead.acrylic_type}` : '',
     lead.color_name ? `컬러: ${lead.color_name}${lead.color_code ? ` (${lead.color_code})` : ''}` : '',
@@ -179,6 +275,23 @@ function buildQuoteRecipient(lead: ClientConsultationLead): QuoteRecipient {
 
 const supabaseAny = supabase as any;
 
+async function recordLeadEvent(
+  leadId: string,
+  eventType: string,
+  actorId?: string | null,
+  note?: string,
+  metadata: Record<string, unknown> = {},
+) {
+  const { error } = await supabaseAny.from('client_consultation_events').insert({
+    lead_id: leadId,
+    event_type: eventType,
+    actor_id: actorId || null,
+    note: note || null,
+    metadata,
+  });
+  if (error) throw error;
+}
+
 const ClientConsultationLeadInbox = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -194,7 +307,7 @@ const ClientConsultationLeadInbox = () => {
     queryFn: async () => {
       const { data, error } = await supabaseAny
         .from('client_consultation_leads')
-        .select('*, files:client_consultation_files(*)')
+        .select('*, files:client_consultation_files(*), items:client_consultation_items(*), events:client_consultation_events(*)')
         .order('created_at', { ascending: false })
         .limit(240);
       if (error) throw error;
@@ -212,6 +325,20 @@ const ClientConsultationLeadInbox = () => {
         .order('full_name');
       if (error) throw error;
       return ((data || []) as unknown) as ProfileOption[];
+    },
+    enabled: !!user && canManage,
+  });
+
+  const { data: recipients = [] } = useQuery<RecipientOption[]>({
+    queryKey: ['client-consultation-recipient-options'],
+    queryFn: async () => {
+      const { data, error } = await supabaseAny
+        .from('recipients')
+        .select('id, company_name, contact_person, phone, email, address')
+        .order('company_name')
+        .limit(2000);
+      if (error) throw error;
+      return ((data || []) as unknown) as RecipientOption[];
     },
     enabled: !!user && canManage,
   });
@@ -246,6 +373,15 @@ const ClientConsultationLeadInbox = () => {
         lead.acrylic_type,
         lead.dimensions,
         lead.inquiry_body,
+        ...(lead.items || []).flatMap((item) => [
+          item.item_name,
+          item.width,
+          item.height,
+          item.thickness,
+          item.quantity,
+          item.color_name,
+          item.memo,
+        ]),
       ].filter(Boolean).join(' ').toLowerCase();
       return haystack.includes(term);
     });
@@ -254,6 +390,30 @@ const ClientConsultationLeadInbox = () => {
   const selectedLead = useMemo(() => {
     return leads.find((lead) => lead.id === selectedId) || filteredLeads[0] || null;
   }, [filteredLeads, leads, selectedId]);
+
+  const selectedRecipient = useMemo(() => {
+    if (!selectedLead?.recipient_id) return null;
+    return recipients.find((recipient) => recipient.id === selectedLead.recipient_id) || null;
+  }, [recipients, selectedLead?.recipient_id]);
+
+  const recipientMatches = useMemo(() => {
+    if (!selectedLead) return [];
+    const phone = normalizeComparable(selectedLead.customer_phone);
+    const email = normalizeComparable(selectedLead.customer_email);
+    const company = normalizeComparable(selectedLead.customer_company);
+    return recipients
+      .map((recipient) => {
+        let score = 0;
+        if (phone && normalizeComparable(recipient.phone).includes(phone.slice(-8))) score += 5;
+        if (email && normalizeComparable(recipient.email) === email) score += 5;
+        if (company && normalizeComparable(recipient.company_name).includes(company)) score += 3;
+        return { recipient, score };
+      })
+      .filter((match) => match.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map((match) => match.recipient);
+  }, [recipients, selectedLead]);
 
   useEffect(() => {
     if (!selectedLead) return;
@@ -266,12 +426,29 @@ const ClientConsultationLeadInbox = () => {
   }, [searchParams, selectedLead, setSearchParams]);
 
   const updateLead = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Record<string, unknown> }) => {
+    mutationFn: async ({
+      id,
+      updates,
+      eventType,
+      eventNote,
+    }: {
+      id: string;
+      updates: Record<string, unknown>;
+      eventType?: string;
+      eventNote?: string;
+    }) => {
       const next = { ...updates };
       if (next.status === 'closed' && !next.closed_at) next.closed_at = new Date().toISOString();
       if (next.status && next.status !== 'closed') next.closed_at = null;
       const { error } = await supabaseAny.from('client_consultation_leads').update(next).eq('id', id);
       if (error) throw error;
+      if (eventType) {
+        try {
+          await recordLeadEvent(id, eventType, user?.id, eventNote, { updates: next });
+        } catch (eventError) {
+          console.warn('client consultation event insert failed', eventError);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['client-consultation-leads'] });
@@ -291,9 +468,10 @@ const ClientConsultationLeadInbox = () => {
       });
       const { error } = await supabaseAny
         .from('client_consultation_leads')
-        .update({ converted_quote_draft_id: draft.id, status: 'converted' })
+        .update({ converted_quote_draft_id: draft.id, status: 'converted', response_status: 'quoted' })
         .eq('id', lead.id);
       if (error) throw error;
+      await recordLeadEvent(lead.id, 'quote_draft_created', user.id, '견적 초안으로 전환했습니다.', { draftId: draft.id });
       return draft.id;
     },
     onSuccess: (draftId) => {
@@ -328,6 +506,20 @@ const ClientConsultationLeadInbox = () => {
             quantity: lead.quantity,
             dimensions: lead.dimensions,
             processing: lead.processing || [],
+            items: (lead.items || [])
+              .slice()
+              .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
+              .map((item) => ({
+                itemName: item.item_name,
+                width: item.width,
+                height: item.height,
+                thickness: item.thickness,
+                quantity: item.quantity,
+                unit: item.unit,
+                colorName: item.color_name,
+                processingOptions: item.processing_options || [],
+                memo: item.memo,
+              })),
             desiredDeliveryDate: lead.desired_delivery_date,
             deliveryAddress: lead.delivery_address,
             files: (lead.files || []).map((file) => ({
@@ -347,6 +539,7 @@ const ClientConsultationLeadInbox = () => {
         .update({ project_id: project.id, status: 'converted' })
         .eq('id', lead.id);
       if (updateError) throw updateError;
+      await recordLeadEvent(lead.id, 'project_created', user.id, '프로젝트 후보를 만들었습니다.', { projectId: project.id });
       return project.id as string;
     },
     onSuccess: (projectId) => {
@@ -355,6 +548,49 @@ const ClientConsultationLeadInbox = () => {
       navigate(`/project-management?id=${projectId}`);
     },
     onError: (error: Error) => toast.error('프로젝트 생성 실패: ' + error.message),
+  });
+
+  const linkRecipient = useMutation({
+    mutationFn: async ({ lead, recipientId }: { lead: ClientConsultationLead; recipientId: string }) => {
+      const { error } = await supabaseAny
+        .from('client_consultation_leads')
+        .update({ recipient_id: recipientId })
+        .eq('id', lead.id);
+      if (error) throw error;
+      await recordLeadEvent(lead.id, 'recipient_linked', user?.id, '기존 고객사를 연결했습니다.', { recipientId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['client-consultation-leads'] });
+      toast.success('고객사를 연결했습니다.');
+    },
+    onError: (error: Error) => toast.error('고객사 연결 실패: ' + error.message),
+  });
+
+  const createRecipient = useMutation({
+    mutationFn: async (lead: ClientConsultationLead) => {
+      if (!user) throw new Error('로그인이 필요합니다.');
+      const result = await upsertRecipientFromQuoteRecipient({
+        userId: user.id,
+        recipient: buildQuoteRecipient(lead),
+      });
+      if (!result.recipientId) throw new Error('고객사 생성에 필요한 고객 정보가 부족합니다.');
+      const { error } = await supabaseAny
+        .from('client_consultation_leads')
+        .update({ recipient_id: result.recipientId })
+        .eq('id', lead.id);
+      if (error) throw error;
+      await recordLeadEvent(lead.id, 'recipient_linked', user.id, '상담 리드 정보로 고객사를 생성 또는 연결했습니다.', {
+        recipientId: result.recipientId,
+        status: result.status,
+      });
+      return result.recipientId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['client-consultation-leads'] });
+      queryClient.invalidateQueries({ queryKey: ['client-consultation-recipient-options'] });
+      toast.success('고객사 정보를 연결했습니다.');
+    },
+    onError: (error: Error) => toast.error('고객사 생성 실패: ' + error.message),
   });
 
   const openFile = async (file: ClientConsultationFile) => {
@@ -442,7 +678,14 @@ const ClientConsultationLeadInbox = () => {
                   <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{lead.inquiry_body}</p>
                   <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                     <span>{formatDateTime(lead.created_at)}</span>
-                    <span>{assignee?.full_name || '미배정'}</span>
+                    <span className="flex items-center gap-2">
+                      {lead.quality_score !== null && lead.quality_score !== undefined && (
+                        <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px]">
+                          품질 {lead.quality_score}
+                        </Badge>
+                      )}
+                      {assignee?.full_name || '미배정'}
+                    </span>
                   </div>
                 </button>
               );
@@ -475,6 +718,20 @@ const ClientConsultationLeadInbox = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-5 p-5">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <MetricPill label="입력 품질" value={`${selectedLead.quality_score ?? 0}점`} />
+                  <MetricPill label="품목 행" value={`${selectedLead.items?.length || 0}개`} />
+                  <MetricPill label="후속 예정" value={selectedLead.follow_up_at ? formatDateTime(selectedLead.follow_up_at) : '-'} />
+                </div>
+                {selectedLead.missing_fields?.length ? (
+                  <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div>
+                      <p className="font-semibold">확인 필요한 항목</p>
+                      <p className="mt-1">{selectedLead.missing_fields.join(', ')}</p>
+                    </div>
+                  </div>
+                ) : null}
                 <InfoGrid
                   items={[
                     { icon: <UserCheck className="h-4 w-4" />, label: '고객', value: [selectedLead.customer_company, selectedLead.customer_name, selectedLead.customer_position].filter(Boolean).join(' · ') },
@@ -485,6 +742,48 @@ const ClientConsultationLeadInbox = () => {
                     { icon: <MapPin className="h-4 w-4" />, label: '납기 주소', value: selectedLead.delivery_address || '-' },
                   ]}
                 />
+
+                <div className="rounded-2xl border border-neutral-200 bg-white p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-sm font-semibold">품목별 제작 정보</p>
+                    <Badge variant="outline" className="rounded-full">{selectedLead.items?.length || 0}개</Badge>
+                  </div>
+                  {!selectedLead.items?.length ? (
+                    <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                      구조화된 품목 행이 없습니다. 자유 입력 내용을 기준으로 검토하세요.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[720px] text-left text-sm">
+                        <thead className="border-b text-xs text-muted-foreground">
+                          <tr>
+                            <th className="py-2 pr-3">품목</th>
+                            <th className="py-2 pr-3">규격</th>
+                            <th className="py-2 pr-3">수량</th>
+                            <th className="py-2 pr-3">색상</th>
+                            <th className="py-2 pr-3">가공</th>
+                            <th className="py-2">비고</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedLead.items
+                            .slice()
+                            .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
+                            .map((item) => (
+                              <tr key={item.id} className="border-b last:border-0">
+                                <td className="py-2 pr-3 font-medium">{item.item_name || '-'}</td>
+                                <td className="py-2 pr-3">{[item.width, item.height, item.thickness].filter(Boolean).join(' x ') || '-'}</td>
+                                <td className="py-2 pr-3">{item.quantity ? `${item.quantity}${item.unit || ''}` : '-'}</td>
+                                <td className="py-2 pr-3">{item.color_name || '-'}</td>
+                                <td className="py-2 pr-3">{item.processing_options?.length ? item.processing_options.join(', ') : '-'}</td>
+                                <td className="py-2">{item.memo || '-'}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
 
                 <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
                   <p className="text-sm font-semibold">규격·수량·가공</p>
@@ -545,7 +844,12 @@ const ClientConsultationLeadInbox = () => {
                     <Label className="text-xs">상태</Label>
                     <Select
                       value={selectedLead.status}
-                      onValueChange={(value) => updateLead.mutate({ id: selectedLead.id, updates: { status: value } })}
+                      onValueChange={(value) => updateLead.mutate({
+                        id: selectedLead.id,
+                        updates: { status: value },
+                        eventType: value === 'closed' ? 'closed' : 'status_changed',
+                        eventNote: `상태를 ${statusOptions.find((option) => option.value === value)?.label || value}(으)로 변경했습니다.`,
+                      })}
                       disabled={!canManage}
                     >
                       <SelectTrigger className="mt-1 rounded-xl">
@@ -558,6 +862,67 @@ const ClientConsultationLeadInbox = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                    <div>
+                      <Label className="text-xs">우선순위</Label>
+                      <Select
+                        value={selectedLead.priority || 'normal'}
+                        onValueChange={(value) => updateLead.mutate({
+                          id: selectedLead.id,
+                          updates: { priority: value },
+                          eventType: 'status_changed',
+                          eventNote: `우선순위를 ${priorityOptions.find((option) => option.value === value)?.label || value}(으)로 변경했습니다.`,
+                        })}
+                        disabled={!canManage}
+                      >
+                        <SelectTrigger className="mt-1 rounded-xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {priorityOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">응대 상태</Label>
+                      <Select
+                        value={selectedLead.response_status || 'not_contacted'}
+                        onValueChange={(value) => updateLead.mutate({
+                          id: selectedLead.id,
+                          updates: { response_status: value },
+                          eventType: 'status_changed',
+                          eventNote: `응대 상태를 ${responseStatusOptions.find((option) => option.value === value)?.label || value}(으)로 변경했습니다.`,
+                        })}
+                        disabled={!canManage}
+                      >
+                        <SelectTrigger className="mt-1 rounded-xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {responseStatusOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">후속 예정일</Label>
+                    <Input
+                      type="datetime-local"
+                      className="mt-1 rounded-xl"
+                      value={selectedLead.follow_up_at ? selectedLead.follow_up_at.slice(0, 16) : ''}
+                      onChange={(event) => updateLead.mutate({
+                        id: selectedLead.id,
+                        updates: { follow_up_at: event.target.value ? new Date(event.target.value).toISOString() : null },
+                        eventType: 'status_changed',
+                        eventNote: event.target.value ? '후속 예정일을 설정했습니다.' : '후속 예정일을 비웠습니다.',
+                      })}
+                      disabled={!canManage}
+                    />
+                  </div>
                   <div>
                     <Label className="text-xs">담당자</Label>
                     <Select
@@ -569,6 +934,8 @@ const ClientConsultationLeadInbox = () => {
                           assigned_at: value === 'none' ? null : new Date().toISOString(),
                           assigned_by: value === 'none' ? null : user?.id,
                         },
+                        eventType: 'assigned',
+                        eventNote: value === 'none' ? '담당자를 해제했습니다.' : '담당자를 지정했습니다.',
                       })}
                       disabled={!canManage}
                     >
@@ -592,7 +959,12 @@ const ClientConsultationLeadInbox = () => {
                       placeholder="담당자 메모"
                       onBlur={(event) => {
                         if (event.target.value !== (selectedLead.memo || '')) {
-                          updateLead.mutate({ id: selectedLead.id, updates: { memo: event.target.value || null } });
+                          updateLead.mutate({
+                            id: selectedLead.id,
+                            updates: { memo: event.target.value || null },
+                            eventType: 'memo_updated',
+                            eventNote: '내부 메모를 변경했습니다.',
+                          });
                         }
                       }}
                     />
@@ -608,12 +980,80 @@ const ClientConsultationLeadInbox = () => {
                         assigned_by: user?.id,
                         status: selectedLead.status === 'new' ? 'needs_review' : selectedLead.status,
                       },
+                      eventType: 'assigned',
+                      eventNote: '내 담당으로 지정했습니다.',
                     })}
                     disabled={!user || updateLead.isPending}
                   >
                     <UserCheck className="h-4 w-4" />
                     내 담당으로 지정
                   </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-3xl border-neutral-200 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Link2 className="h-4 w-4" />
+                    고객사 연결
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {selectedRecipient ? (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                      <p className="font-semibold">{selectedRecipient.company_name || '연결 고객사'}</p>
+                      <p className="mt-1 text-xs">
+                        {[selectedRecipient.contact_person, selectedRecipient.phone, selectedRecipient.email].filter(Boolean).join(' · ') || '상세 정보 없음'}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="mt-3 h-8 rounded-full bg-white text-xs"
+                        onClick={() => navigate(`/recipients?id=${selectedRecipient.id}`)}
+                      >
+                        고객사 열기
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      {recipientMatches.length > 0 ? (
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground">전화번호, 이메일, 회사명 기준 추천</p>
+                          {recipientMatches.map((recipient) => (
+                            <div key={recipient.id} className="rounded-2xl border border-neutral-200 p-3">
+                              <p className="text-sm font-semibold">{recipient.company_name || '-'}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {[recipient.contact_person, recipient.phone, recipient.email].filter(Boolean).join(' · ') || '상세 정보 없음'}
+                              </p>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="mt-2 h-8 rounded-full text-xs"
+                                onClick={() => linkRecipient.mutate({ lead: selectedLead, recipientId: recipient.id })}
+                                disabled={linkRecipient.isPending}
+                              >
+                                연결
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">
+                          추천 고객사가 없습니다. 상담 정보로 새 고객사를 만들 수 있습니다.
+                        </div>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full gap-1.5 rounded-xl"
+                        onClick={() => createRecipient.mutate(selectedLead)}
+                        disabled={createRecipient.isPending || !canManage}
+                      >
+                        {createRecipient.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
+                        신규 고객사 생성·연결
+                      </Button>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
@@ -662,12 +1102,52 @@ const ClientConsultationLeadInbox = () => {
                   <Button
                     variant="outline"
                     className="w-full gap-1.5 rounded-xl text-neutral-600"
-                    onClick={() => updateLead.mutate({ id: selectedLead.id, updates: { status: 'closed' } })}
+                    onClick={() => updateLead.mutate({
+                      id: selectedLead.id,
+                      updates: { status: 'closed', response_status: 'done' },
+                      eventType: 'closed',
+                      eventNote: '상담 리드를 종료 처리했습니다.',
+                    })}
                     disabled={selectedLead.status === 'closed' || updateLead.isPending}
                   >
                     <Archive className="h-4 w-4" />
                     종료 처리
                   </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-3xl border-neutral-200 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <History className="h-4 w-4" />
+                    처리 이력
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {!selectedLead.events?.length ? (
+                    <div className="rounded-2xl border border-dashed p-5 text-center text-sm text-muted-foreground">
+                      기록된 처리 이력이 없습니다.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {selectedLead.events
+                        .slice()
+                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                        .slice(0, 10)
+                        .map((event) => (
+                          <div key={event.id} className="flex gap-3 text-sm">
+                            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white">
+                              <Clock className="h-3.5 w-3.5 text-neutral-500" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold">{eventLabel(event.event_type)}</p>
+                              {event.note && <p className="mt-0.5 text-xs text-neutral-600">{event.note}</p>}
+                              <p className="mt-0.5 text-[11px] text-muted-foreground">{formatDateTime(event.created_at)}</p>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </aside>
@@ -689,6 +1169,13 @@ const InfoGrid = ({ items }: { items: Array<{ label: string; value: string; icon
         <p className="mt-1 break-words text-sm font-semibold">{item.value || '-'}</p>
       </div>
     ))}
+  </div>
+);
+
+const MetricPill = ({ label, value }: { label: string; value: string }) => (
+  <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+    <p className="text-xs text-muted-foreground">{label}</p>
+    <p className="mt-1 text-sm font-semibold text-neutral-950">{value || '-'}</p>
   </div>
 );
 

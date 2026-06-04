@@ -2,6 +2,18 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 type JsonObject = Record<string, unknown>;
+type NormalizedConsultationItem = {
+  item_name: string | null;
+  width: string | null;
+  height: string | null;
+  thickness: string | null;
+  quantity: string | null;
+  unit: string | null;
+  color_name: string | null;
+  processing_options: string[];
+  memo: string | null;
+  sort_order: number;
+};
 
 const BUCKET = "client-consultation-attachments";
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -165,6 +177,73 @@ function missingFields(payload: JsonObject) {
   return missing;
 }
 
+function normalizeItems(value: unknown): NormalizedConsultationItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .slice(0, 30)
+    .map((item, index) => {
+      const record = asObject(item);
+      const processing = Array.isArray(record.processingOptions)
+        ? record.processingOptions.map((option) => text(option, 80)).filter(Boolean).slice(0, 20)
+        : [];
+      return {
+        item_name: optionalText(record.itemName ?? record.item_name, 160),
+        width: optionalText(record.width, 80),
+        height: optionalText(record.height, 80),
+        thickness: optionalText(record.thickness, 80),
+        quantity: optionalText(record.quantity, 80),
+        unit: optionalText(record.unit, 40),
+        color_name: optionalText(record.colorName ?? record.color_name, 120),
+        processing_options: processing,
+        memo: optionalText(record.memo, 500),
+        sort_order: Number.isFinite(Number(record.sortOrder ?? record.sort_order))
+          ? Number(record.sortOrder ?? record.sort_order)
+          : index,
+      };
+    })
+    .filter((item) => [
+      item.item_name,
+      item.width,
+      item.height,
+      item.thickness,
+      item.quantity,
+      item.color_name,
+      item.memo,
+      item.processing_options.length ? "processing" : "",
+    ].some(Boolean));
+}
+
+function itemSummary(items: NormalizedConsultationItem[]) {
+  return items
+    .map((item, index) => {
+      const size = [item.width, item.height, item.thickness].filter(Boolean).join(" x ");
+      return [
+        `${index + 1}. ${item.item_name || "품목"}`,
+        size,
+        item.quantity ? `수량 ${item.quantity}${item.unit || ""}` : "",
+        item.color_name,
+        item.processing_options.length ? `가공 ${item.processing_options.join(", ")}` : "",
+        item.memo,
+      ].filter(Boolean).join(" / ");
+    })
+    .join("\n");
+}
+
+function qualityScore(payload: JsonObject, files: JsonObject[], items: NormalizedConsultationItem[]) {
+  let score = 0;
+  if (text(payload.customerName, 100)) score += 10;
+  if (text(payload.customerPhone, 80)) score += 10;
+  if (text(payload.customerCompany, 160)) score += 5;
+  if (text(payload.productType, 120) || text(payload.productPurpose, 120)) score += 10;
+  if (items.length > 0) score += 20;
+  if (items.some((item) => item.width && item.height)) score += 10;
+  if (items.some((item) => item.quantity)) score += 10;
+  if (text(payload.inquiryBody, 5000).length >= 20) score += 10;
+  if (files.length > 0) score += 10;
+  if (text(payload.desiredDeliveryDate, 20)) score += 5;
+  return Math.max(0, Math.min(100, score));
+}
+
 function buildSummary(payload: JsonObject) {
   return [
     payload.customerCompany,
@@ -262,6 +341,7 @@ serve(async (req) => {
   }
 
   const files = Array.isArray(payload.files) ? payload.files.map(asObject).slice(0, MAX_FILES) : [];
+  const items = normalizeItems(payload.items);
   for (const file of files) {
     const fileError = validateFile({
       fileName: file.fileName || file.name,
@@ -274,6 +354,21 @@ serve(async (req) => {
   }
 
   const ipHash = await sha256(`${getClientIp(req)}:${Deno.env.get("CLIENT_CONSULTATION_HASH_SALT") || "acbank-client-consultation"}`);
+  const source = normalizeSource(payload.source);
+  const submissionToken = optionalText(payload.submissionToken, 120);
+  if (submissionToken) {
+    const { data: existingLead, error: existingError } = await supabase
+      .from("client_consultation_leads")
+      .select("id")
+      .eq("source", source)
+      .eq("submission_token", submissionToken)
+      .maybeSingle();
+    if (existingError) return fail(origin, `중복 제출 확인 실패: ${existingError.message}`, 500);
+    if (existingLead?.id) {
+      return ok(origin, { success: true, leadId: existingLead.id, duplicate: true });
+    }
+  }
+
   const rateLimitSince = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString();
   const { count, error: rateLimitError } = await supabase
     .from("client_consultation_leads")
@@ -286,8 +381,12 @@ serve(async (req) => {
   }
 
   const row = {
-    source: normalizeSource(payload.source),
+    source,
     status: "new",
+    priority: "normal",
+    response_status: "not_contacted",
+    submission_token: submissionToken,
+    quality_score: qualityScore(payload, files, items),
     customer_company: optionalText(payload.customerCompany, 160),
     customer_name: text(payload.customerName, 100),
     customer_position: optionalText(payload.customerPosition, 80),
@@ -301,7 +400,7 @@ serve(async (req) => {
     thickness: optionalText(payload.thickness, 80),
     sheet_size: optionalText(payload.sheetSize, 120),
     quantity: optionalText(payload.quantity, 120),
-    dimensions: optionalText(payload.dimensions, 500),
+    dimensions: optionalText(payload.dimensions, 500) || (items.length ? itemSummary(items).slice(0, 500) : null),
     processing: Array.isArray(payload.processing)
       ? payload.processing.map((value) => text(value, 80)).filter(Boolean).slice(0, 20)
       : [],
@@ -311,7 +410,10 @@ serve(async (req) => {
     privacy_consent: true,
     marketing_consent: toBool(payload.marketingConsent),
     missing_fields: missing,
-    raw_payload: payload,
+    raw_payload: {
+      ...payload,
+      items,
+    },
     submitter_ip_hash: ipHash,
     user_agent: req.headers.get("user-agent")?.slice(0, 500) || null,
   };
@@ -322,6 +424,15 @@ serve(async (req) => {
     .select("id")
     .single();
   if (leadError) return fail(origin, `상담 리드 저장 실패: ${leadError.message}`, 500);
+
+  if (items.length > 0) {
+    const itemRows = items.map((item) => ({
+      lead_id: lead.id,
+      ...item,
+    }));
+    const { error: itemError } = await supabase.from("client_consultation_items").insert(itemRows);
+    if (itemError) return fail(origin, `품목 정보 저장 실패: ${itemError.message}`, 500, { leadId: lead.id });
+  }
 
   if (files.length > 0) {
     const fileRows = files.map((file) => ({
@@ -341,9 +452,20 @@ serve(async (req) => {
   }
 
   try {
+    await supabase.from("client_consultation_events").insert({
+      lead_id: lead.id,
+      event_type: "submitted",
+      note: "상담폼이 접수되었습니다.",
+      metadata: {
+        source,
+        itemCount: items.length,
+        fileCount: files.length,
+        qualityScore: row.quality_score,
+      },
+    });
     await notifyReviewers(supabase, lead.id, payload);
   } catch (error) {
-    console.warn("client consultation notification failed", error);
+    console.warn("client consultation post-submit side effect failed", error);
   }
 
   return ok(origin, { success: true, leadId: lead.id });

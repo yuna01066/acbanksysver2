@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
@@ -9,14 +9,19 @@ import {
   Check,
   CheckCircle2,
   ClipboardList,
+  Copy,
   FileUp,
+  Image as ImageIcon,
   Loader2,
   Mail,
   MapPin,
   Package,
   Phone,
+  Plus,
+  RotateCcw,
   Search,
   Trash2,
+  UploadCloud,
   UserRound,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,6 +48,7 @@ import { cn } from '@/lib/utils';
 
 type FormState = {
   source: string;
+  productPurpose: string;
   customerCompany: string;
   customerName: string;
   customerPosition: string;
@@ -66,6 +72,19 @@ type FormState = {
   website: string;
 };
 
+type ConsultationItem = {
+  id: string;
+  itemName: string;
+  width: string;
+  height: string;
+  thickness: string;
+  quantity: string;
+  unit: string;
+  colorName: string;
+  processingOptions: string[];
+  memo: string;
+};
+
 type UploadedFile = {
   id: string;
   fileName: string;
@@ -73,6 +92,16 @@ type UploadedFile = {
   fileSize: number;
   storagePath: string;
   uploadedAt: string;
+  previewUrl?: string;
+};
+
+type SavedDraft = {
+  form: FormState;
+  items: ConsultationItem[];
+  files: UploadedFile[];
+  step: number;
+  submissionToken: string;
+  savedAt: string;
 };
 
 const steps = [
@@ -83,8 +112,19 @@ const steps = [
 ];
 
 const processingOptions = ['재단', '타공', '절곡', 'UV인쇄', '실크인쇄', '레이저각인', '접착', '조립', '현장설치'];
+const itemUnits = ['개', '세트', '장', 'm', '식'];
 const MAX_FILES = 6;
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const DRAFT_STORAGE_PREFIX = 'acbank_client_consultation_widget_draft_v2';
+
+const productPurposeOptions = [
+  { value: 'display', label: '진열대', description: '제품 거치, 쇼케이스, POP 진열' },
+  { value: 'sign', label: '사인·명판', description: '간판, 안내판, QR/가격표' },
+  { value: 'cover_box', label: '커버·박스', description: '보호 커버, 케이스, 수납 박스' },
+  { value: 'pop', label: 'POP·판촉', description: '행사 집기, 프로모션 소품' },
+  { value: 'space_furniture', label: '공간·가구', description: '파티션, 테이블, 매장 집기' },
+  { value: 'other', label: '기타', description: '도면 기준 특수 제작' },
+];
 
 const internalQuickLinks = [
   { title: '홈', description: '대시보드로 이동', path: '/', shortcut: 'Home' },
@@ -96,6 +136,7 @@ const internalQuickLinks = [
 
 const initialForm = (source: string): FormState => ({
   source,
+  productPurpose: '',
   customerCompany: '',
   customerName: '',
   customerPosition: '',
@@ -119,6 +160,31 @@ const initialForm = (source: string): FormState => ({
   website: '',
 });
 
+function createSubmissionToken() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function createConsultationItem(overrides: Partial<ConsultationItem> = {}): ConsultationItem {
+  return {
+    id: createSubmissionToken(),
+    itemName: '',
+    width: '',
+    height: '',
+    thickness: '',
+    quantity: '',
+    unit: '개',
+    colorName: '',
+    processingOptions: [],
+    memo: '',
+    ...overrides,
+  };
+}
+
+function draftStorageKey(source: string) {
+  return `${DRAFT_STORAGE_PREFIX}:${source || 'imweb-acbankform'}`;
+}
+
 function formatFileSize(size: number) {
   if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)}MB`;
   if (size >= 1024) return `${Math.round(size / 1024)}KB`;
@@ -129,6 +195,28 @@ function fieldFilled(value: string) {
   return value.trim().length > 0;
 }
 
+function itemHasContent(item: ConsultationItem) {
+  return [
+    item.itemName,
+    item.width,
+    item.height,
+    item.thickness,
+    item.quantity,
+    item.colorName,
+    item.memo,
+  ].some(fieldFilled) || item.processingOptions.length > 0;
+}
+
+function itemLabel(item: ConsultationItem, index: number) {
+  const size = [item.width, item.height, item.thickness].filter(fieldFilled).join(' x ');
+  return [
+    `${index + 1}. ${item.itemName || '품목'}`,
+    size,
+    item.quantity ? `${item.quantity}${item.unit || ''}` : '',
+    item.colorName,
+  ].filter(Boolean).join(' · ');
+}
+
 const ClientConsultationWidgetPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -136,7 +224,11 @@ const ClientConsultationWidgetPage = () => {
   const isEmbedded = searchParams.get('embed') === '1';
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(() => initialForm(source));
+  const [items, setItems] = useState<ConsultationItem[]>(() => [createConsultationItem()]);
   const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [submissionToken, setSubmissionToken] = useState(() => createSubmissionToken());
+  const [draftReady, setDraftReady] = useState(false);
+  const [restoreDraft, setRestoreDraft] = useState<SavedDraft | null>(null);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -144,6 +236,10 @@ const ClientConsultationWidgetPage = () => {
   const [quickOpen, setQuickOpen] = useState(false);
 
   const progress = ((step + 1) / steps.length) * 100;
+  const hasProductionInfo = useMemo(
+    () => fieldFilled(form.productType) || fieldFilled(form.productPurpose) || items.some(itemHasContent),
+    [form.productPurpose, form.productType, items],
+  );
 
   const currentValidation = useMemo(() => {
     const missing: string[] = [];
@@ -151,10 +247,11 @@ const ClientConsultationWidgetPage = () => {
       if (!fieldFilled(form.customerName)) missing.push('담당자명');
       if (!fieldFilled(form.customerPhone)) missing.push('연락처');
     }
+    if (step === 1 && !hasProductionInfo) missing.push('제작 품목 또는 품목 행');
     if (step === 2 && !fieldFilled(form.inquiryBody)) missing.push('문의 내용');
     if (step === 3 && !form.privacyConsent) missing.push('개인정보 수집·이용 동의');
     return missing;
-  }, [form, step]);
+  }, [form, hasProductionInfo, step]);
 
   const canGoNext = currentValidation.length === 0;
 
@@ -171,9 +268,105 @@ const ClientConsultationWidgetPage = () => {
     }));
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(event.target.files || []);
-    event.target.value = '';
+  const updateItem = (id: string, patch: Partial<ConsultationItem>) => {
+    setItems((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  };
+
+  const addItem = () => {
+    setItems((current) => [...current, createConsultationItem()]);
+  };
+
+  const duplicateItem = (item: ConsultationItem) => {
+    setItems((current) => [...current, createConsultationItem({ ...item, id: createSubmissionToken() })]);
+  };
+
+  const removeItem = (id: string) => {
+    setItems((current) => {
+      const next = current.filter((item) => item.id !== id);
+      return next.length > 0 ? next : [createConsultationItem()];
+    });
+  };
+
+  const toggleItemProcessing = (id: string, value: string) => {
+    setItems((current) => current.map((item) => {
+      if (item.id !== id) return item;
+      const processingOptions = item.processingOptions.includes(value)
+        ? item.processingOptions.filter((option) => option !== value)
+        : [...item.processingOptions, value];
+      return { ...item, processingOptions };
+    }));
+  };
+
+  const moveItem = (id: string, direction: -1 | 1) => {
+    setItems((current) => {
+      const index = current.findIndex((item) => item.id === id);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.length) return current;
+      const next = [...current];
+      const [item] = next.splice(index, 1);
+      next.splice(nextIndex, 0, item);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(draftStorageKey(source));
+      if (raw) {
+        const parsed = JSON.parse(raw) as SavedDraft;
+        if (parsed?.form && parsed?.submissionToken) {
+          setRestoreDraft(parsed);
+        }
+      }
+    } catch {
+      window.localStorage.removeItem(draftStorageKey(source));
+    } finally {
+      setDraftReady(true);
+    }
+  }, [source]);
+
+  useEffect(() => {
+    if (!draftReady || restoreDraft || successLeadId) return;
+    const hasDraftContent = [
+      form.customerCompany,
+      form.customerName,
+      form.customerPhone,
+      form.projectName,
+      form.productType,
+      form.inquiryBody,
+    ].some(fieldFilled) || items.some(itemHasContent) || files.length > 0 || step > 0;
+    if (!hasDraftContent) return;
+
+    const timer = window.setTimeout(() => {
+      const draft: SavedDraft = {
+        form,
+        items,
+        files: files.map(({ previewUrl, ...file }) => file),
+        step,
+        submissionToken,
+        savedAt: new Date().toISOString(),
+      };
+      window.localStorage.setItem(draftStorageKey(source), JSON.stringify(draft));
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [draftReady, files, form, items, restoreDraft, source, step, submissionToken, successLeadId]);
+
+  const restoreSavedDraft = () => {
+    if (!restoreDraft) return;
+    setForm({ ...initialForm(source), ...restoreDraft.form, source });
+    setItems(restoreDraft.items?.length ? restoreDraft.items : [createConsultationItem()]);
+    setFiles((restoreDraft.files || []).map((file) => ({ ...file, previewUrl: undefined })));
+    setSubmissionToken(restoreDraft.submissionToken || createSubmissionToken());
+    setStep(Math.max(0, Math.min(steps.length - 1, Number(restoreDraft.step) || 0)));
+    setRestoreDraft(null);
+  };
+
+  const discardSavedDraft = () => {
+    window.localStorage.removeItem(draftStorageKey(source));
+    setRestoreDraft(null);
+  };
+
+  const handleSelectedFiles = useCallback(async (selected: File[]) => {
     if (selected.length === 0) return;
     setErrorMessage('');
 
@@ -220,6 +413,7 @@ const ClientConsultationWidgetPage = () => {
           fileSize: file.size,
           storagePath: data.path,
           uploadedAt: new Date().toISOString(),
+          previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
         });
       }
       setFiles((current) => [...current, ...uploaded]);
@@ -228,6 +422,17 @@ const ClientConsultationWidgetPage = () => {
     } finally {
       setUploading(false);
     }
+  }, [files.length, form.source]);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(event.target.files || []);
+    event.target.value = '';
+    await handleSelectedFiles(selected);
+  };
+
+  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    await handleSelectedFiles(Array.from(event.dataTransfer.files || []));
   };
 
   const submit = async () => {
@@ -243,6 +448,10 @@ const ClientConsultationWidgetPage = () => {
           action: 'submit',
           payload: {
             ...form,
+            submissionToken,
+            items: items
+              .filter(itemHasContent)
+              .map((item, index) => ({ ...item, sortOrder: index })),
             files,
           },
         },
@@ -250,6 +459,7 @@ const ClientConsultationWidgetPage = () => {
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
       setSuccessLeadId(data.leadId || 'submitted');
+      window.localStorage.removeItem(draftStorageKey(source));
       window.parent?.postMessage?.({ type: 'acbank-consultation-submitted', leadId: data.leadId }, '*');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '상담 접수 중 오류가 발생했습니다.');
@@ -260,10 +470,13 @@ const ClientConsultationWidgetPage = () => {
 
   const reset = () => {
     setForm(initialForm(source));
+    setItems([createConsultationItem()]);
     setFiles([]);
+    setSubmissionToken(createSubmissionToken());
     setStep(0);
     setSuccessLeadId(null);
     setErrorMessage('');
+    window.localStorage.removeItem(draftStorageKey(source));
   };
 
   if (successLeadId) {
@@ -281,6 +494,12 @@ const ClientConsultationWidgetPage = () => {
             </p>
             <div className="mt-6 rounded-full border border-neutral-200 px-4 py-2 text-xs text-neutral-500">
               접수번호 {successLeadId.slice(0, 8).toUpperCase()}
+            </div>
+            <div className="mt-4 grid w-full max-w-lg gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-left text-sm sm:grid-cols-2">
+              <Summary label="고객" value={[form.customerCompany, form.customerName].filter(Boolean).join(' · ') || '-'} />
+              <Summary label="품목 행" value={`${items.filter(itemHasContent).length}개`} />
+              <Summary label="첨부파일" value={`${files.length}개`} />
+              <Summary label="응답 안내" value="영업일 기준 순차 확인" />
             </div>
             <Button type="button" variant="outline" className="mt-8 h-11 rounded-full px-6" onClick={reset}>
               새 문의 작성
@@ -329,6 +548,28 @@ const ClientConsultationWidgetPage = () => {
           </div>
         </header>
 
+        {restoreDraft && (
+          <Alert className="mt-4 border-neutral-200 bg-neutral-50 text-neutral-900">
+            <RotateCcw className="h-4 w-4" />
+            <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                이전 작성 내용이 있습니다.
+                <span className="ml-1 text-neutral-500">
+                  {new Date(restoreDraft.savedAt).toLocaleString('ko-KR')} 저장
+                </span>
+              </span>
+              <span className="flex gap-2">
+                <Button type="button" size="sm" variant="outline" className="h-8 rounded-full" onClick={discardSavedDraft}>
+                  새로 작성
+                </Button>
+                <Button type="button" size="sm" className="h-8 rounded-full bg-neutral-950 text-white hover:bg-neutral-800" onClick={restoreSavedDraft}>
+                  복구하기
+                </Button>
+              </span>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {errorMessage && (
           <Alert className="mt-4 border-red-200 bg-red-50 text-red-800">
             <AlertCircle className="h-4 w-4" />
@@ -367,6 +608,33 @@ const ClientConsultationWidgetPage = () => {
 
             {step === 1 && (
               <div className="space-y-5">
+                <div>
+                  <Label className="text-sm font-semibold">제작 목적</Label>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {productPurposeOptions.map((option) => {
+                      const selected = form.productPurpose === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            updateField('productPurpose', option.value);
+                            if (!fieldFilled(form.productType)) updateField('productType', option.label);
+                          }}
+                          className={cn(
+                            'rounded-lg border p-3 text-left transition-colors',
+                            selected ? 'border-neutral-950 bg-neutral-950 text-white' : 'border-neutral-200 bg-white hover:border-neutral-400',
+                          )}
+                        >
+                          <span className="text-sm font-semibold">{option.label}</span>
+                          <span className={cn('mt-1 block text-xs', selected ? 'text-neutral-200' : 'text-neutral-500')}>
+                            {option.description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field icon={<Package className="h-4 w-4" />} label="제작 품목">
                     <Input value={form.productType} onChange={(event) => updateField('productType', event.target.value)} placeholder="예: 진열대, 명판, 박스, POP" />
@@ -393,8 +661,37 @@ const ClientConsultationWidgetPage = () => {
                     <Input value={form.dimensions} onChange={(event) => updateField('dimensions', event.target.value)} placeholder="예: 300x200x5T, 상세 규격 여러 개" />
                   </Field>
                 </div>
+                <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <Label className="text-sm font-semibold">품목별 제작 정보</Label>
+                      <p className="mt-1 text-xs text-neutral-500">
+                        규격과 수량이 여러 개인 경우 행을 추가해 입력하면 내부 견적 초안으로 더 정확히 전환됩니다.
+                      </p>
+                    </div>
+                    <Button type="button" variant="outline" className="h-9 rounded-full bg-white" onClick={addItem}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      품목 추가
+                    </Button>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {items.map((item, index) => (
+                      <ConsultationItemEditor
+                        key={item.id}
+                        item={item}
+                        index={index}
+                        total={items.length}
+                        onChange={(patch) => updateItem(item.id, patch)}
+                        onRemove={() => removeItem(item.id)}
+                        onDuplicate={() => duplicateItem(item)}
+                        onMove={(direction) => moveItem(item.id, direction)}
+                        onToggleProcessing={(option) => toggleItemProcessing(item.id, option)}
+                      />
+                    ))}
+                  </div>
+                </div>
                 <div>
-                  <Label className="text-sm font-semibold">가공 옵션</Label>
+                  <Label className="text-sm font-semibold">공통 가공 옵션</Label>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {processingOptions.map((option) => {
                       const checked = form.processing.includes(option);
@@ -422,15 +719,19 @@ const ClientConsultationWidgetPage = () => {
               <div className="space-y-5">
                 <div>
                   <Label className="text-sm font-semibold">도면·이미지 첨부</Label>
-                  <div className="mt-2 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-4">
+                  <div
+                    className="mt-2 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-4 transition-colors hover:border-neutral-500"
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={handleDrop}
+                  >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-start gap-3">
                         <div className="rounded-full border border-neutral-200 bg-white p-2">
-                          <FileUp className="h-5 w-5" />
+                          <UploadCloud className="h-5 w-5" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold">이미지, PDF, 엑셀, ZIP 파일</p>
-                          <p className="text-xs text-neutral-500">최대 {MAX_FILES}개, 파일당 20MB까지 업로드할 수 있습니다.</p>
+                          <p className="text-sm font-semibold">파일을 끌어놓거나 선택하세요.</p>
+                          <p className="text-xs text-neutral-500">이미지, PDF, 엑셀, ZIP 파일 · 최대 {MAX_FILES}개, 파일당 20MB</p>
                         </div>
                       </div>
                       <Button type="button" variant="outline" className="relative h-10 rounded-full" disabled={uploading || files.length >= MAX_FILES}>
@@ -449,11 +750,29 @@ const ClientConsultationWidgetPage = () => {
                       <div className="mt-4 space-y-2">
                         {files.map((file) => (
                           <div key={file.id} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
-                            <div className="min-w-0">
+                            <div className="flex min-w-0 items-center gap-3">
+                              {file.previewUrl ? (
+                                <img src={file.previewUrl} alt="" className="h-10 w-10 shrink-0 rounded-md border border-neutral-200 object-cover" />
+                              ) : (
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-neutral-50">
+                                  {file.mimeType.includes('pdf') ? <FileUp className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
+                                </div>
+                              )}
+                              <div className="min-w-0">
                               <p className="truncate font-medium">{file.fileName}</p>
                               <p className="text-xs text-neutral-500">{formatFileSize(file.fileSize)}</p>
+                              </div>
                             </div>
-                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setFiles((current) => current.filter((item) => item.id !== file.id))}>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-full"
+                              onClick={() => {
+                                if (file.previewUrl) URL.revokeObjectURL(file.previewUrl);
+                                setFiles((current) => current.filter((item) => item.id !== file.id));
+                              }}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -487,8 +806,19 @@ const ClientConsultationWidgetPage = () => {
                   <Summary label="고객" value={[form.customerCompany, form.customerName, form.customerPhone].filter(Boolean).join(' · ')} />
                   <Summary label="품목" value={[form.productType, form.acrylicType, form.thickness].filter(Boolean).join(' · ') || '미입력'} />
                   <Summary label="규격/수량" value={[form.dimensions, form.quantity].filter(Boolean).join(' · ') || '미입력'} />
+                  <Summary label="품목 행" value={`${items.filter(itemHasContent).length}개 입력`} />
                   <Summary label="납기" value={[form.desiredDeliveryDate, form.deliveryAddress].filter(Boolean).join(' · ') || '미입력'} />
                 </div>
+                {items.some(itemHasContent) && (
+                  <div className="rounded-lg border border-neutral-200 bg-white p-4">
+                    <p className="text-sm font-semibold">품목별 입력</p>
+                    <div className="mt-2 space-y-1 text-sm text-neutral-700">
+                      {items.filter(itemHasContent).map((item, index) => (
+                        <p key={item.id}>{itemLabel(item, index)}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
                   <p className="text-sm font-semibold">문의 내용</p>
                   <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-neutral-700">{form.inquiryBody || '미입력'}</p>
@@ -630,6 +960,102 @@ const Field = ({ label, required, icon, children }: { label: string; required?: 
       {required && <span className="text-red-500">*</span>}
     </Label>
     {children}
+  </div>
+);
+
+const ConsultationItemEditor = ({
+  item,
+  index,
+  total,
+  onChange,
+  onRemove,
+  onDuplicate,
+  onMove,
+  onToggleProcessing,
+}: {
+  item: ConsultationItem;
+  index: number;
+  total: number;
+  onChange: (patch: Partial<ConsultationItem>) => void;
+  onRemove: () => void;
+  onDuplicate: () => void;
+  onMove: (direction: -1 | 1) => void;
+  onToggleProcessing: (option: string) => void;
+}) => (
+  <div className="rounded-lg border border-neutral-200 bg-white p-3">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+      <div className="flex items-center justify-between gap-3 lg:w-28 lg:flex-col lg:items-start">
+        <Badge variant="outline" className="rounded-full">
+          품목 {index + 1}
+        </Badge>
+        <div className="flex items-center gap-1">
+          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => onMove(-1)} disabled={index === 0}>
+            <ArrowLeft className="h-3.5 w-3.5 rotate-90" />
+          </Button>
+          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => onMove(1)} disabled={index === total - 1}>
+            <ArrowRight className="h-3.5 w-3.5 rotate-90" />
+          </Button>
+          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={onDuplicate}>
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full text-red-600" onClick={onRemove}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+      <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Field label="품목명">
+          <Input value={item.itemName} onChange={(event) => onChange({ itemName: event.target.value })} placeholder="예: 진열대 상판" />
+        </Field>
+        <Field label="가로">
+          <Input value={item.width} onChange={(event) => onChange({ width: event.target.value })} placeholder="예: 300mm" />
+        </Field>
+        <Field label="세로">
+          <Input value={item.height} onChange={(event) => onChange({ height: event.target.value })} placeholder="예: 200mm" />
+        </Field>
+        <Field label="두께">
+          <Input value={item.thickness} onChange={(event) => onChange({ thickness: event.target.value })} placeholder="예: 5T" />
+        </Field>
+        <Field label="수량">
+          <Input value={item.quantity} onChange={(event) => onChange({ quantity: event.target.value })} placeholder="예: 20" />
+        </Field>
+        <Field label="단위">
+          <select
+            value={item.unit}
+            onChange={(event) => onChange({ unit: event.target.value })}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+          >
+            {itemUnits.map((unit) => (
+              <option key={unit} value={unit}>{unit}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="색상">
+          <Input value={item.colorName} onChange={(event) => onChange({ colorName: event.target.value })} placeholder="예: 투명 / 팬톤 485C" />
+        </Field>
+        <Field label="비고">
+          <Input value={item.memo} onChange={(event) => onChange({ memo: event.target.value })} placeholder="예: 모서리 라운드" />
+        </Field>
+      </div>
+    </div>
+    <div className="mt-3 flex flex-wrap gap-2 border-t border-neutral-100 pt-3">
+      {processingOptions.map((option) => {
+        const checked = item.processingOptions.includes(option);
+        return (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onToggleProcessing(option)}
+            className={cn(
+              'rounded-full border px-2.5 py-1.5 text-xs transition-colors',
+              checked ? 'border-neutral-950 bg-neutral-950 text-white' : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400',
+            )}
+          >
+            {option}
+          </button>
+        );
+      })}
+    </div>
   </div>
 );
 
