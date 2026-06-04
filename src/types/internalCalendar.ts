@@ -15,6 +15,9 @@ export type CalendarResourceType = 'meeting_room';
 export type CalendarViewScope = 'my' | 'all' | 'team';
 export type CalendarParticipantRole = 'organizer' | 'attendee' | 'assignee';
 export type CalendarDeleteMode = 'cancel' | 'hard_delete';
+export type CalendarTaskPriority = 'low' | 'normal' | 'high';
+export type CalendarTaskStatus = 'open' | 'completed' | 'archived';
+export type CalendarRecurrenceFrequency = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 export type CalendarIconType =
   | 'calendar'
   | 'quote'
@@ -45,6 +48,15 @@ export type InternalCalendarEvent = {
   source_path: string | null;
   accent: string | null;
   icon_type: CalendarIconType | null;
+  recurrence_rule: CalendarRecurrenceRule | null;
+  recurrence_parent_id: string | null;
+  recurrence_exception_date: string | null;
+  reminder_minutes: number[];
+  series_event_id: string | null;
+  series_starts_at: string | null;
+  series_ends_at: string | null;
+  occurrence_date: string | null;
+  is_recurring_occurrence: boolean;
   created_by: string | null;
   created_by_name: string;
   team_department: string | null;
@@ -57,6 +69,37 @@ export type InternalCalendarEvent = {
   can_edit: boolean;
   is_redacted: boolean;
   metadata: Record<string, unknown>;
+};
+
+export type CalendarRecurrenceRule = {
+  frequency: Exclude<CalendarRecurrenceFrequency, 'none'>;
+  interval?: number;
+  until?: string | null;
+  weekdays?: number[];
+};
+
+export type CalendarTask = {
+  id: string;
+  owner_id: string;
+  title: string;
+  description: string | null;
+  task_date: string;
+  priority: CalendarTaskPriority;
+  status: CalendarTaskStatus;
+  linked_event_id: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CalendarTaskDraftPayload = {
+  id?: string;
+  title: string;
+  description?: string | null;
+  task_date: string;
+  priority?: CalendarTaskPriority;
+  status?: CalendarTaskStatus;
+  linked_event_id?: string | null;
 };
 
 export type CalendarResource = {
@@ -115,6 +158,8 @@ export type CalendarEventDraftPayload = {
   assignee_ids?: string[];
   resource_ids?: string[];
   metadata?: Record<string, unknown>;
+  recurrence_rule?: CalendarRecurrenceRule | null;
+  reminder_minutes?: number[];
 };
 
 export type CalendarEventDeletePayload = {

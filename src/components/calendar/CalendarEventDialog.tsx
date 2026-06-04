@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { addDays, differenceInMinutes, format } from 'date-fns';
-import { CalendarCheck2, Check, Loader2, Search, UsersRound } from 'lucide-react';
+import { BellRing, CalendarCheck2, Check, Loader2, LockKeyhole, Repeat2, Search, UsersRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,10 +26,12 @@ import {
   type CalendarEventStatus,
   type CalendarEventVisibility,
   type CalendarIconType,
+  type CalendarRecurrenceFrequency,
+  type CalendarRecurrenceRule,
   type InternalCalendarEvent,
 } from '@/types/internalCalendar';
 
-type CalendarDialogMode = 'employee' | 'client' | 'room' | 'manual' | 'event' | 'holiday';
+type CalendarDialogMode = 'personal' | 'team' | 'employee' | 'client' | 'room' | 'manual' | 'event' | 'holiday';
 
 interface CalendarEventDialogProps {
   open: boolean;
@@ -57,9 +59,36 @@ type Draft = {
   selectedResourceIds: string[];
   clientName: string;
   clientContact: string;
+  recurrenceFrequency: CalendarRecurrenceFrequency;
+  recurrenceInterval: string;
+  recurrenceUntil: string;
+  recurrenceWeekdays: number[];
+  reminderMinutes: number[];
 };
 
 const DURATION_OPTIONS = [30, 60, 90, 120, 180];
+const REMINDER_OPTIONS = [
+  { value: 10, label: '10분 전' },
+  { value: 30, label: '30분 전' },
+  { value: 60, label: '1시간 전' },
+  { value: 1440, label: '1일 전' },
+];
+const RECURRENCE_OPTIONS: Array<{ value: CalendarRecurrenceFrequency; label: string }> = [
+  { value: 'none', label: '반복 안함' },
+  { value: 'daily', label: '매일' },
+  { value: 'weekly', label: '매주' },
+  { value: 'monthly', label: '매월' },
+  { value: 'yearly', label: '매년' },
+];
+const WEEKDAY_OPTIONS = [
+  { value: 1, label: '월' },
+  { value: 2, label: '화' },
+  { value: 3, label: '수' },
+  { value: 4, label: '목' },
+  { value: 5, label: '금' },
+  { value: 6, label: '토' },
+  { value: 0, label: '일' },
+];
 const TIME_OPTIONS = Array.from({ length: 25 }, (_, index) => {
   const totalMinutes = 8 * 60 + index * 30;
   const hour = Math.floor(totalMinutes / 60);
@@ -70,10 +99,11 @@ const TIME_OPTIONS = Array.from({ length: 25 }, (_, index) => {
 const todayString = () => format(new Date(), 'yyyy-MM-dd');
 
 const MODE_OPTIONS: Array<{ value: CalendarDialogMode; label: string }> = [
+  { value: 'personal', label: '개인 일정' },
+  { value: 'team', label: '팀 일정' },
   { value: 'employee', label: '직원 미팅' },
   { value: 'client', label: '클라이언트' },
   { value: 'room', label: '회의실 예약' },
-  { value: 'manual', label: '일반 일정' },
   { value: 'event', label: '이벤트' },
   { value: 'holiday', label: '휴무일' },
 ];
@@ -87,6 +117,24 @@ const MODE_DEFAULTS: Record<CalendarDialogMode, {
   iconType: CalendarIconType | null;
   sourceSubtype: string;
 }> = {
+  personal: {
+    titlePlaceholder: '예: 집중 작업, 개인 일정, 할 일 정리',
+    visibility: 'private',
+    status: 'scheduled',
+    allDay: false,
+    accent: '#111111',
+    iconType: 'calendar',
+    sourceSubtype: 'personal',
+  },
+  team: {
+    titlePlaceholder: '예: 팀 주간회의, 부서 공유 일정',
+    visibility: 'details',
+    status: 'scheduled',
+    allDay: false,
+    accent: '#2563eb',
+    iconType: 'meeting',
+    sourceSubtype: 'team',
+  },
   employee: {
     titlePlaceholder: '예: 1:1 미팅, 팀 회의',
     visibility: 'title_only',
@@ -149,10 +197,21 @@ function getModeDefaults(mode: CalendarDialogMode) {
 
 function getEventMode(event: InternalCalendarEvent): CalendarDialogMode {
   const calendarKind = event.metadata?.calendar_kind;
+  if (calendarKind === 'personal' || event.source_subtype === 'personal') return 'personal';
+  if (calendarKind === 'team' || event.source_subtype === 'team') return 'team';
   if (calendarKind === 'holiday' || event.icon_type === 'holiday') return 'holiday';
   if (calendarKind === 'event' || event.icon_type === 'event') return 'event';
   return (calendarKind as CalendarDialogMode | undefined)
     || (event.client_name ? 'client' : event.resource_ids.length > 0 ? 'room' : 'employee');
+}
+
+function getRecurrenceInitial(rule: CalendarRecurrenceRule | null, startDate: Date) {
+  return {
+    recurrenceFrequency: (rule?.frequency || 'none') as CalendarRecurrenceFrequency,
+    recurrenceInterval: String(rule?.interval || 1),
+    recurrenceUntil: rule?.until || '',
+    recurrenceWeekdays: rule?.weekdays && rule.weekdays.length > 0 ? rule.weekdays : [startDate.getDay()],
+  };
 }
 
 function getInitialDraft({
@@ -182,6 +241,11 @@ function getInitialDraft({
       selectedResourceIds: [],
       clientName: '',
       clientContact: '',
+      recurrenceFrequency: 'none',
+      recurrenceInterval: '1',
+      recurrenceUntil: '',
+      recurrenceWeekdays: [new Date(`${defaultDate || todayString()}T00:00:00`).getDay()],
+      reminderMinutes: [],
     };
   }
 
@@ -189,6 +253,7 @@ function getInitialDraft({
   const end = new Date(event.ends_at);
   const duration = Math.max(30, differenceInMinutes(end, start));
   const eventMode = getEventMode(event);
+  const recurrenceInitial = getRecurrenceInitial(event.recurrence_rule, start);
 
   return {
     mode: eventMode,
@@ -206,6 +271,8 @@ function getInitialDraft({
     selectedResourceIds: event.resource_ids,
     clientName: event.client_name || '',
     clientContact: event.client_contact || '',
+    ...recurrenceInitial,
+    reminderMinutes: event.reminder_minutes || [],
   };
 }
 
@@ -272,6 +339,12 @@ const CalendarEventDialog = ({
   const conflictingResourceNames = selectedResources
     .filter((resource) => events.some((item) => eventOverlapsResource(item, resource.id, startIso, endIso, event?.id)))
     .map((resource) => resource.name);
+  const recurrenceRule: CalendarRecurrenceRule | null = draft.recurrenceFrequency === 'none' ? null : {
+    frequency: draft.recurrenceFrequency,
+    interval: Math.max(1, Number(draft.recurrenceInterval || 1)),
+    until: draft.recurrenceUntil || null,
+    ...(draft.recurrenceFrequency === 'weekly' ? { weekdays: draft.recurrenceWeekdays } : {}),
+  };
 
   const setDraftField = <K extends keyof Draft>(key: K, value: Draft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -298,6 +371,9 @@ const CalendarEventDialog = ({
   const validationError = useMemo(() => {
     if (!draft.title.trim()) return '일정 제목을 입력해주세요.';
     if (!draft.date || (!isAllDay && !draft.startTime)) return '일정 날짜와 시간을 선택해주세요.';
+    if (draft.mode === 'team' && !draft.teamDepartment) {
+      return '팀 일정을 등록하려면 팀 캘린더를 선택해주세요.';
+    }
     if (draft.mode === 'employee' && draft.selectedUserIds.length === 0 && !draft.teamDepartment) {
       return '참석 직원 또는 팀을 선택해주세요.';
     }
@@ -312,6 +388,24 @@ const CalendarEventDialog = ({
     }
     return '';
   }, [conflictingResourceNames, draft.date, draft.mode, draft.selectedResourceIds.length, draft.selectedUserIds.length, draft.startTime, draft.teamDepartment, draft.title, isAllDay]);
+
+  const toggleWeekday = (weekday: number) => {
+    setDraft((current) => {
+      const next = current.recurrenceWeekdays.includes(weekday)
+        ? current.recurrenceWeekdays.filter((day) => day !== weekday)
+        : [...current.recurrenceWeekdays, weekday];
+      return { ...current, recurrenceWeekdays: next.length > 0 ? next : [new Date(`${current.date}T00:00:00`).getDay()] };
+    });
+  };
+
+  const toggleReminder = (minutes: number) => {
+    setDraft((current) => ({
+      ...current,
+      reminderMinutes: current.reminderMinutes.includes(minutes)
+        ? current.reminderMinutes.filter((item) => item !== minutes)
+        : [...current.reminderMinutes, minutes].sort((a, b) => a - b),
+    }));
+  };
 
   const handleSubmit = async () => {
     if (validationError) {
@@ -337,12 +431,14 @@ const CalendarEventDialog = ({
       source_subtype: modeDefaults.sourceSubtype,
       accent: modeDefaults.accent,
       icon_type: modeDefaults.iconType,
-      team_department: draft.teamDepartment || null,
+      team_department: draft.mode === 'personal' ? null : draft.teamDepartment || null,
       client_name: draft.mode === 'client' ? draft.clientName.trim() || null : null,
       client_contact: draft.mode === 'client' ? draft.clientContact.trim() || null : null,
-      participant_ids: draft.mode === 'client' || draft.mode === 'holiday' ? [] : draft.selectedUserIds,
+      participant_ids: draft.mode === 'client' || draft.mode === 'holiday' || draft.mode === 'personal' ? [] : draft.selectedUserIds,
       assignee_ids: draft.mode === 'client' ? draft.selectedUserIds : [],
-      resource_ids: draft.mode === 'holiday' ? [] : draft.selectedResourceIds,
+      resource_ids: draft.mode === 'holiday' || draft.mode === 'personal' ? [] : draft.selectedResourceIds,
+      recurrence_rule: recurrenceRule,
+      reminder_minutes: draft.reminderMinutes,
       metadata: {
         ...baseMetadata,
         calendar_kind: calendarKind,
@@ -448,8 +544,9 @@ const CalendarEventDialog = ({
                       status: defaults.status,
                       allDay: defaults.allDay,
                       startTime: defaults.allDay ? '00:00' : current.startTime,
-                      selectedResourceIds: nextMode === 'holiday' ? [] : current.selectedResourceIds,
-                      selectedUserIds: nextMode === 'holiday' ? [] : current.selectedUserIds,
+                      teamDepartment: nextMode === 'personal' ? '' : current.teamDepartment,
+                      selectedResourceIds: nextMode === 'holiday' || nextMode === 'personal' ? [] : current.selectedResourceIds,
+                      selectedUserIds: nextMode === 'holiday' || nextMode === 'personal' ? [] : current.selectedUserIds,
                     }));
                   }}
                   className={cn(
@@ -536,6 +633,12 @@ const CalendarEventDialog = ({
                     ))}
                   </SelectContent>
                 </Select>
+                {draft.mode === 'personal' && (
+                  <p className="flex items-center gap-1 text-[11px] font-medium text-[#707072]">
+                    <LockKeyhole className="h-3 w-3" />
+                    개인 일정은 기본 비공개이며 타인에게는 바쁨 상태만 보입니다.
+                  </p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-[#39393b]">팀 캘린더</Label>
@@ -584,7 +687,91 @@ const CalendarEventDialog = ({
               )}
             </div>
 
-            {draft.mode !== 'holiday' && renderEmployeePicker(draft.mode === 'client' ? '담당자 지정' : '참석자 지정')}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
+                <div className="flex items-center gap-2">
+                  <Repeat2 className="h-4 w-4 text-[#707072]" />
+                  <Label className="text-xs font-semibold text-[#39393b]">반복</Label>
+                </div>
+                <div className="mt-2 grid gap-2">
+                  <Select value={draft.recurrenceFrequency} onValueChange={(value) => setDraftField('recurrenceFrequency', value as CalendarRecurrenceFrequency)}>
+                    <SelectTrigger className="h-9 rounded-lg border-[#cacacb] bg-white text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RECURRENCE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {draft.recurrenceFrequency !== 'none' && (
+                    <div className="grid grid-cols-[88px_1fr] gap-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        value={draft.recurrenceInterval}
+                        onChange={(event) => setDraftField('recurrenceInterval', event.target.value)}
+                        className="h-9 rounded-lg border-[#cacacb] bg-white text-sm"
+                      />
+                      <Input
+                        type="date"
+                        value={draft.recurrenceUntil}
+                        onChange={(event) => setDraftField('recurrenceUntil', event.target.value)}
+                        className="h-9 rounded-lg border-[#cacacb] bg-white text-sm"
+                      />
+                    </div>
+                  )}
+                  {draft.recurrenceFrequency === 'weekly' && (
+                    <div className="flex flex-wrap gap-1">
+                      {WEEKDAY_OPTIONS.map((weekday) => {
+                        const selected = draft.recurrenceWeekdays.includes(weekday.value);
+                        return (
+                          <button
+                            key={weekday.value}
+                            type="button"
+                            onClick={() => toggleWeekday(weekday.value)}
+                            className={cn(
+                              'h-7 min-w-7 rounded-full border px-2 text-[11px] font-bold',
+                              selected ? 'border-[#111111] bg-[#111111] text-white' : 'border-[#cacacb] bg-white text-[#707072]',
+                            )}
+                          >
+                            {weekday.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
+                <div className="flex items-center gap-2">
+                  <BellRing className="h-4 w-4 text-[#707072]" />
+                  <Label className="text-xs font-semibold text-[#39393b]">알림</Label>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {REMINDER_OPTIONS.map((option) => {
+                    const selected = draft.reminderMinutes.includes(option.value);
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => toggleReminder(option.value)}
+                        className={cn(
+                          'h-8 rounded-full border px-2.5 text-xs font-semibold',
+                          selected ? 'border-[#111111] bg-[#111111] text-white' : 'border-[#cacacb] bg-white text-[#707072] hover:border-[#111111]',
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[11px] font-medium text-[#707072]">앱 내부 알림 기준으로 저장됩니다.</p>
+              </div>
+            </div>
+
+            {draft.mode !== 'holiday' && draft.mode !== 'personal' && renderEmployeePicker(draft.mode === 'client' ? '담당자 지정' : '참석자 지정')}
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-[#39393b]">내용</Label>
@@ -598,7 +785,7 @@ const CalendarEventDialog = ({
           </div>
 
           <aside className="space-y-3">
-            {draft.mode !== 'holiday' && (
+            {draft.mode !== 'holiday' && draft.mode !== 'personal' && (
             <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold text-[#39393b]">회의실</Label>
@@ -667,8 +854,20 @@ const CalendarEventDialog = ({
                   <dd className="font-semibold text-[#111111]">{CALENDAR_VISIBILITY_LABELS[draft.visibility]}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
+                  <dt className="text-[#707072]">반복</dt>
+                  <dd className="font-semibold text-[#111111]">
+                    {RECURRENCE_OPTIONS.find((option) => option.value === draft.recurrenceFrequency)?.label || '반복 안함'}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-[#707072]">알림</dt>
+                  <dd className="font-semibold text-[#111111]">{draft.reminderMinutes.length > 0 ? `${draft.reminderMinutes.length}개` : '없음'}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
                   <dt className="text-[#707072]">대상</dt>
-                  <dd className="font-semibold text-[#111111]">{draft.mode === 'holiday' ? '회사 공용' : `${draft.selectedUserIds.length}명`}</dd>
+                  <dd className="font-semibold text-[#111111]">
+                    {draft.mode === 'holiday' ? '회사 공용' : draft.mode === 'personal' ? '본인' : `${draft.selectedUserIds.length}명`}
+                  </dd>
                 </div>
               </dl>
               {validationError && (
