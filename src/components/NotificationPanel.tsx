@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, X, CheckCircle, XCircle, Trash2, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart, Star, FolderOpen, MessageSquareText, PenLine, ShieldCheck } from 'lucide-react';
+import { Bell, X, CheckCircle, XCircle, KeyRound, UserPlus, Loader2, Megaphone, FileText, UserCheck, Edit, CalendarDays, CalendarCheck, CalendarX, Heart, Star, FolderOpen, MessageSquareText, PenLine, ShieldCheck } from 'lucide-react';
 import { AppNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 interface NotificationPanelProps {
   notifications: AppNotification[];
   unviewedCount: number;
-  onMarkViewed: () => void;
+  onMarkViewed: () => void | Promise<void>;
   onRemove: (id: string) => void;
   onRefresh: () => void;
 }
@@ -31,6 +31,7 @@ const NotificationPanel = ({
   const { session } = useAuth();
   const [open, setOpen] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [clearingAll, setClearingAll] = useState(false);
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>('all');
 
   const handleOpen = () => {
@@ -39,6 +40,15 @@ const NotificationPanel = ({
 
   const handleClose = () => {
     setOpen(false);
+  };
+
+  const handleMarkViewed = async () => {
+    setClearingAll(true);
+    try {
+      await onMarkViewed();
+    } finally {
+      setClearingAll(false);
+    }
   };
 
   const handleApproveResetRequest = async (notification: AppNotification) => {
@@ -243,6 +253,11 @@ const NotificationPanel = ({
     return next;
   }, [notifications]);
 
+  const dismissibleUnreadCount = useMemo(
+    () => notifications.filter(notification => !notification.is_read && notification.source === 'db_stored').length,
+    [notifications],
+  );
+
   const filteredNotifications = useMemo(() => {
     if (activeFilter === 'all') return notifications;
     if (activeFilter === 'unread') return notifications.filter(notification => !notification.is_read);
@@ -323,9 +338,10 @@ const NotificationPanel = ({
                 variant="default"
                 size="sm"
                 className="h-7 px-2 text-xs"
-                onClick={onMarkViewed}
-                disabled={counts.unread === 0}
+                onClick={handleMarkViewed}
+                disabled={dismissibleUnreadCount === 0 || clearingAll}
               >
+                {clearingAll ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
                 모두 읽음
               </Button>
             </div>
@@ -353,7 +369,7 @@ const NotificationPanel = ({
           {filteredNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <Bell className="h-10 w-10 mb-3 opacity-30" />
-              <p className="text-sm">{activeFilter === 'all' ? '새로운 알림이 없습니다' : '해당 조건의 알림이 없습니다'}</p>
+              <p className="text-sm">확인할 알림이 없습니다.</p>
             </div>
           ) : (
             <div className="p-3 space-y-2">
@@ -614,15 +630,18 @@ const NotificationPanel = ({
                       </Button>
                     )}
 
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs text-muted-foreground"
-                      onClick={() => onRemove(notification.id)}
-                      disabled={!!processingId}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    {notification.source === 'db_stored' && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-muted-foreground"
+                        onClick={() => onRemove(notification.id)}
+                        disabled={!!processingId}
+                      >
+                        <CheckCircle className="mr-1 h-3 w-3" />
+                        읽음
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}

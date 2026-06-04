@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 export interface AppNotification {
   id: string;
@@ -60,7 +61,6 @@ export const useNotifications = () => {
   const { user, userRole } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(false);
-  const [hasViewed, setHasViewed] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) {
@@ -122,6 +122,7 @@ export const useNotifications = () => {
       .from('notifications')
       .select('*')
       .eq('user_id', user.id)
+      .eq('is_read', false)
       .order('created_at', { ascending: false })
       .limit(50);
 
@@ -191,7 +192,6 @@ export const useNotifications = () => {
     items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     setNotifications(items);
     setLoading(false);
-    setHasViewed(false);
   }, [user, userRole]);
 
   useEffect(() => {
@@ -224,26 +224,34 @@ export const useNotifications = () => {
   }, [user, fetchNotifications]);
 
   const markAsViewed = useCallback(async () => {
-    setHasViewed(true);
-    // Mark all unread db-stored notifications as read
     const unreadDbIds = notifications
       .filter(n => !n.is_read && n.source === 'db_stored')
       .map(n => n.id.replace('notif-', ''));
-    if (unreadDbIds.length > 0) {
-      await supabase.from('notifications').update({ is_read: true }).in('id', unreadDbIds);
-      setNotifications(prev => prev.map(n => n.source === 'db_stored' ? { ...n, is_read: true } : n));
+    if (unreadDbIds.length === 0) return;
+
+    const previousNotifications = notifications;
+    setNotifications(prev => prev.filter(n => !(n.source === 'db_stored' && !n.is_read)));
+
+    const { error } = await supabase.from('notifications').delete().in('id', unreadDbIds);
+    if (error) {
+      setNotifications(previousNotifications);
+      toast.error('알림 정리에 실패했습니다.');
     }
   }, [notifications]);
 
-  const unviewedCount = hasViewed ? 0 : notifications.filter(n => !n.is_read).length;
+  const unviewedCount = notifications.filter(n => !n.is_read).length;
 
   const removeNotification = useCallback(async (id: string) => {
-    // If it's a stored notification, delete from DB
-    if (id.startsWith('notif-')) {
-      const dbId = id.replace('notif-', '');
-      await supabase.from('notifications').delete().eq('id', dbId);
+    try {
+      if (id.startsWith('notif-')) {
+        const dbId = id.replace('notif-', '');
+        const { error } = await supabase.from('notifications').delete().eq('id', dbId);
+        if (error) throw error;
+      }
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    } catch {
+      toast.error('알림 정리에 실패했습니다.');
     }
-    setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
   return {
