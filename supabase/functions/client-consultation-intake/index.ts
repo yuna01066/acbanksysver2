@@ -103,7 +103,7 @@ function asObject(value: unknown): JsonObject {
 
 function text(value: unknown, limit = 1000) {
   if (typeof value !== "string") return "";
-  return value.trim().replace(/\u0000/g, "").slice(0, limit);
+  return value.trim().split("\u0000").join("").slice(0, limit);
 }
 
 function optionalText(value: unknown, limit = 1000) {
