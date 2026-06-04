@@ -16,7 +16,7 @@ const EmbedCodeGenerator = () => {
   // 현재 도메인을 기반으로 임베드 URL 생성
   const currentDomain = window.location.origin;
   const calculatorEmbedUrl = `${currentDomain}/calculator?type=quote`;
-  const consultationEmbedUrl = `${currentDomain}/client-consultation-widget?source=imweb-acbankform`;
+  const consultationEmbedUrl = `${currentDomain}/client-consultation-widget?source=imweb-acbankform&embed=1`;
 
   const embedCode = useMemo(() => {
     if (embedType === 'calculator') {
