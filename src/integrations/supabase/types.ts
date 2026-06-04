@@ -1210,6 +1210,7 @@ export type Database = {
           business_type: string | null
           ceo_name: string | null
           company_name: string
+          company_seal_storage_path: string | null
           created_at: string
           detail_address: string | null
           email: string | null
@@ -1237,6 +1238,7 @@ export type Database = {
           business_type?: string | null
           ceo_name?: string | null
           company_name?: string
+          company_seal_storage_path?: string | null
           created_at?: string
           detail_address?: string | null
           email?: string | null
@@ -1264,6 +1266,7 @@ export type Database = {
           business_type?: string | null
           ceo_name?: string | null
           company_name?: string
+          company_seal_storage_path?: string | null
           created_at?: string
           detail_address?: string | null
           email?: string | null
@@ -1424,6 +1427,50 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      contract_events: {
+        Row: {
+          actor_id: string | null
+          actor_role: string | null
+          contract_id: string
+          created_at: string
+          event_type: string
+          id: string
+          ip_address: string | null
+          metadata: Json
+          user_agent: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_role?: string | null
+          contract_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          user_agent?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_role?: string | null
+          contract_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_events_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "employment_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contract_templates: {
         Row: {
@@ -1751,9 +1798,12 @@ export type Database = {
           annual_salary: number | null
           base_pay: number | null
           birth_date: string | null
+          company_seal_included: boolean
+          company_seal_storage_path: string | null
           comprehensive_wage_basis: string | null
           comprehensive_wage_hours: number | null
           comprehensive_wage_type: string | null
+          content_sha256: string | null
           contract_date: string
           contract_end_date: string | null
           contract_start_date: string | null
@@ -1765,6 +1815,7 @@ export type Database = {
           id: string
           monthly_salary: number | null
           notes: string | null
+          opened_at: string | null
           other_allowances: Json | null
           pay_day: number | null
           position: string | null
@@ -1772,16 +1823,28 @@ export type Database = {
           probation_period: string | null
           probation_salary_rate: number | null
           probation_start_date: string | null
+          rejected_at: string | null
+          rejected_reason: string | null
+          rendered_html: string | null
           requested_at: string | null
           requested_by: string | null
+          signature_storage_path: string | null
           signed_at: string | null
+          signed_by_name: string | null
+          signed_pdf_document_file_id: string | null
+          signed_pdf_storage_path: string | null
+          signed_rendered_html: string | null
           status: string
           template_id: string | null
+          template_snapshot: Json | null
           updated_at: string
           user_id: string
           user_name: string
           wage_basis: string | null
           wage_start_date: string | null
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+          withdrawn_reason: string | null
           work_days: string | null
           work_type: string | null
         }
@@ -1789,9 +1852,12 @@ export type Database = {
           annual_salary?: number | null
           base_pay?: number | null
           birth_date?: string | null
+          company_seal_included?: boolean
+          company_seal_storage_path?: string | null
           comprehensive_wage_basis?: string | null
           comprehensive_wage_hours?: number | null
           comprehensive_wage_type?: string | null
+          content_sha256?: string | null
           contract_date?: string
           contract_end_date?: string | null
           contract_start_date?: string | null
@@ -1803,6 +1869,7 @@ export type Database = {
           id?: string
           monthly_salary?: number | null
           notes?: string | null
+          opened_at?: string | null
           other_allowances?: Json | null
           pay_day?: number | null
           position?: string | null
@@ -1810,16 +1877,28 @@ export type Database = {
           probation_period?: string | null
           probation_salary_rate?: number | null
           probation_start_date?: string | null
+          rejected_at?: string | null
+          rejected_reason?: string | null
+          rendered_html?: string | null
           requested_at?: string | null
           requested_by?: string | null
+          signature_storage_path?: string | null
           signed_at?: string | null
+          signed_by_name?: string | null
+          signed_pdf_document_file_id?: string | null
+          signed_pdf_storage_path?: string | null
+          signed_rendered_html?: string | null
           status?: string
           template_id?: string | null
+          template_snapshot?: Json | null
           updated_at?: string
           user_id: string
           user_name: string
           wage_basis?: string | null
           wage_start_date?: string | null
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdrawn_reason?: string | null
           work_days?: string | null
           work_type?: string | null
         }
@@ -1827,9 +1906,12 @@ export type Database = {
           annual_salary?: number | null
           base_pay?: number | null
           birth_date?: string | null
+          company_seal_included?: boolean
+          company_seal_storage_path?: string | null
           comprehensive_wage_basis?: string | null
           comprehensive_wage_hours?: number | null
           comprehensive_wage_type?: string | null
+          content_sha256?: string | null
           contract_date?: string
           contract_end_date?: string | null
           contract_start_date?: string | null
@@ -1841,6 +1923,7 @@ export type Database = {
           id?: string
           monthly_salary?: number | null
           notes?: string | null
+          opened_at?: string | null
           other_allowances?: Json | null
           pay_day?: number | null
           position?: string | null
@@ -1848,20 +1931,39 @@ export type Database = {
           probation_period?: string | null
           probation_salary_rate?: number | null
           probation_start_date?: string | null
+          rejected_at?: string | null
+          rejected_reason?: string | null
+          rendered_html?: string | null
           requested_at?: string | null
           requested_by?: string | null
+          signature_storage_path?: string | null
           signed_at?: string | null
+          signed_by_name?: string | null
+          signed_pdf_document_file_id?: string | null
+          signed_pdf_storage_path?: string | null
+          signed_rendered_html?: string | null
           status?: string
           template_id?: string | null
+          template_snapshot?: Json | null
           updated_at?: string
           user_id?: string
           user_name?: string
           wage_basis?: string | null
           wage_start_date?: string | null
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdrawn_reason?: string | null
           work_days?: string | null
           work_type?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "employment_contracts_signed_pdf_document_file_id_fkey"
+            columns: ["signed_pdf_document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "employment_contracts_template_id_fkey"
             columns: ["template_id"]
