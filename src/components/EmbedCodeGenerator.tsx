@@ -1,23 +1,29 @@
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, Code, ExternalLink } from "lucide-react";
+import { Copy, Code, ExternalLink, FileText, Calculator } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+type EmbedType = 'consultation' | 'calculator';
 
 const EmbedCodeGenerator = () => {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [embedType, setEmbedType] = useState<EmbedType>('consultation');
 
   // 현재 도메인을 기반으로 임베드 URL 생성
   const currentDomain = window.location.origin;
-  const embedUrl = `${currentDomain}/calculator?type=quote`;
+  const calculatorEmbedUrl = `${currentDomain}/calculator?type=quote`;
+  const consultationEmbedUrl = `${currentDomain}/client-consultation-widget?source=imweb-acbankform`;
 
-  const embedCode = `<!-- 판재 단가 계산기 위젯 -->
+  const embedCode = useMemo(() => {
+    if (embedType === 'calculator') {
+      return `<!-- 판재 단가 계산기 위젯 -->
 <div style="width: 100%; max-width: 1400px; margin: 0 auto;">
   <iframe 
-    src="${embedUrl}" 
+    src="${calculatorEmbedUrl}" 
     width="100%" 
     height="1000" 
     frameborder="0" 
@@ -36,6 +42,32 @@ const EmbedCodeGenerator = () => {
     }
   }
 </style>`;
+    }
+
+    return `<!-- 아크뱅크 상담문의 작성폼 위젯 -->
+<div style="width: 100%; max-width: 1080px; margin: 0 auto;">
+  <iframe
+    src="${consultationEmbedUrl}"
+    width="100%"
+    height="920"
+    frameborder="0"
+    scrolling="yes"
+    referrerpolicy="strict-origin-when-cross-origin"
+    style="border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff;"
+    title="아크뱅크 상담문의 작성폼"
+    loading="lazy">
+  </iframe>
+</div>
+
+<!-- 반응형 스타일 (선택사항) -->
+<style>
+  @media (max-width: 768px) {
+    iframe[title="아크뱅크 상담문의 작성폼"] {
+      height: 860px;
+    }
+  }
+</style>`;
+  }, [calculatorEmbedUrl, consultationEmbedUrl, embedType]);
 
   const copyToClipboard = async () => {
     try {
@@ -63,10 +95,35 @@ const EmbedCodeGenerator = () => {
           외부 사이트 위젯 임베드 코드
         </CardTitle>
         <p className="text-gray-600 text-sm">
-          아래 코드를 복사해서 외부 사이트의 HTML 편집 영역에 붙여넣으세요.
+          상담폼 또는 견적 계산기 위젯 코드를 복사해서 외부 사이트의 HTML 편집 영역에 붙여넣으세요.
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
+        <div className="grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-1 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setEmbedType('consultation')}
+            className={`flex items-start gap-3 rounded-md px-3 py-3 text-left text-sm transition-colors ${embedType === 'consultation' ? 'bg-white text-gray-950 shadow-sm' : 'text-gray-600 hover:bg-white/70'}`}
+          >
+            <FileText className="mt-0.5 h-4 w-4" />
+            <span>
+              <span className="block font-semibold">상담폼 위젯</span>
+              <span className="text-xs text-gray-500">아임웹 상담문의 페이지용</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setEmbedType('calculator')}
+            className={`flex items-start gap-3 rounded-md px-3 py-3 text-left text-sm transition-colors ${embedType === 'calculator' ? 'bg-white text-gray-950 shadow-sm' : 'text-gray-600 hover:bg-white/70'}`}
+          >
+            <Calculator className="mt-0.5 h-4 w-4" />
+            <span>
+              <span className="block font-semibold">견적 계산기 위젯</span>
+              <span className="text-xs text-gray-500">기존 판재 계산기 임베드</span>
+            </span>
+          </button>
+        </div>
+
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <h4 className="font-medium text-sm">임베드 코드</h4>
@@ -106,7 +163,7 @@ const EmbedCodeGenerator = () => {
           <h4 className="font-medium text-yellow-800 mb-2 text-sm">주의사항</h4>
           <ul className="text-xs text-yellow-700 space-y-1 list-disc list-inside">
             <li>iframe의 높이(height)는 필요에 따라 조정할 수 있습니다</li>
-            <li>모바일에서는 자동으로 높이가 600px로 조정됩니다</li>
+            <li>상담폼은 모바일에서 860px, 계산기는 800px 기준으로 조정됩니다</li>
             <li>위젯이 제대로 표시되지 않으면 사이트의 iframe 허용 설정을 확인하세요</li>
             <li>HTTPS 환경에서만 정상 작동합니다</li>
           </ul>
