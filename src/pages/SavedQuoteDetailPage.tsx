@@ -262,7 +262,7 @@ const SavedQuoteDetailPage = () => {
 
       if (error) throw error;
 
-      const normalizedItems = normalizeQuoteItems(Array.isArray(data.items) ? data.items : []);
+      const normalizedItems = normalizeQuoteItems((Array.isArray(data.items) ? data.items : []) as Array<{ id?: string }>);
       const formattedData = {
         ...data,
         project_stage: normalizeProjectStage(data.project_stage, data.quote_status),
