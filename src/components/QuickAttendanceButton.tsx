@@ -18,7 +18,7 @@ import { triggerHamzzi } from '@/lib/hamzziEvents';
 
 interface QuickAttendanceButtonProps {
   onAttendanceChanged?: () => void;
-  variant?: 'default' | 'compact';
+  variant?: 'default' | 'compact' | 'inline';
 }
 
 const QuickAttendanceButton = ({ onAttendanceChanged, variant = 'default' }: QuickAttendanceButtonProps = {}) => {
@@ -218,8 +218,16 @@ const QuickAttendanceButton = ({ onAttendanceChanged, variant = 'default' }: Qui
   };
 
   if (fetching) {
+    if (variant === 'inline') {
+      return (
+        <div className="flex min-h-10 w-full items-center justify-center rounded-lg border border-border bg-muted/30 px-3 py-2">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+
     return (
-      <Card className="h-full w-full border-primary/10 bg-background/75 shadow-sm">
+      <Card className="h-full w-full border-border bg-white shadow-none dark:bg-background">
         <CardContent className={`flex items-center justify-center p-4 ${variant === 'compact' ? 'min-h-[76px]' : 'min-h-[104px]'}`}>
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </CardContent>
@@ -231,14 +239,62 @@ const QuickAttendanceButton = ({ onAttendanceChanged, variant = 'default' }: Qui
   const checkedOut = !!todayRecord?.check_out;
   const streakCopy = checkedIn ? getAttendanceStreakCopy(attendanceStreak) : null;
 
+  if (variant === 'inline') {
+    const primaryCopy = !checkedIn ? '미출근' : checkedOut ? '퇴근 완료' : '근무 중';
+    const timeCopy = !checkedIn
+      ? '출근 등록이 필요합니다'
+      : checkedOut
+        ? `퇴근 ${format(new Date(todayRecord.check_out), 'HH:mm')}`
+        : `출근 ${format(new Date(todayRecord.check_in), 'HH:mm')}`;
+
+    return (
+      <>
+        <div className="flex w-full min-w-[220px] items-center justify-between gap-3 rounded-lg border border-border bg-white px-3 py-2 text-left dark:bg-background sm:min-w-[260px]">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-muted-foreground">근태 관리</p>
+            <div className="mt-0.5 flex items-center gap-2">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${!checkedIn ? 'bg-red-500' : checkedOut ? 'bg-muted-foreground/50' : 'bg-green-500'}`} />
+              <span className="truncate text-sm font-semibold text-foreground">{primaryCopy}</span>
+            </div>
+            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{timeCopy}</p>
+          </div>
+          <div className="shrink-0">
+            {!checkedIn ? (
+              <Button size="sm" onClick={() => handleInitiateAction('check_in')} disabled={loading} className="h-8 rounded-full bg-foreground px-3 text-xs text-background hover:bg-foreground/90">
+                {loading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <LogIn className="mr-1.5 h-3.5 w-3.5" />}
+                출근
+              </Button>
+            ) : !checkedOut ? (
+              <Button size="sm" variant="outline" onClick={() => handleInitiateAction('check_out')} disabled={loading} className="h-8 rounded-full border-border px-3 text-xs">
+                {loading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <LogOut className="mr-1.5 h-3.5 w-3.5" />}
+                퇴근
+              </Button>
+            ) : (
+              <Button size="sm" variant="ghost" onClick={() => navigate('/attendance')} className="h-8 rounded-full px-3 text-xs">
+                상세
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <LocationConfirmDialog
+          open={dialogOpen}
+          actionType={pendingAction || 'check_in'}
+          onConfirm={handleLocationConfirm}
+          onCancel={handleLocationCancel}
+        />
+      </>
+    );
+  }
+
   return (
     <>
-      <Card className="h-full w-full border-primary/10 bg-background/75 shadow-sm">
+      <Card className="h-full w-full border-border bg-white shadow-none dark:bg-background">
         <CardContent className={`flex h-full items-center ${variant === 'compact' ? 'min-h-[76px] p-3' : 'min-h-[104px] p-4'}`}>
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className={`flex shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/10 ${variant === 'compact' ? 'h-9 w-9' : 'h-10 w-10'}`}>
-                <Clock className={`${variant === 'compact' ? 'h-4 w-4' : 'h-5 w-5'} text-primary`} />
+              <div className={`flex shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 ${variant === 'compact' ? 'h-9 w-9' : 'h-10 w-10'}`}>
+                <Clock className={`${variant === 'compact' ? 'h-4 w-4' : 'h-5 w-5'} text-foreground`} />
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold">근태 관리</p>
@@ -267,7 +323,7 @@ const QuickAttendanceButton = ({ onAttendanceChanged, variant = 'default' }: Qui
             </div>
             <div className="flex shrink-0 items-center justify-end gap-2">
               {!checkedIn ? (
-                <Button size="sm" onClick={() => handleInitiateAction('check_in')} disabled={loading} className="gap-1.5">
+                <Button size="sm" onClick={() => handleInitiateAction('check_in')} disabled={loading} className="gap-1.5 rounded-full bg-foreground text-background hover:bg-foreground/90">
                   {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogIn className="h-3.5 w-3.5" />}
                   출근
                 </Button>

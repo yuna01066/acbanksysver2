@@ -46,16 +46,16 @@ const DailyQuoteCard: React.FC = () => {
   }, []);
 
   return (
-    <Card className="h-full w-full border-primary/10 bg-background/70 shadow-sm">
-      <CardContent className="flex h-full min-h-[104px] items-center p-4">
+    <Card className="h-full w-full rounded-xl border-border bg-white shadow-none dark:bg-background">
+      <CardContent className="flex h-full min-h-[132px] items-center p-4 sm:p-5">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/10 bg-primary/5">
-            <Sparkles className="h-5 w-5 text-primary/75" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
+            <Sparkles className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <p className="mb-1 text-sm font-semibold">오늘의 한 줄</p>
-            <p className="text-sm leading-relaxed text-foreground/90">"{todayQuote.text}"</p>
-            <p className="text-xs text-muted-foreground mt-1">— {todayQuote.author}</p>
+            <p className="mb-2 text-sm font-semibold text-foreground">오늘의 한 줄</p>
+            <p className="text-sm leading-relaxed text-foreground">"{todayQuote.text}"</p>
+            <p className="mt-2 text-xs text-muted-foreground">— {todayQuote.author}</p>
           </div>
         </div>
       </CardContent>

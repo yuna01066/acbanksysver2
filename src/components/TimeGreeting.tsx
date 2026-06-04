@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Sun, Moon, Coffee, Utensils, Clock, Calendar, MapPin, Users, Sparkles } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -11,41 +10,42 @@ import { isMissingMeetingReservationsTableError } from '@/lib/meetingReservation
 
 type WorkStatus = 'available' | 'busy' | 'focusing' | 'meeting';
 
-const STATUS_CONFIG: Record<WorkStatus, { label: string; emoji: string; dotColor: string; borderColor: string }> = {
-  available: { label: '여유', emoji: '🟢', dotColor: 'bg-green-500', borderColor: 'border-green-300 dark:border-green-700' },
-  busy: { label: '바쁨', emoji: '🔴', dotColor: 'bg-red-500', borderColor: 'border-red-300 dark:border-red-700' },
-  focusing: { label: '집중 중', emoji: '🟡', dotColor: 'bg-yellow-500', borderColor: 'border-yellow-300 dark:border-yellow-700' },
-  meeting: { label: '미팅 중', emoji: '🟣', dotColor: 'bg-purple-500', borderColor: 'border-purple-300 dark:border-purple-700' },
+const STATUS_CONFIG: Record<WorkStatus, { label: string; dotColor: string }> = {
+  available: { label: '여유', dotColor: 'bg-green-500' },
+  busy: { label: '바쁨', dotColor: 'bg-red-500' },
+  focusing: { label: '집중 중', dotColor: 'bg-yellow-500' },
+  meeting: { label: '미팅 중', dotColor: 'bg-purple-500' },
 };
 
 interface TimeGreetingProps {
   name: string;
   avatarUrl?: string | null;
+  attendanceAction?: React.ReactNode;
 }
 
 const supabaseAny = supabase as any;
 
-const getGreetingData = (): { message: string; icon: React.ReactNode; sub?: string; gradient: string; iconBg: string; timeColor: string } => {
+const getGreetingData = (): { message: string; icon: React.ReactNode; sub?: string } => {
   const now = new Date();
   const h = now.getHours();
   const m = now.getMinutes();
 
   if (h === 11 && m >= 30) {
-    return { message: '점심시간이 얼마 남지 않았어요.', icon: <Utensils className="h-5 w-5 text-orange-600" />, sub: '잠시 쉬어갈 준비를 해주세요.', gradient: 'from-amber-50 via-orange-50 to-yellow-50 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-yellow-950/20', iconBg: 'bg-orange-100 dark:bg-orange-900/40', timeColor: 'text-orange-700 dark:text-orange-300' };
+    return { message: '점심시간이 얼마 남지 않았어요.', icon: <Utensils className="h-5 w-5" />, sub: '잠시 쉬어갈 준비를 해주세요.' };
   }
   if (h === 12) {
-    return { message: '점심시간입니다.', icon: <Utensils className="h-5 w-5 text-orange-600" />, sub: '오후 업무 전 잠시 재정비하세요.', gradient: 'from-amber-50 via-orange-50 to-yellow-50 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-yellow-950/20', iconBg: 'bg-orange-100 dark:bg-orange-900/40', timeColor: 'text-orange-700 dark:text-orange-300' };
+    return { message: '점심시간입니다.', icon: <Utensils className="h-5 w-5" />, sub: '오후 업무 전 잠시 재정비하세요.' };
   }
   if (h === 17 && m >= 30) {
-    return { message: '퇴근시간이 얼마 남지 않았어요.', icon: <Clock className="h-5 w-5 text-emerald-600" />, sub: '마감할 업무를 정리해 주세요.', gradient: 'from-emerald-50 via-green-50 to-teal-50 dark:from-emerald-950/40 dark:via-green-950/30 dark:to-teal-950/20', iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', timeColor: 'text-emerald-700 dark:text-emerald-300' };
+    return { message: '퇴근시간이 얼마 남지 않았어요.', icon: <Clock className="h-5 w-5" />, sub: '마감할 업무를 정리해 주세요.' };
   }
   if (h >= 5 && h < 12) {
-    return { message: '좋은 아침입니다.', icon: <Sun className="h-5 w-5 text-amber-500" />, sub: '오늘의 주요 업무를 확인해 주세요.', gradient: 'from-sky-50 via-amber-50/60 to-orange-50/40 dark:from-sky-950/40 dark:via-amber-950/20 dark:to-orange-950/10', iconBg: 'bg-amber-100 dark:bg-amber-900/40', timeColor: 'text-sky-700 dark:text-sky-300' };
+    return { message: '좋은 아침입니다.', icon: <Sun className="h-5 w-5" />, sub: '오늘의 주요 업무를 확인해 주세요.' };
   }
   if (h >= 12 && h < 18) {
-    return { message: '좋은 오후입니다.', icon: <Coffee className="h-5 w-5 text-blue-500" />, sub: '남은 일정과 납기 항목을 확인해 주세요.', gradient: 'from-blue-50 via-sky-50 to-cyan-50/60 dark:from-blue-950/40 dark:via-sky-950/30 dark:to-cyan-950/20', iconBg: 'bg-blue-100 dark:bg-blue-900/40', timeColor: 'text-blue-700 dark:text-blue-300' };
+    return { message: '좋은 오후입니다.', icon: <Coffee className="h-5 w-5" />, sub: '남은 일정과 납기 항목을 확인해 주세요.' };
   }
-  return { message: '좋은 저녁입니다.', icon: <Moon className="h-5 w-5 text-indigo-400" />, sub: '마무리할 업무가 있는지 확인해 주세요.', gradient: 'from-indigo-50 via-violet-50/60 to-slate-100 dark:from-indigo-950/50 dark:via-violet-950/30 dark:to-slate-900/40', iconBg: 'bg-indigo-100 dark:bg-indigo-900/40', timeColor: 'text-indigo-700 dark:text-indigo-300' };
+  return { message: '좋은 저녁입니다.', icon: <Moon className="h-5 w-5" />, sub: '마무리할 업무가 있는지 확인해 주세요.' };
 };
 
 // 🎯 시크릿 이벤트 시스템
@@ -168,7 +168,7 @@ const formatDate = (date: Date) => {
   return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
 };
 
-const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
+const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl, attendanceAction }) => {
   const { user } = useAuth();
   const [greeting, setGreeting] = useState(getGreetingData());
   const [now, setNow] = useState(new Date());
@@ -411,24 +411,24 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
   const elapsedMins = elapsedMin % 60;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-background/80 p-4 text-card-foreground shadow-sm backdrop-blur animate-fade-in sm:p-5">
+    <div className="relative overflow-hidden rounded-xl border border-border bg-white p-4 text-card-foreground shadow-none animate-fade-in dark:bg-background sm:p-5">
       {/* 🎯 시크릿 이벤트 배너 */}
       {showSecretBanner && secretEvent && (
         <>
           {/* 배너 */}
           <div
-            className="relative mb-3 cursor-pointer rounded-xl border border-primary/10 bg-primary/5 p-3"
+            className="relative mb-3 cursor-pointer rounded-lg border border-border bg-muted/30 p-3"
             onClick={() => setShowSecretBanner(false)}
           >
             <div className="flex items-center gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background/80 text-lg">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-white text-lg dark:bg-background">
                 {secretEvent.emoji}
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-foreground">{secretEvent.message}</p>
                 <p className="truncate text-xs text-muted-foreground">{secretEvent.sub}</p>
               </div>
-              <Sparkles className="h-4 w-4 shrink-0 text-primary/70" />
+              <Sparkles className="h-4 w-4 shrink-0 text-muted-foreground" />
             </div>
           </div>
         </>
@@ -439,14 +439,14 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
           <div className="relative shrink-0">
             <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
               <PopoverTrigger asChild>
-                <Avatar className={`h-14 w-14 shrink-0 cursor-pointer rounded-xl border ${statusCfg.borderColor} shadow-sm transition-transform hover:scale-[1.02] sm:h-20 sm:w-20`}>
+                <Avatar className="h-14 w-14 shrink-0 cursor-pointer rounded-xl border border-border bg-muted shadow-none transition-transform hover:scale-[1.02] sm:h-20 sm:w-20">
                   <AvatarImage src={avatarUrl || undefined} alt={name} className="object-cover" />
-                  <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold sm:text-xl">
+                  <AvatarFallback className="bg-muted text-foreground text-lg font-semibold sm:text-xl">
                     {name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
               </PopoverTrigger>
-              <PopoverContent className="w-44 p-1.5" side="bottom" align="start">
+              <PopoverContent className="w-44 rounded-lg border-border p-1.5" side="bottom" align="start">
                 <p className="text-[10px] font-medium text-muted-foreground px-2 py-1">내 상태 변경</p>
                 {(Object.entries(STATUS_CONFIG) as [WorkStatus, typeof STATUS_CONFIG[WorkStatus]][]).map(([key, cfg]) => (
                   <button
@@ -456,7 +456,7 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
                       myStatus === key ? 'bg-accent font-medium' : 'hover:bg-muted'
                     }`}
                   >
-                    <span>{cfg.emoji}</span>
+                    <span className={`h-2.5 w-2.5 rounded-full ${cfg.dotColor}`} />
                     <span>{cfg.label}</span>
                   </button>
                 ))}
@@ -466,7 +466,7 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-0.5">
-              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${greeting.iconBg} transition-colors duration-1000 sm:h-9 sm:w-9`}>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground transition-colors duration-1000 sm:h-9 sm:w-9">
                 {greeting.icon}
               </div>
               <p className="text-base font-semibold leading-tight text-foreground sm:text-lg">
@@ -478,13 +478,18 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
             )}
           </div>
         </div>
-        <div className="text-right shrink-0 flex sm:block items-center justify-end gap-2 sm:gap-0">
-          <p className={`text-lg font-semibold tabular-nums sm:text-xl ${greeting.timeColor} transition-colors duration-1000`}>
+        <div className="shrink-0 text-right">
+          <p className="text-lg font-semibold tabular-nums text-foreground transition-colors duration-1000 sm:text-xl">
             {formatTime(now)}
           </p>
           <p className="text-[10px] sm:text-xs text-muted-foreground">
             {formatDate(now)}
           </p>
+          {attendanceAction && (
+            <div className="mt-3 flex justify-end">
+              {attendanceAction}
+            </div>
+          )}
         </div>
       </div>
 
@@ -498,15 +503,13 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
         </div>
 
         {/* Progress track */}
-        <div className="relative h-2 overflow-hidden rounded-full bg-muted/60">
+        <div className="relative h-2 overflow-hidden rounded-full bg-muted">
           {/* Filled portion */}
           <div
             className="absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-out"
             style={{
               width: `${workProgress}%`,
-              background: workProgress >= 100
-                ? 'linear-gradient(90deg, #10b981, #34d399)'
-                : 'linear-gradient(90deg, #60a5fa, #2563eb)',
+              background: 'hsl(var(--foreground))',
             }}
           />
         </div>
@@ -535,17 +538,17 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
         <div className={`mt-3 grid gap-2.5 ${upcomingEvents.length === 1 ? 'grid-cols-1' : upcomingEvents.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
           {upcomingEvents.map((ev) => {
             const typeConfig = {
-              conference: { label: '회의', badgeBg: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300', cardBorder: 'border-violet-200/70 dark:border-violet-800/60', cardBg: 'bg-background/70', icon: <Users className="h-3.5 w-3.5" /> },
-              meeting: { label: '미팅', badgeBg: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', cardBorder: 'border-amber-200/70 dark:border-amber-800/60', cardBg: 'bg-background/70', icon: <Coffee className="h-3.5 w-3.5" /> },
-              event: { label: '이벤트', badgeBg: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300', cardBorder: 'border-emerald-200/70 dark:border-emerald-800/60', cardBg: 'bg-background/70', icon: <Calendar className="h-3.5 w-3.5" /> },
-            }[ev.eventType] || { label: '일정', badgeBg: 'bg-muted text-muted-foreground', cardBorder: 'border-border', cardBg: 'bg-muted/50', icon: <Calendar className="h-3.5 w-3.5" /> };
+              conference: { label: '회의', badgeBg: 'bg-muted text-foreground', cardBorder: 'border-border', cardBg: 'bg-white dark:bg-background', icon: <Users className="h-3.5 w-3.5" /> },
+              meeting: { label: '미팅', badgeBg: 'bg-muted text-foreground', cardBorder: 'border-border', cardBg: 'bg-white dark:bg-background', icon: <Coffee className="h-3.5 w-3.5" /> },
+              event: { label: '이벤트', badgeBg: 'bg-muted text-foreground', cardBorder: 'border-border', cardBg: 'bg-white dark:bg-background', icon: <Calendar className="h-3.5 w-3.5" /> },
+            }[ev.eventType] || { label: '일정', badgeBg: 'bg-muted text-muted-foreground', cardBorder: 'border-border', cardBg: 'bg-white dark:bg-background', icon: <Calendar className="h-3.5 w-3.5" /> };
 
             const formattedDate = ev.meeting_date
               ? new Date(ev.meeting_date + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' })
               : null;
 
             return (
-              <div key={ev.id} className={`rounded-xl border ${typeConfig.cardBorder} ${typeConfig.cardBg} p-3 space-y-1.5`}>
+              <div key={ev.id} className={`rounded-lg border ${typeConfig.cardBorder} ${typeConfig.cardBg} p-3 space-y-1.5`}>
                 {/* Header: badge + minutes */}
                 <div className="flex items-center justify-between">
                   <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${typeConfig.badgeBg}`}>
@@ -574,7 +577,7 @@ const TimeGreeting: React.FC<TimeGreetingProps> = ({ name, avatarUrl }) => {
                   )}
                   {ev.meeting_location && (
                     <span className="flex items-center gap-0.5">
-                      <MapPin className="h-3 w-3 shrink-0 text-red-400" />
+                      <MapPin className="h-3 w-3 shrink-0" />
                       {ev.meeting_location}
                     </span>
                   )}
