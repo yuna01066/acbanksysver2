@@ -9,8 +9,10 @@ import { getStageInfo } from '@/components/ProjectStageSelect';
 import { useNavigate } from 'react-router-dom';
 
 interface Props {
-  recipientId: string;
+  recipientId?: string | null;
+  recipientIds?: string[];
   companyName: string;
+  contactPerson?: string | null;
 }
 
 interface TimelineItem {
@@ -24,36 +26,68 @@ interface TimelineItem {
   navigateTo?: string;
 }
 
-const RecipientTimeline: React.FC<Props> = ({ recipientId, companyName }) => {
+const mergeById = <T extends { id: string }>(groups: T[][]) => {
+  const map = new Map<string, T>();
+  groups.flat().forEach((item) => map.set(item.id, item));
+  return Array.from(map.values());
+};
+
+const RecipientTimeline: React.FC<Props> = ({ recipientId, recipientIds = [], companyName, contactPerson }) => {
   const navigate = useNavigate();
+  const scopedRecipientIds = recipientId ? [recipientId] : recipientIds;
 
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ['recipient-timeline', recipientId, companyName],
+    queryKey: ['recipient-timeline', recipientId, recipientIds, companyName, contactPerson],
     queryFn: async () => {
-      const [quotesRes, notesRes, projectsRes] = await Promise.all([
-        supabase
-          .from('saved_quotes')
-          .select('id, quote_number, quote_date, project_name, total, project_stage')
-          .eq('recipient_company', companyName)
-          .order('quote_date', { ascending: false })
-          .limit(50),
-        supabase
-          .from('recipient_notes')
-          .select('*')
-          .eq('recipient_id', recipientId)
-          .order('created_at', { ascending: false })
-          .limit(50),
-        supabase
-          .from('projects')
-          .select('id, name, status, created_at')
-          .eq('recipient_id', recipientId)
-          .order('created_at', { ascending: false })
-          .limit(50),
+      const quoteQueries = [];
+      if (scopedRecipientIds.length > 0) {
+        quoteQueries.push(
+          supabase
+            .from('saved_quotes')
+            .select('id, quote_number, quote_date, project_name, total, project_stage')
+            .in('recipient_id', scopedRecipientIds)
+            .order('quote_date', { ascending: false })
+            .limit(50)
+        );
+      }
+      let fallbackQuoteQuery = supabase
+        .from('saved_quotes')
+        .select('id, quote_number, quote_date, project_name, total, project_stage')
+        .eq('recipient_company', companyName)
+        .order('quote_date', { ascending: false })
+        .limit(50);
+      if (contactPerson) fallbackQuoteQuery = fallbackQuoteQuery.eq('recipient_name', contactPerson);
+      quoteQueries.push(fallbackQuoteQuery);
+
+      const [quoteResults, notesRes, projectsRes] = await Promise.all([
+        Promise.all(quoteQueries),
+        scopedRecipientIds.length > 0
+          ? supabase
+              .from('recipient_notes')
+              .select('*')
+              .in('recipient_id', scopedRecipientIds)
+              .order('created_at', { ascending: false })
+              .limit(50)
+          : Promise.resolve({ data: [], error: null }),
+        scopedRecipientIds.length > 0
+          ? supabase
+              .from('projects')
+              .select('id, name, status, created_at')
+              .in('recipient_id', scopedRecipientIds)
+              .order('created_at', { ascending: false })
+              .limit(50)
+          : Promise.resolve({ data: [], error: null }),
       ]);
+
+      quoteResults.forEach((result) => {
+        if (result.error) throw result.error;
+      });
+      if (notesRes.error) throw notesRes.error;
+      if (projectsRes.error) throw projectsRes.error;
 
       const timeline: TimelineItem[] = [];
 
-      (quotesRes.data || []).forEach((q) => {
+      mergeById(quoteResults.map(result => result.data || [])).forEach((q) => {
         const stageInfo = getStageInfo(q.project_stage);
         timeline.push({
           id: q.id,

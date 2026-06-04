@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/table';
 import {
   Search, Building2, User, FileText, Eye, Pencil, Trash2,
-  Loader2, ArrowLeft, Upload,
+  Loader2, ArrowLeft, Upload, Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
@@ -33,7 +33,41 @@ interface QuoteHistoryItem {
   project_name: string | null;
   total: number;
   project_stage: string;
+  recipient_id?: string | null;
+  recipient_company?: string | null;
+  recipient_name?: string | null;
 }
+
+interface QuoteSummaryItem {
+  id: string;
+  quote_date: string;
+  recipient_id: string | null;
+  recipient_company: string | null;
+  recipient_name: string | null;
+  project_id: string | null;
+}
+
+interface RecipientCompanyGroup {
+  key: string;
+  companyName: string;
+  contacts: Recipient[];
+  quoteCount: number;
+  latestQuoteDate: string | null;
+  linkedProjectCount: number;
+  latestActivityAt: string | null;
+}
+
+const normalizeCompanyKey = (value?: string | null) => value?.trim().toLowerCase() || '';
+
+const mergeQuoteHistory = (groups: QuoteHistoryItem[][]) => {
+  const map = new Map<string, QuoteHistoryItem>();
+  groups.flat().forEach((quote) => {
+    if (quote?.id) map.set(quote.id, quote);
+  });
+  return Array.from(map.values()).sort((a, b) =>
+    new Date(b.quote_date).getTime() - new Date(a.quote_date).getTime()
+  );
+};
 
 const RecipientManagementPage = () => {
   const navigate = useNavigate();
@@ -47,11 +81,16 @@ const RecipientManagementPage = () => {
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(
     searchParams.get('id')
   );
+  const [selectedCompanyKey, setSelectedCompanyKey] = useState<string>(
+    normalizeCompanyKey(searchParams.get('company'))
+  );
   const [quoteHistory, setQuoteHistory] = useState<QuoteHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [editRecipient, setEditRecipient] = useState<Recipient | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [sortBy, setSortBy] = useState<'name' | 'date'>('name');
+  const [quoteSummaries, setQuoteSummaries] = useState<QuoteSummaryItem[]>([]);
+  const [projectCountsByRecipientId, setProjectCountsByRecipientId] = useState<Record<string, number>>({});
 
   const companyFilter = searchParams.get('company');
 
@@ -66,34 +105,106 @@ const RecipientManagementPage = () => {
   }, [companyFilter]);
 
   useEffect(() => {
+    if (!user) return;
+
+    const fetchGroupStats = async () => {
+      const { data: quotes, error: quoteError } = await supabase
+        .from('saved_quotes')
+        .select('id, quote_date, recipient_id, recipient_company, recipient_name, project_id')
+        .order('quote_date', { ascending: false })
+        .limit(1000);
+
+      if (quoteError) {
+        console.error('고객사 견적 요약 조회 에러:', quoteError);
+      } else {
+        setQuoteSummaries((quotes || []) as QuoteSummaryItem[]);
+      }
+
+      const recipientIds = recipients.map(r => r.id);
+      if (recipientIds.length === 0) {
+        setProjectCountsByRecipientId({});
+        return;
+      }
+
+      const { data: projects, error: projectError } = await supabase
+        .from('projects')
+        .select('id, recipient_id')
+        .in('recipient_id', recipientIds);
+
+      if (projectError) {
+        console.error('고객사 프로젝트 요약 조회 에러:', projectError);
+        setProjectCountsByRecipientId({});
+        return;
+      }
+
+      const counts = (projects || []).reduce<Record<string, number>>((acc, project) => {
+        const recipientId = project.recipient_id;
+        if (recipientId) acc[recipientId] = (acc[recipientId] || 0) + 1;
+        return acc;
+      }, {});
+      setProjectCountsByRecipientId(counts);
+    };
+
+    fetchGroupStats();
+  }, [user, recipients]);
+
+  useEffect(() => {
     const idParam = searchParams.get('id');
     if (idParam && recipients.length > 0) {
       const found = recipients.find(r => r.id === idParam);
       if (found) {
         setSelectedRecipientId(idParam);
+        setSelectedCompanyKey(normalizeCompanyKey(found.company_name));
       }
     }
   }, [searchParams, recipients]);
 
-  useEffect(() => {
-    if (selectedRecipientId) {
-      const recipient = recipients.find(r => r.id === selectedRecipientId);
-      if (recipient) fetchQuoteHistory(recipient.company_name, recipient.contact_person);
-    }
-  }, [selectedRecipientId, recipients]);
-
-  const fetchQuoteHistory = async (companyName: string, contactPerson: string) => {
+  const fetchQuoteHistory = async ({
+    companyName,
+    contacts,
+    selectedContact,
+  }: {
+    companyName: string;
+    contacts: Recipient[];
+    selectedContact?: Recipient | null;
+  }) => {
     if (!user) return;
     setHistoryLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('saved_quotes')
-        .select('id, quote_number, quote_date, project_name, total, project_stage')
-        .eq('recipient_company', companyName)
-        .order('quote_date', { ascending: false });
+      const selectFields = 'id, quote_number, quote_date, project_name, total, project_stage, recipient_id, recipient_company, recipient_name';
+      const recipientIds = selectedContact ? [selectedContact.id] : contacts.map(contact => contact.id);
+      const historyGroups: QuoteHistoryItem[][] = [];
 
-      if (error) throw error;
-      setQuoteHistory(data || []);
+      if (recipientIds.length > 0) {
+        const { data, error } = await supabase
+          .from('saved_quotes')
+          .select(selectFields)
+          .in('recipient_id', recipientIds)
+          .order('quote_date', { ascending: false });
+        if (error) throw error;
+        historyGroups.push((data || []) as QuoteHistoryItem[]);
+      }
+
+      if (selectedContact) {
+        const { data, error } = await supabase
+          .from('saved_quotes')
+          .select(selectFields)
+          .eq('recipient_company', companyName)
+          .eq('recipient_name', selectedContact.contact_person)
+          .order('quote_date', { ascending: false });
+        if (error) throw error;
+        historyGroups.push((data || []) as QuoteHistoryItem[]);
+      } else {
+        const { data, error } = await supabase
+          .from('saved_quotes')
+          .select(selectFields)
+          .eq('recipient_company', companyName)
+          .order('quote_date', { ascending: false });
+        if (error) throw error;
+        historyGroups.push((data || []) as QuoteHistoryItem[]);
+      }
+
+      setQuoteHistory(mergeQuoteHistory(historyGroups));
     } catch (err) {
       console.error('견적 히스토리 조회 에러:', err);
       toast.error('견적 히스토리를 불러오지 못했습니다.');
@@ -115,45 +226,140 @@ const RecipientManagementPage = () => {
     }
   };
 
-  const filteredRecipients = recipients.filter(r => {
-    const s = searchTerm.toLowerCase();
+  const recipientsById = useMemo(() => new Map(recipients.map(recipient => [recipient.id, recipient])), [recipients]);
+
+  const companyGroups = useMemo<RecipientCompanyGroup[]>(() => {
+    const groupMap = new Map<string, RecipientCompanyGroup>();
+
+    recipients.forEach((recipient) => {
+      const key = normalizeCompanyKey(recipient.company_name);
+      if (!key) return;
+
+      const current = groupMap.get(key) || {
+        key,
+        companyName: recipient.company_name,
+        contacts: [],
+        quoteCount: 0,
+        latestQuoteDate: null,
+        linkedProjectCount: 0,
+        latestActivityAt: null,
+      };
+      current.contacts.push(recipient);
+      const updatedAt = recipient.updated_at || recipient.created_at;
+      if (!current.latestActivityAt || new Date(updatedAt).getTime() > new Date(current.latestActivityAt).getTime()) {
+        current.latestActivityAt = updatedAt;
+      }
+      groupMap.set(key, current);
+    });
+
+    const quoteIdsByGroup = new Map<string, Set<string>>();
+    const projectIdsByGroup = new Map<string, Set<string>>();
+
+    quoteSummaries.forEach((quote) => {
+      const linkedRecipient = quote.recipient_id ? recipientsById.get(quote.recipient_id) : null;
+      const key = linkedRecipient
+        ? normalizeCompanyKey(linkedRecipient.company_name)
+        : normalizeCompanyKey(quote.recipient_company);
+      const group = key ? groupMap.get(key) : null;
+      if (!group) return;
+
+      if (!quoteIdsByGroup.has(key)) quoteIdsByGroup.set(key, new Set());
+      quoteIdsByGroup.get(key)!.add(quote.id);
+
+      if (quote.project_id) {
+        if (!projectIdsByGroup.has(key)) projectIdsByGroup.set(key, new Set());
+        projectIdsByGroup.get(key)!.add(quote.project_id);
+      }
+
+      if (!group.latestQuoteDate || new Date(quote.quote_date).getTime() > new Date(group.latestQuoteDate).getTime()) {
+        group.latestQuoteDate = quote.quote_date;
+      }
+    });
+
+    groupMap.forEach((group, key) => {
+      group.quoteCount = quoteIdsByGroup.get(key)?.size || 0;
+      const quoteLinkedProjectCount = projectIdsByGroup.get(key)?.size || 0;
+      let recipientLinkedProjectCount = 0;
+      group.contacts.forEach((contact) => {
+        recipientLinkedProjectCount += projectCountsByRecipientId[contact.id] || 0;
+      });
+      group.linkedProjectCount = recipientLinkedProjectCount || quoteLinkedProjectCount;
+      group.contacts.sort((a, b) => a.contact_person.localeCompare(b.contact_person, 'ko'));
+    });
+
+    return Array.from(groupMap.values());
+  }, [projectCountsByRecipientId, quoteSummaries, recipients, recipientsById]);
+
+  const filteredCompanyGroups = companyGroups.filter(group => {
+    const s = searchTerm.toLowerCase().trim();
+    if (!s) return true;
     return (
-      r.company_name.toLowerCase().includes(s) ||
-      (r.business_name || '').toLowerCase().includes(s) ||
-      (r.contact_person || '').toLowerCase().includes(s) ||
-      (r.email || '').toLowerCase().includes(s) ||
-      (r.phone || '').toLowerCase().includes(s) ||
-      (r.ceo_name || '').toLowerCase().includes(s) ||
-      (r.business_registration_number || '').includes(s)
+      group.companyName.toLowerCase().includes(s) ||
+      group.contacts.some(r =>
+        (r.business_name || '').toLowerCase().includes(s) ||
+        (r.contact_person || '').toLowerCase().includes(s) ||
+        (r.email || '').toLowerCase().includes(s) ||
+        (r.phone || '').toLowerCase().includes(s) ||
+        (r.ceo_name || '').toLowerCase().includes(s) ||
+        (r.business_registration_number || '').includes(s)
+      )
     );
   }).sort((a, b) => {
     if (sortBy === 'name') {
-      return a.company_name.localeCompare(b.company_name, 'ko');
+      return a.companyName.localeCompare(b.companyName, 'ko');
     }
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    return new Date(b.latestQuoteDate || b.latestActivityAt || 0).getTime()
+      - new Date(a.latestQuoteDate || a.latestActivityAt || 0).getTime();
   });
 
   const recipientSummary = useMemo(() => ({
-    total: recipients.length,
-    filtered: filteredRecipients.length,
+    total: companyGroups.length,
+    filtered: filteredCompanyGroups.length,
+    contacts: recipients.length,
     withBusinessNumber: recipients.filter(r =>
       r.business_registration_number && r.business_registration_number !== '000-00-00000'
     ).length,
     withAccountingContact: recipients.filter(r =>
       r.accounting_contact_person || r.accounting_email || r.accounting_phone
     ).length,
-  }), [recipients, filteredRecipients.length]);
+  }), [companyGroups.length, filteredCompanyGroups.length, recipients]);
 
-  const handleSelectRecipient = useCallback((recipientId: string) => {
-    setSelectedRecipientId(recipientId);
-    setSearchParams({ id: recipientId }, { replace: true });
-  }, [setSearchParams]);
+  const selectedRecipient = recipients.find(r => r.id === selectedRecipientId) || null;
+  const selectedCompanyGroup = selectedRecipient
+    ? companyGroups.find(group => group.key === normalizeCompanyKey(selectedRecipient.company_name)) || null
+    : companyGroups.find(group => group.key === selectedCompanyKey) || null;
 
   useEffect(() => {
-    if (companyFilter && !selectedRecipientId && filteredRecipients.length > 0) {
-      handleSelectRecipient(filteredRecipients[0].id);
+    if (selectedCompanyGroup) {
+      fetchQuoteHistory({
+        companyName: selectedCompanyGroup.companyName,
+        contacts: selectedCompanyGroup.contacts,
+        selectedContact: selectedRecipient,
+      });
+    } else {
+      setQuoteHistory([]);
     }
-  }, [companyFilter, filteredRecipients, selectedRecipientId, handleSelectRecipient]);
+  }, [selectedCompanyGroup, selectedRecipient]);
+
+  const handleSelectCompany = useCallback((group: RecipientCompanyGroup) => {
+    setSelectedCompanyKey(group.key);
+    setSelectedRecipientId(null);
+    setSearchParams({ company: group.companyName }, { replace: true });
+  }, [setSearchParams]);
+
+  const handleSelectRecipient = useCallback((recipientId: string) => {
+    const recipient = recipients.find(r => r.id === recipientId);
+    setSelectedRecipientId(recipientId);
+    if (recipient) setSelectedCompanyKey(normalizeCompanyKey(recipient.company_name));
+    setSearchParams({ id: recipientId }, { replace: true });
+  }, [recipients, setSearchParams]);
+
+  useEffect(() => {
+    if (companyFilter && !selectedRecipientId && filteredCompanyGroups.length > 0) {
+      const group = filteredCompanyGroups.find(item => normalizeCompanyKey(item.companyName) === normalizeCompanyKey(companyFilter));
+      if (group) setSelectedCompanyKey(group.key);
+    }
+  }, [companyFilter, filteredCompanyGroups, selectedRecipientId]);
 
   const [unregisteredCompany, setUnregisteredCompany] = useState<{
     company: string;
@@ -164,7 +370,7 @@ const RecipientManagementPage = () => {
   } | null>(null);
 
   useEffect(() => {
-    if (companyFilter && !loading && filteredRecipients.length === 0) {
+    if (companyFilter && !loading && filteredCompanyGroups.length === 0) {
       const fetchFromQuotes = async () => {
         const { data } = await supabase
           .from('saved_quotes')
@@ -185,7 +391,7 @@ const RecipientManagementPage = () => {
     } else {
       setUnregisteredCompany(null);
     }
-  }, [companyFilter, loading, filteredRecipients.length]);
+  }, [companyFilter, loading, filteredCompanyGroups.length]);
 
   const [unregisteredQuoteHistory, setUnregisteredQuoteHistory] = useState<QuoteHistoryItem[]>([]);
   useEffect(() => {
@@ -227,8 +433,6 @@ const RecipientManagementPage = () => {
     }
   };
 
-  const selectedRecipient = recipients.find(r => r.id === selectedRecipientId) || null;
-
   if (!user) {
     navigate('/auth');
     return null;
@@ -268,7 +472,11 @@ const RecipientManagementPage = () => {
                     {recipientSummary.filtered}/{recipientSummary.total}
                   </Badge>
                 </CardTitle>
-                <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="rounded-md bg-muted/50 px-2.5 py-2">
+                    <div className="text-muted-foreground">담당자</div>
+                    <div className="font-semibold">{recipientSummary.contacts}명</div>
+                  </div>
                   <div className="rounded-md bg-muted/50 px-2.5 py-2">
                     <div className="text-muted-foreground">사업자번호</div>
                     <div className="font-semibold">{recipientSummary.withBusinessNumber}곳</div>
@@ -309,33 +517,65 @@ const RecipientManagementPage = () => {
               <CardContent className="p-0 max-h-[60vh] overflow-y-auto">
                 {loading ? (
                   <div className="p-8 text-center text-muted-foreground">로딩 중...</div>
-                ) : filteredRecipients.length === 0 ? (
+                ) : filteredCompanyGroups.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
                     {searchTerm ? '검색 결과가 없습니다.' : '등록된 고객사가 없습니다.'}
                   </div>
                 ) : (
                   <div className="divide-y">
-                    {filteredRecipients.map((r) => (
+                    {filteredCompanyGroups.map((group) => (
                       <div
-                        key={r.id}
-                        className={`p-4 cursor-pointer hover:bg-muted/50 transition-colors ${
-                          selectedRecipientId === r.id ? 'bg-primary/5 border-l-4 border-l-primary' : ''
+                        key={group.key}
+                        className={`p-4 transition-colors ${
+                          selectedCompanyGroup?.key === group.key ? 'bg-primary/5 border-l-4 border-l-primary' : 'hover:bg-muted/50'
                         }`}
-                        onClick={() => handleSelectRecipient(r.id)}
                       >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-semibold text-sm truncate">{r.company_name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <User className="w-3 h-3" />
-                          <span>{r.contact_person}</span>
-                          {r.position && <span>({r.position})</span>}
-                        </div>
-                        {r.business_registration_number && r.business_registration_number !== '000-00-00000' && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            사업자번호: {r.business_registration_number}
+                        <button
+                          type="button"
+                          className="w-full text-left"
+                          onClick={() => handleSelectCompany(group)}
+                        >
+                          <div className="flex items-center justify-between gap-3 mb-1">
+                            <span className="font-semibold text-sm truncate">{group.companyName}</span>
+                            <Badge variant="outline" className="shrink-0 text-[11px]">
+                              견적 {group.quoteCount}
+                            </Badge>
                           </div>
-                        )}
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <span className="inline-flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              담당자 {group.contacts.length}명
+                            </span>
+                            {group.linkedProjectCount > 0 && <span>프로젝트 {group.linkedProjectCount}건</span>}
+                            {group.latestQuoteDate && (
+                              <span>
+                                최근 {new Date(group.latestQuoteDate).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+
+                        <div className="mt-3 space-y-1.5">
+                          {group.contacts.map((contact, index) => (
+                            <button
+                              key={contact.id}
+                              type="button"
+                              className={`flex w-full items-center justify-between rounded-md border px-2.5 py-2 text-left text-xs transition-colors ${
+                                selectedRecipientId === contact.id
+                                  ? 'border-primary bg-background text-primary'
+                                  : 'border-border/70 bg-background/70 hover:border-primary/40'
+                              }`}
+                              onClick={() => handleSelectRecipient(contact.id)}
+                            >
+                              <span className="min-w-0">
+                                <span className="font-semibold">담당자 {index + 1}</span>
+                                <span className="ml-1.5 truncate">{contact.contact_person}</span>
+                                {contact.position && <span className="ml-1 text-muted-foreground">({contact.position})</span>}
+                              </span>
+                              <span className="shrink-0 text-muted-foreground">{contact.phone || '-'}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -346,7 +586,7 @@ const RecipientManagementPage = () => {
 
           {/* Right: Detail + Quote History */}
           <div className="lg:col-span-2 space-y-6">
-            {selectedRecipient ? (
+            {selectedCompanyGroup ? (
               <>
                 {/* Recipient Detail */}
                 <Card>
@@ -354,7 +594,10 @@ const RecipientManagementPage = () => {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <CardTitle className="text-lg flex items-center gap-2">
                         <Building2 className="w-5 h-5" />
-                        {selectedRecipient.company_name}
+                        {selectedCompanyGroup.companyName}
+                        <Badge variant="secondary" className="text-xs">
+                          담당자 {selectedCompanyGroup.contacts.length}명
+                        </Badge>
                       </CardTitle>
                       <div className="flex flex-wrap gap-2">
                         <Button
@@ -365,115 +608,177 @@ const RecipientManagementPage = () => {
                           <FileText className="w-4 h-4 mr-1" />
                           견적 보기
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setEditRecipient(selectedRecipient);
-                            setEditDialogOpen(true);
-                          }}
-                        >
-                          <Pencil className="w-4 h-4 mr-1" />
-                          수정
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(selectedRecipient.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {selectedRecipient && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditRecipient(selectedRecipient);
+                                setEditDialogOpen(true);
+                              }}
+                            >
+                              <Pencil className="w-4 h-4 mr-1" />
+                              담당자 수정
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDelete(selectedRecipient.id)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      {/* 업체 정보 */}
-                      <div className="space-y-2 md:col-span-2">
-                        <h4 className="font-semibold text-muted-foreground border-b pb-1">업체 정보</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <InfoRow label="회사명" value={selectedRecipient.company_name} />
-                          <InfoRow label="사업자명" value={(selectedRecipient as any).business_name} />
+                    <div className="mb-4 rounded-lg border bg-muted/20 p-3">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold">담당자 목록</p>
+                          <p className="text-xs text-muted-foreground">
+                            회사를 선택하면 전체 이력, 담당자를 선택하면 담당자별 이력을 봅니다.
+                          </p>
                         </div>
+                        <Button
+                          variant={!selectedRecipient ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => handleSelectCompany(selectedCompanyGroup)}
+                        >
+                          회사 전체
+                        </Button>
                       </div>
-                      {/* 프로젝트 담당자 */}
-                      <div className="space-y-2">
-                        <h4 className="font-semibold text-muted-foreground border-b pb-1">프로젝트 담당자</h4>
-                        <InfoRow label="담당자" value={selectedRecipient.contact_person} />
-                        <InfoRow label="직책" value={selectedRecipient.position} />
-                        <InfoRow label="연락처" value={selectedRecipient.phone} />
-                        <InfoRow label="이메일" value={selectedRecipient.email} />
-                        <InfoRow label="주소" value={selectedRecipient.address} />
-                        {selectedRecipient.detail_address && (
-                          <InfoRow label="상세주소" value={selectedRecipient.detail_address} />
-                        )}
-                      </div>
-                      {/* 회계 담당자 */}
-                      <div className="space-y-2">
-                        <h4 className="font-semibold text-muted-foreground border-b pb-1">회계 담당자</h4>
-                        <InfoRow label="담당자" value={(selectedRecipient as any).accounting_contact_person} />
-                        <InfoRow label="직책" value={(selectedRecipient as any).accounting_position} />
-                        <InfoRow label="연락처" value={(selectedRecipient as any).accounting_phone} />
-                        <InfoRow label="이메일" value={(selectedRecipient as any).accounting_email} />
-                      </div>
-                      {/* 사업자 정보 */}
-                      <div className="space-y-2 md:col-span-2">
-                        <h4 className="font-semibold text-muted-foreground border-b pb-1">사업자 정보</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <InfoRow label="대표자명" value={selectedRecipient.ceo_name} />
-                          <InfoRow label="사업자등록번호" value={selectedRecipient.business_registration_number} />
-                          <InfoRow label="업태" value={selectedRecipient.business_type} />
-                          <InfoRow label="업종" value={selectedRecipient.business_class} />
-                          <InfoRow label="종사업장번호" value={selectedRecipient.branch_number} />
-                        </div>
-                        {selectedRecipient.business_registration_number && 
-                         selectedRecipient.business_registration_number !== '000-00-00000' && (
-                          <div className="mt-2 pt-2 border-t">
-                            <p className="text-xs font-medium text-muted-foreground mb-1.5">사업자등록상태 조회</p>
-                            <CorpStatusCheck 
-                              initialCorpNum={selectedRecipient.business_registration_number} 
-                              compact 
-                            />
-                          </div>
-                        )}
+                      <div className="flex flex-wrap gap-2">
+                        {selectedCompanyGroup.contacts.map((contact, index) => (
+                          <Button
+                            key={contact.id}
+                            type="button"
+                            variant={selectedRecipientId === contact.id ? 'default' : 'outline'}
+                            size="sm"
+                            className="h-auto gap-2 rounded-full px-3 py-1.5"
+                            onClick={() => handleSelectRecipient(contact.id)}
+                          >
+                            <span className="text-[11px] opacity-75">담당자 {index + 1}</span>
+                            <span>{contact.contact_person}</span>
+                          </Button>
+                        ))}
                       </div>
                     </div>
-                    {selectedRecipient.memo && (
-                      <div className="mt-4 p-3 bg-muted/30 rounded-lg">
-                        <span className="text-xs font-semibold text-muted-foreground">메모</span>
-                        <p className="text-sm mt-1">{selectedRecipient.memo}</p>
+
+                    {selectedRecipient ? (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          {/* 업체 정보 */}
+                          <div className="space-y-2 md:col-span-2">
+                            <h4 className="font-semibold text-muted-foreground border-b pb-1">업체 정보</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <InfoRow label="회사명" value={selectedRecipient.company_name} />
+                              <InfoRow label="사업자명" value={(selectedRecipient as any).business_name} />
+                            </div>
+                          </div>
+                          {/* 프로젝트 담당자 */}
+                          <div className="space-y-2">
+                            <h4 className="font-semibold text-muted-foreground border-b pb-1">프로젝트 담당자</h4>
+                            <InfoRow label="담당자" value={selectedRecipient.contact_person} />
+                            <InfoRow label="직책" value={selectedRecipient.position} />
+                            <InfoRow label="연락처" value={selectedRecipient.phone} />
+                            <InfoRow label="이메일" value={selectedRecipient.email} />
+                            <InfoRow label="주소" value={selectedRecipient.address} />
+                            {selectedRecipient.detail_address && (
+                              <InfoRow label="상세주소" value={selectedRecipient.detail_address} />
+                            )}
+                          </div>
+                          {/* 회계 담당자 */}
+                          <div className="space-y-2">
+                            <h4 className="font-semibold text-muted-foreground border-b pb-1">회계 담당자</h4>
+                            <InfoRow label="담당자" value={(selectedRecipient as any).accounting_contact_person} />
+                            <InfoRow label="직책" value={(selectedRecipient as any).accounting_position} />
+                            <InfoRow label="연락처" value={(selectedRecipient as any).accounting_phone} />
+                            <InfoRow label="이메일" value={(selectedRecipient as any).accounting_email} />
+                          </div>
+                          {/* 사업자 정보 */}
+                          <div className="space-y-2 md:col-span-2">
+                            <h4 className="font-semibold text-muted-foreground border-b pb-1">사업자 정보</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <InfoRow label="대표자명" value={selectedRecipient.ceo_name} />
+                              <InfoRow label="사업자등록번호" value={selectedRecipient.business_registration_number} />
+                              <InfoRow label="업태" value={selectedRecipient.business_type} />
+                              <InfoRow label="업종" value={selectedRecipient.business_class} />
+                              <InfoRow label="종사업장번호" value={selectedRecipient.branch_number} />
+                            </div>
+                            {selectedRecipient.business_registration_number && 
+                             selectedRecipient.business_registration_number !== '000-00-00000' && (
+                              <div className="mt-2 pt-2 border-t">
+                                <p className="text-xs font-medium text-muted-foreground mb-1.5">사업자등록상태 조회</p>
+                                <CorpStatusCheck 
+                                  initialCorpNum={selectedRecipient.business_registration_number} 
+                                  compact 
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {selectedRecipient.memo && (
+                          <div className="mt-4 p-3 bg-muted/30 rounded-lg">
+                            <span className="text-xs font-semibold text-muted-foreground">메모</span>
+                            <p className="text-sm mt-1">{selectedRecipient.memo}</p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                        <div className="rounded-lg bg-muted/30 p-3">
+                          <p className="text-xs text-muted-foreground">전체 견적</p>
+                          <p className="mt-1 text-lg font-bold">{selectedCompanyGroup.quoteCount}건</p>
+                        </div>
+                        <div className="rounded-lg bg-muted/30 p-3">
+                          <p className="text-xs text-muted-foreground">연결 프로젝트</p>
+                          <p className="mt-1 text-lg font-bold">{selectedCompanyGroup.linkedProjectCount}건</p>
+                        </div>
+                        <div className="rounded-lg bg-muted/30 p-3">
+                          <p className="text-xs text-muted-foreground">최근 견적</p>
+                          <p className="mt-1 text-sm font-semibold">
+                            {selectedCompanyGroup.latestQuoteDate
+                              ? new Date(selectedCompanyGroup.latestQuoteDate).toLocaleDateString('ko-KR')
+                              : '-'}
+                          </p>
+                        </div>
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
                 {/* Business Document Upload */}
-                <RecipientDocumentUpload
-                  recipientId={selectedRecipient.id}
-                  documentUrl={(selectedRecipient as any).business_document_url || null}
-                  onDocumentChange={() => fetchRecipients()}
-                  onBusinessInfoExtracted={async (info) => {
-                    try {
-                      const updates: Record<string, string> = {};
-                      if (info.business_name) updates.business_name = info.business_name;
-                      if (info.ceo_name) updates.ceo_name = info.ceo_name;
-                      if (info.business_registration_number) updates.business_registration_number = info.business_registration_number;
-                      if (info.business_type) updates.business_type = info.business_type;
-                      if (info.business_class) updates.business_class = info.business_class;
-                      if (info.address) updates.address = info.address;
-                      if (info.detail_address) updates.detail_address = info.detail_address;
-                      if (info.branch_number) updates.branch_number = info.branch_number;
+                {selectedRecipient && (
+                  <RecipientDocumentUpload
+                    recipientId={selectedRecipient.id}
+                    documentUrl={(selectedRecipient as any).business_document_url || null}
+                    onDocumentChange={() => fetchRecipients()}
+                    onBusinessInfoExtracted={async (info) => {
+                      try {
+                        const updates: Record<string, string> = {};
+                        if (info.business_name) updates.business_name = info.business_name;
+                        if (info.ceo_name) updates.ceo_name = info.ceo_name;
+                        if (info.business_registration_number) updates.business_registration_number = info.business_registration_number;
+                        if (info.business_type) updates.business_type = info.business_type;
+                        if (info.business_class) updates.business_class = info.business_class;
+                        if (info.address) updates.address = info.address;
+                        if (info.detail_address) updates.detail_address = info.detail_address;
+                        if (info.branch_number) updates.branch_number = info.branch_number;
 
-                      if (Object.keys(updates).length > 0) {
-                        await updateRecipient(selectedRecipient.id, updates);
-                        await fetchRecipients();
+                        if (Object.keys(updates).length > 0) {
+                          await updateRecipient(selectedRecipient.id, updates);
+                          await fetchRecipients();
+                        }
+                      } catch (err) {
+                        console.error('사업자 정보 업데이트 에러:', err);
                       }
-                    } catch (err) {
-                      console.error('사업자 정보 업데이트 에러:', err);
-                    }
-                  }}
-                />
+                    }}
+                  />
+                )}
 
                 <Card>
                   <CardHeader className="pb-3">
@@ -538,13 +843,26 @@ const RecipientManagementPage = () => {
                     <TabsTrigger value="stats">매출 통계</TabsTrigger>
                   </TabsList>
                   <TabsContent value="timeline" className="mt-4">
-                    <RecipientTimeline recipientId={selectedRecipient.id} companyName={selectedRecipient.company_name} />
+                    <RecipientTimeline
+                      recipientId={selectedRecipient?.id || null}
+                      recipientIds={selectedCompanyGroup.contacts.map(contact => contact.id)}
+                      companyName={selectedCompanyGroup.companyName}
+                      contactPerson={selectedRecipient?.contact_person || null}
+                    />
                   </TabsContent>
                   <TabsContent value="notes" className="mt-4">
-                    <RecipientNotesPanel recipientId={selectedRecipient.id} />
+                    {selectedRecipient ? (
+                      <RecipientNotesPanel recipientId={selectedRecipient.id} />
+                    ) : (
+                      <Card>
+                        <CardContent className="p-8 text-center text-sm text-muted-foreground">
+                          상담일지는 담당자별로 관리합니다. 담당자를 선택해 주세요.
+                        </CardContent>
+                      </Card>
+                    )}
                   </TabsContent>
                   <TabsContent value="stats" className="mt-4">
-                    <RecipientSalesStats companyName={selectedRecipient.company_name} />
+                    <RecipientSalesStats companyName={selectedCompanyGroup.companyName} recipientIds={selectedCompanyGroup.contacts.map(contact => contact.id)} />
                   </TabsContent>
                 </Tabs>
               </>
@@ -655,14 +973,19 @@ const RecipientManagementPage = () => {
               if (updates.address !== undefined) quoteUpdates.recipient_address = updates.address || null;
 
               if (Object.keys(quoteUpdates).length > 0) {
-                const { error } = await supabase
+                const { error: linkedQuoteError } = await supabase
+                  .from('saved_quotes')
+                  .update(quoteUpdates)
+                  .eq('recipient_id', id);
+
+                const { error: fallbackQuoteError } = await supabase
                   .from('saved_quotes')
                   .update(quoteUpdates)
                   .eq('recipient_company', oldRecipient.company_name)
                   .eq('recipient_name', oldRecipient.contact_person);
 
-                if (error) {
-                  console.error('견적서 수신자 정보 동기화 에러:', error);
+                if (linkedQuoteError || fallbackQuoteError) {
+                  console.error('견적서 수신자 정보 동기화 에러:', linkedQuoteError || fallbackQuoteError);
                   toast.error('고객사 정보는 수정되었지만, 일부 견적서 동기화에 실패했습니다.');
                 } else {
                   toast.success('관련 견적서의 수신자 정보도 함께 업데이트되었습니다.');
@@ -674,9 +997,7 @@ const RecipientManagementPage = () => {
 
             await fetchRecipients();
             if (selectedRecipientId === id) {
-              const newCompany = updates.company_name || oldRecipient.company_name;
-              const newContact = updates.contact_person || oldRecipient.contact_person;
-              fetchQuoteHistory(newCompany, newContact);
+              setSelectedCompanyKey(normalizeCompanyKey(updates.company_name || oldRecipient.company_name));
             }
           }
           return result;

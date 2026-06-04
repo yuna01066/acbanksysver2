@@ -27,6 +27,7 @@ interface SaveIssuedQuoteParams {
 interface SaveIssuedQuoteResult {
   quoteId: string;
   inserted: boolean;
+  recipientLinkStatus?: 'none' | 'linked' | 'created' | 'filled_missing' | 'created_new_contact';
 }
 
 interface ExistingSavedQuoteForUpdate {
@@ -377,5 +378,5 @@ export async function saveIssuedQuote({
     if (error) throw error;
   }
 
-  return { quoteId: savedQuoteId, inserted };
+  return { quoteId: savedQuoteId, inserted, recipientLinkStatus: recipientUpsert.status };
 }
