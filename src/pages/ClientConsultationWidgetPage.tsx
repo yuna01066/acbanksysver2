@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
@@ -8,12 +8,14 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  ClipboardList,
   FileUp,
   Loader2,
   Mail,
   MapPin,
   Package,
   Phone,
+  Search,
   Trash2,
   UserRound,
 } from 'lucide-react';
@@ -27,6 +29,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandShortcut,
+} from '@/components/ui/command';
+import HomeLogoButton from '@/components/HomeLogoButton';
 import { cn } from '@/lib/utils';
 
 type FormState = {
@@ -74,6 +86,14 @@ const processingOptions = ['재단', '타공', '절곡', 'UV인쇄', '실크인�
 const MAX_FILES = 6;
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
+const internalQuickLinks = [
+  { title: '홈', description: '대시보드로 이동', path: '/', shortcut: 'Home' },
+  { title: '상담 리드함', description: '아임웹 폼과 채널톡 문의 확인', path: '/channel-talk-leads?source=imweb', shortcut: 'Leads' },
+  { title: '견적 초안함', description: '상담 내용을 견적 초안으로 전환', path: '/quote-drafts', shortcut: 'Drafts' },
+  { title: '견적 계산기', description: '판재 견적 계산', path: '/calculator?type=quote', shortcut: 'Quote' },
+  { title: '고객사 관리', description: '거래처와 담당자 정보', path: '/recipients', shortcut: 'Client' },
+];
+
 const initialForm = (source: string): FormState => ({
   source,
   customerCompany: '',
@@ -111,7 +131,9 @@ function fieldFilled(value: string) {
 
 const ClientConsultationWidgetPage = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const source = searchParams.get('source') || 'imweb-acbankform';
+  const isEmbedded = searchParams.get('embed') === '1';
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(() => initialForm(source));
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -119,6 +141,7 @@ const ClientConsultationWidgetPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successLeadId, setSuccessLeadId] = useState<string | null>(null);
+  const [quickOpen, setQuickOpen] = useState(false);
 
   const progress = ((step + 1) / steps.length) * 100;
 
@@ -245,29 +268,34 @@ const ClientConsultationWidgetPage = () => {
 
   if (successLeadId) {
     return (
-      <main className="min-h-screen bg-white px-4 py-6 text-neutral-950">
-        <div className="mx-auto flex min-h-[640px] max-w-3xl flex-col items-center justify-center text-center">
-          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
-            <CheckCircle2 className="h-8 w-8" />
+      <>
+        {!isEmbedded && <InternalWidgetHeader open={quickOpen} onOpenChange={setQuickOpen} onNavigate={navigate} />}
+        <main className="min-h-screen bg-white px-4 py-6 text-neutral-950">
+          <div className="mx-auto flex min-h-[640px] max-w-3xl flex-col items-center justify-center text-center">
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
+              <CheckCircle2 className="h-8 w-8" />
+            </div>
+            <h1 className="text-2xl font-bold">상담 문의가 접수되었습니다.</h1>
+            <p className="mt-3 max-w-md text-sm leading-6 text-neutral-600">
+              담당자가 입력 내용과 첨부 자료를 검토한 뒤 연락드리겠습니다. 추가 자료가 필요하면 회신 연락처로 안내드립니다.
+            </p>
+            <div className="mt-6 rounded-full border border-neutral-200 px-4 py-2 text-xs text-neutral-500">
+              접수번호 {successLeadId.slice(0, 8).toUpperCase()}
+            </div>
+            <Button type="button" variant="outline" className="mt-8 h-11 rounded-full px-6" onClick={reset}>
+              새 문의 작성
+            </Button>
           </div>
-          <h1 className="text-2xl font-bold">상담 문의가 접수되었습니다.</h1>
-          <p className="mt-3 max-w-md text-sm leading-6 text-neutral-600">
-            담당자가 입력 내용과 첨부 자료를 검토한 뒤 연락드리겠습니다. 추가 자료가 필요하면 회신 연락처로 안내드립니다.
-          </p>
-          <div className="mt-6 rounded-full border border-neutral-200 px-4 py-2 text-xs text-neutral-500">
-            접수번호 {successLeadId.slice(0, 8).toUpperCase()}
-          </div>
-          <Button type="button" variant="outline" className="mt-8 h-11 rounded-full px-6" onClick={reset}>
-            새 문의 작성
-          </Button>
-        </div>
-      </main>
+        </main>
+      </>
     );
   }
 
   return (
-    <main className="min-h-screen bg-white px-3 py-4 text-neutral-950 sm:px-5 sm:py-6">
-      <div className="mx-auto max-w-5xl">
+    <>
+      {!isEmbedded && <InternalWidgetHeader open={quickOpen} onOpenChange={setQuickOpen} onNavigate={navigate} />}
+      <main className="min-h-screen bg-white px-3 py-4 text-neutral-950 sm:px-5 sm:py-6">
+        <div className="mx-auto max-w-5xl">
         <header className="rounded-lg border border-neutral-200 bg-white p-4 sm:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -520,8 +548,77 @@ const ClientConsultationWidgetPage = () => {
             )}
           </div>
         </footer>
+        </div>
+      </main>
+    </>
+  );
+};
+
+const InternalWidgetHeader = ({
+  open,
+  onOpenChange,
+  onNavigate,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onNavigate: (path: string) => void;
+}) => {
+  const goTo = (path: string) => {
+    onOpenChange(false);
+    onNavigate(path);
+  };
+
+  return (
+    <>
+      <div className="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
+        <div className="flex items-center justify-between">
+          <HomeLogoButton size="default" />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(true)}
+            className="h-10 gap-2 rounded-full border-neutral-200 bg-white px-3 text-xs shadow-sm"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">빠른 이동</span>
+            <kbd className="hidden rounded border bg-neutral-50 px-1.5 py-0.5 text-[10px] text-neutral-500 md:inline-block">
+              Ctrl K
+            </kbd>
+          </Button>
+        </div>
       </div>
-    </main>
+
+      <CommandDialog open={open} onOpenChange={onOpenChange}>
+        <div className="border-b px-4 py-3">
+          <div className="text-sm font-semibold">빠른 이동</div>
+          <div className="text-xs text-neutral-500">상담폼에서 자주 쓰는 내부 화면으로 이동합니다.</div>
+        </div>
+        <CommandInput placeholder="예: 리드함, 견적, 고객사..." />
+        <CommandList className="max-h-[360px]">
+          <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+          <CommandGroup heading="상담 업무">
+            {internalQuickLinks.map((item) => (
+              <CommandItem
+                key={item.path}
+                value={`${item.title} ${item.description}`}
+                onSelect={() => goTo(item.path)}
+                className="gap-3"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-neutral-100">
+                  <ClipboardList className="h-4 w-4 text-neutral-500" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{item.title}</div>
+                  <div className="truncate text-xs text-neutral-500">{item.description}</div>
+                </div>
+                <CommandShortcut>{item.shortcut}</CommandShortcut>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
+    </>
   );
 };
 

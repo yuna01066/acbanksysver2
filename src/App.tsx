@@ -85,8 +85,8 @@ const ProjectRouteRedirect = () => {
 
 const AppChrome = () => {
   const location = useLocation();
-  const isPublicWidget = location.pathname === "/client-consultation-widget";
-  if (isPublicWidget) return null;
+  const isClientConsultationWidget = location.pathname === "/client-consultation-widget";
+  if (isClientConsultationWidget) return null;
   return (
     <>
       <EmployeeOnlineHeartbeat />
