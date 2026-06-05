@@ -75,11 +75,32 @@ export function getDashboardStatusDotClass(tone: DashboardStatusTone) {
 export function getDashboardSourceKeyForCalendarEvent(event: {
   source_type?: string | null;
   source_subtype?: string | null;
+  status?: string | null;
+  title?: string | null;
   icon_type?: string | null;
   resource_ids?: string[] | null;
+  metadata?: Record<string, unknown> | null;
 }): DashboardSourceKey {
   if (event.resource_ids?.length) return 'room';
-  if (event.source_type === 'quote' && (event.source_subtype === 'delivery_completed' || event.source_subtype === 'delivered')) return 'quote-delivery-completed';
+  const metadata = event.metadata && typeof event.metadata === 'object' ? event.metadata : {};
+  const projectStage = typeof metadata.project_stage === 'string' ? metadata.project_stage : null;
+  const deliveryState = typeof metadata.delivery_state === 'string' ? metadata.delivery_state : null;
+  const calendarKind = typeof metadata.calendar_kind === 'string' ? metadata.calendar_kind : null;
+  const isCompletedDelivery = event.source_type === 'quote'
+    && (
+      event.source_subtype === 'delivery_completed'
+      || event.source_subtype === 'delivered'
+      || (
+        event.source_subtype === 'delivery'
+        && (
+          event.status === 'completed'
+          || projectStage === 'delivered'
+          || deliveryState === 'completed'
+          || (calendarKind === 'quote_delivery' && typeof event.title === 'string' && event.title.startsWith('납기 완료'))
+        )
+      )
+    );
+  if (isCompletedDelivery) return 'quote-delivery-completed';
   if (event.source_type === 'quote' && event.source_subtype === 'delivery') return 'quote-delivery';
   if (event.source_type === 'quote') return 'quote-issued';
   if (event.source_type === 'project') return 'project';

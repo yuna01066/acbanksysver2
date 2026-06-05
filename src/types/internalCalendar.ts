@@ -302,7 +302,29 @@ export const CALENDAR_EVENT_LEGEND: Array<{
 
 export const DEFAULT_CALENDAR_ACCENT = '#111111';
 
-export function getCalendarEventAccent(event: Pick<InternalCalendarEvent, 'accent' | 'source_type' | 'source_subtype' | 'resource_ids'>) {
+type DeliveryCalendarEventLike = Pick<InternalCalendarEvent, 'source_type' | 'source_subtype'> & Partial<Pick<InternalCalendarEvent, 'status' | 'title' | 'metadata'>>;
+
+export function isCompletedDeliveryCalendarEvent(event: DeliveryCalendarEventLike) {
+  if (event.source_type !== 'quote') return false;
+
+  const metadata = event.metadata && typeof event.metadata === 'object'
+    ? event.metadata as Record<string, unknown>
+    : {};
+  const projectStage = typeof metadata.project_stage === 'string' ? metadata.project_stage : null;
+  const deliveryState = typeof metadata.delivery_state === 'string' ? metadata.delivery_state : null;
+  const calendarKind = typeof metadata.calendar_kind === 'string' ? metadata.calendar_kind : null;
+
+  if (event.source_subtype === 'delivered' || event.source_subtype === 'delivery_completed') return true;
+  if (event.source_subtype !== 'delivery') return false;
+
+  return event.status === 'completed'
+    || projectStage === 'delivered'
+    || deliveryState === 'completed'
+    || (calendarKind === 'quote_delivery' && typeof event.title === 'string' && event.title.startsWith('납기 완료'));
+}
+
+export function getCalendarEventAccent(event: Pick<InternalCalendarEvent, 'accent' | 'source_type' | 'source_subtype' | 'resource_ids'> & Partial<Pick<InternalCalendarEvent, 'status' | 'title' | 'metadata'>>) {
+  if (isCompletedDeliveryCalendarEvent(event)) return DASHBOARD_SOURCE_COLORS['quote-delivery-completed'].accent;
   if (event.accent) return event.accent;
   if (event.resource_ids.length > 0) return DASHBOARD_SOURCE_COLORS.room.accent;
   const matched = CALENDAR_EVENT_LEGEND.find((item) =>
@@ -310,6 +332,11 @@ export function getCalendarEventAccent(event: Pick<InternalCalendarEvent, 'accen
     && (!item.sourceSubtype || item.sourceSubtype === event.source_subtype),
   );
   return matched?.accent || DEFAULT_CALENDAR_ACCENT;
+}
+
+export function getCalendarEventStatusLabel(event: Pick<InternalCalendarEvent, 'status' | 'source_type' | 'source_subtype'> & Partial<Pick<InternalCalendarEvent, 'title' | 'metadata'>>) {
+  if (isCompletedDeliveryCalendarEvent(event)) return CALENDAR_STATUS_LABELS.completed;
+  return CALENDAR_STATUS_LABELS[event.status];
 }
 
 export function getCalendarEventIconType(event: Pick<InternalCalendarEvent, 'icon_type' | 'source_type' | 'source_subtype' | 'resource_ids'>): CalendarIconType {
