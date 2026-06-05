@@ -32,8 +32,9 @@ import {
 } from '@/hooks/useInternalCalendar';
 import {
   CALENDAR_EVENT_LEGEND,
-  CALENDAR_STATUS_LABELS,
   getCalendarEventAccent,
+  getCalendarEventStatusLabel,
+  isCompletedDeliveryCalendarEvent,
   shouldShowUnspecifiedCalendarTime,
   type CalendarViewScope,
   type InternalCalendarEvent,
@@ -58,6 +59,16 @@ function getEventMeta(event: InternalCalendarEvent) {
 
 function isHolidayEvent(event: InternalCalendarEvent) {
   return event.source_type === 'holiday' || event.icon_type === 'holiday';
+}
+
+function getEventStatusBadgeClassName(event: InternalCalendarEvent) {
+  if (isCompletedDeliveryCalendarEvent(event)) {
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  }
+  if (event.source_type === 'quote' && event.source_subtype === 'delivery') {
+    return 'border-orange-200 bg-orange-50 text-orange-700';
+  }
+  return '';
 }
 
 const DashboardCalendarPanel = () => {
@@ -324,20 +335,24 @@ const DashboardCalendarPanel = () => {
                                 {dayEvents.map((event) => {
                                     const accent = getCalendarEventAccent(event);
                                     const meta = getEventMeta(event);
+                                    const completedDelivery = isCompletedDeliveryCalendarEvent(event);
                                     return (
                                       <button
                                         key={event.id}
                                         type="button"
                                         onClick={() => openSourcePath(event, day)}
-                                        className="w-full snap-start rounded-lg border border-border bg-muted/25 p-2.5 text-left transition-colors hover:border-foreground/20 hover:bg-muted"
+                                        className={cn(
+                                          'w-full snap-start rounded-lg border border-border bg-muted/25 p-2.5 text-left transition-colors hover:border-foreground/20 hover:bg-muted',
+                                          completedDelivery && 'border-emerald-200 bg-emerald-50/60 hover:bg-emerald-50',
+                                        )}
                                       >
                                         <div className="flex items-start gap-2">
                                           <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
                                           <div className="min-w-0 flex-1">
                                             <div className="flex items-start justify-between gap-2">
                                               <p className="min-w-0 truncate text-sm font-semibold text-foreground">{event.title}</p>
-                                              <Badge variant="outline" className="shrink-0 rounded-full px-2 py-0 text-[10px]">
-                                                {CALENDAR_STATUS_LABELS[event.status]}
+                                              <Badge variant="outline" className={cn('shrink-0 rounded-full px-2 py-0 text-[10px]', getEventStatusBadgeClassName(event))}>
+                                                {getCalendarEventStatusLabel(event)}
                                               </Badge>
                                             </div>
                                             <p className="mt-1 text-xs font-medium text-muted-foreground">{formatEventTime(event)}</p>
@@ -388,20 +403,37 @@ const DashboardCalendarPanel = () => {
                 </div>
                 <div className="mt-3 space-y-2">
                   {upcomingEvents.length > 0 ? upcomingEvents.map((event) => (
-                    <button
-                      key={event.id}
-                      type="button"
-                      onClick={() => navigate(`/calendar?event=${event.id}`)}
-                      className="w-full rounded-lg border border-border bg-card p-2 text-left transition-colors hover:border-foreground/20 hover:bg-muted"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-semibold text-foreground">{event.title}</p>
-                        <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px]">
-                          {format(new Date(event.starts_at), 'M/d')}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">{formatEventTime(event)} · {event.location || event.resource_names.join(', ') || event.created_by_name}</p>
-                    </button>
+                    (() => {
+                      const accent = getCalendarEventAccent(event);
+                      const completedDelivery = isCompletedDeliveryCalendarEvent(event);
+                      return (
+                        <button
+                          key={event.id}
+                          type="button"
+                          onClick={() => navigate(`/calendar?event=${event.id}`)}
+                          className={cn(
+                            'w-full rounded-lg border border-border bg-card p-2 text-left transition-colors hover:border-foreground/20 hover:bg-muted',
+                            completedDelivery && 'border-emerald-200 bg-emerald-50/60 hover:bg-emerald-50',
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
+                              <p className="truncate text-sm font-semibold text-foreground">{event.title}</p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <Badge variant="outline" className={cn('rounded-full px-2 py-0 text-[10px]', getEventStatusBadgeClassName(event))}>
+                                {getCalendarEventStatusLabel(event)}
+                              </Badge>
+                              <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px]">
+                                {format(new Date(event.starts_at), 'M/d')}
+                              </Badge>
+                            </div>
+                          </div>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">{formatEventTime(event)} · {event.location || event.resource_names.join(', ') || event.created_by_name}</p>
+                        </button>
+                      );
+                    })()
                   )) : (
                     <p className="rounded-lg border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">
                       예정된 일정이 없습니다.

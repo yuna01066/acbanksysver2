@@ -527,6 +527,9 @@ const DashboardCalendar = () => {
             <Truck className="h-3 w-3 text-orange-500" /> 납기 예정일
           </span>
           <span className="flex items-center gap-1">
+            <Truck className="h-3 w-3 text-emerald-600" /> 납기 완료
+          </span>
+          <span className="flex items-center gap-1">
             <BookOpen className="h-3 w-3 text-violet-500" /> Notion 프로젝트
           </span>
           <span className="flex items-center gap-1">
