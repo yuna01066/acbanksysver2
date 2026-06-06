@@ -7711,6 +7711,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_approved_user: { Args: { _user_id?: string }; Returns: boolean }
       is_company_master: { Args: never; Returns: boolean }
       is_project_assigned: {
         Args: { _project_id: string; _user_id: string }
