@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Users, FileText, BarChart3, FileSignature, Shield, TableProperties } from 'lucide-react';
+import { ArrowLeft, Loader2, Users, FileText, BarChart3, FileSignature, Shield, TableProperties, WalletCards } from 'lucide-react';
 import EmployeeListSidebar, { type EmployeeProfile, type AppRoleType } from '@/components/employee/EmployeeListSidebar';
 import EmployeeTableView from '@/components/employee/EmployeeTableView';
 import EmployeeProfileDetail from '@/components/employee/EmployeeProfileDetail';
@@ -13,6 +13,7 @@ import DocumentBoxSettings from '@/components/employee/DocumentBoxSettings';
 import DocumentSubmissionDashboard from '@/components/employee/DocumentSubmissionDashboard';
 import ContractManagement from '@/components/contract/ContractManagement';
 import UserAccountManagement from '@/components/employee/UserAccountManagement';
+import PayStatementAdminPanel from '@/components/payroll/PayStatementAdminPanel';
 
 type RawProfileData = Record<string, unknown>;
 
@@ -180,10 +181,15 @@ const EmployeeProfileManagementPage = () => {
                 <TabsTrigger value="contracts" className="text-xs h-7 gap-1">
                   <FileSignature className="h-3.5 w-3.5" /> 전자계약
                 </TabsTrigger>
-                <TabsTrigger value="accounts" className="text-xs h-7 gap-1">
-                  <Shield className="h-3.5 w-3.5" /> 계정/권한
-                </TabsTrigger>
               </>
+            )}
+            <TabsTrigger value="pay-statements" className="text-xs h-7 gap-1">
+              <WalletCards className="h-3.5 w-3.5" /> 급여명세
+            </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="accounts" className="text-xs h-7 gap-1">
+                <Shield className="h-3.5 w-3.5" /> 계정/권한
+              </TabsTrigger>
             )}
           </TabsList>
         </div>
@@ -279,6 +285,14 @@ const EmployeeProfileManagementPage = () => {
           <div className="flex-1 overflow-y-auto">
             <div className="container max-w-5xl mx-auto px-6 py-8">
               <UserAccountManagement />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'pay-statements' && (
+          <div className="flex-1 overflow-y-auto">
+            <div className="container max-w-7xl mx-auto px-6 py-8">
+              <PayStatementAdminPanel />
             </div>
           </div>
         )}

@@ -120,6 +120,18 @@ const ADMIN_FEATURES: AdminFeatureItem[] = [
     badge: '계약',
   },
   {
+    id: 'pay-statements',
+    title: '급여명세 발행',
+    description: '직원별 월 급여명세를 작성, 발행, 회수하고 열람 이력을 확인합니다.',
+    category: 'people',
+    icon: Receipt,
+    keywords: '급여명세 급여 발행 payroll pay statement salary',
+    access: 'admin-or-moderator',
+    priority: 25,
+    path: '/employee-profiles?tab=pay-statements',
+    badge: '급여',
+  },
+  {
     id: 'review-settings',
     title: '업무평가 설정',
     description: '평가 주기, 항목, 평가 운영 기준을 설정합니다.',
