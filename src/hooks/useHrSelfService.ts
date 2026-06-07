@@ -5,6 +5,14 @@ import { useAuth } from '@/contexts/AuthContext';
 export type ProfileChangeStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 export type HrRequestStatus = 'pending' | 'in_progress' | 'completed' | 'rejected' | 'cancelled';
 export type HrTaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+export type PayStatementStatus = 'draft' | 'published' | 'voided';
+
+export type PayStatementLineItem = {
+  id?: string;
+  label: string;
+  amount: number;
+  note?: string;
+};
 
 export const DIRECT_PROFILE_FIELDS = [
   'nickname',
@@ -132,11 +140,43 @@ export interface PayStatement {
   id: string;
   user_id: string;
   pay_month: string;
+  status?: PayStatementStatus;
+  pay_period_start?: string | null;
+  pay_period_end?: string | null;
+  payment_date?: string | null;
   gross_pay: number | null;
-  deductions: Record<string, unknown>;
+  earnings?: PayStatementLineItem[] | Record<string, unknown>;
+  deductions: PayStatementLineItem[] | Record<string, unknown>;
+  total_deductions?: number | null;
   net_pay: number | null;
+  memo?: string | null;
+  internal_note?: string | null;
+  issued_by?: string | null;
+  issued_at?: string | null;
+  voided_by?: string | null;
+  voided_at?: string | null;
+  void_reason?: string | null;
+  viewed_at?: string | null;
+  downloaded_at?: string | null;
   file_storage_path: string | null;
   published_at: string | null;
+  created_at: string;
+  profile?: {
+    full_name: string | null;
+    email: string | null;
+    department: string | null;
+    position: string | null;
+    employee_number?: string | null;
+  } | null;
+}
+
+export interface PayStatementEvent {
+  id: string;
+  pay_statement_id: string;
+  user_id: string | null;
+  actor_id: string | null;
+  event_type: 'created' | 'updated' | 'published' | 'viewed' | 'downloaded' | 'voided';
+  metadata: Record<string, unknown>;
   created_at: string;
 }
 
@@ -160,13 +200,18 @@ type SupabaseResult<T = unknown> = { data: T | null; error: SupabaseErrorLike };
 type HrQueryBuilder<T = unknown> = PromiseLike<SupabaseResult<T>> & {
   select(columns?: string): HrQueryBuilder<T>;
   insert(values: unknown): HrQueryBuilder<T>;
+  upsert(values: unknown, options?: Record<string, unknown>): HrQueryBuilder<T>;
   update(values: unknown): HrQueryBuilder<T>;
   eq(column: string, value: unknown): HrQueryBuilder<T>;
+  neq(column: string, value: unknown): HrQueryBuilder<T>;
   order(column: string, options?: Record<string, unknown>): HrQueryBuilder<T>;
   limit(count: number): HrQueryBuilder<T>;
 };
 type HrSupabaseClient = {
   from(table: string): HrQueryBuilder;
+};
+type HrSupabaseRpcClient = {
+  rpc(functionName: string, args?: Record<string, unknown>): Promise<SupabaseResult>;
 };
 
 const toTypedArray = <T>(data: unknown): T[] => (Array.isArray(data) ? (data as T[]) : []);
@@ -331,13 +376,15 @@ export function useHrRequests() {
 
 export function usePayStatements() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ['my-pay-statements', user?.id],
     queryFn: async () => {
       const { data, error } = await fromHrTable('pay_statements')
         .select('*')
         .eq('user_id', user!.id)
+        .eq('status', 'published')
         .order('pay_month', { ascending: false })
         .limit(24);
       if (error) throw error;
@@ -345,6 +392,153 @@ export function usePayStatements() {
     },
     enabled: !!user,
   });
+
+  const recordEvent = useMutation({
+    mutationFn: async ({ statementId, eventType }: { statementId: string; eventType: 'viewed' | 'downloaded' }) => {
+      const { error } = await (supabase as unknown as HrSupabaseRpcClient).rpc('record_pay_statement_event', {
+        p_statement_id: statementId,
+        p_event_type: eventType,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['my-pay-statements', user?.id] }),
+  });
+
+  return { ...query, recordEvent };
+}
+
+export type PayStatementSaveInput = {
+  id?: string;
+  user_id: string;
+  pay_month: string;
+  pay_period_start: string;
+  pay_period_end: string;
+  payment_date: string;
+  earnings: PayStatementLineItem[];
+  deductions: PayStatementLineItem[];
+  memo?: string | null;
+  internal_note?: string | null;
+  file_storage_path?: string | null;
+  status: PayStatementStatus;
+};
+
+const sumLineItems = (items: PayStatementLineItem[]) =>
+  items.reduce((sum, item) => sum + Math.max(0, Number(item.amount) || 0), 0);
+
+const normalizeLineItems = (items: PayStatementLineItem[]) =>
+  items
+    .map((item) => ({
+      id: item.id || crypto.randomUUID(),
+      label: item.label.trim(),
+      amount: Math.max(0, Math.round(Number(item.amount) || 0)),
+      note: item.note?.trim() || undefined,
+    }))
+    .filter((item) => item.label && item.amount >= 0);
+
+export function useAdminPayStatements(enabled: boolean) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['admin-pay-statements'],
+    queryFn: async () => {
+      const { data, error } = await fromHrTable('pay_statements')
+        .select('*, profile:user_id(full_name,email,department,position,employee_number)')
+        .order('pay_month', { ascending: false })
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return toTypedArray<PayStatement>(data);
+    },
+    enabled: enabled && !!user,
+  });
+
+  const saveStatement = useMutation({
+    mutationFn: async (input: PayStatementSaveInput) => {
+      const earnings = normalizeLineItems(input.earnings);
+      const deductions = normalizeLineItems(input.deductions);
+      const grossPay = sumLineItems(earnings);
+      const totalDeductions = sumLineItems(deductions);
+      const netPay = grossPay - totalDeductions;
+      if (netPay < 0) throw new Error('공제 합계가 지급 합계보다 클 수 없습니다.');
+
+      const now = new Date().toISOString();
+      const payload = {
+        user_id: input.user_id,
+        pay_month: input.pay_month,
+        pay_period_start: input.pay_period_start,
+        pay_period_end: input.pay_period_end,
+        payment_date: input.payment_date,
+        earnings,
+        deductions,
+        gross_pay: grossPay,
+        total_deductions: totalDeductions,
+        net_pay: netPay,
+        memo: input.memo || null,
+        internal_note: input.internal_note || null,
+        file_storage_path: input.file_storage_path || null,
+        status: input.status,
+        published_at: input.status === 'published' ? now : null,
+        issued_at: input.status === 'published' ? now : null,
+        issued_by: input.status === 'published' ? user!.id : null,
+        voided_at: null,
+        voided_by: null,
+        void_reason: null,
+      };
+
+      const queryBuilder = input.id
+        ? fromHrTable('pay_statements').update(payload).eq('id', input.id)
+        : fromHrTable('pay_statements').upsert(payload, { onConflict: 'user_id,pay_month' });
+
+      const { data, error } = await queryBuilder.select('*');
+      if (error) throw error;
+      const saved = Array.isArray(data) ? data[0] as PayStatement | undefined : data as PayStatement | undefined;
+      const statementId = saved?.id || input.id;
+      if (statementId) {
+        await fromHrTable('pay_statement_events').insert({
+          pay_statement_id: statementId,
+          user_id: input.user_id,
+          actor_id: user!.id,
+          event_type: input.status === 'published' ? 'published' : input.id ? 'updated' : 'created',
+          metadata: { source: 'admin_panel', pay_month: input.pay_month },
+        });
+      }
+      return saved;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-pay-statements'] });
+      queryClient.invalidateQueries({ queryKey: ['my-pay-statements'] });
+    },
+  });
+
+  const voidStatement = useMutation({
+    mutationFn: async ({ statementId, reason }: { statementId: string; reason: string }) => {
+      const now = new Date().toISOString();
+      const { data, error } = await fromHrTable('pay_statements')
+        .update({
+          status: 'voided',
+          voided_at: now,
+          voided_by: user!.id,
+          void_reason: reason || '관리자 회수',
+        })
+        .eq('id', statementId)
+        .select('*');
+      if (error) throw error;
+      const statement = Array.isArray(data) ? data[0] as PayStatement | undefined : data as PayStatement | undefined;
+      await fromHrTable('pay_statement_events').insert({
+        pay_statement_id: statementId,
+        user_id: statement?.user_id || null,
+        actor_id: user!.id,
+        event_type: 'voided',
+        metadata: { source: 'admin_panel', reason },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-pay-statements'] });
+      queryClient.invalidateQueries({ queryKey: ['my-pay-statements'] });
+    },
+  });
+
+  return { ...query, saveStatement, voidStatement };
 }
 
 export function useEmployeeHrTasks() {

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Download, FileQuestion, Loader2, MessageSquareText, Wallet } from 'lucide-react';
+import { Download, Eye, FileQuestion, Loader2, MessageSquareText, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import MyContractsList from '@/components/contract/MyContractsList';
 import { Badge } from '@/components/ui/badge';
@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { getDownloadUrl } from '@/services/documentFiles';
-import { useHrRequests, usePayStatements } from '@/hooks/useHrSelfService';
+import { useHrRequests, usePayStatements, type PayStatement } from '@/hooks/useHrSelfService';
 import { MyPageEmptyState, MyPageSectionHeader } from '@/components/mypage/MyPageLayout';
+import MyPayStatementDetailDialog from '@/components/payroll/MyPayStatementDetailDialog';
 
 const hrRequestTypeLabels: Record<string, string> = {
   employment_certificate: '재직증명서',
@@ -39,12 +40,16 @@ const formatAmount = (value: number | null | undefined) => {
 const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : '';
 
 const MyContractSalarySection: React.FC = () => {
-  const { data: payStatements = [], isLoading: payLoading } = usePayStatements();
+  const { data: payStatements = [], isLoading: payLoading, recordEvent } = usePayStatements();
   const { data: hrRequests = [], isLoading: requestLoading, createRequest, cancelRequest } = useHrRequests();
   const [requestType, setRequestType] = useState('employment_certificate');
   const [requestTitle, setRequestTitle] = useState('');
   const [requestDetail, setRequestDetail] = useState('');
   const [neededBy, setNeededBy] = useState('');
+  const [selectedStatement, setSelectedStatement] = useState<PayStatement | null>(null);
+  const handleRecordPayEvent = useCallback((statementId: string, eventType: 'viewed' | 'downloaded') => {
+    recordEvent.mutate({ statementId, eventType });
+  }, [recordEvent]);
 
   const openPayFile = async (storagePath: string) => {
     try {
@@ -118,7 +123,7 @@ const MyContractSalarySection: React.FC = () => {
                         {format(new Date(statement.pay_month), 'yyyy년 M월 급여', { locale: ko })}
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        총지급 {formatAmount(statement.gross_pay)} · 실지급 {formatAmount(statement.net_pay)}
+                        총지급 {formatAmount(statement.gross_pay)} · 공제 {formatAmount(statement.total_deductions)} · 실지급 {formatAmount(statement.net_pay)}
                       </p>
                       {statement.published_at && (
                         <p className="mt-1 text-xs text-muted-foreground">
@@ -126,12 +131,18 @@ const MyContractSalarySection: React.FC = () => {
                         </p>
                       )}
                     </div>
-                    {statement.file_storage_path && (
-                      <Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => openPayFile(statement.file_storage_path!)}>
-                        <Download className="h-3.5 w-3.5" />
-                        파일 열기
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setSelectedStatement(statement)}>
+                        <Eye className="h-3.5 w-3.5" />
+                        상세 보기
                       </Button>
-                    )}
+                      {statement.file_storage_path && (
+                        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => openPayFile(statement.file_storage_path!)}>
+                          <Download className="h-3.5 w-3.5" />
+                          파일 열기
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))
               )}
@@ -230,6 +241,13 @@ const MyContractSalarySection: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      <MyPayStatementDetailDialog
+        statement={selectedStatement}
+        open={Boolean(selectedStatement)}
+        onOpenChange={(open) => !open && setSelectedStatement(null)}
+        onRecordEvent={handleRecordPayEvent}
+      />
     </div>
   );
 };
