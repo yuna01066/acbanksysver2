@@ -150,6 +150,20 @@ function safeFileName(fileName: string) {
   return cleaned || "attachment";
 }
 
+function safeStorageFileName(fileName: string) {
+  const extension = getExtension(fileName);
+  const baseName = fileName
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "")
+    .slice(0, 80)
+    || "attachment";
+  return extension ? `${baseName}.${extension}` : baseName;
+}
+
 function validateFile(file: JsonObject) {
   const fileName = text(file.fileName, 180);
   const mimeType = text(file.mimeType, 160);
@@ -357,7 +371,7 @@ serve(async (req) => {
     if (fileError) return fail(origin, fileError, 400);
 
     const source = normalizeSource(payload.source);
-    const fileName = safeFileName(text(payload.fileName, 180));
+    const fileName = safeStorageFileName(safeFileName(text(payload.fileName, 180)));
     const filePath = `public-intake/${source}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}-${fileName}`;
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(filePath);
     if (error) return fail(origin, `업로드 URL 생성 실패: ${error.message}`, 500);
