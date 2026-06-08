@@ -17,6 +17,7 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Plus, FolderOpen, FileText, ChevronDown, ChevronUp, Download, Search } from 'lucide-react';
 import MaterialOrderCard, { MaterialOrderData } from '@/components/MaterialOrderCard';
+import { usePanelCatalog } from '@/hooks/usePanelCatalog';
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   ordered: { label: '발주완료', color: 'bg-blue-500' },
@@ -106,6 +107,7 @@ const MaterialOrdersPage: React.FC = () => {
   const [importItems, setImportItems] = useState<ImportItemForm[]>([]);
   const [orderSearch, setOrderSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const { qualities: panelCatalogQualities, sizes: panelCatalogSizes } = usePanelCatalog();
 
   const monthStart = format(startOfMonth(calendarMonth), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(calendarMonth), 'yyyy-MM-dd');
@@ -178,11 +180,40 @@ const MaterialOrdersPage: React.FC = () => {
   });
 
   const MATERIAL_OPTIONS = ['아크릴 판', '제품 제작'];
-  const QUALITY_OPTIONS = ['Bright (브라이트)', 'Clear (클리어)', 'Astel (아스텔)', 'Mirror (미러)', 'Astel Mirror (아스텔미러)', 'Satin (사틴)'];
-  const THICKNESS_OPTIONS = ['1.3T', '1.5T', '2T', '3T', '4T', '5T', '6T', '8T', '10T', '12T', '15T', '20T', '25T', '30T'];
-  const SIZE_OPTIONS = ['3*6', '대3*6', '소3*6', '4*5', '대4*5', '4*6', '4*8', '4*10', '5*5', '5*6', '5*8', '1*2', '소1*2'];
+  const QUALITY_OPTIONS = panelCatalogQualities.length > 0
+    ? panelCatalogQualities.map(quality => quality.name)
+    : ['Bright (브라이트)', 'Clear (클리어)', 'Astel (아스텔)', 'Mirror (미러)', 'Astel Mirror (아스텔미러)', 'Satin (사틴)'];
   const SURFACE_OPTIONS = ['단면', '양면'];
   const SPECIAL_COLOR_OPTIONS = ['조색', '미정', '기타'];
+  const getCatalogQuality = useCallback((quality: string) => {
+    const qualityId = getPanelQualityFromOrderQuality(quality);
+    return panelCatalogQualities.find(item => item.name === quality || item.quality === qualityId);
+  }, [panelCatalogQualities]);
+  const getThicknessOptionsForQuality = useCallback((quality: string) => {
+    const catalogQuality = getCatalogQuality(quality);
+    if (!catalogQuality) return [];
+    return Array.from(new Set(
+      panelCatalogSizes
+        .filter(size => size.panel_master_id === catalogQuality.id && size.is_active && size.price && size.price > 0)
+        .map(size => size.thickness)
+    )).sort((a, b) => Number.parseFloat(a) - Number.parseFloat(b));
+  }, [getCatalogQuality, panelCatalogSizes]);
+  const getSizeOptionsForItem = useCallback((quality: string, thickness: string) => {
+    const catalogQuality = getCatalogQuality(quality);
+    if (!catalogQuality || !thickness) return [];
+    return panelCatalogSizes
+      .filter(size =>
+        size.panel_master_id === catalogQuality.id &&
+        size.thickness === thickness &&
+        size.is_active &&
+        size.price &&
+        size.price > 0 &&
+        size.actual_width &&
+        size.actual_height
+      )
+      .sort((a, b) => (a.actual_width * a.actual_height) - (b.actual_width * b.actual_height))
+      .map(size => size.size_name);
+  }, [getCatalogQuality, panelCatalogSizes]);
 
   // Fetch quote items for project import
   const { data: projectQuoteItems = [] } = useQuery({
@@ -470,6 +501,12 @@ const MaterialOrdersPage: React.FC = () => {
         const availableColors = getColorOptionsForQuality(String(value), colorOptions);
         const keepsCurrentColor = SPECIAL_COLOR_OPTIONS.includes(item.color_code) || availableColors.includes(item.color_code);
         if (!keepsCurrentColor) updated.color_code = '';
+        updated.thickness = '';
+        updated.size_name = '';
+      }
+
+      if (field === 'thickness') {
+        updated.size_name = '';
       }
 
       return updated;
@@ -914,7 +951,12 @@ const MaterialOrdersPage: React.FC = () => {
                             <Select value={item.thickness} onValueChange={v => updateImportItem(i, 'thickness', v)}>
                               <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="선택" /></SelectTrigger>
                               <SelectContent>
-                                {THICKNESS_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                {getThicknessOptionsForQuality(item.quality).map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                {getThicknessOptionsForQuality(item.quality).length === 0 && (
+                                  <div className="px-2 py-2 text-xs text-muted-foreground">
+                                    품질을 먼저 선택하거나 기준정보를 확인해주세요
+                                  </div>
+                                )}
                               </SelectContent>
                             </Select>
                           </div>
@@ -960,7 +1002,12 @@ const MaterialOrdersPage: React.FC = () => {
                             <Select value={item.size_name} onValueChange={v => updateImportItem(i, 'size_name', v)}>
                               <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="선택" /></SelectTrigger>
                               <SelectContent>
-                                {SIZE_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                {getSizeOptionsForItem(item.quality, item.thickness).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                {getSizeOptionsForItem(item.quality, item.thickness).length === 0 && (
+                                  <div className="px-2 py-2 text-xs text-muted-foreground">
+                                    선택 가능한 원장이 없습니다
+                                  </div>
+                                )}
                               </SelectContent>
                             </Select>
                           </div>

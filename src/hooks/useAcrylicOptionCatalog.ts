@@ -20,24 +20,6 @@ export type AcrylicCatalogPanelSize = {
 
 const UNKNOWN_OPTION = 'consultation_unknown';
 
-const mirrorFallbackColors: Record<string, AcrylicCatalogColorOption> = {
-  'acrylic-mirror': {
-    id: 'fallback-acrylic-mirror',
-    color_name: 'MIRROR 미러',
-    color_code: '#d8dde6',
-  },
-  'astel-mirror': {
-    id: 'fallback-astel-mirror',
-    color_name: 'ASTEL-MIRROR 아스텔 미러',
-    color_code: '#e4e7ec',
-  },
-  'satin-mirror': {
-    id: 'fallback-satin-mirror',
-    color_name: 'SATIN-MIRROR 사틴 미러',
-    color_code: '#eef0f3',
-  },
-};
-
 const formatPanelSizeLabel = (size: AcrylicCatalogPanelSize) => {
   if (size.actual_width && size.actual_height) {
     return `${size.size_name} (${size.actual_width}*${size.actual_height})`;
@@ -84,10 +66,7 @@ export function useAcrylicOptionCatalog(qualityId?: string, thickness?: string) 
         .neq('is_producible', false)
         .order('display_order', { ascending: true });
       if (error) throw error;
-      const rows = (data || []) as AcrylicCatalogColorOption[];
-      if (rows.length > 0) return rows;
-      const fallback = selectedQuality?.id ? mirrorFallbackColors[selectedQuality.id] : null;
-      return fallback ? [fallback] : [];
+      return (data || []) as AcrylicCatalogColorOption[];
     },
     enabled: !!panelMaster?.id,
   });
@@ -98,13 +77,14 @@ export function useAcrylicOptionCatalog(qualityId?: string, thickness?: string) 
       if (!panelMaster?.id || !thickness) return [];
       const { data, error } = await (supabase as any)
         .from('panel_sizes')
-        .select('id, size_name, actual_width, actual_height')
+        .select('id, size_name, actual_width, actual_height, price')
         .eq('panel_master_id', panelMaster.id)
         .eq('thickness', thickness)
         .eq('is_active', true)
         .order('size_name', { ascending: true });
       if (error) throw error;
-      return (data || []) as AcrylicCatalogPanelSize[];
+      return ((data || []) as Array<AcrylicCatalogPanelSize & { price?: number | null }>)
+        .filter(size => Boolean(size.actual_width && size.actual_height && size.price && size.price > 0));
     },
     enabled: !!panelMaster?.id && !!thickness && thickness !== UNKNOWN_OPTION,
   });
@@ -112,7 +92,7 @@ export function useAcrylicOptionCatalog(qualityId?: string, thickness?: string) 
   const thicknessOptions = selectedQuality?.thicknesses || [];
   const panelSizeOptions = dbPanelSizes.length > 0
     ? dbPanelSizes.map((size) => ({ value: formatPanelSizeLabel(size), label: formatPanelSizeLabel(size) }))
-    : (selectedQuality?.sizes || []).map((size) => ({ value: size, label: size }));
+    : [];
 
   return {
     qualities,

@@ -1,10 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Database, Palette } from 'lucide-react';
+import { Database, Palette, ShieldCheck } from 'lucide-react';
 
 interface OptionSelectorProps {
   materialName: string;
-  onSelectOption: (option: 'size' | 'color') => void;
+  onSelectOption: (option: 'size' | 'color' | 'validation') => void;
   onBack: () => void;
 }
 
@@ -23,7 +23,7 @@ export function OptionSelector({ materialName, onSelectOption, onBack }: OptionS
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Button
             variant="outline"
             className="h-32 flex flex-col items-center justify-center gap-3 hover:bg-accent"
@@ -45,6 +45,18 @@ export function OptionSelector({ materialName, onSelectOption, onBack }: OptionS
             <div className="text-center">
               <div className="font-semibold text-lg">컬러 관리</div>
               <div className="text-sm text-muted-foreground mt-1">재질별 컬러 옵션을 관리합니다</div>
+            </div>
+          </Button>
+
+          <Button
+            variant="outline"
+            className="h-32 flex flex-col items-center justify-center gap-3 hover:bg-accent"
+            onClick={() => onSelectOption('validation')}
+          >
+            <ShieldCheck className="w-8 h-8" />
+            <div className="text-center">
+              <div className="font-semibold text-lg">검증 리포트</div>
+              <div className="text-sm text-muted-foreground mt-1">계산 차단 조합과 누락 기준을 확인합니다</div>
             </div>
           </Button>
         </div>

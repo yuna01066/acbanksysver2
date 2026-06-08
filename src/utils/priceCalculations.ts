@@ -1104,6 +1104,7 @@ export interface CalculatePriceV2Options {
   totalWonJangBase?: number; // 여러 원장의 합계 (옵션 계산 시 기준가)
   selectedPanelSizesForOptions?: Array<{ size: string; quantity: number }>; // 원판 장수 기준 옵션용
   bondProductType?: 'flat' | 'tray' | 'box';
+  strictPanelCatalog?: boolean;                  // DB 원판 기준정보가 없는 조합 차단
 }
 
 export interface ProcessingOptionData {
@@ -1134,10 +1135,14 @@ export interface PanelOptionSurchargeData {
 }
 
 export interface PanelSizeData {
+  id?: string;
   size_name: string;
   thickness: string;
   price?: number;
   is_active: boolean;
+  actual_width?: number | null;
+  actual_height?: number | null;
+  pricing_version_id?: string | null;
 }
 
 const PROCESSING_PROFILE_IDS: Record<string, ProcessingProfile> = {
@@ -1575,6 +1580,21 @@ export const calculatePrice = (
   const dbPanelSize = panelSizesData.find(
     ps => ps.size_name === sizeKey && ps.thickness === thickness && ps.is_active
   );
+
+  if (options?.strictPanelCatalog && (!dbPanelSize || !dbPanelSize.price || dbPanelSize.price <= 0)) {
+    return normalizeCalculationResult(
+      0,
+      [{
+        label: `생산 불가 조합 또는 단가 미등록: ${qualityId} / ${thickness} / ${sizeKey}`,
+        price: 0,
+        source: 'validation',
+        code: 'missing-panel-catalog',
+        reason: '원판 기준정보에 활성 단가가 등록되어 있지 않습니다.',
+      }],
+      [],
+      ['원판 기준정보에 활성 단가가 등록되어 있지 않습니다.']
+    );
+  }
   
   const mirrorQualitySelected = isMirrorQuality(qualityId);
   const finishSurcharge = qualityId === 'astel-color' || qualityId === 'satin-color' || isMirrorFinishQuality(qualityId)

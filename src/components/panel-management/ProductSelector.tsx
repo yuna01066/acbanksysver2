@@ -1,13 +1,7 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { CASTING_QUALITIES } from '@/types/calculator';
 
 interface PanelMaster {
   id: string;
@@ -26,12 +20,19 @@ interface ProductSelectorProps {
 }
 
 export function ProductSelector({ materialId, materialName, onSelectProduct, onBack, selectedProductId }: ProductSelectorProps) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  // Use CASTING_QUALITIES from calculator as the source of truth
-  const qualities = CASTING_QUALITIES;
-
+  const panelMaterialId = materialId === 'casting' ? 'acrylic' : materialId;
+  const { data: panelMasters = [], isLoading } = useQuery({
+    queryKey: ['panel-management-products', panelMaterialId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('panel_masters')
+        .select('id, name, quality, material')
+        .eq('material', panelMaterialId as any)
+        .order('name', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   return (
     <Card>
@@ -47,18 +48,26 @@ export function ProductSelector({ materialId, materialName, onSelectProduct, onB
         </div>
       </CardHeader>
       <CardContent>
+        {isLoading && (
+          <div className="py-8 text-center text-sm text-muted-foreground">재질을 불러오는 중입니다.</div>
+        )}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          {qualities.map((quality) => (
+          {panelMasters.map((quality) => (
             <Button
-              key={quality.id}
-              variant={selectedProductId === quality.id ? "default" : "outline"}
+              key={quality.quality}
+              variant={selectedProductId === quality.quality ? "default" : "outline"}
               className="h-20 text-lg font-semibold"
-              onClick={() => onSelectProduct(quality.id, quality.name)}
+              onClick={() => onSelectProduct(quality.quality, quality.name)}
             >
               {quality.name}
             </Button>
           ))}
         </div>
+        {!isLoading && panelMasters.length === 0 && (
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            등록된 원판 마스터가 없습니다.
+          </div>
+        )}
       </CardContent>
     </Card>
   );
