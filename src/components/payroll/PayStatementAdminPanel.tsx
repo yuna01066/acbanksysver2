@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { FilePlus2, Loader2, Pencil, RotateCcw, Search, Wallet } from 'lucide-react';
+import { FilePlus2, Loader2, Pencil, RotateCcw, Search, Wallet, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,10 +10,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAdminPayStatements, type PayStatement, type PayStatementSaveInput } from '@/hooks/useHrSelfService';
+import { useAdminPayStatements, usePayrollProfiles, usePayrollRateVersions, type PayStatement, type PayStatementSaveInput } from '@/hooks/useHrSelfService';
 import PayStatementEditor from '@/components/payroll/PayStatementEditor';
 import PayStatementPreview, { formatPayrollAmount } from '@/components/payroll/PayStatementPreview';
+import { calculatePayrollDraft, createDefaultPayrollRateVersion, type PayrollAttendanceRecord, type PayrollRateVersion } from '@/services/payrollCalculation';
 
 type PayrollEmployee = {
   id: string;
@@ -33,6 +35,11 @@ const statusMeta = {
 const toMonthInput = (value?: string | null) => (value || new Date().toISOString()).slice(0, 7);
 const formatMonth = (value: string) => format(new Date(value), 'yyyy년 M월', { locale: ko });
 const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : '알 수 없는 오류';
+const monthStart = (month: string) => `${month}-01`;
+const monthEnd = (month: string) => {
+  const [year, monthNumber] = month.split('-').map(Number);
+  return new Date(year, monthNumber, 0).toISOString().slice(0, 10);
+};
 
 const PayStatementAdminPanel: React.FC = () => {
   const [monthFilter, setMonthFilter] = useState(toMonthInput());
@@ -42,6 +49,10 @@ const PayStatementAdminPanel: React.FC = () => {
   const [previewStatement, setPreviewStatement] = useState<PayStatement | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const { data: statements = [], isLoading, saveStatement, voidStatement } = useAdminPayStatements(true);
+  const { data: payrollProfiles = [], saveProfile } = usePayrollProfiles(true);
+  const { data: rateVersions = [], saveRateVersion } = usePayrollRateVersions(true);
+  const activeRate = rateVersions.find((rate) => rate.is_active) || rateVersions[0] || createDefaultPayrollRateVersion();
+  const [rateDraft, setRateDraft] = useState<PayrollRateVersion>(activeRate);
 
   const { data: employees = [], isLoading: employeesLoading } = useQuery({
     queryKey: ['payroll-employees'],
@@ -79,6 +90,88 @@ const PayStatementAdminPanel: React.FC = () => {
     }
   };
 
+  React.useEffect(() => {
+    setRateDraft(activeRate);
+  }, [activeRate?.id]);
+
+  const updateRateDraft = (patch: Partial<PayrollRateVersion>) => {
+    setRateDraft((current) => ({ ...current, ...patch }));
+  };
+
+  const saveActiveRate = async () => {
+    try {
+      await saveRateVersion.mutateAsync({ ...rateDraft, is_active: true });
+      toast.success('급여 요율을 저장했습니다.');
+    } catch (error: unknown) {
+      toast.error(`요율 저장 실패: ${getErrorMessage(error)}`);
+    }
+  };
+
+  const generateMonthlyDrafts = async () => {
+    const start = monthStart(monthFilter);
+    const end = monthEnd(monthFilter);
+    try {
+      const { data, error } = await supabase
+        .from('attendance_records')
+        .select('user_id,date,check_in,check_out,work_hours,status')
+        .gte('date', start)
+        .lte('date', end);
+      if (error) throw error;
+      const attendanceRows = (data || []) as (PayrollAttendanceRecord & { user_id: string })[];
+      let created = 0;
+      let skipped = 0;
+      let updated = 0;
+
+      for (const employee of employees) {
+        const profile = payrollProfiles.find((item) => item.user_id === employee.id && item.status !== 'inactive');
+        if (!profile) {
+          skipped += 1;
+          continue;
+        }
+        const existingStatement = statements.find((statement) => statement.user_id === employee.id && toMonthInput(statement.pay_month) === monthFilter);
+        if (existingStatement?.status === 'published') {
+          skipped += 1;
+          continue;
+        }
+        const attendanceRecords = attendanceRows.filter((record) => record.user_id === employee.id);
+        const result = calculatePayrollDraft({
+          profile,
+          rateVersion: activeRate,
+          attendanceRecords,
+          payMonth: start,
+        });
+        await saveStatement.mutateAsync({
+          id: existingStatement?.id,
+          user_id: employee.id,
+          pay_month: start,
+          pay_period_start: start,
+          pay_period_end: end,
+          payment_date: new Date().toISOString().slice(0, 10),
+          earnings: result.earnings,
+          deductions: result.deductions,
+          memo: result.warnings.length ? `자동계산 검토 필요: ${result.warnings.join(' / ')}` : null,
+          internal_note: '월별 일괄 자동계산 초안',
+          status: 'draft',
+          rate_version_id: activeRate.id || null,
+          calculation_basis: result.calculationBasis,
+          has_manual_override: false,
+          calculation_input_snapshot: { profile, rateVersion: activeRate, attendanceRecords },
+          calculation_result_snapshot: result,
+          calculation_warnings: result.warnings,
+        });
+        if (existingStatement) {
+          updated += 1;
+        } else {
+          created += 1;
+        }
+      }
+
+      toast.success(`자동 초안 ${created}건 생성, ${updated}건 갱신 완료${skipped ? `, ${skipped}명 제외` : ''}`);
+    } catch (error: unknown) {
+      toast.error(`일괄 생성 실패: ${getErrorMessage(error)}`);
+    }
+  };
+
   const handleVoid = async (statement: PayStatement) => {
     const reason = window.prompt('회수 사유를 입력해주세요.', '관리자 회수');
     if (reason === null) return;
@@ -109,6 +202,10 @@ const PayStatementAdminPanel: React.FC = () => {
           <FilePlus2 className="h-4 w-4" />
           새 명세서
         </Button>
+        <Button variant="outline" className="gap-1.5" onClick={generateMonthlyDrafts} disabled={employeesLoading || saveStatement.isPending}>
+          <Wand2 className="h-4 w-4" />
+          이번 달 자동 초안
+        </Button>
       </div>
 
       <Card className="border shadow-none">
@@ -129,6 +226,53 @@ const PayStatementAdminPanel: React.FC = () => {
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="직원명, 이메일, 부서, 사번 검색" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border shadow-none">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">자동계산 요율 설정</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-4">
+          <div className="space-y-1.5">
+            <Label>요율명</Label>
+            <Input value={rateDraft.name} onChange={(event) => updateRateDraft({ name: event.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>적용 시작일</Label>
+            <Input type="date" value={rateDraft.effective_from} onChange={(event) => updateRateDraft({ effective_from: event.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>국민연금</Label>
+            <Input type="number" step="0.0001" value={rateDraft.national_pension_rate} onChange={(event) => updateRateDraft({ national_pension_rate: Number(event.target.value) || 0 })} placeholder="0.045" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>건강보험</Label>
+            <Input type="number" step="0.0001" value={rateDraft.health_insurance_rate} onChange={(event) => updateRateDraft({ health_insurance_rate: Number(event.target.value) || 0 })} placeholder="0.03545" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>장기요양</Label>
+            <Input type="number" step="0.0001" value={rateDraft.long_term_care_rate} onChange={(event) => updateRateDraft({ long_term_care_rate: Number(event.target.value) || 0 })} placeholder="0.1295" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>고용보험</Label>
+            <Input type="number" step="0.0001" value={rateDraft.employment_insurance_rate} onChange={(event) => updateRateDraft({ employment_insurance_rate: Number(event.target.value) || 0 })} placeholder="0.009" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>소득세 수동 세율</Label>
+            <Input
+              type="number"
+              step="0.0001"
+              value={rateDraft.income_tax_config?.manualRate || 0}
+              onChange={(event) => updateRateDraft({ income_tax_mode: 'manual_rate', income_tax_config: { ...rateDraft.income_tax_config, manualRate: Number(event.target.value) || 0 } })}
+              placeholder="0.03"
+            />
+          </div>
+          <div className="flex items-end">
+            <Button type="button" className="w-full" onClick={saveActiveRate} disabled={saveRateVersion.isPending}>
+              요율 저장
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -186,6 +330,9 @@ const PayStatementAdminPanel: React.FC = () => {
             employees={employees}
             statement={editingStatement}
             onSave={handleSave}
+            payrollProfiles={payrollProfiles}
+            rateVersions={rateVersions}
+            onSavePayrollProfile={(profile) => saveProfile.mutateAsync(profile)}
             isSaving={saveStatement.isPending}
           />
         </DialogContent>

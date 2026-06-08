@@ -38,6 +38,9 @@ export const toPayrollLineItems = (value: unknown): PayStatementLineItem[] => {
       label: typeof item?.label === 'string' ? item.label : '항목',
       amount: Number(item?.amount) || 0,
       note: typeof item?.note === 'string' ? item.note : undefined,
+      source: item?.source === 'manual' ? 'manual' : 'auto',
+      taxable: typeof item?.taxable === 'boolean' ? item.taxable : undefined,
+      formula_key: typeof item?.formula_key === 'string' ? item.formula_key : undefined,
     }));
   }
 
@@ -73,8 +76,19 @@ const PayRows = ({ title, items }: { title: string; items: PayStatementLineItem[
         items.map((item) => (
           <div key={item.id || item.label} className="grid grid-cols-[1fr_auto] gap-4 px-4 py-3 text-sm">
             <div className="min-w-0">
-              <p className="font-medium text-slate-800">{item.label}</p>
-              {item.note && <p className="mt-1 text-xs text-slate-500">{item.note}</p>}
+              <p className="font-medium text-slate-800">
+                {item.label}
+                {item.source && (
+                  <span className="ml-2 rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                    {item.source === 'manual' ? '수동' : '자동'}
+                  </span>
+                )}
+              </p>
+              {(item.note || item.taxable === false) && (
+                <p className="mt-1 text-xs text-slate-500">
+                  {[item.note, item.taxable === false ? '비과세' : null].filter(Boolean).join(' · ')}
+                </p>
+              )}
             </div>
             <p className="font-semibold tabular-nums text-slate-950">{formatPayrollAmount(item.amount)}</p>
           </div>
@@ -166,6 +180,18 @@ const PayStatementPreview: React.FC<PayStatementPreviewProps> = ({
           <section className="mt-4 rounded-lg border border-slate-200 p-4">
             <h4 className="text-sm font-semibold text-slate-950">안내 문구</h4>
             <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{statement.memo}</p>
+          </section>
+        )}
+
+        {statement.calculation_basis && Object.keys(statement.calculation_basis).length > 0 && (
+          <section className="mt-4 rounded-lg border border-slate-200 p-4">
+            <h4 className="text-sm font-semibold text-slate-950">계산 기준</h4>
+            <div className="mt-2 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+              <p>급여 기준: {String(statement.calculation_basis.payType || '-')}</p>
+              <p>월 소정시간: {String(statement.calculation_basis.standardMonthlyHours || '-')}</p>
+              <p>과세 기준액: {formatPayrollAmount(Number(statement.calculation_basis.taxablePay) || 0)}</p>
+              <p>요율 버전: {String((statement.calculation_basis.rateVersion as { name?: string } | undefined)?.name || '-')}</p>
+            </div>
           </section>
         )}
 

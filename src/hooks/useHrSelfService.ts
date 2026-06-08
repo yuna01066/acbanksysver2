@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import type {
+  PayrollAttendanceRecord,
+  PayrollProfile,
+  PayrollRateVersion,
+} from '@/services/payrollCalculation';
 
 export type ProfileChangeStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 export type HrRequestStatus = 'pending' | 'in_progress' | 'completed' | 'rejected' | 'cancelled';
@@ -12,6 +17,9 @@ export type PayStatementLineItem = {
   label: string;
   amount: number;
   note?: string;
+  source?: 'auto' | 'manual';
+  taxable?: boolean;
+  formula_key?: string;
 };
 
 export const DIRECT_PROFILE_FIELDS = [
@@ -158,6 +166,10 @@ export interface PayStatement {
   void_reason?: string | null;
   viewed_at?: string | null;
   downloaded_at?: string | null;
+  calculation_run_id?: string | null;
+  rate_version_id?: string | null;
+  calculation_basis?: Record<string, unknown>;
+  has_manual_override?: boolean | null;
   file_storage_path: string | null;
   published_at: string | null;
   created_at: string;
@@ -175,7 +187,7 @@ export interface PayStatementEvent {
   pay_statement_id: string;
   user_id: string | null;
   actor_id: string | null;
-  event_type: 'created' | 'updated' | 'published' | 'viewed' | 'downloaded' | 'voided';
+  event_type: 'created' | 'updated' | 'published' | 'viewed' | 'downloaded' | 'voided' | 'calculated' | 'manual_adjusted' | 'payroll_profile_updated' | 'payroll_rate_updated';
   metadata: Record<string, unknown>;
   created_at: string;
 }
@@ -204,6 +216,8 @@ type HrQueryBuilder<T = unknown> = PromiseLike<SupabaseResult<T>> & {
   update(values: unknown): HrQueryBuilder<T>;
   eq(column: string, value: unknown): HrQueryBuilder<T>;
   neq(column: string, value: unknown): HrQueryBuilder<T>;
+  gte(column: string, value: unknown): HrQueryBuilder<T>;
+  lte(column: string, value: unknown): HrQueryBuilder<T>;
   order(column: string, options?: Record<string, unknown>): HrQueryBuilder<T>;
   limit(count: number): HrQueryBuilder<T>;
 };
@@ -420,7 +434,141 @@ export type PayStatementSaveInput = {
   internal_note?: string | null;
   file_storage_path?: string | null;
   status: PayStatementStatus;
+  calculation_run_id?: string | null;
+  rate_version_id?: string | null;
+  calculation_basis?: Record<string, unknown>;
+  has_manual_override?: boolean;
+  calculation_input_snapshot?: Record<string, unknown>;
+  calculation_result_snapshot?: Record<string, unknown>;
+  calculation_warnings?: string[];
 };
+
+export function usePayrollProfiles(enabled: boolean) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['employee-payroll-profiles'],
+    queryFn: async () => {
+      const { data, error } = await fromHrTable('employee_payroll_profiles')
+        .select('*')
+        .order('effective_from', { ascending: false });
+      if (error) throw error;
+      return toTypedArray<PayrollProfile>(data);
+    },
+    enabled: enabled && !!user,
+  });
+
+  const saveProfile = useMutation({
+    mutationFn: async (profile: PayrollProfile) => {
+      const payload = {
+        ...profile,
+        monthly_base_pay: Math.max(0, Math.round(Number(profile.monthly_base_pay) || 0)),
+        annual_salary: Math.max(0, Math.round(Number(profile.annual_salary) || 0)),
+        hourly_wage: Math.max(0, Math.round(Number(profile.hourly_wage) || 0)),
+        standard_monthly_hours: Math.max(1, Number(profile.standard_monthly_hours) || 209),
+        non_taxable_allowances: profile.non_taxable_allowances || [],
+        fixed_allowances: profile.fixed_allowances || [],
+        overtime_policy: profile.overtime_policy || {},
+        deduction_settings: profile.deduction_settings || {},
+        effective_from: profile.effective_from || new Date().toISOString().slice(0, 10),
+        status: profile.status || 'active',
+        updated_by: user!.id,
+        ...(profile.id ? {} : { created_by: user!.id }),
+      };
+      const queryBuilder = profile.id
+        ? fromHrTable('employee_payroll_profiles').update(payload).eq('id', profile.id)
+        : fromHrTable('employee_payroll_profiles').insert(payload);
+      const { data, error } = await queryBuilder.select('*');
+      if (error) throw error;
+      await fromHrTable('pay_statement_events').insert({
+        pay_statement_id: null,
+        user_id: profile.user_id,
+        actor_id: user!.id,
+        event_type: 'payroll_profile_updated',
+        metadata: { source: 'admin_panel' },
+      });
+      return Array.isArray(data) ? data[0] : data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employee-payroll-profiles'] }),
+  });
+
+  return { ...query, saveProfile };
+}
+
+export function usePayrollRateVersions(enabled: boolean) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['payroll-rate-versions'],
+    queryFn: async () => {
+      const { data, error } = await fromHrTable('payroll_rate_versions')
+        .select('*')
+        .order('effective_from', { ascending: false });
+      if (error) throw error;
+      return toTypedArray<PayrollRateVersion>(data);
+    },
+    enabled: enabled && !!user,
+  });
+
+  const saveRateVersion = useMutation({
+    mutationFn: async (rate: PayrollRateVersion) => {
+      const payload = {
+        ...rate,
+        national_pension_rate: Math.max(0, Number(rate.national_pension_rate) || 0),
+        health_insurance_rate: Math.max(0, Number(rate.health_insurance_rate) || 0),
+        long_term_care_rate: Math.max(0, Number(rate.long_term_care_rate) || 0),
+        employment_insurance_rate: Math.max(0, Number(rate.employment_insurance_rate) || 0),
+        local_income_tax_rate: Math.max(0, Number(rate.local_income_tax_rate) || 0),
+        income_tax_config: rate.income_tax_config || {},
+        updated_by: user!.id,
+        ...(rate.id ? {} : { created_by: user!.id }),
+      };
+
+      if (payload.is_active) {
+        const { error: deactivateError } = await fromHrTable('payroll_rate_versions')
+          .update({ is_active: false, updated_by: user!.id })
+          .neq('id', rate.id || '');
+        if (deactivateError) throw deactivateError;
+      }
+
+      const queryBuilder = rate.id
+        ? fromHrTable('payroll_rate_versions').update(payload).eq('id', rate.id)
+        : fromHrTable('payroll_rate_versions').insert(payload);
+      const { data, error } = await queryBuilder.select('*');
+      if (error) throw error;
+      await fromHrTable('pay_statement_events').insert({
+        pay_statement_id: null,
+        user_id: null,
+        actor_id: user!.id,
+        event_type: 'payroll_rate_updated',
+        metadata: { source: 'admin_panel', name: rate.name },
+      });
+      return Array.isArray(data) ? data[0] : data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['payroll-rate-versions'] }),
+  });
+
+  return { ...query, saveRateVersion };
+}
+
+export function usePayrollAttendanceRecords(userId: string | null, payPeriodStart: string | null, payPeriodEnd: string | null) {
+  return useQuery({
+    queryKey: ['payroll-attendance-records', userId, payPeriodStart, payPeriodEnd],
+    queryFn: async () => {
+      const { data, error } = await fromHrTable('attendance_records')
+        .select('date,check_in,check_out,work_hours,status')
+        .eq('user_id', userId!)
+        .gte('date', payPeriodStart!)
+        .lte('date', payPeriodEnd!)
+        .order('date', { ascending: true });
+      if (error) throw error;
+      return toTypedArray<PayrollAttendanceRecord>(data);
+    },
+    enabled: !!userId && !!payPeriodStart && !!payPeriodEnd,
+  });
+}
 
 const sumLineItems = (items: PayStatementLineItem[]) =>
   items.reduce((sum, item) => sum + Math.max(0, Number(item.amount) || 0), 0);
@@ -432,6 +580,9 @@ const normalizeLineItems = (items: PayStatementLineItem[]) =>
       label: item.label.trim(),
       amount: Math.max(0, Math.round(Number(item.amount) || 0)),
       note: item.note?.trim() || undefined,
+      source: item.source === 'manual' ? 'manual' : 'auto',
+      taxable: item.taxable === false ? false : true,
+      formula_key: item.formula_key,
     }))
     .filter((item) => item.label && item.amount >= 0);
 
@@ -476,6 +627,10 @@ export function useAdminPayStatements(enabled: boolean) {
         memo: input.memo || null,
         internal_note: input.internal_note || null,
         file_storage_path: input.file_storage_path || null,
+        calculation_run_id: input.calculation_run_id || null,
+        rate_version_id: input.rate_version_id || null,
+        calculation_basis: input.calculation_basis || {},
+        has_manual_override: Boolean(input.has_manual_override),
         status: input.status,
         published_at: input.status === 'published' ? now : null,
         issued_at: input.status === 'published' ? now : null,
@@ -493,13 +648,40 @@ export function useAdminPayStatements(enabled: boolean) {
       if (error) throw error;
       const saved = Array.isArray(data) ? data[0] as PayStatement | undefined : data as PayStatement | undefined;
       const statementId = saved?.id || input.id;
+      let calculationRunId = input.calculation_run_id || null;
+      if (statementId && input.calculation_result_snapshot) {
+        const { data: runData, error: runError } = await fromHrTable('payroll_calculation_runs').insert({
+          user_id: input.user_id,
+          pay_statement_id: statementId,
+          pay_month: input.pay_month,
+          rate_version_id: input.rate_version_id || null,
+          input_snapshot: input.calculation_input_snapshot || {},
+          result_snapshot: input.calculation_result_snapshot,
+          warnings: input.calculation_warnings || [],
+          created_by: user!.id,
+        }).select('*');
+        if (runError) throw runError;
+        const run = Array.isArray(runData) ? runData[0] as { id?: string } | undefined : runData as { id?: string } | undefined;
+        calculationRunId = run?.id || null;
+        if (calculationRunId) {
+          const { error: updateRunError } = await fromHrTable('pay_statements')
+            .update({ calculation_run_id: calculationRunId })
+            .eq('id', statementId);
+          if (updateRunError) throw updateRunError;
+        }
+      }
       if (statementId) {
         await fromHrTable('pay_statement_events').insert({
           pay_statement_id: statementId,
           user_id: input.user_id,
           actor_id: user!.id,
           event_type: input.status === 'published' ? 'published' : input.id ? 'updated' : 'created',
-          metadata: { source: 'admin_panel', pay_month: input.pay_month },
+          metadata: {
+            source: 'admin_panel',
+            pay_month: input.pay_month,
+            calculation_run_id: calculationRunId,
+            has_manual_override: Boolean(input.has_manual_override),
+          },
         });
       }
       return saved;
