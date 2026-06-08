@@ -2541,6 +2541,91 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_payroll_profiles: {
+        Row: {
+          annual_salary: number
+          created_at: string
+          created_by: string | null
+          deduction_settings: Json
+          effective_from: string
+          effective_to: string | null
+          fixed_allowances: Json
+          hourly_wage: number
+          id: string
+          monthly_base_pay: number
+          non_taxable_allowances: Json
+          overtime_policy: Json
+          pay_type: string
+          standard_monthly_hours: number
+          status: string
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          annual_salary?: number
+          created_at?: string
+          created_by?: string | null
+          deduction_settings?: Json
+          effective_from?: string
+          effective_to?: string | null
+          fixed_allowances?: Json
+          hourly_wage?: number
+          id?: string
+          monthly_base_pay?: number
+          non_taxable_allowances?: Json
+          overtime_policy?: Json
+          pay_type?: string
+          standard_monthly_hours?: number
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          annual_salary?: number
+          created_at?: string
+          created_by?: string | null
+          deduction_settings?: Json
+          effective_from?: string
+          effective_to?: string | null
+          fixed_allowances?: Json
+          hourly_wage?: number
+          id?: string
+          monthly_base_pay?: number
+          non_taxable_allowances?: Json
+          overtime_policy?: Json
+          pay_type?: string
+          standard_monthly_hours?: number
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_payroll_profiles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_payroll_profiles_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_payroll_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employment_contracts: {
         Row: {
           annual_salary: number | null
@@ -4229,6 +4314,327 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      pay_statement_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json
+          pay_statement_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json
+          pay_statement_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          pay_statement_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pay_statement_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_statement_events_pay_statement_id_fkey"
+            columns: ["pay_statement_id"]
+            isOneToOne: false
+            referencedRelation: "pay_statements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_statement_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pay_statements: {
+        Row: {
+          calculation_basis: Json
+          calculation_run_id: string | null
+          created_at: string
+          deductions: Json
+          downloaded_at: string | null
+          earnings: Json
+          file_storage_path: string | null
+          gross_pay: number | null
+          has_manual_override: boolean
+          id: string
+          internal_note: string | null
+          issued_at: string | null
+          issued_by: string | null
+          memo: string | null
+          net_pay: number | null
+          pay_month: string
+          pay_period_end: string | null
+          pay_period_start: string | null
+          payment_date: string | null
+          published_at: string | null
+          rate_version_id: string | null
+          status: string
+          total_deductions: number
+          updated_at: string
+          user_id: string
+          viewed_at: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          calculation_basis?: Json
+          calculation_run_id?: string | null
+          created_at?: string
+          deductions?: Json
+          downloaded_at?: string | null
+          earnings?: Json
+          file_storage_path?: string | null
+          gross_pay?: number | null
+          has_manual_override?: boolean
+          id?: string
+          internal_note?: string | null
+          issued_at?: string | null
+          issued_by?: string | null
+          memo?: string | null
+          net_pay?: number | null
+          pay_month: string
+          pay_period_end?: string | null
+          pay_period_start?: string | null
+          payment_date?: string | null
+          published_at?: string | null
+          rate_version_id?: string | null
+          status?: string
+          total_deductions?: number
+          updated_at?: string
+          user_id: string
+          viewed_at?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          calculation_basis?: Json
+          calculation_run_id?: string | null
+          created_at?: string
+          deductions?: Json
+          downloaded_at?: string | null
+          earnings?: Json
+          file_storage_path?: string | null
+          gross_pay?: number | null
+          has_manual_override?: boolean
+          id?: string
+          internal_note?: string | null
+          issued_at?: string | null
+          issued_by?: string | null
+          memo?: string | null
+          net_pay?: number | null
+          pay_month?: string
+          pay_period_end?: string | null
+          pay_period_start?: string | null
+          payment_date?: string | null
+          published_at?: string | null
+          rate_version_id?: string | null
+          status?: string
+          total_deductions?: number
+          updated_at?: string
+          user_id?: string
+          viewed_at?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pay_statements_calculation_run_id_fkey"
+            columns: ["calculation_run_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_calculation_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_statements_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_statements_rate_version_id_fkey"
+            columns: ["rate_version_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_rate_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_statements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_statements_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_calculation_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          input_snapshot: Json
+          pay_month: string
+          pay_statement_id: string | null
+          rate_version_id: string | null
+          result_snapshot: Json
+          user_id: string
+          warnings: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          input_snapshot?: Json
+          pay_month: string
+          pay_statement_id?: string | null
+          rate_version_id?: string | null
+          result_snapshot?: Json
+          user_id: string
+          warnings?: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          input_snapshot?: Json
+          pay_month?: string
+          pay_statement_id?: string | null
+          rate_version_id?: string | null
+          result_snapshot?: Json
+          user_id?: string
+          warnings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_calculation_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_calculation_runs_pay_statement_id_fkey"
+            columns: ["pay_statement_id"]
+            isOneToOne: false
+            referencedRelation: "pay_statements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_calculation_runs_rate_version_id_fkey"
+            columns: ["rate_version_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_rate_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_calculation_runs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_rate_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          employment_insurance_rate: number
+          health_insurance_rate: number
+          id: string
+          income_tax_config: Json
+          income_tax_mode: string
+          is_active: boolean
+          local_income_tax_rate: number
+          long_term_care_rate: number
+          name: string
+          national_pension_rate: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_from: string
+          employment_insurance_rate?: number
+          health_insurance_rate?: number
+          id?: string
+          income_tax_config?: Json
+          income_tax_mode?: string
+          is_active?: boolean
+          local_income_tax_rate?: number
+          long_term_care_rate?: number
+          name: string
+          national_pension_rate?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          employment_insurance_rate?: number
+          health_insurance_rate?: number
+          id?: string
+          income_tax_config?: Json
+          income_tax_mode?: string
+          is_active?: boolean
+          local_income_tax_rate?: number
+          long_term_care_rate?: number
+          name?: string
+          national_pension_rate?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_rate_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_rate_versions_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       peer_feedback: {
         Row: {
@@ -7724,6 +8130,10 @@ export type Database = {
       mark_employee_offline: { Args: never; Returns: undefined }
       notify_approval_reviewers: {
         Args: { _request_id: string }
+        Returns: undefined
+      }
+      record_pay_statement_event: {
+        Args: { p_event_type: string; p_statement_id: string }
         Returns: undefined
       }
       reject_settings_change_request: {
