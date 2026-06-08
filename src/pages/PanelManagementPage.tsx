@@ -8,10 +8,11 @@ import { ProductSelector } from "@/components/panel-management/ProductSelector";
 import { OptionSelector } from "@/components/panel-management/OptionSelector";
 import { PanelSizeManager } from "@/components/panel-management/UnifiedSizePriceManager";
 import ColorManager from "@/components/panel-management/ColorManager";
+import { PanelCatalogValidationReport } from "@/components/panel-management/PanelCatalogValidationReport";
 import { PageHeader, PageShell } from "@/components/layout/PageLayout";
 
-type ViewLevel = 'material' | 'product' | 'option' | 'size' | 'color';
-type ManagementOption = 'size' | 'color';
+type ViewLevel = 'material' | 'product' | 'option' | 'size' | 'color' | 'validation';
+type ManagementOption = 'size' | 'color' | 'validation';
 
 const PanelManagementPage = () => {
   const navigate = useNavigate();
@@ -64,7 +65,11 @@ const PanelManagementPage = () => {
           <>
             {selectedMaterial && <Badge variant="secondary">{selectedMaterial.name}</Badge>}
             {selectedProduct && <Badge variant="secondary">{selectedProduct.name}</Badge>}
-            {selectedOption && <Badge variant="outline">{selectedOption === 'size' ? '사이즈/가격' : '컬러'}</Badge>}
+            {selectedOption && (
+              <Badge variant="outline">
+                {selectedOption === 'size' ? '사이즈/가격' : selectedOption === 'color' ? '컬러' : '검증 리포트'}
+              </Badge>
+            )}
           </>
         )}
         actions={(
@@ -127,6 +132,21 @@ const PanelManagementPage = () => {
               옵션 선택으로 돌아가기
             </Button>
             <ColorManager qualityId={selectedProduct.id} />
+          </div>
+        )}
+
+        {currentView === 'validation' && selectedProduct && (
+          <div className="space-y-4">
+            <Button
+              variant="outline"
+              onClick={handleBackToOptions}
+              className="flex items-center gap-2"
+              size="sm"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              옵션 선택으로 돌아가기
+            </Button>
+            <PanelCatalogValidationReport />
           </div>
         )}
       </div>

@@ -25,32 +25,16 @@ const SizeSelection: React.FC<SizeSelectionProps> = ({
 }) => {
   // 두께에 따른 가용사이즈 계산
   const getPanelSizeInfo = (sizeString: string): PanelSizeInfo => {
-    // 사이즈 문자열에서 기본 사이즈명과 가용사이즈 추출
     const match = sizeString.match(/^(.+?) \((\d+)\*(\d+)\)$/);
     if (match) {
       const baseName = match[1];
       const availableWidth = parseInt(match[2]);
       const availableHeight = parseInt(match[3]);
-      
-      // 기준사이즈 계산 (10T~20T 기준)
-      const baseSizeMapping: { [key: string]: { width: number; height: number } } = {
-        '3*6': { width: 860, height: 1750 },
-        '대3*6': { width: 900, height: 1800 },
-        '4*5': { width: 1120, height: 1425 },
-        '대4*5': { width: 1200, height: 1500 },
-        '1*2': { width: 1000, height: 2000 },
-        '4*6': { width: 1200, height: 1800 },
-        '4*8': { width: 1200, height: 2400 },
-        '4*10': { width: 1200, height: 3000 },
-        '5*6': { width: 1500, height: 1800 },
-        '5*8': { width: 1500, height: 2400 }
-      };
-      
-      const baseSize = baseSizeMapping[baseName];
+
       return {
         baseName,
-        baseWidth: baseSize?.width || availableWidth,
-        baseHeight: baseSize?.height || availableHeight,
+        baseWidth: availableWidth,
+        baseHeight: availableHeight,
         availableWidth,
         availableHeight
       };
@@ -59,10 +43,10 @@ const SizeSelection: React.FC<SizeSelectionProps> = ({
     // 기본값 반환
     return {
       baseName: sizeString,
-      baseWidth: 1000,
-      baseHeight: 1000,
-      availableWidth: 1000,
-      availableHeight: 1000
+      baseWidth: 0,
+      baseHeight: 0,
+      availableWidth: 0,
+      availableHeight: 0
     };
   };
 
@@ -128,9 +112,9 @@ const SizeSelection: React.FC<SizeSelectionProps> = ({
                     {sizeInfo.baseName}
                   </div>
                   <div className="text-sm text-gray-600">
-                    <div>기준: {sizeInfo.baseWidth}×{sizeInfo.baseHeight}mm</div>
+                    <div>원장: {sizeInfo.baseWidth}×{sizeInfo.baseHeight}mm</div>
                     <div className="font-medium text-primary">
-                      가용: {sizeInfo.availableWidth}×{sizeInfo.availableHeight}mm
+                      DB 기준정보
                     </div>
                   </div>
                   <div className="text-xs text-gray-500">

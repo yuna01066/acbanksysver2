@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { glossyColorSinglePrices, brightColorSinglePrices, glossyStandardSinglePrices, astelColorSinglePrices, satinColorSinglePrices } from '@/data/glossyColorPricing';
 import { toast } from 'sonner';
 
 export interface CutItem {
@@ -39,17 +38,6 @@ interface PanelSize {
   available: boolean;
   price?: number;
 }
-
-export const getPriceDataByQuality = (qualityId: string) => {
-  switch (qualityId) {
-    case 'glossy-color': return glossyColorSinglePrices;
-    case 'bright-color': return brightColorSinglePrices;
-    case 'glossy-standard': return glossyStandardSinglePrices;
-    case 'astel-color': return astelColorSinglePrices;
-    case 'satin-color': return satinColorSinglePrices;
-    default: return glossyColorSinglePrices;
-  }
-};
 
 // ---- Preset hooks ----
 export const useYieldPresets = () => {
@@ -211,68 +199,22 @@ export const useAvailablePanelSizes = (selectedQuality: string, selectedThicknes
   });
 
   const availablePanelSizes = useMemo(() => {
-    const getSizeByThickness = (baseW: number, baseH: number) => {
-      const t = parseFloat(selectedThickness?.replace('T', '') || '0');
-      if (t >= 1.3 && t < 10) return { width: baseW + 20, height: baseH + 20 };
-      if (t >= 10 && t <= 20) return { width: baseW, height: baseH };
-      if (t > 20 && t <= 30) return { width: baseW - 50, height: baseH - 50 };
-      return { width: baseW, height: baseH };
-    };
-
-    const baseSizeMapping: Record<string, { width: number; height: number }> = {
-      '3*6': { width: 860, height: 1750 },
-      '대3*6': { width: 900, height: 1800 },
-      '4*5': { width: 1120, height: 1425 },
-      '대4*5': { width: 1200, height: 1500 },
-      '1*2': { width: 1000, height: 2000 },
-      '4*6': { width: 1200, height: 1800 },
-      '4*8': { width: 1200, height: 2400 },
-      '4*10': { width: 1200, height: 3000 },
-      '5*6': { width: 1500, height: 1800 },
-      '5*8': { width: 1500, height: 2400 },
-    };
-
-    const getFallbackSizeInfo = (sizeStr: string) => {
-      const baseInfo = baseSizeMapping[sizeStr];
-      if (baseInfo) return getSizeByThickness(baseInfo.width, baseInfo.height);
-
-      const parts = sizeStr.replace(/[소대]/g, '').split('*');
-      return {
-        width: Number.parseFloat(parts[0]) * 1000 || 0,
-        height: Number.parseFloat(parts[1]) * 1000 || 0,
-      };
-    };
-
     if (activePanelSizesFromDB && activePanelSizesFromDB.length > 0) {
       return activePanelSizesFromDB
         .map(ps => {
-          const fallback = getFallbackSizeInfo(ps.size_name);
           return {
             name: ps.size_name,
-            width: ps.actual_width || fallback.width,
-            height: ps.actual_height || fallback.height,
+            width: ps.actual_width || 0,
+            height: ps.actual_height || 0,
             available: true,
             price: ps.price || undefined,
           };
         })
-        .filter(panel => panel.width > 0 && panel.height > 0)
+        .filter(panel => panel.width > 0 && panel.height > 0 && Boolean(panel.price && panel.price > 0))
         .sort((a, b) => a.width * a.height - b.width * b.height);
     }
 
-    const priceData = getPriceDataByQuality(selectedQuality);
-    const allSizes = new Set<string>();
-    Object.values(priceData).forEach(thicknessData => {
-      Object.keys(thicknessData).forEach(size => allSizes.add(size));
-    });
-
-    const panelSizes: PanelSize[] = Array.from(allSizes).map(sizeStr => {
-      const sizeInfo = getFallbackSizeInfo(sizeStr);
-      const { width, height } = sizeInfo;
-      const price = priceData[selectedThickness]?.[sizeStr];
-      return { name: sizeStr, width, height, available: !!price, price };
-    }).filter(p => p.available);
-
-    return panelSizes.sort((a, b) => a.width * a.height - b.width * b.height);
+    return [];
   }, [selectedThickness, selectedQuality, activePanelSizesFromDB]);
 
   const availableThicknesses = useMemo(() => {
@@ -281,8 +223,7 @@ export const useAvailablePanelSizes = (selectedQuality: string, selectedThicknes
         .sort((a, b) => parseFloat(a) - parseFloat(b));
     }
 
-    const priceData = getPriceDataByQuality(selectedQuality);
-    return Object.keys(priceData).sort((a, b) => parseFloat(a) - parseFloat(b));
+    return [];
   }, [selectedQuality, activePanelThicknessesFromDB]);
 
   return { availablePanelSizes, availableThicknesses };

@@ -46,25 +46,11 @@ const MultipleSizeSelection: React.FC<MultipleSizeSelectionProps> = ({
       const baseName = match[1];
       const availableWidth = parseInt(match[2]);
       const availableHeight = parseInt(match[3]);
-      
-      const baseSizeMapping: { [key: string]: { width: number; height: number } } = {
-        '3*6': { width: 860, height: 1750 },
-        '대3*6': { width: 900, height: 1800 },
-        '4*5': { width: 1120, height: 1425 },
-        '대4*5': { width: 1200, height: 1500 },
-        '1*2': { width: 1000, height: 2000 },
-        '4*6': { width: 1200, height: 1800 },
-        '4*8': { width: 1200, height: 2400 },
-        '4*10': { width: 1200, height: 3000 },
-        '5*6': { width: 1500, height: 1800 },
-        '5*8': { width: 1500, height: 2400 }
-      };
-      
-      const baseSize = baseSizeMapping[baseName];
+
       return {
         baseName,
-        baseWidth: baseSize?.width || availableWidth,
-        baseHeight: baseSize?.height || availableHeight,
+        baseWidth: availableWidth,
+        baseHeight: availableHeight,
         availableWidth,
         availableHeight
       };
@@ -72,10 +58,10 @@ const MultipleSizeSelection: React.FC<MultipleSizeSelectionProps> = ({
     
     return {
       baseName: sizeString,
-      baseWidth: 1000,
-      baseHeight: 1000,
-      availableWidth: 1000,
-      availableHeight: 1000
+      baseWidth: 0,
+      baseHeight: 0,
+      availableWidth: 0,
+      availableHeight: 0
     };
   };
 
