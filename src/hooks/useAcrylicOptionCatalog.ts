@@ -120,6 +120,7 @@ export function useAcrylicOptionCatalog(qualityId?: string, thickness?: string) 
     colorOptions,
     thicknessOptions,
     panelSizeOptions,
+    hasDatabasePanelSizes: dbPanelSizes.length > 0,
     isLoadingColors,
     isLoadingPanelSizes,
   };

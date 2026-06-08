@@ -168,6 +168,27 @@ const consultationTypeLabels: Record<Exclude<ConsultationType, ''>, string> = {
   design: '디자인 문의',
 };
 
+const sheetPurchaseSizeOptions = ['3*6', '4*8'] as const;
+const sheetPurchaseQuantityOptions = Array.from({ length: 50 }, (_, index) => `${index + 1}장`);
+
+function parseThicknessMm(value: string) {
+  const match = value.match(/([\d.]+)/);
+  return match ? Number(match[1]) : null;
+}
+
+function isUnderFiveThickness(value: string) {
+  const thicknessMm = parseThicknessMm(value);
+  return thicknessMm !== null && thicknessMm < 5;
+}
+
+function getSheetPurchaseQuantityOptions(thickness: string) {
+  const underFive = isUnderFiveThickness(thickness);
+  return sheetPurchaseQuantityOptions.filter((option) => {
+    const quantity = Number(option.replace(/\D/g, ''));
+    return !underFive || quantity % 2 === 0;
+  });
+}
+
 const internalQuickLinks = [
   { title: '홈', description: '대시보드로 이동', path: '/', shortcut: 'Home' },
   { title: '상담 리드함', description: '아임웹 폼과 채널톡 문의 확인', path: '/channel-talk-leads?source=imweb', shortcut: 'Leads' },
@@ -736,13 +757,30 @@ const ClientConsultationWidgetPage = () => {
                       materialQualityId={form.materialQualityId}
                       thickness={form.thickness}
                       colorOptionId={form.colorOptionId}
+                      colorName={form.colorName}
+                      colorCode={form.colorCode}
                       sheetSize={form.sheetSize}
                       showSheetSize
-                      onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
+                      restrictSheetPurchaseSizes
+                      onChange={(patch) => setForm((current) => {
+                        const next = { ...current, ...patch };
+                        if (patch.thickness && next.quantity && !getSheetPurchaseQuantityOptions(next.thickness).includes(next.quantity)) {
+                          next.quantity = '';
+                        }
+                        return next;
+                      })}
                     />
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Field label="원장 구매 수량" required>
-                        <Input value={form.quantity} onChange={(event) => updateField('quantity', event.target.value)} placeholder="예: 3장 / 10장" />
+                        <SelectBox value={form.quantity} onChange={(value) => updateField('quantity', value)} disabled={!form.thickness}>
+                          <option value="">{form.thickness ? '수량 선택' : '두께를 먼저 선택해주세요'}</option>
+                          {getSheetPurchaseQuantityOptions(form.thickness).map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </SelectBox>
+                        {isUnderFiveThickness(form.thickness) && (
+                          <p className="mt-1 text-xs text-neutral-500">5T 미만 원장은 짝수 단위로만 구매 가능합니다.</p>
+                        )}
                       </Field>
                       <Field label="구매 용도">
                         <Input value={form.productType} onChange={(event) => updateField('productType', event.target.value)} placeholder="예: 매장 진열대 샘플 제작용" />
@@ -784,6 +822,8 @@ const ClientConsultationWidgetPage = () => {
                       materialQualityId={form.materialQualityId}
                       thickness={form.thickness}
                       colorOptionId={form.colorOptionId}
+                      colorName={form.colorName}
+                      colorCode={form.colorCode}
                       sheetSize=""
                       showSheetSize={false}
                       onChange={(patch) => setForm((current) => ({ ...current, ...patch, sheetSize: '' }))}
@@ -852,6 +892,8 @@ const ClientConsultationWidgetPage = () => {
                       materialQualityId={form.materialQualityId}
                       thickness={form.thickness}
                       colorOptionId={form.colorOptionId}
+                      colorName={form.colorName}
+                      colorCode={form.colorCode}
                       sheetSize=""
                       showSheetSize={false}
                       optional
@@ -1141,12 +1183,42 @@ type MaterialPatch = Partial<Pick<FormState,
   'materialQualityId' | 'materialName' | 'colorOptionId' | 'colorName' | 'colorCode' | 'thickness' | 'sheetSize'
 >>;
 
+function getManualColorPrefix(qualityId: string) {
+  if (qualityId === 'glossy-color') return 'AC-C';
+  if (qualityId === 'bright-color') return 'AC-B';
+  return '';
+}
+
+function getManualColorHelper(qualityId: string) {
+  const prefix = getManualColorPrefix(qualityId);
+  if (prefix) return `${prefix} 뒤 번호만 입력해도 됩니다. 예: 011`;
+  return '컬러명 또는 컬러 코드를 직접 입력해주세요.';
+}
+
+function getManualColorInputValue(qualityId: string, colorName: string, colorCode: string, colorOptionId: string) {
+  const prefix = getManualColorPrefix(qualityId);
+  const value = colorCode || colorName || colorOptionId;
+  if (!prefix) return value;
+  return value.toUpperCase().startsWith(prefix) ? value.slice(prefix.length) : value;
+}
+
+function getPanelSizeBaseName(value: string) {
+  return value.replace(/×/g, '*').split(/\s|\(/)[0] || value;
+}
+
+function matchesSheetPurchaseSize(value: string, size: string) {
+  return getPanelSizeBaseName(value) === size;
+}
+
 const MaterialOptionFields = ({
   materialQualityId,
   thickness,
   colorOptionId,
+  colorName,
+  colorCode,
   sheetSize,
   showSheetSize,
+  restrictSheetPurchaseSizes,
   optional,
   compact,
   className,
@@ -1155,14 +1227,17 @@ const MaterialOptionFields = ({
   materialQualityId: string;
   thickness: string;
   colorOptionId: string;
+  colorName: string;
+  colorCode: string;
   sheetSize: string;
   showSheetSize: boolean;
+  restrictSheetPurchaseSizes?: boolean;
   optional?: boolean;
   compact?: boolean;
   className?: string;
   onChange: (patch: MaterialPatch) => void;
 }) => {
-  const { qualities, colorOptions, thicknessOptions, panelSizeOptions, isLoadingColors, isLoadingPanelSizes } =
+  const { qualities, thicknessOptions, panelSizeOptions, hasDatabasePanelSizes, isLoadingPanelSizes } =
     useAcrylicOptionCatalog(materialQualityId, thickness);
   const selectedQuality = qualities.find((quality) => quality.id === materialQualityId);
 
@@ -1179,14 +1254,31 @@ const MaterialOptionFields = ({
     });
   };
 
-  const handleColorChange = (value: string) => {
-    const color = colorOptions.find((item) => item.id === value);
+  const handleColorInputChange = (value: string) => {
+    const prefix = getManualColorPrefix(materialQualityId);
+    const trimmed = value.trim();
+    const normalizedCode = prefix && trimmed
+      ? trimmed.toUpperCase().startsWith(prefix) ? trimmed.toUpperCase() : `${prefix}${trimmed.replace(/^[-\s]+/, '')}`
+      : trimmed;
     onChange({
-      colorOptionId: value,
-      colorName: value === CONSULTATION_UNKNOWN_OPTION ? '상담 후 결정' : color?.color_name || '',
-      colorCode: value === CONSULTATION_UNKNOWN_OPTION ? '' : color?.color_code || '',
+      colorOptionId: '',
+      colorName: trimmed || '',
+      colorCode: normalizedCode,
     });
   };
+
+  const availableSheetSizeValues = new Set(
+    panelSizeOptions
+      .map((option) => option.value)
+      .filter((value) => sheetPurchaseSizeOptions.some((size) => matchesSheetPurchaseSize(value, size))),
+  );
+  const sheetSizeChoices = restrictSheetPurchaseSizes
+    ? sheetPurchaseSizeOptions.map((size) => ({
+      label: size,
+      value: panelSizeOptions.find((option) => matchesSheetPurchaseSize(option.value, size))?.value || size,
+      disabled: isLoadingPanelSizes || !hasDatabasePanelSizes || !Array.from(availableSheetSizeValues).some((value) => matchesSheetPurchaseSize(value, size)),
+    }))
+    : panelSizeOptions.map((option) => ({ ...option, disabled: false }));
 
   const gridClass = compact ? 'grid gap-3 sm:grid-cols-2 xl:grid-cols-4' : 'grid gap-4 sm:grid-cols-2 lg:grid-cols-4';
 
@@ -1224,19 +1316,21 @@ const MaterialOptionFields = ({
           </SelectBox>
         </Field>
         <Field label="컬러">
-          <SelectBox
-            value={colorOptionId}
-            onChange={handleColorChange}
-            disabled={!materialQualityId || isLoadingColors}
-          >
-            <option value="">{isLoadingColors ? '컬러 불러오는 중' : '컬러 선택'}</option>
-            <option value={CONSULTATION_UNKNOWN_OPTION}>상담 후 결정</option>
-            {colorOptions.map((color) => (
-              <option key={color.id} value={color.id}>
-                {[color.color_name, color.pantone || color.color_code].filter(Boolean).join(' · ')}
-              </option>
-            ))}
-          </SelectBox>
+          <div className="flex h-10 overflow-hidden rounded-md border border-input bg-background">
+            {getManualColorPrefix(materialQualityId) && (
+              <span className="flex items-center border-r border-input bg-neutral-50 px-3 text-sm font-semibold text-neutral-700">
+                {getManualColorPrefix(materialQualityId)}
+              </span>
+            )}
+            <Input
+              value={getManualColorInputValue(materialQualityId, colorName, colorCode, colorOptionId)}
+              onChange={(event) => handleColorInputChange(event.target.value)}
+              disabled={!materialQualityId}
+              placeholder={getManualColorPrefix(materialQualityId) ? '예: 011' : '예: 투명, 백색, AC-M001'}
+              className="h-full rounded-none border-0 shadow-none focus-visible:ring-0"
+            />
+          </div>
+          <p className="mt-1 text-xs text-neutral-500">{getManualColorHelper(materialQualityId)}</p>
         </Field>
         {showSheetSize && (
           <Field label="원장 사이즈">
@@ -1246,9 +1340,11 @@ const MaterialOptionFields = ({
               disabled={!selectedQuality || !thickness || isLoadingPanelSizes}
             >
               <option value="">{isLoadingPanelSizes ? '사이즈 불러오는 중' : '원장 사이즈 선택'}</option>
-              <option value={CONSULTATION_UNKNOWN_OPTION}>상담 후 결정</option>
-              {panelSizeOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
+              {!restrictSheetPurchaseSizes && <option value={CONSULTATION_UNKNOWN_OPTION}>상담 후 결정</option>}
+              {sheetSizeChoices.map((option) => (
+                <option key={option.value} value={option.value} disabled={option.disabled}>
+                  {option.label}{option.disabled ? ' (선택 불가)' : ''}
+                </option>
               ))}
             </SelectBox>
           </Field>
@@ -1354,6 +1450,8 @@ const ConsultationItemEditor = ({
           materialQualityId={item.materialQualityId}
           thickness={item.thickness}
           colorOptionId={item.colorOptionId}
+          colorName={item.colorName}
+          colorCode={item.colorCode}
           sheetSize={item.sheetSize}
           showSheetSize={showSheetSize}
           compact
