@@ -580,7 +580,7 @@ const normalizeLineItems = (items: PayStatementLineItem[]) =>
       label: item.label.trim(),
       amount: Math.max(0, Math.round(Number(item.amount) || 0)),
       note: item.note?.trim() || undefined,
-      source: item.source === 'manual' ? 'manual' : 'auto',
+      source: (item.source === 'manual' ? 'manual' : 'auto') as 'auto' | 'manual',
       taxable: item.taxable === false ? false : true,
       formula_key: item.formula_key,
     }))

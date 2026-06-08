@@ -156,7 +156,7 @@ const PayStatementAdminPanel: React.FC = () => {
           calculation_basis: result.calculationBasis,
           has_manual_override: false,
           calculation_input_snapshot: { profile, rateVersion: activeRate, attendanceRecords },
-          calculation_result_snapshot: result,
+          calculation_result_snapshot: result as unknown as Record<string, unknown>,
           calculation_warnings: result.warnings,
         });
         if (existingStatement) {
