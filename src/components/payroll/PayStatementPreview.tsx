@@ -12,12 +12,16 @@ type PreviewProfile = {
   employee_number?: string | null;
 };
 
-type PreviewStatement = Partial<PayStatement> & Partial<PayStatementSaveInput> & {
-  profile?: PreviewProfile | null;
-  gross_pay?: number | null;
-  total_deductions?: number | null;
-  net_pay?: number | null;
-};
+type PreviewStatement = Partial<Omit<PayStatement, 'earnings' | 'deductions' | 'profile'>>
+  & Partial<Omit<PayStatementSaveInput, 'earnings' | 'deductions'>>
+  & {
+    profile?: PreviewProfile | null;
+    earnings?: PayStatementLineItem[] | Record<string, unknown> | unknown;
+    deductions?: PayStatementLineItem[] | Record<string, unknown> | unknown;
+    gross_pay?: number | null;
+    total_deductions?: number | null;
+    net_pay?: number | null;
+  };
 
 interface PayStatementPreviewProps {
   statement: PreviewStatement;
