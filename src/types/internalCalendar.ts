@@ -325,13 +325,13 @@ export function isCompletedDeliveryCalendarEvent(event: DeliveryCalendarEventLik
 
 export function getCalendarEventAccent(event: Pick<InternalCalendarEvent, 'accent' | 'source_type' | 'source_subtype' | 'resource_ids'> & Partial<Pick<InternalCalendarEvent, 'status' | 'title' | 'metadata'>>) {
   if (isCompletedDeliveryCalendarEvent(event)) return DASHBOARD_SOURCE_COLORS['quote-delivery-completed'].accent;
-  if (event.accent) return event.accent;
   if (event.resource_ids.length > 0) return DASHBOARD_SOURCE_COLORS.room.accent;
   const matched = CALENDAR_EVENT_LEGEND.find((item) =>
     item.sourceType === event.source_type
     && (!item.sourceSubtype || item.sourceSubtype === event.source_subtype),
   );
-  return matched?.accent || DEFAULT_CALENDAR_ACCENT;
+  if (event.source_type !== 'manual' && matched?.accent) return matched.accent;
+  return event.accent || matched?.accent || DEFAULT_CALENDAR_ACCENT;
 }
 
 export function getCalendarEventStatusLabel(event: Pick<InternalCalendarEvent, 'status' | 'source_type' | 'source_subtype'> & Partial<Pick<InternalCalendarEvent, 'title' | 'metadata'>>) {
