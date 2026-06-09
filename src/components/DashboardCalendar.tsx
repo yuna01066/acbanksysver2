@@ -548,7 +548,7 @@ const DashboardCalendar = () => {
             <Cake className="h-3 w-3 text-pink-500" /> 생일
           </span>
           <span className="flex items-center gap-1">
-            <FolderOpen className="h-3 w-3 text-emerald-600" /> 프로젝트
+            <FolderOpen className="h-3 w-3 text-violet-600" /> 프로젝트
           </span>
           <span className="flex items-center gap-1">
             <Palmtree className="h-3 w-3 text-teal-500" /> 휴가
@@ -626,7 +626,7 @@ const DashboardCalendar = () => {
                           : event.type === 'leave'
                           ? "bg-teal-500/10 text-teal-600 cursor-default"
                           : event.type === 'project'
-                          ? "bg-emerald-500/10 text-emerald-700 cursor-pointer"
+                          ? "bg-violet-500/10 text-violet-700 cursor-pointer"
                           : "bg-violet-500/10 text-violet-600"
                       )}
                       title={event.projectName}
