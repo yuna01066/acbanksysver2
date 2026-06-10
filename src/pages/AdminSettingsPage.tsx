@@ -353,6 +353,17 @@ const ADMIN_FEATURES: AdminFeatureItem[] = [
     priority: 60,
     dialog: 'secret-event',
   },
+  {
+    id: 'error-logs',
+    title: '클라이언트 오류 로그',
+    description: '사용자 화면에서 발생한 JS 오류와 미처리 예외를 조회합니다.',
+    category: 'system',
+    icon: AlertTriangle,
+    keywords: '오류 로그 에러 error log client 추적',
+    access: 'admin',
+    priority: 70,
+    path: '/error-logs',
+  },
 ];
 
 const CATEGORY_ORDER: AdminFeatureCategory[] = ['approval', 'people', 'quote', 'sales', 'system'];
