@@ -1,5 +1,66 @@
 export const RESPONSE_ASSISTANT_SETTING_KEY = 'system_instruction';
 export const RESPONSE_ASSISTANT_ICON_SETTING_KEY = 'launcher_icon_data_url';
+export const JJIKJJIKI_LUNCH_REACTION_SETTING_KEY = 'jjikjjiki_lunch_reaction';
+
+export type JjikjjikiLunchReactionSettings = {
+  enabled: boolean;
+  startTime: string;
+  endTime: string;
+  message: string;
+};
+
+export const DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS: JjikjjikiLunchReactionSettings = {
+  enabled: true,
+  startTime: '11:30',
+  endTime: '13:30',
+  message: '점심시간입니다. 잠깐 쉬어가세요.',
+};
+
+export const clockTimeToMinutes = (value: string, fallback: number) => {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) return fallback;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return fallback;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return fallback;
+  return hours * 60 + minutes;
+};
+
+export const parseJjikjjikiLunchReactionSettings = (
+  value?: string | null,
+): JjikjjikiLunchReactionSettings => {
+  if (!value) return DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS;
+
+  try {
+    const parsed = JSON.parse(value) as Partial<JjikjjikiLunchReactionSettings>;
+    return {
+      enabled: typeof parsed.enabled === 'boolean'
+        ? parsed.enabled
+        : DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.enabled,
+      startTime: typeof parsed.startTime === 'string' && parsed.startTime
+        ? parsed.startTime
+        : DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.startTime,
+      endTime: typeof parsed.endTime === 'string' && parsed.endTime
+        ? parsed.endTime
+        : DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.endTime,
+      message: typeof parsed.message === 'string' && parsed.message.trim()
+        ? parsed.message
+        : DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.message,
+    };
+  } catch {
+    return DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS;
+  }
+};
+
+export const stringifyJjikjjikiLunchReactionSettings = (
+  settings: JjikjjikiLunchReactionSettings,
+) => JSON.stringify({
+  enabled: settings.enabled,
+  startTime: settings.startTime,
+  endTime: settings.endTime,
+  message: settings.message,
+});
 
 export const DEFAULT_RESPONSE_ASSISTANT_INSTRUCTION = `너는 ACBANK 내부 상담 CS 위젯의 응대 초안 작성 보조자입니다.
 

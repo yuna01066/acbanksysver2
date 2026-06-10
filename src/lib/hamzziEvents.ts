@@ -1,3 +1,9 @@
+import {
+  clockTimeToMinutes,
+  DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS,
+  type JjikjjikiLunchReactionSettings,
+} from '@/lib/responseAssistantDefaults';
+
 export const HAMZZI_EVENT_NAME = 'acbank:hamzzi';
 
 export type HamzziEventType =
@@ -17,6 +23,10 @@ export type HamzziEventDetail = {
   message?: string;
   description?: string;
   durationMs?: number;
+};
+
+type TimedHamzziOptions = {
+  lunchReaction?: JjikjjikiLunchReactionSettings;
 };
 
 const QUOTE_COUNT_PREFIX = 'acbank:hamzzi:quote-count:';
@@ -109,16 +119,26 @@ export const triggerQuoteIssuedHamzzi = (issuedCount = 1, confirmedTodayCount?: 
       ? `${issuedCount}건의 견적서 발행 완료.`
       : '견적서 발행 완료. 오늘도 한 건 처리했습니다.',
     description: nextCount > 1 ? `오늘 ${nextCount}건째 발행했습니다.` : undefined,
+    durationMs: 6600,
   });
 };
 
-export const triggerTimedHamzziIfNeeded = (date = new Date()) => {
+export const triggerTimedHamzziIfNeeded = (date = new Date(), options: TimedHamzziOptions = {}) => {
   const minutes = date.getHours() * 60 + date.getMinutes();
+  const lunchReaction = options.lunchReaction || DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS;
+  const lunchStart = clockTimeToMinutes(
+    lunchReaction.startTime,
+    clockTimeToMinutes(DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.startTime, 11 * 60 + 30),
+  );
+  const lunchEnd = clockTimeToMinutes(
+    lunchReaction.endTime,
+    clockTimeToMinutes(DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.endTime, 13 * 60 + 30),
+  );
 
-  if (minutes >= 11 * 60 + 30 && minutes < 13 * 60 + 30 && markDailyFlag('lunch-time', date)) {
+  if (lunchReaction.enabled && minutes >= lunchStart && minutes < lunchEnd && markDailyFlag('lunch-time', date)) {
     triggerHamzzi('lunch_time', {
-      message: '점심시간입니다. 잠깐 쉬어가세요.',
-      durationMs: 5200,
+      message: lunchReaction.message.trim() || DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.message,
+      durationMs: 6600,
     });
     return;
   }
