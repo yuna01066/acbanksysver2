@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, HelpCircle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import jjikjjikiBase from '@/assets/hamzzi/jjikjjiki-base.png';
@@ -12,6 +13,10 @@ import jjikjjikiStartSticker from '@/assets/hamzzi/jjikjjiki-start-sticker.png';
 import jjikjjikiSurprised from '@/assets/hamzzi/jjikjjiki-surprised-expression-256.png';
 import jjikjjikiVerySurprised from '@/assets/hamzzi/jjikjjiki-very-surprised-expression-256.png';
 import jjikjjikiWalkOutSpritesheet from '@/assets/hamzzi/jjikjjiki-walk-out-spritesheet.webp';
+import jjikjjikiLunchCelebration from '@/assets/hamzzi/jjikjjiki-lunch-celebration.png';
+import jjikjjikiLunchSpeechSticker from '@/assets/hamzzi/jjikjjiki-lunch-speech-sticker.png';
+import jjikjjikiQuoteIssuedThumbsUp from '@/assets/hamzzi/jjikjjiki-quote-issued-thumbs-up.png';
+import jjikjjikiQuoteIssuedSpeechSticker from '@/assets/hamzzi/jjikjjiki-quote-issued-speech-sticker.png';
 import iconLunch from '@/assets/hamzzi/icon_lunch.png';
 import iconNight from '@/assets/hamzzi/icon_night.png';
 import iconParty from '@/assets/hamzzi/icon_party.png';
@@ -27,6 +32,11 @@ import {
   type AssistantEmbeddedTool,
   type AssistantShortcutItem,
 } from '@/hooks/useAssistantShortcuts';
+import { supabase } from '@/integrations/supabase/client';
+import {
+  JJIKJJIKI_LUNCH_REACTION_SETTING_KEY,
+  parseJjikjjikiLunchReactionSettings,
+} from '@/lib/responseAssistantDefaults';
 import {
   HAMZZI_EVENT_NAME,
   registerHamzziLauncherClick,
@@ -68,6 +78,10 @@ type HamzziSpriteConfig = {
 
 type HamzziReactionState = HamzziEventDetail & {
   id: number;
+};
+
+type ResponseAssistantSetting = {
+  value: string;
 };
 
 const TOOL_META: Record<AssistantTool, { title: string; description: string }> = {
@@ -231,13 +245,36 @@ const FloatingResponseAssistant: React.FC = () => {
   const launcherEasterEggTimerRef = useRef<number | null>(null);
   const toolTransitionTimerRef = useRef<number | null>(null);
 
+  const { data: lunchReactionSetting, isLoading: lunchReactionSettingLoading } = useQuery<ResponseAssistantSetting | null>({
+    queryKey: ['response-assistant-setting', JJIKJJIKI_LUNCH_REACTION_SETTING_KEY],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('response_assistant_settings')
+        .select('value')
+        .eq('key', JJIKJJIKI_LUNCH_REACTION_SETTING_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      return (data || null) as ResponseAssistantSetting | null;
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 5,
+  });
+
   const isHidden = isHiddenPath(location.pathname);
   const hamzziReactionConfig = hamzziReaction ? HAMZZI_REACTION_CONFIG[hamzziReaction.type] : null;
   const showHamzziReaction = Boolean(hamzziReaction && hamzziReactionConfig);
+  const showLunchReaction = Boolean(showHamzziReaction && hamzziReaction?.type === 'lunch_time');
+  const showQuoteIssuedReaction = Boolean(showHamzziReaction && hamzziReaction?.type === 'quote_issued');
+  const showStickerHamzziReaction = showLunchReaction || showQuoteIssuedReaction;
+  const showStandardHamzziReaction = showHamzziReaction && !showStickerHamzziReaction;
   const launcherIcon = open ? jjikjjikiHeadTilt : jjikjjikiPeekRight;
   const showLauncherWalkOut = !open && launcherPhase === 'walkingOut';
   const toolMeta = TOOL_META[activeTool];
   const activeSpriteTool = transitionTool ?? (isSpecialistTool(activeTool) ? activeTool : null);
+  const lunchReactionSettings = useMemo(
+    () => parseJjikjjikiLunchReactionSettings(lunchReactionSetting?.value),
+    [lunchReactionSetting?.value],
+  );
   const assistantRole = useMemo(
     () => getAssistantRole(isAdmin, isModerator, isManager),
     [isAdmin, isManager, isModerator],
@@ -393,10 +430,12 @@ const FloatingResponseAssistant: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!user || isHidden) return;
-    const timeout = window.setTimeout(() => triggerTimedHamzziIfNeeded(), 1200);
+    if (!user || isHidden || lunchReactionSettingLoading) return;
+    const timeout = window.setTimeout(() => {
+      triggerTimedHamzziIfNeeded(new Date(), { lunchReaction: lunchReactionSettings });
+    }, 1200);
     return () => window.clearTimeout(timeout);
-  }, [isHidden, location.pathname, user]);
+  }, [isHidden, location.pathname, lunchReactionSettingLoading, lunchReactionSettings, user]);
 
   if (loading || !user || isHidden) return null;
 
@@ -495,7 +534,7 @@ const FloatingResponseAssistant: React.FC = () => {
       )}
 
       <div className="pointer-events-auto group relative ml-auto flex h-[88px] w-[88px] items-center justify-center">
-        {showHamzziReaction && hamzziReaction && hamzziReactionConfig && (
+        {showStandardHamzziReaction && hamzziReaction && hamzziReactionConfig && (
           <div
             key={hamzziReaction.id}
             className="pointer-events-none absolute bottom-[76px] right-0 z-30 w-[min(300px,calc(100vw-24px))] translate-y-0 opacity-100 transition-all duration-200"
@@ -533,6 +572,48 @@ const FloatingResponseAssistant: React.FC = () => {
           </div>
         )}
 
+        {showLunchReaction && hamzziReaction && (
+          <div
+            key={`lunch-${hamzziReaction.id}`}
+            className="jjikjjiki-lunch-reaction-stage"
+            aria-live="polite"
+          >
+            <img
+              src={jjikjjikiLunchCelebration}
+              alt=""
+              className="jjikjjiki-lunch-character"
+              aria-hidden="true"
+            />
+            <img
+              src={jjikjjikiLunchSpeechSticker}
+              alt={hamzziReaction.message || lunchReactionSettings.message}
+              className="jjikjjiki-lunch-speech-sticker"
+            />
+            <span className="sr-only">{hamzziReaction.message || lunchReactionSettings.message}</span>
+          </div>
+        )}
+
+        {showQuoteIssuedReaction && hamzziReaction && (
+          <div
+            key={`quote-${hamzziReaction.id}`}
+            className="jjikjjiki-quote-reaction-stage"
+            aria-live="polite"
+          >
+            <img
+              src={jjikjjikiQuoteIssuedThumbsUp}
+              alt=""
+              className="jjikjjiki-quote-character"
+              aria-hidden="true"
+            />
+            <img
+              src={jjikjjikiQuoteIssuedSpeechSticker}
+              alt={hamzziReaction.message || hamzziReactionConfig?.fallbackMessage}
+              className="jjikjjiki-quote-speech-sticker"
+            />
+            <span className="sr-only">{hamzziReaction.message || hamzziReactionConfig?.fallbackMessage}</span>
+          </div>
+        )}
+
         <button
           type="button"
           onClick={handleLauncherClick}
@@ -542,7 +623,7 @@ const FloatingResponseAssistant: React.FC = () => {
           className="jjikjjiki-launcher-button group relative z-20 flex h-[104px] w-[104px] items-center justify-center overflow-visible bg-transparent p-0 transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-0 active:scale-95"
           aria-label={open ? '찍찍이 도우미 닫기' : launcherPhase === 'walkingOut' ? '찍찍이가 걸어나오는 중' : '찍찍이 도우미 열기'}
         >
-          {!open && !showLauncherWalkOut && !activeSpriteTool && (
+          {!open && !showLauncherWalkOut && !activeSpriteTool && !showStickerHamzziReaction && (
             <img
               src={jjikjjikiHoverBubbleSticker}
               alt=""
@@ -550,7 +631,7 @@ const FloatingResponseAssistant: React.FC = () => {
               aria-hidden="true"
             />
           )}
-          {showLauncherEasterEgg && !open && !showLauncherWalkOut && !activeSpriteTool && (
+          {showLauncherEasterEgg && !open && !showLauncherWalkOut && !activeSpriteTool && !showStickerHamzziReaction && (
             <img
               src={jjikjjikiHoverEasterEggSticker}
               alt=""
@@ -558,7 +639,7 @@ const FloatingResponseAssistant: React.FC = () => {
               aria-hidden="true"
             />
           )}
-          {open && !showLauncherWalkOut && !activeSpriteTool && (
+          {open && !showLauncherWalkOut && !activeSpriteTool && !showStickerHamzziReaction && (
             <img
               src={jjikjjikiPopupChoiceSticker}
               alt=""
@@ -572,6 +653,7 @@ const FloatingResponseAssistant: React.FC = () => {
               activeSpriteTool ? 'translate-x-10 scale-90 opacity-0' : 'translate-x-0 scale-100 opacity-100',
               transitionTool && 'hamzzi-helper-default-exit',
               showLauncherWalkOut && 'hamzzi-launcher-walk-out',
+              showStickerHamzziReaction && !open && !showLauncherWalkOut && !activeSpriteTool && 'jjikjjiki-lunch-peek-exit',
             )}
           >
             {showLauncherWalkOut ? (

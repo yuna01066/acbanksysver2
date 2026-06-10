@@ -7,14 +7,18 @@ import {
   ImageIcon,
   Loader2,
   MessageSquareText,
+  Play,
   Plus,
   RefreshCw,
   Save,
   ShieldAlert,
   Upload,
+  Utensils,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import jjikjjikiBase from '@/assets/hamzzi/jjikjjiki-base.png';
+import jjikjjikiLunchCelebration from '@/assets/hamzzi/jjikjjiki-lunch-celebration.png';
+import jjikjjikiLunchSpeechSticker from '@/assets/hamzzi/jjikjjiki-lunch-speech-sticker.png';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { createSettingsChangeRequest } from '@/services/settingsChangeRequests';
@@ -31,11 +35,17 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
   DEFAULT_RESPONSE_ASSISTANT_INSTRUCTION,
+  DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS,
+  JJIKJJIKI_LUNCH_REACTION_SETTING_KEY,
   RESPONSE_ASSISTANT_ICON_SETTING_KEY,
   RESPONSE_ASSISTANT_SETTING_KEY,
   RESPONSE_KNOWLEDGE_CATEGORY_OPTIONS,
+  parseJjikjjikiLunchReactionSettings,
   responseKnowledgeCategoryLabel,
+  stringifyJjikjjikiLunchReactionSettings,
+  type JjikjjikiLunchReactionSettings,
 } from '@/lib/responseAssistantDefaults';
+import { triggerHamzzi } from '@/lib/hamzziEvents';
 import { cn } from '@/lib/utils';
 
 type ResponseAssistantSetting = {
@@ -57,6 +67,8 @@ type KnowledgeItem = {
 };
 
 type KnowledgeDraft = Pick<KnowledgeItem, 'title' | 'category' | 'content' | 'is_active'>;
+
+const EMPTY_KNOWLEDGE_ITEMS: KnowledgeItem[] = [];
 
 const emptyKnowledgeDraft: KnowledgeDraft = {
   title: '',
@@ -116,6 +128,7 @@ const ResponseAssistantManagementPage = () => {
   const [instructionDraft, setInstructionDraft] = useState(DEFAULT_RESPONSE_ASSISTANT_INSTRUCTION);
   const [iconDraft, setIconDraft] = useState('');
   const [iconFileName, setIconFileName] = useState('');
+  const [lunchDraft, setLunchDraft] = useState<JjikjjikiLunchReactionSettings>(DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS);
   const [knowledgeDrafts, setKnowledgeDrafts] = useState<Record<string, KnowledgeDraft>>({});
   const [newKnowledge, setNewKnowledge] = useState<KnowledgeDraft>(emptyKnowledgeDraft);
 
@@ -151,7 +164,21 @@ const ResponseAssistantManagementPage = () => {
     enabled: !!user && canManage,
   });
 
-  const { data: knowledgeItems = [], isLoading: knowledgeLoading } = useQuery<KnowledgeItem[]>({
+  const { data: lunchSetting, isLoading: lunchSettingLoading } = useQuery<ResponseAssistantSetting | null>({
+    queryKey: ['response-assistant-setting', JJIKJJIKI_LUNCH_REACTION_SETTING_KEY],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('response_assistant_settings')
+        .select('key, value, description, updated_by, created_at, updated_at')
+        .eq('key', JJIKJJIKI_LUNCH_REACTION_SETTING_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      return (data || null) as ResponseAssistantSetting | null;
+    },
+    enabled: !!user && canManage,
+  });
+
+  const { data: knowledgeItems = EMPTY_KNOWLEDGE_ITEMS, isLoading: knowledgeLoading } = useQuery<KnowledgeItem[]>({
     queryKey: ['response-knowledge-items-admin'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -175,6 +202,10 @@ const ResponseAssistantManagementPage = () => {
   }, [iconSetting?.value]);
 
   useEffect(() => {
+    setLunchDraft(parseJjikjjikiLunchReactionSettings(lunchSetting?.value));
+  }, [lunchSetting?.value]);
+
+  useEffect(() => {
     setKnowledgeDrafts(
       Object.fromEntries(
         knowledgeItems.map((item) => [
@@ -195,6 +226,12 @@ const ResponseAssistantManagementPage = () => {
   const currentIcon = iconSetting?.value || '';
   const iconChanged = iconDraft !== currentIcon;
   const iconPreview = iconDraft || jjikjjikiBase;
+  const currentLunchSettings = useMemo(
+    () => parseJjikjjikiLunchReactionSettings(lunchSetting?.value),
+    [lunchSetting?.value],
+  );
+  const lunchChanged = stringifyJjikjjikiLunchReactionSettings(lunchDraft)
+    !== stringifyJjikjjikiLunchReactionSettings(currentLunchSettings);
   const activeKnowledgeCount = useMemo(
     () => knowledgeItems.filter((item) => item.is_active).length,
     [knowledgeItems],
@@ -345,6 +382,74 @@ const ResponseAssistantManagementPage = () => {
     onError: (error: Error) => toast.error('아이콘 저장 실패: ' + error.message),
   });
 
+  const saveLunchReaction = useMutation({
+    mutationFn: async (): Promise<'requested' | 'saved'> => {
+      const nextSettings: JjikjjikiLunchReactionSettings = {
+        enabled: lunchDraft.enabled,
+        startTime: lunchDraft.startTime || DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.startTime,
+        endTime: lunchDraft.endTime || DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.endTime,
+        message: lunchDraft.message.trim() || DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.message,
+      };
+      const value = stringifyJjikjjikiLunchReactionSettings(nextSettings);
+      const currentValue = stringifyJjikjjikiLunchReactionSettings(currentLunchSettings);
+
+      if (requiresApproval) {
+        await createSettingsChangeRequest({
+          targetArea: 'admin',
+          targetTable: 'response_assistant_settings',
+          targetKey: JJIKJJIKI_LUNCH_REACTION_SETTING_KEY,
+          action: 'upsert',
+          riskLevel: 'medium',
+          changeSummary: '찍찍이 점심시간 반응 설정 변경',
+          beforeValue: {
+            key: JJIKJJIKI_LUNCH_REACTION_SETTING_KEY,
+            value: currentValue,
+            description: lunchSetting?.description || null,
+          },
+          afterValue: {
+            key: JJIKJJIKI_LUNCH_REACTION_SETTING_KEY,
+            value,
+            description: '찍찍이 점심시간 자동 반응 설정',
+          },
+        });
+        return 'requested';
+      }
+
+      const { error } = await supabase
+        .from('response_assistant_settings')
+        .upsert(
+          {
+            key: JJIKJJIKI_LUNCH_REACTION_SETTING_KEY,
+            value,
+            description: '찍찍이 점심시간 자동 반응 설정',
+            updated_by: user?.id || null,
+          },
+          { onConflict: 'key' },
+        );
+      if (error) throw error;
+      return 'saved';
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['response-assistant-setting', JJIKJJIKI_LUNCH_REACTION_SETTING_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['settings-change-requests'] });
+      toast.success(
+        result === 'requested'
+          ? '관리자 승인 요청으로 등록되었습니다.'
+          : '점심시간 찍찍이 반응이 저장되었습니다.',
+      );
+    },
+    onError: (error: Error) => toast.error('점심 반응 저장 실패: ' + error.message),
+  });
+
+  const previewLunchReaction = () => {
+    triggerHamzzi('lunch_time', {
+      message: lunchDraft.message.trim() || DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.message,
+      description: '관리자 미리보기',
+      durationMs: 6600,
+    });
+    toast.success('우측 하단에서 점심 찍찍이 미리보기를 재생합니다.');
+  };
+
   const updateKnowledgeItem = useMutation({
     mutationFn: async ({ id, draft }: { id: string; draft: KnowledgeDraft }) => {
       const title = draft.title.trim();
@@ -395,7 +500,7 @@ const ResponseAssistantManagementPage = () => {
     }
   };
 
-  if (loading || settingLoading || iconSettingLoading) {
+  if (loading || settingLoading || iconSettingLoading || lunchSettingLoading) {
     return (
       <PageShell maxWidth="5xl">
         <div className="flex min-h-[50vh] items-center justify-center">
@@ -556,6 +661,104 @@ const ResponseAssistantManagementPage = () => {
               >
                 {saveIcon.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 {requiresApproval ? '승인 요청' : '아이콘 저장'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-white/60 bg-card/80">
+            <CardHeader className="border-b">
+              <BrandedCardHeader
+                icon={Utensils}
+                title="점심시간 찍찍이"
+                subtitle="지정 시간에 우측 하단에서 점심 반응을 하루 1회 표시합니다."
+                meta={lunchChanged ? <Badge className="bg-amber-500 text-white">수정 중</Badge> : <Badge variant="outline">저장됨</Badge>}
+              />
+            </CardHeader>
+            <CardContent className="space-y-4 p-5">
+              <div className="relative h-48 overflow-hidden rounded-2xl border bg-gradient-to-b from-white to-amber-50/60">
+                <img
+                  src={jjikjjikiLunchSpeechSticker}
+                  alt=""
+                  className="absolute left-4 top-4 z-10 w-40 rotate-[-2deg] drop-shadow-[0_10px_14px_rgba(15,23,42,0.16)]"
+                />
+                <img
+                  src={jjikjjikiLunchCelebration}
+                  alt=""
+                  className="absolute bottom-0 right-3 h-44 w-auto drop-shadow-[0_14px_20px_rgba(15,23,42,0.18)]"
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
+                <div>
+                  <Label className="text-xs">자동 표시</Label>
+                  <p className="mt-1 text-[11px] text-muted-foreground">끄면 점심 시간대 자동 반응을 띄우지 않습니다.</p>
+                </div>
+                <Switch
+                  checked={lunchDraft.enabled}
+                  onCheckedChange={(checked) => setLunchDraft((current) => ({ ...current, enabled: checked }))}
+                />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="jjikjjiki-lunch-start" className="text-xs">시작 시간</Label>
+                  <Input
+                    id="jjikjjiki-lunch-start"
+                    type="time"
+                    value={lunchDraft.startTime}
+                    onChange={(event) => setLunchDraft((current) => ({ ...current, startTime: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="jjikjjiki-lunch-end" className="text-xs">종료 시간</Label>
+                  <Input
+                    id="jjikjjiki-lunch-end"
+                    type="time"
+                    value={lunchDraft.endTime}
+                    onChange={(event) => setLunchDraft((current) => ({ ...current, endTime: event.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="jjikjjiki-lunch-message" className="text-xs">접근성/알림 문구</Label>
+                <Input
+                  id="jjikjjiki-lunch-message"
+                  value={lunchDraft.message}
+                  onChange={(event) => setLunchDraft((current) => ({ ...current, message: event.target.value }))}
+                  placeholder={DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.message}
+                />
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setLunchDraft(DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS)}
+                  className="gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  기본값
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={previewLunchReaction}
+                  className="gap-2"
+                >
+                  <Play className="h-4 w-4" />
+                  미리보기
+                </Button>
+              </div>
+
+              <Button
+                type="button"
+                onClick={() => saveLunchReaction.mutate()}
+                disabled={saveLunchReaction.isPending || !lunchChanged}
+                className="w-full gap-2"
+              >
+                {saveLunchReaction.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {requiresApproval ? '승인 요청' : '점심 반응 저장'}
               </Button>
             </CardContent>
           </Card>
