@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calculator, Home as HomeIcon, Camera, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, FolderOpen, Package, Receipt, Landmark, Palette, Images, Loader2, Sparkles } from "lucide-react";
+import { Calculator, Home as HomeIcon, Camera, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, FolderOpen, Package, Receipt, Landmark, Palette, Images, Loader2, Sparkles, Ruler } from "lucide-react";
 import LoginScreen from '@/components/LoginScreen';
 import DashboardCalendarPanel from '@/components/dashboard/DashboardCalendarPanel';
 import DashboardQuickLinksSection, { type DashboardQuickLinkItem } from '@/components/dashboard/DashboardQuickLinksSection';
@@ -13,6 +13,7 @@ import TodayWorkCard from '@/components/TodayWorkCard';
 import ChannelTalkInquiryCard from '@/components/ChannelTalkInquiryCard';
 import DashboardQuoteFollowUpCard from '@/components/DashboardQuoteFollowUpCard';
 import DashboardPortfolioQuickSearchCard from '@/components/DashboardPortfolioQuickSearchCard';
+import DashboardPanelSizeComparisonCard from '@/components/dashboard/DashboardPanelSizeComparisonCard';
 
 import { useAuth } from '@/contexts/AuthContext';
 import TimeGreeting from '@/components/TimeGreeting';
@@ -121,6 +122,16 @@ const Home = () => {
     priority: 40,
     requiresAuth: true,
     action: () => navigate("/calculator?type=yield")
+  }, {
+    id: "panel-size-comparison",
+    title: "원판 사이즈 비교",
+    icon: Ruler,
+    description: "재질별 원판 규격 비교",
+    path: "/panel-size-comparison",
+    category: "quote-project",
+    priority: 45,
+    requiresAuth: true,
+    action: () => navigate("/panel-size-comparison")
   }, {
     id: "quote-calculator",
     title: "견적 계산기",
@@ -360,8 +371,9 @@ const Home = () => {
               <ChannelTalkInquiryCard />
             </div>
             <DashboardCalendarPanel />
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
               <DashboardPortfolioQuickSearchCard />
+              <DashboardPanelSizeComparisonCard />
               <ActivityFeedCard />
               <ProjectProgressCard />
             </div>

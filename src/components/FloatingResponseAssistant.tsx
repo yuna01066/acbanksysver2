@@ -1,22 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, HelpCircle, X } from 'lucide-react';
 import { toast } from 'sonner';
-import hamzziCelebration from '@/assets/hamzzi/hamzzi_celebration.png';
-import hamzziCheck from '@/assets/hamzzi/hamzzi_check.png';
-import hamzziCoffee from '@/assets/hamzzi/hamzzi_coffee.png';
-import hamzziQuoteStreak from '@/assets/hamzzi/hamzzi_quote_streak.png';
-import hamzziSleepy from '@/assets/hamzzi/hamzzi_sleepy.png';
-import hamzziThinking from '@/assets/hamzzi/hamzzi_thinking.png';
-import acriHeadsetBubbleSpritesheet from '@/assets/hamzzi/acri-headset-bubble-loop-spritesheet.webp';
-import acriRedPencilCheckSpritesheet from '@/assets/hamzzi/acri-red-pencil-check-spritesheet.webp';
-import acriWizardMagicSpritesheet from '@/assets/hamzzi/acri-wizard-magic-loop-spritesheet.webp';
+import jjikjjikiBase from '@/assets/hamzzi/jjikjjiki-base.png';
+import jjikjjikiPeekRight from '@/assets/hamzzi/jjikjjiki-flow-peek-right.png';
+import jjikjjikiHeadTilt from '@/assets/hamzzi/jjikjjiki-head-tilt-expression-256.png';
+import jjikjjikiHoverBubbleSticker from '@/assets/hamzzi/jjikjjiki-hover-bubble-sticker.png';
+import jjikjjikiHoverEasterEggSticker from '@/assets/hamzzi/jjikjjiki-hover-easter-egg-sticker.png';
+import jjikjjikiPopupChoiceSticker from '@/assets/hamzzi/jjikjjiki-popup-choice-sticker.png';
+import jjikjjikiStartSticker from '@/assets/hamzzi/jjikjjiki-start-sticker.png';
+import jjikjjikiSurprised from '@/assets/hamzzi/jjikjjiki-surprised-expression-256.png';
+import jjikjjikiVerySurprised from '@/assets/hamzzi/jjikjjiki-very-surprised-expression-256.png';
+import jjikjjikiWalkOutSpritesheet from '@/assets/hamzzi/jjikjjiki-walk-out-spritesheet.webp';
 import iconLunch from '@/assets/hamzzi/icon_lunch.png';
 import iconNight from '@/assets/hamzzi/icon_night.png';
 import iconParty from '@/assets/hamzzi/icon_party.png';
-import defaultResponseAssistantIcon from '@/assets/response-assistant-default-icon.png';
-import responseAssistantSpeechBubble from '@/assets/response-assistant-speech-bubble.png';
 import AssistantHomePanel from '@/components/assistant/AssistantHomePanel';
 import { Button } from '@/components/ui/button';
 import MeetingBookingWidget from '@/components/MeetingBookingWidget';
@@ -29,7 +27,6 @@ import {
   type AssistantEmbeddedTool,
   type AssistantShortcutItem,
 } from '@/hooks/useAssistantShortcuts';
-import { supabase } from '@/integrations/supabase/client';
 import {
   HAMZZI_EVENT_NAME,
   registerHamzziLauncherClick,
@@ -37,7 +34,6 @@ import {
   type HamzziEventDetail,
   type HamzziEventType,
 } from '@/lib/hamzziEvents';
-import { RESPONSE_ASSISTANT_ICON_SETTING_KEY } from '@/lib/responseAssistantDefaults';
 import { cn } from '@/lib/utils';
 
 const HIDDEN_PATHS = [
@@ -53,6 +49,7 @@ const FLOATING_RESPONSE_ASSISTANT_OPEN_KEY = 'acbank:floating-response-assistant
 
 type AssistantTool = 'menu' | AssistantEmbeddedTool;
 type SpecialistTool = AssistantEmbeddedTool;
+type LauncherPhase = 'idle' | 'walkingOut';
 
 type HamzziReactionConfig = {
   image: string;
@@ -63,17 +60,19 @@ type HamzziReactionConfig = {
 
 type HamzziSpriteConfig = {
   image: string;
-  frameWidth: number;
-  frameHeight: number;
   displayWidth: number;
   displayHeight: number;
   className: string;
   label: string;
 };
 
+type HamzziReactionState = HamzziEventDetail & {
+  id: number;
+};
+
 const TOOL_META: Record<AssistantTool, { title: string; description: string }> = {
   menu: {
-    title: '햄찌 도우미',
+    title: '찍찍이 도우미',
     description: '오늘 할 일 · 개인 바로가기',
   },
   responseAssistant: {
@@ -92,58 +91,58 @@ const TOOL_META: Record<AssistantTool, { title: string; description: string }> =
 
 const HAMZZI_REACTION_CONFIG: Record<HamzziEventType, HamzziReactionConfig> = {
   quote_issued: {
-    image: hamzziCelebration,
+    image: jjikjjikiSurprised,
     badge: iconParty,
     fallbackMessage: '견적서 발행 완료. 오늘도 한 건 처리했습니다.',
     toneClass: 'border-blue-100 bg-white/95',
   },
   quote_streak_5: {
-    image: hamzziQuoteStreak,
+    image: jjikjjikiVerySurprised,
     badge: iconParty,
     fallbackMessage: '오늘 견적 페이스 좋습니다.',
     toneClass: 'border-amber-100 bg-white/95',
   },
   attendance_check_in: {
-    image: hamzziCheck,
+    image: jjikjjikiBase,
     fallbackMessage: '출근 기록 완료. 오늘 업무 시작합니다.',
     toneClass: 'border-emerald-100 bg-white/95',
   },
   attendance_check_out: {
-    image: hamzziSleepy,
+    image: jjikjjikiHeadTilt,
     fallbackMessage: '퇴근 기록 완료. 오늘 기록 저장됐습니다.',
     toneClass: 'border-slate-100 bg-white/95',
   },
   lunch_time: {
-    image: hamzziCoffee,
+    image: jjikjjikiBase,
     badge: iconLunch,
     fallbackMessage: '점심시간입니다. 잠깐 쉬어가세요.',
     toneClass: 'border-orange-100 bg-white/95',
   },
   late_night: {
-    image: hamzziSleepy,
+    image: jjikjjikiHeadTilt,
     badge: iconNight,
     fallbackMessage: '늦은 시간입니다. 마무리할 업무만 확인하세요.',
     toneClass: 'border-indigo-100 bg-white/95',
   },
   hidden_click: {
-    image: hamzziThinking,
-    fallbackMessage: '숨겨진 햄찌 반응을 찾았습니다.',
+    image: jjikjjikiVerySurprised,
+    fallbackMessage: '숨겨진 찍찍이 반응을 찾았습니다.',
     toneClass: 'border-violet-100 bg-white/95',
   },
   work_complete: {
-    image: hamzziCheck,
+    image: jjikjjikiBase,
     badge: iconParty,
     fallbackMessage: '오늘 근무 흐름이 완료됐습니다.',
     toneClass: 'border-zinc-200 bg-white/95',
   },
   delivery_complete: {
-    image: hamzziCelebration,
+    image: jjikjjikiSurprised,
     badge: iconParty,
     fallbackMessage: '납기 완료 처리됐습니다.',
     toneClass: 'border-emerald-100 bg-white/95',
   },
   dashboard_checkpoint: {
-    image: hamzziThinking,
+    image: jjikjjikiHeadTilt,
     fallbackMessage: '오늘 체크포인트를 열었습니다.',
     toneClass: 'border-slate-200 bg-white/95',
   },
@@ -151,35 +150,46 @@ const HAMZZI_REACTION_CONFIG: Record<HamzziEventType, HamzziReactionConfig> = {
 
 const HAMZZI_TOOL_SPRITES: Record<SpecialistTool, HamzziSpriteConfig> = {
   responseAssistant: {
-    image: acriHeadsetBubbleSpritesheet,
-    frameWidth: 320,
-    frameHeight: 256,
-    displayWidth: 136,
-    displayHeight: 109,
-    className: '-bottom-3 -right-2',
-    label: '헤드셋 햄찌',
+    image: jjikjjikiHeadTilt,
+    displayWidth: 92,
+    displayHeight: 92,
+    className: '-bottom-1 -right-1',
+    label: '상담 찍찍이',
   },
   quoteWizard: {
-    image: acriWizardMagicSpritesheet,
-    frameWidth: 256,
-    frameHeight: 256,
-    displayWidth: 96,
-    displayHeight: 96,
+    image: jjikjjikiSurprised,
+    displayWidth: 92,
+    displayHeight: 92,
     className: '-bottom-1 -right-1',
-    label: '마법사 햄찌',
+    label: '견적 찍찍이',
   },
   meetingBooking: {
-    image: acriRedPencilCheckSpritesheet,
-    frameWidth: 320,
-    frameHeight: 256,
-    displayWidth: 136,
-    displayHeight: 109,
-    className: '-bottom-3 -right-2',
-    label: '예약 체크 햄찌',
+    image: jjikjjikiBase,
+    displayWidth: 92,
+    displayHeight: 92,
+    className: '-bottom-1 -right-1',
+    label: '예약 찍찍이',
   },
 };
 
 const TOOL_TRANSITION_MS = 620;
+const LAUNCHER_WALK_DURATION_MS = 1560;
+const LAUNCHER_MENU_OPEN_DELAY_MS = 3000;
+const LAUNCHER_WALK_FRAME_DISPLAY = 132;
+const LAUNCHER_WALK_FRAME_COUNT = 21;
+const LAUNCHER_WALK_CSS_STEPS = 20;
+const LAUNCHER_EASTER_EGG_HOVER_THRESHOLD = 5;
+const LAUNCHER_EASTER_EGG_DISPLAY_MS = 1800;
+const LAUNCHER_WALK_STAGE_STYLE = {
+  '--hamzzi-launcher-walk-size': `${LAUNCHER_WALK_FRAME_DISPLAY}px`,
+  '--hamzzi-launcher-walk-sheet-width': `${LAUNCHER_WALK_FRAME_DISPLAY * LAUNCHER_WALK_FRAME_COUNT}px`,
+  '--hamzzi-launcher-walk-end-x': `${-LAUNCHER_WALK_FRAME_DISPLAY * LAUNCHER_WALK_CSS_STEPS}px`,
+  '--hamzzi-launcher-walk-duration': `${LAUNCHER_WALK_DURATION_MS}ms`,
+  '--hamzzi-launcher-phase-duration': `${LAUNCHER_MENU_OPEN_DELAY_MS}ms`,
+} as React.CSSProperties;
+const LAUNCHER_WALK_SPRITE_STYLE = {
+  backgroundImage: `url(${jjikjjikiWalkOutSpritesheet})`,
+} as React.CSSProperties;
 
 const isHiddenPath = (pathname: string) => (
   HIDDEN_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
@@ -195,9 +205,13 @@ const readStoredOpenState = () => {
   }
 };
 
-const isSupportedIconValue = (value?: string | null) => (
-  typeof value === 'string'
-  && (/^data:image\/(png|jpe?g|webp|gif);base64,/.test(value) || value.startsWith('/'))
+const prefersReducedMotion = () => (
+  typeof window !== 'undefined'
+  && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+);
+
+const isSpecialistTool = (tool: AssistantTool): tool is SpecialistTool => (
+  tool !== 'menu'
 );
 
 const FloatingResponseAssistant: React.FC = () => {
@@ -207,46 +221,46 @@ const FloatingResponseAssistant: React.FC = () => {
   const [open, setOpen] = useState(readStoredOpenState);
   const [activeTool, setActiveTool] = useState<AssistantTool>('menu');
   const [guideOpenSignal, setGuideOpenSignal] = useState(0);
-  const [launcherHintVisible, setLauncherHintVisible] = useState(false);
+  const [launcherPhase, setLauncherPhase] = useState<LauncherPhase>('idle');
   const [transitionTool, setTransitionTool] = useState<SpecialistTool | null>(null);
-  const [hamzziReaction, setHamzziReaction] = useState<(HamzziEventDetail & { id: number }) | null>(null);
+  const [hamzziReaction, setHamzziReaction] = useState<HamzziReactionState | null>(null);
+  const [launcherHoverCount, setLauncherHoverCount] = useState(0);
+  const [showLauncherEasterEgg, setShowLauncherEasterEgg] = useState(false);
   const hamzziTimerRef = useRef<number | null>(null);
+  const launcherTimerRef = useRef<number | null>(null);
+  const launcherEasterEggTimerRef = useRef<number | null>(null);
   const toolTransitionTimerRef = useRef<number | null>(null);
 
   const isHidden = isHiddenPath(location.pathname);
   const hamzziReactionConfig = hamzziReaction ? HAMZZI_REACTION_CONFIG[hamzziReaction.type] : null;
   const showHamzziReaction = Boolean(hamzziReaction && hamzziReactionConfig);
-  const showLauncherHint = launcherHintVisible && !open && !showHamzziReaction;
-  const { data: iconSetting } = useQuery({
-    queryKey: ['response-assistant-launcher-icon'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('response_assistant_settings')
-        .select('value')
-        .eq('key', RESPONSE_ASSISTANT_ICON_SETTING_KEY)
-        .maybeSingle();
-      if (error) throw error;
-      return data?.value || '';
-    },
-    enabled: !!user,
-    staleTime: 1000 * 60 * 5,
-  });
-  const responseAssistantIcon = isSupportedIconValue(iconSetting) ? iconSetting : defaultResponseAssistantIcon;
+  const launcherIcon = open ? jjikjjikiHeadTilt : jjikjjikiPeekRight;
+  const showLauncherWalkOut = !open && launcherPhase === 'walkingOut';
   const toolMeta = TOOL_META[activeTool];
-  const activeSpriteTool = transitionTool ?? (activeTool === 'menu' ? null : activeTool);
+  const activeSpriteTool = transitionTool ?? (isSpecialistTool(activeTool) ? activeTool : null);
   const assistantRole = useMemo(
     () => getAssistantRole(isAdmin, isModerator, isManager),
     [isAdmin, isManager, isModerator],
   );
 
   const closeAssistant = () => {
+    if (launcherTimerRef.current) {
+      window.clearTimeout(launcherTimerRef.current);
+      launcherTimerRef.current = null;
+    }
+    if (launcherEasterEggTimerRef.current) {
+      window.clearTimeout(launcherEasterEggTimerRef.current);
+      launcherEasterEggTimerRef.current = null;
+    }
     if (toolTransitionTimerRef.current) {
       window.clearTimeout(toolTransitionTimerRef.current);
       toolTransitionTimerRef.current = null;
     }
     setOpen(false);
     setActiveTool('menu');
+    setLauncherPhase('idle');
     setTransitionTool(null);
+    setShowLauncherEasterEgg(false);
   };
 
   const returnToToolMenu = () => {
@@ -262,7 +276,6 @@ const FloatingResponseAssistant: React.FC = () => {
     if (toolTransitionTimerRef.current) {
       window.clearTimeout(toolTransitionTimerRef.current);
     }
-    setLauncherHintVisible(false);
     setTransitionTool(tool);
     setActiveTool('menu');
     toolTransitionTimerRef.current = window.setTimeout(() => {
@@ -273,13 +286,47 @@ const FloatingResponseAssistant: React.FC = () => {
   };
 
   const handleLauncherClick = () => {
+    if (launcherPhase === 'walkingOut') return;
+
     registerHamzziLauncherClick();
     if (open) {
       closeAssistant();
       return;
     }
+
     setActiveTool('menu');
-    setOpen(true);
+
+    if (prefersReducedMotion()) {
+      setOpen(true);
+      return;
+    }
+
+    setLauncherPhase('walkingOut');
+    launcherTimerRef.current = window.setTimeout(() => {
+      setOpen(true);
+      setLauncherPhase('idle');
+      launcherTimerRef.current = null;
+    }, LAUNCHER_MENU_OPEN_DELAY_MS);
+  };
+
+  const handleLauncherHover = () => {
+    if (open || showLauncherWalkOut || activeSpriteTool || showHamzziReaction) return;
+
+    setLauncherHoverCount((count) => {
+      const nextCount = count + 1;
+      if (nextCount < LAUNCHER_EASTER_EGG_HOVER_THRESHOLD) return nextCount;
+
+      if (launcherEasterEggTimerRef.current) {
+        window.clearTimeout(launcherEasterEggTimerRef.current);
+      }
+      setShowLauncherEasterEgg(true);
+      launcherEasterEggTimerRef.current = window.setTimeout(() => {
+        setShowLauncherEasterEgg(false);
+        launcherEasterEggTimerRef.current = null;
+      }, LAUNCHER_EASTER_EGG_DISPLAY_MS);
+
+      return 0;
+    });
   };
 
   const openQuoteWizardFullPage = isAdmin ? () => {
@@ -294,7 +341,6 @@ const FloatingResponseAssistant: React.FC = () => {
       return;
     }
 
-    setLauncherHintVisible(false);
     if (shortcut.target === 'tool' && shortcut.tool) {
       handleToolSelect(shortcut.tool);
       return;
@@ -326,7 +372,10 @@ const FloatingResponseAssistant: React.FC = () => {
         window.clearTimeout(hamzziTimerRef.current);
       }
 
-      setHamzziReaction({ ...detail, id: Date.now() });
+      setHamzziReaction({
+        ...detail,
+        id: Date.now(),
+      });
       hamzziTimerRef.current = window.setTimeout(() => {
         setHamzziReaction(null);
         hamzziTimerRef.current = null;
@@ -337,6 +386,8 @@ const FloatingResponseAssistant: React.FC = () => {
     return () => {
       window.removeEventListener(HAMZZI_EVENT_NAME, handleHamzziEvent);
       if (hamzziTimerRef.current) window.clearTimeout(hamzziTimerRef.current);
+      if (launcherTimerRef.current) window.clearTimeout(launcherTimerRef.current);
+      if (launcherEasterEggTimerRef.current) window.clearTimeout(launcherEasterEggTimerRef.current);
       if (toolTransitionTimerRef.current) window.clearTimeout(toolTransitionTimerRef.current);
     };
   }, []);
@@ -350,7 +401,7 @@ const FloatingResponseAssistant: React.FC = () => {
   if (loading || !user || isHidden) return null;
 
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-40 print:hidden sm:bottom-6 sm:right-6">
+    <div className="pointer-events-none fixed bottom-4 right-0 z-40 print:hidden sm:bottom-6 sm:right-0">
       {open && (
         <div className="pointer-events-auto mb-3 origin-bottom-right translate-y-0 scale-100 opacity-100 transition-all duration-200">
           <section className="flex h-[min(720px,calc(100vh-118px))] w-[min(460px,calc(100vw-24px))] flex-col overflow-hidden rounded-[28px] border border-[#dedede] bg-white shadow-[0_18px_58px_rgba(0,0,0,0.22)]">
@@ -369,7 +420,7 @@ const FloatingResponseAssistant: React.FC = () => {
                   </Button>
                 )}
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center">
-                  <img src={responseAssistantIcon} alt="" className="h-10 w-10 object-contain drop-shadow-sm" />
+                  <img src={jjikjjikiHeadTilt} alt="" className="h-10 w-10 object-contain drop-shadow-sm" />
                 </span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-black leading-tight text-[#111111]">
@@ -399,7 +450,7 @@ const FloatingResponseAssistant: React.FC = () => {
                   size="icon"
                   onClick={closeAssistant}
                   className="h-8 w-8 rounded-full text-[#707072] hover:bg-[#f5f5f5]"
-                  aria-label="햄찌 도우미 닫기"
+                  aria-label="찍찍이 도우미 닫기"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -443,13 +494,7 @@ const FloatingResponseAssistant: React.FC = () => {
         </div>
       )}
 
-      <div
-        className="pointer-events-auto group relative ml-auto flex h-[88px] w-[88px] items-center justify-center"
-        onMouseEnter={() => setLauncherHintVisible(true)}
-        onMouseLeave={() => setLauncherHintVisible(false)}
-        onFocus={() => setLauncherHintVisible(true)}
-        onBlur={() => setLauncherHintVisible(false)}
-      >
+      <div className="pointer-events-auto group relative ml-auto flex h-[88px] w-[88px] items-center justify-center">
         {showHamzziReaction && hamzziReaction && hamzziReactionConfig && (
           <div
             key={hamzziReaction.id}
@@ -488,53 +533,79 @@ const FloatingResponseAssistant: React.FC = () => {
           </div>
         )}
 
-        <div
-          className={cn(
-            'pointer-events-none absolute bottom-[42px] right-[44px] z-10 h-[120px] w-[150px] origin-bottom-right transition-all duration-300 ease-out group-hover:translate-x-0 group-hover:scale-100 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:scale-100 group-focus-within:opacity-100',
-            showLauncherHint ? 'translate-x-0 scale-100 opacity-100' : 'translate-x-3 scale-95 opacity-0',
-            open && 'hidden',
-          )}
-          aria-hidden="true"
-        >
-          <img
-            src={responseAssistantSpeechBubble}
-            alt=""
-            className="absolute inset-0 h-full w-full object-fill drop-shadow-[0_12px_20px_rgba(0,0,0,0.08)]"
-          />
-          <span
-            className={cn(
-              'absolute left-2.5 right-6 top-[41px] block origin-left whitespace-nowrap text-center text-[10px] font-normal leading-none text-[#111111] transition-all delay-100 duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100',
-              showLauncherHint ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
-            )}
-          >
-            어떤 업무를 도와드릴까요?
-          </span>
-        </div>
-
         <button
           type="button"
           onClick={handleLauncherClick}
-          className={cn(
-            'relative z-20 flex h-[88px] w-[88px] items-center justify-center overflow-visible bg-transparent p-0 transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-0 active:scale-95',
-            open && 'scale-95',
-          )}
-          aria-label={open ? '햄찌 도우미 닫기' : '햄찌 도우미 열기'}
+          onMouseEnter={handleLauncherHover}
+          onFocus={handleLauncherHover}
+          disabled={launcherPhase === 'walkingOut'}
+          className="jjikjjiki-launcher-button group relative z-20 flex h-[104px] w-[104px] items-center justify-center overflow-visible bg-transparent p-0 transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-0 active:scale-95"
+          aria-label={open ? '찍찍이 도우미 닫기' : launcherPhase === 'walkingOut' ? '찍찍이가 걸어나오는 중' : '찍찍이 도우미 열기'}
         >
+          {!open && !showLauncherWalkOut && !activeSpriteTool && (
+            <img
+              src={jjikjjikiHoverBubbleSticker}
+              alt=""
+              className="jjikjjiki-launcher-hover-bubble"
+              aria-hidden="true"
+            />
+          )}
+          {showLauncherEasterEgg && !open && !showLauncherWalkOut && !activeSpriteTool && (
+            <img
+              src={jjikjjikiHoverEasterEggSticker}
+              alt=""
+              className="jjikjjiki-launcher-easter-egg-sticker"
+              aria-hidden="true"
+            />
+          )}
+          {open && !showLauncherWalkOut && !activeSpriteTool && (
+            <img
+              src={jjikjjikiPopupChoiceSticker}
+              alt=""
+              className="jjikjjiki-popup-choice-sticker"
+              aria-hidden="true"
+            />
+          )}
           <span
             className={cn(
               'absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out',
               activeSpriteTool ? 'translate-x-10 scale-90 opacity-0' : 'translate-x-0 scale-100 opacity-100',
               transitionTool && 'hamzzi-helper-default-exit',
+              showLauncherWalkOut && 'hamzzi-launcher-walk-out',
             )}
           >
-            <img
-              src={responseAssistantIcon}
-              alt=""
-              className={cn(
-                'h-[82px] w-[74px] object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.24)] transition-transform',
-                showLauncherHint && 'scale-105',
-              )}
-            />
+            {showLauncherWalkOut ? (
+              <span
+                className="jjikjjiki-walk-out-stage -translate-x-14"
+                style={LAUNCHER_WALK_STAGE_STYLE}
+                aria-hidden="true"
+              >
+                <span className="jjikjjiki-walk-out" style={LAUNCHER_WALK_SPRITE_STYLE} />
+                <img
+                  src={jjikjjikiStartSticker}
+                  alt=""
+                  className="jjikjjiki-walk-start-sticker"
+                  aria-hidden="true"
+                />
+                <img
+                  src={jjikjjikiHeadTilt}
+                  alt=""
+                  className="jjikjjiki-walk-tilt-reveal"
+                  aria-hidden="true"
+                />
+              </span>
+            ) : (
+              <img
+                src={launcherIcon}
+                alt=""
+                className={cn(
+                  'object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.24)] transition-transform',
+                  open
+                    ? 'h-[146px] w-[146px] max-w-none -translate-x-4 -translate-y-5'
+                    : 'h-[112px] w-[106px] max-w-none -translate-x-3 -translate-y-2 object-right group-hover:scale-[1.08] group-focus:scale-[1.08] group-focus-visible:scale-[1.08]',
+                )}
+              />
+            )}
           </span>
           {activeSpriteTool && (
             <HamzziToolSprite
@@ -551,13 +622,6 @@ const FloatingResponseAssistant: React.FC = () => {
 
 const HamzziToolSprite = ({ tool, entering }: { tool: SpecialistTool; entering: boolean }) => {
   const config = HAMZZI_TOOL_SPRITES[tool];
-  const spriteStyle = {
-    '--hamzzi-helper-frame-width': `${config.displayWidth}px`,
-    '--hamzzi-helper-frame-height': `${config.displayHeight}px`,
-    '--hamzzi-helper-sheet-width': `${config.displayWidth * 8}px`,
-    '--hamzzi-helper-end-x': `${-config.displayWidth * 8}px`,
-    backgroundImage: `url(${config.image})`,
-  } as React.CSSProperties;
 
   return (
     <span
@@ -578,7 +642,12 @@ const HamzziToolSprite = ({ tool, entering }: { tool: SpecialistTool; entering: 
           aria-hidden="true"
         />
       )}
-      <span className="hamzzi-helper-sprite-frame" style={spriteStyle} />
+      <img
+        src={config.image}
+        alt=""
+        className="object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.22)]"
+        style={{ width: config.displayWidth, height: config.displayHeight }}
+      />
     </span>
   );
 };

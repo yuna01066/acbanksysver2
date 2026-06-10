@@ -14,7 +14,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import defaultResponseAssistantIcon from '@/assets/response-assistant-default-icon.png';
+import jjikjjikiBase from '@/assets/hamzzi/jjikjjiki-base.png';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { createSettingsChangeRequest } from '@/services/settingsChangeRequests';
@@ -194,7 +194,7 @@ const ResponseAssistantManagementPage = () => {
   const instructionChanged = instructionDraft !== currentInstruction;
   const currentIcon = iconSetting?.value || '';
   const iconChanged = iconDraft !== currentIcon;
-  const iconPreview = iconDraft || defaultResponseAssistantIcon;
+  const iconPreview = iconDraft || jjikjjikiBase;
   const activeKnowledgeCount = useMemo(
     () => knowledgeItems.filter((item) => item.is_active).length,
     [knowledgeItems],
