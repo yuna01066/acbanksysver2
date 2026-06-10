@@ -220,6 +220,18 @@ const ADMIN_FEATURES: AdminFeatureItem[] = [
     path: '/embed-code',
   },
   {
+    id: 'branding-intakes',
+    title: '브랜딩 접수 관리',
+    description: '브랜딩 접수 위젯 문의와 고객용 안내문, 내부 산정 내역을 관리합니다.',
+    category: 'sales',
+    icon: Sparkles,
+    keywords: '브랜딩 접수 관리 예상금액 branding intake',
+    access: 'admin-or-moderator',
+    priority: 35,
+    path: '/branding-intakes',
+    badge: '브랜딩',
+  },
+  {
     id: 'meeting-reservations',
     title: '미팅 예약 관리',
     description: '직원/클라이언트 미팅 예약과 상담 일정을 운영합니다.',

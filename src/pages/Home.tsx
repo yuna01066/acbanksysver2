@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calculator, Home as HomeIcon, Camera, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, FolderOpen, Package, Receipt, Landmark, Palette, Images, Loader2 } from "lucide-react";
+import { Calculator, Home as HomeIcon, Camera, MessageCircle, MessageSquareText, FileText, BookOpen, FileSpreadsheet, Settings, TrendingUp, User, LogOut, Building2, FolderOpen, Package, Receipt, Landmark, Palette, Images, Loader2, Sparkles } from "lucide-react";
 import LoginScreen from '@/components/LoginScreen';
 import DashboardCalendarPanel from '@/components/dashboard/DashboardCalendarPanel';
 import DashboardQuickLinksSection, { type DashboardQuickLinkItem } from '@/components/dashboard/DashboardQuickLinksSection';
@@ -151,6 +151,26 @@ const Home = () => {
     priority: 10,
     requiresAuth: true,
     action: () => navigate("/client-consultation-widget?source=imweb-acbankform")
+  }, {
+    id: "branding-intake-widget",
+    title: "브랜딩 접수 위젯",
+    icon: Sparkles,
+    description: "브랜딩 예상금액 접수",
+    path: "/branding-intake-widget",
+    category: "external",
+    priority: 20,
+    requiresAuth: true,
+    action: () => navigate("/branding-intake-widget")
+  }, {
+    id: "branding-intakes",
+    title: "브랜딩 접수함",
+    icon: Sparkles,
+    description: "브랜딩 문의 관리",
+    path: "/branding-intakes",
+    category: "management",
+    priority: 15,
+    requiresAuth: true,
+    action: () => navigate("/branding-intakes")
   }, {
     id: "channel-talk-leads",
     title: "채널톡 문의 분석함",

@@ -27,6 +27,8 @@ const CustomerQuotesSummaryPage = lazy(() => import("./pages/CustomerQuotesSumma
 const InternalQuotePage = lazy(() => import("./pages/InternalQuotePage"));
 const EmbedCodePage = lazy(() => import("./pages/EmbedCodePage"));
 const ClientConsultationWidgetPage = lazy(() => import("./pages/ClientConsultationWidgetPage"));
+const BrandingIntakeWidgetPage = lazy(() => import("./pages/BrandingIntakeWidgetPage"));
+const BrandingIntakesPage = lazy(() => import("./pages/BrandingIntakesPage"));
 const AdminSettingsPage = lazy(() => import("./pages/AdminSettingsPage"));
 const PriceManagement = lazy(() => import("./pages/PriceManagement"));
 const PanelManagementPage = lazy(() => import("./pages/PanelManagementPage"));
@@ -86,7 +88,8 @@ const ProjectRouteRedirect = () => {
 const AppChrome = () => {
   const location = useLocation();
   const isClientConsultationWidget = location.pathname === "/client-consultation-widget";
-  if (isClientConsultationWidget) return null;
+  const isBrandingIntakeWidget = location.pathname === "/branding-intake-widget";
+  if (isClientConsultationWidget || isBrandingIntakeWidget) return null;
   return (
     <>
       <EmployeeOnlineHeartbeat />
@@ -117,6 +120,8 @@ const App = () => (
               <Route path="/internal-quote" element={<InternalQuotePage />} />
               <Route path="/embed-code" element={<EmbedCodePage />} />
               <Route path="/client-consultation-widget" element={<ClientConsultationWidgetPage />} />
+              <Route path="/branding-intake-widget" element={<BrandingIntakeWidgetPage />} />
+              <Route path="/branding-intakes" element={<G><BrandingIntakesPage /></G>} />
               <Route path="/admin-settings" element={<AdminSettingsPage />} />
               <Route path="/price-management" element={<PriceManagement />} />
               <Route path="/panel-management" element={<PanelManagementPage />} />
