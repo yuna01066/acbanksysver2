@@ -71,6 +71,7 @@ const ReviewHubPage = lazy(() => import("./pages/ReviewHubPage"));
 const ChannelTalkLeadsPage = lazy(() => import("./pages/ChannelTalkLeadsPage"));
 const ResponseAssistantPage = lazy(() => import("./pages/ResponseAssistantPage"));
 const ResponseAssistantManagementPage = lazy(() => import("./pages/ResponseAssistantManagementPage"));
+const ErrorLogsPage = lazy(() => import("./pages/ErrorLogsPage"));
 const queryClient = new QueryClient();
 
 const G: React.FC<{ children: React.ReactNode }> = ({ children }) => (
