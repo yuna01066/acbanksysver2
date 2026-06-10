@@ -2,6 +2,9 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { installGlobalErrorHandlers } from './lib/errorReporter';
+
+installGlobalErrorHandlers();
 
 const bootChannelTalk = () => {
   const pluginKey = import.meta.env.VITE_CHANNEL_TALK_PLUGIN_KEY as string | undefined;

@@ -12,6 +12,7 @@ import CompanySettingsGuard from "@/components/company/CompanySettingsGuard";
 import GlobalQuickNav from "@/components/GlobalQuickNav";
 import FloatingResponseAssistant from "@/components/FloatingResponseAssistant";
 import EmployeeOnlineHeartbeat from "@/components/EmployeeOnlineHeartbeat";
+import GlobalErrorBoundary from "@/components/GlobalErrorBoundary";
 
 // 즉시 로드 (항상 필요)
 import Index from "./pages/Index";
@@ -100,6 +101,7 @@ const AppChrome = () => {
 };
 
 const App = () => (
+  <GlobalErrorBoundary>
   <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -177,6 +179,7 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
   </ThemeProvider>
+  </GlobalErrorBoundary>
 );
 
 export default App;

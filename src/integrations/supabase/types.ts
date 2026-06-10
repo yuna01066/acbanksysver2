@@ -1815,6 +1815,42 @@ export type Database = {
           },
         ]
       }
+      client_error_logs: {
+        Row: {
+          context: Json | null
+          created_at: string
+          id: string
+          message: string
+          route: string | null
+          source: string | null
+          stack: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          message: string
+          route?: string | null
+          source?: string | null
+          stack?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          message?: string
+          route?: string | null
+          source?: string | null
+          stack?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       color_mixing_costs: {
         Row: {
           cost: number
