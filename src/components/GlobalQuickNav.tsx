@@ -56,6 +56,8 @@ const QUICK_NAV_ITEMS: QuickNavItem[] = [
   { title: '견적서 초안함', description: '여러 견적 초안 저장/발행', path: '/quote-drafts', group: '영업', keywords: '견적 초안 임시저장 draft quote', icon: FileText },
   { title: '발행 견적서', description: '저장된 견적서 검색/관리', path: '/saved-quotes', group: '영업', keywords: '발행 견적서 저장 quote saved', icon: FileSpreadsheet },
   { title: '클라이언트 상담폼', description: '아임웹 상담문의 위젯', path: '/client-consultation-widget?source=imweb-acbankform', group: '영업', keywords: '클라이언트 상담폼 상담 문의 아임웹 form consultation', icon: FileText },
+  { title: '브랜딩 접수 위젯', description: '브랜딩 예상금액 공개 접수', path: '/branding-intake-widget', group: '영업', keywords: '브랜딩 접수 위젯 예상금액 branding intake widget', icon: Sparkles },
+  { title: '브랜딩 접수함', description: '브랜딩 문의와 산정 내역 관리', path: '/branding-intakes', group: '영업', keywords: '브랜딩 접수함 산정 내역 branding intake admin', icon: Palette },
   { title: '고객사 관리', description: '거래처와 담당자 정보', path: '/recipients', group: '영업', keywords: '거래처 고객사 담당자 client recipient', icon: Building2 },
   { title: '프로젝트 관리', description: '견적·거래처·발주 연결', path: '/project-management', group: '업무', keywords: '프로젝트 프로젝트관리 project', icon: FolderOpen },
   { title: '원판 발주 관리', description: '자재 발주 내역', path: '/material-orders', group: '업무', keywords: '원판 발주 자재 material order', icon: Package },
