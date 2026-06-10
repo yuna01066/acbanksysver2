@@ -157,7 +157,7 @@ export const registerHamzziLauncherClick = () => {
       // Ignore storage failures in restricted browser modes.
     }
     triggerHamzzi('hidden_click', {
-      message: '숨겨진 햄찌 반응을 찾았습니다.',
+      message: '숨겨진 찍찍이 반응을 찾았습니다.',
       durationMs: 5200,
     });
     return;

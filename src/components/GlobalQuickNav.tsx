@@ -15,6 +15,7 @@ import {
   Package,
   Palette,
   Receipt,
+  Ruler,
   Search,
   Settings,
   Sparkles,
@@ -52,6 +53,7 @@ type QuickNavItem = {
 const QUICK_NAV_ITEMS: QuickNavItem[] = [
   { title: '견적 계산기', description: '판재 견적 계산', path: '/calculator?type=quote', group: '영업', keywords: '견적 계산 단가 판재 quote calculator', icon: Calculator },
   { title: '수율 계산기', description: '원판 배치와 수율 확인', path: '/calculator?type=yield', group: '영업', keywords: '수율 네스팅 원판 yield nesting', icon: BarChart3 },
+  { title: '원판 사이즈 비교', description: '재질별 제작 가능 원판 축척 비교', path: '/panel-size-comparison', group: '영업', keywords: '원판 사이즈 비교 재질 두께 축척 panel size compare scale', icon: Ruler },
   { title: '견적 마법사', description: '도면 파일 분석과 임시 견적 초안', path: '/quote-wizard', group: '영업', keywords: '견적 마법사 도면 분석 파일 quote wizard drawing analyzer', icon: Sparkles, minRole: 'admin' },
   { title: '견적서 초안함', description: '여러 견적 초안 저장/발행', path: '/quote-drafts', group: '영업', keywords: '견적 초안 임시저장 draft quote', icon: FileText },
   { title: '발행 견적서', description: '저장된 견적서 검색/관리', path: '/saved-quotes', group: '영업', keywords: '발행 견적서 저장 quote saved', icon: FileSpreadsheet },

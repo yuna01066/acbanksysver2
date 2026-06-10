@@ -33,6 +33,7 @@ const BrandingIntakesPage = lazy(() => import("./pages/BrandingIntakesPage"));
 const AdminSettingsPage = lazy(() => import("./pages/AdminSettingsPage"));
 const PriceManagement = lazy(() => import("./pages/PriceManagement"));
 const PanelManagementPage = lazy(() => import("./pages/PanelManagementPage"));
+const PanelSizeComparisonPage = lazy(() => import("./pages/PanelSizeComparisonPage"));
 const ProcessingPriceManagement = lazy(() => import("./pages/ProcessingPriceManagement"));
 const SavedQuotesPage = lazy(() => import("./pages/SavedQuotesPage"));
 const SavedQuoteDetailPage = lazy(() => import("./pages/SavedQuoteDetailPage"));
@@ -91,7 +92,8 @@ const AppChrome = () => {
   const location = useLocation();
   const isClientConsultationWidget = location.pathname === "/client-consultation-widget";
   const isBrandingIntakeWidget = location.pathname === "/branding-intake-widget";
-  if (isClientConsultationWidget || isBrandingIntakeWidget) return null;
+  const isPanelSizeComparison = location.pathname === "/panel-size-comparison";
+  if (isClientConsultationWidget || isBrandingIntakeWidget || isPanelSizeComparison) return null;
   return (
     <>
       <EmployeeOnlineHeartbeat />
@@ -128,6 +130,7 @@ const App = () => (
               <Route path="/admin-settings" element={<AdminSettingsPage />} />
               <Route path="/price-management" element={<PriceManagement />} />
               <Route path="/panel-management" element={<PanelManagementPage />} />
+              <Route path="/panel-size-comparison" element={<G><PanelSizeComparisonPage /></G>} />
               <Route path="/processing-price-management" element={<ProcessingPriceManagement />} />
               <Route path="/saved-quotes" element={<G><SavedQuotesPage /></G>} />
               <Route path="/saved-quotes/:id" element={<G><SavedQuoteDetailPage /></G>} />
