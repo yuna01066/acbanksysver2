@@ -72,6 +72,7 @@ const ReviewHubPage = lazy(() => import("./pages/ReviewHubPage"));
 const ChannelTalkLeadsPage = lazy(() => import("./pages/ChannelTalkLeadsPage"));
 const ResponseAssistantPage = lazy(() => import("./pages/ResponseAssistantPage"));
 const ResponseAssistantManagementPage = lazy(() => import("./pages/ResponseAssistantManagementPage"));
+const JjikjjikiEventSettingsPage = lazy(() => import("./pages/JjikjjikiEventSettingsPage"));
 const ErrorLogsPage = lazy(() => import("./pages/ErrorLogsPage"));
 const queryClient = new QueryClient();
 
@@ -170,6 +171,7 @@ const App = () => (
               <Route path="/channel-talk-leads" element={<G><ChannelTalkLeadsPage /></G>} />
               <Route path="/response-assistant" element={<ResponseAssistantPage />} />
               <Route path="/response-assistant-management" element={<ResponseAssistantManagementPage />} />
+              <Route path="/jjikjjiki-event-settings" element={<JjikjjikiEventSettingsPage />} />
               <Route path="/space-quote" element={<G><SpaceProjectFormPage /></G>} />
               <Route path="/space-quotes" element={<G><SpaceProjectsListPage /></G>} />
               <Route path="/space-quotes/:id" element={<G><SpaceProjectDetailPage /></G>} />
