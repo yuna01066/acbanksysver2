@@ -35,7 +35,6 @@ import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAuth, ROLE_LABELS } from '@/contexts/AuthContext';
-import SecretEventManager from '@/components/admin/SecretEventManager';
 import SettingsChangeRequestsPanel from '@/components/admin/SettingsChangeRequestsPanel';
 import { PageHeader, PageShell } from '@/components/layout/PageLayout';
 import { isCompanyMasterEmail } from '@/lib/companyMaster';
@@ -43,7 +42,7 @@ import { cn } from '@/lib/utils';
 
 type AdminFeatureCategory = 'approval' | 'people' | 'quote' | 'sales' | 'system';
 type AdminFeatureAccess = 'admin-or-moderator' | 'admin' | 'master';
-type AdminFeatureDialog = 'settings-requests' | 'secret-event';
+type AdminFeatureDialog = 'settings-requests';
 
 type AdminFeatureItem = {
   id: string;
@@ -344,15 +343,15 @@ const ADMIN_FEATURES: AdminFeatureItem[] = [
     path: '/business-dashboard',
   },
   {
-    id: 'secret-event',
-    title: '시크릿 이벤트 관리',
-    description: '특정 시간/날짜에 표시되는 대시보드 메시지를 관리합니다.',
+    id: 'hamzzi-event-settings',
+    title: '찍찍이 이벤트 관리',
+    description: '점심시간, 성과 순간, 시크릿 반응에 표시되는 찍찍이 이벤트를 관리합니다.',
     category: 'system',
     icon: Sparkles,
-    keywords: '시크릿 이벤트 대시보드 메시지 secret event',
+    keywords: '찍찍이 이벤트 햄찌 점심시간 성과 반응 시크릿 이벤트 hamzzi jjikjjiki',
     access: 'admin',
     priority: 60,
-    dialog: 'secret-event',
+    path: '/response-assistant-management?section=hamzzi-events',
   },
   {
     id: 'error-logs',
@@ -431,7 +430,7 @@ const AdminSettingsPage = () => {
       return <SettingsChangeRequestsPanel />;
     }
 
-    return <SecretEventManager />;
+    return null;
   };
 
   const renderFeatureTile = (feature: AdminFeatureItem, compact = false) => {

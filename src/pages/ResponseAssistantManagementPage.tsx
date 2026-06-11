@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
@@ -166,8 +166,10 @@ function createLauncherIconDataUrl(file: File): Promise<string> {
 
 const ResponseAssistantManagementPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const iconInputRef = useRef<HTMLInputElement | null>(null);
+  const hamzziEventsSectionRef = useRef<HTMLDivElement | null>(null);
   const { user, userRole, isAdmin, isModerator, loading } = useAuth();
   const canManage = userRole === 'admin' || userRole === 'moderator' || isAdmin || isModerator;
   const requiresApproval = isModerator && !isAdmin;
@@ -181,6 +183,15 @@ const ResponseAssistantManagementPage = () => {
   useEffect(() => {
     if (!loading && !canManage) navigate('/admin-settings');
   }, [canManage, loading, navigate]);
+
+  useEffect(() => {
+    if (loading || !canManage) return;
+    if (searchParams.get('section') !== 'hamzzi-events') return;
+
+    window.setTimeout(() => {
+      hamzziEventsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+  }, [canManage, loading, searchParams]);
 
   const { data: setting, isLoading: settingLoading } = useQuery<ResponseAssistantSetting | null>({
     queryKey: ['response-assistant-setting', RESPONSE_ASSISTANT_SETTING_KEY],
@@ -720,7 +731,7 @@ const ResponseAssistantManagementPage = () => {
             </CardContent>
           </Card>
 
-          <Card className="border-white/60 bg-card/80">
+          <Card ref={hamzziEventsSectionRef} id="hamzzi-events" className="scroll-mt-24 border-white/60 bg-card/80">
             <CardHeader className="border-b">
               <BrandedCardHeader
                 icon={Sparkles}
