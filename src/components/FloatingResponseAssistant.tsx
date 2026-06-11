@@ -270,6 +270,7 @@ const FloatingResponseAssistant: React.FC = () => {
   const showHamzziReaction = Boolean(hamzziReaction && hamzziReactionConfig);
   const showLunchReaction = Boolean(showHamzziReaction && hamzziReaction?.type === 'lunch_time');
   const showQuoteIssuedReaction = Boolean(showHamzziReaction && hamzziReaction?.type === 'quote_issued');
+  const showStickerHamzziReaction = showLunchReaction || showQuoteIssuedReaction;
   const launcherIcon = open ? jjikjjikiHeadTilt : jjikjjikiPeekRight;
   const showLauncherWalkOut = !open && launcherPhase === 'walkingOut';
   const toolMeta = TOOL_META[activeTool];
