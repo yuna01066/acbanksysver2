@@ -351,7 +351,7 @@ const ADMIN_FEATURES: AdminFeatureItem[] = [
     keywords: '찍찍이 이벤트 햄찌 점심시간 성과 반응 시크릿 이벤트 hamzzi jjikjjiki',
     access: 'admin',
     priority: 60,
-    path: '/response-assistant-management?section=hamzzi-events',
+    path: '/jjikjjiki-event-settings',
   },
   {
     id: 'error-logs',
