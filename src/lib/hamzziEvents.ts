@@ -1,9 +1,3 @@
-import {
-  clockTimeToMinutes,
-  DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS,
-  type JjikjjikiLunchReactionSettings,
-} from '@/lib/responseAssistantDefaults';
-
 export const HAMZZI_EVENT_NAME = 'acbank:hamzzi';
 
 export type HamzziEventType =
@@ -23,11 +17,20 @@ export type HamzziEventDetail = {
   message?: string;
   description?: string;
   durationMs?: number;
+  preview?: boolean;
 };
 
-type TimedHamzziOptions = {
-  lunchReaction?: JjikjjikiLunchReactionSettings;
+type TimedHamzziSetting = {
+  enabled?: boolean;
+  start_time?: string;
+  end_time?: string;
+  message?: string;
+  description?: string;
+  duration_ms?: number;
+  once_per_day?: boolean;
 };
+
+type TimedHamzziSettings = Partial<Record<'lunch_time' | 'late_night', TimedHamzziSetting>>;
 
 const QUOTE_COUNT_PREFIX = 'acbank:hamzzi:quote-count:';
 const DAILY_FLAG_PREFIX = 'acbank:hamzzi:daily-flag:';
@@ -99,6 +102,49 @@ export const triggerDailyHamzzi = (
   return true;
 };
 
+const parseTimeToMinutes = (value: string | undefined, fallback: number) => {
+  if (!value) return fallback;
+  const [hour, minute = '0'] = value.split(':');
+  const parsedHour = Number(hour);
+  const parsedMinute = Number(minute);
+  if (!Number.isFinite(parsedHour) || !Number.isFinite(parsedMinute)) return fallback;
+  return Math.max(0, Math.min(23, parsedHour)) * 60 + Math.max(0, Math.min(59, parsedMinute));
+};
+
+const isWithinWindow = (minutes: number, start: number, end: number) => (
+  start <= end
+    ? minutes >= start && minutes < end
+    : minutes >= start || minutes < end
+);
+
+const triggerTimedEvent = (
+  eventKey: 'lunch_time' | 'late_night',
+  defaultWindow: { start: number; end: number },
+  fallback: { message: string; durationMs: number },
+  minutes: number,
+  date: Date,
+  setting?: TimedHamzziSetting,
+) => {
+  if (setting?.enabled === false) return false;
+
+  const start = parseTimeToMinutes(setting?.start_time, defaultWindow.start);
+  const end = parseTimeToMinutes(setting?.end_time, defaultWindow.end);
+  if (!isWithinWindow(minutes, start, end)) return false;
+
+  if (setting?.once_per_day !== false && !markDailyFlag(eventKey.replace('_', '-'), date)) {
+    return true;
+  }
+
+  triggerHamzzi(eventKey, {
+    message: setting?.message || fallback.message,
+    description: setting?.description,
+    durationMs: Number.isFinite(Number(setting?.duration_ms))
+      ? Number(setting?.duration_ms)
+      : fallback.durationMs,
+  });
+  return true;
+};
+
 export const triggerQuoteIssuedHamzzi = (issuedCount = 1, confirmedTodayCount?: number) => {
   const dateKey = getDateKey();
   const countKey = `${QUOTE_COUNT_PREFIX}${dateKey}`;
@@ -123,32 +169,28 @@ export const triggerQuoteIssuedHamzzi = (issuedCount = 1, confirmedTodayCount?: 
   });
 };
 
-export const triggerTimedHamzziIfNeeded = (date = new Date(), options: TimedHamzziOptions = {}) => {
+export const triggerTimedHamzziIfNeeded = (date = new Date(), settings?: TimedHamzziSettings) => {
   const minutes = date.getHours() * 60 + date.getMinutes();
-  const lunchReaction = options.lunchReaction || DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS;
-  const lunchStart = clockTimeToMinutes(
-    lunchReaction.startTime,
-    clockTimeToMinutes(DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.startTime, 11 * 60 + 30),
-  );
-  const lunchEnd = clockTimeToMinutes(
-    lunchReaction.endTime,
-    clockTimeToMinutes(DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.endTime, 13 * 60 + 30),
-  );
 
-  if (lunchReaction.enabled && minutes >= lunchStart && minutes < lunchEnd && markDailyFlag('lunch-time', date)) {
-    triggerHamzzi('lunch_time', {
-      message: lunchReaction.message.trim() || DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.message,
-      durationMs: 6600,
-    });
+  if (triggerTimedEvent(
+    'lunch_time',
+    { start: 11 * 60 + 30, end: 13 * 60 + 30 },
+    { message: '점심시간입니다. 잠깐 쉬어가세요.', durationMs: 6600 },
+    minutes,
+    date,
+    settings?.lunch_time,
+  )) {
     return;
   }
 
-  if (minutes >= 18 * 60 + 30 && minutes < 23 * 60 + 30 && markDailyFlag('late-night', date)) {
-    triggerHamzzi('late_night', {
-      message: '늦은 시간입니다. 마무리할 업무만 확인하세요.',
-      durationMs: 5600,
-    });
-  }
+  triggerTimedEvent(
+    'late_night',
+    { start: 18 * 60 + 30, end: 23 * 60 + 30 },
+    { message: '늦은 시간입니다. 마무리할 업무만 확인하세요.', durationMs: 5600 },
+    minutes,
+    date,
+    settings?.late_night,
+  );
 };
 
 export const registerHamzziLauncherClick = () => {
