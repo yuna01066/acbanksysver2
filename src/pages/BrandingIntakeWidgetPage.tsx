@@ -334,6 +334,9 @@ const BrandingIntakeWidgetPage = () => {
           <Card className="rounded-[24px] border-slate-200 shadow-sm">
             <CardHeader>
               <CardTitle>브랜딩 패키지</CardTitle>
+              <p className="text-sm text-slate-500">
+                각 패키지에 포함되는 작업 범위입니다. 실제 진행 범위는 접수 자료 확인 후 최종 조정됩니다.
+              </p>
             </CardHeader>
             <CardContent className="grid gap-3 md:grid-cols-3">
               {BRANDING_PACKAGES.map((item) => (
@@ -346,9 +349,25 @@ const BrandingIntakeWidgetPage = () => {
                     form.packageId === item.id ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white',
                   )}
                 >
-                  <div className="text-lg font-black">{item.name}</div>
-                  <div className={cn('mt-1 text-sm', form.packageId === item.id ? 'text-slate-200' : 'text-slate-500')}>{item.description}</div>
-                  <div className="mt-4 text-xl font-black">{item.displayPrice}</div>
+                  <div className="flex min-h-full flex-col">
+                    <div className="text-lg font-black">{item.name}</div>
+                    <div className={cn('mt-1 text-sm leading-6', form.packageId === item.id ? 'text-slate-200' : 'text-slate-500')}>{item.description}</div>
+                    <div className={cn('mt-3 rounded-xl px-3 py-2 text-xs leading-5', form.packageId === item.id ? 'bg-white/10 text-slate-200' : 'bg-slate-50 text-slate-600')}>
+                      <span className="font-bold">추천 상황</span>
+                      <br />
+                      {item.recommendedFor}
+                    </div>
+                    <div className="mt-4 text-xs font-black uppercase tracking-[0.16em] opacity-70">포함 작업</div>
+                    <ul className="mt-2 space-y-1.5 text-sm leading-5">
+                      {item.includes.map((include) => (
+                        <li key={include} className="flex gap-2">
+                          <CheckCircle2 className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', form.packageId === item.id ? 'text-white' : 'text-slate-400')} />
+                          <span>{include}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-auto pt-5 text-xl font-black">{item.displayPrice}</div>
+                  </div>
                 </button>
               ))}
             </CardContent>
@@ -490,6 +509,17 @@ const BrandingIntakeWidgetPage = () => {
             <CardContent>
               <div className="text-4xl font-black">{pricing.customerEstimateText}</div>
               <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-300">{pricing.customerMessage}</p>
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">선택 패키지 포함 작업</div>
+                <ul className="mt-3 space-y-2 text-sm leading-5 text-slate-200">
+                  {BRANDING_PACKAGES.find((item) => item.id === form.packageId)?.includes.slice(0, 5).map((include) => (
+                    <li key={include} className="flex gap-2">
+                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/70" />
+                      <span>{include}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
               <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs leading-5 text-slate-300">
                 최종 견적은 자료 확인 후 확정됩니다. 고객용 화면에는 내부 산정 breakdown이 표시되지 않습니다.
               </div>
