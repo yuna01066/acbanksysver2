@@ -8,6 +8,7 @@ import jjikjjikiPeekRight from '@/assets/hamzzi/jjikjjiki-flow-peek-right.png';
 import jjikjjikiHeadTilt from '@/assets/hamzzi/jjikjjiki-head-tilt-expression-256.png';
 import jjikjjikiHoverBubbleSticker from '@/assets/hamzzi/jjikjjiki-hover-bubble-sticker.png';
 import jjikjjikiHoverEasterEggSticker from '@/assets/hamzzi/jjikjjiki-hover-easter-egg-sticker.png';
+import jjikjjikiAngryPeek from '@/assets/hamzzi/jjikjjiki-angry-peek.png';
 import jjikjjikiPopupChoiceSticker from '@/assets/hamzzi/jjikjjiki-popup-choice-sticker.png';
 import jjikjjikiStartSticker from '@/assets/hamzzi/jjikjjiki-start-sticker.png';
 import jjikjjikiSurprised from '@/assets/hamzzi/jjikjjiki-surprised-expression-256.png';
@@ -635,7 +636,7 @@ const FloatingResponseAssistant: React.FC = () => {
           className="jjikjjiki-launcher-button group relative z-20 flex h-[104px] w-[104px] items-center justify-center overflow-visible bg-transparent p-0 transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-0 active:scale-95"
           aria-label={open ? '찍찍이 도우미 닫기' : launcherPhase === 'walkingOut' ? '찍찍이가 걸어나오는 중' : '찍찍이 도우미 열기'}
         >
-          {!open && !showLauncherWalkOut && !activeSpriteTool && !showStickerHamzziReaction && (
+          {!open && !showLauncherWalkOut && !activeSpriteTool && !showStickerHamzziReaction && !showLauncherEasterEgg && (
             <img
               src={jjikjjikiHoverBubbleSticker}
               alt=""
@@ -644,12 +645,20 @@ const FloatingResponseAssistant: React.FC = () => {
             />
           )}
           {showLauncherEasterEgg && !open && !showLauncherWalkOut && !activeSpriteTool && !showStickerHamzziReaction && (
-            <img
-              src={jjikjjikiHoverEasterEggSticker}
-              alt=""
-              className="jjikjjiki-launcher-easter-egg-sticker"
-              aria-hidden="true"
-            />
+            <span className="jjikjjiki-launcher-angry-easter-stage" aria-hidden="true">
+              <span className="jjikjjiki-launcher-angry-crop">
+                <img
+                  src={jjikjjikiAngryPeek}
+                  alt=""
+                  className="jjikjjiki-launcher-angry-character"
+                />
+              </span>
+              <img
+                src={jjikjjikiHoverEasterEggSticker}
+                alt=""
+                className="jjikjjiki-launcher-easter-egg-sticker"
+              />
+            </span>
           )}
           {open && !showLauncherWalkOut && !activeSpriteTool && !showStickerHamzziReaction && (
             <img
@@ -666,6 +675,7 @@ const FloatingResponseAssistant: React.FC = () => {
               transitionTool && 'hamzzi-helper-default-exit',
               showLauncherWalkOut && 'hamzzi-launcher-walk-out',
               showStickerHamzziReaction && !open && !showLauncherWalkOut && !activeSpriteTool && 'jjikjjiki-lunch-peek-exit',
+              showLauncherEasterEgg && !open && !showLauncherWalkOut && !activeSpriteTool && 'jjikjjiki-easter-peek-exit',
             )}
           >
             {showLauncherWalkOut ? (
