@@ -1233,6 +1233,66 @@
   }
 }
 
+@keyframes jjikjjiki-easter-peek-exit {
+  0% {
+    opacity: 1;
+    transform: translateX(0) translateY(0) scale(1);
+  }
+  42% {
+    opacity: 1;
+    transform: translateX(24px) translateY(-2px) scale(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(92px) translateY(6px) scale(0.86);
+  }
+}
+
+@keyframes jjikjjiki-launcher-angry-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(-72px) translateY(14px) rotate(-7deg) scale(0.82);
+  }
+  20% {
+    opacity: 1;
+    transform: translateX(8px) translateY(-3px) rotate(2deg) scale(1.04);
+  }
+  34%,
+  74% {
+    opacity: 1;
+    transform: translateX(0) translateY(0) rotate(0deg) scale(1);
+  }
+  88% {
+    opacity: 1;
+    transform: translateX(-5px) translateY(-2px) rotate(-1deg) scale(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-38px) translateY(12px) rotate(-4deg) scale(0.9);
+  }
+}
+
+@keyframes jjikjjiki-launcher-skull-above-pop {
+  0%,
+  14% {
+    opacity: 0;
+    transform: translateX(-18px) translateY(18px) rotate(-8deg) scale(0.7);
+  }
+  28% {
+    opacity: 1;
+    transform: translateX(2px) translateY(-4px) rotate(-2deg) scale(1.08);
+  }
+  42%,
+  76% {
+    opacity: 1;
+    transform: translateX(0) translateY(0) rotate(0deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-8px) translateY(8px) rotate(4deg) scale(0.92);
+  }
+}
+
 @keyframes jjikjjiki-lunch-character-slide {
   0% {
     opacity: 0;
@@ -1387,24 +1447,66 @@
 .jjikjjiki-launcher-easter-egg-sticker {
   pointer-events: none;
   position: absolute;
-  right: 116px;
-  bottom: 40px;
+  right: 66px;
+  bottom: 136px;
   z-index: 4;
   display: block;
-  width: min(118px, calc(100vw - 142px));
+  width: min(108px, calc(100vw - 152px));
   max-width: none;
   height: auto;
   filter: drop-shadow(0 12px 16px rgba(15, 23, 42, 0.2));
   opacity: 0;
-  transform-origin: 88% 74%;
+  transform-origin: 70% 100%;
   will-change: opacity, transform;
-  animation: jjikjjiki-launcher-easter-egg-pop 1800ms cubic-bezier(0.2, 0.84, 0.22, 1.08) forwards;
+  animation: jjikjjiki-launcher-skull-above-pop 2200ms cubic-bezier(0.2, 0.84, 0.22, 1.08) forwards;
+}
+
+.jjikjjiki-launcher-angry-easter-stage {
+  pointer-events: none;
+  position: absolute;
+  right: 44px;
+  bottom: -3px;
+  z-index: 5;
+  display: block;
+  width: 188px;
+  height: 198px;
+  overflow: visible;
+}
+
+.jjikjjiki-launcher-angry-crop {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: block;
+  width: 142px;
+  height: 150px;
+  overflow: hidden;
+  border-radius: 999px 0 0 999px;
+  animation: jjikjjiki-launcher-angry-enter 2200ms cubic-bezier(0.2, 0.84, 0.22, 1.08) forwards;
+}
+
+.jjikjjiki-launcher-angry-character {
+  position: absolute;
+  right: -7px;
+  bottom: -8px;
+  display: block;
+  width: 178px;
+  max-width: none;
+  height: auto;
+  filter: drop-shadow(0 16px 20px rgba(15, 23, 42, 0.18));
+  user-select: none;
 }
 
 .jjikjjiki-lunch-peek-exit {
   pointer-events: none;
   transform-origin: 78% 82%;
   animation: jjikjjiki-lunch-peek-exit 680ms cubic-bezier(0.34, 0.72, 0.18, 1) both;
+}
+
+.jjikjjiki-easter-peek-exit {
+  pointer-events: none;
+  transform-origin: 78% 82%;
+  animation: jjikjjiki-easter-peek-exit 620ms cubic-bezier(0.34, 0.72, 0.18, 1) both;
 }
 
 .jjikjjiki-lunch-reaction-stage {
@@ -1612,6 +1714,8 @@
   .jjikjjiki-quote-speech-sticker,
   .jjikjjiki-popup-choice-sticker,
   .jjikjjiki-launcher-easter-egg-sticker,
+  .jjikjjiki-launcher-angry-crop,
+  .jjikjjiki-easter-peek-exit,
   .hamzzi-helper-default-exit,
   .hamzzi-helper-specialist-enter,
   .hamzzi-helper-sprite-frame,
@@ -1625,7 +1729,8 @@
     transform: none;
   }
 
-  .jjikjjiki-launcher-easter-egg-sticker {
+  .jjikjjiki-launcher-easter-egg-sticker,
+  .jjikjjiki-launcher-angry-crop {
     opacity: 1;
     transform: none;
   }
