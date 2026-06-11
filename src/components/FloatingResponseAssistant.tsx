@@ -270,8 +270,6 @@ const FloatingResponseAssistant: React.FC = () => {
   const showHamzziReaction = Boolean(hamzziReaction && hamzziReactionConfig);
   const showLunchReaction = Boolean(showHamzziReaction && hamzziReaction?.type === 'lunch_time');
   const showQuoteIssuedReaction = Boolean(showHamzziReaction && hamzziReaction?.type === 'quote_issued');
-  const showStickerHamzziReaction = showLunchReaction || showQuoteIssuedReaction;
-  const showStandardHamzziReaction = showHamzziReaction && !showStickerHamzziReaction;
   const launcherIcon = open ? jjikjjikiHeadTilt : jjikjjikiPeekRight;
   const showLauncherWalkOut = !open && launcherPhase === 'walkingOut';
   const toolMeta = TOOL_META[activeTool];
@@ -547,44 +545,6 @@ const FloatingResponseAssistant: React.FC = () => {
       )}
 
       <div className="pointer-events-auto group relative ml-auto flex h-[88px] w-[88px] items-center justify-center">
-        {showStandardHamzziReaction && hamzziReaction && hamzziReactionConfig && (
-          <div
-            key={hamzziReaction.id}
-            className="pointer-events-none absolute bottom-[76px] right-0 z-30 w-[min(300px,calc(100vw-24px))] translate-y-0 opacity-100 transition-all duration-200"
-            aria-live="polite"
-          >
-            <div className={cn(
-              'hamzzi-reaction-card relative flex items-center gap-3 rounded-[24px] border px-3 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.14)] backdrop-blur-md',
-              hamzziReactionConfig.toneClass,
-            )}>
-              <span className="relative flex h-16 w-16 shrink-0 items-end justify-center overflow-visible rounded-2xl bg-gradient-to-b from-white to-slate-50/70">
-                <img
-                  src={hamzziReactionConfig.image}
-                  alt=""
-                  className="hamzzi-reaction-image h-[70px] w-[70px] object-contain drop-shadow-[0_8px_14px_rgba(15,23,42,0.13)]"
-                />
-                {hamzziReactionConfig.badge && (
-                  <img
-                    src={hamzziReactionConfig.badge}
-                    alt=""
-                    className="hamzzi-reaction-badge absolute -right-2 -top-2 h-7 w-7 object-contain"
-                  />
-                )}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-bold leading-snug text-slate-900">
-                  {hamzziReaction.message || hamzziReactionConfig.fallbackMessage}
-                </span>
-                {hamzziReaction.description && (
-                  <span className="mt-1 block text-[11px] font-medium leading-snug text-slate-500">
-                    {hamzziReaction.description}
-                  </span>
-                )}
-              </span>
-            </div>
-          </div>
-        )}
-
         {showLunchReaction && hamzziReaction && (
           <div
             key={`lunch-${hamzziReaction.id}`}
