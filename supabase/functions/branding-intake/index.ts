@@ -27,9 +27,9 @@ const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "pdf", "zip", 
 const ALLOWED_SOURCES = new Set(["branding-intake", "internal-test", "manual"]);
 
 const PACKAGE_PRICE: Record<string, { label: string; price: number; note: string }> = {
-  basic: { label: "브랜드 기본형", price: 220, note: "기초 방향성, 톤앤매너, 주요 시각 기준 정리" },
-  standard: { label: "브랜드 런칭형", price: 440, note: "브랜드 시스템, 응용 가이드, 주요 매체 기준 정리" },
-  open: { label: "브랜드 오픈형", price: 880, note: "공간/사인/콘텐츠까지 확장되는 통합 브랜딩" },
+  basic: { label: "브랜드 기본형", price: 220, note: "브랜드 방향성, 무드보드, 컬러/폰트, 로고·심볼 기본 사용 가이드" },
+  standard: { label: "브랜드 런칭형", price: 440, note: "기본형 포함, 네이밍/슬로건 방향, 브랜드 스토리, 소개/응대 문구, 사인 적용 방향" },
+  open: { label: "브랜드 오픈형", price: 880, note: "런칭형 포함, 홈페이지 3p 방향, AI 이미지, 홍보물, 제작·시공 전달 기본안" },
 };
 
 const LEAD_TIME_RATE: Record<string, { label: string; rate: number }> = {
