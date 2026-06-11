@@ -34,8 +34,8 @@ import {
 } from '@/hooks/useAssistantShortcuts';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  JJIKJJIKI_LUNCH_REACTION_SETTING_KEY,
-  parseJjikjjikiLunchReactionSettings,
+  HAMZZI_EVENT_SETTINGS_KEY,
+  parseHamzziEventSettings,
 } from '@/lib/responseAssistantDefaults';
 import {
   HAMZZI_EVENT_NAME,
@@ -64,8 +64,10 @@ type LauncherPhase = 'idle' | 'walkingOut';
 type HamzziReactionConfig = {
   image: string;
   badge?: string;
+  sticker?: string;
   fallbackMessage: string;
   toneClass: string;
+  variant?: 'card' | 'lunch_slide';
 };
 
 type HamzziSpriteConfig = {
@@ -127,10 +129,12 @@ const HAMZZI_REACTION_CONFIG: Record<HamzziEventType, HamzziReactionConfig> = {
     toneClass: 'border-slate-100 bg-white/95',
   },
   lunch_time: {
-    image: jjikjjikiBase,
+    image: jjikjjikiLunchCelebration,
     badge: iconLunch,
+    sticker: jjikjjikiLunchSpeechSticker,
     fallbackMessage: '점심시간입니다. 잠깐 쉬어가세요.',
     toneClass: 'border-orange-100 bg-white/95',
+    variant: 'lunch_slide',
   },
   late_night: {
     image: jjikjjikiHeadTilt,
@@ -245,13 +249,13 @@ const FloatingResponseAssistant: React.FC = () => {
   const launcherEasterEggTimerRef = useRef<number | null>(null);
   const toolTransitionTimerRef = useRef<number | null>(null);
 
-  const { data: lunchReactionSetting, isLoading: lunchReactionSettingLoading } = useQuery<ResponseAssistantSetting | null>({
-    queryKey: ['response-assistant-setting', JJIKJJIKI_LUNCH_REACTION_SETTING_KEY],
+  const { data: hamzziEventSetting, isLoading: hamzziEventSettingLoading } = useQuery<ResponseAssistantSetting | null>({
+    queryKey: ['response-assistant-setting', HAMZZI_EVENT_SETTINGS_KEY],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('response_assistant_settings')
         .select('value')
-        .eq('key', JJIKJJIKI_LUNCH_REACTION_SETTING_KEY)
+        .eq('key', HAMZZI_EVENT_SETTINGS_KEY)
         .maybeSingle();
       if (error) throw error;
       return (data || null) as ResponseAssistantSetting | null;
@@ -271,9 +275,9 @@ const FloatingResponseAssistant: React.FC = () => {
   const showLauncherWalkOut = !open && launcherPhase === 'walkingOut';
   const toolMeta = TOOL_META[activeTool];
   const activeSpriteTool = transitionTool ?? (isSpecialistTool(activeTool) ? activeTool : null);
-  const lunchReactionSettings = useMemo(
-    () => parseJjikjjikiLunchReactionSettings(lunchReactionSetting?.value),
-    [lunchReactionSetting?.value],
+  const hamzziEventSettings = useMemo(
+    () => parseHamzziEventSettings(hamzziEventSetting?.value),
+    [hamzziEventSetting?.value],
   );
   const assistantRole = useMemo(
     () => getAssistantRole(isAdmin, isModerator, isManager),
@@ -404,6 +408,11 @@ const FloatingResponseAssistant: React.FC = () => {
     const handleHamzziEvent = (event: Event) => {
       const detail = (event as CustomEvent<HamzziEventDetail>).detail;
       if (!detail?.type || !HAMZZI_REACTION_CONFIG[detail.type]) return;
+      const managedSetting = detail.type in hamzziEventSettings
+        ? hamzziEventSettings[detail.type as keyof typeof hamzziEventSettings]
+        : null;
+      if (!detail.preview && managedSetting?.enabled === false) return;
+      const durationMs = detail.durationMs ?? managedSetting?.duration_ms ?? 4800;
 
       if (hamzziTimerRef.current) {
         window.clearTimeout(hamzziTimerRef.current);
@@ -411,12 +420,15 @@ const FloatingResponseAssistant: React.FC = () => {
 
       setHamzziReaction({
         ...detail,
+        message: detail.message || managedSetting?.message,
+        description: detail.description || managedSetting?.description,
+        durationMs,
         id: Date.now(),
       });
       hamzziTimerRef.current = window.setTimeout(() => {
         setHamzziReaction(null);
         hamzziTimerRef.current = null;
-      }, detail.durationMs ?? 4800);
+      }, durationMs);
     };
 
     window.addEventListener(HAMZZI_EVENT_NAME, handleHamzziEvent);
@@ -427,15 +439,15 @@ const FloatingResponseAssistant: React.FC = () => {
       if (launcherEasterEggTimerRef.current) window.clearTimeout(launcherEasterEggTimerRef.current);
       if (toolTransitionTimerRef.current) window.clearTimeout(toolTransitionTimerRef.current);
     };
-  }, []);
+  }, [hamzziEventSettings]);
 
   useEffect(() => {
-    if (!user || isHidden || lunchReactionSettingLoading) return;
+    if (!user || isHidden || hamzziEventSettingLoading) return;
     const timeout = window.setTimeout(() => {
-      triggerTimedHamzziIfNeeded(new Date(), { lunchReaction: lunchReactionSettings });
+      triggerTimedHamzziIfNeeded(new Date(), hamzziEventSettings);
     }, 1200);
     return () => window.clearTimeout(timeout);
-  }, [isHidden, location.pathname, lunchReactionSettingLoading, lunchReactionSettings, user]);
+  }, [hamzziEventSettingLoading, hamzziEventSettings, isHidden, location.pathname, user]);
 
   if (loading || !user || isHidden) return null;
 
@@ -586,10 +598,10 @@ const FloatingResponseAssistant: React.FC = () => {
             />
             <img
               src={jjikjjikiLunchSpeechSticker}
-              alt={hamzziReaction.message || lunchReactionSettings.message}
+              alt={hamzziReaction.message || hamzziEventSettings.lunch_time.message}
               className="jjikjjiki-lunch-speech-sticker"
             />
-            <span className="sr-only">{hamzziReaction.message || lunchReactionSettings.message}</span>
+            <span className="sr-only">{hamzziReaction.message || hamzziEventSettings.lunch_time.message}</span>
           </div>
         )}
 

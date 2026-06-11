@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Bot,
+  Clock,
   ImageIcon,
   Loader2,
   MessageSquareText,
@@ -12,8 +13,8 @@ import {
   RefreshCw,
   Save,
   ShieldAlert,
+  Sparkles,
   Upload,
-  Utensils,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import jjikjjikiBase from '@/assets/hamzzi/jjikjjiki-base.png';
@@ -34,18 +35,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  DEFAULT_HAMZZI_EVENT_SETTINGS,
   DEFAULT_RESPONSE_ASSISTANT_INSTRUCTION,
-  DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS,
-  JJIKJJIKI_LUNCH_REACTION_SETTING_KEY,
+  HAMZZI_EVENT_SETTINGS_KEY,
   RESPONSE_ASSISTANT_ICON_SETTING_KEY,
   RESPONSE_ASSISTANT_SETTING_KEY,
   RESPONSE_KNOWLEDGE_CATEGORY_OPTIONS,
-  parseJjikjjikiLunchReactionSettings,
+  parseHamzziEventSettings,
   responseKnowledgeCategoryLabel,
-  stringifyJjikjjikiLunchReactionSettings,
-  type JjikjjikiLunchReactionSettings,
+  stringifyHamzziEventSettings,
+  type HamzziEventSettings,
+  type HamzziManagedEventKey,
 } from '@/lib/responseAssistantDefaults';
-import { triggerHamzzi } from '@/lib/hamzziEvents';
+import { triggerHamzzi, type HamzziEventType } from '@/lib/hamzziEvents';
 import { cn } from '@/lib/utils';
 
 type ResponseAssistantSetting = {
@@ -75,6 +77,50 @@ const emptyKnowledgeDraft: KnowledgeDraft = {
   category: 'general',
   content: '',
   is_active: true,
+};
+
+const HAMZZI_EVENT_KEYS = Object.keys(DEFAULT_HAMZZI_EVENT_SETTINGS) as HamzziManagedEventKey[];
+
+const HAMZZI_EVENT_META: Record<HamzziManagedEventKey, {
+  label: string;
+  category: 'time' | 'achievement' | 'secret';
+  helper: string;
+}> = {
+  lunch_time: {
+    label: '점심시간 찍찍이',
+    category: 'time',
+    helper: '지정 시간대에 하루 1회 점심 전용 반응을 표시합니다.',
+  },
+  late_night: {
+    label: '야간 마감 알림',
+    category: 'time',
+    helper: '퇴근 이후 시간대에 마감 안내 반응을 표시합니다.',
+  },
+  quote_issued: {
+    label: '견적 발행 완료',
+    category: 'achievement',
+    helper: '견적서 발행 성공 시 짧은 성취 반응을 표시합니다.',
+  },
+  quote_streak_5: {
+    label: '견적 5건 발행',
+    category: 'achievement',
+    helper: '하루 견적 발행 5건 도달 시 표시합니다.',
+  },
+  work_complete: {
+    label: '근무 완료',
+    category: 'achievement',
+    helper: '근무 진행률 100% 등 완료 이벤트에서 표시합니다.',
+  },
+  delivery_complete: {
+    label: '납기 완료',
+    category: 'achievement',
+    helper: '납기 완료 처리 시 표시합니다.',
+  },
+  hidden_click: {
+    label: '숨은 클릭 반응',
+    category: 'secret',
+    helper: '런처를 반복 클릭했을 때 나오는 숨은 반응입니다.',
+  },
 };
 
 const MAX_ICON_SIZE = 512;
@@ -128,7 +174,7 @@ const ResponseAssistantManagementPage = () => {
   const [instructionDraft, setInstructionDraft] = useState(DEFAULT_RESPONSE_ASSISTANT_INSTRUCTION);
   const [iconDraft, setIconDraft] = useState('');
   const [iconFileName, setIconFileName] = useState('');
-  const [lunchDraft, setLunchDraft] = useState<JjikjjikiLunchReactionSettings>(DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS);
+  const [hamzziEventDraft, setHamzziEventDraft] = useState<HamzziEventSettings>(DEFAULT_HAMZZI_EVENT_SETTINGS);
   const [knowledgeDrafts, setKnowledgeDrafts] = useState<Record<string, KnowledgeDraft>>({});
   const [newKnowledge, setNewKnowledge] = useState<KnowledgeDraft>(emptyKnowledgeDraft);
 
@@ -164,13 +210,13 @@ const ResponseAssistantManagementPage = () => {
     enabled: !!user && canManage,
   });
 
-  const { data: lunchSetting, isLoading: lunchSettingLoading } = useQuery<ResponseAssistantSetting | null>({
-    queryKey: ['response-assistant-setting', JJIKJJIKI_LUNCH_REACTION_SETTING_KEY],
+  const { data: hamzziEventSetting, isLoading: hamzziEventSettingLoading } = useQuery<ResponseAssistantSetting | null>({
+    queryKey: ['response-assistant-setting', HAMZZI_EVENT_SETTINGS_KEY],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('response_assistant_settings')
         .select('key, value, description, updated_by, created_at, updated_at')
-        .eq('key', JJIKJJIKI_LUNCH_REACTION_SETTING_KEY)
+        .eq('key', HAMZZI_EVENT_SETTINGS_KEY)
         .maybeSingle();
       if (error) throw error;
       return (data || null) as ResponseAssistantSetting | null;
@@ -202,8 +248,8 @@ const ResponseAssistantManagementPage = () => {
   }, [iconSetting?.value]);
 
   useEffect(() => {
-    setLunchDraft(parseJjikjjikiLunchReactionSettings(lunchSetting?.value));
-  }, [lunchSetting?.value]);
+    setHamzziEventDraft(parseHamzziEventSettings(hamzziEventSetting?.value));
+  }, [hamzziEventSetting?.value]);
 
   useEffect(() => {
     setKnowledgeDrafts(
@@ -226,12 +272,12 @@ const ResponseAssistantManagementPage = () => {
   const currentIcon = iconSetting?.value || '';
   const iconChanged = iconDraft !== currentIcon;
   const iconPreview = iconDraft || jjikjjikiBase;
-  const currentLunchSettings = useMemo(
-    () => parseJjikjjikiLunchReactionSettings(lunchSetting?.value),
-    [lunchSetting?.value],
+  const currentHamzziEventSettings = useMemo(
+    () => parseHamzziEventSettings(hamzziEventSetting?.value),
+    [hamzziEventSetting?.value],
   );
-  const lunchChanged = stringifyJjikjjikiLunchReactionSettings(lunchDraft)
-    !== stringifyJjikjjikiLunchReactionSettings(currentLunchSettings);
+  const hamzziEventChanged = stringifyHamzziEventSettings(hamzziEventDraft)
+    !== stringifyHamzziEventSettings(currentHamzziEventSettings);
   const activeKnowledgeCount = useMemo(
     () => knowledgeItems.filter((item) => item.is_active).length,
     [knowledgeItems],
@@ -382,34 +428,28 @@ const ResponseAssistantManagementPage = () => {
     onError: (error: Error) => toast.error('아이콘 저장 실패: ' + error.message),
   });
 
-  const saveLunchReaction = useMutation({
+  const saveHamzziEvents = useMutation({
     mutationFn: async (): Promise<'requested' | 'saved'> => {
-      const nextSettings: JjikjjikiLunchReactionSettings = {
-        enabled: lunchDraft.enabled,
-        startTime: lunchDraft.startTime || DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.startTime,
-        endTime: lunchDraft.endTime || DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.endTime,
-        message: lunchDraft.message.trim() || DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.message,
-      };
-      const value = stringifyJjikjjikiLunchReactionSettings(nextSettings);
-      const currentValue = stringifyJjikjjikiLunchReactionSettings(currentLunchSettings);
+      const value = stringifyHamzziEventSettings(hamzziEventDraft);
+      const currentValue = stringifyHamzziEventSettings(currentHamzziEventSettings);
 
       if (requiresApproval) {
         await createSettingsChangeRequest({
           targetArea: 'admin',
           targetTable: 'response_assistant_settings',
-          targetKey: JJIKJJIKI_LUNCH_REACTION_SETTING_KEY,
+          targetKey: HAMZZI_EVENT_SETTINGS_KEY,
           action: 'upsert',
           riskLevel: 'medium',
-          changeSummary: '찍찍이 점심시간 반응 설정 변경',
+          changeSummary: '찍찍이 이벤트 반응 설정 변경',
           beforeValue: {
-            key: JJIKJJIKI_LUNCH_REACTION_SETTING_KEY,
+            key: HAMZZI_EVENT_SETTINGS_KEY,
             value: currentValue,
-            description: lunchSetting?.description || null,
+            description: hamzziEventSetting?.description || null,
           },
           afterValue: {
-            key: JJIKJJIKI_LUNCH_REACTION_SETTING_KEY,
+            key: HAMZZI_EVENT_SETTINGS_KEY,
             value,
-            description: '찍찍이 점심시간 자동 반응 설정',
+            description: '찍찍이 이벤트별 활성 여부, 시간 조건, 문구, 표시 시간을 관리하는 JSON 설정',
           },
         });
         return 'requested';
@@ -419,9 +459,9 @@ const ResponseAssistantManagementPage = () => {
         .from('response_assistant_settings')
         .upsert(
           {
-            key: JJIKJJIKI_LUNCH_REACTION_SETTING_KEY,
+            key: HAMZZI_EVENT_SETTINGS_KEY,
             value,
-            description: '찍찍이 점심시간 자동 반응 설정',
+            description: '찍찍이 이벤트별 활성 여부, 시간 조건, 문구, 표시 시간을 관리하는 JSON 설정',
             updated_by: user?.id || null,
           },
           { onConflict: 'key' },
@@ -430,24 +470,39 @@ const ResponseAssistantManagementPage = () => {
       return 'saved';
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['response-assistant-setting', JJIKJJIKI_LUNCH_REACTION_SETTING_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['response-assistant-setting', HAMZZI_EVENT_SETTINGS_KEY] });
       queryClient.invalidateQueries({ queryKey: ['settings-change-requests'] });
       toast.success(
         result === 'requested'
           ? '관리자 승인 요청으로 등록되었습니다.'
-          : '점심시간 찍찍이 반응이 저장되었습니다.',
+          : '찍찍이 이벤트 설정이 저장되었습니다.',
       );
     },
-    onError: (error: Error) => toast.error('점심 반응 저장 실패: ' + error.message),
+    onError: (error: Error) => toast.error('찍찍이 이벤트 저장 실패: ' + error.message),
   });
 
-  const previewLunchReaction = () => {
-    triggerHamzzi('lunch_time', {
-      message: lunchDraft.message.trim() || DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.message,
-      description: '관리자 미리보기',
-      durationMs: 6600,
+  const setHamzziEventSetting = (
+    key: HamzziManagedEventKey,
+    patch: Partial<HamzziEventSettings[HamzziManagedEventKey]>,
+  ) => {
+    setHamzziEventDraft((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        ...patch,
+      },
+    }));
+  };
+
+  const previewHamzziEvent = (key: HamzziManagedEventKey) => {
+    const setting = hamzziEventDraft[key];
+    triggerHamzzi(key as HamzziEventType, {
+      message: setting.message || DEFAULT_HAMZZI_EVENT_SETTINGS[key].message,
+      description: setting.description || '관리자 미리보기',
+      durationMs: setting.duration_ms,
+      preview: true,
     });
-    toast.success('우측 하단에서 점심 찍찍이 미리보기를 재생합니다.');
+    toast.success('우측 하단에서 찍찍이 미리보기를 재생합니다.');
   };
 
   const updateKnowledgeItem = useMutation({
@@ -500,7 +555,7 @@ const ResponseAssistantManagementPage = () => {
     }
   };
 
-  if (loading || settingLoading || iconSettingLoading || lunchSettingLoading) {
+  if (loading || settingLoading || iconSettingLoading || hamzziEventSettingLoading) {
     return (
       <PageShell maxWidth="5xl">
         <div className="flex min-h-[50vh] items-center justify-center">
@@ -668,14 +723,14 @@ const ResponseAssistantManagementPage = () => {
           <Card className="border-white/60 bg-card/80">
             <CardHeader className="border-b">
               <BrandedCardHeader
-                icon={Utensils}
-                title="점심시간 찍찍이"
-                subtitle="지정 시간에 우측 하단에서 점심 반응을 하루 1회 표시합니다."
-                meta={lunchChanged ? <Badge className="bg-amber-500 text-white">수정 중</Badge> : <Badge variant="outline">저장됨</Badge>}
+                icon={Sparkles}
+                title="찍찍이 이벤트 관리"
+                subtitle="시간대와 성과 순간에 표시할 찍찍이 반응을 관리합니다."
+                meta={hamzziEventChanged ? <Badge className="bg-amber-500 text-white">수정 중</Badge> : <Badge variant="outline">저장됨</Badge>}
               />
             </CardHeader>
             <CardContent className="space-y-4 p-5">
-              <div className="relative h-48 overflow-hidden rounded-2xl border bg-gradient-to-b from-white to-amber-50/60">
+              <div className="relative h-44 overflow-hidden rounded-2xl border bg-gradient-to-b from-white to-amber-50/60">
                 <img
                   src={jjikjjikiLunchSpeechSticker}
                   alt=""
@@ -684,57 +739,128 @@ const ResponseAssistantManagementPage = () => {
                 <img
                   src={jjikjjikiLunchCelebration}
                   alt=""
-                  className="absolute bottom-0 right-3 h-44 w-auto drop-shadow-[0_14px_20px_rgba(15,23,42,0.18)]"
+                  className="absolute bottom-0 right-3 h-40 w-auto drop-shadow-[0_14px_20px_rgba(15,23,42,0.18)]"
                 />
               </div>
 
-              <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
-                <div>
-                  <Label className="text-xs">자동 표시</Label>
-                  <p className="mt-1 text-[11px] text-muted-foreground">끄면 점심 시간대 자동 반응을 띄우지 않습니다.</p>
-                </div>
-                <Switch
-                  checked={lunchDraft.enabled}
-                  onCheckedChange={(checked) => setLunchDraft((current) => ({ ...current, enabled: checked }))}
-                />
-              </div>
+              <Alert className="border-blue-200 bg-blue-50 text-blue-950">
+                <Clock className="h-4 w-4" />
+                <AlertDescription className="text-xs leading-relaxed">
+                  시간대 이벤트는 시작/종료 시간을 적용하고, 성과 이벤트는 실제 업무 액션이 발생할 때 설정된 문구와 표시 시간을 사용합니다.
+                </AlertDescription>
+              </Alert>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="jjikjjiki-lunch-start" className="text-xs">시작 시간</Label>
-                  <Input
-                    id="jjikjjiki-lunch-start"
-                    type="time"
-                    value={lunchDraft.startTime}
-                    onChange={(event) => setLunchDraft((current) => ({ ...current, startTime: event.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="jjikjjiki-lunch-end" className="text-xs">종료 시간</Label>
-                  <Input
-                    id="jjikjjiki-lunch-end"
-                    type="time"
-                    value={lunchDraft.endTime}
-                    onChange={(event) => setLunchDraft((current) => ({ ...current, endTime: event.target.value }))}
-                  />
-                </div>
-              </div>
+              <div className="space-y-3">
+                {HAMZZI_EVENT_KEYS.map((eventKey) => {
+                  const setting = hamzziEventDraft[eventKey];
+                  const meta = HAMZZI_EVENT_META[eventKey];
+                  const isTimed = meta.category === 'time';
 
-              <div className="space-y-2">
-                <Label htmlFor="jjikjjiki-lunch-message" className="text-xs">접근성/알림 문구</Label>
-                <Input
-                  id="jjikjjiki-lunch-message"
-                  value={lunchDraft.message}
-                  onChange={(event) => setLunchDraft((current) => ({ ...current, message: event.target.value }))}
-                  placeholder={DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS.message}
-                />
+                  return (
+                    <div key={eventKey} className="space-y-3 rounded-2xl border bg-background p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-bold text-foreground">{meta.label}</p>
+                            <Badge variant="outline">
+                              {meta.category === 'time' ? '시간대' : meta.category === 'achievement' ? '성과' : '시크릿'}
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] leading-relaxed text-muted-foreground">{meta.helper}</p>
+                        </div>
+                        <Switch
+                          checked={setting.enabled}
+                          onCheckedChange={(checked) => setHamzziEventSetting(eventKey, { enabled: checked })}
+                          aria-label={`${meta.label} 활성화`}
+                        />
+                      </div>
+
+                      {isTimed && (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor={`${eventKey}-start`} className="text-xs">시작 시간</Label>
+                            <Input
+                              id={`${eventKey}-start`}
+                              type="time"
+                              value={setting.start_time || ''}
+                              onChange={(event) => setHamzziEventSetting(eventKey, { start_time: event.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`${eventKey}-end`} className="text-xs">종료 시간</Label>
+                            <Input
+                              id={`${eventKey}-end`}
+                              type="time"
+                              value={setting.end_time || ''}
+                              onChange={(event) => setHamzziEventSetting(eventKey, { end_time: event.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`${eventKey}-message`} className="text-xs">문구</Label>
+                        <Input
+                          id={`${eventKey}-message`}
+                          value={setting.message}
+                          onChange={(event) => setHamzziEventSetting(eventKey, { message: event.target.value })}
+                          placeholder={DEFAULT_HAMZZI_EVENT_SETTINGS[eventKey].message}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`${eventKey}-description`} className="text-xs">보조 설명</Label>
+                        <Input
+                          id={`${eventKey}-description`}
+                          value={setting.description || ''}
+                          onChange={(event) => setHamzziEventSetting(eventKey, { description: event.target.value })}
+                          placeholder="선택 입력"
+                        />
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                        <div className="space-y-2">
+                          <Label htmlFor={`${eventKey}-duration`} className="text-xs">표시 시간(ms)</Label>
+                          <Input
+                            id={`${eventKey}-duration`}
+                            type="number"
+                            min={1200}
+                            max={12000}
+                            step={100}
+                            value={setting.duration_ms}
+                            onChange={(event) => setHamzziEventSetting(eventKey, { duration_ms: Number(event.target.value) })}
+                          />
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => previewHamzziEvent(eventKey)}
+                            className="gap-2"
+                          >
+                            <Play className="h-4 w-4" />
+                            미리보기
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
+                        <Label className="text-xs">하루 1회 제한</Label>
+                        <Switch
+                          checked={setting.once_per_day}
+                          onCheckedChange={(checked) => setHamzziEventSetting(eventKey, { once_per_day: checked })}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setLunchDraft(DEFAULT_JJIKJJIKI_LUNCH_REACTION_SETTINGS)}
+                  onClick={() => setHamzziEventDraft(DEFAULT_HAMZZI_EVENT_SETTINGS)}
                   className="gap-2"
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -742,24 +868,14 @@ const ResponseAssistantManagementPage = () => {
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={previewLunchReaction}
+                  onClick={() => saveHamzziEvents.mutate()}
+                  disabled={saveHamzziEvents.isPending || !hamzziEventChanged}
                   className="gap-2"
                 >
-                  <Play className="h-4 w-4" />
-                  미리보기
+                  {saveHamzziEvents.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {requiresApproval ? '승인 요청' : '이벤트 저장'}
                 </Button>
               </div>
-
-              <Button
-                type="button"
-                onClick={() => saveLunchReaction.mutate()}
-                disabled={saveLunchReaction.isPending || !lunchChanged}
-                className="w-full gap-2"
-              >
-                {saveLunchReaction.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                {requiresApproval ? '승인 요청' : '점심 반응 저장'}
-              </Button>
             </CardContent>
           </Card>
 

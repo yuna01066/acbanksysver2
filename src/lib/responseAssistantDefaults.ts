@@ -62,6 +62,133 @@ export const stringifyJjikjjikiLunchReactionSettings = (
   message: settings.message,
 });
 
+export const HAMZZI_EVENT_SETTINGS_KEY = 'hamzzi_event_settings';
+
+export type HamzziManagedEventKey =
+  | 'lunch_time'
+  | 'late_night'
+  | 'quote_issued'
+  | 'quote_streak_5'
+  | 'work_complete'
+  | 'delivery_complete'
+  | 'hidden_click';
+
+export type HamzziManagedEventSetting = {
+  enabled: boolean;
+  start_time?: string;
+  end_time?: string;
+  message: string;
+  description?: string;
+  duration_ms: number;
+  asset_key: string;
+  once_per_day: boolean;
+};
+
+export type HamzziEventSettings = Record<HamzziManagedEventKey, HamzziManagedEventSetting>;
+
+export const DEFAULT_HAMZZI_EVENT_SETTINGS: HamzziEventSettings = {
+  lunch_time: {
+    enabled: true,
+    start_time: '11:30',
+    end_time: '13:30',
+    message: '점심시간입니다. 잠깐 쉬어가세요.',
+    description: '오후 업무 전 잠시 재정비하세요.',
+    duration_ms: 6600,
+    asset_key: 'jjikjjiki_lunch',
+    once_per_day: true,
+  },
+  late_night: {
+    enabled: true,
+    start_time: '18:30',
+    end_time: '23:30',
+    message: '늦은 시간입니다. 마무리할 업무만 확인하세요.',
+    description: '오늘 남은 업무를 정리해 주세요.',
+    duration_ms: 5600,
+    asset_key: 'late_night',
+    once_per_day: true,
+  },
+  quote_issued: {
+    enabled: true,
+    message: '견적서 발행 완료. 오늘도 한 건 처리했습니다.',
+    duration_ms: 4800,
+    asset_key: 'quote_issued',
+    once_per_day: false,
+  },
+  quote_streak_5: {
+    enabled: true,
+    message: '오늘 견적 페이스 좋습니다.',
+    duration_ms: 5200,
+    asset_key: 'quote_streak',
+    once_per_day: true,
+  },
+  work_complete: {
+    enabled: true,
+    message: '오늘 근무 흐름이 완료됐습니다.',
+    duration_ms: 5200,
+    asset_key: 'work_complete',
+    once_per_day: true,
+  },
+  delivery_complete: {
+    enabled: true,
+    message: '납기 완료 처리됐습니다.',
+    duration_ms: 5200,
+    asset_key: 'delivery_complete',
+    once_per_day: false,
+  },
+  hidden_click: {
+    enabled: true,
+    message: '숨겨진 찍찍이 반응을 찾았습니다.',
+    duration_ms: 5200,
+    asset_key: 'hidden_click',
+    once_per_day: false,
+  },
+};
+
+const isManagedEventKey = (key: string): key is HamzziManagedEventKey => (
+  key in DEFAULT_HAMZZI_EVENT_SETTINGS
+);
+
+const normalizeEventSetting = (
+  key: HamzziManagedEventKey,
+  value: Partial<HamzziManagedEventSetting> | null | undefined,
+): HamzziManagedEventSetting => ({
+  ...DEFAULT_HAMZZI_EVENT_SETTINGS[key],
+  ...(value || {}),
+  enabled: typeof value?.enabled === 'boolean'
+    ? value.enabled
+    : DEFAULT_HAMZZI_EVENT_SETTINGS[key].enabled,
+  message: typeof value?.message === 'string' && value.message.trim()
+    ? value.message
+    : DEFAULT_HAMZZI_EVENT_SETTINGS[key].message,
+  duration_ms: Number.isFinite(Number(value?.duration_ms))
+    ? Math.max(1200, Math.min(12000, Number(value?.duration_ms)))
+    : DEFAULT_HAMZZI_EVENT_SETTINGS[key].duration_ms,
+  once_per_day: typeof value?.once_per_day === 'boolean'
+    ? value.once_per_day
+    : DEFAULT_HAMZZI_EVENT_SETTINGS[key].once_per_day,
+});
+
+export function parseHamzziEventSettings(value?: string | null): HamzziEventSettings {
+  if (!value) return DEFAULT_HAMZZI_EVENT_SETTINGS;
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    const source = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, Partial<HamzziManagedEventSetting>>
+      : {};
+    return (Object.keys(DEFAULT_HAMZZI_EVENT_SETTINGS) as HamzziManagedEventKey[]).reduce((acc, key) => {
+      acc[key] = normalizeEventSetting(key, isManagedEventKey(key) ? source[key] : null);
+      return acc;
+    }, {} as HamzziEventSettings);
+  } catch {
+    return DEFAULT_HAMZZI_EVENT_SETTINGS;
+  }
+}
+
+export function stringifyHamzziEventSettings(settings: HamzziEventSettings) {
+  return JSON.stringify(settings, null, 2);
+}
+
 export const DEFAULT_RESPONSE_ASSISTANT_INSTRUCTION = `너는 ACBANK 내부 상담 CS 위젯의 응대 초안 작성 보조자입니다.
 
 기본 역할:
