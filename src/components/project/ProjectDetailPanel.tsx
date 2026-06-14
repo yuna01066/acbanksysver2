@@ -183,7 +183,16 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
 
   const unlinkQuote = useMutation({
     mutationFn: async (quoteId: string) => {
-      const { error } = await supabase.from('saved_quotes').update({ project_id: null }).eq('id', quoteId);
+      const { error } = await supabase
+        .from('saved_quotes')
+        .update({
+          project_id: null,
+          project_followup_status: 'pending',
+          project_followup_note: null,
+          project_followup_updated_at: new Date().toISOString(),
+          project_followup_updated_by: user?.id || null,
+        } as any)
+        .eq('id', quoteId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -195,7 +204,16 @@ const ProjectDetailPanel: React.FC<Props> = ({ projectId, onDeleted }) => {
 
   const deleteProject = useMutation({
     mutationFn: async () => {
-      await supabase.from('saved_quotes').update({ project_id: null }).eq('project_id', projectId);
+      await supabase
+        .from('saved_quotes')
+        .update({
+          project_id: null,
+          project_followup_status: 'pending',
+          project_followup_note: null,
+          project_followup_updated_at: new Date().toISOString(),
+          project_followup_updated_by: user?.id || null,
+        } as any)
+        .eq('project_id', projectId);
       const { error } = await supabase.from('projects').delete().eq('id', projectId);
       if (error) throw error;
     },

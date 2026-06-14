@@ -125,6 +125,7 @@ const ReviewHubPage = () => {
           .from('saved_quotes')
           .select('id, quote_number, recipient_company, project_name, total, created_at', { count: 'exact' })
           .is('project_id', null)
+          .eq('project_followup_status', 'pending')
           .order('created_at', { ascending: false })
           .limit(5),
         supabase
@@ -221,7 +222,7 @@ const ReviewHubPage = () => {
     {
       title: '프로젝트 미연결',
       count: counts.quotes,
-      description: '프로젝트 연결이 필요한 견적',
+      description: '프로젝트 전환 여부 확인 필요',
       icon: FileText,
       path: '/saved-quotes',
       tone: counts.quotes > 0 ? 'text-blue-600' : 'text-emerald-600',
@@ -394,8 +395,8 @@ const ReviewHubPage = () => {
 
           <Card>
             <CardHeader>
-              <BrandedCardHeader icon={FileText} title="프로젝트 연결 필요 견적" />
-              <CardDescription>발행 견적서를 프로젝트로 전환하거나 기존 프로젝트에 연결합니다.</CardDescription>
+              <BrandedCardHeader icon={FileText} title="프로젝트 전환 확인 견적" />
+              <CardDescription>프로젝트 전환 여부를 확인하거나 기존 프로젝트에 연결합니다.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               {quotes.length === 0 ? (
@@ -407,7 +408,7 @@ const ReviewHubPage = () => {
                   title={`${quote.quote_number} · ${quote.recipient_company || quote.project_name || '거래처 미지정'}`}
                   description={formatCurrency(quote.total)}
                   badge="미연결"
-                  onClick={() => navigate('/saved-quotes')}
+                  onClick={() => navigate(`/saved-quotes/${quote.id}`)}
                 />
               ))}
             </CardContent>

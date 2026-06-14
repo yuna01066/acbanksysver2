@@ -137,6 +137,10 @@ export async function convertQuoteToProject({
     .from('saved_quotes')
     .update({
       project_id: project.id,
+      project_followup_status: 'converted',
+      project_followup_note: null,
+      project_followup_updated_at: new Date().toISOString(),
+      project_followup_updated_by: actorId,
       project_stage: 'contracted',
       quote_status: projectStageToLegacyQuoteStatus('contracted'),
       status_updated_at: new Date().toISOString(),

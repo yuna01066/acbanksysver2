@@ -62,6 +62,7 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
         .from('saved_quotes')
         .select('id, quote_number, project_name, recipient_company, recipient_name, recipient_phone, recipient_email, total, quote_date, desired_delivery_date')
         .is('project_id', null)
+        .eq('project_followup_status', 'pending')
         .order('quote_date', { ascending: false });
       if (error) throw error;
       return data;
@@ -144,7 +145,13 @@ const CreateProjectDialog: React.FC<Props> = ({ open, onOpenChange }) => {
       if (linkQuotes && selectedQuoteIds.length > 0) {
         const { error: qError } = await supabase
           .from('saved_quotes')
-          .update({ project_id: project.id })
+          .update({
+            project_id: project.id,
+            project_followup_status: 'converted',
+            project_followup_note: null,
+            project_followup_updated_at: new Date().toISOString(),
+            project_followup_updated_by: user.id,
+          } as any)
           .in('id', selectedQuoteIds);
         if (qError) throw qError;
 

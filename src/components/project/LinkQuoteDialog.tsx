@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, FileText, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Props {
   open: boolean;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 const LinkQuoteDialog: React.FC<Props> = ({ open, onOpenChange, projectId }) => {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const queryClient = useQueryClient();
 
@@ -24,6 +26,7 @@ const LinkQuoteDialog: React.FC<Props> = ({ open, onOpenChange, projectId }) => 
         .from('saved_quotes')
         .select('id, quote_number, project_name, total, quote_date, project_id, recipient_company')
         .is('project_id', null)
+        .eq('project_followup_status', 'pending')
         .order('quote_date', { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -37,7 +40,13 @@ const LinkQuoteDialog: React.FC<Props> = ({ open, onOpenChange, projectId }) => 
       // 1. Link quote to project
       const { error } = await supabase
         .from('saved_quotes')
-        .update({ project_id: projectId })
+        .update({
+          project_id: projectId,
+          project_followup_status: 'converted',
+          project_followup_note: null,
+          project_followup_updated_at: new Date().toISOString(),
+          project_followup_updated_by: user?.id || null,
+        } as any)
         .eq('id', quoteId);
       if (error) throw error;
 
