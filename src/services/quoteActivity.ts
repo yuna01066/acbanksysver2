@@ -10,6 +10,8 @@ export type QuoteActivityAction =
   | 'file_deleted'
   | 'project_converted'
   | 'project_linked'
+  | 'project_followup_not_required'
+  | 'project_followup_reopened'
   | 'quote_reissued'
   | 'created_from_reissue'
   | 'quote_duplicated';

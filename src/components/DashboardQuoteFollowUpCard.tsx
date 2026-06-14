@@ -25,6 +25,7 @@ type FollowUpQuote = {
   quote_date: string;
   valid_until: string | null;
   project_id: string | null;
+  project_followup_status: string | null;
   project_stage: string | null;
   quote_status: string | null;
   assigned_to: string | null;
@@ -93,6 +94,8 @@ const validUntilDays = (value?: string | null) => {
 const getFollowUpReason = (quote: FollowUpQuote): FollowUpReason | null => {
   const stage = normalizeProjectStage(quote.project_stage, quote.quote_status);
   const status = quote.quote_status || getQuoteStatusInfo(quote.quote_status, quote.project_stage).value;
+  const projectFollowUpStatus = quote.project_followup_status || (quote.project_id ? 'converted' : 'pending');
+  const needsProjectFollowUp = !quote.project_id && projectFollowUpStatus === 'pending';
   const ageDays = daysSince(quote.status_updated_at || quote.quote_date || quote.created_at);
   const daysToExpiry = validUntilDays(quote.valid_until);
 
@@ -105,10 +108,10 @@ const getFollowUpReason = (quote: FollowUpQuote): FollowUpReason | null => {
     };
   }
 
-  if (status === 'won' && !quote.project_id) {
+  if (status === 'won' && needsProjectFollowUp) {
     return {
       label: '프로젝트 전환',
-      description: '수주 상태지만 프로젝트 연결이 없습니다.',
+      description: '프로젝트 전환 여부를 확인하세요.',
       tone: 'success',
       priority: 20,
     };
@@ -141,10 +144,10 @@ const getFollowUpReason = (quote: FollowUpQuote): FollowUpReason | null => {
     };
   }
 
-  if ((status === 'sent' || stage === 'quote_issued') && !quote.project_id && ageDays >= FOLLOW_UP_AFTER_DAYS) {
+  if ((status === 'sent' || stage === 'quote_issued') && needsProjectFollowUp && ageDays >= FOLLOW_UP_AFTER_DAYS) {
     return {
       label: '후속 필요',
-      description: `발송 후 ${ageDays}일째 프로젝트 미연결입니다.`,
+      description: `발송 후 ${ageDays}일째 프로젝트 전환 여부 확인이 필요합니다.`,
       tone: 'primary',
       priority: 60,
     };
@@ -171,7 +174,7 @@ const DashboardQuoteFollowUpCard = () => {
     queryFn: async () => {
       let query = supabase
         .from('saved_quotes')
-        .select('id, quote_number, project_name, recipient_company, recipient_name, total, quote_date, valid_until, project_id, project_stage, quote_status, assigned_to, assigned_to_name, issuer_id, issuer_name, user_id, created_at, status_updated_at')
+        .select('id, quote_number, project_name, recipient_company, recipient_name, total, quote_date, valid_until, project_id, project_followup_status, project_stage, quote_status, assigned_to, assigned_to_name, issuer_id, issuer_name, user_id, created_at, status_updated_at')
         .not('quote_status', 'eq', 'cancelled')
         .not('project_stage', 'eq', 'cancelled')
         .not('project_stage', 'eq', 'delivered')
@@ -217,7 +220,7 @@ const DashboardQuoteFollowUpCard = () => {
         <BrandedCardHeader
           icon={FileText}
           title="견적 후속관리"
-          subtitle="수정 요청, 만료 임박, 프로젝트 미전환 견적을 확인합니다."
+          subtitle="수정 요청, 만료 임박, 프로젝트 전환 대상을 확인합니다."
           actions={(
             <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => navigate('/saved-quotes')}>
               전체보기

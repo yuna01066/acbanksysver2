@@ -18,6 +18,7 @@ import { convertQuoteToProject } from '@/services/quoteProjectConversion';
 import { isQuoteExpired, isReissueProtectedProjectStage, normalizeProjectStage, projectStageToLegacyQuoteStatus } from '@/utils/quoteWorkflow';
 import { reissueSavedQuote } from '@/services/quoteReissue';
 import { duplicateSavedQuote } from '@/services/quoteDuplicate';
+import { logQuoteActivity } from '@/services/quoteActivity';
 
 interface LinkedProject {
   id: string;
@@ -62,6 +63,10 @@ interface SavedQuote {
   assigned_to_name?: string | null;
   project_stage?: string;
   project_id?: string | null;
+  project_followup_status?: string | null;
+  project_followup_note?: string | null;
+  project_followup_updated_at?: string | null;
+  project_followup_updated_by?: string | null;
   linked_project?: LinkedProject | null;
   creator_name?: string | null;
   auto_cancelled_at?: string | null;
@@ -446,7 +451,17 @@ const SavedQuotesPage = () => {
 
       setQuotes((prev) => prev.map((item) => (
         item.id === quote.id
-          ? { ...item, project_id: project.id, project_stage: 'contracted', quote_status: projectStageToLegacyQuoteStatus('contracted'), linked_project: project as LinkedProject }
+          ? {
+              ...item,
+              project_id: project.id,
+              project_followup_status: 'converted',
+              project_followup_note: null,
+              project_followup_updated_at: new Date().toISOString(),
+              project_followup_updated_by: user.id,
+              project_stage: 'contracted',
+              quote_status: projectStageToLegacyQuoteStatus('contracted'),
+              linked_project: project as LinkedProject,
+            }
           : item
       )));
 
@@ -462,6 +477,59 @@ const SavedQuotesPage = () => {
     } finally {
       setCreatingProjectQuoteId(null);
     }
+  };
+
+  const handleMarkProjectNotRequired = async (quote: SavedQuote) => {
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+    const note = window.prompt('프로젝트 전환 제외 사유를 입력해주세요.', quote.project_followup_note || '');
+    const trimmedNote = note?.trim();
+    if (!trimmedNote) return;
+    if (trimmedNote.length < 2) {
+      toast.error('제외 사유를 입력해주세요.');
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    const { error } = await (supabase as any)
+      .from('saved_quotes')
+      .update({
+        project_followup_status: 'not_required',
+        project_followup_note: trimmedNote,
+        project_followup_updated_at: nowIso,
+        project_followup_updated_by: user.id,
+      })
+      .eq('id', quote.id);
+
+    if (error) {
+      toast.error('프로젝트 전환 불필요 처리에 실패했습니다.');
+      return;
+    }
+
+    await logQuoteActivity({
+      quoteId: quote.id,
+      actionType: 'project_followup_not_required',
+      actorId: user.id,
+      actorName: profile?.full_name || user.email || '알 수 없음',
+      oldValue: quote.project_followup_status || (quote.project_id ? 'converted' : 'pending'),
+      newValue: 'not_required',
+      memo: trimmedNote,
+    });
+
+    setQuotes((prev) => prev.map((item) => (
+      item.id === quote.id
+        ? {
+            ...item,
+            project_followup_status: 'not_required',
+            project_followup_note: trimmedNote,
+            project_followup_updated_at: nowIso,
+            project_followup_updated_by: user.id,
+          }
+        : item
+    )));
+    toast.success('프로젝트 전환 불필요로 처리했습니다.');
   };
 
   const handleReissueQuote = async (quote: SavedQuote) => {
@@ -785,12 +853,17 @@ const SavedQuotesPage = () => {
                               미연결
                             </Badge>
                           )}
+                          {!quote.linked_project && quote.project_followup_status === 'not_required' && (
+                            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-[10px] text-slate-600">
+                              프로젝트 전환 불필요
+                            </Badge>
+                          )}
                           {paymentInfo && (
                             <Badge className={`text-[10px] ${paymentInfo.color}`}>
                               {paymentInfo.label}
                             </Badge>
                           )}
-                          {!quote.linked_project && quote.project_stage !== 'cancelled' && (
+                          {!quote.linked_project && quote.project_stage !== 'cancelled' && quote.project_followup_status !== 'not_required' && (
                             <Button
                               type="button"
                               variant="outline"
@@ -808,6 +881,20 @@ const SavedQuotesPage = () => {
                                 <PlusCircle className="h-3.5 w-3.5" />
                               )}
                               프로젝트 생성
+                            </Button>
+                          )}
+                          {!quote.linked_project && quote.project_stage !== 'cancelled' && quote.project_followup_status !== 'not_required' && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs text-muted-foreground"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleMarkProjectNotRequired(quote);
+                              }}
+                            >
+                              전환 불필요
                             </Button>
                           )}
                           {reissueCandidate && (

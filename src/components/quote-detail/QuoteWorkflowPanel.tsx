@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Copy, ExternalLink, FolderOpen, Loader2, PlusCircle, RotateCcw, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -5,6 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import ProjectStageSelect from '@/components/ProjectStageSelect';
 import QuoteAssigneeSelect, { type QuoteAssigneeOption } from '@/components/QuoteAssigneeSelect';
 import { getStageInfo } from '@/utils/quoteWorkflow';
@@ -26,7 +29,11 @@ interface QuoteWorkflowPanelProps {
   assignedToName?: string | null;
   users: QuoteAssigneeOption[];
   linkedProject: LinkedProject | null;
+  projectFollowupStatus?: string | null;
+  projectFollowupNote?: string | null;
+  projectFollowupUpdatedAt?: string | null;
   convertingProject?: boolean;
+  projectFollowupUpdating?: boolean;
   isExpired?: boolean;
   canReissue?: boolean;
   reissuingQuote?: boolean;
@@ -36,6 +43,8 @@ interface QuoteWorkflowPanelProps {
   onStageChanged: (stage: string) => void;
   onAssigneeChanged: (assigneeId: string | null, assigneeName: string | null) => void;
   onConvertProject: () => void;
+  onMarkProjectNotRequired: (note: string) => Promise<void> | void;
+  onReopenProjectFollowup: () => Promise<void> | void;
   onReissueQuote: () => void;
   onDuplicateQuote: () => void;
 }
@@ -49,7 +58,11 @@ const QuoteWorkflowPanel = ({
   assignedToName,
   users,
   linkedProject,
+  projectFollowupStatus,
+  projectFollowupNote,
+  projectFollowupUpdatedAt,
   convertingProject,
+  projectFollowupUpdating,
   isExpired,
   canReissue,
   reissuingQuote,
@@ -59,11 +72,19 @@ const QuoteWorkflowPanel = ({
   onStageChanged,
   onAssigneeChanged,
   onConvertProject,
+  onMarkProjectNotRequired,
+  onReopenProjectFollowup,
   onReissueQuote,
   onDuplicateQuote,
 }: QuoteWorkflowPanelProps) => {
   const navigate = useNavigate();
+  const [notRequiredDialogOpen, setNotRequiredDialogOpen] = useState(false);
+  const [notRequiredNote, setNotRequiredNote] = useState('');
   const stageInfo = getStageInfo(projectStage);
+  const isProjectFollowupNotRequired = projectFollowupStatus === 'not_required';
+  const followupUpdatedDate = projectFollowupUpdatedAt
+    ? new Date(projectFollowupUpdatedAt).toLocaleDateString('ko-KR')
+    : null;
   const { data: projectStartApproval } = useQuery({
     queryKey: ['quote-workflow-project-approval', linkedProject?.id],
     queryFn: async () => {
@@ -81,7 +102,16 @@ const QuoteWorkflowPanel = ({
     enabled: !!linkedProject?.id,
   });
 
+  const submitNotRequired = async () => {
+    const note = notRequiredNote.trim();
+    if (note.length < 2) return;
+    await onMarkProjectNotRequired(note);
+    setNotRequiredDialogOpen(false);
+    setNotRequiredNote('');
+  };
+
   return (
+    <>
     <Card className="print:hidden">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
@@ -202,24 +232,93 @@ const QuoteWorkflowPanel = ({
               )}
             </button>
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full justify-start gap-2"
-              onClick={onConvertProject}
-              disabled={convertingProject}
-            >
-              {convertingProject ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+            <div className="space-y-2">
+              {isProjectFollowupNotRequired ? (
+                <div className="rounded-lg border bg-muted/20 p-3 text-xs">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <Badge variant="outline" className="rounded-full border-muted-foreground/30 bg-background text-muted-foreground">
+                      프로젝트 전환 불필요
+                    </Badge>
+                    {followupUpdatedDate && (
+                      <span className="text-[11px] text-muted-foreground">{followupUpdatedDate}</span>
+                    )}
+                  </div>
+                  <p className="leading-relaxed text-muted-foreground">
+                    {projectFollowupNote || '프로젝트 전환 제외 사유가 기록되어 있습니다.'}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-3 h-8 w-full justify-start text-xs"
+                    onClick={onReopenProjectFollowup}
+                    disabled={projectFollowupUpdating}
+                  >
+                    {projectFollowupUpdating && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                    프로젝트 전환 필요로 되돌리기
+                  </Button>
+                </div>
               ) : (
-                <PlusCircle className="h-4 w-4" />
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-start gap-2"
+                    onClick={onConvertProject}
+                    disabled={convertingProject}
+                  >
+                    {convertingProject ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <PlusCircle className="h-4 w-4" />
+                    )}
+                    프로젝트로 전환
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-8 w-full justify-start text-xs text-muted-foreground"
+                    onClick={() => setNotRequiredDialogOpen(true)}
+                    disabled={projectFollowupUpdating}
+                  >
+                    프로젝트 전환 불필요 처리
+                  </Button>
+                </>
               )}
-              프로젝트로 전환
-            </Button>
+            </div>
           )}
         </div>
       </CardContent>
     </Card>
+    <Dialog open={notRequiredDialogOpen} onOpenChange={setNotRequiredDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>프로젝트 전환 불필요 처리</DialogTitle>
+          <DialogDescription>
+            이 견적은 홈 후속관리와 검토센터의 프로젝트 전환 대상에서 제외됩니다. 제외 사유를 남겨주세요.
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
+          value={notRequiredNote}
+          onChange={(event) => setNotRequiredNote(event.target.value)}
+          placeholder="예: 단순 판재 구매 건이라 프로젝트 생성이 필요 없음"
+          className="min-h-[110px]"
+        />
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setNotRequiredDialogOpen(false)}>
+            취소
+          </Button>
+          <Button
+            type="button"
+            onClick={submitNotRequired}
+            disabled={projectFollowupUpdating || notRequiredNote.trim().length < 2}
+          >
+            {projectFollowupUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            저장
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 

@@ -56,6 +56,10 @@ interface SavedQuote {
   delivery_period: string | null;
   payment_condition: string | null;
   project_id?: string | null;
+  project_followup_status?: string | null;
+  project_followup_note?: string | null;
+  project_followup_updated_at?: string | null;
+  project_followup_updated_by?: string | null;
   project_stage?: string | null;
   quote_status?: string | null;
   assigned_to?: string | null;
@@ -142,6 +146,7 @@ const SavedQuoteDetailPage = () => {
   const [linkedProject, setLinkedProject] = useState<{ id: string; name: string; payment_status: string | null } | null>(null);
   const [assigneeUsers, setAssigneeUsers] = useState<QuoteAssigneeOption[]>([]);
   const [convertingProject, setConvertingProject] = useState(false);
+  const [projectFollowupUpdating, setProjectFollowupUpdating] = useState(false);
   const [reissuingQuote, setReissuingQuote] = useState(false);
   const [duplicatingQuote, setDuplicatingQuote] = useState(false);
   const [quoteDefaults, setQuoteDefaults] = useState({
@@ -662,6 +667,10 @@ const SavedQuoteDetailPage = () => {
       setQuote(prev => prev ? {
         ...prev,
         project_id: project.id,
+        project_followup_status: 'converted',
+        project_followup_note: null,
+        project_followup_updated_at: new Date().toISOString(),
+        project_followup_updated_by: user.id,
         project_stage: 'contracted',
         quote_status: projectStageToLegacyQuoteStatus('contracted'),
       } as SavedQuote : prev);
@@ -676,6 +685,110 @@ const SavedQuoteDetailPage = () => {
       toast.error(error instanceof Error ? error.message : '프로젝트 전환에 실패했습니다.');
     } finally {
       setConvertingProject(false);
+    }
+  };
+
+  const handleMarkProjectNotRequired = async (note: string) => {
+    if (!quote || !user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    const trimmedNote = note.trim();
+    if (trimmedNote.length < 2) {
+      toast.error('제외 사유를 입력해주세요.');
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    setProjectFollowupUpdating(true);
+    try {
+      const { error } = await (supabase as any)
+        .from('saved_quotes')
+        .update({
+          project_followup_status: 'not_required',
+          project_followup_note: trimmedNote,
+          project_followup_updated_at: nowIso,
+          project_followup_updated_by: user.id,
+        })
+        .eq('id', quote.id);
+
+      if (error) throw error;
+
+      await logQuoteActivity({
+        quoteId: quote.id,
+        actionType: 'project_followup_not_required',
+        actorId: user.id,
+        actorName: profile?.full_name || user.email || '알 수 없음',
+        oldValue: quote.project_followup_status || (quote.project_id ? 'converted' : 'pending'),
+        newValue: 'not_required',
+        memo: trimmedNote,
+      });
+
+      setQuote(prev => prev ? {
+        ...prev,
+        project_followup_status: 'not_required',
+        project_followup_note: trimmedNote,
+        project_followup_updated_at: nowIso,
+        project_followup_updated_by: user.id,
+      } as SavedQuote : prev);
+      queryClient.invalidateQueries({ queryKey: ['quote-activity-history', quote.id] });
+      queryClient.invalidateQueries({ queryKey: ['home-quote-follow-ups'] });
+      toast.success('프로젝트 전환 불필요로 처리했습니다.');
+    } catch (error) {
+      console.error('Error marking project follow-up as not required:', error);
+      toast.error('프로젝트 전환 불필요 처리에 실패했습니다.');
+    } finally {
+      setProjectFollowupUpdating(false);
+    }
+  };
+
+  const handleReopenProjectFollowup = async () => {
+    if (!quote || !user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    const nextStatus = quote.project_id ? 'converted' : 'pending';
+    const nowIso = new Date().toISOString();
+    setProjectFollowupUpdating(true);
+    try {
+      const { error } = await (supabase as any)
+        .from('saved_quotes')
+        .update({
+          project_followup_status: nextStatus,
+          project_followup_note: null,
+          project_followup_updated_at: nowIso,
+          project_followup_updated_by: user.id,
+        })
+        .eq('id', quote.id);
+
+      if (error) throw error;
+
+      await logQuoteActivity({
+        quoteId: quote.id,
+        actionType: 'project_followup_reopened',
+        actorId: user.id,
+        actorName: profile?.full_name || user.email || '알 수 없음',
+        oldValue: quote.project_followup_status || 'not_required',
+        newValue: nextStatus,
+      });
+
+      setQuote(prev => prev ? {
+        ...prev,
+        project_followup_status: nextStatus,
+        project_followup_note: null,
+        project_followup_updated_at: nowIso,
+        project_followup_updated_by: user.id,
+      } as SavedQuote : prev);
+      queryClient.invalidateQueries({ queryKey: ['quote-activity-history', quote.id] });
+      queryClient.invalidateQueries({ queryKey: ['home-quote-follow-ups'] });
+      toast.success('프로젝트 전환 후속관리 대상으로 되돌렸습니다.');
+    } catch (error) {
+      console.error('Error reopening project follow-up:', error);
+      toast.error('프로젝트 전환 후속관리 복귀에 실패했습니다.');
+    } finally {
+      setProjectFollowupUpdating(false);
     }
   };
 
@@ -1037,7 +1150,11 @@ const SavedQuoteDetailPage = () => {
             assignedToName={quote.assigned_to_name || quote.issuer_name}
             users={assigneeUsers}
             linkedProject={linkedProject}
+            projectFollowupStatus={quote.project_followup_status}
+            projectFollowupNote={quote.project_followup_note}
+            projectFollowupUpdatedAt={quote.project_followup_updated_at}
             convertingProject={convertingProject}
+            projectFollowupUpdating={projectFollowupUpdating}
             isExpired={quoteExpired}
             canReissue={canReissueQuote}
             reissuingQuote={reissuingQuote}
@@ -1047,6 +1164,8 @@ const SavedQuoteDetailPage = () => {
             onStageChanged={handleStageChanged}
             onAssigneeChanged={handleAssigneeChanged}
             onConvertProject={handleConvertProject}
+            onMarkProjectNotRequired={handleMarkProjectNotRequired}
+            onReopenProjectFollowup={handleReopenProjectFollowup}
             onReissueQuote={handleReissueQuote}
             onDuplicateQuote={handleDuplicateQuote}
           />
