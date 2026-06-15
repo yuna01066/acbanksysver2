@@ -79,7 +79,7 @@ const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-2xl font-bold mb-2">각 판재의 면수를 선택해 주세요</h3>
+        <h3 className="mb-2 text-2xl font-semibold text-slate-950">각 판재의 면수를 선택해 주세요</h3>
         <p className="text-muted-foreground">
           선택한 각 사이즈별로 단면 또는 양면을 설정하세요
         </p>
@@ -95,8 +95,8 @@ const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
               key={item.size}
               className={`border-2 transition-all ${
                 item.surface 
-                  ? 'border-primary/30 bg-primary/5' 
-                  : 'border-border/50'
+                  ? 'border-slate-950 bg-slate-50' 
+                  : 'border-slate-200 bg-white'
               }`}
             >
               <CardHeader className="pb-3">
@@ -106,7 +106,7 @@ const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
                     <Badge variant="outline">{item.quantity}EA</Badge>
                   </div>
                   {item.surface && (
-                    <Badge variant="default">
+                    <Badge className="bg-slate-950 text-white">
                       {item.surface === '단면' ? '단면 선택됨' : '양면 선택됨'}
                     </Badge>
                   )}
@@ -120,10 +120,10 @@ const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
                   disabled={forceSingle}
                 >
                   <div 
-                    className={`flex items-center space-x-2 p-4 border-2 rounded-lg hover:border-primary/50 transition-colors ${
+                    className={`flex items-center space-x-2 rounded-lg border-2 p-4 transition-colors ${
                       selectedSurface === '단면' 
-                        ? 'border-primary bg-primary/10' 
-                        : 'border-border/50 bg-background'
+                        ? 'border-slate-950 bg-slate-50' 
+                        : 'border-slate-200 bg-white hover:border-slate-400'
                     }`}
                   >
                     <RadioGroupItem value="단면" id={`single-${item.size}`} />
@@ -131,7 +131,7 @@ const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
                       htmlFor={`single-${item.size}`}
                       className="flex items-center gap-3 cursor-pointer flex-1"
                     >
-                      <Square className="w-6 h-6 text-primary" />
+                      <Square className="h-6 w-6 text-slate-900" />
                       <div>
                         <div className="font-semibold">단면</div>
                         <div className="text-xs text-muted-foreground">
@@ -142,12 +142,12 @@ const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
                   </div>
 
                   <div 
-                    className={`flex items-center space-x-2 p-4 border-2 rounded-lg hover:border-primary/50 transition-colors ${
+                    className={`flex items-center space-x-2 rounded-lg border-2 p-4 transition-colors ${
                       selectedSurface === '양면' 
-                        ? 'border-primary bg-primary/10' 
+                        ? 'border-slate-950 bg-slate-50' 
                         : forceSingle 
                         ? 'border-border/30 bg-muted/30 opacity-50' 
-                        : 'border-border/50 bg-background'
+                        : 'border-slate-200 bg-white hover:border-slate-400'
                     }`}
                   >
                     <RadioGroupItem 
@@ -161,7 +161,7 @@ const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
                         forceSingle ? 'cursor-not-allowed' : 'cursor-pointer'
                       }`}
                     >
-                      <Layers className="w-6 h-6 text-primary" />
+                      <Layers className="h-6 w-6 text-slate-900" />
                       <div>
                         <div className="font-semibold">양면</div>
                         <div className="text-xs text-muted-foreground">
@@ -174,9 +174,9 @@ const MultipleSurfaceSelection: React.FC<MultipleSurfaceSelectionProps> = ({
                 </RadioGroup>
 
                 {isGlossyStandard && (
-                  <div className="mt-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                     <p className="text-xs text-muted-foreground">
-                      <span className="font-semibold text-primary">참고:</span> 투명 글로시는 단면 처리 시 자동으로 양면 가격이 적용됩니다
+                      <span className="font-semibold text-slate-900">참고:</span> 투명 글로시는 단면 처리 시 자동으로 양면 가격이 적용됩니다
                     </p>
                   </div>
                 )}

@@ -60,7 +60,7 @@ const MultipleColorMixingStep: React.FC<MultipleColorMixingStepProps> = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-2xl font-bold mb-2">각 판재의 조색비를 설정해 주세요</h3>
+        <h3 className="mb-2 text-2xl font-semibold text-slate-950">각 판재의 조색비를 설정해 주세요</h3>
         <p className="text-muted-foreground">
           선택한 각 사이즈별로 조색비를 설정하세요 (기본: 40,000원)
         </p>
@@ -74,12 +74,12 @@ const MultipleColorMixingStep: React.FC<MultipleColorMixingStepProps> = ({
           return (
             <Card 
               key={item.size}
-              className="border-2 border-primary/30 bg-gradient-to-br from-background to-muted/30"
+              className="border-2 border-slate-200 bg-white shadow-sm"
             >
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center justify-between text-base">
                   <div className="flex items-center gap-2">
-                    <Palette className="w-5 h-5 text-primary" />
+                    <Palette className="h-5 w-5 !text-slate-900" />
                     <span className="font-semibold">{baseName}</span>
                     <Badge variant="outline">{item.quantity}EA</Badge>
                     <Badge variant="secondary">{item.surface}</Badge>
@@ -88,10 +88,10 @@ const MultipleColorMixingStep: React.FC<MultipleColorMixingStepProps> = ({
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg border border-primary/20">
+                  <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-4">
                     <div>
                       <div className="text-sm text-muted-foreground mb-1">조색비</div>
-                      <div className="text-2xl font-bold text-primary">
+                      <div className="text-2xl font-bold text-slate-950">
                         {colorMixingCost.toLocaleString()}원
                       </div>
                     </div>
@@ -141,11 +141,11 @@ const MultipleColorMixingStep: React.FC<MultipleColorMixingStepProps> = ({
       </div>
 
       {/* 총 조색비 요약 */}
-      <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
+      <Card className="border-2 border-slate-300 bg-slate-50">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-lg">총 조색비</span>
-            <span className="text-2xl font-bold text-primary">
+            <span className="text-2xl font-bold text-slate-950">
               {selectedSizes.reduce((sum, item) => sum + (item.colorMixingCost || DEFAULT_COLOR_MIXING_COST), 0).toLocaleString()}원
             </span>
           </div>

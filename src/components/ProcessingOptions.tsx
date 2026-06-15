@@ -287,7 +287,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
   return (
     <div className="space-y-7 animate-fade-in">
       <div className="text-center space-y-3">
-        <h3 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+        <h3 className="text-2xl font-semibold text-slate-950 sm:text-3xl">
           가공 방법을 선택해주세요
         </h3>
         <p className="text-muted-foreground text-base">
@@ -296,10 +296,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
       </div>
 
       {/* STEP 1: 메인 카테고리 선택 */}
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-background/80 to-background">
+      <Card className="border-slate-200 bg-white shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Settings className="w-5 h-5 text-primary" />
+            <Settings className="h-5 w-5 !text-slate-900" />
             가공 카테고리 선택
             <Badge variant="secondary" className="ml-auto">STEP 1</Badge>
           </CardTitle>
@@ -314,14 +314,14 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                   onClick={() => handleMainCategorySelect(category.category_key)}
                   className={`p-4 rounded-lg border transition-colors text-left ${
                     mainCategory === category.category_key
-                      ? 'bg-primary/10 border-primary shadow-minimal'
-                      : 'bg-background border-border hover:border-primary/30 hover:bg-muted/30'
+                      ? 'border-slate-950 bg-slate-50 shadow-sm'
+                      : 'border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <Icon className="w-5 h-5 text-primary" />
+                    <Icon className="h-5 w-5 !text-slate-900" />
                     <span className="font-semibold text-sm">{category.category_name}</span>
-                    {mainCategory === category.category_key && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
+                    {mainCategory === category.category_key && <CheckCircle2 className="ml-auto h-4 w-4 text-slate-950" />}
                   </div>
                 </button>
               );
@@ -364,10 +364,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
             return (
               <div key={slotType}>
                 <Separator />
-                <Card className="border-accent/20 bg-background/70">
+                <Card className="border-slate-200 bg-white shadow-sm">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg">
-                      <Settings className="w-5 h-5 text-accent" />
+                      <Settings className="h-5 w-5 !text-slate-900" />
                       {slotLabel}
                       <Badge variant="outline" className="ml-auto">다중 선택</Badge>
                     </CardTitle>
@@ -390,10 +390,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                             key={option.id}
                             className={`p-4 rounded-lg border transition-colors ${
                               !isApplicable
-                                ? 'bg-muted/50 border-muted opacity-50'
+                                ? 'bg-slate-50 border-slate-200 opacity-50'
                                 : isSelected
-                                ? 'bg-primary/10 border-primary shadow-minimal'
-                                : 'bg-background border-border hover:border-primary/30 hover:bg-muted/30'
+                                ? 'border-slate-950 bg-slate-50 shadow-sm'
+                                : 'border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50'
                             }`}
                           >
                             <div className="flex items-start justify-between gap-4">
@@ -406,19 +406,19 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                                     </Badge>
                                   )}
                                   {isSelected && isApplicable && (
-                                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                                    <CheckCircle2 className="h-4 w-4 text-slate-950" />
                                   )}
                                 </div>
                                 {option.description && (
                                   <p className="text-xs text-muted-foreground mb-2">{option.description}</p>
                                 )}
                                 {option.base_cost && (
-                                  <p className="text-xs text-primary font-semibold">
+                                  <p className="text-xs font-semibold text-slate-900">
                                     +{option.base_cost.toLocaleString()}원
                                   </p>
                                 )}
                                 {['mirrorHardCoating', 'mirror-hard-coating'].includes(option.option_id) && (
-                                  <p className="text-xs text-primary font-semibold">
+                                  <p className="text-xs font-semibold text-slate-900">
                                     3*6 200,000원/장 · 4*8 300,000원/장
                                   </p>
                                 )}
@@ -515,7 +515,7 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                               )}
                             </div>
                             {isApplicable && isSelected && isPolishedEdgeOption(option.option_id) && (
-                              <div className="mt-4 rounded-lg border border-primary/15 bg-primary/5 p-3">
+                              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
                                 <Label
                                   htmlFor={`polished-edge-length-${option.option_id}`}
                                   className="mb-2 flex items-center gap-2 text-sm font-semibold"
@@ -554,10 +554,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
           return (
             <div key={slotType}>
               <Separator />
-              <Card className="border-primary/20 bg-background/70">
+              <Card className="border-slate-200 bg-white shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-lg">
-                    <ChevronRight className="w-5 h-5 text-primary" />
+                    <ChevronRight className="h-5 w-5 !text-slate-900" />
                     {slotLabel}
                     <Badge variant="secondary" className="ml-auto">STEP {stepIndex + 2}</Badge>
                   </CardTitle>
@@ -576,10 +576,10 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                           disabled={!isApplicable}
                           className={`p-4 rounded-lg border transition-colors text-left ${
                             !isApplicable
-                              ? 'bg-muted/50 border-muted cursor-not-allowed opacity-50'
+                              ? 'bg-slate-50 border-slate-200 cursor-not-allowed opacity-50'
                             : selectedSlots[slotType] === option.option_id
-                              ? 'bg-primary/10 border-primary shadow-minimal'
-                              : 'bg-background border-border hover:border-primary/30 hover:bg-muted/30'
+                              ? 'border-slate-950 bg-slate-50 shadow-sm'
+                              : 'border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50'
                           }`}
                         >
                           <div className="flex items-center gap-2 mb-2">
@@ -590,14 +590,14 @@ const ProcessingOptions: React.FC<ProcessingOptionsProps> = ({
                               </Badge>
                             )}
                             {selectedSlots[slotType] === option.option_id && isApplicable && (
-                              <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />
+                              <CheckCircle2 className="ml-auto h-4 w-4 text-slate-950" />
                             )}
                           </div>
                           {option.description && (
                             <p className="text-xs text-muted-foreground">{option.description}</p>
                           )}
                           {option.base_cost && (
-                            <p className="text-xs text-primary font-semibold mt-1">
+                            <p className="mt-1 text-xs font-semibold text-slate-900">
                               +{option.base_cost.toLocaleString()}원
                             </p>
                           )}

@@ -30,15 +30,13 @@ const AdvancedProcessingOptions = ({
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-6">
-      <Card className="border-2 border-primary/20 bg-gradient-to-br from-background to-muted/30">
+      <Card className="border-2 border-slate-200 bg-white shadow-sm">
         <CollapsibleTrigger className="w-full">
           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg">
             <CardTitle className="flex items-center justify-between text-lg">
               <div className="flex items-center gap-3">
-                <Settings2 className="w-5 h-5 text-primary" />
-                <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                  계산 세부 조건
-                </span>
+                <Settings2 className="h-5 w-5 !text-slate-900" />
+                <span className="text-slate-950">계산 세부 조건</span>
                 <Badge variant="secondary" className="text-xs">
                   단순 보정
                 </Badge>

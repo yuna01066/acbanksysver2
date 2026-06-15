@@ -225,8 +225,8 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
     return (
       <div className="space-y-6">
         <div className="text-center">
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">색상을 선택해주세요</h3>
-          <p className="text-gray-600">컬러 옵션을 로딩 중...</p>
+          <h3 className="mb-2 text-2xl font-semibold text-slate-950">색상을 선택해주세요</h3>
+          <p className="text-slate-500">컬러 옵션을 로딩 중...</p>
         </div>
       </div>
     );
@@ -235,11 +235,11 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-2xl font-bold text-gray-900 mb-2">색상을 선택해주세요</h3>
-        <p className="text-gray-600">원하는 색상을 선택해주세요</p>
+        <h3 className="mb-2 text-2xl font-semibold text-slate-950">색상을 선택해주세요</h3>
+        <p className="text-slate-500">원하는 색상을 선택해주세요</p>
       </div>
       {materialGuide && (
-        <div className="max-w-4xl mx-auto rounded-lg border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-900">
+        <div className="mx-auto max-w-4xl rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
           {materialGuide}
         </div>
       )}
@@ -248,7 +248,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
       <div className="flex gap-3 max-w-2xl mx-auto">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
+            <Search className="h-5 w-5 text-slate-400" />
           </div>
           <Input
             type="text"
@@ -264,7 +264,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
             <Button 
               variant="outline" 
               className={`flex items-center gap-2 whitespace-nowrap ${
-                isCustomSelected ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary' : ''
+                isCustomSelected ? 'border-slate-950 bg-slate-50 text-slate-950 ring-2 ring-slate-950' : ''
               }`}
             >
               {isCustomSelected && customColor && (
@@ -291,7 +291,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                     type="color"
                     value={customColor}
                     onChange={(e) => setCustomColor(e.target.value)}
-                    className="w-20 h-12 rounded border border-gray-300 cursor-pointer"
+                    className="h-12 w-20 cursor-pointer rounded border border-slate-300"
                   />
                   <div className="flex-1">
                     <Input
@@ -309,7 +309,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                 <Label htmlFor="opacity">투명도 선택 (선택사항)</Label>
                 <select
                   id="opacity"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-background"
+                  className="w-full rounded-md border border-slate-300 bg-background px-3 py-2"
                   value={customOpacity}
                   onChange={(e) => setCustomOpacity(e.target.value)}
                 >
@@ -357,7 +357,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
               onClick={() => setActiveTab('A')}
               className={`px-4 py-2 font-medium transition-colors ${
                 activeTab === 'A'
-                  ? 'border-b-2 border-primary text-primary'
+                  ? 'border-b-2 border-slate-950 text-slate-950'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -369,7 +369,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
               onClick={() => setActiveTab('B')}
               className={`px-4 py-2 font-medium transition-colors ${
                 activeTab === 'B'
-                  ? 'border-b-2 border-primary text-primary'
+                  ? 'border-b-2 border-slate-950 text-slate-950'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -381,7 +381,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
               onClick={() => setActiveTab('reference')}
               className={`px-4 py-2 font-medium transition-colors ${
                 activeTab === 'reference'
-                  ? 'border-b-2 border-primary text-primary'
+                  ? 'border-b-2 border-slate-950 text-slate-950'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -417,8 +417,8 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                 >
                   <div className={`aspect-square rounded-lg border-2 transition-all ${
                     isSelected 
-                      ? 'border-primary shadow-lg scale-105' 
-                      : 'border-border hover:border-primary/50 hover:shadow-md'
+                      ? 'border-slate-950 shadow-sm ring-2 ring-slate-950 ring-offset-2' 
+                      : 'border-slate-200 hover:border-slate-500'
                   }`}>
                     <div 
                       className="w-full h-full rounded-md"
