@@ -79,10 +79,10 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
   const StatusIcon = statusMeta.icon;
 
   return (
-    <Card className="mb-6 border-primary/20 bg-gradient-to-br from-primary/5 via-background/80 to-background">
-      <CardHeader className="border-b border-primary/10 bg-white/25 dark:bg-white/[0.03] pb-4">
+    <Card className="mb-6 border-slate-200 bg-white shadow-sm">
+      <CardHeader className="border-b border-slate-200 bg-slate-50 pb-4">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Package className="w-5 h-5 text-primary" />
+          <Package className="h-5 w-5 !text-slate-900" />
           선택된 옵션 상세
         </CardTitle>
       </CardHeader>
@@ -147,7 +147,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
                   const wonJangTotal = wonJangItem?.price || 0;
                   
                   return (
-                    <Card key={`${sizeIndex}-${qtyIndex}`} className="border-primary/15 bg-background/70">
+                    <Card key={`${sizeIndex}-${qtyIndex}`} className="border-slate-200 bg-white">
                       <CardContent className="p-4 space-y-3">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -173,7 +173,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
                               <Palette className="w-3 h-3" />
                               조색비
                             </div>
-                            <div className="font-medium text-sm text-primary">
+                            <div className="text-sm font-medium text-slate-950">
                               {formatPrice(itemColorMixingCost)}
                             </div>
                           </div>
@@ -181,12 +181,12 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
 
                         {/* 원판 금액 상세 */}
                         <div className="pt-3 border-t">
-                          <div className="bg-primary/5 rounded-lg p-3 space-y-2">
+                          <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium text-muted-foreground">
                                 원판 금액
                               </span>
-                              <span className="font-semibold text-lg text-primary">
+                              <span className="text-lg font-semibold text-slate-950">
                                 {formatPrice(wonJangTotal)}
                               </span>
                             </div>
@@ -225,7 +225,7 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
                     <Palette className="w-3 h-3" />
                     조색비
                   </div>
-                  <div className="font-medium text-primary">{formatPrice(colorMixingCost)}</div>
+                  <div className="font-medium text-slate-950">{formatPrice(colorMixingCost)}</div>
                 </div>
               )}
             </div>
@@ -262,9 +262,9 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
 
         {/* 가격 계산 결과 */}
         {priceInfo && priceInfo.breakdown && priceInfo.breakdown.length > 0 && (
-          <div className="space-y-2 mt-6 pt-6 border-t border-primary/15">
+          <div className="mt-6 space-y-2 border-t border-slate-200 pt-6">
             <h5 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-              <Calculator className="w-5 h-5 text-primary" />
+              <Calculator className="h-5 w-5 !text-slate-900" />
               가격 계산 결과
               <Badge variant="outline" className={`ml-auto gap-1 ${statusMeta.className}`}>
                 <StatusIcon className="h-3.5 w-3.5" />
@@ -308,14 +308,14 @@ const SelectionSummary: React.FC<SelectionSummaryProps> = ({
               ))}
               
               {/* 최종 견적가 강조 */}
-              <Card className="border-primary/40 bg-primary/10 mt-4">
+              <Card className="mt-4 border-slate-300 bg-slate-50">
                 <CardContent className="p-4">
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-bold flex items-center gap-2">
                       <DollarSign className="w-5 h-5" />
                       최종 견적가
                     </span>
-                    <span className="text-2xl font-bold text-primary">
+                    <span className="text-2xl font-bold text-slate-950">
                       {formatPrice(priceInfo.totalPrice)}
                     </span>
                   </div>

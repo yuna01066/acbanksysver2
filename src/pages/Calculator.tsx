@@ -19,7 +19,7 @@ const Calculator = () => {
         eyebrow="Calculator"
         title={title}
         description="원판 수율과 판재 견적을 동일한 기준으로 계산합니다."
-        icon={<CalculatorIcon className="h-5 w-5" />}
+        icon={<CalculatorIcon className="h-5 w-5 text-slate-950" />}
         actions={(
           <>
             <Button variant="outline" size="sm" onClick={() => navigate('/quote-drafts')}>

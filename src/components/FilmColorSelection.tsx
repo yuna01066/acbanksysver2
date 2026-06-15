@@ -80,13 +80,13 @@ const FilmColorSelection: React.FC<FilmColorSelectionProps> = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-2xl font-bold text-gray-900 mb-2">색상을 선택해주세요</h3>
-        <p className="text-gray-600">먼저 기본 재질을 선택한 후 세부 색상을 선택해주세요</p>
+        <h3 className="mb-2 text-2xl font-semibold text-slate-950">색상을 선택해주세요</h3>
+        <p className="text-slate-500">먼저 기본 재질을 선택한 후 세부 색상을 선택해주세요</p>
       </div>
 
       {/* 기본 재질 선택 */}
       <div className="space-y-4">
-        <h4 className="text-lg font-semibold text-gray-900 text-center">기본 재질</h4>
+        <h4 className="text-center text-lg font-semibold text-slate-950">기본 재질</h4>
         <div className="grid grid-cols-3 gap-4">
           {FILM_BASE_COLORS.map((base) => (
             <Button
@@ -95,7 +95,7 @@ const FilmColorSelection: React.FC<FilmColorSelectionProps> = ({
               className={`h-16 text-base font-semibold transition-all duration-200 rounded-lg ${
                 selectedBase === base.id
                   ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
-                  : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-900'
+                  : 'border-slate-200 bg-white text-slate-900 hover:border-slate-400 hover:bg-slate-50'
               }`}
               onClick={() => handleBaseColorSelect(base.id)}
             >
@@ -108,7 +108,7 @@ const FilmColorSelection: React.FC<FilmColorSelectionProps> = ({
       {/* 세부 색상 선택 */}
       {selectedBase && (
         <div className="space-y-4 animate-fade-up">
-          <h4 className="text-lg font-semibold text-gray-900 text-center">세부 색상</h4>
+          <h4 className="text-center text-lg font-semibold text-slate-950">세부 색상</h4>
           <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
             {getDetailColors().map((color) => (
               <button
@@ -116,8 +116,8 @@ const FilmColorSelection: React.FC<FilmColorSelectionProps> = ({
                 onClick={() => handleDetailColorSelect(color.id, { acCode: color.acCode, hexCode: color.hexCode })}
                 className={`
                   relative aspect-square rounded-lg border-2 transition-all duration-200 
-                  hover:scale-110 hover:shadow-lg group
-                  ${selectedColor === color.acCode ? 'border-slate-900 ring-2 ring-slate-900 ring-offset-2' : 'border-gray-200'}
+                  group hover:border-slate-500
+                  ${selectedColor === color.acCode ? 'border-slate-950 ring-2 ring-slate-950 ring-offset-2' : 'border-slate-200'}
                 `}
                 style={{ backgroundColor: color.hexCode }}
                 title={`${color.name} (${color.acCode})`}
@@ -133,7 +133,7 @@ const FilmColorSelection: React.FC<FilmColorSelectionProps> = ({
                 )}
                 
                 {/* 호버 시 색상 정보 표시 */}
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-950 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
                   {color.name}
                   <br />
                   {color.acCode}

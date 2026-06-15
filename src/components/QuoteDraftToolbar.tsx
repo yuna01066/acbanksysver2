@@ -21,7 +21,7 @@ const STATUS_LABELS = {
 
 const STATUS_CLASS_NAMES = {
   idle: 'border-slate-200 bg-slate-50 text-slate-600',
-  saving: 'border-blue-200 bg-blue-50 text-blue-700',
+  saving: 'border-slate-300 bg-slate-100 text-slate-800',
   saved: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   error: 'border-red-200 bg-red-50 text-red-700',
   offline: 'border-amber-200 bg-amber-50 text-amber-700',
@@ -136,11 +136,11 @@ const QuoteDraftToolbar = () => {
   };
 
   return (
-    <Card className="mb-4 overflow-hidden border-blue-100 bg-white/85 shadow-sm print:hidden">
+    <Card className="mb-4 overflow-hidden border-slate-200 bg-white/90 shadow-sm print:hidden">
       <CardContent className="p-2.5 sm:p-3">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-900">
               <FileText className="h-4 w-4" />
             </span>
             <ScrollArea className="min-w-0 flex-1">
@@ -152,7 +152,7 @@ const QuoteDraftToolbar = () => {
                     return (
                       <div
                         key={draft.id}
-                        className="group flex h-11 min-w-[220px] max-w-[300px] items-center gap-2 rounded-t-2xl border border-blue-200 border-b-white bg-white px-3 text-blue-700 shadow-sm"
+                        className="group flex h-11 min-w-[220px] max-w-[300px] items-center gap-2 rounded-t-2xl border border-slate-950 border-b-white bg-white px-3 text-slate-950 shadow-sm"
                       >
                         <FileText className="h-4 w-4 shrink-0" />
                         <Input
@@ -161,7 +161,7 @@ const QuoteDraftToolbar = () => {
                           placeholder="초안 이름"
                           className="h-7 min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-semibold text-slate-900 shadow-none focus-visible:ring-0"
                         />
-                        <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600">
+                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
                           {draft.items.length}
                         </span>
                         <button
@@ -180,7 +180,7 @@ const QuoteDraftToolbar = () => {
                   return (
                     <div
                       key={draft.id}
-                      className="group flex h-10 min-w-[170px] max-w-[240px] items-center rounded-t-2xl border border-slate-200 bg-slate-50/80 px-2 text-sm font-medium text-slate-600 transition-colors hover:border-blue-100 hover:bg-white hover:text-slate-900"
+                      className="group flex h-10 min-w-[170px] max-w-[240px] items-center rounded-t-2xl border border-slate-200 bg-slate-50/80 px-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-white hover:text-slate-900"
                       title={draft.title}
                     >
                       <button
@@ -207,7 +207,7 @@ const QuoteDraftToolbar = () => {
                   );
                 })}
                 {shouldShowLocalDraftTab && (
-                  <div className="flex h-11 min-w-[220px] max-w-[300px] items-center gap-2 rounded-t-2xl border border-blue-200 border-b-white bg-white px-3 text-blue-700 shadow-sm">
+                  <div className="flex h-11 min-w-[220px] max-w-[300px] items-center gap-2 rounded-t-2xl border border-slate-950 border-b-white bg-white px-3 text-slate-950 shadow-sm">
                     <FileText className="h-4 w-4 shrink-0" />
                     <Input
                       value={draftTitle}
@@ -222,7 +222,7 @@ const QuoteDraftToolbar = () => {
                   variant="ghost"
                   size="icon"
                   onClick={handleNewDraft}
-                  className="mb-0.5 h-10 w-10 shrink-0 rounded-t-2xl rounded-b-lg border border-dashed border-blue-100 bg-white/70 text-blue-600 hover:bg-blue-50"
+                  className="mb-0.5 h-10 w-10 shrink-0 rounded-t-2xl rounded-b-lg border border-dashed border-slate-300 bg-white/70 text-slate-700 hover:bg-slate-50"
                   aria-label="새 초안"
                 >
                   <Plus className="h-4 w-4" />
@@ -253,7 +253,7 @@ const QuoteDraftToolbar = () => {
               <Archive className="h-4 w-4 shrink-0" />
               보관
             </Button>
-            <Button size="sm" onClick={() => navigate('/quote-drafts')} className={actionButtonClassName}>
+            <Button size="sm" onClick={() => navigate('/quote-drafts')} className={`${actionButtonClassName} bg-slate-950 text-white hover:bg-slate-800`}>
               <FolderOpen className="h-4 w-4 shrink-0" />
               초안함
             </Button>

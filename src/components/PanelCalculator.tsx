@@ -1690,12 +1690,12 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         ? '계산 가능한 견적 금액이 없습니다. 원판 사이즈, 면수, 단가표를 확인해주세요.'
         : null;
   return <div className="w-full">
-      <Card className="mx-auto w-full max-w-5xl overflow-hidden border-white/60 shadow-sm animate-fade-up">
-        <CardHeader className="border-b border-white/50 bg-background/55 pb-5 dark:bg-white/[0.03]">
+      <Card className="mx-auto w-full max-w-5xl animate-fade-up overflow-hidden border-slate-200 bg-white shadow-sm">
+        <CardHeader className="border-b border-slate-200 bg-slate-50 pb-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-primary">
-                <Calculator className="h-5 w-5" />
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-950">
+                <Calculator className="h-5 w-5 !text-slate-950" />
               </span>
               <div>
                 <div className="text-base font-semibold sm:text-lg">
@@ -1705,7 +1705,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
                 <p className="mt-1 text-xs font-normal text-muted-foreground">아크뱅크 내부 계산 시스템</p>
               </div>
             </CardTitle>
-            {quotes.length > 0 && <Button onClick={handleViewQuotesSummary} variant="default" size="sm" className="shrink-0">
+            {quotes.length > 0 && <Button onClick={handleViewQuotesSummary} variant="default" size="sm" className="shrink-0 bg-slate-950 text-white hover:bg-slate-800">
               <ShoppingCart className="h-4 w-4" />
               담은 견적 보기 ({quotes.length})
             </Button>}
@@ -1794,7 +1794,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
           )}
 
           {yieldAppliedSelection && currentStep >= 3 && (
-            <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+            <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
               <div className="font-semibold text-foreground">수율 계산 추천을 견적에 적용 중입니다.</div>
               <div className="mt-1 text-muted-foreground">
                 {yieldAppliedSelection.thickness} · {yieldAppliedSelection.sizes.map(s => `${s.size} ${s.quantity}장`).join(', ')}
@@ -1975,7 +1975,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
                   onClick={handleAddQuote}
                   size="lg"
                   disabled={Boolean(quoteSubmitDisabledReason)}
-                  className={`px-8 animate-fade-up ${(editMode === 'saved' || editMode === 'draft' || editMode === 'addToSaved') ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                  className={`animate-fade-up px-8 ${(editMode === 'saved' || editMode === 'draft' || editMode === 'addToSaved') ? 'bg-slate-950 hover:bg-slate-800' : 'bg-slate-950 hover:bg-slate-800'}`}
                 >
                   <Plus className="w-5 h-5" />
                   {(editMode === 'saved' || editMode === 'draft') ? '견적 수정' : editMode === 'addToSaved' ? '견적서에 항목 추가' : '견적 추가'}

@@ -140,7 +140,7 @@ const MultipleSizeSelection: React.FC<MultipleSizeSelectionProps> = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-2xl font-bold mb-2">판재 사이즈를 선택해 주세요</h3>
+        <h3 className="mb-2 text-2xl font-semibold text-slate-950">판재 사이즈를 선택해 주세요</h3>
         <p className="text-muted-foreground">
           여러 사이즈를 선택하고 각각의 수량을 설정할 수 있습니다
         </p>
@@ -148,16 +148,16 @@ const MultipleSizeSelection: React.FC<MultipleSizeSelectionProps> = ({
 
       {/* 선택된 사이즈 요약 */}
       {selectedSizes.length > 0 && (
-        <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
+        <Card className="border-2 border-slate-200 bg-slate-50/70 shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-primary" />
+                <ShoppingCart className="h-5 w-5 text-slate-900" />
                 <span className="font-semibold">선택된 사이즈</span>
-                <Badge variant="default">{selectedSizes.length}개</Badge>
+                <Badge className="bg-slate-950 text-white">{selectedSizes.length}개</Badge>
               </div>
               <div className="text-sm font-medium">
-                총 수량: <span className="text-primary text-lg">{getTotalQuantity()}</span>EA
+                총 수량: <span className="text-lg text-slate-950">{getTotalQuantity()}</span>EA
               </div>
             </div>
             
@@ -167,7 +167,7 @@ const MultipleSizeSelection: React.FC<MultipleSizeSelectionProps> = ({
                 return (
                   <div 
                     key={size}
-                    className="flex items-center justify-between p-3 bg-background/80 rounded-lg border border-border/50"
+                    className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3"
                   >
                     <div className="flex-1">
                       <div className="font-medium">{sizeInfo.baseName}</div>
@@ -229,10 +229,10 @@ const MultipleSizeSelection: React.FC<MultipleSizeSelectionProps> = ({
             return (
               <Card
                 key={size}
-                className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                className={`cursor-pointer transition-all duration-200 ${
                   selected 
-                    ? 'border-2 border-primary bg-primary/5 shadow-md' 
-                    : 'border-2 border-border/50 hover:border-primary/30'
+                    ? 'border-2 border-slate-950 bg-slate-50 shadow-sm' 
+                    : 'border-2 border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50'
                 }`}
               >
                 <CardContent className="p-4">
@@ -254,7 +254,7 @@ const MultipleSizeSelection: React.FC<MultipleSizeSelectionProps> = ({
                         </div>
                         <div className="text-xs text-muted-foreground">
                           <div>기준: {sizeInfo.baseWidth}×{sizeInfo.baseHeight}mm</div>
-                          <div className="font-medium text-primary">
+                          <div className="font-medium text-slate-900">
                             가용: {sizeInfo.availableWidth}×{sizeInfo.availableHeight}mm
                           </div>
                         </div>
@@ -262,7 +262,7 @@ const MultipleSizeSelection: React.FC<MultipleSizeSelectionProps> = ({
                           두께: {selectedThickness || 'N/A'}
                         </div>
                         {selected && (
-                          <Badge variant="default" className="mt-2">
+                          <Badge className="mt-2 bg-slate-950 text-white">
                             {getQuantity(size)}EA 선택됨
                           </Badge>
                         )}
@@ -275,7 +275,7 @@ const MultipleSizeSelection: React.FC<MultipleSizeSelectionProps> = ({
           })}
         </div>
       ) : (
-        <div className="text-center py-12 bg-muted/50 rounded-xl border-2 border-border/50">
+        <div className="rounded-xl border-2 border-slate-200 bg-slate-50 py-12 text-center">
           <div className="text-muted-foreground text-lg mb-2 font-medium">
             사용 가능한 사이즈가 없습니다
           </div>

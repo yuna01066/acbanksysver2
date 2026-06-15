@@ -98,8 +98,8 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-2xl font-bold text-gray-900 mb-2">제품 제작 견적</h3>
-        <p className="text-gray-600">수동 개당 단가 기준</p>
+        <h3 className="mb-2 text-2xl font-semibold text-slate-950">제품 제작 견적</h3>
+        <p className="text-slate-500">수동 개당 단가 기준</p>
       </div>
 
       <div className="space-y-4">
@@ -292,7 +292,7 @@ const ManualProductEntry: React.FC<ManualProductEntryProps> = ({
         <div className="bg-muted/50 rounded-lg p-4 border border-border/50">
           <div className="flex justify-between items-center">
             <span className="text-lg font-medium">총 금액</span>
-            <span className="text-2xl font-bold text-primary">
+            <span className="text-2xl font-bold text-slate-950">
               ₩{getTotalPrice().toLocaleString()}
             </span>
           </div>
