@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { isCompanyMasterEmail } from '@/lib/companyMaster';
+import acbankWordmark from '@/assets/acbank-wordmark-black.png';
 
 type QuickIconLink = {
   title: string;
@@ -320,18 +321,26 @@ const Home = () => {
 
           {/* Header */}
           <div className="mb-6 space-y-2 text-center animate-fade-up sm:mb-8">
-            <div className="inline-block rounded-lg border border-border bg-card px-1 py-1 shadow-none" onClick={handleLogoClick}>
+            <button
+              type="button"
+              className="inline-block rounded-lg border border-border bg-card px-1 py-1 shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+              onClick={handleLogoClick}
+              aria-label="ACBANK 테마 전환"
+            >
               <div
                 className={cn(
-                  "dashboard-logo-sweep cursor-pointer select-none rounded-md px-8 py-2.5 transition-colors hover:bg-muted sm:px-12",
+                  "dashboard-logo-sweep cursor-pointer select-none rounded-md px-5 py-2.5 transition-colors hover:bg-muted sm:px-8",
                   logoSpinning && "logo-spin-3d"
                 )}
               >
-                <h1 className="text-3xl font-black leading-none tracking-[3px] text-foreground sm:text-[36px]">
-                  ACBANK
-                </h1>
+                <img
+                  src={acbankWordmark}
+                  alt="ACBANK"
+                  className="dashboard-wordmark-image h-auto w-[clamp(220px,32vw,340px)]"
+                  draggable={false}
+                />
               </div>
-            </div>
+            </button>
             <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground sm:text-[12px]">Management System</p>
           </div>
 
