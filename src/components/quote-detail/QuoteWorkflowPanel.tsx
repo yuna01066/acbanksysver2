@@ -121,7 +121,7 @@ const QuoteWorkflowPanel = ({
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-1.5">
-          <div className="text-[11px] font-medium text-muted-foreground">상태/단계</div>
+          <div className="text-[11px] font-medium text-muted-foreground">진행 단계</div>
           <ProjectStageSelect
             quoteId={quoteId}
             currentStage={projectStage || 'quote_issued'}

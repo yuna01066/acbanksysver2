@@ -10,12 +10,20 @@ import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import ProjectStageSelect, { PROJECT_STAGES } from '@/components/ProjectStageSelect';
 import { getPaymentStatusInfo } from '@/components/project/PaymentStatusSelect';
 import { PageHeader, PageShell, SearchFilterBar } from '@/components/layout/PageLayout';
 import { formatQuoteProjectTitle } from '@/utils/quoteNaming';
 import { convertQuoteToProject } from '@/services/quoteProjectConversion';
-import { isQuoteExpired, isReissueProtectedProjectStage, normalizeProjectStage, projectStageToLegacyQuoteStatus } from '@/utils/quoteWorkflow';
+import {
+  getSimplifiedStageInfo,
+  getStageInfo,
+  isQuoteExpired,
+  isReissueProtectedProjectStage,
+  matchesSimplifiedStageFilter,
+  normalizeProjectStage,
+  projectStageToLegacyQuoteStatus,
+  SIMPLIFIED_QUOTE_STAGE_FILTERS,
+} from '@/utils/quoteWorkflow';
 import { reissueSavedQuote } from '@/services/quoteReissue';
 import { duplicateSavedQuote } from '@/services/quoteDuplicate';
 import { logQuoteActivity } from '@/services/quoteActivity';
@@ -349,7 +357,7 @@ const SavedQuotesPage = () => {
     }
 
     if (stageFilter !== 'all') {
-      filtered = filtered.filter(quote => normalizeProjectStage(quote.project_stage, quote.quote_status) === stageFilter);
+      filtered = filtered.filter(quote => matchesSimplifiedStageFilter(quote.project_stage, quote.quote_status, stageFilter));
     }
 
     filtered.sort((a, b) => {
@@ -570,7 +578,7 @@ const SavedQuotesPage = () => {
       <PageHeader
         eyebrow="Issued Quotes"
         title="발행 견적서"
-        description="견적 상태, 연결 프로젝트, 거래처 정보를 한 화면에서 확인합니다."
+        description="견적의 큰 흐름, 연결 프로젝트, 거래처 정보를 한 화면에서 확인합니다."
         icon={<FileText className="h-5 w-5" />}
         actions={(
           <>
@@ -676,7 +684,7 @@ const SavedQuotesPage = () => {
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">상태/단계</span>
+            <span className="text-sm text-muted-foreground">상태</span>
             <Badge
               variant="outline"
               className={`cursor-pointer rounded-full border-border px-2.5 text-xs ${
@@ -688,7 +696,7 @@ const SavedQuotesPage = () => {
             >
               전체
             </Badge>
-            {PROJECT_STAGES.map((stage) => (
+            {SIMPLIFIED_QUOTE_STAGE_FILTERS.map((stage) => (
               <Badge
                 key={stage.value}
                 variant="outline"
@@ -733,7 +741,7 @@ const SavedQuotesPage = () => {
                 <span>거래처</span>
                 <span>담당자</span>
                 <span className="text-right">금액</span>
-                <span className="text-right">상태/단계</span>
+                <span className="text-right">상태</span>
               </div>
 
               <div className="divide-y divide-border/70">
@@ -744,6 +752,8 @@ const SavedQuotesPage = () => {
                   const quoteTitle = getQuoteTitle(quote);
                   const expired = isQuoteExpired(quote.valid_until);
                   const reissueCandidate = canReissueQuote(quote);
+                  const stageInfo = getStageInfo(quote.project_stage);
+                  const simplifiedStageInfo = getSimplifiedStageInfo(quote.project_stage, quote.quote_status);
 
                   return (
                     <div
@@ -798,18 +808,14 @@ const SavedQuotesPage = () => {
                           {formatPrice(quote.total)}
                         </div>
 
-                        <div className="flex justify-start lg:justify-end" onClick={(event) => event.stopPropagation()}>
-                          <ProjectStageSelect
-                            quoteId={quote.id}
-                            currentStage={quote.project_stage || 'quote_issued'}
-                            quoteNumber={quote.quote_number}
-                            quoteUserId={quote.user_id}
-                            onStageChanged={(newStage) => {
-                              setQuotes(prev => prev.map(q => q.id === quote.id
-                                ? { ...q, project_stage: newStage, quote_status: projectStageToLegacyQuoteStatus(newStage) }
-                                : q));
-                            }}
-                          />
+                        <div className="flex justify-start lg:justify-end">
+                          <Badge
+                            variant="outline"
+                            className={`min-w-[64px] justify-center rounded-full px-2.5 py-1 text-xs font-semibold ${simplifiedStageInfo.color}`}
+                            title={`상세 단계: ${stageInfo.label}`}
+                          >
+                            {simplifiedStageInfo.label}
+                          </Badge>
                         </div>
                       </div>
 
