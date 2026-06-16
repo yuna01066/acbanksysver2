@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calculator, ShoppingCart, Download, FileText, Calendar as CalendarIcon, Plus, Trash2, Send } from "lucide-react";
+import { Calculator, Download, FileText, Calendar as CalendarIcon, Plus, Trash2, Send } from "lucide-react";
 import { useQuotes, QuoteRecipient, Attachment } from "@/contexts/QuoteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,7 @@ import PrintStyles from "@/components/PrintStyles";
 import QuoteAttachments from "@/components/QuoteAttachments";
 import QuoteStyleBanner from "@/components/quote-detail/QuoteStyleBanner";
 import QuoteDraftToolbar from "@/components/QuoteDraftToolbar";
+import QuoteEmptyState from "@/components/quote/QuoteEmptyState";
 import { detectQuoteStyleFromItems, getQuoteStyleProfile } from "@/utils/quoteStyle";
 
 const QuotesSummaryPage = () => {
@@ -86,17 +87,7 @@ const QuotesSummaryPage = () => {
 
   if (quotes.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md mx-auto">
-          <CardContent className="text-center p-8">
-            <ShoppingCart className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600 mb-4">담긴 견적이 없습니다.</p>
-            <Button onClick={() => navigate('/calculator?type=quote')}>
-              계산기로 돌아가기
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <QuoteEmptyState onBackToCalculator={() => navigate('/calculator?type=quote')} />
     );
   };
 

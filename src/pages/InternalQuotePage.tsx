@@ -1,13 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calculator, ShoppingCart } from "lucide-react";
+import { Calculator } from "lucide-react";
 import { toast } from 'sonner';
 import { useQuotes } from "@/contexts/QuoteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import QuoteSummaryHeader from "@/components/QuoteSummaryHeader";
 import QuoteDraftToolbar from "@/components/QuoteDraftToolbar";
+import QuoteEmptyState from "@/components/quote/QuoteEmptyState";
 import QuoteCard from "@/components/QuoteCard";
 import PrintStyles from "@/components/PrintStyles";
 import businessRegistration from "@/assets/arcbank-business-registration.jpg";
@@ -42,17 +42,7 @@ const InternalQuotePage = () => {
   } = useQuotes();
 
   if (quotes.length === 0) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md mx-auto">
-          <CardContent className="text-center p-8">
-            <ShoppingCart className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600 mb-4">담긴 견적이 없습니다.</p>
-            <Button onClick={() => navigate('/calculator?type=quote')}>
-              계산기로 돌아가기
-            </Button>
-          </CardContent>
-        </Card>
-      </div>;
+    return <QuoteEmptyState onBackToCalculator={() => navigate('/calculator?type=quote')} />;
   }
 
   const subtotal = getTotalPrice();
