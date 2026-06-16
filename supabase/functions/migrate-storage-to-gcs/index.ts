@@ -85,8 +85,12 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const { buckets } = await req.json();
-    // Default buckets to migrate
+    const body = await req.json().catch(() => ({}));
+    const { buckets } = body;
+    // SAFETY: dryRun defaults to TRUE. Must be explicitly set to false to actually migrate.
+    const dryRun = body.dryRun !== false;
+    // SAFETY: Source files in Supabase Storage are NEVER deleted by this function.
+    const sourceDeleted = false;
     const bucketsToMigrate = buckets || [
       'tax-documents',
       'incident-attachments',
@@ -95,13 +99,14 @@ serve(async (req) => {
       'internal-project-docs',
     ];
 
-    const results: Record<string, { migrated: number; failed: number; errors: string[] }> = {};
+
+    const results: Record<string, { planned: number; migrated: number; failed: number; errors: string[] }> = {};
 
     for (const bucketName of bucketsToMigrate) {
-      results[bucketName] = { migrated: 0, failed: 0, errors: [] };
+      results[bucketName] = { planned: 0, migrated: 0, failed: 0, errors: [] };
 
       // List all files in the bucket
-      const { data: files, error: listError } = await supabase.storage
+      const { error: listError } = await supabase.storage
         .from(bucketName)
         .list('', { limit: 10000 });
 
@@ -126,10 +131,12 @@ serve(async (req) => {
       };
 
       await listRecursive('');
+      results[bucketName].planned = allFiles.length;
+
+      if (dryRun) continue;
 
       for (const filePath of allFiles) {
         try {
-          // Download from Supabase storage
           const { data: fileData, error: downloadError } = await supabase.storage
             .from(bucketName)
             .download(filePath);
@@ -140,15 +147,13 @@ serve(async (req) => {
             continue;
           }
 
-          // Determine GCS path
           const gcsPath = `${bucketName}/${filePath}`;
           const contentType = fileData.type || 'application/octet-stream';
-
-          // Upload to GCS
           const bytes = new Uint8Array(await fileData.arrayBuffer());
           await signAndUpload(GCS_BUCKET, gcsPath, bytes, contentType, accessKey, secretKey);
 
           results[bucketName].migrated++;
+          // NOTE: Source files in Supabase Storage are intentionally NOT deleted.
         } catch (err) {
           results[bucketName].errors.push(`${filePath}: ${err instanceof Error ? err.message : 'unknown'}`);
           results[bucketName].failed++;
@@ -156,90 +161,87 @@ serve(async (req) => {
       }
     }
 
-    // Update DB references for migrated files
-    // tax_documents: file_url was publicUrl, now gcsPath
-    const { data: taxDocs } = await supabase.from('tax_documents').select('id, file_url');
-    if (taxDocs) {
-      for (const doc of taxDocs) {
-        if (doc.file_url?.startsWith('http')) {
-          // Extract path from public URL
-          const match = doc.file_url.match(/tax-documents\/(.+)$/);
-          if (match) {
-            const gcsPath = `tax-documents/${match[1]}`;
-            await supabase.from('tax_documents').update({ file_url: gcsPath }).eq('id', doc.id);
+    // DB reference updates are only applied when dryRun is false.
+    if (!dryRun) {
+      const { data: taxDocs } = await supabase.from('tax_documents').select('id, file_url');
+      if (taxDocs) {
+        for (const doc of taxDocs) {
+          if (doc.file_url?.startsWith('http')) {
+            const match = doc.file_url.match(/tax-documents\/(.+)$/);
+            if (match) {
+              const gcsPath = `tax-documents/${match[1]}`;
+              await supabase.from('tax_documents').update({ file_url: gcsPath }).eq('id', doc.id);
+            }
           }
         }
       }
-    }
 
-    // internal_project_documents: file_url was storage path
-    const { data: internalDocs } = await supabase.from('internal_project_documents').select('id, file_url');
-    if (internalDocs) {
-      for (const doc of internalDocs) {
-        if (doc.file_url && !doc.file_url.startsWith('internal-project')) {
-          const gcsPath = `internal-project-docs/${doc.file_url}`;
-          await supabase.from('internal_project_documents').update({ file_url: gcsPath }).eq('id', doc.id);
+      const { data: internalDocs } = await supabase.from('internal_project_documents').select('id, file_url');
+      if (internalDocs) {
+        for (const doc of internalDocs) {
+          if (doc.file_url && !doc.file_url.startsWith('internal-project')) {
+            const gcsPath = `internal-project-docs/${doc.file_url}`;
+            await supabase.from('internal_project_documents').update({ file_url: gcsPath }).eq('id', doc.id);
+          }
         }
       }
-    }
 
-    // recipients: business_document_url was storage path
-    const { data: recipients } = await supabase.from('recipients').select('id, business_document_url');
-    if (recipients) {
-      for (const r of recipients as any[]) {
-        if (r.business_document_url && !r.business_document_url.startsWith('recipient-documents/') && !r.business_document_url.startsWith('http')) {
-          const gcsPath = `recipient-documents/${r.business_document_url}`;
-          await supabase.from('recipients').update({ business_document_url: gcsPath } as any).eq('id', r.id);
+      const { data: recipients } = await supabase.from('recipients').select('id, business_document_url');
+      if (recipients) {
+        for (const r of recipients as any[]) {
+          if (r.business_document_url && !r.business_document_url.startsWith('recipient-documents/') && !r.business_document_url.startsWith('http')) {
+            const gcsPath = `recipient-documents/${r.business_document_url}`;
+            await supabase.from('recipients').update({ business_document_url: gcsPath } as any).eq('id', r.id);
+          }
         }
       }
-    }
 
-    // team_messages attachments: url was public URL, now gcsPath
-    const { data: messages } = await supabase.from('team_messages').select('id, attachments');
-    if (messages) {
-      for (const msg of messages) {
-        if (msg.attachments && Array.isArray(msg.attachments)) {
-          let changed = false;
-          const updated = (msg.attachments as any[]).map((att: any) => {
-            if (att.url?.includes('team-chat-attachments')) {
-              const match = att.url.match(/team-chat-attachments\/(.+)$/);
-              if (match) {
-                changed = true;
-                return { ...att, url: `team-chat/${match[1]}` };
+      const { data: messages } = await supabase.from('team_messages').select('id, attachments');
+      if (messages) {
+        for (const msg of messages) {
+          if (msg.attachments && Array.isArray(msg.attachments)) {
+            let changed = false;
+            const updated = (msg.attachments as any[]).map((att: any) => {
+              if (att.url?.includes('team-chat-attachments')) {
+                const match = att.url.match(/team-chat-attachments\/(.+)$/);
+                if (match) {
+                  changed = true;
+                  return { ...att, url: `team-chat/${match[1]}` };
+                }
               }
+              return att;
+            });
+            if (changed) {
+              await supabase.from('team_messages').update({ attachments: updated }).eq('id', msg.id);
             }
-            return att;
-          });
-          if (changed) {
-            await supabase.from('team_messages').update({ attachments: updated }).eq('id', msg.id);
+          }
+        }
+      }
+
+      const { data: incidents } = await supabase.from('incident_reports').select('id, attachments');
+      if (incidents) {
+        for (const inc of incidents) {
+          if (inc.attachments && Array.isArray(inc.attachments)) {
+            let changed = false;
+            const updated = (inc.attachments as any[]).map((att: any) => {
+              if (att.path && !att.path.startsWith('incident-attachments/')) {
+                changed = true;
+                return { ...att, path: `incident-attachments/${att.path}` };
+              }
+              return att;
+            });
+            if (changed) {
+              await supabase.from('incident_reports').update({ attachments: updated } as any).eq('id', inc.id);
+            }
           }
         }
       }
     }
 
-    // incident_reports attachments: path was supabase storage path
-    const { data: incidents } = await supabase.from('incident_reports').select('id, attachments');
-    if (incidents) {
-      for (const inc of incidents) {
-        if (inc.attachments && Array.isArray(inc.attachments)) {
-          let changed = false;
-          const updated = (inc.attachments as any[]).map((att: any) => {
-            if (att.path && !att.path.startsWith('incident-attachments/')) {
-              changed = true;
-              return { ...att, path: `incident-attachments/${att.path}` };
-            }
-            return att;
-          });
-          if (changed) {
-            await supabase.from('incident_reports').update({ attachments: updated } as any).eq('id', inc.id);
-          }
-        }
-      }
-    }
-
-    return new Response(JSON.stringify({ success: true, results }), {
+    return new Response(JSON.stringify({ success: true, dryRun, sourceDeleted, results }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+
   } catch (error) {
     if (isAuthResponse(error)) return withCors(error, corsHeaders);
     console.error('Migration error:', error);

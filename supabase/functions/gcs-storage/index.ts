@@ -213,6 +213,8 @@ async function assertGcsAccess(auth: AuthContext, action: GcsAction, bucket: str
       || path.startsWith(`team-chat/${userId}/`)
       || path.startsWith(`project-updates/${userId}/`)
       || path.startsWith(`internal-project-docs/${userId}/`)
+      || path.startsWith(`quote-attachments/${userId}/`)
+      || path.startsWith(`quote-pdfs/${userId}/`)
     ) {
       return;
     }
@@ -228,6 +230,8 @@ async function assertGcsAccess(auth: AuthContext, action: GcsAction, bucket: str
     || path.startsWith(`tax-documents/${userId}/`)
     || path.startsWith(`project-updates/${userId}/`)
     || path.startsWith(`internal-project-docs/${userId}/`)
+    || path.startsWith(`quote-attachments/${userId}/`)
+    || path.startsWith(`quote-pdfs/${userId}/`)
   ) {
     return;
   }
