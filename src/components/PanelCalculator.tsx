@@ -1690,22 +1690,22 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         ? '계산 가능한 견적 금액이 없습니다. 원판 사이즈, 면수, 단가표를 확인해주세요.'
         : null;
   return <div className="w-full">
-      <Card className="mx-auto w-full max-w-5xl animate-fade-up overflow-hidden border-slate-200 bg-white shadow-sm">
-        <CardHeader className="border-b border-slate-200 bg-slate-50 pb-5">
+      <Card className="mx-auto w-full max-w-5xl animate-fade-up overflow-hidden rounded-lg border border-border bg-card shadow-none">
+        <CardHeader className="border-b border-border bg-card px-5 py-4 sm:px-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-950">
-                <Calculator className="h-5 w-5 !text-slate-950" />
+            <CardTitle className="flex min-w-0 items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground/75">
+                <Calculator className="h-5 w-5" />
               </span>
-              <div>
-                <div className="text-base font-semibold sm:text-lg">
-                  <span className="skeuo-engraved">ACBANK</span>{" "}
-                  <span className="font-medium text-muted-foreground">Quotation System</span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <span className="text-sm font-semibold tracking-[0.14em] text-foreground sm:text-base">ACBANK</span>
+                  <span className="text-sm font-medium text-muted-foreground">Quotation System</span>
                 </div>
                 <p className="mt-1 text-xs font-normal text-muted-foreground">아크뱅크 내부 계산 시스템</p>
               </div>
             </CardTitle>
-            {quotes.length > 0 && <Button onClick={handleViewQuotesSummary} variant="default" size="sm" className="shrink-0 bg-slate-950 text-white hover:bg-slate-800">
+            {quotes.length > 0 && <Button onClick={handleViewQuotesSummary} variant="outline" size="sm" className="shrink-0 rounded-full border-border bg-background shadow-none hover:bg-muted">
               <ShoppingCart className="h-4 w-4" />
               담은 견적 보기 ({quotes.length})
             </Button>}

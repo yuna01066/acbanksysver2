@@ -559,14 +559,14 @@ const SavedQuotesPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <p className="text-muted-foreground">로딩 중...</p>
       </div>
     );
   }
 
   return (
-    <PageShell maxWidth="full" contentClassName="max-w-none">
+    <PageShell maxWidth="7xl">
       <PageHeader
         eyebrow="Issued Quotes"
         title="발행 견적서"
@@ -574,11 +574,11 @@ const SavedQuotesPage = () => {
         icon={<FileText className="h-5 w-5" />}
         actions={(
           <>
-            <Button onClick={() => navigate('/calculator?type=quote')} size="sm" className="gap-2">
+            <Button onClick={() => navigate('/calculator?type=quote')} size="sm" className="gap-2 rounded-full">
               <PlusCircle className="h-4 w-4" />
               견적서 작성
             </Button>
-            <Button onClick={() => navigate('/space-quotes')} variant="outline" size="sm" className="gap-2">
+            <Button onClick={() => navigate('/space-quotes')} variant="outline" size="sm" className="gap-2 rounded-full border-border bg-background shadow-none hover:bg-muted">
               공간디자인 견적서
             </Button>
           </>
@@ -587,17 +587,17 @@ const SavedQuotesPage = () => {
 
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="glass-surface rounded-2xl border border-border/60 px-4 py-3">
+          <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-none">
             <div className="text-xs font-medium text-muted-foreground">표시 견적</div>
-            <div className="mt-1 text-xl font-semibold tabular-nums">{filteredQuotes.length.toLocaleString()}건</div>
+            <div className="mt-1 text-xl font-semibold tabular-nums text-foreground">{filteredQuotes.length.toLocaleString()}건</div>
           </div>
-          <div className="glass-surface rounded-2xl border border-border/60 px-4 py-3">
+          <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-none">
             <div className="text-xs font-medium text-muted-foreground">표시 합계</div>
-            <div className="mt-1 text-xl font-semibold tabular-nums">{formatPrice(listSummary.totalAmount)}</div>
+            <div className="mt-1 text-xl font-semibold tabular-nums text-foreground">{formatPrice(listSummary.totalAmount)}</div>
           </div>
-          <div className="glass-surface rounded-2xl border border-border/60 px-4 py-3">
+          <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-none">
             <div className="text-xs font-medium text-muted-foreground">프로젝트 연결</div>
-            <div className="mt-1 text-xl font-semibold tabular-nums">
+            <div className="mt-1 text-xl font-semibold tabular-nums text-foreground">
               {listSummary.linkedProjectCount.toLocaleString()}건
               <span className="ml-2 text-sm font-normal text-muted-foreground">
                 거래처 {listSummary.recipientCount.toLocaleString()}곳
@@ -606,7 +606,7 @@ const SavedQuotesPage = () => {
           </div>
         </div>
 
-        <SearchFilterBar>
+        <SearchFilterBar className="rounded-lg border border-border bg-card p-3 shadow-none sm:p-4">
           <div className={`grid grid-cols-1 gap-3 md:grid-cols-2 ${
             isAdmin
               ? 'lg:grid-cols-[minmax(0,1.5fr)_180px_190px_190px_auto]'
@@ -618,7 +618,7 @@ const SavedQuotesPage = () => {
                 placeholder="견적 제목, 견적번호, 업체명, 담당자 검색"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-10 pl-10"
+                className="h-10 rounded-full border-border bg-background pl-10 shadow-none"
               />
             </div>
             <div className="relative">
@@ -627,12 +627,12 @@ const SavedQuotesPage = () => {
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="h-10 pl-10"
+                className="h-10 rounded-full border-border bg-background pl-10 shadow-none"
               />
             </div>
             {isAdmin && (
               <Select value={userFilter} onValueChange={setUserFilter}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10 rounded-full border-border bg-background shadow-none">
                   <div className="flex min-w-0 items-center gap-2">
                     <Filter className="h-4 w-4 shrink-0" />
                     <SelectValue placeholder="담당자 선택" />
@@ -649,7 +649,7 @@ const SavedQuotesPage = () => {
               </Select>
             )}
             <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
-              <SelectTrigger>
+              <SelectTrigger className="h-10 rounded-full border-border bg-background shadow-none">
                 <div className="flex items-center gap-2">
                   <ArrowUpDown className="h-4 w-4" />
                   <SelectValue />
@@ -669,7 +669,7 @@ const SavedQuotesPage = () => {
               variant="outline"
               onClick={resetFilters}
               disabled={activeFilterCount === 0}
-              className="h-10 whitespace-nowrap"
+              className="h-10 whitespace-nowrap rounded-full border-border bg-background shadow-none hover:bg-muted"
             >
               필터 초기화
             </Button>
@@ -678,8 +678,12 @@ const SavedQuotesPage = () => {
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="text-sm text-muted-foreground">상태/단계</span>
             <Badge
-              variant={stageFilter === 'all' ? 'default' : 'outline'}
-                className="cursor-pointer rounded-full px-2.5 text-xs"
+              variant="outline"
+              className={`cursor-pointer rounded-full border-border px-2.5 text-xs ${
+                stageFilter === 'all'
+                  ? 'bg-foreground text-background hover:bg-foreground/90'
+                  : 'bg-background text-muted-foreground hover:bg-muted'
+              }`}
               onClick={() => setStageFilter('all')}
             >
               전체
@@ -688,7 +692,11 @@ const SavedQuotesPage = () => {
               <Badge
                 key={stage.value}
                 variant="outline"
-                className={`cursor-pointer rounded-full px-2.5 text-xs ${stageFilter === stage.value ? stage.color + ' border-current' : ''}`}
+                className={`cursor-pointer rounded-full border-border px-2.5 text-xs ${
+                  stageFilter === stage.value
+                    ? 'bg-foreground text-background hover:bg-foreground/90'
+                    : 'bg-background text-muted-foreground hover:bg-muted'
+                }`}
                 onClick={() => setStageFilter(stage.value)}
               >
                 {stage.label}
@@ -705,21 +713,21 @@ const SavedQuotesPage = () => {
         </SearchFilterBar>
 
         {filteredQuotes.length === 0 ? (
-          <Card>
+          <Card className="rounded-lg border-border bg-card shadow-none">
             <CardContent className="flex min-h-[260px] flex-col items-center justify-center p-12 text-center">
               <FileText className="mb-3 h-9 w-9 text-muted-foreground/35" />
               <p className="mb-4 text-sm text-muted-foreground">
                 {quotes.length === 0 ? '저장된 견적서가 없습니다.' : '검색 결과가 없습니다.'}
               </p>
-              <Button onClick={() => navigate('/calculator?type=quote')} variant="outline">
+              <Button onClick={() => navigate('/calculator?type=quote')} variant="outline" className="rounded-full border-border bg-background shadow-none hover:bg-muted">
                 견적서 작성하기
               </Button>
             </CardContent>
           </Card>
         ) : (
           <>
-            <Card className="overflow-hidden border-border/70">
-              <div className="hidden border-b bg-muted/35 px-4 py-3 text-xs font-semibold text-muted-foreground lg:grid lg:grid-cols-[88px_minmax(0,1.5fr)_minmax(180px,0.6fr)_112px_132px_136px] lg:items-center lg:gap-4">
+            <Card className="overflow-hidden rounded-lg border-border bg-card shadow-none">
+              <div className="hidden border-b border-border bg-muted/30 px-4 py-3 text-xs font-semibold text-muted-foreground lg:grid lg:grid-cols-[88px_minmax(0,1.5fr)_minmax(180px,0.6fr)_112px_132px_136px] lg:items-center lg:gap-4">
                 <span>발행일</span>
                 <span>견적 제목</span>
                 <span>거래처</span>
@@ -740,7 +748,7 @@ const SavedQuotesPage = () => {
                   return (
                     <div
                       key={quote.id}
-                      className="cursor-pointer px-4 py-4 transition-colors hover:bg-muted/35"
+                      className="cursor-pointer px-4 py-4 transition-colors hover:bg-muted/30"
                       onClick={() => navigate(`/saved-quotes/${quote.id}`)}
                     >
                       <div className="grid gap-3 lg:grid-cols-[88px_minmax(0,1.5fr)_minmax(180px,0.6fr)_112px_132px_136px] lg:items-center lg:gap-4">
@@ -761,7 +769,7 @@ const SavedQuotesPage = () => {
                           {quote.recipient_company ? (
                             <button
                               type="button"
-                              className="flex max-w-full items-center gap-1.5 text-left text-sm font-medium text-primary hover:underline"
+                              className="flex max-w-full items-center gap-1.5 text-left text-sm font-medium text-foreground underline-offset-4 hover:underline"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 if (quote.recipient_id) {
@@ -824,12 +832,12 @@ const SavedQuotesPage = () => {
                             </Badge>
                           )}
                           {quote.reissued_quote_id && (
-                            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-[10px] text-slate-600">
+                            <Badge variant="outline" className="border-border bg-muted/40 text-[10px] text-muted-foreground">
                               재발행됨
                             </Badge>
                           )}
                           {quote.reissued_from_quote_id && (
-                            <Badge variant="outline" className="border-blue-200 bg-blue-50 text-[10px] text-blue-700">
+                            <Badge variant="outline" className="border-border bg-muted/40 text-[10px] text-foreground">
                               재발행본
                             </Badge>
                           )}
@@ -839,13 +847,13 @@ const SavedQuotesPage = () => {
                           {quote.linked_project ? (
                             <button
                               type="button"
-                              className="flex h-7 max-w-[280px] items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-primary/10"
+                              className="flex h-7 max-w-[280px] items-center gap-1.5 rounded-full border border-border bg-background px-2.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 navigate(`/project-management?id=${quote.linked_project!.id}`);
                               }}
                             >
-                              <FolderOpen className="h-3.5 w-3.5 shrink-0 text-primary" />
+                              <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                               <span className="truncate">{quote.linked_project.name}</span>
                             </button>
                           ) : (
@@ -854,7 +862,7 @@ const SavedQuotesPage = () => {
                             </Badge>
                           )}
                           {!quote.linked_project && quote.project_followup_status === 'not_required' && (
-                            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-[10px] text-slate-600">
+                            <Badge variant="outline" className="border-border bg-muted/40 text-[10px] text-muted-foreground">
                               프로젝트 전환 불필요
                             </Badge>
                           )}
@@ -868,7 +876,7 @@ const SavedQuotesPage = () => {
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="h-7 gap-1.5 px-2 text-xs"
+                              className="h-7 gap-1.5 rounded-full border-border bg-background px-2 text-xs shadow-none hover:bg-muted"
                               disabled={creatingProjectQuoteId === quote.id}
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -888,7 +896,7 @@ const SavedQuotesPage = () => {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-xs text-muted-foreground"
+                              className="h-7 rounded-full px-2 text-xs text-muted-foreground hover:bg-muted"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 handleMarkProjectNotRequired(quote);
@@ -902,7 +910,7 @@ const SavedQuotesPage = () => {
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="h-7 gap-1.5 px-2 text-xs text-blue-700"
+                              className="h-7 gap-1.5 rounded-full border-border bg-background px-2 text-xs text-foreground shadow-none hover:bg-muted"
                               disabled={reissuingQuoteId === quote.id}
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -921,7 +929,7 @@ const SavedQuotesPage = () => {
                             <Button
                               variant="outline"
                               size="icon"
-                              className="h-7 w-7"
+                              className="h-7 w-7 rounded-full border-border bg-background shadow-none hover:bg-muted"
                               title="상세보기"
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -933,7 +941,7 @@ const SavedQuotesPage = () => {
                             <Button
                               variant="outline"
                               size="icon"
-                              className="h-7 w-7 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                              className="h-7 w-7 rounded-full border-border bg-background text-foreground shadow-none hover:bg-muted"
                               title="견적서 복제"
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -945,7 +953,7 @@ const SavedQuotesPage = () => {
                             <Button
                               variant="outline"
                               size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              className="h-7 w-7 rounded-full border-border bg-background text-muted-foreground shadow-none hover:bg-muted hover:text-destructive"
                               title="견적서 삭제"
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -964,7 +972,7 @@ const SavedQuotesPage = () => {
             </Card>
 
             {!searchTerm && !dateFilter && totalCount > ITEMS_PER_PAGE && (
-              <Card className="mt-4">
+              <Card className="mt-4 rounded-lg border-border bg-card shadow-none">
                 <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-sm text-muted-foreground">
                     총 {totalCount}개 중 {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-
@@ -974,6 +982,7 @@ const SavedQuotesPage = () => {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="rounded-full border-border bg-background shadow-none hover:bg-muted"
                       onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
                     >
@@ -986,6 +995,7 @@ const SavedQuotesPage = () => {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="rounded-full border-border bg-background shadow-none hover:bg-muted"
                       onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalCount / ITEMS_PER_PAGE), p + 1))}
                       disabled={currentPage >= Math.ceil(totalCount / ITEMS_PER_PAGE)}
                     >
