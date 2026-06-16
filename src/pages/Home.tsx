@@ -336,7 +336,7 @@ const Home = () => {
                 <img
                   src={acbankWordmark}
                   alt="ACBANK"
-                  className="dashboard-wordmark-image h-auto w-[clamp(220px,32vw,340px)]"
+                  className="dashboard-wordmark-image h-auto w-[clamp(170px,25vw,262px)]"
                   draggable={false}
                 />
               </div>

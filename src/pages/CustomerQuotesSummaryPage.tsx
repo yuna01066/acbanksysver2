@@ -1,10 +1,9 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Calculator, ShoppingCart } from "lucide-react";
+import { Calculator } from "lucide-react";
 import { useQuotes } from "@/contexts/QuoteContext";
 import QuoteSummaryHeader from "@/components/QuoteSummaryHeader";
 import CustomerQuoteCard from "@/components/CustomerQuoteCard";
@@ -13,6 +12,7 @@ import PrintStyles from "@/components/PrintStyles";
 import businessRegistration from "@/assets/arcbank-business-registration.jpg";
 import bankAccount from "@/assets/arcbank-bank-account.jpg";
 import arcbankLogo from "@/assets/arcbank-logo.png";
+import QuoteEmptyState from "@/components/quote/QuoteEmptyState";
 import QuoteStyleBanner from "@/components/quote-detail/QuoteStyleBanner";
 import { detectQuoteStyleFromItems, getQuoteStyleProfile } from "@/utils/quoteStyle";
 import { formatQuoteProjectTitle } from "@/utils/quoteNaming";
@@ -31,17 +31,7 @@ const CustomerQuotesSummaryPage = () => {
   } = useQuotes();
 
   if (quotes.length === 0) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md mx-auto">
-          <CardContent className="text-center p-8">
-            <ShoppingCart className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600 mb-4">담긴 견적이 없습니다.</p>
-            <Button onClick={() => navigate('/')}>
-              계산기로 돌아가기
-            </Button>
-          </CardContent>
-        </Card>
-      </div>;
+    return <QuoteEmptyState onBackToCalculator={() => navigate('/calculator?type=quote')} />;
   }
 
   const subtotal = Math.round(getTotalPrice());
