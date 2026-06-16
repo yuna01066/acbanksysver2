@@ -247,7 +247,7 @@ export function getStageInfo(value?: string | null) {
 
 export function getSimplifiedStageInfo(stage?: string | null, legacyStatus?: string | null) {
   const normalized = normalizeProjectStage(stage, legacyStatus);
-  return SIMPLIFIED_QUOTE_STAGE_FILTERS.find((filter) => filter.stages.includes(normalized)) || SIMPLIFIED_QUOTE_STAGE_FILTERS[1];
+  return SIMPLIFIED_QUOTE_STAGE_FILTERS.find((filter) => (filter.stages as readonly string[]).includes(normalized)) || SIMPLIFIED_QUOTE_STAGE_FILTERS[1];
 }
 
 export function matchesSimplifiedStageFilter(
@@ -259,7 +259,7 @@ export function matchesSimplifiedStageFilter(
 
   const normalized = normalizeProjectStage(stage, legacyStatus);
   const filter = SIMPLIFIED_QUOTE_STAGE_FILTERS.find((item) => item.value === filterValue);
-  return filter ? filter.stages.includes(normalized) : normalized === filterValue;
+  return filter ? (filter.stages as readonly string[]).includes(normalized) : normalized === filterValue;
 }
 
 export function parseValidUntilDate(validUntil?: string | null): Date | null {
