@@ -329,7 +329,7 @@ const Home = () => {
             >
               <div
                 className={cn(
-                  "dashboard-logo-sweep flex w-[min(74vw,660px)] cursor-pointer select-none items-center justify-center rounded-md px-5 py-2.5 transition-colors hover:bg-muted sm:px-8",
+                  "dashboard-logo-sweep flex w-[clamp(234px,31vw,326px)] cursor-pointer select-none items-center justify-center rounded-md px-5 py-2.5 transition-colors hover:bg-muted sm:px-8",
                   logoSpinning && "logo-spin-3d"
                 )}
               >
