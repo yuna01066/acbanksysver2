@@ -259,7 +259,7 @@ export function matchesSimplifiedStageFilter(
 
   const normalized = normalizeProjectStage(stage, legacyStatus);
   const filter = SIMPLIFIED_QUOTE_STAGE_FILTERS.find((item) => item.value === filterValue);
-  return filter ? filter.stages.includes(normalized) : normalized === filterValue;
+  return filter ? (filter.stages as readonly string[]).includes(normalized) : normalized === filterValue;
 }
 
 export function parseValidUntilDate(validUntil?: string | null): Date | null {
