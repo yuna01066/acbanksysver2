@@ -974,7 +974,11 @@ const SavedQuotesPage = () => {
             {!searchTerm && !dateFilter && totalCount > ITEMS_PER_PAGE && (
               <Card className="mt-4 rounded-lg border-border bg-card shadow-none">
                 <CardContent className="flex flex-col items-center justify-center gap-3 p-4">
-                  <div className="flex items-center gap-2">
+                  <div className="text-sm text-muted-foreground">
+                    총 {totalCount}개 중 {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-
+                    {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}개 표시
+                  </div>
+                  <div className="flex items-center gap-2 pt-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -998,10 +1002,6 @@ const SavedQuotesPage = () => {
                       다음
                       <ChevronRight className="ml-1 h-4 w-4" />
                     </Button>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    총 {totalCount}개 중 {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-
-                    {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}개 표시
                   </div>
                 </CardContent>
               </Card>
