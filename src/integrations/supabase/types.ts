@@ -6858,11 +6858,11 @@ export type Database = {
           items: Json
           payment_condition: string | null
           pricing_version_id: string | null
-          project_id: string | null
           project_followup_note: string | null
           project_followup_status: string
           project_followup_updated_at: string | null
           project_followup_updated_by: string | null
+          project_id: string | null
           project_name: string | null
           project_stage: string
           quote_date: string
@@ -6912,11 +6912,11 @@ export type Database = {
           items: Json
           payment_condition?: string | null
           pricing_version_id?: string | null
-          project_id?: string | null
           project_followup_note?: string | null
           project_followup_status?: string
           project_followup_updated_at?: string | null
           project_followup_updated_by?: string | null
+          project_id?: string | null
           project_name?: string | null
           project_stage?: string
           quote_date?: string
@@ -6966,11 +6966,11 @@ export type Database = {
           items?: Json
           payment_condition?: string | null
           pricing_version_id?: string | null
-          project_id?: string | null
           project_followup_note?: string | null
           project_followup_status?: string
           project_followup_updated_at?: string | null
           project_followup_updated_by?: string | null
+          project_id?: string | null
           project_name?: string | null
           project_stage?: string
           quote_date?: string
