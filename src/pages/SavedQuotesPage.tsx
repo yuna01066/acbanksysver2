@@ -978,7 +978,7 @@ const SavedQuotesPage = () => {
                     총 {totalCount}개 중 {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-
                     {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}개 표시
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 pt-2">
                     <Button
                       variant="outline"
                       size="sm"
