@@ -91,13 +91,14 @@ serve(async (req) => {
     const dryRun = body.dryRun !== false;
     // SAFETY: Source files in Supabase Storage are NEVER deleted by this function.
     const sourceDeleted = false;
-
+    const bucketsToMigrate = buckets || [
       'tax-documents',
       'incident-attachments',
       'recipient-documents',
       'team-chat-attachments',
       'internal-project-docs',
     ];
+
 
     const results: Record<string, { migrated: number; failed: number; errors: string[] }> = {};
 
