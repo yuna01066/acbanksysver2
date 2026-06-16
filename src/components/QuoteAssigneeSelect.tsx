@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { logQuoteActivity } from '@/services/quoteActivity';
+import { refreshQuoteDashboardState } from '@/services/quoteDashboardSync';
 
 export interface QuoteAssigneeOption {
   id: string;
@@ -74,6 +75,7 @@ const QuoteAssigneeSelect = ({
       toast.success('견적 담당자가 변경되었습니다.');
       onAssigneeChanged?.(nextId, nextName);
       queryClient.invalidateQueries({ queryKey: ['quote-activity-history', quoteId] });
+      await refreshQuoteDashboardState(queryClient, quoteId);
     } catch (error) {
       console.error('[QuoteAssignee] Update error:', error);
       toast.error('담당자 변경에 실패했습니다.');

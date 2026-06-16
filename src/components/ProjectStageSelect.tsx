@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +8,7 @@ import { Loader2 } from 'lucide-react';
 import { useActivityLog } from '@/hooks/useActivityLog';
 import { logStageChange } from '@/hooks/useQuoteStageHistory';
 import { triggerDailyHamzzi } from '@/lib/hamzziEvents';
+import { refreshQuoteDashboardState } from '@/services/quoteDashboardSync';
 import {
   getStageInfo,
   normalizeProjectStage,
@@ -35,6 +37,7 @@ const ProjectStageSelect = ({
   onStageChanged,
 }: ProjectStageSelectProps) => {
   const { user, profile } = useAuth();
+  const queryClient = useQueryClient();
   const [updating, setUpdating] = useState(false);
   const { logActivity } = useActivityLog();
   const normalizedCurrentStage = normalizeProjectStage(currentStage);
@@ -89,6 +92,7 @@ const ProjectStageSelect = ({
         });
       }
 
+      await refreshQuoteDashboardState(queryClient, quoteId);
       onStageChanged?.(newStage);
     } catch (err: any) {
       console.error('[Stage] Update error:', err);

@@ -40,6 +40,7 @@ import { formatPricingVersionDisplayName } from "@/utils/pricingVersionDisplay";
 import { formatQuoteProjectTitle } from "@/utils/quoteNaming";
 import { convertQuoteToProject } from "@/services/quoteProjectConversion";
 import { logQuoteActivity } from "@/services/quoteActivity";
+import { refreshQuoteDashboardState } from "@/services/quoteDashboardSync";
 import { isQuoteExpired, isReissueProtectedProjectStage, normalizeProjectStage, projectStageToLegacyQuoteStatus } from "@/utils/quoteWorkflow";
 import { reissueSavedQuote } from "@/services/quoteReissue";
 import { duplicateSavedQuote } from "@/services/quoteDuplicate";
@@ -600,6 +601,7 @@ const SavedQuoteDetailPage = () => {
       setManualTotalOverride(null);
       setEditedItemsTouched(false);
       queryClient.invalidateQueries({ queryKey: ['quote-activity-history', id] });
+      await refreshQuoteDashboardState(queryClient, id);
       fetchQuote();
     } catch (error) {
       console.error('Error updating quote:', error);
