@@ -973,8 +973,8 @@ const SavedQuotesPage = () => {
 
             {!searchTerm && !dateFilter && totalCount > ITEMS_PER_PAGE && (
               <Card className="mt-4 rounded-lg border-border bg-card shadow-none">
-                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-sm text-muted-foreground">
+                <CardContent className="relative flex flex-col items-center gap-3 p-4 sm:flex-row sm:justify-center">
+                  <div className="text-sm text-muted-foreground sm:absolute sm:left-4">
                     총 {totalCount}개 중 {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-
                     {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}개 표시
                   </div>
