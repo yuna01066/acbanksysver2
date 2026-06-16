@@ -81,6 +81,60 @@ export const QUOTE_PROJECT_STAGES = [
 
 export type ProjectStageValue = typeof QUOTE_PROJECT_STAGES[number]['value'];
 
+export const SIMPLIFIED_QUOTE_STAGE_FILTERS = [
+  {
+    value: 'reviewing',
+    label: '검토',
+    description: '금액 확인 또는 내부 검토가 필요한 견적입니다.',
+    stages: ['reviewing'],
+    color: 'bg-amber-50 text-amber-700 border-amber-200',
+  },
+  {
+    value: 'quote_issued',
+    label: '발송',
+    description: '고객에게 전달된 견적입니다.',
+    stages: ['quote_issued'],
+    color: 'bg-blue-50 text-blue-700 border-blue-200',
+  },
+  {
+    value: 'revision_requested',
+    label: '수정요청',
+    description: '고객 또는 내부 수정 요청이 있는 견적입니다.',
+    stages: ['revision_requested'],
+    color: 'bg-violet-50 text-violet-700 border-violet-200',
+  },
+  {
+    value: 'active',
+    label: '진행',
+    description: '수주 후 제작, 발주, 납기 준비가 진행 중입니다.',
+    stages: ['contracted', 'invoice_issued', 'in_progress', 'panel_ordered', 'manufacturing', 'completed', 'delivery_scheduled'],
+    color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  },
+  {
+    value: 'delivered',
+    label: '완료',
+    description: '납품 또는 설치가 완료된 견적입니다.',
+    stages: ['delivered'],
+    color: 'bg-green-100 text-green-800 border-green-200',
+  },
+  {
+    value: 'on_hold',
+    label: '보류',
+    description: '일정 또는 의사결정이 대기 중인 견적입니다.',
+    stages: ['on_hold'],
+    color: 'bg-zinc-100 text-zinc-700 border-zinc-200',
+  },
+  {
+    value: 'cancelled',
+    label: '취소',
+    description: '취소 또는 종료된 견적입니다.',
+    stages: ['cancelled'],
+    color: 'bg-red-50 text-red-700 border-red-200',
+  },
+] as const;
+
+export type SimplifiedQuoteStageFilterValue = typeof SIMPLIFIED_QUOTE_STAGE_FILTERS[number]['value'];
+
 export type LegacyQuoteStatus =
   | 'draft'
   | 'reviewing'
@@ -189,6 +243,23 @@ export function projectStageToLegacyQuoteStatus(stage?: string | null): LegacyQu
 export function getStageInfo(value?: string | null) {
   const normalized = normalizeProjectStage(value);
   return QUOTE_PROJECT_STAGES.find((stage) => stage.value === normalized) || QUOTE_PROJECT_STAGES[1];
+}
+
+export function getSimplifiedStageInfo(stage?: string | null, legacyStatus?: string | null) {
+  const normalized = normalizeProjectStage(stage, legacyStatus);
+  return SIMPLIFIED_QUOTE_STAGE_FILTERS.find((filter) => filter.stages.includes(normalized)) || SIMPLIFIED_QUOTE_STAGE_FILTERS[1];
+}
+
+export function matchesSimplifiedStageFilter(
+  stage: string | null | undefined,
+  legacyStatus: string | null | undefined,
+  filterValue: string,
+): boolean {
+  if (filterValue === 'all') return true;
+
+  const normalized = normalizeProjectStage(stage, legacyStatus);
+  const filter = SIMPLIFIED_QUOTE_STAGE_FILTERS.find((item) => item.value === filterValue);
+  return filter ? filter.stages.includes(normalized) : normalized === filterValue;
 }
 
 export function parseValidUntilDate(validUntil?: string | null): Date | null {
