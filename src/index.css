@@ -820,6 +820,16 @@
   transform: translateY(-1px) scale(1.015);
 }
 
+.dashboard-wordmark-image {
+  display: block;
+  user-select: none;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.dark .dashboard-wordmark-image {
+  filter: invert(1);
+}
+
 .dashboard-top-action,
 .dashboard-quick-link {
   will-change: transform;
