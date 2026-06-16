@@ -85,9 +85,13 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const { buckets } = await req.json();
-    // Default buckets to migrate
-    const bucketsToMigrate = buckets || [
+    const body = await req.json().catch(() => ({}));
+    const { buckets } = body;
+    // SAFETY: dryRun defaults to TRUE. Must be explicitly set to false to actually migrate.
+    const dryRun = body.dryRun !== false;
+    // SAFETY: Source files in Supabase Storage are NEVER deleted by this function.
+    const sourceDeleted = false;
+
       'tax-documents',
       'incident-attachments',
       'recipient-documents',
