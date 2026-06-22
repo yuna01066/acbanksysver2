@@ -504,6 +504,245 @@ export type Database = {
         }
         Relationships: []
       }
+      branding_intake_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          intake_id: string
+          metadata: Json
+          note: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          intake_id: string
+          metadata?: Json
+          note?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          intake_id?: string
+          metadata?: Json
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branding_intake_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branding_intake_events_intake_id_fkey"
+            columns: ["intake_id"]
+            isOneToOne: false
+            referencedRelation: "branding_intakes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      branding_intake_files: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          id: string
+          intake_id: string
+          metadata: Json
+          mime_type: string | null
+          storage_bucket: string
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          intake_id: string
+          metadata?: Json
+          mime_type?: string | null
+          storage_bucket?: string
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          intake_id?: string
+          metadata?: Json
+          mime_type?: string | null
+          storage_bucket?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branding_intake_files_intake_id_fkey"
+            columns: ["intake_id"]
+            isOneToOne: false
+            referencedRelation: "branding_intakes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      branding_intakes: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          assigned_to: string | null
+          closed_at: string | null
+          created_at: string
+          customer_company: string | null
+          customer_email: string | null
+          customer_estimate_text: string | null
+          customer_message: string
+          customer_name: string
+          customer_phone: string
+          customer_position: string | null
+          design_subtotal: number
+          homepage_url: string | null
+          id: string
+          industry: string | null
+          inquiry_body: string | null
+          internal_breakdown: string
+          internal_total: number
+          lead_time_id: string
+          lead_time_label: string
+          lead_time_surcharge: number
+          marketing_consent: boolean
+          memo: string | null
+          optimization_tier_id: string
+          optimization_tier_label: string
+          package_id: string
+          package_label: string
+          pm_cost: number
+          pricing_snapshot: Json
+          privacy_consent: boolean
+          project_name: string | null
+          raw_payload: Json
+          reference_note: string | null
+          selected_addons: Json
+          separate_review_items: string[]
+          source: string
+          status: string
+          submission_token: string | null
+          submitter_ip_hash: string | null
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_to?: string | null
+          closed_at?: string | null
+          created_at?: string
+          customer_company?: string | null
+          customer_email?: string | null
+          customer_estimate_text?: string | null
+          customer_message: string
+          customer_name: string
+          customer_phone: string
+          customer_position?: string | null
+          design_subtotal?: number
+          homepage_url?: string | null
+          id?: string
+          industry?: string | null
+          inquiry_body?: string | null
+          internal_breakdown: string
+          internal_total?: number
+          lead_time_id: string
+          lead_time_label: string
+          lead_time_surcharge?: number
+          marketing_consent?: boolean
+          memo?: string | null
+          optimization_tier_id?: string
+          optimization_tier_label?: string
+          package_id: string
+          package_label: string
+          pm_cost?: number
+          pricing_snapshot?: Json
+          privacy_consent?: boolean
+          project_name?: string | null
+          raw_payload?: Json
+          reference_note?: string | null
+          selected_addons?: Json
+          separate_review_items?: string[]
+          source?: string
+          status?: string
+          submission_token?: string | null
+          submitter_ip_hash?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_to?: string | null
+          closed_at?: string | null
+          created_at?: string
+          customer_company?: string | null
+          customer_email?: string | null
+          customer_estimate_text?: string | null
+          customer_message?: string
+          customer_name?: string
+          customer_phone?: string
+          customer_position?: string | null
+          design_subtotal?: number
+          homepage_url?: string | null
+          id?: string
+          industry?: string | null
+          inquiry_body?: string | null
+          internal_breakdown?: string
+          internal_total?: number
+          lead_time_id?: string
+          lead_time_label?: string
+          lead_time_surcharge?: number
+          marketing_consent?: boolean
+          memo?: string | null
+          optimization_tier_id?: string
+          optimization_tier_label?: string
+          package_id?: string
+          package_label?: string
+          pm_cost?: number
+          pricing_snapshot?: Json
+          privacy_consent?: boolean
+          project_name?: string | null
+          raw_payload?: Json
+          reference_note?: string | null
+          selected_addons?: Json
+          separate_review_items?: string[]
+          source?: string
+          status?: string
+          submission_token?: string | null
+          submitter_ip_hash?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branding_intakes_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branding_intakes_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_diary_entries: {
         Row: {
           content: string
