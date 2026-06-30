@@ -23,6 +23,7 @@ import { createQuoteItemId, normalizeQuoteItems } from '@/utils/quoteItemIdentit
 
 export interface Quote {
   id: string;
+  itemTitle?: string;
   factory: string;
   material: string;
   quality: string;

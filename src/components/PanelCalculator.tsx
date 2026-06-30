@@ -1200,6 +1200,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
     }
 
     const processingName = selectedProcessingName || PROCESSING_OPTIONS.find(p => p.id === selectedProcessing)?.name || '';
+    const itemTitleParam = searchParams.get('itemTitle')?.trim();
     
     // 다중 선택된 사이즈를 하나의 견적으로 처리 (총 가격은 priceInfo.totalPrice)
     const quoteData: QuoteDraft = {
@@ -1223,6 +1224,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
       pricingVersionId: activePricingVersion?.id || null,
       pricingVersionName: getActivePricingVersionDisplayName(),
       quoteStyle: 'panel' as const,
+      ...(itemTitleParam ? { itemTitle: itemTitleParam } : {}),
       calculationSnapshot: createCalculationSnapshot(priceInfo.breakdown, priceInfo.totalPrice, {}, priceInfo)
     };
 
@@ -1447,6 +1449,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
     }
 
     // 각 항목의 quoteData 생성
+    const itemTitleParam = searchParams.get('itemTitle')?.trim();
     const quoteDataList: QuoteDraft[] = validItems.map(item => {
       const sizeParts = [item.sizeWidth, item.sizeHeight, item.sizeDepth].filter(p => p.trim());
       const sizeStr = sizeParts.length > 0 ? sizeParts.join(' × ') : '-';
@@ -1485,6 +1488,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         pricingVersionId: activePricingVersion?.id || null,
         pricingVersionName: getActivePricingVersionDisplayName(),
         quoteStyle: 'fabrication' as const,
+        ...(itemTitleParam ? { itemTitle: itemTitleParam } : {}),
         calculationSnapshot: createCalculationSnapshot(
           breakdownItems,
           itemTotal,
