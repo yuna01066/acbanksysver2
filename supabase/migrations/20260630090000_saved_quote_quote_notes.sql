@@ -1,0 +1,5 @@
+ALTER TABLE public.saved_quotes
+  ADD COLUMN IF NOT EXISTS quote_notes text;
+
+COMMENT ON COLUMN public.saved_quotes.quote_notes
+  IS 'Quote-specific notice text shown on internal and customer quotation output. Falls back to company_quote_defaults.quote_notes when null.';

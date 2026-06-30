@@ -59,6 +59,7 @@ export async function duplicateSavedQuote({
     recipient_email: (originalQuote as any).recipient_email,
     recipient_address: (originalQuote as any).recipient_address,
     recipient_memo: (originalQuote as any).recipient_memo,
+    quote_notes: (originalQuote as any).quote_notes,
     recipient_id: (originalQuote as any).recipient_id,
     items: (originalQuote as any).items,
     subtotal: (originalQuote as any).subtotal,

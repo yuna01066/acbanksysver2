@@ -7106,6 +7106,7 @@ export type Database = {
           project_stage: string
           quote_date: string
           quote_date_display: string | null
+          quote_notes: string | null
           quote_number: string
           quote_status: string
           recipient_address: string | null
@@ -7160,6 +7161,7 @@ export type Database = {
           project_stage?: string
           quote_date?: string
           quote_date_display?: string | null
+          quote_notes?: string | null
           quote_number: string
           quote_status?: string
           recipient_address?: string | null
@@ -7214,6 +7216,7 @@ export type Database = {
           project_stage?: string
           quote_date?: string
           quote_date_display?: string | null
+          quote_notes?: string | null
           quote_number?: string
           quote_status?: string
           recipient_address?: string | null

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { List, Save, Edit, X, Download, Users, Building2, Calculator, FileText, Calendar as CalendarIcon, FolderOpen, ExternalLink } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -80,6 +81,7 @@ interface SavedQuote {
   recipient_id?: string | null;
   recipient_address: string | null;
   recipient_memo: string | null;
+  quote_notes?: string | null;
   desired_delivery_date: string | null;
   issuer_name: string | null;
   issuer_email: string | null;
@@ -143,6 +145,7 @@ const SavedQuoteDetailPage = () => {
   const [attachments, setAttachments] = useState<any[]>([]);
   const [editedItems, setEditedItems] = useState<any[]>([]);
   const [editedItemsTouched, setEditedItemsTouched] = useState(false);
+  const [editedQuoteNotes, setEditedQuoteNotes] = useState('');
   const [quotePdf, setQuotePdf] = useState<QuotePdfAttachment | null>(null);
   const [linkedProject, setLinkedProject] = useState<{ id: string; name: string; payment_status: string | null } | null>(null);
   const [assigneeUsers, setAssigneeUsers] = useState<QuoteAssigneeOption[]>([]);
@@ -296,6 +299,7 @@ const SavedQuoteDetailPage = () => {
       setAttachments(attachmentsArray.filter((a: any) => a?.type !== 'quote_pdf'));
       setEditedItems(Array.isArray(formattedData.items) ? formattedData.items : []);
       setEditedItemsTouched(false);
+      setEditedQuoteNotes(formattedData.quote_notes || '');
       
       // 견적서 PDF 정보 로드 (attachments 배열에서 quote_pdf 타입 찾기)
       const savedQuotePdf = attachmentsArray.find((a: any) => 
@@ -501,6 +505,7 @@ const SavedQuoteDetailPage = () => {
           recipient_email: getTextForSave('email', quote.recipient_email),
           recipient_address: getTextForSave('deliveryAddress', quote.recipient_address),
           recipient_memo: getTextForSave('clientMemo', quote.recipient_memo),
+          quote_notes: editedQuoteNotes.trim() || null,
           desired_delivery_date: getDateForSave('desiredDeliveryDate', quote.desired_delivery_date),
           issuer_id: getTextForSave('issuerId', null) || null,
           issuer_name: getTextForSave('issuerName', quote.issuer_name),
@@ -545,6 +550,7 @@ const SavedQuoteDetailPage = () => {
         if (recipientData.projectName !== (quote.project_name || '')) changes.push('프로젝트명');
         if (recipientData.companyName !== (quote.recipient_company || '')) changes.push('거래처');
         if (editedItems.length !== items.length) changes.push('품목 수');
+        if ((editedQuoteNotes.trim() || '') !== (quote.quote_notes || '')) changes.push('안내사항');
         if (roundedSubtotal !== Math.round(quote.subtotal) || newTotal !== Math.round(quote.total)) changes.push('금액');
         if (manualTotalAdjustment) changes.push('VAT 포함 최종금액 수동 조정');
         const summary = changes.length > 0 ? `${changes.join(', ')} 변경` : '수정됨';
@@ -933,10 +939,11 @@ const SavedQuoteDetailPage = () => {
             onEdit={() => {
               setEditedItemsTouched(false);
               setManualTotalOverride(null);
+              setEditedQuoteNotes(quote.quote_notes || '');
               setIsEditing(true);
             }}
             onSaveEdit={handleSaveEdit}
-            onCancelEdit={() => { setIsEditing(false); setManualTotalOverride(null); setEditedItemsTouched(false); fetchQuote(); }}
+            onCancelEdit={() => { setIsEditing(false); setManualTotalOverride(null); setEditedItemsTouched(false); setEditedQuoteNotes(quote.quote_notes || ''); fetchQuote(); }}
             onToggleViewMode={toggleViewMode}
             viewMode={activeMode}
             showSavedQuoteActions={true}
@@ -1012,6 +1019,32 @@ const SavedQuoteDetailPage = () => {
                     onBulkChange={handleBulkRecipientChange}
                     showClientMemo={true}
                   />
+
+                  <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-950">안내사항</h3>
+                        <p className="mt-1 text-xs text-slate-500">
+                          고객용/내부용 견적서에 표시되는 안내 문구입니다.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditedQuoteNotes(quoteDefaults.quote_notes)}
+                      >
+                        기본 문구 적용
+                      </Button>
+                    </div>
+                    <Textarea
+                      value={editedQuoteNotes}
+                      onChange={(event) => setEditedQuoteNotes(event.target.value)}
+                      rows={4}
+                      placeholder={quoteDefaults.quote_notes}
+                      className="min-h-28 resize-y text-sm leading-6"
+                    />
+                  </div>
                   
                   {/* 첨부 파일 수정 */}
                   <div className="mt-6">
@@ -1115,7 +1148,7 @@ const SavedQuoteDetailPage = () => {
 
               {/* 특이사항 및 상담내용 */}
               <QuoteNotesSection
-                notes={quoteDefaults.quote_notes}
+                notes={(isEditing ? editedQuoteNotes : quote.quote_notes) || quoteDefaults.quote_notes}
                 consultation={quoteDefaults.quote_consultation}
                 viewMode={activeMode}
               />

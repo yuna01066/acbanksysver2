@@ -62,6 +62,7 @@ export async function reissueSavedQuote({
     recipient_email: (originalQuote as any).recipient_email,
     recipient_address: (originalQuote as any).recipient_address,
     recipient_memo: (originalQuote as any).recipient_memo,
+    quote_notes: (originalQuote as any).quote_notes,
     items: (originalQuote as any).items,
     subtotal: (originalQuote as any).subtotal,
     tax: (originalQuote as any).tax,
