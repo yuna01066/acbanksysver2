@@ -30,9 +30,10 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
   const quoteStyle = getQuoteStyleForItem(quote);
   const styleProfile = getQuoteStyleProfile(quoteStyle);
   const isFabrication = quoteStyle === 'fabrication';
-  const quoteTitle = isFabrication
+  const fallbackQuoteTitle = isFabrication
     ? quote.processingName || `제품 제작 #${index + 1}`
     : `견적 #${index + 1}`;
+  const quoteTitle = quote.itemTitle?.trim() || fallbackQuoteTitle;
   const shouldHideStockSize = !isFabrication && isPanelStockSummaryValue(quote.size);
   const shouldHideStockSurface = !isFabrication && isPanelSurfaceSummaryValue(quote.surface);
   const visibleOptions = [

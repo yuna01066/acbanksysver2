@@ -49,6 +49,7 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
       serialNumber: quote.serialNumber || '',
       quoteStyle: quoteStyleForEdit,
       totalPrice: String(quote.totalPrice ?? 0),
+      itemTitle: quote.itemTitle || '',
       editMode: 'draft',
       draftQuoteId: quote.id
     });
@@ -100,9 +101,10 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
   const quoteStyle = getQuoteStyleForItem(quote);
   const styleProfile = getQuoteStyleProfile(quoteStyle);
   const isFabrication = quoteStyle === 'fabrication';
-  const quoteTitle = isFabrication
+  const fallbackQuoteTitle = isFabrication
     ? quote.processingName || `제품 제작 #${index + 1}`
     : `견적 #${index + 1}`;
+  const quoteTitle = quote.itemTitle?.trim() || fallbackQuoteTitle;
   const shouldHideStockSize = !isFabrication && isPanelStockSummaryValue(quote.size);
   const shouldHideStockSurface = !isFabrication && isPanelSurfaceSummaryValue(quote.surface);
   const visibleOptions = [

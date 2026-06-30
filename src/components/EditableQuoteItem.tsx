@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ interface BreakdownItem {
 
 interface QuoteItem {
   id: string;
+  itemTitle?: string;
   factory: string;
   material: string;
   quality: string;
@@ -31,6 +32,7 @@ interface QuoteItem {
   totalPrice: number;
   quantity: number;
   breakdown: BreakdownItem[];
+  quoteStyle?: 'panel' | 'fabrication' | 'space' | 'mixed';
   serialNumber?: string;
 }
 
@@ -70,6 +72,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
       processing: editedItem.processing || '',
       quantity: editedItem.quantity.toString(),
       serialNumber: editedItem.serialNumber || '',
+      itemTitle: editedItem.itemTitle || '',
       editMode: 'saved',
       savedQuoteId: quoteId || '',
       itemId: editedItem.id,
@@ -130,14 +133,28 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
 
   const unitPrice = editedItem.totalPrice;
   const totalPrice = unitPrice * editedItem.quantity;
+  const isFabrication = editedItem.quoteStyle === 'fabrication' || editedItem.material === '제품 제작';
+  const fallbackItemTitle = isFabrication
+    ? editedItem.processingName || `제품 제작 #${index + 1}`
+    : `견적 #${index + 1}`;
+  const visibleItemTitle = editedItem.itemTitle?.trim() || fallbackItemTitle;
 
   return (
     <Card className="border border-blue-200 shadow-sm bg-blue-50/30">
       <CardHeader className="pb-4 bg-blue-100/50">
-        <div className="flex justify-between items-center">
-          <div>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 flex-1">
             <div className="text-xs text-blue-600 mb-1">편집 모드</div>
-            <CardTitle className="text-lg text-gray-900">견적 #{index + 1}</CardTitle>
+            <Label className="sr-only" htmlFor={`quote-item-title-${editedItem.id}`}>
+              견적 항목명
+            </Label>
+            <Input
+              id={`quote-item-title-${editedItem.id}`}
+              value={editedItem.itemTitle ?? visibleItemTitle}
+              onChange={(e) => handleFieldChange('itemTitle', e.target.value)}
+              placeholder={fallbackItemTitle}
+              className="h-10 max-w-sm border-blue-200 bg-white text-lg font-bold text-gray-900"
+            />
           </div>
           <div className="flex items-center gap-3">
             {/* 수량 조절 */}
