@@ -504,6 +504,63 @@ export type Database = {
         }
         Relationships: []
       }
+      attendance_records_duplicate_backup_20260701: {
+        Row: {
+          check_in: string | null
+          check_in_location: Json | null
+          check_out: string | null
+          check_out_location: Json | null
+          created_at: string | null
+          date: string | null
+          duplicate_count: number | null
+          duplicate_rank: number | null
+          id: string | null
+          location_memo: string | null
+          memo: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+          user_name: string | null
+          work_hours: number | null
+        }
+        Insert: {
+          check_in?: string | null
+          check_in_location?: Json | null
+          check_out?: string | null
+          check_out_location?: Json | null
+          created_at?: string | null
+          date?: string | null
+          duplicate_count?: number | null
+          duplicate_rank?: number | null
+          id?: string | null
+          location_memo?: string | null
+          memo?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          user_name?: string | null
+          work_hours?: number | null
+        }
+        Update: {
+          check_in?: string | null
+          check_in_location?: Json | null
+          check_out?: string | null
+          check_out_location?: Json | null
+          created_at?: string | null
+          date?: string | null
+          duplicate_count?: number | null
+          duplicate_rank?: number | null
+          id?: string | null
+          location_memo?: string | null
+          memo?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          user_name?: string | null
+          work_hours?: number | null
+        }
+        Relationships: []
+      }
       branding_intake_events: {
         Row: {
           actor_id: string | null
