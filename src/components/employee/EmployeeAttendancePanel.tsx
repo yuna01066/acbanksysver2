@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Clock, CalendarDays, ChevronLeft, ChevronRight, Plus, Pencil } from 'lucide-react';
+import { Loader2, Clock, CalendarDays, ChevronLeft, ChevronRight, Plus, Pencil, AlertTriangle } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,6 +45,7 @@ const EmployeeAttendancePanel: React.FC<Props> = ({ userId, userName }) => {
   const queryClient = useQueryClient();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<AttendanceRecord | null>(null);
@@ -62,6 +63,7 @@ const EmployeeAttendancePanel: React.FC<Props> = ({ userId, userName }) => {
 
   const fetchRecords = async () => {
     setLoading(true);
+    setFetchError(null);
     const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
     const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
 
@@ -73,7 +75,12 @@ const EmployeeAttendancePanel: React.FC<Props> = ({ userId, userName }) => {
       .lte('date', end)
       .order('date', { ascending: true });
 
-    if (!error && data) setRecords(data);
+    if (error) {
+      setFetchError(error.message || '근태 기록 조회 중 오류가 발생했습니다.');
+      setRecords([]);
+    } else {
+      setRecords(data || []);
+    }
     setLoading(false);
   };
 
@@ -192,6 +199,14 @@ const EmployeeAttendancePanel: React.FC<Props> = ({ userId, userName }) => {
       {/* Records Table */}
       {loading ? (
         <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+      ) : fetchError ? (
+        <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+          <div>
+            <p className="text-sm font-semibold text-destructive">직원 근태 기록을 불러오지 못했습니다.</p>
+            <p className="mt-1 text-xs text-muted-foreground">{fetchError}</p>
+          </div>
+        </div>
       ) : records.length === 0 ? (
         <div className="text-center py-8 text-sm text-muted-foreground">
           <Clock className="h-8 w-8 mx-auto mb-2 opacity-20" />

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, FileText, Download, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Loader2, FileText, Download, TrendingUp, TrendingDown, Minus, AlertTriangle } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, getDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -26,37 +26,40 @@ const MonthlyAttendanceReport: React.FC = () => {
     return days.filter(d => !isWeekend(d)).length;
   }, [year, month]);
 
-  const { data: records = [], isLoading } = useQuery({
+  const { data: records = [], isLoading, error: recordsError } = useQuery({
     queryKey: ['monthly-report-records', startDate, endDate],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('attendance_records')
         .select('*')
         .gte('date', startDate)
         .lte('date', endDate);
+      if (error) throw error;
       return data || [];
     },
   });
 
-  const { data: employees = [] } = useQuery({
+  const { data: employees = [], error: employeesError } = useQuery({
     queryKey: ['monthly-report-employees'],
     queryFn: async () => {
-      const { data } = await (supabase.from('profile_directory' as any) as any)
+      const { data, error } = await (supabase.from('profile_directory' as any) as any)
         .select('id, full_name, department')
         .order('full_name');
+      if (error) throw error;
       return data || [];
     },
   });
 
-  const { data: leaveRequests = [] } = useQuery({
+  const { data: leaveRequests = [], error: leaveRequestsError } = useQuery({
     queryKey: ['monthly-report-leaves', startDate, endDate],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('leave_requests')
         .select('*')
         .eq('status', 'approved')
         .gte('start_date', startDate)
         .lte('end_date', endDate);
+      if (error) throw error;
       return data || [];
     },
   });
@@ -126,6 +129,22 @@ const MonthlyAttendanceReport: React.FC = () => {
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  }
+
+  const loadError = recordsError || employeesError || leaveRequestsError;
+  if (loadError) {
+    const message = loadError instanceof Error ? loadError.message : String((loadError as any)?.message || loadError);
+    return (
+      <Card className="border-destructive/30 bg-destructive/5 shadow-none">
+        <CardContent className="flex items-start gap-3 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+          <div>
+            <p className="text-sm font-semibold text-destructive">월별 근태 리포트를 불러오지 못했습니다.</p>
+            <p className="mt-1 text-xs text-muted-foreground">{message}</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

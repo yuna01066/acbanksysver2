@@ -16,31 +16,33 @@ const OvertimeDetectionPanel: React.FC = () => {
   const queryClient = useQueryClient();
 
   // Fetch records with overtime for the selected date
-  const { data: overtimeRecords = [], isLoading } = useQuery({
+  const { data: overtimeRecords = [], isLoading, error: overtimeRecordsError } = useQuery({
     queryKey: ['overtime-records', targetDate],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('attendance_records')
         .select('id, user_id, user_name, date, check_in, check_out, work_hours, status')
         .eq('date', targetDate)
         .eq('status', 'checked_out')
         .order('work_hours', { ascending: false });
+      if (error) throw error;
       return (data || []).filter(r => Number(r.work_hours || 0) > 9);
     },
   });
 
   // Recent 7 days overtime trend
-  const { data: weeklyTrend = [] } = useQuery({
+  const { data: weeklyTrend = [], error: weeklyTrendError } = useQuery({
     queryKey: ['overtime-weekly-trend'],
     queryFn: async () => {
       const endDate = format(new Date(), 'yyyy-MM-dd');
       const startDate = format(subDays(new Date(), 6), 'yyyy-MM-dd');
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('attendance_records')
         .select('date, work_hours')
         .gte('date', startDate)
         .lte('date', endDate)
         .eq('status', 'checked_out');
+      if (error) throw error;
 
       // Group by date
       const map = new Map<string, number>();
@@ -56,6 +58,7 @@ const OvertimeDetectionPanel: React.FC = () => {
       });
     },
   });
+  const loadError = overtimeRecordsError || weeklyTrendError;
 
   // Trigger overtime detection edge function
   const detectMutation = useMutation({
@@ -96,6 +99,20 @@ const OvertimeDetectionPanel: React.FC = () => {
           감지 및 알림 발송
         </Button>
       </div>
+
+      {loadError && (
+        <Card className="border-destructive/30 bg-destructive/5 shadow-none">
+          <CardContent className="flex items-start gap-3 p-4">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+            <div>
+              <p className="text-sm font-semibold text-destructive">초과근무 데이터를 불러오지 못했습니다.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {loadError instanceof Error ? loadError.message : String((loadError as any)?.message || loadError)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 7-day trend */}
       <Card className="glass-card">
