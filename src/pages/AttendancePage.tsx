@@ -97,6 +97,11 @@ const getQueryErrorMessage = (error: unknown) => {
   return String(error);
 };
 
+const isDuplicateAttendanceError = (error: any) => {
+  const message = String(error?.message || '');
+  return error?.code === '23505' || message.includes('duplicate key') || message.includes('attendance_records_user_id_date');
+};
+
 const AttendancePage = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, isModerator, loading: authLoading } = useAuth();
@@ -126,18 +131,24 @@ const AttendancePage = () => {
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
+  const fetchAttendanceRecordForDate = async (userId: string, date: string) => {
+    const { data, error } = await supabase
+      .from('attendance_records')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('date', date)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+    return data?.[0] || null;
+  };
+
   // Today's attendance record
   const { data: todayRecord, isLoading: todayLoading, error: todayRecordError } = useQuery({
     queryKey: ['attendance-today', user?.id, today],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('attendance_records')
-        .select('*')
-        .eq('user_id', user!.id)
-        .eq('date', today)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
+      return fetchAttendanceRecordForDate(user!.id, today);
     },
     enabled: !!user,
   });
@@ -229,18 +240,41 @@ const AttendancePage = () => {
 
   const checkInMutation = useMutation({
     mutationFn: async ({ location, locationMemo }: { location: AttendanceLocation; locationMemo?: string | null }) => {
-      const { error } = await supabase.from('attendance_records').insert({
-        user_id: user!.id,
-        user_name: profile?.full_name || user!.email || '',
+      const existingRecord = await fetchAttendanceRecordForDate(user!.id, today);
+      if (existingRecord?.check_in) {
+        return { alreadyRecorded: true, checkedOut: Boolean(existingRecord.check_out) };
+      }
+
+      const checkInData: any = {
         check_in: new Date().toISOString(),
         check_in_location: location,
         location_memo: locationMemo || null,
-        date: today,
         status: 'checked_in',
-      });
-      if (error) throw error;
+      };
+
+      const { error } = existingRecord
+        ? await supabase.from('attendance_records').update(checkInData).eq('id', existingRecord.id)
+        : await supabase.from('attendance_records').insert({
+          ...checkInData,
+          user_id: user!.id,
+          user_name: profile?.full_name || user!.email || '',
+          date: today,
+        });
+      if (error) {
+        if (isDuplicateAttendanceError(error)) {
+          return { alreadyRecorded: true, checkedOut: false };
+        }
+        throw error;
+      }
+      return { alreadyRecorded: false, checkedOut: false };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result?.alreadyRecorded) {
+        toast.info(result.checkedOut ? '오늘 퇴근까지 완료된 기록이 있습니다.' : '오늘 출근 기록이 이미 있습니다.');
+        queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
+        queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+        return;
+      }
       toast.success('출근이 기록되었습니다.');
       triggerHamzzi('attendance_check_in');
       queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
@@ -359,17 +393,28 @@ const AttendancePage = () => {
     try {
       const checkIn = manualForm.checkIn ? new Date(`${manualForm.date}T${manualForm.checkIn}:00+09:00`).toISOString() : null;
       const checkOut = manualForm.checkOut ? new Date(`${manualForm.date}T${manualForm.checkOut}:00+09:00`).toISOString() : null;
-      const { error } = await supabase.from('attendance_records').insert({
-        user_id: manualForm.userId,
+      const existingRecord = await fetchAttendanceRecordForDate(manualForm.userId, manualForm.date);
+      const manualData = {
         user_name: manualForm.userName,
-        date: manualForm.date,
         check_in: checkIn,
         check_out: checkOut,
         status: checkOut ? 'checked_out' : 'checked_in',
         memo: manualForm.memo || null,
-      });
-      if (error) throw error;
-      toast.success('근태 기록이 등록되었습니다.');
+      };
+      const { error } = existingRecord
+        ? await supabase.from('attendance_records').update(manualData).eq('id', existingRecord.id)
+        : await supabase.from('attendance_records').insert({
+          ...manualData,
+          user_id: manualForm.userId,
+          date: manualForm.date,
+        });
+      if (error) {
+        if (isDuplicateAttendanceError(error)) {
+          throw new Error('이미 같은 직원의 해당 날짜 근태 기록이 있습니다. 새로고침 후 기존 기록을 수정해주세요.');
+        }
+        throw error;
+      }
+      toast.success(existingRecord ? '기존 근태 기록이 업데이트되었습니다.' : '근태 기록이 등록되었습니다.');
       setManualDialogOpen(false);
       setManualForm({ userId: '', userName: '', date: '', checkIn: '09:00', checkOut: '18:00', status: 'checked_out', memo: '' });
       queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });

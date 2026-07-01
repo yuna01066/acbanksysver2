@@ -35,16 +35,34 @@ const QuickAttendanceButton = ({ onAttendanceChanged, variant = 'default' }: Qui
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
-  const fetchTodayRecord = async () => {
-    if (!user) return;
-    setFetching(true);
+  const fetchAttendanceRecordForDate = async () => {
+    if (!user) return null;
+
     const { data, error } = await supabase
       .from('attendance_records')
       .select('*')
       .eq('user_id', user.id)
       .eq('date', today)
-      .maybeSingle();
-    if (error) {
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+    return data?.[0] || null;
+  };
+
+  const isDuplicateAttendanceError = (error: any) => {
+    const message = String(error?.message || '');
+    return error?.code === '23505' || message.includes('duplicate key') || message.includes('attendance_records_user_id_date');
+  };
+
+  const fetchTodayRecord = async () => {
+    if (!user) return;
+    setFetching(true);
+    try {
+      const data = await fetchAttendanceRecordForDate();
+      attendanceFetchErrorShownRef.current = false;
+      setTodayRecord(data);
+    } catch (error: any) {
       console.warn('Today attendance fetch failed:', error);
       setTodayRecord(null);
       if (!attendanceFetchErrorShownRef.current) {
@@ -53,11 +71,7 @@ const QuickAttendanceButton = ({ onAttendanceChanged, variant = 'default' }: Qui
         });
         attendanceFetchErrorShownRef.current = true;
       }
-      setFetching(false);
-      return;
     }
-    attendanceFetchErrorShownRef.current = false;
-    setTodayRecord(data);
     setFetching(false);
   };
 
@@ -152,20 +166,39 @@ const QuickAttendanceButton = ({ onAttendanceChanged, variant = 'default' }: Qui
     if (!user || !profile) return;
     setLoading(true);
     try {
+      const existingRecord = await fetchAttendanceRecordForDate();
+      if (existingRecord?.check_in) {
+        setTodayRecord(existingRecord);
+        toast.info(existingRecord.check_out ? '오늘 퇴근까지 완료된 기록이 있습니다.' : '오늘 출근 기록이 이미 있습니다.');
+        return;
+      }
+
       const now = new Date().toISOString();
-      const insertData: any = {
-        user_id: user.id,
-        user_name: profile.full_name || user.email || '',
-        date: today,
+      const recordData: any = {
         check_in: now,
         check_in_location: location,
         status: 'present',
       };
       if (locationMemo) {
-        insertData.location_memo = locationMemo;
+        recordData.location_memo = locationMemo;
       }
-      const { error } = await supabase.from('attendance_records').insert(insertData);
-      if (error) throw error;
+      const { error } = existingRecord
+        ? await supabase.from('attendance_records').update(recordData).eq('id', existingRecord.id)
+        : await supabase.from('attendance_records').insert({
+          ...recordData,
+          user_id: user.id,
+          user_name: profile.full_name || user.email || '',
+          date: today,
+        });
+      if (error) {
+        if (isDuplicateAttendanceError(error)) {
+          const latestRecord = await fetchAttendanceRecordForDate();
+          setTodayRecord(latestRecord);
+          toast.info('오늘 출근 기록이 이미 있습니다.');
+          return;
+        }
+        throw error;
+      }
       fetchTodayRecord();
       const streak = await fetchAttendanceStreak();
       const streakCopy = getAttendanceStreakCopy(streak);
