@@ -32,6 +32,21 @@ interface CheckedInEmployee {
 type FeedbackType = 'recognition' | 'feedback' | 'one_on_one' | 'meeting';
 type WorkStatus = 'available' | 'busy' | 'focusing' | 'meeting';
 
+const getKoreaDateKey = () => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+
+  const year = parts.find(part => part.type === 'year')?.value;
+  const month = parts.find(part => part.type === 'month')?.value;
+  const day = parts.find(part => part.type === 'day')?.value;
+
+  return `${year}-${month}-${day}`;
+};
+
 const FEEDBACK_CONFIG: Record<FeedbackType, { label: string; emoji: string; placeholder: string; color: string }> = {
   recognition: { label: '인정 보내기', emoji: '❤️', placeholder: '동료의 어떤 점이 인상적이었는지 알려주세요...', color: 'text-muted-foreground' },
   feedback: { label: '피드백 보내기', emoji: '💬', placeholder: '도움이 될 만한 피드백을 남겨주세요...', color: 'text-muted-foreground' },
@@ -77,9 +92,116 @@ const OnlineEmployeesCard: React.FC = () => {
   const canViewOnlineUsers = isAdmin || isModerator;
   const onlineUsers = useAdminOnlineUsers(canViewOnlineUsers);
 
+  const fetchCheckedInEmployees = useCallback(async () => {
+    const today = getKoreaDateKey();
+    const { data: attendanceData, error: attError } = await supabase
+      .from('attendance_records')
+      .select('user_id, user_name, check_in, created_at')
+      .eq('date', today)
+      .in('status', ['checked_in', 'present'])
+      .not('check_in', 'is', null)
+      .is('check_out', null)
+      .order('check_in', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (attError || !attendanceData) {
+      console.warn('[OnlineEmployeesCard] Failed to fetch attendance records', attError);
+      setEmployees([]);
+      setLoading(false);
+      return;
+    }
+
+    const latestByUser = new Map<string, { user_id: string; user_name: string; check_in: string; created_at: string }>();
+    for (const record of attendanceData) {
+      if (!record.user_id || !record.check_in || latestByUser.has(record.user_id)) continue;
+      latestByUser.set(record.user_id, {
+        user_id: record.user_id,
+        user_name: record.user_name,
+        check_in: record.check_in,
+        created_at: record.created_at,
+      });
+    }
+
+    const attendanceRows = Array.from(latestByUser.values()).sort((a, b) => {
+      return new Date(a.check_in).getTime() - new Date(b.check_in).getTime();
+    });
+
+    const userIds = attendanceRows.map(record => record.user_id);
+    let profileMap = new Map<string, { avatar_url: string | null; department: string | null; position: string | null }>();
+
+    if (userIds.length > 0) {
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, avatar_url, department, position')
+        .in('id', userIds);
+
+      if (profileError) {
+        console.warn('[OnlineEmployeesCard] Failed to fetch profile details', profileError);
+      } else {
+        profileMap = new Map(
+          (profiles || []).map(profile => [
+            profile.id,
+            {
+              avatar_url: profile.avatar_url,
+              department: profile.department,
+              position: profile.position,
+            },
+          ])
+        );
+      }
+    }
+
+    const merged = attendanceRows.map(record => {
+      const profileInfo = profileMap.get(record.user_id);
+      let avatarUrl = profileInfo?.avatar_url || null;
+      if (avatarUrl) {
+        const base = avatarUrl.split('?')[0];
+        avatarUrl = `${base}?t=${Date.now()}`;
+      }
+
+      return {
+        user_id: record.user_id,
+        user_name: record.user_name,
+        check_in: record.check_in,
+        avatar_url: avatarUrl,
+        department: profileInfo?.department || null,
+        position: profileInfo?.position || null,
+      };
+    });
+
+    setEmployees(merged);
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     fetchCheckedInEmployees();
-  }, []);
+  }, [fetchCheckedInEmployees]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        fetchCheckedInEmployees();
+      }, 250);
+    };
+
+    const channel = supabase
+      .channel('online-employees-attendance-records')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attendance_records' },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [fetchCheckedInEmployees, user]);
 
   // Realtime Presence for status
   useEffect(() => {
@@ -141,33 +263,6 @@ const OnlineEmployeesCard: React.FC = () => {
 
     toast.success(`상태가 "${STATUS_CONFIG[newStatus].label}"(으)로 변경되었습니다`);
   }, []);
-
-  const fetchCheckedInEmployees = async () => {
-    const { data: attendanceData, error: attError } = await (supabase.from('checked_in_employee_status' as any) as any)
-      .select('user_id, user_name, check_in, avatar_url, department, position')
-      .order('check_in', { ascending: true });
-
-    if (attError || !attendanceData) {
-      setLoading(false);
-      return;
-    }
-
-    const merged = (attendanceData as unknown as CheckedInEmployee[]).map(a => {
-      // Refresh cache-busting param to avoid stale cached images
-      let avatarUrl = a.avatar_url || null;
-      if (avatarUrl) {
-        const base = avatarUrl.split('?')[0];
-        avatarUrl = `${base}?t=${Date.now()}`;
-      }
-      return {
-        ...a,
-        avatar_url: avatarUrl,
-      };
-    });
-
-    setEmployees(merged);
-    setLoading(false);
-  };
 
   // Sort: current user first
   const sortedEmployees = React.useMemo(() => {
