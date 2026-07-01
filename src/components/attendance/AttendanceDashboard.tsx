@@ -40,38 +40,41 @@ const AttendanceDashboard: React.FC = () => {
   }, [rangeType]);
 
   // Fetch attendance records for the period
-  const { data: records = [], isLoading } = useQuery({
+  const { data: records = [], isLoading, error: recordsError } = useQuery({
     queryKey: ['attendance-dashboard', startDate, endDate],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('attendance_records')
         .select('*')
         .gte('date', startDate)
         .lte('date', endDate);
+      if (error) throw error;
       return data || [];
     },
   });
 
   // Fetch leave requests for the period
-  const { data: leaveRequests = [] } = useQuery({
+  const { data: leaveRequests = [], error: leaveRequestsError } = useQuery({
     queryKey: ['leave-dashboard', startDate, endDate],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('leave_requests')
         .select('*')
         .gte('start_date', startDate)
         .lte('end_date', endDate);
+      if (error) throw error;
       return data || [];
     },
   });
 
   // Fetch all approved employees
-  const { data: employees = [] } = useQuery({
+  const { data: employees = [], error: employeesError } = useQuery({
     queryKey: ['dashboard-employees'],
     queryFn: async () => {
-      const { data } = await (supabase.from('profile_directory' as any) as any)
+      const { data, error } = await (supabase.from('profile_directory' as any) as any)
         .select('id, full_name, department')
         .order('full_name');
+      if (error) throw error;
       return ((data as any[]) || []) as Array<{ id: string; full_name: string; department: string | null }>;
     },
   });
@@ -156,6 +159,22 @@ const AttendanceDashboard: React.FC = () => {
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  }
+
+  const loadError = recordsError || leaveRequestsError || employeesError;
+  if (loadError) {
+    const message = loadError instanceof Error ? loadError.message : String((loadError as any)?.message || loadError);
+    return (
+      <Card className="border-destructive/30 bg-destructive/5 shadow-none">
+        <CardContent className="flex items-start gap-3 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+          <div>
+            <p className="text-sm font-semibold text-destructive">근태 운영 인사이트를 불러오지 못했습니다.</p>
+            <p className="mt-1 text-xs text-muted-foreground">{message}</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   const summaryCards = [

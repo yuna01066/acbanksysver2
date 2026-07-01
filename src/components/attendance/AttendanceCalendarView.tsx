@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday, addMonths, subMonths } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -56,6 +56,7 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateS
   const [leaveEvents, setLeaveEvents] = useState<LeaveEvent[]>([]);
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [internalSelectedDate, setInternalSelectedDate] = useState<Date | null>(null);
 
   const selectedDate = externalSelectedDate ? new Date(externalSelectedDate) : internalSelectedDate;
@@ -69,6 +70,7 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateS
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setLoadError(null);
       const startStr = format(monthStart, 'yyyy-MM-dd');
       const endStr = format(monthEnd, 'yyyy-MM-dd');
 
@@ -85,6 +87,14 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateS
           .gte('date', startStr)
           .lte('date', endStr),
       ]);
+
+      if (leaveRes.error || attendanceRes.error) {
+        setLoadError(leaveRes.error?.message || attendanceRes.error?.message || '근태 캘린더 조회 중 오류가 발생했습니다.');
+        setLeaveEvents([]);
+        setAttendanceSummary([]);
+        setLoading(false);
+        return;
+      }
 
       if (leaveRes.data) setLeaveEvents(leaveRes.data as LeaveEvent[]);
 
@@ -141,6 +151,14 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateS
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-5 w-5 animate-spin" />
+          </div>
+        ) : loadError ? (
+          <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+            <div>
+              <p className="text-sm font-semibold text-destructive">근태 캘린더를 불러오지 못했습니다.</p>
+              <p className="mt-1 text-xs text-muted-foreground">{loadError}</p>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col gap-4 lg:flex-row">

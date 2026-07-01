@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,17 +31,32 @@ const QuickAttendanceButton = ({ onAttendanceChanged, variant = 'default' }: Qui
   const [pendingAction, setPendingAction] = useState<'check_in' | 'check_out' | null>(null);
   const [pendingLocation, setPendingLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [attendanceStreak, setAttendanceStreak] = useState(0);
+  const attendanceFetchErrorShownRef = useRef(false);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
   const fetchTodayRecord = async () => {
     if (!user) return;
-    const { data } = await supabase
+    setFetching(true);
+    const { data, error } = await supabase
       .from('attendance_records')
       .select('*')
       .eq('user_id', user.id)
       .eq('date', today)
       .maybeSingle();
+    if (error) {
+      console.warn('Today attendance fetch failed:', error);
+      setTodayRecord(null);
+      if (!attendanceFetchErrorShownRef.current) {
+        toast.error('오늘 출퇴근 기록을 불러오지 못했습니다.', {
+          description: error.message,
+        });
+        attendanceFetchErrorShownRef.current = true;
+      }
+      setFetching(false);
+      return;
+    }
+    attendanceFetchErrorShownRef.current = false;
     setTodayRecord(data);
     setFetching(false);
   };

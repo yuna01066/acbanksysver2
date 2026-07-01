@@ -88,6 +88,15 @@ const getAttendanceStatusMeta = (status?: string | null) => {
   };
 };
 
+const getQueryErrorMessage = (error: unknown) => {
+  if (!error) return '';
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error && 'message' in error) {
+    return String((error as { message?: unknown }).message || '알 수 없는 오류');
+  }
+  return String(error);
+};
+
 const AttendancePage = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, isModerator, loading: authLoading } = useAuth();
@@ -118,15 +127,16 @@ const AttendancePage = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
 
   // Today's attendance record
-  const { data: todayRecord, isLoading: todayLoading } = useQuery({
+  const { data: todayRecord, isLoading: todayLoading, error: todayRecordError } = useQuery({
     queryKey: ['attendance-today', user?.id, today],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('attendance_records')
         .select('*')
         .eq('user_id', user!.id)
         .eq('date', today)
         .maybeSingle();
+      if (error) throw error;
       return data;
     },
     enabled: !!user,
@@ -136,7 +146,7 @@ const AttendancePage = () => {
   const monthStart = format(startOfMonth(selectedMonth), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(selectedMonth), 'yyyy-MM-dd');
 
-  const { data: monthlyRecords = [] } = useQuery({
+  const { data: monthlyRecords = [], error: monthlyRecordsError } = useQuery({
     queryKey: ['attendance-monthly', adminTab === 'all' ? 'all' : user?.id, monthStart],
     queryFn: async () => {
       let query = supabase
@@ -146,29 +156,32 @@ const AttendancePage = () => {
         .lte('date', monthEnd)
         .order('date', { ascending: false });
       if (adminTab !== 'all') query = query.eq('user_id', user!.id);
-      const { data } = await query;
+      const { data, error } = await query;
+      if (error) throw error;
       return data || [];
     },
     enabled: !!user,
   });
 
   // Employee list for manual registration
-  const { data: employees = [] } = useQuery({
+  const { data: employees = [], error: employeesError } = useQuery({
     queryKey: ['all-employees-for-attendance'],
     queryFn: async () => {
-      const { data } = await (supabase.from('profile_directory' as any) as any).select('id, full_name, department').order('full_name');
+      const { data, error } = await (supabase.from('profile_directory' as any) as any).select('id, full_name, department').order('full_name');
+      if (error) throw error;
       return data || [];
     },
     enabled: !!user && (isAdmin || isModerator),
   });
 
   // Leave requests
-  const { data: leaveRequests = [] } = useQuery({
+  const { data: leaveRequests = [], error: leaveRequestsError } = useQuery({
     queryKey: ['leave-requests', adminTab === 'all' ? 'all' : user?.id],
     queryFn: async () => {
       let query = supabase.from('leave_requests').select('*').order('created_at', { ascending: false });
       if (adminTab !== 'all') query = query.eq('user_id', user!.id);
-      const { data } = await query;
+      const { data, error } = await query;
+      if (error) throw error;
       return data || [];
     },
     enabled: !!user,
@@ -436,6 +449,7 @@ const AttendancePage = () => {
     : monthlyRecords;
   const pendingLeaveCount = leaveRequests.filter((l: any) => l.status === 'pending').length;
   const activeTodayCount = monthlyRecords.filter((r: any) => r.date === today && (r.status === 'checked_in' || r.status === 'present')).length;
+  const loadError = todayRecordError || monthlyRecordsError || employeesError || leaveRequestsError;
   const monthLabel = format(selectedMonth, 'yyyy년 M월', { locale: ko });
   const isCheckedIn = todayRecord && !todayRecord.check_out;
   const isCheckedOut = todayRecord && todayRecord.check_out;
@@ -539,6 +553,23 @@ const AttendancePage = () => {
               </div>
             </div>
           </header>
+
+          {loadError && (
+            <Card className="border-destructive/30 bg-destructive/5 shadow-none">
+              <CardContent className="flex items-start gap-3 p-4">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-destructive">근태 데이터를 불러오지 못했습니다.</p>
+                  <p className="mt-1 break-words text-xs text-muted-foreground">
+                    {getQueryErrorMessage(loadError)}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    데이터가 삭제된 것은 아닐 수 있습니다. 권한 또는 RLS 정책 오류를 확인해주세요.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {adminTab === 'my' && (
             <Card className="border-border shadow-none">
