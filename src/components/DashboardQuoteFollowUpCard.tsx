@@ -187,7 +187,25 @@ const DashboardQuoteFollowUpCard = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as FollowUpQuote[];
+
+      const rows = (data || []) as FollowUpQuote[];
+      const assigneeIds = [...new Set(rows.map((quote) => quote.assigned_to).filter((id): id is string => Boolean(id)))];
+      if (assigneeIds.length === 0) return rows;
+
+      const { data: profiles } = await (supabase.from('profile_directory' as any) as any)
+        .select('id, full_name')
+        .in('id', assigneeIds);
+
+      const assigneeNameMap = Object.fromEntries(
+        (profiles || []).map((profile: { id: string; full_name: string | null }) => [profile.id, profile.full_name || ''])
+      );
+
+      return rows.map((quote) => ({
+        ...quote,
+        assigned_to_name: quote.assigned_to
+          ? assigneeNameMap[quote.assigned_to] || quote.assigned_to_name
+          : quote.assigned_to_name,
+      }));
     },
     enabled: !!user,
     staleTime: 60 * 1000,

@@ -199,6 +199,27 @@ const SavedQuotesPage = () => {
     }
   };
 
+  const fetchProfileNameMap = async (ids: Array<string | null | undefined>) => {
+    const uniqueIds = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+    if (uniqueIds.length === 0) return {};
+
+    const { data, error } = await (supabase.from('profile_directory' as any) as any)
+      .select('id, full_name')
+      .in('id', uniqueIds);
+
+    if (error) throw error;
+    return Object.fromEntries(
+      (data || []).map((profile: { id: string; full_name: string | null }) => [profile.id, profile.full_name || ''])
+    ) as Record<string, string>;
+  };
+
+  const getAssignedName = (quote: any, profileMap: Record<string, string>) => {
+    if (quote.assigned_to) {
+      return profileMap[quote.assigned_to] || quote.assigned_to_name || null;
+    }
+    return quote.assigned_to_name || quote.issuer_name || profileMap[quote.user_id] || null;
+  };
+
   const fetchQuotes = async () => {
     if (!user) {
       setLoading(false);
@@ -249,24 +270,16 @@ const SavedQuotesPage = () => {
           }
         }
         
-        // Fetch creator names from profiles
-        const creatorIds = [...new Set(formattedData.map(q => q.user_id))];
-        let creatorMap: Record<string, string> = {};
-        if (creatorIds.length > 0) {
-          const { data: profiles } = await (supabase.from('profile_directory' as any) as any)
-            .select('id, full_name')
-            .in('id', creatorIds);
-          if (profiles) {
-            creatorMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name]));
-          }
-        }
+        const profileMap = await fetchProfileNameMap(
+          formattedData.flatMap(q => [q.user_id, q.assigned_to, q.issuer_id])
+        );
         
         const finalQuotes = formattedData.map(q => ({
           ...q,
           linked_project: q.project_id ? projectMap[q.project_id] || null : null,
-          creator_name: creatorMap[q.user_id] || null,
+          creator_name: profileMap[q.user_id] || null,
           project_stage: normalizeProjectStage(q.project_stage, q.quote_status),
-          assigned_to_name: q.assigned_to_name || q.issuer_name || creatorMap[q.user_id] || null,
+          assigned_to_name: getAssignedName(q, profileMap),
         }));
         
         setQuotes(finalQuotes);
@@ -306,24 +319,16 @@ const SavedQuotesPage = () => {
           }
         }
         
-        // Fetch creator names
-        const creatorIds2 = [...new Set(formattedData.map(q => q.user_id))];
-        let creatorMap2: Record<string, string> = {};
-        if (creatorIds2.length > 0) {
-          const { data: profiles } = await (supabase.from('profile_directory' as any) as any)
-            .select('id, full_name')
-            .in('id', creatorIds2);
-          if (profiles) {
-            creatorMap2 = Object.fromEntries(profiles.map(p => [p.id, p.full_name]));
-          }
-        }
+        const profileMap2 = await fetchProfileNameMap(
+          formattedData.flatMap(q => [q.user_id, q.assigned_to, q.issuer_id])
+        );
         
         const finalQuotes2 = formattedData.map(q => ({
           ...q,
           linked_project: q.project_id ? projectMap2[q.project_id] || null : null,
-          creator_name: creatorMap2[q.user_id] || null,
+          creator_name: profileMap2[q.user_id] || null,
           project_stage: normalizeProjectStage(q.project_stage, q.quote_status),
-          assigned_to_name: q.assigned_to_name || q.issuer_name || creatorMap2[q.user_id] || null,
+          assigned_to_name: getAssignedName(q, profileMap2),
         }));
         
         setQuotes(finalQuotes2);
@@ -345,6 +350,7 @@ const SavedQuotesPage = () => {
         quote.recipient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         quote.recipient_company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         quote.project_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        quote.assigned_to_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         quote.issuer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         quote.creator_name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
