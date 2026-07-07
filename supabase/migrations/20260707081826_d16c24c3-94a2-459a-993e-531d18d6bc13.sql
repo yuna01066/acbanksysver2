@@ -1,0 +1,1 @@
+ALTER FUNCTION public.touch_branding_intakes_updated_at() SET search_path = public;
