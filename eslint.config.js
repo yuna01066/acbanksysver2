@@ -11,7 +11,7 @@ const {
 } = js.configs.recommended.rules;
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  { ignores: ["dist", "supabase/functions/mcp/index.ts"] },
   {
     extends: [...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
