@@ -120,14 +120,19 @@ const DashboardCalendarPanel = () => {
     return dashboardEvents
       .filter((event) => new Date(event.ends_at).getTime() >= Date.now())
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
-      .slice(0, 5);
   }, [dashboardEvents]);
 
   const dialogEvents = useMemo(() => {
     return Array.from(new Map([...calendarEvents, ...dashboardEvents].map((event) => [event.id, event])).values());
   }, [calendarEvents, dashboardEvents]);
 
-  const todayEvents = dashboardEvents.filter((event) => eventOverlapsDay(event, dashboardRange.today));
+  const todayEvents = useMemo(() => {
+    return dashboardEvents
+      .filter((event) => eventOverlapsDay(event, dashboardRange.today))
+      .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+  }, [dashboardEvents, dashboardRange.today]);
+  const timelineEvents = todayEvents.length > 0 ? todayEvents : upcomingEvents.slice(0, 8);
+  const timelineTitle = todayEvents.length > 0 ? '오늘 일정 타임라인' : '다가오는 일정';
   const nextEvent = summary?.next_event || upcomingEvents[0] || null;
   const rooms = summary?.rooms || [];
   const isViewingCurrentMonth = isSameMonth(calendarMonth, dashboardRange.today);
@@ -194,7 +199,7 @@ const DashboardCalendarPanel = () => {
         <CardContent className="space-y-4 px-4 pb-4 pt-6">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: '오늘 내 일정', value: summary?.today_count ?? todayEvents.length, icon: CalendarCheck2, path: '/calendar?view=day' },
+              { label: scope === 'all' ? '오늘 전체 일정' : '오늘 내 일정', value: todayEvents.length, icon: CalendarCheck2, path: '/calendar?view=day' },
               { label: '다음 일정', value: nextEvent ? formatEventTime(nextEvent) : '-', icon: Clock3, path: '/calendar' },
               { label: '회의실 사용 중', value: summary?.rooms_in_use_count ?? 0, icon: DoorOpen, path: '/calendar' },
               { label: '담당 미팅', value: summary?.assigned_meeting_count ?? 0, icon: UsersRound, path: '/calendar' },
@@ -398,48 +403,61 @@ const DashboardCalendarPanel = () => {
             <div className="space-y-3">
               <div className="rounded-lg border border-border bg-muted/25 p-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-bold text-foreground">오늘 일정 타임라인</p>
-                  <ListChecks className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div className="mt-3 space-y-2">
-                  {upcomingEvents.length > 0 ? upcomingEvents.map((event) => (
-                    (() => {
-                      const accent = getCalendarEventAccent(event);
-                      const completedDelivery = isCompletedDeliveryCalendarEvent(event);
-                      return (
-                        <button
-                          key={event.id}
-                          type="button"
-                          onClick={() => navigate(`/calendar?event=${event.id}`)}
-                          className={cn(
-                            'w-full rounded-lg border border-border bg-card p-2 text-left transition-colors hover:border-foreground/20 hover:bg-muted',
-                            completedDelivery && 'border-emerald-200 bg-emerald-50/60 hover:bg-emerald-50',
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
-                              <p className="truncate text-sm font-semibold text-foreground">{event.title}</p>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-1">
-                              <Badge variant="outline" className={cn('rounded-full px-2 py-0 text-[10px]', getEventStatusBadgeClassName(event))}>
-                                {getCalendarEventStatusLabel(event)}
-                              </Badge>
-                              <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px]">
-                                {format(new Date(event.starts_at), 'M/d')}
-                              </Badge>
-                            </div>
-                          </div>
-                          <p className="mt-1 truncate text-xs text-muted-foreground">{formatEventTime(event)} · {event.location || event.resource_names.join(', ') || event.created_by_name}</p>
-                        </button>
-                      );
-                    })()
-                  )) : (
-                    <p className="rounded-lg border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">
-                      예정된 일정이 없습니다.
+                  <div>
+                    <p className="text-sm font-bold text-foreground">{timelineTitle}</p>
+                    <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">
+                      {todayEvents.length > 0 ? `${todayEvents.length}건 전체 표시` : '오늘 일정이 없어서 다음 일정을 표시합니다'}
                     </p>
-                  )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px]">
+                      {timelineEvents.length}건
+                    </Badge>
+                    <ListChecks className="h-4 w-4 text-muted-foreground" />
+                  </div>
                 </div>
+                <ScrollArea className="mt-3 max-h-[360px] pr-2">
+                  <div className="space-y-2 pr-1">
+                    {timelineEvents.length > 0 ? timelineEvents.map((event) => (
+                      (() => {
+                        const accent = getCalendarEventAccent(event);
+                        const completedDelivery = isCompletedDeliveryCalendarEvent(event);
+                        const eventDay = new Date(event.starts_at);
+                        return (
+                          <button
+                            key={event.id}
+                            type="button"
+                            onClick={() => navigate(`/calendar?date=${format(eventDay, 'yyyy-MM-dd')}&event=${event.id}`)}
+                            className={cn(
+                              'w-full rounded-lg border border-border bg-card p-2 text-left transition-colors hover:border-foreground/20 hover:bg-muted',
+                              completedDelivery && 'border-emerald-200 bg-emerald-50/60 hover:bg-emerald-50',
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
+                                <p className="truncate text-sm font-semibold text-foreground">{event.title}</p>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-1">
+                                <Badge variant="outline" className={cn('rounded-full px-2 py-0 text-[10px]', getEventStatusBadgeClassName(event))}>
+                                  {getCalendarEventStatusLabel(event)}
+                                </Badge>
+                                <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px]">
+                                  {format(eventDay, 'M/d')}
+                                </Badge>
+                              </div>
+                            </div>
+                            <p className="mt-1 truncate text-xs text-muted-foreground">{formatEventTime(event)} · {event.location || event.resource_names.join(', ') || event.created_by_name}</p>
+                          </button>
+                        );
+                      })()
+                    )) : (
+                      <p className="rounded-lg border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">
+                        예정된 일정이 없습니다.
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
               </div>
 
               <div className="rounded-lg border border-border bg-card p-3">

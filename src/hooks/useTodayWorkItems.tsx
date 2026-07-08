@@ -460,7 +460,7 @@ export function useTodayWorkItems(notifications: AppNotification[] = []) {
 
     calendarEvents
       .filter((event) => event.status !== 'canceled')
-      .slice(0, 8)
+      .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
       .forEach((event) => {
         const startsAt = new Date(event.starts_at);
         const isTodayEvent = isSameDay(startsAt, new Date());
