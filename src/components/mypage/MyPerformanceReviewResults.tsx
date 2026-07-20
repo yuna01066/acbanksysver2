@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Star, Target, TrendingUp, MessageSquare, ChevronDown, ChevronUp, Lock, FileText, ShieldCheck } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { getObjectiveReviewCategories } from '@/lib/performanceFeedback';
 
 interface ReviewCycle {
   id: string;
@@ -19,6 +20,7 @@ interface ReviewCycle {
 interface ReviewCategory {
   id: string;
   name: string;
+  description?: string | null;
   weight: number;
   display_order: number;
 }
@@ -152,11 +154,13 @@ const MyPerformanceReviewResults: React.FC = () => {
     }
   };
 
+  const objectiveCategories = useMemo(() => getObjectiveReviewCategories(categories), [categories]);
+
   const getWeightedAvg = (scores: ReviewScore[]) => {
     if (!scores || scores.length === 0) return null;
     let totalWeight = 0, weightedSum = 0;
     scores.forEach(s => {
-      const cat = categories.find(c => c.id === s.category_id);
+      const cat = objectiveCategories.find(c => c.id === s.category_id);
       const w = cat?.weight || 1;
       totalWeight += w;
       weightedSum += s.score * w;
@@ -181,11 +185,26 @@ const MyPerformanceReviewResults: React.FC = () => {
     return Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
   })();
 
-  const categoryAvgScores = categories.map(cat => {
+  const categoryAvgScores = objectiveCategories.map(cat => {
     const scores = submittedReviews.flatMap(r => (r.scores || []).filter(s => s.category_id === cat.id));
     const avg = scores.length > 0 ? scores.reduce((sum, s) => sum + s.score, 0) / scores.length : null;
     return { ...cat, avg };
   });
+  const summaryCategoryScores = useMemo(() => {
+    return (summary?.category_scores || []).map((score, index) => {
+      const matchedCategory =
+        objectiveCategories.find(cat =>
+          cat.objectiveName === score.name ||
+          cat.originalName === score.name ||
+          cat.name === score.name
+        ) || objectiveCategories[index];
+
+      return {
+        ...score,
+        name: matchedCategory?.objectiveName || score.name,
+      };
+    });
+  }, [summary?.category_scores, objectiveCategories]);
   const radarCategories = categoryAvgScores.filter(cat => cat.avg !== null).slice(0, 6);
   const getRadarPoint = (index: number, value: number, total: number, radius: number) => {
     const angle = (Math.PI * 2 * index) / total - Math.PI / 2;
@@ -274,17 +293,17 @@ const MyPerformanceReviewResults: React.FC = () => {
             </div>
 
             {/* Category scores chart */}
-            {summary.category_scores && summary.category_scores.length > 0 && (
+            {summaryCategoryScores.length > 0 && (
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">항목별 점수</h4>
                 <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={summary.category_scores} layout="vertical" margin={{ left: 80, right: 20 }}>
+                  <BarChart data={summaryCategoryScores} layout="vertical" margin={{ left: 92, right: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" domain={[0, 10]} tickCount={6} />
-                    <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 12 }} />
+                    <YAxis type="category" dataKey="name" width={88} tick={{ fontSize: 12 }} />
                     <Tooltip formatter={(val: number) => val.toFixed(1)} />
                     <Bar dataKey="avg" radius={[0, 4, 4, 0]}>
-                      {summary.category_scores.map((_, idx) => (
+                      {summaryCategoryScores.map((_, idx) => (
                         <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
                       ))}
                     </Bar>
@@ -375,7 +394,7 @@ const MyPerformanceReviewResults: React.FC = () => {
                           <g key={cat.id}>
                             <line x1="100" y1="100" x2={edge.x} y2={edge.y} stroke="hsl(var(--border))" strokeWidth="1" />
                             <text x={label.x} y={label.y} textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-[9px] font-medium">
-                              {cat.name.length > 6 ? `${cat.name.slice(0, 6)}...` : cat.name}
+                              {cat.objectiveName.length > 6 ? `${cat.objectiveName.slice(0, 6)}...` : cat.objectiveName}
                             </text>
                           </g>
                         );
@@ -391,7 +410,7 @@ const MyPerformanceReviewResults: React.FC = () => {
                 <div className="space-y-2">
                   {categoryAvgScores.map(cat => (
                     <div key={cat.id} className="flex items-center gap-3">
-                      <span className="text-sm w-32 shrink-0 truncate">{cat.name}</span>
+                      <span className="text-sm w-36 shrink-0 truncate" title={cat.objectiveName}>{cat.objectiveName}</span>
                       <div className="flex-1 bg-muted rounded-full h-2.5">
                         <div className="bg-primary rounded-full h-2.5 transition-all" style={{ width: `${(cat.avg ?? 0) * 10}%` }} />
                       </div>
@@ -453,12 +472,12 @@ const MyPerformanceReviewResults: React.FC = () => {
                   <div className="pt-4">
                     <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-3">항목별 점수</h4>
                     <div className="space-y-2">
-                      {categories.map(cat => {
+                      {objectiveCategories.map(cat => {
                         const score = review.scores?.find(s => s.category_id === cat.id);
                         if (!score) return null;
                         return (
                           <div key={cat.id} className="flex items-center gap-3">
-                            <span className="text-sm w-32 shrink-0">{cat.name}</span>
+                            <span className="text-sm w-36 shrink-0">{cat.objectiveName}</span>
                             <div className="flex-1 bg-muted rounded-full h-2">
                               <div className="bg-primary rounded-full h-2 transition-all" style={{ width: `${score.score * 10}%` }} />
                             </div>
