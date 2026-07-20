@@ -15,26 +15,26 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://zwloyqcwyfkimwkohpnd.supabase.co';
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY
-  || process.env.VITE_SUPABASE_ANON_KEY
-  || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3bG95cWN3eWZraW13a29ocG5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyMzgyMDQsImV4cCI6MjA3NDgxNDIwNH0.f9j4PBCLXoNxn7L97d19xYYuKM3ZSzkOkxrgklyeb0I';
+import { execFileSync } from 'node:child_process';
 
 const AB_VERSION_NAME = 'A/B 원판 상한 2026-06-01 + 3%';
 
-const restSelect = async (table, params) => {
-  const url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const res = await fetch(url, {
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`REST ${table} ${res.status}: ${await res.text()}`);
-  }
-  return res.json();
+// The pricing tables are protected by RLS (authenticated + has_role check),
+// so this E2E uses psql via the managed PG* env vars provided by Lovable
+// Cloud. Fails fast with a clear message if those are not present.
+if (!process.env.PGHOST) {
+  console.error('SKIP: PGHOST is not set. This E2E requires managed Supabase psql access.');
+  console.error('Run inside Lovable Cloud sandbox, or provide PG* env vars pointing at the project DB.');
+  process.exit(2);
+}
+
+const psqlJson = (sql) => {
+  const out = execFileSync(
+    'psql',
+    ['-Atqc', `SELECT COALESCE(json_agg(t), '[]'::json) FROM (${sql}) t`],
+    { encoding: 'utf8' },
+  );
+  return JSON.parse(out.trim() || '[]');
 };
 
 // Bundle the TS calculator to node ESM so we can call it as the app does.
