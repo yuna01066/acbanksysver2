@@ -1,25 +1,28 @@
 # Public Meeting Booking E2E tests
 
-End-to-end verification for the public meeting booking flow. The tests drive the
-live `public-meeting-booking` Edge Function through Playwright's `request`
-context and verify results against the Supabase REST API.
+End-to-end verification for the public meeting booking flow. The suite
+auto-provisions a temporary link with the admin's session token, exercises
+the approve and reject flows through the live `public-meeting-booking` Edge
+Function, verifies the resulting `calendar_events` rows, and cleans everything
+up afterwards.
 
 ## What is covered
 
-`tests/e2e/public-booking.spec.ts` runs the full lifecycle for a customer
-booking link (`requires_approval = true`):
+`tests/e2e/public-booking.spec.ts`:
 
-1. `get-link` — fetches the public link metadata via the slug.
-2. `get-availability` — retrieves available time slots for the next allowed day.
-3. `create-request` — submits a booking request as an anonymous visitor.
-4. Admin login (email + password) against Supabase Auth.
-5. `confirm-request` — approves the request as an admin/moderator.
-6. Verifies the resulting `calendar_events` row exists with
-   `source_type = 'external_booking'`.
-7. Repeats steps 1–3 with new data, then `reject-request` and asserts no
-   calendar event is created.
-8. Cleans up both requests (and any provisioned link/resource) via the REST API
-   using the admin session token.
+1. Admin login (email + password) against Supabase Auth → session token.
+2. Auto-picks the first active `calendar_resources` row (or uses
+   `E2E_RESOURCE_ID` when set).
+3. Inserts a fresh `public_booking_links` row (`link_type=customer_request`,
+   `requires_approval=true`, all weekdays, `min_notice_minutes=0`) via the
+   authenticated PostgREST endpoint. Slug is unique per run.
+4. Approval flow: `get-link` → `get-availability` → `create-request` →
+   `confirm-request` → asserts a `calendar_events` row with
+   `source_type='external_booking'`.
+5. Rejection flow: `create-request` → `reject-request` → asserts no calendar
+   event was created for that request.
+6. Cleanup: deletes the confirmed event, both request rows, and the
+   provisioned link.
 
 ## Required env vars
 
@@ -32,26 +35,19 @@ E2E_ADMIN_PASSWORD=<password>
 
 ## Optional env vars
 
-If omitted, the test suite skips provisioning and expects an existing active
-customer_request link and one allowed resource:
-
 ```
-E2E_PUBLIC_BOOKING_SLUG=<slug of an active customer_request link>
-E2E_RESOURCE_ID=<uuid of a calendar_resource allowed by the link>
+E2E_RESOURCE_ID=<calendar_resources.id>   # skip auto-pick and use this one
 ```
-
-If both are provided the test uses them and only cleans up the requests it
-creates. If either is missing the test will fail early with a clear message —
-create a test link at `/meeting-reservations?tab=public` first.
 
 ## Running
 
 ```
 E2E_SUPABASE_URL=... \
 E2E_SUPABASE_ANON_KEY=... \
-E2E_ADMIN_EMAIL=... \
-E2E_ADMIN_PASSWORD=... \
-E2E_PUBLIC_BOOKING_SLUG=... \
-E2E_RESOURCE_ID=... \
-bunx playwright test
+E2E_ADMIN_EMAIL=... E2E_ADMIN_PASSWORD=... \
+bun run test:e2e
 ```
+
+No manual link setup is required — every run creates and cleans up its own
+`public_booking_links` row. Requires at least one active
+`calendar_resources` entry in the project.

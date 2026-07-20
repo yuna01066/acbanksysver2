@@ -9,7 +9,6 @@
     "build:dev": "node scripts/vite-build.mjs --mode development",
     "docs:dry-run": "node scripts/document-migration-dry-run.mjs",
     "test:pricing": "node scripts/test-price-calculations.mjs",
-    "test:e2e": "playwright test",
     "lint": "eslint .",
     "preview": "vite preview",
     "worker:quote-wizard": "node workers/quote-wizard-worker/src/index.mjs"
