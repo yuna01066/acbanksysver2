@@ -38,6 +38,8 @@ export const SCORE_EVIDENCE_OPTIONS = [
   '문서화',
   '문제 해결',
   '완료 후 확인',
+  '학습 적용',
+  '개선 실행',
 ];
 
 export const PERFORMANCE_COMPETENCY_AXES = [
@@ -48,16 +50,16 @@ export const PERFORMANCE_COMPETENCY_AXES = [
     evidenceOptions: ['업무 이해', '처리량', '실행력', '우선순위', '마감 준수', '재작업 감소'],
   },
   {
-    key: 'quality',
-    name: '정확도/품질',
-    description: '오류를 줄이고 결과물 품질을 일정하게 유지하는 능력',
-    evidenceOptions: ['정확도', '검수 습관', '오탈자 감소', '견적 오류 방지', '도면 확인', '완료 후 확인'],
+    key: 'problem_quality',
+    name: '문제 해결/품질관리',
+    description: '문제를 파악하고 오류를 줄여 결과물 품질을 안정화하는 능력',
+    evidenceOptions: ['문제 해결', '원인 분석', '정확도', '검수 습관', '오탈자 감소', '견적 오류 방지'],
   },
   {
-    key: 'speed',
-    name: '속도/납기 대응',
-    description: '업무 속도, 납기 대응, 일정 리스크를 관리하는 능력',
-    evidenceOptions: ['속도', '납기 관리', '빠른 응대', '지연 공유', '병목 해소', '일정 조정'],
+    key: 'leadership',
+    name: '리더십/팔로워십',
+    description: '상황에 맞게 주도하거나 지원하며 팀 기준을 맞추는 능력',
+    evidenceOptions: ['주도성', '팔로업', '역할 이해', '기준 제시', '지원 태도', '팀 기여'],
   },
   {
     key: 'collaboration',
@@ -72,10 +74,10 @@ export const PERFORMANCE_COMPETENCY_AXES = [
     evidenceOptions: ['시간 준수', '책임감', '문서화', '후속 확인', '자기 점검', '기록 정리'],
   },
   {
-    key: 'problem_solving',
-    name: '문제 해결력',
-    description: '예상치 못한 문제를 파악하고 현실적인 대안을 제시하는 능력',
-    evidenceOptions: ['문제 해결', '원인 분석', '대안 제시', '예외 처리', '개선 제안', '리스크 감지'],
+    key: 'growth',
+    name: '성장/개선 실행력',
+    description: '피드백을 받아들이고 업무 방식을 개선해 다음 결과에 반영하는 능력',
+    evidenceOptions: ['학습 적용', '개선 실행', '피드백 반영', '기준 업데이트', '반복 실수 감소', '자기 개발'],
   },
 ] as const;
 
@@ -103,30 +105,26 @@ export type ObjectiveReviewCategory<T extends PerformanceCategoryLike> = T & {
 
 const categoryKeywordMap: Array<{ keywords: string[]; axisIndex: number }> = [
   { keywords: ['수행', '전문', '실행'], axisIndex: 0 },
-  { keywords: ['정확', '품질', '꼼꼼'], axisIndex: 1 },
-  { keywords: ['속도', '납기', '일정'], axisIndex: 2 },
+  { keywords: ['정확', '품질', '꼼꼼', '문제', '해결'], axisIndex: 1 },
+  { keywords: ['리더', '팔로워', '주도'], axisIndex: 2 },
   { keywords: ['협업', '소통', '커뮤니케이션', '고객'], axisIndex: 3 },
   { keywords: ['책임', '성실', '자기', '시간'], axisIndex: 4 },
-  { keywords: ['문제', '해결', '개선'], axisIndex: 5 },
+  { keywords: ['성장', '개발', '학습', '개선'], axisIndex: 5 },
 ];
 
-const usedAxisIndexesFor = <T extends PerformanceCategoryLike>(categories: T[], currentIndex: number) =>
-  categories.slice(0, currentIndex).map((category, index) => {
-    const matched = categoryKeywordMap.find(({ keywords }) => keywords.some(keyword => category.name.includes(keyword)));
-    return matched?.axisIndex ?? index % PERFORMANCE_COMPETENCY_AXES.length;
-  });
+export const getObjectiveReviewCategories = <T extends PerformanceCategoryLike>(categories: T[]): ObjectiveReviewCategory<T>[] => {
+  const usedAxisIndexes = new Set<number>();
 
-export const getObjectiveReviewCategories = <T extends PerformanceCategoryLike>(categories: T[]): ObjectiveReviewCategory<T>[] =>
-  categories.slice(0, PERFORMANCE_COMPETENCY_AXES.length).map((category, index) => {
+  return categories.slice(0, PERFORMANCE_COMPETENCY_AXES.length).map((category, index) => {
     const matched = categoryKeywordMap.find(({ keywords }) => keywords.some(keyword => category.name.includes(keyword)));
-    const usedIndexes = usedAxisIndexesFor(categories, index);
     let axisIndex = matched?.axisIndex ?? index % PERFORMANCE_COMPETENCY_AXES.length;
 
-    if (usedIndexes.includes(axisIndex)) {
-      axisIndex = PERFORMANCE_COMPETENCY_AXES.findIndex((_, candidateIndex) => !usedIndexes.includes(candidateIndex));
+    if (usedAxisIndexes.has(axisIndex)) {
+      axisIndex = PERFORMANCE_COMPETENCY_AXES.findIndex((_, candidateIndex) => !usedAxisIndexes.has(candidateIndex));
       if (axisIndex < 0) axisIndex = index % PERFORMANCE_COMPETENCY_AXES.length;
     }
 
+    usedAxisIndexes.add(axisIndex);
     const axis = PERFORMANCE_COMPETENCY_AXES[axisIndex];
     return {
       ...category,
@@ -137,6 +135,7 @@ export const getObjectiveReviewCategories = <T extends PerformanceCategoryLike>(
       originalName: category.name,
     };
   });
+};
 
 export const getScoreGuideForScore = (score: number) => {
   const nearest = PERFORMANCE_SCORE_GUIDE.reduce((closest, item) =>
