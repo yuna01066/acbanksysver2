@@ -205,9 +205,39 @@ if (failures.length === 0) {
   process.exit(0);
 } else {
   const reportPath = writeReport({ summary, failures, warnings, evidence });
+
+  // Recommended action per failure category (see runbook §3)
+  const REMEDY = {
+    "panel_sizes.missing_active_row":
+      "seed 미삽입. migration 재실행 필요 (idempotent).",
+    "panel_sizes.expected_active_but_inactive":
+      "is_active 갱신 실패. migration 재실행 필요.",
+    "panel_sizes.legacy_size_still_active":
+      "레거시 3*6 비활성화 누락. migration 재실행 필요.",
+    "surcharge.missing_or_inactive":
+      "satin/astel 서차지 seed 실패. migration 재실행 필요.",
+    "surcharge.unexpected_active_size":
+      "허용 사이즈 외 활성 행 존재. 수동 UPDATE 흔적 조사 후 재실행.",
+    "surcharge.cost_mismatch":
+      "서차지 금액 불일치. 수동 수정 흔적. 롤백 후 재적용 검토.",
+    "pricing_version.missing":
+      "새 pricing version 자체가 없음. migration 전체 재실행 필요.",
+  };
+  const categories = [...new Set(failures.map((f) => f.check))];
+
   console.error(JSON.stringify(summary, null, 2));
-  console.error(`❌ ${failures.length} failure(s). First 5:`);
+  console.error(`\n❌ ${failures.length} failure(s) across ${categories.length} categor(y/ies).`);
+  console.error("\nFirst 5 failures:");
   for (const f of failures.slice(0, 5)) console.error("  -", JSON.stringify(f));
+
+  console.error("\n⚠️  Recommended actions:");
+  for (const cat of categories) {
+    console.error(`  • [${cat}] ${REMEDY[cat] ?? "원인 조사 후 재실행 검토."}`);
+  }
+
   console.error(`\n📄 Full report: ${reportPath}`);
+  console.error("📘 Runbook:     docs/operations/panel-migration-rollback-runbook.md");
+  console.error("🔁 Retry:       bun run verify:panel-migration (after re-applying migration)");
+  console.error("↩️  Rollback:    see runbook §2 (신규 version 비활성 + 이전 version 재활성)\n");
   process.exit(1);
 }
