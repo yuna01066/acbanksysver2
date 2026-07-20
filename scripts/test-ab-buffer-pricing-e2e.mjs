@@ -84,46 +84,30 @@ try {
   ({ calculatePrice } = await import(pathToFileURL(outfile).href));
 
   // --- Fetch live DB state ------------------------------------------------
-  const versions = await restSelect('panel_pricing_versions', {
-    select: 'id,version_name,is_active',
-    version_name: `eq.${AB_VERSION_NAME}`,
-  });
+  const versions = psqlJson(
+    `SELECT id, version_name, is_active FROM public.panel_pricing_versions
+     WHERE version_name = '${AB_VERSION_NAME}'`
+  );
   assert.ok(versions.length > 0, `Pricing version "${AB_VERSION_NAME}" must exist in DB`);
   const version = versions[0];
   assert.equal(version.is_active, true, `Pricing version "${AB_VERSION_NAME}" must be the active version`);
 
-  const masters = await restSelect('panel_masters', {
-    select: 'id,quality',
-    quality: 'eq.glossy-color',
-  });
+  const masters = psqlJson(
+    `SELECT id, quality::text AS quality FROM public.panel_masters WHERE quality::text = 'glossy-color'`
+  );
   assert.ok(masters.length > 0, 'glossy-color panel_master must exist');
   const glossyMasterId = masters[0].id;
 
-  const panelSizesRaw = await restSelect('panel_sizes', {
-    select: 'size_name,thickness,price,is_active,pricing_version_id',
-    panel_master_id: `eq.${glossyMasterId}`,
-    is_active: 'eq.true',
-    limit: '1000',
-  });
-  const panelSizesData = panelSizesRaw.map(r => ({
-    size_name: r.size_name,
-    thickness: r.thickness,
-    price: r.price,
-    is_active: r.is_active,
-  }));
+  const panelSizesData = psqlJson(
+    `SELECT size_name, thickness, price, is_active FROM public.panel_sizes
+     WHERE panel_master_id = '${glossyMasterId}' AND is_active = true`
+  );
 
-  const surchargesRaw = await restSelect('panel_option_surcharges', {
-    select: 'quality_id,surcharge_type,size_name,cost,is_active',
-    is_active: 'eq.true',
-    limit: '1000',
-  });
-  const optionSurchargesData = surchargesRaw.map(r => ({
-    quality_id: r.quality_id,
-    surcharge_type: r.surcharge_type,
-    size_name: r.size_name,
-    cost: r.cost,
-    is_active: r.is_active,
-  }));
+  const optionSurchargesData = psqlJson(
+    `SELECT quality_id, surcharge_type, size_name, cost, is_active
+     FROM public.panel_option_surcharges WHERE is_active = true`
+  );
+
 
   // --- Assertions on DB pricing shape ------------------------------------
   const findPanel = (thickness, size) => panelSizesData.find(p => p.thickness === thickness && p.size_name === size);
