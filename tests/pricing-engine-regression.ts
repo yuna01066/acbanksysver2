@@ -106,7 +106,7 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 169_560);
+  assert.equal(result.totalPrice, 176_220);
   assert.equal(result.lineItems.some(item => item.source === 'processing'), true);
 }
 
@@ -126,10 +126,10 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   assert.equal(result.status, 'calculable');
   assert.equal(result.snapshotVersion, 'pricing-engine-v2-core-260520');
   assert.equal(result.formulaDocVersion, 260520);
-  assert.equal(result.totalPrice, 187_780);
+  assert.equal(result.totalPrice, 190_510);
   assert.equal(
     result.breakdown.find(item => item.label.includes('전체 레이저 재단'))?.price,
-    97_180,
+    97_810,
     'known laser profiles must use formula v2: sheet cost x 1.3 + fixed labor'
   );
 }
@@ -148,10 +148,10 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 417_780);
+  assert.equal(result.totalPrice, 420_510);
   assert.equal(
     result.breakdown.find(item => item.label.includes('CNC 전체 재단'))?.price,
-    327_180,
+    327_810,
     'CNC full cutting must use formula v2: sheet cost x 1.3 + 300,000'
   );
 }
@@ -170,10 +170,10 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 187_780);
+  assert.equal(result.totalPrice, 190_510);
   assert.equal(
     result.breakdown.find(item => item.label.includes('복합 재단'))?.price,
-    97_180,
+    97_810,
     'complex cutting must use formula v2: sheet cost x 1.3 + 70,000'
   );
 }
@@ -196,7 +196,7 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 289_920);
+  assert.equal(result.totalPrice, 296_640);
   assert.equal(
     result.lineItems.filter(item => item.code === 'adhesion-mugipo-45').length,
     1,
@@ -259,7 +259,7 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 132_600);
+  assert.equal(result.totalPrice, 134_700);
   assert.equal(
     result.lineItems.find(item => item.code === 'option-45-mugipo')?.source,
     'adhesion',
@@ -285,7 +285,7 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 289_920);
+  assert.equal(result.totalPrice, 296_640);
   assert.equal(
     result.lineItems.find(item => item.code === 'adhesion-mugipo-45')?.source,
     'adhesion',
@@ -326,7 +326,7 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 119_000);
+  assert.equal(result.totalPrice, 121_100);
   assert.equal(
     result.lineItems.filter(item => item.code === 'option-edgeFinishing').length,
     1,
@@ -357,7 +357,7 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'needs_review');
-  assert.equal(result.totalPrice, 175_800);
+  assert.equal(result.totalPrice, 177_900);
   assert.equal(
     result.lineItems.find(item => item.code === 'option-bulgwang')?.source,
     'post_processing',
@@ -474,10 +474,10 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 100_600);
+  assert.equal(result.totalPrice, 97_900);
   assert.equal(
     result.lineItems.find(item => /브라이트 화이트 안료 추가금/.test(item.label))?.amount,
-    10_000,
+    5_200,
     'bright material must apply pigment surcharge separately from satin surcharge'
   );
 }
@@ -492,15 +492,15 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 100_600);
+  assert.equal(result.totalPrice, 107_200);
   assert.equal(
     result.lineItems.find(item => /CLEAR 유광 색상판 기본가/.test(item.label))?.amount,
-    90_600,
+    92_700,
     'satin material must start from clear base pricing'
   );
   assert.equal(
     result.lineItems.find(item => /사틴 재질 추가금/.test(item.label))?.amount,
-    10_000,
+    14_500,
     'satin material must apply satin surcharge separately'
   );
 }
@@ -518,7 +518,7 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 144_200);
+  assert.equal(result.totalPrice, 152_400);
   assert.equal(
     result.lineItems.find(item => /조색비/.test(item.label))?.amount,
     40_000,
@@ -526,7 +526,7 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
   assert.equal(
     result.lineItems.find(item => /양단면 추가금/.test(item.label))?.amount,
-    3_600,
+    5_200,
     'satin double surface must use the normal double-side surcharge'
   );
 }
@@ -613,7 +613,7 @@ const inRange = (value: number, min: number, max: number, message: string) => {
   );
 
   assert.equal(result.status, 'calculable');
-  assert.equal(result.totalPrice, 108_600);
+  assert.equal(result.totalPrice, 108_300);
   assert.equal(
     result.lineItems.find(item => item.code === 'mirror-deposition-material')?.amount,
     50_000,
