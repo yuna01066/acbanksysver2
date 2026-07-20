@@ -593,7 +593,119 @@ test.describe("public-meeting-booking E2E", () => {
     expect(loserEvents.data).toHaveLength(0);
   });
 
+  test("client retries after calendar_resource_conflict do not create duplicate events", async ({
+    http,
+    adminToken,
+    resourceId,
+    link,
+    cleanup,
+  }) => {
+    const slot = await findAvailableSlot(http, link.slug);
+    expect(slot, "no available slots for retry test").toBeTruthy();
 
+    const stamp = Date.now();
+    const basePayload = (suffix: string) => ({
+      slug: link.slug,
+      date: slot!.date,
+      time: slot!.time,
+      resourceId,
+      requesterName: `E2E Retry ${suffix}`,
+      purpose: `Playwright E2E retry ${suffix}`,
+    });
+
+    // Two pending requests for the same slot.
+    const [winnerCreate, loserCreate] = await Promise.all([
+      callFn<{ requestId: string; status: string }>(http, "create-request", basePayload(`W-${stamp}`)),
+      callFn<{ requestId: string; status: string }>(http, "create-request", basePayload(`L-${stamp}`)),
+    ]);
+    expect([winnerCreate.status, loserCreate.status]).toEqual([200, 200]);
+    cleanup.requestIds.push(winnerCreate.data.requestId, loserCreate.data.requestId);
+
+    // Winner confirmed → one event exists.
+    const confirmWinner = await callFn<{ eventId: string; status: string }>(
+      http,
+      "confirm-request",
+      { requestId: winnerCreate.data.requestId, reviewNote: "E2E retry winner" },
+      adminToken,
+    );
+    expect(confirmWinner.status).toBe(200);
+    expect(confirmWinner.data.eventId).toBeTruthy();
+    cleanup.eventIds.push(confirmWinner.data.eventId);
+
+    // Simulate a client that retries confirm-request several times after
+    // hitting calendar_resource_conflict. Every attempt must fail and
+    // must NOT create an additional calendar_event.
+    const RETRY_COUNT = 3;
+    const retries: Array<{ status: number; data: unknown }> = [];
+    for (let i = 0; i < RETRY_COUNT; i += 1) {
+      const attempt = await callFn<{ error?: string }>(
+        http,
+        "confirm-request",
+        {
+          requestId: loserCreate.data.requestId,
+          reviewNote: `E2E retry loser attempt ${i + 1}`,
+        },
+        adminToken,
+      );
+      retries.push({ status: attempt.status, data: attempt.data });
+      expect(
+        attempt.status,
+        `retry #${i + 1} must not succeed: ${JSON.stringify(attempt.data)}`,
+      ).not.toBe(200);
+      expect(JSON.stringify(attempt.data)).toMatch(/이미 예약|conflict|충돌/i);
+    }
+
+    // Also retry create-request for the identical slot — server accepts it as
+    // pending_review, but a subsequent confirm must still be rejected.
+    const retryCreate = await callFn<{ requestId?: string; status?: string; error?: string }>(
+      http,
+      "create-request",
+      basePayload(`R-${stamp}`),
+    );
+    if (retryCreate.status === 200 && retryCreate.data.requestId) {
+      cleanup.requestIds.push(retryCreate.data.requestId);
+      const retryConfirm = await callFn<{ error?: string }>(
+        http,
+        "confirm-request",
+        { requestId: retryCreate.data.requestId, reviewNote: "E2E retry-create confirm" },
+        adminToken,
+      );
+      expect(retryConfirm.status).not.toBe(200);
+      expect(JSON.stringify(retryConfirm.data)).toMatch(/이미 예약|conflict|충돌/i);
+    }
+
+    // Final DB assertion: exactly one calendar_event for the resource+slot,
+    // and it still belongs to the original winner.
+    const startsIso = new Date(`${slot!.date}T${slot!.time}:00+09:00`).toISOString();
+    const events = await http.call<Array<{ id: string; metadata: Record<string, unknown> }>>(
+      "verify-single-event-after-retries",
+      "GET",
+      `${REST_URL}/calendar_events?select=id,metadata&resource_id=eq.${resourceId}&starts_at=eq.${encodeURIComponent(startsIso)}`,
+      { headers: adminHeaders(adminToken) },
+    );
+    expect(
+      events.data,
+      `expected exactly 1 event after ${RETRY_COUNT} retries, got ${events.data.length}`,
+    ).toHaveLength(1);
+    expect(events.data[0].id).toBe(confirmWinner.data.eventId);
+    expect(
+      (events.data[0].metadata as { publicBookingRequestId?: string })?.publicBookingRequestId,
+    ).toBe(winnerCreate.data.requestId);
+
+    // Loser (and any retry-created request) must not have produced events.
+    const otherRequestIds = [loserCreate.data.requestId, retryCreate.data?.requestId].filter(
+      Boolean,
+    ) as string[];
+    for (const rid of otherRequestIds) {
+      const orphan = await http.call<Array<{ id: string }>>(
+        `verify-no-event-${rid}`,
+        "GET",
+        `${REST_URL}/calendar_events?select=id&metadata->>publicBookingRequestId=eq.${rid}`,
+        { headers: adminHeaders(adminToken) },
+      );
+      expect(orphan.data, `request ${rid} must not have a calendar_event`).toHaveLength(0);
+    }
+  });
 
 
   test("rejection flow does not create a calendar event", async ({
