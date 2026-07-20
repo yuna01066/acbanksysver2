@@ -91,3 +91,41 @@ console.log(`  - pre-migration Σ total (KRW):    ${fingerprint.pre_migration_to
 console.log(`  - pre-migration Σ subtotal (KRW): ${fingerprint.pre_migration_subtotal_sum}`);
 console.log(`  - latest pre-migration updated_at: ${fingerprint.max_updated_at}`);
 console.log(`  - post-migration touches of pre-migration rows: 0`);
+
+// --- 4. Baseline drift check ----------------------------------------------
+// Regularly catches unintended mutations to historical snapshots even when no
+// new migration ran (e.g. an ad-hoc SQL patch or a buggy backfill).
+const current = {
+  preMigrationCount: fingerprint.pre_migration_count,
+  preMigrationTotalSum: Number(fingerprint.pre_migration_total_sum),
+  preMigrationSubtotalSum: Number(fingerprint.pre_migration_subtotal_sum),
+};
+
+if (UPDATE_BASELINE) {
+  const next = {
+    _comment: 'Baseline fingerprint of pre-migration saved_quotes. Regenerate with `--update-baseline` only after an intentional data change.',
+    cutoff: MIGRATION_CUTOFF,
+    capturedAt: new Date().toISOString(),
+    ...current,
+  };
+  writeFileSync(BASELINE_PATH, JSON.stringify(next, null, 2) + '\n');
+  console.log(`\nBaseline updated at ${BASELINE_PATH}`);
+} else if (existsSync(BASELINE_PATH)) {
+  const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
+  const drift = [];
+  for (const k of ['preMigrationCount', 'preMigrationTotalSum', 'preMigrationSubtotalSum']) {
+    if (baseline[k] !== current[k]) {
+      drift.push(`  ${k}: baseline=${baseline[k]} current=${current[k]} Δ=${current[k] - baseline[k]}`);
+    }
+  }
+  if (drift.length) {
+    console.error('\nBaseline DRIFT detected in pre-migration saved_quotes fingerprint:');
+    console.error(drift.join('\n'));
+    console.error(`\nIf this change is intentional, re-run with --update-baseline.`);
+    console.error(`Baseline file: ${BASELINE_PATH}`);
+    process.exit(1);
+  }
+  console.log(`  - baseline drift: none (matches ${BASELINE_PATH})`);
+} else {
+  console.warn(`\nWARN: no baseline at ${BASELINE_PATH}. Run with --update-baseline to create one.`);
+}
