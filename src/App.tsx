@@ -75,6 +75,7 @@ const ResponseAssistantPage = lazy(() => import("./pages/ResponseAssistantPage")
 const ResponseAssistantManagementPage = lazy(() => import("./pages/ResponseAssistantManagementPage"));
 const JjikjjikiEventSettingsPage = lazy(() => import("./pages/JjikjjikiEventSettingsPage"));
 const ErrorLogsPage = lazy(() => import("./pages/ErrorLogsPage"));
+const PanelPricingImpactPage = lazy(() => import("./pages/PanelPricingImpactPage"));
 const OAuthConsentPage = lazy(() => import("./pages/OAuthConsentPage"));
 const queryClient = new QueryClient();
 
@@ -180,6 +181,7 @@ const App = () => (
               <Route path="/space-quotes" element={<G><SpaceProjectsListPage /></G>} />
               <Route path="/space-quotes/:id" element={<G><SpaceProjectDetailPage /></G>} />
               <Route path="/error-logs" element={<S><ErrorLogsPage /></S>} />
+              <Route path="/panel-pricing-impact" element={<S><PanelPricingImpactPage /></S>} />
               <Route path="/.lovable/oauth/consent" element={<OAuthConsentPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
