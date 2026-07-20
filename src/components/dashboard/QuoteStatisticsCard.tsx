@@ -44,7 +44,7 @@ const STAGE_COLORS: Record<string, string> = {
   cancelled: '#ef4444',
 };
 
-const isQuoteLossAnalysisTarget = (quote: { lost_recorded_at?: string | null }) => Boolean(quote.lost_recorded_at);
+const isQuoteLossAnalysisTarget = (quote: any) => Boolean(quote?.lost_recorded_at);
 
 const QuoteStatisticsCard: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -56,7 +56,7 @@ const QuoteStatisticsCard: React.FC = () => {
       const sixMonthsAgo = subMonths(new Date(), 6).toISOString();
       let query = supabase
         .from('saved_quotes')
-        .select('id, quote_date, total, project_stage, quote_status, recipient_company, lost_reason_category, lost_recorded_at')
+        .select('id, quote_date, total, project_stage, quote_status, recipient_company')
         .gte('quote_date', sixMonthsAgo);
 
       if (!isAdmin) {
