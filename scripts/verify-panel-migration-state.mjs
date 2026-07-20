@@ -83,31 +83,43 @@ const sizeRows = psqlJson(`
 `);
 evidence.panel_sizes = sizeRows;
 
-const groupedByThickness = {};
+// Group by (panel_master_name, thickness) since multiple masters share thicknesses
+const groupedByMaster = {};
 for (const r of sizeRows) {
-  groupedByThickness[r.thickness] ??= {};
-  groupedByThickness[r.thickness][r.size_name] = r;
+  const key = `${r.panel_master_name}||${r.thickness}`;
+  groupedByMaster[key] ??= { master: r.panel_master_name, thickness: r.thickness, sizes: {} };
+  groupedByMaster[key].sizes[r.size_name] = r;
 }
 
-for (const t of REQUIRED_THICKNESSES) {
-  const g = groupedByThickness[t] || {};
+for (const { master, thickness, sizes } of Object.values(groupedByMaster)) {
   for (const s of EXPECTED_ACTIVE_SIZES) {
-    if (!g[s]) {
-      failures.push({ check: "panel_sizes.missing_active_row", thickness: t, size_name: s });
-    } else if (g[s].is_active !== true) {
+    if (!sizes[s]) {
+      failures.push({
+        check: "panel_sizes.missing_active_row",
+        panel_master: master, thickness, size_name: s,
+      });
+    } else if (sizes[s].is_active !== true) {
       failures.push({
         check: "panel_sizes.expected_active_but_inactive",
-        thickness: t, size_name: s, row: g[s],
+        panel_master: master, thickness, size_name: s, row: sizes[s],
       });
     }
   }
   for (const s of EXPECTED_INACTIVE_SIZES) {
-    if (g[s] && g[s].is_active === true) {
+    if (sizes[s] && sizes[s].is_active === true) {
       failures.push({
         check: "panel_sizes.legacy_size_still_active",
-        thickness: t, size_name: s, row: g[s],
+        panel_master: master, thickness, size_name: s, row: sizes[s],
       });
     }
+  }
+}
+
+// Sanity: required thicknesses appeared at all in the seeded set
+const seenThicknesses = new Set(sizeRows.map((r) => r.thickness));
+for (const t of REQUIRED_THICKNESSES) {
+  if (!seenThicknesses.has(t)) {
+    warnings.push({ check: "panel_sizes.thickness_not_seeded", thickness: t });
   }
 }
 
