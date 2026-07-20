@@ -375,10 +375,24 @@ test.afterEach(async ({ http, adminToken, link, cleanup }, testInfo) => {
       project: testInfo.project.name,
     },
     errors: testInfo.errors.map((e) => ({ message: e.message, stack: e.stack })),
-    http: {
-      count: http.entries.length,
-      entries: http.entries.map((e, i) => ({ seq: i, ...e })),
-    },
+    http: (() => {
+      const entries = http.entries.map((e, i) => ({ seq: i, ...e }));
+      const totalMs = entries.reduce((s, e) => s + (e.durationMs ?? 0), 0);
+      const totalBytes = entries.reduce((s, e) => s + (e.responseBytes ?? 0), 0);
+      const slowest = [...entries]
+        .filter((e) => typeof e.durationMs === "number")
+        .sort((a, b) => (b.durationMs ?? 0) - (a.durationMs ?? 0))
+        .slice(0, 5)
+        .map((e) => ({ seq: e.seq, label: e.label, method: e.method, url: e.url, status: e.status, durationMs: e.durationMs, responseBytes: e.responseBytes }));
+      return {
+        count: entries.length,
+        totalDurationMs: Math.round(totalMs * 1000) / 1000,
+        totalResponseBytes: totalBytes,
+        slowest,
+        entries,
+      };
+    })(),
+
     db: {
       link: link ?? null,
       queries: dbQueries,
