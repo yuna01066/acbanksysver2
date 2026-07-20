@@ -194,6 +194,13 @@ const InternalQuotePage = () => {
             quoteNumber={quoteNumber}
             isSaving={isSaving}
             quoteStyle={quoteStyle}
+            quoteItemCount={quotes.length}
+            totalWithTax={totalWithTax}
+            hasRecipientInfo={Boolean(
+              recipient?.projectName?.trim() ||
+              recipient?.companyName?.trim() ||
+              recipient?.contactPerson?.trim()
+            )}
           />
 
           <Card className="shadow-lg border-0 rounded-xl overflow-hidden bg-white">

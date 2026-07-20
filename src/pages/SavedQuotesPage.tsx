@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, FolderOpen, Loader2, PlusCircle, RotateCcw } from 'lucide-react';
+import { Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, FolderOpen, Loader2, PlusCircle, RotateCcw, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -27,6 +28,14 @@ import {
 import { reissueSavedQuote } from '@/services/quoteReissue';
 import { duplicateSavedQuote } from '@/services/quoteDuplicate';
 import { logQuoteActivity } from '@/services/quoteActivity';
+import { recordQuoteLostReason } from '@/services/quoteLossReason';
+import QuoteLostReasonDialog, { type QuoteLostReasonFormValue } from '@/components/quote/QuoteLostReasonDialog';
+import {
+  canRecordQuoteLostReason,
+  getQuoteLostByLabel,
+  getQuoteLostReasonLabel,
+  QUOTE_LOST_REASON_CATEGORIES,
+} from '@/utils/quoteLossReason';
 
 interface LinkedProject {
   id: string;
@@ -67,6 +76,14 @@ interface SavedQuote {
   pricing_version_id?: string | null;
   desired_delivery_date?: string | null;
   quote_status?: string | null;
+  lost_reason_category?: string | null;
+  lost_reason_detail?: string | null;
+  lost_by?: string | null;
+  lost_competitor_name?: string | null;
+  lost_price_gap?: number | null;
+  lost_follow_up_at?: string | null;
+  lost_recorded_by?: string | null;
+  lost_recorded_at?: string | null;
   assigned_to?: string | null;
   assigned_to_name?: string | null;
   project_stage?: string;
@@ -90,10 +107,12 @@ interface UserProfile {
 }
 
 type SortOption = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'number-desc' | 'number-asc';
+type LostReasonFilter = 'all' | 'missing' | string;
 
 const SavedQuotesPage = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const [quotes, setQuotes] = useState<SavedQuote[]>([]);
   const [filteredQuotes, setFilteredQuotes] = useState<SavedQuote[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -105,8 +124,11 @@ const SavedQuotesPage = () => {
   const [userFilter, setUserFilter] = useState<string>('all');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [stageFilter, setStageFilter] = useState<string>('all');
+  const [lostReasonFilter, setLostReasonFilter] = useState<LostReasonFilter>('all');
   const [creatingProjectQuoteId, setCreatingProjectQuoteId] = useState<string | null>(null);
   const [reissuingQuoteId, setReissuingQuoteId] = useState<string | null>(null);
+  const [lossDialogQuote, setLossDialogQuote] = useState<SavedQuote | null>(null);
+  const [recordingLostQuoteId, setRecordingLostQuoteId] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 50;
 
   const getQuoteTitle = (quote: SavedQuote): string => {
@@ -146,35 +168,40 @@ const SavedQuotesPage = () => {
 
   useEffect(() => {
     filterQuotes();
-  }, [searchTerm, dateFilter, quotes, sortBy, stageFilter]);
+  }, [searchTerm, dateFilter, quotes, sortBy, stageFilter, lostReasonFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, dateFilter, stageFilter, userFilter]);
+  }, [searchTerm, dateFilter, stageFilter, userFilter, lostReasonFilter]);
 
   const activeFilterCount = [
     searchTerm.trim() ? 'search' : null,
     dateFilter ? 'date' : null,
     stageFilter !== 'all' ? 'stage' : null,
+    lostReasonFilter !== 'all' ? 'lostReason' : null,
     isAdmin && userFilter !== 'all' ? 'user' : null,
   ].filter(Boolean).length;
 
   const listSummary = useMemo(() => {
     const totalAmount = filteredQuotes.reduce((sum, quote) => sum + Number(quote.total || 0), 0);
     const linkedProjectCount = filteredQuotes.filter(quote => quote.linked_project).length;
+    const lostQuotes = filteredQuotes.filter(quote => normalizeProjectStage(quote.project_stage, quote.quote_status) === 'cancelled');
+    const lostAmount = lostQuotes.reduce((sum, quote) => sum + Number(quote.total || 0), 0);
+    const lostReasonMissingCount = lostQuotes.filter(quote => !quote.lost_reason_category).length;
     const recipientCount = new Set(
       filteredQuotes
         .map(quote => quote.recipient_company || quote.recipient_name)
         .filter(Boolean)
     ).size;
 
-    return { totalAmount, linkedProjectCount, recipientCount };
+    return { totalAmount, linkedProjectCount, recipientCount, lostCount: lostQuotes.length, lostAmount, lostReasonMissingCount };
   }, [filteredQuotes]);
 
   const resetFilters = () => {
     setSearchTerm('');
     setDateFilter('');
     setStageFilter('all');
+    setLostReasonFilter('all');
     if (isAdmin) setUserFilter('all');
   };
 
@@ -350,6 +377,7 @@ const SavedQuotesPage = () => {
         quote.recipient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         quote.recipient_company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         quote.project_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        quote.lost_reason_detail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         quote.assigned_to_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         quote.issuer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         quote.creator_name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -364,6 +392,15 @@ const SavedQuotesPage = () => {
 
     if (stageFilter !== 'all') {
       filtered = filtered.filter(quote => matchesSimplifiedStageFilter(quote.project_stage, quote.quote_status, stageFilter));
+    }
+
+    if (lostReasonFilter !== 'all') {
+      filtered = filtered.filter((quote) => {
+        const isLost = normalizeProjectStage(quote.project_stage, quote.quote_status) === 'cancelled';
+        if (!isLost) return false;
+        if (lostReasonFilter === 'missing') return !quote.lost_reason_category;
+        return quote.lost_reason_category === lostReasonFilter;
+      });
     }
 
     filtered.sort((a, b) => {
@@ -571,6 +608,52 @@ const SavedQuotesPage = () => {
     }
   };
 
+  const handleRecordLostReason = async (value: QuoteLostReasonFormValue) => {
+    if (!lossDialogQuote || !user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    setRecordingLostQuoteId(lossDialogQuote.id);
+    try {
+      const result = await recordQuoteLostReason({
+        quoteId: lossDialogQuote.id,
+        quoteNumber: lossDialogQuote.quote_number,
+        projectStage: lossDialogQuote.project_stage,
+        quoteStatus: lossDialogQuote.quote_status,
+        projectId: lossDialogQuote.project_id,
+        lostBy: value.lostBy,
+        reasonCategory: value.reasonCategory,
+        detail: value.detail,
+        competitorName: value.competitorName,
+        priceGap: value.priceGap,
+        followUpAt: value.followUpAt,
+        actorId: user.id,
+        actorName: profile?.full_name || user.email || '알 수 없음',
+      });
+
+      setQuotes((prev) => prev.map((quote) => (
+        quote.id === lossDialogQuote.id
+          ? {
+              ...quote,
+              ...result,
+              project_stage: 'cancelled',
+              quote_status: 'cancelled',
+            }
+          : quote
+      )));
+      queryClient.invalidateQueries({ queryKey: ['quote-statistics'] });
+      queryClient.invalidateQueries({ queryKey: ['home-quote-follow-ups'] });
+      toast.success('수주 실패 원인이 기록되었습니다.');
+      setLossDialogQuote(null);
+    } catch (error) {
+      console.error('Error recording quote loss reason:', error);
+      toast.error(error instanceof Error ? error.message : '수주 실패 처리에 실패했습니다.');
+    } finally {
+      setRecordingLostQuoteId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -600,7 +683,7 @@ const SavedQuotesPage = () => {
       />
 
       <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
           <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-none">
             <div className="text-xs font-medium text-muted-foreground">표시 견적</div>
             <div className="mt-1 text-xl font-semibold tabular-nums text-foreground">{filteredQuotes.length.toLocaleString()}건</div>
@@ -617,6 +700,18 @@ const SavedQuotesPage = () => {
                 거래처 {listSummary.recipientCount.toLocaleString()}곳
               </span>
             </div>
+          </div>
+          <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-none">
+            <div className="text-xs font-medium text-muted-foreground">수주 실패</div>
+            <div className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+              {listSummary.lostCount.toLocaleString()}건
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                {formatPrice(listSummary.lostAmount)}
+              </span>
+            </div>
+            {listSummary.lostReasonMissingCount > 0 && (
+              <p className="mt-1 text-xs text-red-600">원인 미입력 {listSummary.lostReasonMissingCount}건</p>
+            )}
           </div>
         </div>
 
@@ -724,6 +819,45 @@ const SavedQuotesPage = () => {
               </span>
             )}
           </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+            <span className="text-sm text-muted-foreground">실패 원인</span>
+            <Badge
+              variant="outline"
+              className={`cursor-pointer rounded-full border-border px-2.5 text-xs ${
+                lostReasonFilter === 'all'
+                  ? 'bg-foreground text-background hover:bg-foreground/90'
+                  : 'bg-background text-muted-foreground hover:bg-muted'
+              }`}
+              onClick={() => setLostReasonFilter('all')}
+            >
+              전체
+            </Badge>
+            <Badge
+              variant="outline"
+              className={`cursor-pointer rounded-full border-border px-2.5 text-xs ${
+                lostReasonFilter === 'missing'
+                  ? 'bg-foreground text-background hover:bg-foreground/90'
+                  : 'bg-background text-muted-foreground hover:bg-muted'
+              }`}
+              onClick={() => setLostReasonFilter('missing')}
+            >
+              원인 미입력
+            </Badge>
+            {QUOTE_LOST_REASON_CATEGORIES.map((reason) => (
+              <Badge
+                key={reason.value}
+                variant="outline"
+                className={`cursor-pointer rounded-full border-border px-2.5 text-xs ${
+                  lostReasonFilter === reason.value
+                    ? 'bg-foreground text-background hover:bg-foreground/90'
+                    : 'bg-background text-muted-foreground hover:bg-muted'
+                }`}
+                onClick={() => setLostReasonFilter(reason.value)}
+              >
+                {reason.label}
+              </Badge>
+            ))}
+          </div>
         </SearchFilterBar>
 
         {filteredQuotes.length === 0 ? (
@@ -760,6 +894,8 @@ const SavedQuotesPage = () => {
                   const reissueCandidate = canReissueQuote(quote);
                   const stageInfo = getStageInfo(quote.project_stage);
                   const simplifiedStageInfo = getSimplifiedStageInfo(quote.project_stage, quote.quote_status);
+                  const canRecordLoss = canRecordQuoteLostReason(quote.project_stage, quote.quote_status, quote.project_id);
+                  const isLostQuote = normalizeProjectStage(quote.project_stage, quote.quote_status) === 'cancelled';
 
                   return (
                     <div
@@ -853,6 +989,21 @@ const SavedQuotesPage = () => {
                               재발행본
                             </Badge>
                           )}
+                          {isLostQuote && (
+                            <Badge
+                              variant="outline"
+                              className={`border-red-200 text-[10px] ${
+                                quote.lost_reason_category
+                                  ? 'bg-red-50 text-red-700'
+                                  : 'bg-background text-red-600'
+                              }`}
+                              title={quote.lost_reason_detail || undefined}
+                            >
+                              {quote.lost_reason_category
+                                ? `${getQuoteLostReasonLabel(quote.lost_reason_category)} · ${getQuoteLostByLabel(quote.lost_by)}`
+                                : '원인 미입력'}
+                            </Badge>
+                          )}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2" onClick={(event) => event.stopPropagation()}>
@@ -883,7 +1034,7 @@ const SavedQuotesPage = () => {
                               {paymentInfo.label}
                             </Badge>
                           )}
-                          {!quote.linked_project && quote.project_stage !== 'cancelled' && quote.project_followup_status !== 'not_required' && (
+                          {!quote.linked_project && !isLostQuote && quote.project_followup_status !== 'not_required' && (
                             <Button
                               type="button"
                               variant="outline"
@@ -903,7 +1054,7 @@ const SavedQuotesPage = () => {
                               프로젝트 생성
                             </Button>
                           )}
-                          {!quote.linked_project && quote.project_stage !== 'cancelled' && quote.project_followup_status !== 'not_required' && (
+                          {!quote.linked_project && !isLostQuote && quote.project_followup_status !== 'not_required' && (
                             <Button
                               type="button"
                               variant="ghost"
@@ -915,6 +1066,21 @@ const SavedQuotesPage = () => {
                               }}
                             >
                               전환 불필요
+                            </Button>
+                          )}
+                          {canRecordLoss && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 gap-1.5 rounded-full border-red-200 bg-background px-2 text-xs text-red-700 shadow-none hover:bg-red-50"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setLossDialogQuote(quote);
+                              }}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              수주 실패
                             </Button>
                           )}
                           {reissueCandidate && (
@@ -1021,6 +1187,20 @@ const SavedQuotesPage = () => {
           </>
         )}
       </div>
+      <QuoteLostReasonDialog
+        open={!!lossDialogQuote}
+        onOpenChange={(open) => {
+          if (!open) setLossDialogQuote(null);
+        }}
+        submitting={!!lossDialogQuote && recordingLostQuoteId === lossDialogQuote.id}
+        quote={lossDialogQuote ? {
+          quoteNumber: lossDialogQuote.quote_number,
+          title: getQuoteTitle(lossDialogQuote),
+          recipient: lossDialogQuote.recipient_company || lossDialogQuote.recipient_name,
+          total: lossDialogQuote.total,
+        } : null}
+        onSubmit={handleRecordLostReason}
+      />
     </PageShell>
   );
 };

@@ -4,12 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, TrendingUp, FileSpreadsheet, Building2 } from 'lucide-react';
+import { BarChart3, TrendingDown, TrendingUp, FileSpreadsheet, Building2 } from 'lucide-react';
 import { formatPrice } from '@/utils/priceCalculations';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { format, subMonths, startOfMonth } from 'date-fns';
+import { format, subMonths } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { isFinalCompletedProjectStage } from '@/utils/quoteWorkflow';
+import { isFinalCompletedProjectStage, normalizeProjectStage } from '@/utils/quoteWorkflow';
+import { getQuoteLostReasonLabel } from '@/utils/quoteLossReason';
 
 const STAGE_LABELS: Record<string, string> = {
   reviewing: '검토중',
@@ -24,7 +25,7 @@ const STAGE_LABELS: Record<string, string> = {
   completed: '제작완료',
   delivery_scheduled: '납기 예정',
   delivered: '납기 완료',
-  cancelled: '취소',
+  cancelled: '수주 실패/취소',
 };
 
 const STAGE_COLORS: Record<string, string> = {
@@ -53,7 +54,7 @@ const QuoteStatisticsCard: React.FC = () => {
       const sixMonthsAgo = subMonths(new Date(), 6).toISOString();
       let query = supabase
         .from('saved_quotes')
-        .select('id, quote_date, total, project_stage, recipient_company')
+        .select('id, quote_date, total, project_stage, quote_status, recipient_company, lost_reason_category, lost_recorded_at')
         .gte('quote_date', sixMonthsAgo);
 
       if (!isAdmin) {
@@ -106,7 +107,7 @@ const QuoteStatisticsCard: React.FC = () => {
   // Stage distribution
   const stageCounts: Record<string, number> = {};
   stats.forEach((q) => {
-    const stage = q.project_stage || 'quote_issued';
+    const stage = normalizeProjectStage(q.project_stage, (q as any).quote_status);
     stageCounts[stage] = (stageCounts[stage] || 0) + 1;
   });
 
@@ -126,6 +127,19 @@ const QuoteStatisticsCard: React.FC = () => {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
+  const lostQuotes = stats.filter((q) => normalizeProjectStage(q.project_stage, (q as any).quote_status) === 'cancelled');
+  const lostAmount = lostQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0);
+  const lossRate = stats.length > 0 ? Math.round((lostQuotes.length / stats.length) * 100) : 0;
+  const missingLostReasonCount = lostQuotes.filter((q) => !(q as any).lost_reason_category).length;
+  const lostReasonCounts = lostQuotes.reduce<Record<string, number>>((acc, quote) => {
+    const reason = (quote as any).lost_reason_category || 'missing';
+    acc[reason] = (acc[reason] || 0) + 1;
+    return acc;
+  }, {});
+  const topLostReasons = Object.entries(lostReasonCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4);
+
   // Summary numbers
   const totalAmount = stats.reduce((sum, q) => sum + (Number(q.total) || 0), 0);
   const completedCount = stats.filter((q) => isFinalCompletedProjectStage(q.project_stage)).length;
@@ -141,7 +155,7 @@ const QuoteStatisticsCard: React.FC = () => {
       </CardHeader>
       <CardContent className="space-y-4 pt-0">
         {/* Summary row */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           <div className="text-center p-2 rounded-lg bg-muted/50">
             <FileSpreadsheet className="w-4 h-4 mx-auto mb-1 text-primary" />
             <p className="text-lg font-bold">{stats.length}</p>
@@ -156,6 +170,11 @@ const QuoteStatisticsCard: React.FC = () => {
             <Building2 className="w-4 h-4 mx-auto mb-1 text-blue-600" />
             <p className="text-lg font-bold">{Object.keys(clientAmounts).length}</p>
             <p className="text-[10px] text-muted-foreground">거래처</p>
+          </div>
+          <div className="text-center p-2 rounded-lg bg-muted/50">
+            <TrendingDown className="w-4 h-4 mx-auto mb-1 text-red-600" />
+            <p className="text-lg font-bold">{lossRate}%</p>
+            <p className="text-[10px] text-muted-foreground">실패율</p>
           </div>
         </div>
 
@@ -213,6 +232,32 @@ const QuoteStatisticsCard: React.FC = () => {
                   <span className="text-muted-foreground">{formatPrice(amount)}원</span>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {lostQuotes.length > 0 && (
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-xs font-medium">수주 실패 원인</p>
+              <Badge variant="outline" className="rounded-full text-[10px]">
+                {lostQuotes.length}건 · {formatPrice(lostAmount)}
+              </Badge>
+            </div>
+            <div className="space-y-1">
+              {topLostReasons.map(([reason, count]) => (
+                <div key={reason} className="flex items-center gap-2 text-xs">
+                  <span className="flex-1 truncate">
+                    {reason === 'missing' ? '원인 미입력' : getQuoteLostReasonLabel(reason)}
+                  </span>
+                  <span className="font-semibold tabular-nums">{count}건</span>
+                </div>
+              ))}
+              {missingLostReasonCount > 0 && (
+                <p className="pt-1 text-[10px] text-red-600">
+                  원인 미입력 {missingLostReasonCount}건은 견적 상세에서 보완하세요.
+                </p>
+              )}
             </div>
           </div>
         )}

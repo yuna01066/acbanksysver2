@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, Calendar, Trash2, Users, Building2, Save, List, Edit, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, Calendar, Trash2, Users, Building2, Save, List, Edit, X } from "lucide-react";
 import arcbankLogo from "@/assets/arcbank-logo.png";
 import HomeLogoButton from "@/components/HomeLogoButton";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,9 @@ interface QuoteSummaryHeaderProps {
   onToggleViewMode?: () => void;
   viewMode?: 'internal' | 'customer';
   quoteStyle?: QuoteStyleType;
+  quoteItemCount?: number;
+  totalWithTax?: number;
+  hasRecipientInfo?: boolean;
 }
 
 const QuoteSummaryHeader = ({
@@ -45,13 +48,38 @@ const QuoteSummaryHeader = ({
   onCancelEdit,
   onToggleViewMode,
   viewMode = 'internal',
-  quoteStyle = 'panel'
+  quoteStyle = 'panel',
+  quoteItemCount,
+  totalWithTax,
+  hasRecipientInfo,
 }: QuoteSummaryHeaderProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isCustomerView = location.pathname === '/customer-quotes-summary';
   const styleProfile = getQuoteStyleProfile(quoteStyle);
   const effectiveViewMode = isCustomerView ? 'customer' : viewMode;
+  const hasIssueValidation =
+    typeof quoteItemCount === 'number' ||
+    typeof totalWithTax === 'number' ||
+    typeof hasRecipientInfo === 'boolean';
+  const issueChecks = [
+    {
+      label: '발행 정보',
+      passed: hasRecipientInfo !== false,
+      detail: hasRecipientInfo === false ? '고객/프로젝트 정보 확인 필요' : '확인됨',
+    },
+    {
+      label: '견적 항목',
+      passed: typeof quoteItemCount !== 'number' || quoteItemCount > 0,
+      detail: typeof quoteItemCount === 'number' ? `${quoteItemCount}개` : '확인됨',
+    },
+    {
+      label: '금액 계산',
+      passed: typeof totalWithTax !== 'number' || totalWithTax > 0,
+      detail: typeof totalWithTax === 'number' && totalWithTax > 0 ? `${Math.round(totalWithTax).toLocaleString()}원` : '금액 확인 필요',
+    },
+  ];
+  const canIssueQuote = !hasIssueValidation || issueChecks.every((check) => check.passed);
   return <>
       {/* 상단 액션 버튼들 */}
       <div className="flex flex-wrap justify-between items-center gap-2 mb-6 print:hidden">
@@ -120,7 +148,7 @@ const QuoteSummaryHeader = ({
                       고객용 미리보기
                     </>}
                 </Button>}
-              {onSaveQuote && <Button onClick={onSaveQuote} disabled={isSaving} className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700">
+              {onSaveQuote && <Button onClick={onSaveQuote} disabled={isSaving || !canIssueQuote} className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground">
                   <Save className="w-4 h-4" />
                   {isSaving ? '발행 중...' : '발행 및 저장'}
                 </Button>}
@@ -192,6 +220,33 @@ const QuoteSummaryHeader = ({
           </div>
         </CardHeader>
       </Card>
+      {hasIssueValidation && !showSavedQuoteActions && (
+        <Card className="mb-4 rounded-xl border border-slate-200 bg-white shadow-none print:hidden">
+          <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-950">발행 검토</p>
+              <p className="text-xs text-slate-500">필수 정보, 견적 항목, 계산 금액을 확인한 뒤 발행합니다.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {issueChecks.map((check) => (
+                <Badge
+                  key={check.label}
+                  variant="outline"
+                  className={cn(
+                    "gap-1.5 rounded-full px-2.5 py-1 text-xs",
+                    check.passed
+                      ? "border-slate-200 bg-slate-50 text-slate-800"
+                      : "border-amber-200 bg-amber-50 text-amber-700",
+                  )}
+                >
+                  {check.passed ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+                  {check.label} · {check.detail}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </>;
 };
 export default QuoteSummaryHeader;

@@ -73,8 +73,8 @@ export const QUOTE_PROJECT_STAGES = [
   },
   {
     value: 'cancelled',
-    label: '취소',
-    description: '취소 또는 종료된 상태입니다.',
+    label: '수주 실패/취소',
+    description: '견적 단계에서 수주 실패 또는 거래처 취소로 종료된 상태입니다.',
     color: 'bg-red-50 text-red-700 border-red-200',
   },
 ] as const;
@@ -126,8 +126,8 @@ export const SIMPLIFIED_QUOTE_STAGE_FILTERS = [
   },
   {
     value: 'cancelled',
-    label: '취소',
-    description: '취소 또는 종료된 견적입니다.',
+    label: '수주 실패',
+    description: '수주 실패 또는 취소로 종료된 견적입니다.',
     stages: ['cancelled'],
     color: 'bg-red-50 text-red-700 border-red-200',
   },

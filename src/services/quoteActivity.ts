@@ -12,6 +12,7 @@ export type QuoteActivityAction =
   | 'project_linked'
   | 'project_followup_not_required'
   | 'project_followup_reopened'
+  | 'quote_lost'
   | 'quote_reissued'
   | 'created_from_reissue'
   | 'quote_duplicated';
