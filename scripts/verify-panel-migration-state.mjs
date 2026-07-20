@@ -159,9 +159,9 @@ checkQuality("astel-color", EXPECTED_ASTEL_ACTIVE, EXPECTED_ASTEL_COSTS);
 
 // 3. Sanity: pricing version reference present
 const versionRow = psqlJson(`
-  SELECT id, label, is_active, effective_from
+  SELECT id, version_name, is_active, effective_from
   FROM public.panel_pricing_versions
-  WHERE label = 'A/B 원판 상한 2026-06-01 + 3%'
+  WHERE version_name = 'A/B 원판 상한 2026-06-01 + 3%'
 `);
 evidence.pricing_version = versionRow;
 if (versionRow.length === 0) {
