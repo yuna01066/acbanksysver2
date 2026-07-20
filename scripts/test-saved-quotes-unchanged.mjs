@@ -14,11 +14,18 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 if (!process.env.PGHOST) {
   console.error('SKIP: PGHOST not set. Requires Lovable Cloud managed psql access.');
   process.exit(2);
 }
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const BASELINE_PATH = join(__dirname, 'baselines', 'saved-quotes-fingerprint.json');
+const UPDATE_BASELINE = process.argv.includes('--update-baseline');
 
 // Migration was applied at 2026-07-20 ~12:39 UTC. Use a conservative cutoff:
 // anything created strictly before the migration day (Asia/Seoul) is
