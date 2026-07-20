@@ -313,18 +313,27 @@ async function findAvailableSlot(
 }
 
 /**
- * Structured failure dump schema (version 1):
+ * Structured failure dump schema (version 3):
  * {
- *   schema: "acbank.e2e.public-booking.failure/v2",
+ *   schema: "acbank.e2e.public-booking.failure/v3",
  *   test: { title, path, file, line, status, expectedStatus, durationMs, retries, workerIndex, project },
  *   errors: [{ message, stack? }],
  *   http: {
- *     count,
- *     entries: [{ seq, ts, label, method, url, status?, request?, response?, error? }],
+ *     count, totalDurationMs, totalResponseBytes, slowest,
+ *     entries: [{ seq, ts, label, method, url, status?, request?, response?, error?, durationMs?, responseBytes? }],
  *   },
  *   db: {
  *     link: { id, slug, ... } | null,
  *     queries: { [key]: { url, rows: unknown[] } | { url, error: string } },
+ *   },
+ *   conflicts: {
+ *     count,
+ *     entries: [{
+ *       seq, label, httpStatus, requestId?, resourceId?, startsAt?, endsAt?,
+ *       request?: { row?, error? },
+ *       calendarEventsAtSlot?: { url, rows? , error? },
+ *       resourceConflictRpc?: { params, result?, error? },
+ *     }],
  *   },
  *   pendingCleanup: { requestIds: string[], eventIds: string[] },
  * }
@@ -360,8 +369,108 @@ test.afterEach(async ({ http, adminToken, link, cleanup }, testInfo) => {
     }
   }
 
+  // ---- Conflict-focused dump ----------------------------------------------
+  // Any HTTP entry that either returned 409 or whose response body carries a
+  // conflict marker is treated as a "conflict entry". For each one, pull the
+  // matching public_booking_requests row, any calendar_events already sitting
+  // at that resource+start, and re-run get_calendar_resource_conflict so the
+  // dump captures the exact reason the server rejected the request.
+  const conflictRegex = /conflict|이미 예약|충돌/i;
+  const conflictEntries = http.entries
+    .map((e, seq) => ({ seq, ...e }))
+    .filter((e) => {
+      if (typeof e.label !== "string") return false;
+      if (!/create-request|confirm-request/.test(e.label)) return false;
+      if (e.status === 409) return true;
+      try {
+        return conflictRegex.test(JSON.stringify(e.response ?? ""));
+      } catch {
+        return false;
+      }
+    });
+
+  const conflictDump: Array<Record<string, unknown>> = [];
+  for (const e of conflictEntries) {
+    const req = (e.request as Record<string, unknown> | undefined) ?? {};
+    const requestId = typeof req.requestId === "string" ? req.requestId : undefined;
+    const record: Record<string, unknown> = {
+      seq: e.seq,
+      label: e.label,
+      httpStatus: e.status,
+      requestPayload: req,
+      responseBody: e.response,
+      requestId,
+    };
+
+    let resourceId: string | undefined;
+    let startsAt: string | undefined;
+    let endsAt: string | undefined;
+
+    if (requestId) {
+      const url = `${REST_URL}/public_booking_requests?select=*&id=eq.${requestId}`;
+      try {
+        const { data } = await http.call<Array<Record<string, unknown>>>(
+          `conflict-request-${requestId}`,
+          "GET",
+          url,
+          { headers: adminHeaders(adminToken) },
+        );
+        const row = Array.isArray(data) ? data[0] : undefined;
+        record.request = { url, row };
+        resourceId = typeof row?.resource_id === "string" ? (row.resource_id as string) : undefined;
+        startsAt = typeof row?.starts_at === "string" ? (row.starts_at as string) : undefined;
+        endsAt = typeof row?.ends_at === "string" ? (row.ends_at as string) : undefined;
+      } catch (err) {
+        record.request = { url, error: err instanceof Error ? err.message : String(err) };
+      }
+    }
+
+    if (resourceId && startsAt) {
+      const eventsUrl = `${REST_URL}/calendar_events?select=id,starts_at,ends_at,resource_id,status,source_type,metadata&resource_id=eq.${resourceId}&starts_at=eq.${encodeURIComponent(
+        startsAt,
+      )}`;
+      try {
+        const { data } = await http.call<Array<Record<string, unknown>>>(
+          `conflict-events-${e.seq}`,
+          "GET",
+          eventsUrl,
+          { headers: adminHeaders(adminToken) },
+        );
+        record.calendarEventsAtSlot = { url: eventsUrl, rows: data };
+      } catch (err) {
+        record.calendarEventsAtSlot = {
+          url: eventsUrl,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+
+      if (endsAt) {
+        const rpcUrl = `${REST_URL}/rpc/get_calendar_resource_conflict`;
+        const rpcParams = {
+          p_resource_ids: [resourceId],
+          p_starts_at: startsAt,
+          p_ends_at: endsAt,
+        };
+        try {
+          const { data } = await http.call(`conflict-rpc-${e.seq}`, "POST", rpcUrl, {
+            headers: { ...adminHeaders(adminToken), "Content-Type": "application/json" },
+            data: rpcParams,
+          });
+          record.resourceConflictRpc = { params: rpcParams, result: data };
+        } catch (err) {
+          record.resourceConflictRpc = {
+            params: rpcParams,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      }
+    }
+
+    conflictDump.push(record);
+  }
+
   const dump = {
-    schema: "acbank.e2e.public-booking.failure/v2",
+    schema: "acbank.e2e.public-booking.failure/v3",
 
     test: {
       title: testInfo.title,
@@ -398,6 +507,10 @@ test.afterEach(async ({ http, adminToken, link, cleanup }, testInfo) => {
       link: link ?? null,
       queries: dbQueries,
     },
+    conflicts: {
+      count: conflictDump.length,
+      entries: conflictDump,
+    },
     pendingCleanup: cleanup,
   };
 
@@ -410,7 +523,14 @@ test.afterEach(async ({ http, adminToken, link, cleanup }, testInfo) => {
     body: JSON.stringify({ count: http.entries.length, entries: http.entries }, null, 2),
     contentType: "application/json",
   });
+  if (conflictDump.length > 0) {
+    await testInfo.attach("conflict-dump.json", {
+      body: JSON.stringify({ count: conflictDump.length, entries: conflictDump }, null, 2),
+      contentType: "application/json",
+    });
+  }
 });
+
 
 
 test.describe("public-meeting-booking E2E", () => {
