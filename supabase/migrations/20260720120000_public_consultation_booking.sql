@@ -172,8 +172,9 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.get_calendar_user_conflict(uuid[], timestamptz, timestamptz, uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_calendar_user_conflict(uuid[], timestamptz, timestamptz, uuid) TO anon;
+REVOKE ALL ON FUNCTION public.get_calendar_user_conflict(uuid[], timestamptz, timestamptz, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_calendar_user_conflict(uuid[], timestamptz, timestamptz, uuid) FROM anon;
+REVOKE ALL ON FUNCTION public.get_calendar_user_conflict(uuid[], timestamptz, timestamptz, uuid) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.get_calendar_user_conflict(uuid[], timestamptz, timestamptz, uuid) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.confirm_public_booking_request(
@@ -309,7 +310,7 @@ BEGIN
     description,
     starts_at,
     ends_at,
-    is_all_day,
+    all_day,
     location,
     visibility,
     status,
@@ -320,6 +321,9 @@ BEGIN
     source_path,
     accent,
     icon_type,
+    created_by_name,
+    client_name,
+    client_contact,
     metadata
   )
   VALUES (
@@ -338,6 +342,9 @@ BEGIN
     '/meeting-reservations?tab=public',
     CASE WHEN v_link.link_type = 'consultation_booking' THEN '#14b8a6' ELSE '#38bdf8' END,
     CASE WHEN v_link.link_type = 'consultation_booking' THEN 'meeting' ELSE 'meeting_room' END,
+    '외부 예약',
+    COALESCE(v_request.company_name, v_request.requester_name),
+    COALESCE(v_request.phone, v_request.email),
     jsonb_build_object(
       'publicBookingRequestId', v_request.id,
       'publicBookingLinkId', v_link.id,
@@ -360,8 +367,8 @@ BEGIN
 
   IF v_request.assigned_to IS NOT NULL THEN
     INSERT INTO public.calendar_event_participants (event_id, user_id, role, response_status)
-    VALUES (v_event_id, v_request.assigned_to, 'owner', 'accepted')
-    ON CONFLICT (event_id, user_id) DO UPDATE SET
+    VALUES (v_event_id, v_request.assigned_to, 'assignee', 'accepted')
+    ON CONFLICT (event_id, user_id, role) DO UPDATE SET
       role = EXCLUDED.role,
       response_status = EXCLUDED.response_status;
   END IF;
@@ -399,8 +406,9 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.confirm_public_booking_request(uuid, uuid, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.confirm_public_booking_request(uuid, uuid, text) TO anon;
+REVOKE ALL ON FUNCTION public.confirm_public_booking_request(uuid, uuid, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.confirm_public_booking_request(uuid, uuid, text) FROM anon;
+REVOKE ALL ON FUNCTION public.confirm_public_booking_request(uuid, uuid, text) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.confirm_public_booking_request(uuid, uuid, text) TO service_role;
 
 NOTIFY pgrst, 'reload schema';
