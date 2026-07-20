@@ -301,46 +301,91 @@ async function findAvailableSlot(
   return null;
 }
 
+/**
+ * Structured failure dump schema (version 1):
+ * {
+ *   schema: "acbank.e2e.public-booking.failure/v1",
+ *   test: { title, path, file, line, status, expectedStatus, durationMs, retries, workerIndex, project },
+ *   errors: [{ message, stack? }],
+ *   http: {
+ *     count,
+ *     entries: [{ seq, ts, label, method, url, status?, request?, response?, error? }],
+ *   },
+ *   db: {
+ *     link: { id, slug, ... } | null,
+ *     queries: { [key]: { url, rows: unknown[] } | { url, error: string } },
+ *   },
+ *   pendingCleanup: { requestIds: string[], eventIds: string[] },
+ * }
+ */
 test.afterEach(async ({ http, adminToken, link, cleanup }, testInfo) => {
   if (testInfo.status === testInfo.expectedStatus) return;
 
-  // Live DB snapshot for post-mortem
-  const snapshot: Record<string, unknown> = { link };
+  const dbQueries: Record<
+    string,
+    { url: string; rows: unknown } | { url: string; error: string }
+  > = {};
   if (link?.id) {
-    for (const [key, url] of [
-      ["requests", `${REST_URL}/public_booking_requests?link_id=eq.${link.id}&select=*`],
+    const targets: Array<[string, string]> = [
+      ["public_booking_requests", `${REST_URL}/public_booking_requests?link_id=eq.${link.id}&select=*`],
       [
-        "events",
+        "calendar_events",
         `${REST_URL}/calendar_events?select=*&metadata->>publicBookingLinkId=eq.${link.id}`,
       ],
-    ] as const) {
+      [
+        "public_booking_link",
+        `${REST_URL}/public_booking_links?select=*&id=eq.${link.id}`,
+      ],
+    ];
+    for (const [key, url] of targets) {
       try {
         const { data } = await http.call(`snapshot-${key}`, "GET", url, {
           headers: adminHeaders(adminToken),
         });
-        snapshot[key] = data;
+        dbQueries[key] = { url, rows: data };
       } catch (err) {
-        snapshot[key] = { error: err instanceof Error ? err.message : String(err) };
+        dbQueries[key] = { url, error: err instanceof Error ? err.message : String(err) };
       }
     }
   }
-  snapshot.pendingCleanup = cleanup;
 
   const dump = {
-    test: testInfo.titlePath.join(" › "),
-    status: testInfo.status,
-    error: testInfo.errors.map((e) => e.message),
-    httpLog: http.entries,
-    snapshot,
+    schema: "acbank.e2e.public-booking.failure/v1",
+    test: {
+      title: testInfo.title,
+      path: testInfo.titlePath,
+      file: testInfo.file,
+      line: testInfo.line,
+      status: testInfo.status,
+      expectedStatus: testInfo.expectedStatus,
+      durationMs: testInfo.duration,
+      retries: testInfo.retry,
+      workerIndex: testInfo.workerIndex,
+      project: testInfo.project.name,
+    },
+    errors: testInfo.errors.map((e) => ({ message: e.message, stack: e.stack })),
+    http: {
+      count: http.entries.length,
+      entries: http.entries.map((e, i) => ({ seq: i, ...e })),
+    },
+    db: {
+      link: link ?? null,
+      queries: dbQueries,
+    },
+    pendingCleanup: cleanup,
   };
+
   const json = JSON.stringify(dump, null, 2);
-  console.error(`\n===== E2E FAILURE DUMP: ${testInfo.title} =====\n${json}\n===== END DUMP =====\n`);
+  console.error(
+    `\n===== E2E FAILURE DUMP [${dump.schema}] ${testInfo.titlePath.join(" › ")} =====\n${json}\n===== END DUMP =====\n`,
+  );
   await testInfo.attach("failure-dump.json", { body: json, contentType: "application/json" });
   await testInfo.attach("http-log.json", {
-    body: JSON.stringify(http.entries, null, 2),
+    body: JSON.stringify({ count: http.entries.length, entries: http.entries }, null, 2),
     contentType: "application/json",
   });
 });
+
 
 test.describe("public-meeting-booking E2E", () => {
   test("approval flow creates a calendar event", async ({
