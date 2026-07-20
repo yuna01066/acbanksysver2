@@ -241,8 +241,13 @@ for (const seed of globalSurchargeSeed) {
     failures.push({ check: "global_surcharge.missing", ...seed });
     continue;
   }
-  if (!row.is_active) {
+  // Legacy size `3*6` is force-deactivated by the migration's final step (line 407),
+  // so expect inactive for that size only. All other seeded sizes must be active.
+  const expectedActive = seed.size_name !== "3*6";
+  if (expectedActive && !row.is_active) {
     failures.push({ check: "global_surcharge.inactive", ...seed, row });
+  } else if (!expectedActive && row.is_active) {
+    failures.push({ check: "global_surcharge.legacy_still_active", ...seed, row });
   }
   if (Number(row.cost) !== seed.cost) {
     failures.push({
