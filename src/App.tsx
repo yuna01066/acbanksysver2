@@ -75,6 +75,7 @@ const ResponseAssistantPage = lazy(() => import("./pages/ResponseAssistantPage")
 const ResponseAssistantManagementPage = lazy(() => import("./pages/ResponseAssistantManagementPage"));
 const JjikjjikiEventSettingsPage = lazy(() => import("./pages/JjikjjikiEventSettingsPage"));
 const ErrorLogsPage = lazy(() => import("./pages/ErrorLogsPage"));
+const PanelPricingImpactPage = lazy(() => import("./pages/PanelPricingImpactPage"));
 const OAuthConsentPage = lazy(() => import("./pages/OAuthConsentPage"));
 const queryClient = new QueryClient();
 
