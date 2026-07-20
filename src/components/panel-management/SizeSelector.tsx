@@ -25,19 +25,19 @@ export function SizeSelector({ qualityId, productName, onSelectSize, onBack, sel
   // 사이즈 정보 계산 (10T~20T 기준)
   const getSizeInfo = (sizeString: string): PanelSizeInfo => {
     const baseSizeMapping: { [key: string]: { width: number; height: number } } = {
-      '소3*6': { width: 800, height: 1700 },
-      '3*6': { width: 860, height: 1750 },
-      '대3*6': { width: 900, height: 1800 },
-      '4*5': { width: 1120, height: 1425 },
-      '대4*5': { width: 1200, height: 1500 },
-      '소1*2': { width: 950, height: 1900 },
-      '1*2': { width: 1000, height: 2000 },
-      '4*6': { width: 1200, height: 1800 },
-      '4*8': { width: 1200, height: 2400 },
-      '4*10': { width: 1200, height: 3000 },
+      '소3*6': { width: 850, height: 1780 },
+      '3*6': { width: 910, height: 1810 },
+      '대3*6': { width: 950, height: 1860 },
+      '4*5': { width: 1170, height: 1475 },
+      '대4*5': { width: 1250, height: 1550 },
+      '소1*2': { width: 1040, height: 1860 },
+      '1*2': { width: 1050, height: 2050 },
+      '4*6': { width: 1250, height: 1860 },
+      '4*8': { width: 1250, height: 2450 },
+      '4*10': { width: 1250, height: 3050 },
       '5*5': { width: 1500, height: 1500 },
-      '5*6': { width: 1500, height: 1800 },
-      '5*8': { width: 1500, height: 2400 }
+      '5*6': { width: 1550, height: 1850 },
+      '5*8': { width: 1550, height: 2450 }
     };
     
     const baseSize = baseSizeMapping[sizeString];

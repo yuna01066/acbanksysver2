@@ -73,7 +73,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
   });
 
   // Get available sizes from quality definition and sort by custom order
-  const sizeOrder = ['3*6', '대3*6', '4*5', '대4*5', '1*2', '4*6', '4*8', '4*10', '5*6', '5*8', '소3*6', '소1*2', '5*5'];
+  const sizeOrder = ['소3*6', '대3*6', '4*5', '대4*5', '소1*2', '1*2', '4*6', '4*8', '4*10', '5*5', '5*6', '5*8'];
   const qualitySizes = quality?.sizes || [];
   const availableSizes = qualitySizes.sort((a, b) => {
     const indexA = sizeOrder.indexOf(a);
