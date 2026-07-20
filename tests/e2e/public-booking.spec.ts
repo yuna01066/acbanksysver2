@@ -103,8 +103,6 @@ class HttpRecorder {
   }
 }
 
-}
-
 type Fixtures = {
   api: APIRequestContext;
   http: HttpRecorder;
@@ -115,15 +113,15 @@ type Fixtures = {
 };
 
 const test = base.extend<Fixtures>({
-  api: async ({}, use) => {
+  api: async (_fixtures, run) => {
     const api = await pwRequest.newContext();
-    await use(api);
+    await run(api);
     await api.dispose();
   },
-  http: async ({ api }, use) => {
-    await use(new HttpRecorder(api));
+  http: async ({ api }, run) => {
+    await run(new HttpRecorder(api));
   },
-  adminToken: async ({ http }, use) => {
+  adminToken: async ({ http }, run) => {
     const { data } = await http.call<{ access_token?: string }>(
       "admin-login",
       "POST",
@@ -134,10 +132,10 @@ const test = base.extend<Fixtures>({
       },
     );
     if (!data.access_token) throw new Error("admin login returned no access_token");
-    await use(data.access_token);
+    await run(data.access_token);
   },
-  resourceId: async ({ http, adminToken }, use) => {
-    if (RESOURCE_ID_OVERRIDE) return use(RESOURCE_ID_OVERRIDE);
+  resourceId: async ({ http, adminToken }, run) => {
+    if (RESOURCE_ID_OVERRIDE) return run(RESOURCE_ID_OVERRIDE);
     const { data } = await http.call<Array<{ id: string }>>(
       "pick-resource",
       "GET",
@@ -147,9 +145,9 @@ const test = base.extend<Fixtures>({
     if (!Array.isArray(data) || data.length === 0) {
       throw new Error("No active calendar_resources found. Set E2E_RESOURCE_ID.");
     }
-    await use(data[0].id);
+    await run(data[0].id);
   },
-  link: async ({ http, adminToken, resourceId }, use) => {
+  link: async ({ http, adminToken, resourceId }, run) => {
     const slug = `e2e-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const { data, status, text } = await http.call<Array<{ id: string; slug: string }>>(
       "provision-link",
@@ -182,7 +180,7 @@ const test = base.extend<Fixtures>({
       throw new Error(`failed to create link: ${status} ${text}`);
     }
     const link = data[0];
-    await use(link);
+    await run(link);
     // teardown handled in afterEach cleanup fixture
     await http
       .call("delete-link", "DELETE", `${REST_URL}/public_booking_links?id=eq.${link.id}`, {
@@ -193,9 +191,9 @@ const test = base.extend<Fixtures>({
     // Final DB verification — confirm nothing tied to this link survives.
     await verifyLinkFullyDeleted(http, adminToken, link.id);
   },
-  cleanup: async ({ http, adminToken }, use) => {
+  cleanup: async ({ http, adminToken }, run) => {
     const state = { requestIds: [] as string[], eventIds: [] as string[] };
-    await use(state);
+    await run(state);
     for (const id of state.eventIds) {
       await http
         .call("delete-event", "DELETE", `${REST_URL}/calendar_events?id=eq.${id}`, {
