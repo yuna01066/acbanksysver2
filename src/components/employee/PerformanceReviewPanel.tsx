@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -101,11 +101,14 @@ interface Props {
   userId: string;
   userName: string;
   summaryOnly?: boolean;
+  initialCycleId?: string;
+  autoOpenDraft?: boolean;
 }
 
-const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly = false }) => {
+const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly = false, initialCycleId, autoOpenDraft = false }) => {
   const { user, profile, isAdmin, isModerator } = useAuth();
   const canViewDetails = isAdmin || isModerator;
+  const autoOpenedDraftRef = useRef(false);
 
   const [cycles, setCycles] = useState<ReviewCycle[]>([]);
   const [categories, setCategories] = useState<ReviewCategory[]>([]);
@@ -130,7 +133,7 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
 
   useEffect(() => {
     fetchData();
-  }, [userId]);
+  }, [userId, initialCycleId]);
 
   useEffect(() => {
     if (selectedCycleId) {
@@ -138,6 +141,20 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
       checkExistingReview();
     }
   }, [selectedCycleId]);
+
+  useEffect(() => {
+    autoOpenedDraftRef.current = false;
+  }, [userId, selectedCycleId, autoOpenDraft]);
+
+  useEffect(() => {
+    const selectedCycleIsActive = cycles.find(c => c.id === selectedCycleId)?.status === 'active';
+    if (!autoOpenDraft || autoOpenedDraftRef.current || !existingDraftReview || categories.length === 0 || !selectedCycleIsActive) {
+      return;
+    }
+
+    autoOpenedDraftRef.current = true;
+    openForm(existingDraftReview);
+  }, [autoOpenDraft, existingDraftReview, categories.length, cycles, selectedCycleId]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -147,9 +164,10 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
     ]);
     if (cyclesRes.data) {
       setCycles(cyclesRes.data as ReviewCycle[]);
-      if (cyclesRes.data.length > 0 && !selectedCycleId) {
+      if (cyclesRes.data.length > 0 && (!selectedCycleId || initialCycleId)) {
+        const requestedCycle = initialCycleId ? cyclesRes.data.find(c => c.id === initialCycleId) : null;
         const active = cyclesRes.data.find(c => c.status === 'active');
-        setSelectedCycleId(active ? active.id : cyclesRes.data[0].id);
+        setSelectedCycleId(requestedCycle ? requestedCycle.id : active ? active.id : cyclesRes.data[0].id);
       }
     }
     if (catsRes.data) setCategories(catsRes.data as ReviewCategory[]);

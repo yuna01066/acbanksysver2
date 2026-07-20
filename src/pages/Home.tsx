@@ -14,6 +14,7 @@ import ChannelTalkInquiryCard from '@/components/ChannelTalkInquiryCard';
 import DashboardQuoteFollowUpCard from '@/components/DashboardQuoteFollowUpCard';
 import DashboardPortfolioQuickSearchCard from '@/components/DashboardPortfolioQuickSearchCard';
 import DashboardPanelSizeComparisonCard from '@/components/dashboard/DashboardPanelSizeComparisonCard';
+import PerformanceReviewDashboardCard from '@/components/PerformanceReviewDashboardCard';
 
 import { useAuth } from '@/contexts/AuthContext';
 import TimeGreeting from '@/components/TimeGreeting';
@@ -372,7 +373,10 @@ const Home = () => {
                 attendanceAction={<QuickAttendanceButton variant="inline" />}
               />
 
-              <DailyQuoteCard />
+              <div className="space-y-4">
+                <PerformanceReviewDashboardCard />
+                <DailyQuoteCard />
+              </div>
             </div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)_minmax(320px,0.9fr)]">
               <TodayWorkCard notifications={notifications} />
