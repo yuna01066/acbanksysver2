@@ -1,0 +1,8 @@
+{
+  "_comment": "Baseline fingerprint of pre-migration saved_quotes (created_at < 2026-07-20 00:00:00+09). Regenerate with `bun run test:pricing:saved-quotes -- --update-baseline` only after an intentional data change (e.g. manual correction) — otherwise drift indicates a pricing update mutated historical quote snapshots.",
+  "cutoff": "2026-07-20 00:00:00+09",
+  "capturedAt": "2026-07-20T00:00:00Z",
+  "preMigrationCount": 444,
+  "preMigrationTotalSum": 2855380542,
+  "preMigrationSubtotalSum": 2595800494
+}
