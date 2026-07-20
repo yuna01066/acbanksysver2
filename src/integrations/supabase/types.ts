@@ -1960,6 +1960,7 @@ export type Database = {
           product_type: string | null
           project_id: string | null
           project_name: string | null
+          public_booking_request_id: string | null
           quality_score: number
           quantity: string | null
           raw_payload: Json
@@ -2006,6 +2007,7 @@ export type Database = {
           product_type?: string | null
           project_id?: string | null
           project_name?: string | null
+          public_booking_request_id?: string | null
           quality_score?: number
           quantity?: string | null
           raw_payload?: Json
@@ -2052,6 +2054,7 @@ export type Database = {
           product_type?: string | null
           project_id?: string | null
           project_name?: string | null
+          public_booking_request_id?: string | null
           quality_score?: number
           quantity?: string | null
           raw_payload?: Json
@@ -2100,6 +2103,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_consultation_leads_public_booking_request_id_fkey"
+            columns: ["public_booking_request_id"]
+            isOneToOne: false
+            referencedRelation: "public_booking_requests"
             referencedColumns: ["id"]
           },
           {
@@ -5989,6 +5999,7 @@ export type Database = {
           access_code_hash: string | null
           allowed_resource_ids: string[]
           allowed_weekdays: number[]
+          assigned_user_ids: string[]
           buffer_minutes: number
           created_at: string
           created_by: string | null
@@ -5999,6 +6010,7 @@ export type Database = {
           is_active: boolean
           link_type: string
           max_days_ahead: number
+          meeting_modes: string[]
           metadata: Json
           min_notice_minutes: number
           notify_user_ids: string[]
@@ -6013,6 +6025,7 @@ export type Database = {
           access_code_hash?: string | null
           allowed_resource_ids?: string[]
           allowed_weekdays?: number[]
+          assigned_user_ids?: string[]
           buffer_minutes?: number
           created_at?: string
           created_by?: string | null
@@ -6023,6 +6036,7 @@ export type Database = {
           is_active?: boolean
           link_type?: string
           max_days_ahead?: number
+          meeting_modes?: string[]
           metadata?: Json
           min_notice_minutes?: number
           notify_user_ids?: string[]
@@ -6037,6 +6051,7 @@ export type Database = {
           access_code_hash?: string | null
           allowed_resource_ids?: string[]
           allowed_weekdays?: number[]
+          assigned_user_ids?: string[]
           buffer_minutes?: number
           created_at?: string
           created_by?: string | null
@@ -6047,6 +6062,7 @@ export type Database = {
           is_active?: boolean
           link_type?: string
           max_days_ahead?: number
+          meeting_modes?: string[]
           metadata?: Json
           min_notice_minutes?: number
           notify_user_ids?: string[]
@@ -6063,6 +6079,9 @@ export type Database = {
         Row: {
           calendar_event_id: string | null
           company_name: string | null
+          assigned_to: string | null
+          contact_preference: string | null
+          consultation_lead_id: string | null
           created_at: string
           email: string | null
           ends_at: string
@@ -6074,7 +6093,8 @@ export type Database = {
           phone: string | null
           purpose: string
           requester_name: string
-          resource_id: string
+          resource_id: string | null
+          meeting_mode: string
           review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -6086,6 +6106,9 @@ export type Database = {
         Insert: {
           calendar_event_id?: string | null
           company_name?: string | null
+          assigned_to?: string | null
+          contact_preference?: string | null
+          consultation_lead_id?: string | null
           created_at?: string
           email?: string | null
           ends_at: string
@@ -6097,7 +6120,8 @@ export type Database = {
           phone?: string | null
           purpose: string
           requester_name: string
-          resource_id: string
+          resource_id?: string | null
+          meeting_mode?: string
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -6109,6 +6133,9 @@ export type Database = {
         Update: {
           calendar_event_id?: string | null
           company_name?: string | null
+          assigned_to?: string | null
+          contact_preference?: string | null
+          consultation_lead_id?: string | null
           created_at?: string
           email?: string | null
           ends_at?: string
@@ -6120,7 +6147,8 @@ export type Database = {
           phone?: string | null
           purpose?: string
           requester_name?: string
-          resource_id?: string
+          resource_id?: string | null
+          meeting_mode?: string
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -6131,10 +6159,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "public_booking_requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "public_booking_requests_calendar_event_id_fkey"
             columns: ["calendar_event_id"]
             isOneToOne: false
             referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_booking_requests_consultation_lead_id_fkey"
+            columns: ["consultation_lead_id"]
+            isOneToOne: false
+            referencedRelation: "client_consultation_leads"
             referencedColumns: ["id"]
           },
           {
