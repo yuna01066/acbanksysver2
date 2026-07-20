@@ -45,7 +45,9 @@ import { refreshQuoteDashboardState } from "@/services/quoteDashboardSync";
 import { isQuoteExpired, isReissueProtectedProjectStage, normalizeProjectStage, projectStageToLegacyQuoteStatus } from "@/utils/quoteWorkflow";
 import { reissueSavedQuote } from "@/services/quoteReissue";
 import { duplicateSavedQuote } from "@/services/quoteDuplicate";
+import { recordQuoteLostReason } from "@/services/quoteLossReason";
 import type { QuoteAssigneeOption } from "@/components/QuoteAssigneeSelect";
+import type { QuoteLostReasonFormValue } from "@/components/quote/QuoteLostReasonDialog";
 import { normalizeQuoteItems } from "@/utils/quoteItemIdentity";
 
 interface SavedQuote {
@@ -64,6 +66,14 @@ interface SavedQuote {
   project_followup_updated_by?: string | null;
   project_stage?: string | null;
   quote_status?: string | null;
+  lost_reason_category?: string | null;
+  lost_reason_detail?: string | null;
+  lost_by?: string | null;
+  lost_competitor_name?: string | null;
+  lost_price_gap?: number | null;
+  lost_follow_up_at?: string | null;
+  lost_recorded_by?: string | null;
+  lost_recorded_at?: string | null;
   assigned_to?: string | null;
   assigned_to_name?: string | null;
   status_updated_at?: string | null;
@@ -648,6 +658,44 @@ const SavedQuoteDetailPage = () => {
     } as SavedQuote : prev);
   };
 
+  const applyLostReasonPayload = (payload: Record<string, unknown>) => {
+    setQuote(prev => prev ? {
+      ...prev,
+      ...payload,
+      project_stage: 'cancelled',
+      quote_status: 'cancelled',
+    } as SavedQuote : prev);
+  };
+
+  const handleRecordLostReason = async (value: QuoteLostReasonFormValue) => {
+    if (!quote || !user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    const result = await recordQuoteLostReason({
+      quoteId: quote.id,
+      quoteNumber: quote.quote_number,
+      projectStage: quote.project_stage,
+      quoteStatus: quote.quote_status,
+      projectId: quote.project_id,
+      lostBy: value.lostBy,
+      reasonCategory: value.reasonCategory,
+      detail: value.detail,
+      competitorName: value.competitorName,
+      priceGap: value.priceGap,
+      followUpAt: value.followUpAt,
+      actorId: user.id,
+      actorName: profile?.full_name || user.email || '알 수 없음',
+    });
+
+    applyLostReasonPayload(result);
+    queryClient.invalidateQueries({ queryKey: ['quote-activity-history', quote.id] });
+    queryClient.invalidateQueries({ queryKey: ['quote-statistics'] });
+    await refreshQuoteDashboardState(queryClient, quote.id);
+    toast.success('수주 실패 원인이 기록되었습니다.');
+  };
+
   const handleAssigneeChanged = (assigneeId: string | null, assigneeName: string | null) => {
     setQuote(prev => prev ? { ...prev, assigned_to: assigneeId, assigned_to_name: assigneeName } as SavedQuote : prev);
   };
@@ -1182,12 +1230,20 @@ const SavedQuoteDetailPage = () => {
           <QuoteWorkflowPanel
             quoteId={quote.id}
             quoteNumber={quote.quote_number}
+            quoteTitle={quote.project_name || `견적서 ${quote.quote_number}`}
+            quoteRecipient={quote.recipient_company || quote.recipient_name}
+            quoteTotal={quote.total}
             projectStage={quote.project_stage}
             quoteUserId={quote.user_id}
+            quoteStatus={quote.quote_status}
             assignedTo={quote.assigned_to}
             assignedToName={quote.assigned_to_name || quote.issuer_name}
             users={assigneeUsers}
             linkedProject={linkedProject}
+            lostReasonCategory={quote.lost_reason_category}
+            lostReasonDetail={quote.lost_reason_detail}
+            lostBy={quote.lost_by}
+            lostRecordedAt={quote.lost_recorded_at}
             projectFollowupStatus={quote.project_followup_status}
             projectFollowupNote={quote.project_followup_note}
             projectFollowupUpdatedAt={quote.project_followup_updated_at}
@@ -1206,6 +1262,8 @@ const SavedQuoteDetailPage = () => {
             onReopenProjectFollowup={handleReopenProjectFollowup}
             onReissueQuote={handleReissueQuote}
             onDuplicateQuote={handleDuplicateQuote}
+            onRecordLostReason={handleRecordLostReason}
+            onLostReasonRecorded={applyLostReasonPayload}
           />
           {/* 원판 발주 */}
           {id && <QuoteMaterialOrders quoteId={id} />}

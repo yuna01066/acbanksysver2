@@ -9,6 +9,8 @@ import { useActivityLog } from '@/hooks/useActivityLog';
 import { logStageChange } from '@/hooks/useQuoteStageHistory';
 import { triggerDailyHamzzi } from '@/lib/hamzziEvents';
 import { refreshQuoteDashboardState } from '@/services/quoteDashboardSync';
+import { recordQuoteLostReason } from '@/services/quoteLossReason';
+import QuoteLostReasonDialog, { type QuoteLostReasonFormValue } from '@/components/quote/QuoteLostReasonDialog';
 import {
   getStageInfo,
   normalizeProjectStage,
@@ -16,6 +18,7 @@ import {
   QUOTE_PROJECT_STAGES,
   type ProjectStageValue,
 } from '@/utils/quoteWorkflow';
+import { canRecordQuoteLostReason, getQuoteLostReasonLabel } from '@/utils/quoteLossReason';
 
 export const PROJECT_STAGES = QUOTE_PROJECT_STAGES;
 export { getStageInfo };
@@ -25,25 +28,46 @@ interface ProjectStageSelectProps {
   quoteId: string;
   currentStage: string;
   quoteNumber?: string;
+  quoteTitle?: string;
+  quoteRecipient?: string | null;
+  quoteTotal?: number | null;
+  quoteStatus?: string | null;
+  projectId?: string | null;
   quoteUserId?: string;
   onStageChanged?: (newStage: string) => void;
+  onLostReasonRecorded?: (payload: Record<string, unknown>) => void;
 }
 
 const ProjectStageSelect = ({
   quoteId,
   currentStage,
   quoteNumber,
+  quoteTitle,
+  quoteRecipient,
+  quoteTotal,
+  quoteStatus,
+  projectId,
   quoteUserId,
   onStageChanged,
+  onLostReasonRecorded,
 }: ProjectStageSelectProps) => {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const [updating, setUpdating] = useState(false);
+  const [lossDialogOpen, setLossDialogOpen] = useState(false);
   const { logActivity } = useActivityLog();
-  const normalizedCurrentStage = normalizeProjectStage(currentStage);
+  const normalizedCurrentStage = normalizeProjectStage(currentStage, quoteStatus);
 
   const handleStageChange = async (newStage: string) => {
     if (newStage === normalizedCurrentStage) return;
+    if (newStage === 'cancelled') {
+      if (!canRecordQuoteLostReason(normalizedCurrentStage, quoteStatus, projectId)) {
+        toast.error('수주 이후 단계 또는 프로젝트 연결 견적은 이 화면에서 수주 실패 처리할 수 없습니다.');
+        return;
+      }
+      setLossDialogOpen(true);
+      return;
+    }
     setUpdating(true);
 
     try {
@@ -102,6 +126,74 @@ const ProjectStageSelect = ({
     }
   };
 
+  const handleLostReasonSubmit = async (value: QuoteLostReasonFormValue) => {
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const actorName = profile?.full_name || user.email || '알 수 없음';
+      const result = await recordQuoteLostReason({
+        quoteId,
+        quoteNumber,
+        projectStage: normalizedCurrentStage,
+        quoteStatus,
+        projectId,
+        lostBy: value.lostBy,
+        reasonCategory: value.reasonCategory,
+        detail: value.detail,
+        competitorName: value.competitorName,
+        priceGap: value.priceGap,
+        followUpAt: value.followUpAt,
+        actorId: user.id,
+        actorName,
+      });
+
+      const oldStageInfo = getStageInfo(normalizedCurrentStage);
+      const targetUserId = quoteUserId || user.id;
+      if (targetUserId && targetUserId !== user.id) {
+        await supabase.from('notifications').insert({
+          user_id: targetUserId,
+          type: 'quote_update',
+          title: '견적서 수주 실패 처리',
+          description: `견적서 ${quoteNumber || ''} 상태가 "${oldStageInfo.label}"에서 "수주 실패/취소"(으)로 변경되었습니다.`,
+          data: {
+            quoteId,
+            oldStage: normalizedCurrentStage,
+            newStage: 'cancelled',
+            quoteNumber,
+            reasonCategory: value.reasonCategory,
+          },
+        });
+      }
+
+      logActivity('stage_changed', quoteId, quoteNumber || quoteId, {
+        oldStage: normalizedCurrentStage,
+        newStage: 'cancelled',
+        newStageLabel: '수주 실패/취소',
+        reasonCategory: value.reasonCategory,
+      });
+
+      const userName = profile?.full_name || user.email || '알 수 없음';
+      logStageChange(quoteId, normalizedCurrentStage, 'cancelled', user.id, userName);
+
+      await refreshQuoteDashboardState(queryClient, quoteId);
+      queryClient.invalidateQueries({ queryKey: ['quote-activity-history', quoteId] });
+      queryClient.invalidateQueries({ queryKey: ['quote-statistics'] });
+      toast.success(`수주 실패 처리되었습니다. 원인: ${getQuoteLostReasonLabel(value.reasonCategory)}`);
+      setLossDialogOpen(false);
+      onStageChanged?.('cancelled');
+      onLostReasonRecorded?.(result);
+    } catch (err: any) {
+      console.error('[Stage] Quote loss record error:', err);
+      toast.error(err?.message || '수주 실패 처리에 실패했습니다.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const stage = getStageInfo(normalizedCurrentStage);
 
   return (
@@ -123,6 +215,18 @@ const ProjectStageSelect = ({
           ))}
         </SelectContent>
       </Select>
+      <QuoteLostReasonDialog
+        open={lossDialogOpen}
+        onOpenChange={setLossDialogOpen}
+        submitting={updating}
+        quote={{
+          quoteNumber,
+          title: quoteTitle,
+          recipient: quoteRecipient,
+          total: quoteTotal,
+        }}
+        onSubmit={handleLostReasonSubmit}
+      />
     </div>
   );
 };

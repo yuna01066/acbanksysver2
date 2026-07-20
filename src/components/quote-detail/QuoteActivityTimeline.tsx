@@ -10,6 +10,7 @@ import {
   Paperclip,
   PencilLine,
   UserCheck,
+  XCircle,
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,6 +47,7 @@ const ACTION_LABELS: Record<string, { label: string; Icon: React.ElementType }> 
   quote_reissued: { label: '견적 재발행', Icon: GitBranch },
   created_from_reissue: { label: '재발행본 생성', Icon: GitBranch },
   quote_duplicated: { label: '견적 복제', Icon: FileText },
+  quote_lost: { label: '수주 실패 기록', Icon: XCircle },
 };
 
 const formatValue = (actionType: string, value: string | null) => {
@@ -75,6 +77,11 @@ const buildDescription = (entry: ActivityEntry) => {
       return `${entry.metadata?.duplicatedQuoteNumber || entry.new_value || '복제본'} 복제본 생성`;
     }
     return `${entry.metadata?.originalQuoteNumber || entry.old_value || '원본'}에서 복제됨`;
+  }
+  if (entry.action_type === 'quote_lost') {
+    const reasonLabel = entry.metadata?.reasonLabel || '원인 미입력';
+    const lostByLabel = entry.metadata?.lostByLabel || '취소 주체 미기록';
+    return `${lostByLabel} · ${reasonLabel}`;
   }
 
   if (entry.old_value || entry.new_value) {

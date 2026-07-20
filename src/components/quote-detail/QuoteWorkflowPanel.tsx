@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Copy, ExternalLink, FolderOpen, Loader2, PlusCircle, RotateCcw, UserCheck } from 'lucide-react';
+import { Copy, ExternalLink, FolderOpen, Loader2, PlusCircle, RotateCcw, UserCheck, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import ProjectStageSelect from '@/components/ProjectStageSelect';
 import QuoteAssigneeSelect, { type QuoteAssigneeOption } from '@/components/QuoteAssigneeSelect';
-import { getStageInfo } from '@/utils/quoteWorkflow';
+import QuoteLostReasonDialog, { type QuoteLostReasonFormValue } from '@/components/quote/QuoteLostReasonDialog';
+import { getStageInfo, normalizeProjectStage } from '@/utils/quoteWorkflow';
+import { canRecordQuoteLostReason, getQuoteLostByLabel, getQuoteLostReasonLabel } from '@/utils/quoteLossReason';
 import { supabase } from '@/integrations/supabase/client';
 import { getApprovalStatusClass, getApprovalStatusLabel } from '@/services/approvalRequests';
 
@@ -23,12 +26,20 @@ interface LinkedProject {
 interface QuoteWorkflowPanelProps {
   quoteId: string;
   quoteNumber: string;
+  quoteTitle?: string | null;
+  quoteRecipient?: string | null;
+  quoteTotal?: number | null;
   projectStage?: string | null;
   quoteUserId?: string | null;
+  quoteStatus?: string | null;
   assignedTo?: string | null;
   assignedToName?: string | null;
   users: QuoteAssigneeOption[];
   linkedProject: LinkedProject | null;
+  lostReasonCategory?: string | null;
+  lostReasonDetail?: string | null;
+  lostBy?: string | null;
+  lostRecordedAt?: string | null;
   projectFollowupStatus?: string | null;
   projectFollowupNote?: string | null;
   projectFollowupUpdatedAt?: string | null;
@@ -47,17 +58,27 @@ interface QuoteWorkflowPanelProps {
   onReopenProjectFollowup: () => Promise<void> | void;
   onReissueQuote: () => void;
   onDuplicateQuote: () => void;
+  onRecordLostReason: (value: QuoteLostReasonFormValue) => Promise<void> | void;
+  onLostReasonRecorded?: (payload: Record<string, unknown>) => void;
 }
 
 const QuoteWorkflowPanel = ({
   quoteId,
   quoteNumber,
+  quoteTitle,
+  quoteRecipient,
+  quoteTotal,
   projectStage,
   quoteUserId,
+  quoteStatus,
   assignedTo,
   assignedToName,
   users,
   linkedProject,
+  lostReasonCategory,
+  lostReasonDetail,
+  lostBy,
+  lostRecordedAt,
   projectFollowupStatus,
   projectFollowupNote,
   projectFollowupUpdatedAt,
@@ -76,12 +97,18 @@ const QuoteWorkflowPanel = ({
   onReopenProjectFollowup,
   onReissueQuote,
   onDuplicateQuote,
+  onRecordLostReason,
+  onLostReasonRecorded,
 }: QuoteWorkflowPanelProps) => {
   const navigate = useNavigate();
   const [notRequiredDialogOpen, setNotRequiredDialogOpen] = useState(false);
   const [notRequiredNote, setNotRequiredNote] = useState('');
-  const stageInfo = getStageInfo(projectStage);
+  const [lostReasonDialogOpen, setLostReasonDialogOpen] = useState(false);
+  const normalizedProjectStage = normalizeProjectStage(projectStage, quoteStatus);
+  const stageInfo = getStageInfo(normalizedProjectStage);
   const isProjectFollowupNotRequired = projectFollowupStatus === 'not_required';
+  const canRecordLoss = canRecordQuoteLostReason(normalizedProjectStage, quoteStatus, linkedProject?.id || null);
+  const hasLostReason = Boolean(lostReasonCategory || lostReasonDetail);
   const followupUpdatedDate = projectFollowupUpdatedAt
     ? new Date(projectFollowupUpdatedAt).toLocaleDateString('ko-KR')
     : null;
@@ -110,6 +137,16 @@ const QuoteWorkflowPanel = ({
     setNotRequiredNote('');
   };
 
+  const submitLostReason = async (value: QuoteLostReasonFormValue) => {
+    try {
+      await onRecordLostReason(value);
+      setLostReasonDialogOpen(false);
+    } catch (error) {
+      console.error('Quote loss record failed:', error);
+      toast.error(error instanceof Error ? error.message : '수주 실패 처리에 실패했습니다.');
+    }
+  };
+
   return (
     <>
     <Card className="print:hidden">
@@ -126,8 +163,14 @@ const QuoteWorkflowPanel = ({
             quoteId={quoteId}
             currentStage={projectStage || 'quote_issued'}
             quoteNumber={quoteNumber}
+            quoteTitle={quoteTitle || undefined}
+            quoteRecipient={quoteRecipient || undefined}
+            quoteTotal={quoteTotal}
+            quoteStatus={quoteStatus}
+            projectId={linkedProject?.id}
             quoteUserId={quoteUserId}
             onStageChanged={onStageChanged}
+            onLostReasonRecorded={onLostReasonRecorded}
           />
           <p className="text-[11px] leading-relaxed text-muted-foreground">{stageInfo.description}</p>
         </div>
@@ -186,6 +229,31 @@ const QuoteWorkflowPanel = ({
 
         <div className="border-t pt-3">
           <div className="mb-2 text-[11px] font-medium text-muted-foreground">견적 액션</div>
+          {canRecordLoss && (
+            <Button
+              type="button"
+              variant="outline"
+              className="mb-2 w-full justify-start gap-2 border-red-200 text-red-700 hover:bg-red-50"
+              onClick={() => setLostReasonDialogOpen(true)}
+            >
+              <XCircle className="h-4 w-4" />
+              수주 실패 처리
+            </Button>
+          )}
+          {!canRecordLoss && normalizedProjectStage === 'cancelled' && (
+            <div className="mb-2 rounded-lg border border-red-100 bg-red-50 p-3 text-xs text-red-700">
+              <div className="font-semibold">수주 실패/취소 처리됨</div>
+              <p className="mt-1 leading-relaxed">
+                {getQuoteLostReasonLabel(lostReasonCategory)}
+                {lostBy ? ` · ${getQuoteLostByLabel(lostBy)}` : ''}
+                {lostRecordedAt ? ` · ${new Date(lostRecordedAt).toLocaleDateString('ko-KR')}` : ''}
+              </p>
+              {lostReasonDetail && (
+                <p className="mt-2 rounded-md bg-white/70 px-2 py-1 leading-relaxed">{lostReasonDetail}</p>
+              )}
+              {!hasLostReason && <p className="mt-1 text-red-600">원인 미입력 상태입니다.</p>}
+            </div>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -318,6 +386,17 @@ const QuoteWorkflowPanel = ({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <QuoteLostReasonDialog
+      open={lostReasonDialogOpen}
+      onOpenChange={setLostReasonDialogOpen}
+      quote={{
+        quoteNumber,
+        title: quoteTitle,
+        recipient: quoteRecipient,
+        total: quoteTotal,
+      }}
+      onSubmit={submitLostReason}
+    />
     </>
   );
 };
