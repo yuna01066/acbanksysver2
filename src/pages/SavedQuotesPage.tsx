@@ -6,18 +6,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, FolderOpen, Loader2, PlusCircle, RotateCcw, XCircle } from 'lucide-react';
+import { Search, Calendar, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Building2, User, FileText, Trash2, Filter, Copy, FolderOpen, Loader2, PlusCircle, RotateCcw, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { getPaymentStatusInfo } from '@/components/project/PaymentStatusSelect';
 import { PageHeader, PageShell, SearchFilterBar } from '@/components/layout/PageLayout';
 import { formatQuoteProjectTitle } from '@/utils/quoteNaming';
 import { convertQuoteToProject } from '@/services/quoteProjectConversion';
+import ProjectStageSelect from '@/components/ProjectStageSelect';
 import {
-  getSimplifiedStageInfo,
-  getStageInfo,
   isQuoteExpired,
   isReissueProtectedProjectStage,
   matchesSimplifiedStageFilter,
@@ -28,10 +28,7 @@ import {
 import { reissueSavedQuote } from '@/services/quoteReissue';
 import { duplicateSavedQuote } from '@/services/quoteDuplicate';
 import { logQuoteActivity } from '@/services/quoteActivity';
-import { recordQuoteLostReason } from '@/services/quoteLossReason';
-import QuoteLostReasonDialog, { type QuoteLostReasonFormValue } from '@/components/quote/QuoteLostReasonDialog';
 import {
-  canRecordQuoteLostReason,
   getQuoteLostByLabel,
   getQuoteLostReasonLabel,
   QUOTE_LOST_REASON_CATEGORIES,
@@ -88,6 +85,7 @@ interface SavedQuote {
   assigned_to_name?: string | null;
   project_stage?: string;
   project_id?: string | null;
+  status_updated_at?: string | null;
   project_followup_status?: string | null;
   project_followup_note?: string | null;
   project_followup_updated_at?: string | null;
@@ -129,8 +127,6 @@ const SavedQuotesPage = () => {
   const [lostReasonFilter, setLostReasonFilter] = useState<LostReasonFilter>('all');
   const [creatingProjectQuoteId, setCreatingProjectQuoteId] = useState<string | null>(null);
   const [reissuingQuoteId, setReissuingQuoteId] = useState<string | null>(null);
-  const [lossDialogQuote, setLossDialogQuote] = useState<SavedQuote | null>(null);
-  const [recordingLostQuoteId, setRecordingLostQuoteId] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 50;
 
   const getQuoteTitle = (quote: SavedQuote): string => {
@@ -584,6 +580,35 @@ const SavedQuotesPage = () => {
     toast.success('프로젝트 전환 불필요로 처리했습니다.');
   };
 
+  const handleInlineStageChanged = (quoteId: string, newStage: string) => {
+    const nowIso = new Date().toISOString();
+    setQuotes((prev) => prev.map((quote) => (
+      quote.id === quoteId
+        ? {
+            ...quote,
+            project_stage: newStage,
+            quote_status: projectStageToLegacyQuoteStatus(newStage),
+            status_updated_at: nowIso,
+          } as SavedQuote
+        : quote
+    )));
+    queryClient.invalidateQueries({ queryKey: ['quote-statistics'] });
+  };
+
+  const handleInlineLostReasonRecorded = (quoteId: string, payload: Record<string, unknown>) => {
+    setQuotes((prev) => prev.map((quote) => (
+      quote.id === quoteId
+        ? {
+            ...quote,
+            ...payload,
+            project_stage: 'cancelled',
+            quote_status: 'cancelled',
+          } as SavedQuote
+        : quote
+    )));
+    queryClient.invalidateQueries({ queryKey: ['quote-statistics'] });
+  };
+
   const handleReissueQuote = async (quote: SavedQuote) => {
     if (!user) {
       toast.error('로그인이 필요합니다.');
@@ -606,52 +631,6 @@ const SavedQuotesPage = () => {
       toast.error(error instanceof Error ? error.message : '견적서 재발행에 실패했습니다.');
     } finally {
       setReissuingQuoteId(null);
-    }
-  };
-
-  const handleRecordLostReason = async (value: QuoteLostReasonFormValue) => {
-    if (!lossDialogQuote || !user) {
-      toast.error('로그인이 필요합니다.');
-      return;
-    }
-
-    setRecordingLostQuoteId(lossDialogQuote.id);
-    try {
-      const result = await recordQuoteLostReason({
-        quoteId: lossDialogQuote.id,
-        quoteNumber: lossDialogQuote.quote_number,
-        projectStage: lossDialogQuote.project_stage,
-        quoteStatus: lossDialogQuote.quote_status,
-        projectId: lossDialogQuote.project_id,
-        lostBy: value.lostBy,
-        reasonCategory: value.reasonCategory,
-        detail: value.detail,
-        competitorName: value.competitorName,
-        priceGap: value.priceGap,
-        followUpAt: value.followUpAt,
-        actorId: user.id,
-        actorName: profile?.full_name || user.email || '알 수 없음',
-      });
-
-      setQuotes((prev) => prev.map((quote) => (
-        quote.id === lossDialogQuote.id
-          ? {
-              ...quote,
-              ...result,
-              project_stage: 'cancelled',
-              quote_status: 'cancelled',
-            }
-          : quote
-      )));
-      queryClient.invalidateQueries({ queryKey: ['quote-statistics'] });
-      queryClient.invalidateQueries({ queryKey: ['home-quote-follow-ups'] });
-      toast.success('수주 실패 원인이 기록되었습니다.');
-      setLossDialogQuote(null);
-    } catch (error) {
-      console.error('Error recording quote loss reason:', error);
-      toast.error(error instanceof Error ? error.message : '수주 실패 처리에 실패했습니다.');
-    } finally {
-      setRecordingLostQuoteId(null);
     }
   };
 
@@ -876,13 +855,13 @@ const SavedQuotesPage = () => {
         ) : (
           <>
             <Card className="overflow-hidden rounded-lg border-border bg-card shadow-none">
-              <div className="hidden border-b border-border bg-muted/30 px-4 py-3 text-xs font-semibold text-muted-foreground lg:grid lg:grid-cols-[88px_minmax(0,1.5fr)_minmax(180px,0.6fr)_112px_132px_136px] lg:items-center lg:gap-4">
+              <div className="hidden border-b border-border bg-muted/25 px-4 py-2.5 text-xs font-semibold text-muted-foreground lg:grid lg:grid-cols-[76px_minmax(0,1.55fr)_minmax(140px,0.65fr)_minmax(96px,0.45fr)_118px_minmax(214px,0.85fr)] lg:items-center lg:gap-4">
                 <span>발행일</span>
-                <span>견적 제목</span>
+                <span>견적</span>
                 <span>거래처</span>
-                <span>담당자</span>
+                <span>담당</span>
                 <span className="text-right">금액</span>
-                <span className="text-right">상태</span>
+                <span className="text-right">상태/작업</span>
               </div>
 
               <div className="divide-y divide-border/70">
@@ -893,29 +872,62 @@ const SavedQuotesPage = () => {
                   const quoteTitle = getQuoteTitle(quote);
                   const expired = isQuoteExpired(quote.valid_until);
                   const reissueCandidate = canReissueQuote(quote);
-                  const stageInfo = getStageInfo(quote.project_stage);
-                  const simplifiedStageInfo = getSimplifiedStageInfo(quote.project_stage, quote.quote_status);
-                  const canRecordLoss = canRecordQuoteLostReason(quote.project_stage, quote.quote_status, quote.project_id);
                   const isLostQuote = normalizeProjectStage(quote.project_stage, quote.quote_status) === 'cancelled';
                   const isLossAnalysisTarget = isQuoteLossAnalysisTarget(quote);
+                  const canCreateProject = !quote.linked_project && !isLostQuote && quote.project_followup_status !== 'not_required';
 
                   return (
                     <div
                       key={quote.id}
-                      className="cursor-pointer px-4 py-4 transition-colors hover:bg-muted/30"
+                      className="cursor-pointer px-4 py-3 transition-colors hover:bg-muted/25"
                       onClick={() => navigate(`/saved-quotes/${quote.id}`)}
                     >
-                      <div className="grid gap-3 lg:grid-cols-[88px_minmax(0,1.5fr)_minmax(180px,0.6fr)_112px_132px_136px] lg:items-center lg:gap-4">
-                        <div className="whitespace-nowrap text-sm font-semibold tabular-nums text-foreground">
+                      <div className="grid gap-3 lg:grid-cols-[76px_minmax(0,1.55fr)_minmax(140px,0.65fr)_minmax(96px,0.45fr)_118px_minmax(214px,0.85fr)] lg:items-center lg:gap-4">
+                        <div className="flex items-center gap-2 whitespace-nowrap text-sm font-semibold tabular-nums text-foreground lg:block">
                           {formatCompactDate(quote.quote_date)}
+                          {expired && (
+                            <Badge variant="outline" className="border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] text-amber-700 lg:mt-1">
+                              만료
+                            </Badge>
+                          )}
                         </div>
 
                         <div className="min-w-0">
                           <div
-                            className="truncate text-[15px] font-semibold leading-5 text-foreground"
+                            className="truncate text-sm font-semibold leading-5 text-foreground"
                             title={quoteTitle}
                           >
                             {quoteTitle}
+                          </div>
+                          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                            <span className="rounded-full bg-muted/60 px-2 py-0.5 font-medium tabular-nums">
+                              No. {quote.quote_number}
+                            </span>
+                            {quote.issuer_name && <span>발신 {quote.issuer_name}</span>}
+                            {quote.creator_name && <span>작성 {quote.creator_name}</span>}
+                            {quote.recipient_name && (
+                              <span className="inline-flex min-w-0 items-center gap-1">
+                                <User className="h-3 w-3" />
+                                <span className="truncate">{quote.recipient_name}</span>
+                              </span>
+                            )}
+                            {quote.reissued_quote_id && <span>재발행됨</span>}
+                            {quote.reissued_from_quote_id && <span>재발행본</span>}
+                            {isLossAnalysisTarget && (
+                              <Badge
+                                variant="outline"
+                                className={`border-red-200 px-1.5 py-0 text-[10px] ${
+                                  quote.lost_reason_category
+                                    ? 'bg-red-50 text-red-700'
+                                    : 'bg-background text-red-600'
+                                }`}
+                                title={quote.lost_reason_detail || undefined}
+                              >
+                                {quote.lost_reason_category
+                                  ? `${getQuoteLostReasonLabel(quote.lost_reason_category)} · ${getQuoteLostByLabel(quote.lost_by)}`
+                                  : '원인 미입력'}
+                              </Badge>
+                            )}
                           </div>
                         </div>
 
@@ -952,164 +964,72 @@ const SavedQuotesPage = () => {
                           {formatPrice(quote.total)}
                         </div>
 
-                        <div className="flex justify-start lg:justify-end">
-                          <Badge
-                            variant="outline"
-                            className={`min-w-[64px] justify-center rounded-full px-2.5 py-1 text-xs font-semibold ${simplifiedStageInfo.color}`}
-                            title={`상세 단계: ${stageInfo.label}`}
-                          >
-                            {simplifiedStageInfo.label}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground lg:ml-[104px] lg:flex-row lg:items-center lg:justify-between">
-                        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
-                          <span className="rounded-full bg-muted/70 px-2 py-0.5 font-medium tabular-nums text-muted-foreground">
-                            No. {quote.quote_number}
-                          </span>
-                          {quote.issuer_name && <span>발신 {quote.issuer_name}</span>}
-                          {quote.creator_name && <span>작성 {quote.creator_name}</span>}
-                          {quote.recipient_name && (
-                            <span className="inline-flex items-center gap-1.5">
-                              <User className="h-3.5 w-3.5" />
-                              {quote.recipient_name}
-                            </span>
-                          )}
-                          {expired && (
-                            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-[10px] text-amber-700">
-                              유효기간 만료
-                            </Badge>
-                          )}
-                          {quote.reissued_quote_id && (
-                            <Badge variant="outline" className="border-border bg-muted/40 text-[10px] text-muted-foreground">
-                              재발행됨
-                            </Badge>
-                          )}
-                          {quote.reissued_from_quote_id && (
-                            <Badge variant="outline" className="border-border bg-muted/40 text-[10px] text-foreground">
-                              재발행본
-                            </Badge>
-                          )}
-                          {isLossAnalysisTarget && (
-                            <Badge
-                              variant="outline"
-                              className={`border-red-200 text-[10px] ${
-                                quote.lost_reason_category
-                                  ? 'bg-red-50 text-red-700'
-                                  : 'bg-background text-red-600'
-                              }`}
-                              title={quote.lost_reason_detail || undefined}
-                            >
-                              {quote.lost_reason_category
-                                ? `${getQuoteLostReasonLabel(quote.lost_reason_category)} · ${getQuoteLostByLabel(quote.lost_by)}`
-                                : '원인 미입력'}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2" onClick={(event) => event.stopPropagation()}>
-                          {quote.linked_project ? (
-                            <button
-                              type="button"
-                              className="flex h-7 max-w-[280px] items-center gap-1.5 rounded-full border border-border bg-background px-2.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                navigate(`/project-management?id=${quote.linked_project!.id}`);
-                              }}
-                            >
-                              <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                              <span className="truncate">{quote.linked_project.name}</span>
-                            </button>
-                          ) : (
-                            <Badge variant="outline" className="text-xs text-muted-foreground">
-                              미연결
-                            </Badge>
-                          )}
-                          {!quote.linked_project && quote.project_followup_status === 'not_required' && (
-                            <Badge variant="outline" className="border-border bg-muted/40 text-[10px] text-muted-foreground">
-                              프로젝트 전환 불필요
-                            </Badge>
-                          )}
-                          {paymentInfo && (
-                            <Badge className={`text-[10px] ${paymentInfo.color}`}>
-                              {paymentInfo.label}
-                            </Badge>
-                          )}
-                          {!quote.linked_project && !isLostQuote && quote.project_followup_status !== 'not_required' && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 gap-1.5 rounded-full border-border bg-background px-2 text-xs shadow-none hover:bg-muted"
-                              disabled={creatingProjectQuoteId === quote.id}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleCreateProjectFromQuote(quote);
-                              }}
-                            >
-                              {creatingProjectQuoteId === quote.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <PlusCircle className="h-3.5 w-3.5" />
-                              )}
-                              프로젝트 생성
-                            </Button>
-                          )}
-                          {!quote.linked_project && !isLostQuote && quote.project_followup_status !== 'not_required' && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 rounded-full px-2 text-xs text-muted-foreground hover:bg-muted"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleMarkProjectNotRequired(quote);
-                              }}
-                            >
-                              전환 불필요
-                            </Button>
-                          )}
-                          {canRecordLoss && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 gap-1.5 rounded-full border-red-200 bg-background px-2 text-xs text-red-700 shadow-none hover:bg-red-50"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setLossDialogQuote(quote);
-                              }}
-                            >
-                              <XCircle className="h-3.5 w-3.5" />
-                              수주 실패
-                            </Button>
-                          )}
-                          {reissueCandidate && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 gap-1.5 rounded-full border-border bg-background px-2 text-xs text-foreground shadow-none hover:bg-muted"
-                              disabled={reissuingQuoteId === quote.id}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleReissueQuote(quote);
-                              }}
-                            >
-                              {reissuingQuoteId === quote.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <RotateCcw className="h-3.5 w-3.5" />
-                              )}
-                              견적 재발행
-                            </Button>
-                          )}
-                          <div className="flex items-center gap-1.5">
+                        <div className="flex flex-col items-start gap-2 lg:items-end" onClick={(event) => event.stopPropagation()}>
+                          <div className="flex flex-wrap items-center justify-start gap-1.5 lg:justify-end">
+                            <ProjectStageSelect
+                              quoteId={quote.id}
+                              currentStage={quote.project_stage || quote.quote_status || 'quote_issued'}
+                              quoteStatus={quote.quote_status}
+                              quoteNumber={quote.quote_number}
+                              quoteTitle={quoteTitle}
+                              quoteRecipient={quote.recipient_company || quote.recipient_name}
+                              quoteTotal={quote.total}
+                              projectId={quote.project_id || quote.linked_project?.id || null}
+                              quoteUserId={quote.user_id}
+                              onStageChanged={(newStage) => handleInlineStageChanged(quote.id, newStage)}
+                              onLostReasonRecorded={(payload) => handleInlineLostReasonRecorded(quote.id, payload)}
+                            />
+                            {paymentInfo && (
+                              <Badge className={`h-7 rounded-full px-2 text-[10px] ${paymentInfo.color}`}>
+                                {paymentInfo.label}
+                              </Badge>
+                            )}
+                            {quote.project_followup_status === 'not_required' && (
+                              <Badge variant="outline" className="h-7 rounded-full border-border bg-muted/40 px-2 text-[10px] text-muted-foreground">
+                                전환 불필요
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap items-center justify-start gap-1.5 lg:justify-end">
+                            {quote.linked_project ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 max-w-[150px] gap-1.5 rounded-full border-border bg-background px-2 text-xs shadow-none hover:bg-muted"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  navigate(`/project-management?id=${quote.linked_project!.id}`);
+                                }}
+                              >
+                                <FolderOpen className="h-3.5 w-3.5" />
+                                <span className="truncate">프로젝트</span>
+                              </Button>
+                            ) : canCreateProject ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 rounded-full border-border bg-background px-2 text-xs shadow-none hover:bg-muted"
+                                disabled={creatingProjectQuoteId === quote.id}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleCreateProjectFromQuote(quote);
+                                }}
+                              >
+                                {creatingProjectQuoteId === quote.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <PlusCircle className="h-3.5 w-3.5" />
+                                )}
+                                프로젝트
+                              </Button>
+                            ) : null}
                             <Button
                               variant="outline"
                               size="icon"
-                              className="h-7 w-7 rounded-full border-border bg-background shadow-none hover:bg-muted"
+                              className="h-8 w-8 rounded-full border-border bg-background shadow-none hover:bg-muted"
+                              aria-label="견적서 상세보기"
                               title="상세보기"
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -1118,30 +1038,70 @@ const SavedQuotesPage = () => {
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-7 w-7 rounded-full border-border bg-background text-foreground shadow-none hover:bg-muted"
-                              title="견적서 복제"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleDuplicateQuote(quote.id);
-                              }}
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-7 w-7 rounded-full border-border bg-background text-muted-foreground shadow-none hover:bg-muted hover:text-destructive"
-                              title="견적서 삭제"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleDeleteQuote(quote.id);
-                              }}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-full border-border bg-background text-muted-foreground shadow-none hover:bg-muted"
+                                  aria-label="견적서 추가 작업"
+                                >
+                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44 rounded-lg">
+                                <DropdownMenuItem
+                                  className="gap-2 text-xs"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleDuplicateQuote(quote.id);
+                                  }}
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                  견적서 복제
+                                </DropdownMenuItem>
+                                {reissueCandidate && (
+                                  <DropdownMenuItem
+                                    className="gap-2 text-xs"
+                                    disabled={reissuingQuoteId === quote.id}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleReissueQuote(quote);
+                                    }}
+                                  >
+                                    {reissuingQuoteId === quote.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <RotateCcw className="h-3.5 w-3.5" />
+                                    )}
+                                    견적 재발행
+                                  </DropdownMenuItem>
+                                )}
+                                {canCreateProject && (
+                                  <DropdownMenuItem
+                                    className="gap-2 text-xs"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleMarkProjectNotRequired(quote);
+                                    }}
+                                  >
+                                    <FolderOpen className="h-3.5 w-3.5" />
+                                    전환 불필요 처리
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="gap-2 text-xs text-destructive focus:text-destructive"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleDeleteQuote(quote.id);
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  견적서 삭제
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                       </div>
@@ -1189,20 +1149,6 @@ const SavedQuotesPage = () => {
           </>
         )}
       </div>
-      <QuoteLostReasonDialog
-        open={!!lossDialogQuote}
-        onOpenChange={(open) => {
-          if (!open) setLossDialogQuote(null);
-        }}
-        submitting={!!lossDialogQuote && recordingLostQuoteId === lossDialogQuote.id}
-        quote={lossDialogQuote ? {
-          quoteNumber: lossDialogQuote.quote_number,
-          title: getQuoteTitle(lossDialogQuote),
-          recipient: lossDialogQuote.recipient_company || lossDialogQuote.recipient_name,
-          total: lossDialogQuote.total,
-        } : null}
-        onSubmit={handleRecordLostReason}
-      />
     </PageShell>
   );
 };
