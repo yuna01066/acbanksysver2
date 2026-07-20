@@ -952,6 +952,215 @@ test.describe("public-meeting-booking E2E", () => {
   });
 
 
+  test("concurrent-booking conflicts stay consistent across (resource × start-time) matrix", async ({
+    http,
+    adminToken,
+    cleanup,
+  }) => {
+    // 1) Pull up to 3 active resources so we can exercise a real matrix.
+    const resList = await http.call<Array<{ id: string }>>(
+      "matrix-pick-resources",
+      "GET",
+      `${REST_URL}/calendar_resources?select=id&is_active=eq.true&order=display_order.asc&limit=3`,
+      { headers: adminHeaders(adminToken) },
+    );
+    const resourceIds = (resList.data ?? []).map((r) => r.id);
+    expect(resourceIds.length, "need at least 1 active resource").toBeGreaterThan(0);
+
+    // 2) Provision a dedicated link that allows all picked resources so we can
+    //    freely pick (resource, start-time) pairs without cross-test noise.
+    const slug = `e2e-matrix-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const linkInsert = await http.call<Array<{ id: string; slug: string }>>(
+      "matrix-provision-link",
+      "POST",
+      `${REST_URL}/public_booking_links`,
+      {
+        headers: adminHeaders(adminToken, { Prefer: "return=representation" }),
+        data: {
+          slug,
+          link_type: "customer_request",
+          title: "E2E Matrix Link",
+          description: "Auto-provisioned matrix link — safe to delete",
+          is_active: true,
+          allowed_resource_ids: resourceIds,
+          allowed_weekdays: [0, 1, 2, 3, 4, 5, 6],
+          start_time: "00:00:00",
+          end_time: "23:59:00",
+          slot_minutes: 30,
+          duration_minutes: 30,
+          buffer_minutes: 0,
+          min_notice_minutes: 0,
+          max_days_ahead: 30,
+          requires_approval: true,
+          notify_user_ids: [],
+          metadata: { e2e: true, matrix: true },
+        },
+      },
+    );
+    expect(linkInsert.status, `matrix link create: ${linkInsert.text}`).toBeLessThan(300);
+    const matrixLink = linkInsert.data[0];
+
+    try {
+      // 3) Collect several distinct start times (on-the-hour + :30) from the
+      //    next few days so we can also cover different date/time patterns.
+      const timeSlots: Array<{ date: string; time: string }> = [];
+      const now = new Date();
+      for (let offset = 0; offset <= 10 && timeSlots.length < 4; offset += 1) {
+        const day = new Date(now.getTime() + offset * 24 * 60 * 60 * 1000);
+        const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(day);
+        const res = await callFn<{ slots?: Array<{ time: string }> }>(
+          http,
+          "get-availability",
+          { slug: matrixLink.slug, date },
+        );
+        const slots = res.data.slots ?? [];
+        // Prefer alternating on-the-hour and half-hour starts to cover both.
+        const onHour = slots.find((s) => s.time.endsWith(":00"));
+        const halfHour = slots.find((s) => s.time.endsWith(":30"));
+        for (const s of [onHour, halfHour]) {
+          if (s && timeSlots.length < 4) timeSlots.push({ date, time: s.time });
+        }
+      }
+      expect(timeSlots.length, "need at least 2 start-time slots for matrix").toBeGreaterThanOrEqual(2);
+
+      // 4) Build (resource × slot) matrix. Cap the total to keep runtime sane.
+      type Cell = { resourceId: string; date: string; time: string };
+      const matrix: Cell[] = [];
+      for (const rid of resourceIds) {
+        for (const s of timeSlots) {
+          matrix.push({ resourceId: rid, date: s.date, time: s.time });
+          if (matrix.length >= 6) break;
+        }
+        if (matrix.length >= 6) break;
+      }
+      expect(matrix.length).toBeGreaterThan(0);
+
+      // 5) For each cell, run a 3-way concurrent-confirm race and assert
+      //    exactly one 200 winner + two 409 losers + one calendar_event.
+      const N = 3;
+      const failures: Array<{ cell: Cell; reason: string }> = [];
+      for (const cell of matrix) {
+        const stamp = Date.now();
+        const payload = (i: number) => ({
+          slug: matrixLink.slug,
+          date: cell.date,
+          time: cell.time,
+          resourceId: cell.resourceId,
+          requesterName: `E2E Matrix r=${cell.resourceId.slice(0, 4)} t=${cell.time} #${i}`,
+          purpose: `Playwright matrix cell ${cell.resourceId}/${cell.date} ${cell.time} idx=${i}`,
+        });
+
+        const creates = await Promise.all(
+          Array.from({ length: N }, (_, i) =>
+            callFn<{ requestId?: string; status?: string; error?: string }>(
+              http,
+              "create-request",
+              payload(i),
+            ),
+          ),
+        );
+        const requestIds: string[] = [];
+        for (const c of creates) {
+          if (c.status !== 200 || !c.data.requestId) {
+            failures.push({
+              cell,
+              reason: `create-request failed: ${JSON.stringify({ status: c.status, data: c.data })}`,
+            });
+            continue;
+          }
+          requestIds.push(c.data.requestId);
+          cleanup.requestIds.push(c.data.requestId);
+        }
+        if (requestIds.length !== N) continue;
+
+        const confirms = await Promise.all(
+          requestIds.map((rid) =>
+            callFn<{ eventId?: string; status?: string; error?: string }>(
+              http,
+              "confirm-request",
+              { requestId: rid, reviewNote: `E2E matrix confirm ${stamp}` },
+              adminToken,
+            ).then((res) => ({ rid, ...res })),
+          ),
+        );
+        const winners = confirms.filter((c) => c.status === 200);
+        const losers = confirms.filter((c) => c.status !== 200);
+
+        if (winners.length !== 1) {
+          failures.push({
+            cell,
+            reason: `expected 1 winner, got ${winners.length}: ${JSON.stringify(
+              confirms.map((c) => ({ rid: c.rid, status: c.status, data: c.data })),
+            )}`,
+          });
+        } else {
+          cleanup.eventIds.push(winners[0].data.eventId as string);
+        }
+        for (const l of losers) {
+          if (l.status !== 409) {
+            failures.push({
+              cell,
+              reason: `loser must be 409, got ${l.status}: ${JSON.stringify(l.data)}`,
+            });
+          } else if (!conflictLike(l.data)) {
+            failures.push({
+              cell,
+              reason: `409 body missing conflict marker: ${JSON.stringify(l.data)}`,
+            });
+          }
+        }
+
+        // DB check: exactly one calendar_event for this (resource, slot).
+        const startsIso = new Date(`${cell.date}T${cell.time}:00+09:00`).toISOString();
+        const events = await http.call<Array<{ id: string }>>(
+          `matrix-verify-${cell.resourceId.slice(0, 4)}-${cell.time}`,
+          "GET",
+          `${REST_URL}/calendar_events?select=id&resource_id=eq.${cell.resourceId}&starts_at=eq.${encodeURIComponent(startsIso)}`,
+          { headers: adminHeaders(adminToken) },
+        );
+        if (events.data.length !== 1) {
+          failures.push({
+            cell,
+            reason: `expected 1 calendar_event, got ${events.data.length}`,
+          });
+        }
+
+        // Reject losers to keep pending backlog clean for the next cell.
+        for (const l of losers) {
+          await callFn(
+            http,
+            "reject-request",
+            { requestId: l.rid, reviewNote: `E2E matrix loser reject ${stamp}` },
+            adminToken,
+          ).catch(() => undefined);
+        }
+      }
+
+      expect(
+        failures,
+        `matrix conflict failures:\n${failures
+          .map((f) => `  - ${f.cell.resourceId} @ ${f.cell.date} ${f.cell.time}: ${f.reason}`)
+          .join("\n")}`,
+      ).toHaveLength(0);
+    } finally {
+      // Tear down the matrix link (cleanup fixture handles requests/events).
+      await http
+        .call(
+          "matrix-delete-link",
+          "DELETE",
+          `${REST_URL}/public_booking_links?id=eq.${matrixLink.id}`,
+          { headers: adminHeaders(adminToken) },
+        )
+        .catch(() => undefined);
+    }
+  });
+
+
+
+
+
+
+
 
 
 
