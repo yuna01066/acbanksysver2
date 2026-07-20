@@ -178,6 +178,9 @@ const test = base.extend<Fixtures>({
         headers: adminHeaders(adminToken),
       })
       .catch(() => undefined);
+
+    // Final DB verification — confirm nothing tied to this link survives.
+    await verifyLinkFullyDeleted(http, adminToken, link.id);
   },
   cleanup: async ({ http, adminToken }, use) => {
     const state = { requestIds: [] as string[], eventIds: [] as string[] };
@@ -196,8 +199,64 @@ const test = base.extend<Fixtures>({
         })
         .catch(() => undefined);
     }
+    // Verify per-test cleanup removed everything we created.
+    for (const id of state.requestIds) {
+      const res = await http.call<Array<{ id: string }>>(
+        "verify-request-deleted",
+        "GET",
+        `${REST_URL}/public_booking_requests?select=id&id=eq.${id}`,
+        { headers: adminHeaders(adminToken) },
+      );
+      expect(res.data, `request ${id} not cleaned up`).toHaveLength(0);
+    }
+    for (const id of state.eventIds) {
+      const res = await http.call<Array<{ id: string }>>(
+        "verify-event-deleted",
+        "GET",
+        `${REST_URL}/calendar_events?select=id&id=eq.${id}`,
+        { headers: adminHeaders(adminToken) },
+      );
+      expect(res.data, `event ${id} not cleaned up`).toHaveLength(0);
+    }
   },
 });
+
+async function verifyLinkFullyDeleted(
+  http: HttpRecorder,
+  adminToken: string,
+  linkId: string,
+) {
+  const link = await http.call<Array<{ id: string }>>(
+    "verify-link-deleted",
+    "GET",
+    `${REST_URL}/public_booking_links?select=id&id=eq.${linkId}`,
+    { headers: adminHeaders(adminToken) },
+  );
+  expect(link.data, `public_booking_links row ${linkId} still present`).toHaveLength(0);
+
+  const requests = await http.call<Array<{ id: string }>>(
+    "verify-requests-deleted",
+    "GET",
+    `${REST_URL}/public_booking_requests?select=id&link_id=eq.${linkId}`,
+    { headers: adminHeaders(adminToken) },
+  );
+  expect(
+    requests.data,
+    `public_booking_requests remain for link ${linkId}: ${JSON.stringify(requests.data)}`,
+  ).toHaveLength(0);
+
+  const events = await http.call<Array<{ id: string }>>(
+    "verify-events-deleted",
+    "GET",
+    `${REST_URL}/calendar_events?select=id&metadata->>publicBookingLinkId=eq.${linkId}`,
+    { headers: adminHeaders(adminToken) },
+  );
+  expect(
+    events.data,
+    `calendar_events remain for link ${linkId}: ${JSON.stringify(events.data)}`,
+  ).toHaveLength(0);
+}
+
 
 function adminHeaders(token: string, extra: Record<string, string> = {}) {
   return {
