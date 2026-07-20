@@ -315,7 +315,7 @@ async function findAvailableSlot(
 /**
  * Structured failure dump schema (version 1):
  * {
- *   schema: "acbank.e2e.public-booking.failure/v1",
+ *   schema: "acbank.e2e.public-booking.failure/v2",
  *   test: { title, path, file, line, status, expectedStatus, durationMs, retries, workerIndex, project },
  *   errors: [{ message, stack? }],
  *   http: {
