@@ -29,6 +29,7 @@ const InternalQuotePage = lazy(() => import("./pages/InternalQuotePage"));
 const EmbedCodePage = lazy(() => import("./pages/EmbedCodePage"));
 const ClientConsultationWidgetPage = lazy(() => import("./pages/ClientConsultationWidgetPage"));
 const BrandingIntakeWidgetPage = lazy(() => import("./pages/BrandingIntakeWidgetPage"));
+const PublicBookingPage = lazy(() => import("./pages/PublicBookingPage"));
 const BrandingIntakesPage = lazy(() => import("./pages/BrandingIntakesPage"));
 const AdminSettingsPage = lazy(() => import("./pages/AdminSettingsPage"));
 const PriceManagement = lazy(() => import("./pages/PriceManagement"));
@@ -94,8 +95,9 @@ const AppChrome = () => {
   const location = useLocation();
   const isClientConsultationWidget = location.pathname === "/client-consultation-widget";
   const isBrandingIntakeWidget = location.pathname === "/branding-intake-widget";
+  const isPublicBooking = location.pathname.startsWith("/public-booking/");
   const isPanelSizeComparison = location.pathname === "/panel-size-comparison";
-  if (isClientConsultationWidget || isBrandingIntakeWidget || isPanelSizeComparison) return null;
+  if (isClientConsultationWidget || isBrandingIntakeWidget || isPublicBooking || isPanelSizeComparison) return null;
   return (
     <>
       <EmployeeOnlineHeartbeat />
@@ -128,6 +130,7 @@ const App = () => (
               <Route path="/embed-code" element={<EmbedCodePage />} />
               <Route path="/client-consultation-widget" element={<ClientConsultationWidgetPage />} />
               <Route path="/branding-intake-widget" element={<BrandingIntakeWidgetPage />} />
+              <Route path="/public-booking/:slug" element={<PublicBookingPage />} />
               <Route path="/branding-intakes" element={<G><BrandingIntakesPage /></G>} />
               <Route path="/admin-settings" element={<AdminSettingsPage />} />
               <Route path="/price-management" element={<PriceManagement />} />

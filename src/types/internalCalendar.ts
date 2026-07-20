@@ -12,7 +12,8 @@ export type CalendarSourceType =
   | 'project'
   | 'holiday'
   | 'birthday'
-  | 'notion';
+  | 'notion'
+  | 'external_booking';
 export type CalendarResourceType = 'meeting_room';
 export type CalendarViewScope = 'my' | 'all' | 'team';
 export type CalendarParticipantRole = 'organizer' | 'attendee' | 'assignee';
@@ -294,6 +295,7 @@ export const CALENDAR_EVENT_LEGEND: Array<{
   { key: 'notion', label: 'Notion 프로젝트', sourceType: 'notion', iconType: 'notion', accent: DASHBOARD_SOURCE_COLORS.notion.accent },
   { key: 'meeting', label: '미팅', sourceType: 'peer_meeting', iconType: 'meeting', accent: DASHBOARD_SOURCE_COLORS.meeting.accent },
   { key: 'meeting-reservation', label: '미팅 예약', sourceType: 'meeting_reservation', iconType: 'meeting_reservation', accent: DASHBOARD_SOURCE_COLORS['meeting-reservation'].accent },
+  { key: 'external-booking', label: '외부 예약', sourceType: 'external_booking', iconType: 'room', accent: DASHBOARD_SOURCE_COLORS.room.accent },
   { key: 'announcement-event', label: '이벤트', sourceType: 'announcement_event', iconType: 'event', accent: DASHBOARD_SOURCE_COLORS['announcement-event'].accent },
   { key: 'holiday', label: '휴일', sourceType: 'holiday', iconType: 'holiday', accent: DASHBOARD_SOURCE_COLORS.holiday.accent },
   { key: 'birthday', label: '생일', sourceType: 'birthday', iconType: 'birthday', accent: DASHBOARD_SOURCE_COLORS.birthday.accent },
@@ -356,6 +358,7 @@ export function getCalendarSourceFilter(event: Pick<InternalCalendarEvent, 'sour
   if (event.source_type === 'quote') return 'quote';
   if (event.source_type === 'project' || event.source_type === 'notion') return 'project';
   if (event.source_type === 'leave' || event.source_type === 'holiday' || event.source_type === 'birthday') return 'people';
+  if (event.source_type === 'external_booking') return 'room';
   return 'meeting';
 }
 

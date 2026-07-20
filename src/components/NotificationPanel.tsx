@@ -137,6 +137,7 @@ const NotificationPanel = ({
         return <Megaphone className="h-4 w-4 text-accent" />;
       case 'meeting_reservation':
       case 'meeting_reservation_status':
+      case 'public_booking_request':
         return <CalendarCheck className="h-4 w-4 text-sky-600" />;
       case 'quote_update':
         return <FileText className="h-4 w-4 text-primary" />;
@@ -191,6 +192,7 @@ const NotificationPanel = ({
       || notification.type === 'client_consultation_lead'
       || notification.type === 'meeting_reservation'
       || notification.type === 'meeting_reservation_status'
+      || notification.type === 'public_booking_request'
     ) return 'work';
     if (
       notification.type === 'leave_request'
@@ -221,7 +223,8 @@ const NotificationPanel = ({
       case 'channel_talk_quote_lead': return '채널톡';
       case 'client_consultation_lead': return '아임웹 폼';
       case 'meeting_reservation':
-      case 'meeting_reservation_status': return '미팅';
+      case 'meeting_reservation_status':
+      case 'public_booking_request': return '미팅';
       case 'leave_request':
       case 'leave_approved':
       case 'leave_rejected':
@@ -486,6 +489,22 @@ const NotificationPanel = ({
                       >
                         <Megaphone className="h-3 w-3 mr-1" />
                         바로가기
+                      </Button>
+                    )}
+
+                    {notification.type === 'public_booking_request' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          onRemove(notification.id);
+                          navigate('/meeting-reservations?tab=public');
+                          setOpen(false);
+                        }}
+                      >
+                        <CalendarCheck className="h-3 w-3 mr-1" />
+                        요청 보기
                       </Button>
                     )}
 

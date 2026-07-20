@@ -116,6 +116,9 @@ export function getNotificationPath(notification: AppNotification): string {
   if (notification.type === 'meeting_reservation' || notification.type === 'meeting_reservation_status') {
     return notification.data?.meetingReservationId ? `/meeting-reservations?id=${notification.data.meetingReservationId}` : '/meeting-reservations';
   }
+  if (notification.type === 'public_booking_request') {
+    return '/meeting-reservations?tab=public';
+  }
   if (notification.type === 'contract_request' || notification.type === 'contract_signed' || notification.type === 'contract_rejected' || notification.type === 'contract_withdrawn') {
     return '/my-page?tab=contracts';
   }
@@ -141,6 +144,7 @@ function getNotificationSourceKey(notification: AppNotification): DashboardSourc
   if (notification.type === 'quote_update' || notification.type === 'quote_modified') return 'quote-issued';
   if (notification.type === 'channel_talk_quote_lead' || notification.type === 'client_consultation_lead') return 'channel-talk';
   if (notification.type === 'meeting_reservation' || notification.type === 'meeting_reservation_status') return 'meeting-reservation';
+  if (notification.type === 'public_booking_request') return 'meeting-reservation';
   if (notification.type === 'approval_request' || notification.type === 'approval_approved' || notification.type === 'approval_rejected' || notification.type === 'pending_approval') return 'approval';
   if (notification.type === 'leave_request' || notification.type === 'leave_approved' || notification.type === 'leave_rejected') return 'leave';
   if (notification.type === 'attendance_correction_request' || notification.type === 'peer_feedback' || notification.type === 'performance_review_summary') return 'hr';

@@ -1412,6 +1412,9 @@ const CalendarPage = () => {
                 )}
                 <div className="flex flex-wrap gap-1">
                   <Badge variant="outline" className="rounded-full">{CALENDAR_STATUS_LABELS[selectedEvent.status]}</Badge>
+                  {selectedEvent.source_type === 'external_booking' && (
+                    <Badge variant="secondary" className="rounded-full">외부 예약</Badge>
+                  )}
                   {selectedEvent.is_redacted && <Badge variant="secondary" className="rounded-full">상세 제한</Badge>}
                   {!selectedEvent.can_edit && <Badge variant="secondary" className="rounded-full">읽기 전용</Badge>}
                   {selectedEvent.recurrence_rule && <Badge variant="secondary" className="rounded-full">반복</Badge>}
@@ -1426,6 +1429,27 @@ const CalendarPage = () => {
                   <p className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-xs leading-5 text-[#39393b]">
                     {selectedEvent.description}
                   </p>
+                )}
+                {selectedEvent.source_type === 'external_booking' && (
+                  <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-xs leading-5 text-[#39393b]">
+                    <p className="font-semibold text-[#111111]">외부 예약 정보</p>
+                    <p className="mt-1">
+                      {[selectedEvent.metadata.company_name, selectedEvent.metadata.requester_name]
+                        .filter((value) => typeof value === 'string' && value.trim())
+                        .join(' · ') || '예약자 정보는 요청 관리에서 확인'}
+                    </p>
+                    {canViewAll && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 h-8 rounded-full border-[#cacacb] bg-white"
+                        onClick={() => navigate('/meeting-reservations?tab=public')}
+                      >
+                        예약 요청 관리
+                      </Button>
+                    )}
+                  </div>
                 )}
                 {selectedEvent.can_edit && (
                   <div className="space-y-2">
