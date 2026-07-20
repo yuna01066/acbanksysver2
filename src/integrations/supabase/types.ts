@@ -5984,6 +5984,175 @@ export type Database = {
           },
         ]
       }
+      public_booking_links: {
+        Row: {
+          access_code_hash: string | null
+          allowed_resource_ids: string[]
+          allowed_weekdays: number[]
+          buffer_minutes: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration_minutes: number
+          end_time: string
+          id: string
+          is_active: boolean
+          link_type: string
+          max_days_ahead: number
+          metadata: Json
+          min_notice_minutes: number
+          notify_user_ids: string[]
+          requires_approval: boolean
+          slot_minutes: number
+          slug: string
+          start_time: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          access_code_hash?: string | null
+          allowed_resource_ids?: string[]
+          allowed_weekdays?: number[]
+          buffer_minutes?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          link_type?: string
+          max_days_ahead?: number
+          metadata?: Json
+          min_notice_minutes?: number
+          notify_user_ids?: string[]
+          requires_approval?: boolean
+          slot_minutes?: number
+          slug: string
+          start_time?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          access_code_hash?: string | null
+          allowed_resource_ids?: string[]
+          allowed_weekdays?: number[]
+          buffer_minutes?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          link_type?: string
+          max_days_ahead?: number
+          metadata?: Json
+          min_notice_minutes?: number
+          notify_user_ids?: string[]
+          requires_approval?: boolean
+          slot_minutes?: number
+          slug?: string
+          start_time?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      public_booking_requests: {
+        Row: {
+          calendar_event_id: string | null
+          company_name: string | null
+          created_at: string
+          email: string | null
+          ends_at: string
+          id: string
+          ip_hash: string | null
+          link_id: string
+          metadata: Json
+          notes: string | null
+          phone: string | null
+          purpose: string
+          requester_name: string
+          resource_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          starts_at: string
+          status: string
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          calendar_event_id?: string | null
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          ends_at: string
+          id?: string
+          ip_hash?: string | null
+          link_id: string
+          metadata?: Json
+          notes?: string | null
+          phone?: string | null
+          purpose: string
+          requester_name: string
+          resource_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          starts_at: string
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          calendar_event_id?: string | null
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          ends_at?: string
+          id?: string
+          ip_hash?: string | null
+          link_id?: string
+          metadata?: Json
+          notes?: string | null
+          phone?: string | null
+          purpose?: string
+          requester_name?: string
+          resource_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          starts_at?: string
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_booking_requests_calendar_event_id_fkey"
+            columns: ["calendar_event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_booking_requests_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "public_booking_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_booking_requests_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_activity_history: {
         Row: {
           action_type: string
@@ -7152,14 +7321,6 @@ export type Database = {
           issuer_phone: string | null
           issuer_position: string | null
           items: Json
-          lost_by: string | null
-          lost_competitor_name: string | null
-          lost_follow_up_at: string | null
-          lost_price_gap: number | null
-          lost_reason_category: string | null
-          lost_reason_detail: string | null
-          lost_recorded_at: string | null
-          lost_recorded_by: string | null
           payment_condition: string | null
           pricing_version_id: string | null
           project_followup_note: string | null
@@ -7215,14 +7376,6 @@ export type Database = {
           issuer_phone?: string | null
           issuer_position?: string | null
           items: Json
-          lost_by?: string | null
-          lost_competitor_name?: string | null
-          lost_follow_up_at?: string | null
-          lost_price_gap?: number | null
-          lost_reason_category?: string | null
-          lost_reason_detail?: string | null
-          lost_recorded_at?: string | null
-          lost_recorded_by?: string | null
           payment_condition?: string | null
           pricing_version_id?: string | null
           project_followup_note?: string | null
@@ -7278,14 +7431,6 @@ export type Database = {
           issuer_phone?: string | null
           issuer_position?: string | null
           items?: Json
-          lost_by?: string | null
-          lost_competitor_name?: string | null
-          lost_follow_up_at?: string | null
-          lost_price_gap?: number | null
-          lost_reason_category?: string | null
-          lost_reason_detail?: string | null
-          lost_recorded_at?: string | null
-          lost_recorded_by?: string | null
           payment_condition?: string | null
           pricing_version_id?: string | null
           project_followup_note?: string | null
@@ -7322,13 +7467,6 @@ export type Database = {
           {
             foreignKeyName: "saved_quotes_assigned_to_fkey"
             columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "saved_quotes_lost_recorded_by_fkey"
-            columns: ["lost_recorded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -8392,6 +8530,14 @@ export type Database = {
         }[]
       }
       cleanup_expired_quote_wizard_rows: { Args: never; Returns: number }
+      confirm_public_booking_request: {
+        Args: {
+          _request_id: string
+          _review_note?: string
+          _reviewer_id?: string
+        }
+        Returns: string
+      }
       create_approval_request: { Args: { _payload: Json }; Returns: string }
       create_calendar_event: { Args: { payload: Json }; Returns: string }
       delete_calendar_event: { Args: { payload: Json }; Returns: string }
@@ -8438,6 +8584,15 @@ export type Database = {
           title: string
           visibility: string
         }[]
+      }
+      get_calendar_resource_conflict: {
+        Args: {
+          _ends_at: string
+          _exclude_event_id?: string
+          _resource_ids: string[]
+          _starts_at: string
+        }
+        Returns: string
       }
       get_employee_online_status: {
         Args: never
