@@ -40,6 +40,12 @@ interface DocumentSyncCounts {
   total: number;
 }
 
+interface DocumentProviderUsage {
+  provider: string;
+  fileCount: number;
+  totalSize: number;
+}
+
 interface DocumentSyncIssue {
   id: string;
   file_name: string;
@@ -154,6 +160,8 @@ const StorageStatusPage = () => {
   const [documentSyncing, setDocumentSyncing] = useState(false);
   const [documentSyncIssues, setDocumentSyncIssues] = useState<DocumentSyncIssue[]>([]);
   const [singleSyncingId, setSingleSyncingId] = useState<string | null>(null);
+  const [documentProviderUsage, setDocumentProviderUsage] = useState<DocumentProviderUsage[]>([]);
+  const [documentProviderLoading, setDocumentProviderLoading] = useState(true);
 
   const fetchLovableStorage = useCallback(async () => {
     setLovableLoading(true);
@@ -341,6 +349,35 @@ const StorageStatusPage = () => {
     }
   }, []);
 
+  const fetchDocumentProviderUsage = useCallback(async () => {
+    setDocumentProviderLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('document_files')
+        .select('storage_provider, file_size');
+
+      if (error) throw error;
+
+      const grouped = new Map<string, DocumentProviderUsage>();
+      (data || []).forEach((row: any) => {
+        const provider = row.storage_provider || 'unknown';
+        const current = grouped.get(provider) || { provider, fileCount: 0, totalSize: 0 };
+        current.fileCount += 1;
+        current.totalSize += Number(row.file_size || 0);
+        grouped.set(provider, current);
+      });
+
+      setDocumentProviderUsage(
+        Array.from(grouped.values()).sort((a, b) => b.totalSize - a.totalSize)
+      );
+    } catch (err) {
+      console.error('Document provider usage fetch error:', err);
+      setDocumentProviderUsage([]);
+    } finally {
+      setDocumentProviderLoading(false);
+    }
+  }, []);
+
   const refreshDocumentSync = useCallback(async () => {
     await Promise.all([
       fetchDocumentSyncCounts(),
@@ -422,7 +459,8 @@ const StorageStatusPage = () => {
     fetchGcsStorage();
     fetchDriveStorage();
     refreshDocumentSync();
-  }, [fetchLovableStorage, fetchDbSize, fetchGcsStorage, fetchDriveStorage, refreshDocumentSync]);
+    fetchDocumentProviderUsage();
+  }, [fetchLovableStorage, fetchDbSize, fetchGcsStorage, fetchDriveStorage, refreshDocumentSync, fetchDocumentProviderUsage]);
 
   useEffect(() => {
     if (!authLoading && userRole !== 'admin' && userRole !== 'moderator') {
@@ -437,7 +475,9 @@ const StorageStatusPage = () => {
   const lovableTotalUsed = bucketUsages.reduce((sum, b) => sum + b.totalSize, 0);
   const lovablePercent = Math.min((lovableTotalUsed / LOVABLE_FREE_STORAGE) * 100, 100);
   const totalFiles = bucketUsages.reduce((sum, b) => sum + b.fileCount, 0);
-  const isLoading = lovableLoading || dbLoading || gcsLoading || driveLoading || documentSyncLoading;
+  const isLoading = lovableLoading || dbLoading || gcsLoading || driveLoading || documentSyncLoading || documentProviderLoading;
+  const supabaseDocumentUsage = documentProviderUsage.find((item) => item.provider === 'supabase_storage');
+  const gcsDocumentUsage = documentProviderUsage.find((item) => item.provider === 'gcs');
 
   const tableLabels: Record<string, string> = {
     profiles: '사용자 프로필', saved_quotes: '저장된 견적서', recipients: '거래처',
@@ -607,6 +647,68 @@ const StorageStatusPage = () => {
           </Card>
         </div>
 
+        <Card className="mb-6 border-amber-200 bg-amber-50/40">
+          <CardHeader className="pb-3">
+            <BrandedCardHeader icon={AlertTriangle} title="Cloud 사용량 제한 대응 체크리스트" />
+            <CardDescription>
+              Lovable 경고는 앱 내부 저장소뿐 아니라 Edge Function, Network, Database, AI 사용량도 포함될 수 있습니다.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-lg border bg-background p-3">
+                <p className="text-sm font-semibold">운영 UI에서 즉시 확인</p>
+                <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
+                  <li>1. Lovable Settings → Cloud & AI balance 잔액 확인</li>
+                  <li>2. 비용 상위 항목이 Storage / Network / Compute / AI 중 무엇인지 기록</li>
+                  <li>3. 잔액 부족이면 top-up 또는 automatic top-up을 먼저 설정</li>
+                </ul>
+              </div>
+              <div className="rounded-lg border bg-background p-3">
+                <p className="text-sm font-semibold">앱 내부 전환 상태</p>
+                {documentProviderLoading ? (
+                  <p className="mt-2 text-xs text-muted-foreground">파일 원장 provider 조회 중...</p>
+                ) : (
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-md bg-muted/40 px-2 py-1.5">
+                      <p className="text-muted-foreground">Supabase Storage 원장</p>
+                      <p className="font-semibold">{supabaseDocumentUsage?.fileCount || 0}개 · {formatBytes(supabaseDocumentUsage?.totalSize || 0)}</p>
+                    </div>
+                    <div className="rounded-md bg-muted/40 px-2 py-1.5">
+                      <p className="text-muted-foreground">GCS 원장</p>
+                      <p className="font-semibold">{gcsDocumentUsage?.fileCount || 0}개 · {formatBytes(gcsDocumentUsage?.totalSize || 0)}</p>
+                    </div>
+                  </div>
+                )}
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  신규 견적 첨부/PDF는 GCS 저장을 기준으로 하며, 기존 Supabase 파일은 검증 후 단계적으로 이동합니다.
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 rounded-lg border bg-background p-3">
+              <p className="text-sm font-semibold">AI 사용량 확인 대상</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {[
+                  'quote-wizard',
+                  'channel-talk-webhook',
+                  'generate-response-draft',
+                  'ocr-document',
+                  'extract-business-info',
+                  'simulate-tax',
+                  'calculate-salary',
+                ].map((name) => (
+                  <Badge key={name} variant="secondary" className="text-[10px]">
+                    {name}
+                  </Badge>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Lovable Usage에서 AI 항목이 높게 나오면 위 함수들의 호출량 제한 또는 AI provider 교체를 2차 범위로 진행합니다.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* 데이터 저장 위치 안내 */}
         <Card className="mb-6">
           <CardHeader className="pb-3">
@@ -616,9 +718,9 @@ const StorageStatusPage = () => {
           <CardContent>
             <div className="space-y-3">
               {[
-                { data: '견적서 첨부 / PDF', locations: ['Lovable Cloud', 'Google Drive'], badges: ['quote-attachments', 'quote-pdfs', 'document_files'] },
+                { data: '견적서 첨부 / PDF', locations: ['GCS', 'Google Drive', 'Lovable Cloud(기존)'], badges: ['quote-attachments/', 'quote-pdfs/', 'document_files'] },
                 { data: '포트폴리오 사진', locations: ['Google Drive', 'Supabase Storage', 'Database'], badges: ['ACBANK_SYS/04_포트폴리오', 'portfolio-thumbnails', 'portfolio_images'] },
-                { data: '프로젝트 업데이트 첨부파일', locations: ['Lovable Cloud', 'GCS', 'Google Drive'], badges: ['project-update-attachments', '프로젝트업데이트'] },
+                { data: '프로젝트 업데이트 첨부파일', locations: ['GCS', 'Google Drive', 'Lovable Cloud(기존)'], badges: ['project-updates/', '프로젝트업데이트'] },
                 { data: '내부 프로젝트 증빙 (견적서/영수증)', locations: ['GCS', 'Google Drive'], badges: ['프로젝트명 > 문서유형 > 년 > 월'] },
                 { data: '직원 문서 / 프로필 사진', locations: ['Lovable Cloud'], badges: ['employee-documents', 'avatars'] },
                 { data: '팀 채팅 첨부파일', locations: ['GCS'], badges: ['team-chat/'] },
@@ -688,6 +790,24 @@ const StorageStatusPage = () => {
                           </span>
                         </div>
                       ))}
+                    <div className="mt-4 rounded-lg border bg-muted/30 p-3">
+                      <p className="text-sm font-medium">파일 원장 저장소 분포</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        신규 파일이 GCS로 저장되는지 확인하는 기준입니다. Supabase Storage 수량은 기존 파일 마이그레이션 후보입니다.
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        {documentProviderUsage.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">원장 데이터가 없습니다.</p>
+                        ) : documentProviderUsage.map((provider) => (
+                          <div key={provider.provider} className="flex items-center justify-between rounded-md bg-background px-3 py-2">
+                            <span className="text-xs font-medium">{provider.provider}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {provider.fileCount.toLocaleString()}개 · {formatBytes(provider.totalSize)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
               </CardContent>
