@@ -361,7 +361,8 @@ test.afterEach(async ({ http, adminToken, link, cleanup }, testInfo) => {
   }
 
   const dump = {
-    schema: "acbank.e2e.public-booking.failure/v1",
+    schema: "acbank.e2e.public-booking.failure/v2",
+
     test: {
       title: testInfo.title,
       path: testInfo.titlePath,
