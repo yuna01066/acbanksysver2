@@ -94,6 +94,7 @@ function safeSourceType(value: unknown): CalendarSourceType {
     || sourceType === 'holiday'
     || sourceType === 'birthday'
     || sourceType === 'notion'
+    || sourceType === 'external_booking'
   ) {
     return sourceType;
   }

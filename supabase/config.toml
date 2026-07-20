@@ -36,6 +36,9 @@ verify_jwt = true
 [functions.channel-talk-webhook]
 verify_jwt = false
 
+[functions.public-meeting-booking]
+verify_jwt = false
+
 [functions.client-consultation-intake]
 verify_jwt = false
 
