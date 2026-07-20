@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -105,6 +105,10 @@ const PerformanceReviewPage = () => {
 };
 
 const ReviewEmployeeList: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const resumeCycleId = searchParams.get('cycleId') || '';
+  const resumeRevieweeId = searchParams.get('revieweeId') || '';
+  const shouldResumeDraft = searchParams.get('resume') === '1';
   const [cycles, setCycles] = useState<ReviewCycle[]>([]);
   const [selectedCycleId, setSelectedCycleId] = useState('');
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -112,6 +116,7 @@ const ReviewEmployeeList: React.FC = () => {
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [resumeSelectionConsumed, setResumeSelectionConsumed] = useState(false);
 
   // Load cycles on mount
   useEffect(() => {
@@ -126,12 +131,13 @@ const ReviewEmployeeList: React.FC = () => {
         setCycles(data as ReviewCycle[]);
         // Default to first active cycle, or first cycle
         const active = data.find(c => c.status === 'active');
-        setSelectedCycleId(active ? active.id : data[0].id);
+        const requestedCycle = resumeCycleId ? data.find(c => c.id === resumeCycleId) : null;
+        setSelectedCycleId(requestedCycle ? requestedCycle.id : active ? active.id : data[0].id);
       }
       setLoading(false);
     };
     fetchCycles();
-  }, []);
+  }, [resumeCycleId]);
 
   // Load target employees when cycle changes
   useEffect(() => {
@@ -161,6 +167,16 @@ const ReviewEmployeeList: React.FC = () => {
     };
     fetchTargets();
   }, [selectedCycleId]);
+
+  useEffect(() => {
+    if (resumeSelectionConsumed || !resumeRevieweeId || employees.length === 0) return;
+
+    const target = employees.find(emp => emp.id === resumeRevieweeId);
+    if (!target) return;
+
+    setSelectedEmployee(target);
+    setResumeSelectionConsumed(true);
+  }, [employees, resumeRevieweeId, resumeSelectionConsumed]);
 
   const filteredEmployees = employees.filter(e => {
     if (!search.trim()) return true;
@@ -200,7 +216,12 @@ const ReviewEmployeeList: React.FC = () => {
             </Badge>
           )}
         </div>
-        <PerformanceReviewPanel userId={selectedEmployee.id} userName={selectedEmployee.full_name} />
+        <PerformanceReviewPanel
+          userId={selectedEmployee.id}
+          userName={selectedEmployee.full_name}
+          initialCycleId={selectedCycleId}
+          autoOpenDraft={shouldResumeDraft && selectedEmployee.id === resumeRevieweeId}
+        />
       </div>
     );
   }
