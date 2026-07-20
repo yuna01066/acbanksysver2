@@ -44,6 +44,8 @@ const STAGE_COLORS: Record<string, string> = {
   cancelled: '#ef4444',
 };
 
+const isQuoteLossAnalysisTarget = (quote: { lost_recorded_at?: string | null }) => Boolean(quote.lost_recorded_at);
+
 const QuoteStatisticsCard: React.FC = () => {
   const { user, isAdmin } = useAuth();
 
@@ -127,7 +129,7 @@ const QuoteStatisticsCard: React.FC = () => {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  const lostQuotes = stats.filter((q) => normalizeProjectStage(q.project_stage, (q as any).quote_status) === 'cancelled');
+  const lostQuotes = stats.filter(isQuoteLossAnalysisTarget);
   const lostAmount = lostQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0);
   const lossRate = stats.length > 0 ? Math.round((lostQuotes.length / stats.length) * 100) : 0;
   const missingLostReasonCount = lostQuotes.filter((q) => !(q as any).lost_reason_category).length;
@@ -174,7 +176,7 @@ const QuoteStatisticsCard: React.FC = () => {
           <div className="text-center p-2 rounded-lg bg-muted/50">
             <TrendingDown className="w-4 h-4 mx-auto mb-1 text-red-600" />
             <p className="text-lg font-bold">{lossRate}%</p>
-            <p className="text-[10px] text-muted-foreground">실패율</p>
+            <p className="text-[10px] text-muted-foreground">기록 실패율</p>
           </div>
         </div>
 
