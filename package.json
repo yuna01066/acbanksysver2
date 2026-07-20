@@ -11,6 +11,7 @@
     "test:pricing": "node scripts/test-price-calculations.mjs",
     "test:pricing:ab-e2e": "node scripts/test-ab-buffer-pricing-e2e.mjs",
     "test:pricing:saved-quotes": "node scripts/test-saved-quotes-unchanged.mjs",
+    "verify:panel-migration": "node scripts/verify-panel-migration-state.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "worker:quote-wizard": "node workers/quote-wizard-worker/src/index.mjs"
