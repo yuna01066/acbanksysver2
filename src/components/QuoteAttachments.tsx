@@ -17,6 +17,7 @@ import {
 } from '@/services/documentFiles';
 import { logQuoteActivity } from '@/services/quoteActivity';
 import { secureRandomToken } from '@/utils/secureRandom';
+import { GCS_BUCKET, gcsUploadFile } from '@/hooks/useGcsStorage';
 
 interface DriveSyncResult {
   success: boolean;
@@ -284,29 +285,27 @@ const QuoteAttachments = ({
             continue;
           }
 
-          const fileExt = getFileExtension(file.name) || 'bin';
-          const timestamp = Date.now();
           const random = secureRandomToken(5);
-          const fileName = `${timestamp}-${random}.${fileExt}`;
-          const filePath = `${user.id}/${fileName}`;
+          const uploadFileName = `${random}-${file.name}`;
+          const gcsPrefix = `quote-attachments/${user.id}/${quoteNumber || quoteId || 'draft'}`;
 
-          console.log('Uploading file:', { name: file.name, path: filePath, size: file.size, type: file.type });
+          console.log('Uploading file to GCS:', { name: file.name, prefix: gcsPrefix, size: file.size, type: file.type });
+          let filePath = '';
 
-          const { data, error: uploadError } = await supabase.storage
-            .from('quote-attachments')
-            .upload(filePath, file, {
-              cacheControl: '3600',
-              upsert: false
+          try {
+            const renamedFile = new File([file], uploadFileName, {
+              type: file.type || 'application/octet-stream',
             });
-
-          if (uploadError) {
-            console.error('Upload error for', file.name, ':', uploadError);
-            toast.error(`${file.name}: ${uploadError.message}`);
+            const uploadResult = await gcsUploadFile(renamedFile, gcsPrefix);
+            filePath = uploadResult.gcsPath;
+          } catch (uploadError) {
+            console.error('GCS upload error for', file.name, ':', uploadError);
+            toast.error(`${file.name}: ${uploadError instanceof Error ? uploadError.message : '업로드 실패'}`);
             uploadedCount.failed++;
             continue;
           }
 
-          console.log('Upload successful:', data);
+          console.log('GCS upload successful:', filePath);
 
           const driveFolderPath = quoteNumber ? buildIssuedQuoteDrivePath({
             quoteNumber,
@@ -328,8 +327,8 @@ const QuoteAttachments = ({
                 project_id: projectId || null,
                 document_type: 'customer_attachment',
                 file_name: file.name,
-                storage_provider: 'supabase_storage',
-                storage_bucket: 'quote-attachments',
+                storage_provider: 'gcs',
+                storage_bucket: GCS_BUCKET,
                 storage_path: filePath,
                 mime_type: file.type || 'application/octet-stream',
                 file_size: file.size,
@@ -340,11 +339,16 @@ const QuoteAttachments = ({
                   source: 'QuoteAttachments',
                   quoteNumber: quoteNumber || null,
                   originalPath: filePath,
+                  migratedFrom: 'quote-attachments',
                 },
               });
             } catch (recordError) {
               console.error('Document file record failed:', recordError);
-              await supabase.storage.from('quote-attachments').remove([filePath]);
+              await deleteStoredFile({
+                storageProvider: 'gcs',
+                storageBucket: GCS_BUCKET,
+                storagePath: filePath,
+              });
               toast.error(`${file.name}: 파일 원장 기록 실패`);
               uploadedCount.failed++;
               continue;
@@ -375,8 +379,8 @@ const QuoteAttachments = ({
             size: file.size,
             type: file.type,
             documentFileId,
-            storageProvider: 'supabase_storage',
-            storageBucket: 'quote-attachments',
+            storageProvider: 'gcs',
+            storageBucket: GCS_BUCKET,
             storagePath: filePath,
             driveFileId,
             driveFolderId,
@@ -522,32 +526,27 @@ const QuoteAttachments = ({
       const safeQuoteNumber = quoteNumber || `temp-${Date.now()}`;
       const fileRevision = quoteId ? `-${Date.now()}-${secureRandomToken(4)}` : '';
       const fileName = `${safeQuoteNumber}${fileRevision}.pdf`;
-      const filePath = `${user.id}/${safeQuoteNumber}/${fileName}`;
+      let filePath = '';
 
       // 신규 견적 작성 중에는 기존 파일을 바로 지워도 DB 참조가 없습니다.
       // 저장된 견적에서는 새 PDF가 DB에 반영된 뒤 이전 파일을 정리합니다.
       if (quotePdf?.path && !quoteId) {
         try {
-          await supabase.storage
-            .from('quote-pdfs')
-            .remove([quotePdf.path]);
+          await deleteStoredFile(getAttachmentTarget(quotePdf, 'quote-pdfs'));
           console.log('기존 PDF 삭제됨:', quotePdf.path);
         } catch (removeError) {
           console.warn('기존 PDF 삭제 실패 (무시):', removeError);
         }
       }
 
-      // quote-pdfs 버킷에 업로드. 다운로드는 public URL이 아니라 signed URL로 처리합니다.
-      const { data, error: uploadError } = await supabase.storage
-        .from('quote-pdfs')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (uploadError) {
-        console.error('PDF upload error:', uploadError);
-        toast.error(`업로드 실패: ${uploadError.message}`);
+      const gcsPrefix = `quote-pdfs/${user.id}/${safeQuoteNumber}`;
+      try {
+        const renamedFile = new File([file], fileName, { type: file.type || 'application/pdf' });
+        const uploadResult = await gcsUploadFile(renamedFile, gcsPrefix);
+        filePath = uploadResult.gcsPath;
+      } catch (uploadError) {
+        console.error('PDF GCS upload error:', uploadError);
+        toast.error(`업로드 실패: ${uploadError instanceof Error ? uploadError.message : 'PDF 업로드 실패'}`);
         return;
       }
 
@@ -571,8 +570,8 @@ const QuoteAttachments = ({
             project_id: projectId || null,
             document_type: 'quote_pdf',
             file_name: file.name,
-            storage_provider: 'supabase_storage',
-            storage_bucket: 'quote-pdfs',
+            storage_provider: 'gcs',
+            storage_bucket: GCS_BUCKET,
             storage_path: filePath,
             mime_type: file.type || 'application/pdf',
             file_size: file.size,
@@ -583,11 +582,16 @@ const QuoteAttachments = ({
               source: 'QuoteAttachments',
               quoteNumber: safeQuoteNumber,
               originalPath: filePath,
+              migratedFrom: 'quote-pdfs',
             },
           });
         } catch (recordError) {
           console.error('PDF document file record failed:', recordError);
-          await supabase.storage.from('quote-pdfs').remove([filePath]);
+          await deleteStoredFile({
+            storageProvider: 'gcs',
+            storageBucket: GCS_BUCKET,
+            storagePath: filePath,
+          });
           toast.error('PDF 파일 원장 기록에 실패했습니다.');
           return;
         }
@@ -601,8 +605,8 @@ const QuoteAttachments = ({
         uploadedAt: new Date().toISOString(),
         type: 'quote_pdf',
         documentFileId,
-        storageProvider: 'supabase_storage',
-        storageBucket: 'quote-pdfs',
+        storageProvider: 'gcs',
+        storageBucket: GCS_BUCKET,
         storagePath: filePath,
         driveFileId,
         driveFolderId,

@@ -71,8 +71,9 @@ const QuickAttendanceButton = ({ onAttendanceChanged, variant = 'default' }: Qui
         });
         attendanceFetchErrorShownRef.current = true;
       }
+    } finally {
+      setFetching(false);
     }
-    setFetching(false);
   };
 
   const fetchAttendanceStreak = async () => {

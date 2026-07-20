@@ -13,6 +13,7 @@ import { Plus, Trash2, ArrowLeft, Save, Upload, X, FileText, List } from 'lucide
 import { toast } from 'sonner';
 import { formatPrice } from '@/utils/priceCalculations';
 import { secureRandomNumericString } from '@/utils/secureRandom';
+import { GCS_BUCKET, gcsDeleteFile, gcsUploadFile } from '@/hooks/useGcsStorage';
 
 interface LineItem {
   id: string;
@@ -29,6 +30,9 @@ interface SpaceAttachment {
   path: string;
   size: number;
   type: string;
+  storageProvider?: 'supabase_storage' | 'gcs';
+  storageBucket?: string;
+  storagePath?: string;
 }
 
 const PROJECT_TYPES = ['쇼룸', '팝업', '매장', '오피스', '전시', '주거', '기타'];
@@ -215,17 +219,30 @@ const SpaceProjectFormPage = () => {
     try {
       const newAttachments: SpaceAttachment[] = [];
       for (const file of Array.from(files)) {
-        if (file.size > 10 * 1024 * 1024) {
-          toast.error(`${file.name}: 견적 첨부는 10MB 이하만 업로드 가능합니다.`);
-          continue;
+        try {
+          if (file.size > 10 * 1024 * 1024) {
+            toast.error(`${file.name}: 견적 첨부는 10MB 이하만 업로드 가능합니다.`);
+            continue;
+          }
+          const prefix = `quote-attachments/${user.id}/space/${quoteNumber || 'draft'}`;
+          const { gcsPath } = await gcsUploadFile(file, prefix);
+          if (!gcsPath) {
+            toast.error(`${file.name} 업로드 실패`);
+            continue;
+          }
+          newAttachments.push({
+            name: file.name,
+            path: gcsPath,
+            size: file.size,
+            type: file.type,
+            storageProvider: 'gcs',
+            storageBucket: GCS_BUCKET,
+            storagePath: gcsPath,
+          });
+        } catch (uploadError) {
+          console.error('Space quote attachment upload failed:', uploadError);
+          toast.error(`${file.name}: 업로드 실패`);
         }
-        const path = `space/${user.id}/${quoteNumber}/${Date.now()}-${file.name}`;
-        const { error } = await supabase.storage.from('quote-attachments').upload(path, file);
-        if (error) {
-          toast.error(`${file.name} 업로드 실패`);
-          continue;
-        }
-        newAttachments.push({ name: file.name, path, size: file.size, type: file.type });
       }
       setAttachments((prev) => [...prev, ...newAttachments]);
       if (newAttachments.length) toast.success(`${newAttachments.length}개 파일 업로드 완료`);
@@ -236,7 +253,11 @@ const SpaceProjectFormPage = () => {
   };
 
   const removeAttachment = async (att: SpaceAttachment) => {
-    await supabase.storage.from('quote-attachments').remove([att.path]);
+    if (att.storageProvider === 'gcs' || att.path.startsWith('quote-attachments/')) {
+      await gcsDeleteFile(att.storagePath || att.path);
+    } else {
+      await supabase.storage.from('quote-attachments').remove([att.path]);
+    }
     setAttachments((prev) => prev.filter((a) => a.path !== att.path));
   };
 

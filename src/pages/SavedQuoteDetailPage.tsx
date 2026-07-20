@@ -225,13 +225,16 @@ const SavedQuoteDetailPage = () => {
 
   const fetchAssigneeUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
+      const { data, error } = await (supabase.from('profile_directory' as any) as any)
+        .select('id, full_name')
         .order('full_name', { ascending: true });
 
       if (error) throw error;
-      setAssigneeUsers(data || []);
+      setAssigneeUsers((data || []).map((profile: { id: string; full_name: string | null }) => ({
+        id: profile.id,
+        full_name: profile.full_name,
+        email: null,
+      })));
     } catch (error) {
       console.error('Error fetching quote assignees:', error);
       setAssigneeUsers([]);

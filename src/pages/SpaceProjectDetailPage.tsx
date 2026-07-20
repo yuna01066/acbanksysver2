@@ -109,16 +109,16 @@ const SpaceProjectDetailPage = () => {
     })();
   }, [id, navigate]);
 
-  const downloadAttachment = async (path: string, name: string) => {
+  const downloadAttachment = async (attachment: any) => {
     try {
       const url = await getDownloadUrl({
-        storageProvider: 'supabase_storage',
-        storageBucket: 'quote-attachments',
-        storagePath: path,
+        storageProvider: attachment.storageProvider || attachment.storage_provider || 'supabase_storage',
+        storageBucket: attachment.storageBucket || attachment.storage_bucket || 'quote-attachments',
+        storagePath: attachment.storagePath || attachment.storage_path || attachment.path,
       });
       const a = document.createElement('a');
       a.href = url;
-      a.download = name;
+      a.download = attachment.name;
       a.target = '_blank';
       a.click();
     } catch {
@@ -337,7 +337,7 @@ const SpaceProjectDetailPage = () => {
                     <FileText className="w-4 h-4 shrink-0" />
                     <span className="truncate text-sm">{a.name}</span>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => downloadAttachment(a.path, a.name)}>
+                  <Button variant="ghost" size="sm" onClick={() => downloadAttachment(a)}>
                     <Download className="w-4 h-4" />
                   </Button>
                 </div>

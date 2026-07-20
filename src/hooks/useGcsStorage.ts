@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseFunctionUrl } from '@/lib/supabaseFunctions';
 
 interface GcsUploadResult {
   success: boolean;
@@ -6,7 +7,7 @@ interface GcsUploadResult {
   gcsPath: string;
 }
 
-const GCS_BUCKET = 'acbank_sys2';
+export const GCS_BUCKET = 'acbank_sys2';
 
 async function getAuthToken(): Promise<string> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -38,10 +39,17 @@ export async function gcsUploadFile(
     .replace(/_+/g, '_');
   const gcsPath = `${pathPrefix}/${Date.now()}_${safeName}`;
 
-  // Send file as binary via FormData-like approach using custom headers
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const url = `https://${projectId}.supabase.co/functions/v1/gcs-storage`;
+  // Send file as binary via custom headers. This avoids base64 overhead for large drawings/PDFs.
+  const anonKey = (
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+    || import.meta.env.VITE_SUPABASE_ANON_KEY
+  ) as string | undefined;
+
+  if (!anonKey) {
+    throw new Error('VITE_SUPABASE_PUBLISHABLE_KEY 환경변수가 필요합니다.');
+  }
+
+  const url = getSupabaseFunctionUrl('gcs-storage');
 
   const res = await fetch(url, {
     method: 'POST',
