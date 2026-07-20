@@ -364,6 +364,17 @@ const ADMIN_FEATURES: AdminFeatureItem[] = [
     priority: 70,
     path: '/error-logs',
   },
+  {
+    id: 'panel-pricing-impact',
+    title: 'AB+버퍼 가격 영향 대시보드',
+    description: '2026-06-01 A/B 상한 + 3% 버퍼 가격의 사이즈/두께별 영향과 레거시 3*6·생산 규격 위반 등 불일치를 확인합니다.',
+    category: 'quote',
+    icon: TrendingUp,
+    keywords: 'AB 상한 버퍼 가격 영향 pricing impact panel 3*6 소3*6 대3*6 사틴 아스텔 discrepancy',
+    access: 'admin',
+    priority: 75,
+    path: '/panel-pricing-impact',
+  },
 ];
 
 const CATEGORY_ORDER: AdminFeatureCategory[] = ['approval', 'people', 'quote', 'sales', 'system'];
