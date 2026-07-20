@@ -6077,24 +6077,24 @@ export type Database = {
       }
       public_booking_requests: {
         Row: {
+          assigned_to: string | null
           calendar_event_id: string | null
           company_name: string | null
-          assigned_to: string | null
-          contact_preference: string | null
           consultation_lead_id: string | null
+          contact_preference: string | null
           created_at: string
           email: string | null
           ends_at: string
           id: string
           ip_hash: string | null
           link_id: string
+          meeting_mode: string
           metadata: Json
           notes: string | null
           phone: string | null
           purpose: string
           requester_name: string
           resource_id: string | null
-          meeting_mode: string
           review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -6104,24 +6104,24 @@ export type Database = {
           user_agent: string | null
         }
         Insert: {
+          assigned_to?: string | null
           calendar_event_id?: string | null
           company_name?: string | null
-          assigned_to?: string | null
-          contact_preference?: string | null
           consultation_lead_id?: string | null
+          contact_preference?: string | null
           created_at?: string
           email?: string | null
           ends_at: string
           id?: string
           ip_hash?: string | null
           link_id: string
+          meeting_mode?: string
           metadata?: Json
           notes?: string | null
           phone?: string | null
           purpose: string
           requester_name: string
           resource_id?: string | null
-          meeting_mode?: string
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -6131,24 +6131,24 @@ export type Database = {
           user_agent?: string | null
         }
         Update: {
+          assigned_to?: string | null
           calendar_event_id?: string | null
           company_name?: string | null
-          assigned_to?: string | null
-          contact_preference?: string | null
           consultation_lead_id?: string | null
+          contact_preference?: string | null
           created_at?: string
           email?: string | null
           ends_at?: string
           id?: string
           ip_hash?: string | null
           link_id?: string
+          meeting_mode?: string
           metadata?: Json
           notes?: string | null
           phone?: string | null
           purpose?: string
           requester_name?: string
           resource_id?: string | null
-          meeting_mode?: string
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -8633,6 +8633,15 @@ export type Database = {
           _exclude_event_id?: string
           _resource_ids: string[]
           _starts_at: string
+        }
+        Returns: string
+      }
+      get_calendar_user_conflict: {
+        Args: {
+          _ends_at: string
+          _exclude_event_id?: string
+          _starts_at: string
+          _user_ids: string[]
         }
         Returns: string
       }
