@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Star, Target, TrendingUp, MessageSquare, ChevronDown, ChevronUp, Lock, FileText } from 'lucide-react';
+import { Loader2, Star, Target, TrendingUp, MessageSquare, ChevronDown, ChevronUp, Lock, FileText, ShieldCheck } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 interface ReviewCycle {
@@ -35,9 +35,6 @@ interface Review {
   reviewer_type: string;
   overall_grade: string | null;
   goal_achievement_rate: number | null;
-  strengths: string | null;
-  improvements: string | null;
-  general_comment: string | null;
   status: string;
   created_at: string;
   scores?: ReviewScore[];
@@ -108,7 +105,7 @@ const MyPerformanceReviewResults: React.FC = () => {
     if (!user) return;
     const { data: reviewsData } = await supabase
       .from('performance_reviews')
-      .select('id, reviewer_type, overall_grade, goal_achievement_rate, strengths, improvements, general_comment, status, created_at')
+      .select('id, reviewer_type, overall_grade, goal_achievement_rate, status, created_at')
       .eq('reviewee_id', user.id)
       .eq('cycle_id', selectedCycleId)
       .eq('status', 'submitted')
@@ -189,6 +186,20 @@ const MyPerformanceReviewResults: React.FC = () => {
     const avg = scores.length > 0 ? scores.reduce((sum, s) => sum + s.score, 0) / scores.length : null;
     return { ...cat, avg };
   });
+  const radarCategories = categoryAvgScores.filter(cat => cat.avg !== null).slice(0, 6);
+  const getRadarPoint = (index: number, value: number, total: number, radius: number) => {
+    const angle = (Math.PI * 2 * index) / total - Math.PI / 2;
+    return {
+      x: 100 + Math.cos(angle) * radius * value,
+      y: 100 + Math.sin(angle) * radius * value,
+    };
+  };
+  const radarPolygon = radarCategories
+    .map((cat, index) => {
+      const point = getRadarPoint(index, (cat.avg || 0) / 10, radarCategories.length, 70);
+      return `${point.x},${point.y}`;
+    })
+    .join(' ');
 
   if (loading) {
     return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>;
@@ -340,18 +351,56 @@ const MyPerformanceReviewResults: React.FC = () => {
           <Card>
             <CardContent className="p-4">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-3">항목별 평균 점수</h4>
-              <div className="space-y-2">
-                {categoryAvgScores.map(cat => (
-                  <div key={cat.id} className="flex items-center gap-3">
-                    <span className="text-sm w-32 shrink-0 truncate">{cat.name}</span>
-                    <div className="flex-1 bg-muted rounded-full h-2.5">
-                      <div className="bg-primary rounded-full h-2.5 transition-all" style={{ width: `${(cat.avg ?? 0) * 10}%` }} />
+              <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
+                {radarCategories.length >= 3 && (
+                  <div className="rounded-xl border bg-background p-3">
+                    <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      역량 육각형
                     </div>
-                    <span className="text-sm font-mono font-medium w-10 text-right">
-                      {cat.avg !== null ? cat.avg.toFixed(1) : '-'}
-                    </span>
+                    <svg viewBox="0 0 200 200" className="mx-auto h-48 w-48" role="img" aria-label="업무 역량 육각형 차트">
+                      {[0.25, 0.5, 0.75, 1].map(ring => {
+                        const points = radarCategories
+                          .map((_, index) => {
+                            const point = getRadarPoint(index, ring, radarCategories.length, 70);
+                            return `${point.x},${point.y}`;
+                          })
+                          .join(' ');
+                        return <polygon key={ring} points={points} fill="none" stroke="hsl(var(--border))" strokeWidth="1" />;
+                      })}
+                      {radarCategories.map((cat, index) => {
+                        const edge = getRadarPoint(index, 1, radarCategories.length, 70);
+                        const label = getRadarPoint(index, 1.18, radarCategories.length, 70);
+                        return (
+                          <g key={cat.id}>
+                            <line x1="100" y1="100" x2={edge.x} y2={edge.y} stroke="hsl(var(--border))" strokeWidth="1" />
+                            <text x={label.x} y={label.y} textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-[9px] font-medium">
+                              {cat.name.length > 6 ? `${cat.name.slice(0, 6)}...` : cat.name}
+                            </text>
+                          </g>
+                        );
+                      })}
+                      <polygon points={radarPolygon} fill="hsl(var(--primary) / 0.18)" stroke="hsl(var(--primary))" strokeWidth="2" />
+                      {radarCategories.map((cat, index) => {
+                        const point = getRadarPoint(index, (cat.avg || 0) / 10, radarCategories.length, 70);
+                        return <circle key={cat.id} cx={point.x} cy={point.y} r="3" fill="hsl(var(--primary))" />;
+                      })}
+                    </svg>
                   </div>
-                ))}
+                )}
+                <div className="space-y-2">
+                  {categoryAvgScores.map(cat => (
+                    <div key={cat.id} className="flex items-center gap-3">
+                      <span className="text-sm w-32 shrink-0 truncate">{cat.name}</span>
+                      <div className="flex-1 bg-muted rounded-full h-2.5">
+                        <div className="bg-primary rounded-full h-2.5 transition-all" style={{ width: `${(cat.avg ?? 0) * 10}%` }} />
+                      </div>
+                      <span className="text-sm font-mono font-medium w-10 text-right">
+                        {cat.avg !== null ? cat.avg.toFixed(1) : '-'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -421,30 +470,13 @@ const MyPerformanceReviewResults: React.FC = () => {
                   </div>
                 )}
                 <Separator />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {review.strengths && (
-                    <div>
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 flex items-center gap-1">
-                        <TrendingUp className="h-3 w-3" />강점
-                      </h4>
-                      <p className="text-sm whitespace-pre-line bg-card p-3 rounded-lg border">{review.strengths}</p>
-                    </div>
-                  )}
-                  {review.improvements && (
-                    <div>
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 flex items-center gap-1">
-                        <MessageSquare className="h-3 w-3" />개선점
-                      </h4>
-                      <p className="text-sm whitespace-pre-line bg-card p-3 rounded-lg border">{review.improvements}</p>
-                    </div>
-                  )}
-                </div>
-                {review.general_comment && (
-                  <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5">종합 의견</h4>
-                    <p className="text-sm whitespace-pre-line bg-card p-3 rounded-lg border">{review.general_comment}</p>
+                <div className="rounded-lg border bg-card p-3 text-sm text-muted-foreground">
+                  <div className="mb-1 flex items-center gap-1.5 font-medium text-foreground">
+                    <Lock className="h-3.5 w-3.5" />
+                    개별 코멘트 비공개
                   </div>
-                )}
+                  평가자의 문체가 노출되지 않도록 개별 코멘트는 표시하지 않습니다. 직원에게 전달되는 내용은 항목별 점수와 관리자 공식 요약으로 정리됩니다.
+                </div>
               </div>
             )}
           </Card>

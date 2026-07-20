@@ -6,16 +6,26 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Plus, Star, Target, MessageSquare, TrendingUp, Loader2, ChevronDown, ChevronUp, Send, Pencil, Lock, Trash2 } from 'lucide-react';
+import { Plus, Star, Target, MessageSquare, TrendingUp, Loader2, ChevronDown, ChevronUp, Send, Pencil, Lock, Trash2, CheckCircle2, ListChecks, ShieldCheck } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import {
+  IMPROVEMENT_FEEDBACK_OPTIONS,
+  NEXT_ACTION_FEEDBACK_OPTIONS,
+  SCORE_EVIDENCE_OPTIONS,
+  STRENGTH_FEEDBACK_OPTIONS,
+  serializeFeedbackSelections,
+  splitFeedbackText,
+  keepStructuredFeedbackOnly,
+  summarizeStructuredFeedback,
+  toggleFeedbackSelection,
+} from '@/lib/performanceFeedback';
 
 interface ReviewCycle {
   id: string;
@@ -96,6 +106,13 @@ const gradeColor = (grade: string) => {
     default: return '';
   }
 };
+
+const chipClassName = (selected: boolean) =>
+  `min-h-9 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+    selected
+      ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+      : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-muted'
+  }`;
 
 interface Props {
   userId: string;
@@ -227,13 +244,13 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
       setFormReviewerType(draftReview.reviewer_type || 'superior');
       setFormGrade(draftReview.overall_grade || '');
       setFormGoalRate(draftReview.goal_achievement_rate ?? 70);
-      setFormStrengths(draftReview.strengths || '');
-      setFormImprovements(draftReview.improvements || '');
-      setFormComment(draftReview.general_comment || '');
+      setFormStrengths(keepStructuredFeedbackOnly(draftReview.strengths));
+      setFormImprovements(keepStructuredFeedbackOnly(draftReview.improvements));
+      setFormComment(keepStructuredFeedbackOnly(draftReview.general_comment));
       const scores: Record<string, { score: number; comment: string }> = {};
       categories.forEach(c => { scores[c.id] = { score: 7, comment: '' }; });
       (draftReview.scores || []).forEach(s => {
-        scores[s.category_id] = { score: s.score, comment: s.comment || '' };
+        scores[s.category_id] = { score: s.score, comment: keepStructuredFeedbackOnly(s.comment) };
       });
       setFormScores(scores);
     } else {
@@ -360,6 +377,37 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
     if (hasExistingReview) return '이미 이 분기에 평가를 작성하셨습니다';
     if (!isCycleActive) return selectedCycle?.status === 'draft' ? '평가 기간 준비중입니다' : '평가 기간이 종료되었습니다';
     return '';
+  };
+
+  const toggleFeedback = (current: string, value: string, setter: (value: string) => void) => {
+    setter(serializeFeedbackSelections(toggleFeedbackSelection(splitFeedbackText(current), value)));
+  };
+
+  const renderFeedbackChips = (
+    options: string[],
+    current: string,
+    setter: (value: string) => void,
+  ) => {
+    const selected = splitFeedbackText(current);
+    return (
+      <div className="flex flex-wrap gap-2">
+        {options.map(option => {
+          const isSelected = selected.includes(option);
+          return (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={isSelected}
+              className={chipClassName(isSelected)}
+              onClick={() => toggleFeedback(current, option, setter)}
+            >
+              {isSelected && <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />}
+              {option}
+            </button>
+          );
+        })}
+      </div>
+    );
   };
 
   if (loading) {
@@ -600,25 +648,22 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
                   </div>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  {review.strengths && (
-                    <div>
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 flex items-center gap-1"><TrendingUp className="h-3 w-3" />강점</h4>
-                      <p className="text-sm whitespace-pre-line bg-card p-3 rounded-lg border">{review.strengths}</p>
-                    </div>
-                  )}
-                  {review.improvements && (
-                    <div>
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 flex items-center gap-1"><MessageSquare className="h-3 w-3" />개선점</h4>
-                      <p className="text-sm whitespace-pre-line bg-card p-3 rounded-lg border">{review.improvements}</p>
-                    </div>
-                  )}
-                </div>
-                {review.general_comment && (
                   <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5">종합 의견</h4>
-                    <p className="text-sm whitespace-pre-line bg-card p-3 rounded-lg border">{review.general_comment}</p>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 flex items-center gap-1"><TrendingUp className="h-3 w-3" />선택형 강점</h4>
+                    <p className="text-sm whitespace-pre-line bg-card p-3 rounded-lg border">
+                      {summarizeStructuredFeedback([review.strengths], '선택형 강점 피드백이 없습니다.', 4)}
+                    </p>
                   </div>
-                )}
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 flex items-center gap-1"><MessageSquare className="h-3 w-3" />선택형 개선점</h4>
+                    <p className="text-sm whitespace-pre-line bg-card p-3 rounded-lg border">
+                      {summarizeStructuredFeedback([review.improvements], '선택형 개선 피드백이 없습니다.', 4)}
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-dashed bg-card p-3 text-sm text-muted-foreground">
+                  개별 코멘트 원문은 문체 노출을 막기 위해 표시하지 않습니다. 직원에게 전달되는 내용은 항목별 점수와 관리자 공식 요약으로 정리됩니다.
+                </div>
               </div>
             )}
           </Card>
@@ -711,6 +756,36 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
                         max={10}
                         step={1}
                       />
+                      <div className="pt-1">
+                        <p className="mb-1.5 text-xs text-muted-foreground">관찰 근거 선택</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {SCORE_EVIDENCE_OPTIONS.map(option => {
+                            const selected = splitFeedbackText(formScores[cat.id]?.comment).includes(option);
+                            return (
+                              <button
+                                key={`${cat.id}-${option}`}
+                                type="button"
+                                aria-pressed={selected}
+                                className={chipClassName(selected)}
+                                onClick={() => setFormScores(prev => {
+                                  const current = splitFeedbackText(prev[cat.id]?.comment);
+                                  const next = toggleFeedbackSelection(current, option);
+                                  return {
+                                    ...prev,
+                                    [cat.id]: {
+                                      score: prev[cat.id]?.score ?? 7,
+                                      comment: serializeFeedbackSelections(next),
+                                    },
+                                  };
+                                })}
+                              >
+                                {selected && <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />}
+                                {option}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -718,19 +793,36 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
 
               <Separator />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs text-muted-foreground">강점</Label>
-                  <Textarea value={formStrengths} onChange={e => setFormStrengths(e.target.value)} rows={3} placeholder="이 직원의 강점을 작성하세요" className="mt-1 text-sm resize-none" />
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <div className="mb-3 flex items-start gap-2">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 text-primary" />
+                  <div>
+                    <h3 className="text-sm font-semibold">익명성 보호형 피드백</h3>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      자유서술 대신 표준 문구를 선택합니다. 직원에게는 개별 평가자의 문장 원문이 아니라 항목별 점수와 관리자 요약 중심으로 전달됩니다.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">개선점</Label>
-                  <Textarea value={formImprovements} onChange={e => setFormImprovements(e.target.value)} rows={3} placeholder="개선이 필요한 부분을 작성하세요" className="mt-1 text-sm resize-none" />
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div className="rounded-lg border bg-background p-3">
+                    <Label className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      <TrendingUp className="h-3.5 w-3.5" /> 강점 선택
+                    </Label>
+                    {renderFeedbackChips(STRENGTH_FEEDBACK_OPTIONS, formStrengths, setFormStrengths)}
+                  </div>
+                  <div className="rounded-lg border bg-background p-3">
+                    <Label className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      <MessageSquare className="h-3.5 w-3.5" /> 개선 포인트 선택
+                    </Label>
+                    {renderFeedbackChips(IMPROVEMENT_FEEDBACK_OPTIONS, formImprovements, setFormImprovements)}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">종합 의견</Label>
-                <Textarea value={formComment} onChange={e => setFormComment(e.target.value)} rows={3} placeholder="종합적인 평가 의견을 작성하세요" className="mt-1 text-sm resize-none" />
+                <div className="mt-4 rounded-lg border bg-background p-3">
+                  <Label className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                    <ListChecks className="h-3.5 w-3.5" /> 다음 기간 실행 항목
+                  </Label>
+                  {renderFeedbackChips(NEXT_ACTION_FEEDBACK_OPTIONS, formComment, setFormComment)}
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
