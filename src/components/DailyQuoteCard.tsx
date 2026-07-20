@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { CheckCircle2, Sparkles } from 'lucide-react';
+import { CalendarPlus, CheckCircle2, ClipboardCheck, FileText, Sparkles, UserRoundCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { triggerDailyHamzzi } from '@/lib/hamzziEvents';
 import { cn } from '@/lib/utils';
 
@@ -46,12 +47,40 @@ const checkpoints = [
   '포트폴리오 사례 하나를 상담에 활용하기',
 ];
 
+const quickActions = [
+  {
+    label: '업무평가',
+    description: '평가 작성',
+    path: '/performance-review',
+    icon: ClipboardCheck,
+  },
+  {
+    label: '연차신청',
+    description: '휴가 관리',
+    path: '/leave-management',
+    icon: CalendarPlus,
+  },
+  {
+    label: '견적 작성',
+    description: '새 견적',
+    path: '/calculator?type=quote',
+    icon: FileText,
+  },
+  {
+    label: '내 스케줄',
+    description: '일정 확인',
+    path: '/my-page?tab=schedule&view=day',
+    icon: UserRoundCheck,
+  },
+];
+
 const getDateKey = (date = new Date()) => {
   const pad = (value: number) => String(value).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 };
 
 const DailyQuoteCard: React.FC = () => {
+  const navigate = useNavigate();
   const [revealed, setRevealed] = useState(false);
   const [autoHint, setAutoHint] = useState(false);
 
@@ -101,23 +130,18 @@ const DailyQuoteCard: React.FC = () => {
   return (
     <Card
       className={cn(
-        'dashboard-quote-card h-full w-full cursor-pointer rounded-2xl border-border bg-card shadow-none outline-none',
+        'dashboard-quote-card h-full w-full rounded-2xl border-border bg-card shadow-none outline-none',
         revealed && 'dashboard-quote-card--revealed',
         autoHint && 'dashboard-quote-card--hint',
       )}
-      role="button"
-      tabIndex={0}
-      onClick={handleReveal}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          handleReveal();
-        }
-      }}
-      aria-expanded={revealed}
     >
-      <CardContent className="flex h-full min-h-[132px] items-center p-4 sm:p-5">
-        <div className="flex items-start gap-3">
+      <CardContent className="flex h-full min-h-[228px] flex-col justify-center p-4 sm:p-5">
+        <button
+          type="button"
+          className="flex w-full items-start gap-3 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={handleReveal}
+          aria-expanded={revealed}
+        >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
             <Sparkles className="h-5 w-5" />
           </div>
@@ -135,6 +159,33 @@ const DailyQuoteCard: React.FC = () => {
               </div>
               <p className="mt-1 leading-relaxed">{todayCheckpoint}</p>
             </div>
+          </div>
+        </button>
+        <div className="mt-5 border-t border-border pt-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-4">
+            {quickActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.path}
+                  type="button"
+                  className="group flex min-h-11 items-center gap-2 rounded-xl border border-border bg-background/70 px-3 py-2 text-left transition-colors hover:border-foreground/25 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    navigate(action.path);
+                  }}
+                  aria-label={`${action.label} 바로가기`}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/60 text-foreground transition-transform group-hover:-translate-y-0.5">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-semibold text-foreground">{action.label}</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">{action.description}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </CardContent>
