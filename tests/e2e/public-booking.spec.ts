@@ -37,9 +37,12 @@ type LogEntry = {
   method: string;
   url: string;
   status?: number;
+  durationMs?: number;
+  responseBytes?: number;
   request?: unknown;
   response?: unknown;
   error?: string;
+
 };
 
 class HttpRecorder {
@@ -61,7 +64,7 @@ class HttpRecorder {
     method: "GET" | "POST" | "DELETE",
     url: string,
     init: { headers?: Record<string, string>; data?: unknown } = {},
-  ): Promise<{ status: number; data: T; text: string }> {
+  ): Promise<{ status: number; data: T; text: string; durationMs: number; responseBytes: number }> {
     const entry: LogEntry = {
       ts: new Date().toISOString(),
       label,
@@ -70,6 +73,7 @@ class HttpRecorder {
       request: init.data !== undefined ? this.redact(init.data) : undefined,
     };
     this.entries.push(entry);
+    const startedAt = performance.now();
     try {
       const res =
         method === "GET"
@@ -78,6 +82,8 @@ class HttpRecorder {
           ? await this.api.delete(url, { headers: init.headers })
           : await this.api.post(url, { headers: init.headers, data: init.data });
       const text = await res.text();
+      const durationMs = Math.round((performance.now() - startedAt) * 1000) / 1000;
+      const responseBytes = new TextEncoder().encode(text).length;
       let data: unknown = text;
       try {
         data = text ? JSON.parse(text) : {};
@@ -86,12 +92,17 @@ class HttpRecorder {
       }
       entry.status = res.status();
       entry.response = data;
-      return { status: res.status(), data: data as T, text };
+      entry.durationMs = durationMs;
+      entry.responseBytes = responseBytes;
+      return { status: res.status(), data: data as T, text, durationMs, responseBytes };
     } catch (err) {
+      entry.durationMs = Math.round((performance.now() - startedAt) * 1000) / 1000;
       entry.error = err instanceof Error ? err.message : String(err);
       throw err;
     }
   }
+}
+
 }
 
 type Fixtures = {
@@ -304,7 +315,7 @@ async function findAvailableSlot(
 /**
  * Structured failure dump schema (version 1):
  * {
- *   schema: "acbank.e2e.public-booking.failure/v1",
+ *   schema: "acbank.e2e.public-booking.failure/v2",
  *   test: { title, path, file, line, status, expectedStatus, durationMs, retries, workerIndex, project },
  *   errors: [{ message, stack? }],
  *   http: {
@@ -350,7 +361,8 @@ test.afterEach(async ({ http, adminToken, link, cleanup }, testInfo) => {
   }
 
   const dump = {
-    schema: "acbank.e2e.public-booking.failure/v1",
+    schema: "acbank.e2e.public-booking.failure/v2",
+
     test: {
       title: testInfo.title,
       path: testInfo.titlePath,
@@ -364,10 +376,24 @@ test.afterEach(async ({ http, adminToken, link, cleanup }, testInfo) => {
       project: testInfo.project.name,
     },
     errors: testInfo.errors.map((e) => ({ message: e.message, stack: e.stack })),
-    http: {
-      count: http.entries.length,
-      entries: http.entries.map((e, i) => ({ seq: i, ...e })),
-    },
+    http: (() => {
+      const entries = http.entries.map((e, i) => ({ seq: i, ...e }));
+      const totalMs = entries.reduce((s, e) => s + (e.durationMs ?? 0), 0);
+      const totalBytes = entries.reduce((s, e) => s + (e.responseBytes ?? 0), 0);
+      const slowest = [...entries]
+        .filter((e) => typeof e.durationMs === "number")
+        .sort((a, b) => (b.durationMs ?? 0) - (a.durationMs ?? 0))
+        .slice(0, 5)
+        .map((e) => ({ seq: e.seq, label: e.label, method: e.method, url: e.url, status: e.status, durationMs: e.durationMs, responseBytes: e.responseBytes }));
+      return {
+        count: entries.length,
+        totalDurationMs: Math.round(totalMs * 1000) / 1000,
+        totalResponseBytes: totalBytes,
+        slowest,
+        entries,
+      };
+    })(),
+
     db: {
       link: link ?? null,
       queries: dbQueries,
