@@ -473,7 +473,7 @@ test.describe("public-meeting-booking E2E", () => {
     expect(event.data[0].source_type).toBe("external_booking");
   });
 
-  test("concurrent requests for the same slot: one succeeds, the other 409s", async ({
+  test("concurrent requests: winner confirmed, loser rejected, exactly one event", async ({
     http,
     adminToken,
     resourceId,
@@ -493,8 +493,9 @@ test.describe("public-meeting-booking E2E", () => {
       purpose: `Playwright E2E conflict ${suffix}`,
     });
 
-    // Fire both requests in parallel — get_calendar_resource_conflict must
-    // let exactly one through and reject the other with 409.
+    // Fire both create-request calls in parallel. Conflict is only checked
+    // against confirmed calendar_events, so both should land as pending_review.
+    // The race is resolved at confirm time by get_calendar_resource_conflict.
     const [a, b] = await Promise.all([
       callFn<{ requestId?: string; status?: string; error?: string }>(
         http,
@@ -512,36 +513,87 @@ test.describe("public-meeting-booking E2E", () => {
       if (r.status === 200 && r.data.requestId) cleanup.requestIds.push(r.data.requestId);
     }
 
-    const statuses = [a.status, b.status].sort();
-    expect(statuses, `unexpected statuses: ${JSON.stringify({ a, b })}`).toEqual([200, 409]);
+    expect(
+      [a.status, b.status],
+      `both create-request calls must succeed, got: ${JSON.stringify({ a, b })}`,
+    ).toEqual([200, 200]);
+    expect(a.data.status).toBe("pending_review");
+    expect(b.data.status).toBe("pending_review");
 
-    const loser = a.status === 409 ? a : b;
-    expect(loser.data.error).toMatch(/이미 예약/);
-
-    // Confirm the winner and verify only one calendar_events row exists
-    // for the resource + start time.
-    const winner = a.status === 200 ? a : b;
-    expect(winner.data.requestId).toBeTruthy();
-    const confirm = await callFn<{ eventId: string; status: string }>(
+    // Confirm A first — must succeed and create exactly one calendar_event.
+    const winner = a;
+    const loser = b;
+    const confirmWinner = await callFn<{ eventId: string; status: string }>(
       http,
       "confirm-request",
       { requestId: winner.data.requestId, reviewNote: "E2E conflict winner" },
       adminToken,
     );
-    expect(confirm.status).toBe(200);
-    cleanup.eventIds.push(confirm.data.eventId);
+    expect(confirmWinner.status).toBe(200);
+    expect(confirmWinner.data.status).toBe("confirmed");
+    expect(confirmWinner.data.eventId).toBeTruthy();
+    cleanup.eventIds.push(confirmWinner.data.eventId);
 
-    const startsAt = `${slot!.date}T${slot!.time}:00+09:00`;
-    const startsIso = new Date(startsAt).toISOString();
-    const events = await http.call<Array<{ id: string }>>(
+    // Confirming B for the same slot must fail via get_calendar_resource_conflict.
+    const confirmLoser = await callFn<{ error?: string }>(
+      http,
+      "confirm-request",
+      { requestId: loser.data.requestId, reviewNote: "E2E conflict loser (should fail)" },
+      adminToken,
+    );
+    expect(
+      confirmLoser.status,
+      `loser confirm should not succeed: ${JSON.stringify(confirmLoser.data)}`,
+    ).not.toBe(200);
+    expect(JSON.stringify(confirmLoser.data)).toMatch(/이미 예약|conflict|충돌/i);
+
+    // Now reject the loser to complete the flow.
+    const rejectLoser = await callFn<{ status: string }>(
+      http,
+      "reject-request",
+      { requestId: loser.data.requestId, reviewNote: "E2E conflict loser rejected" },
+      adminToken,
+    );
+    expect(rejectLoser.status).toBe(200);
+    expect(rejectLoser.data.status).toBe("rejected");
+
+    // DB verification: exactly one calendar_event for the resource+start time,
+    // and it must match the winner's event id.
+    const startsIso = new Date(`${slot!.date}T${slot!.time}:00+09:00`).toISOString();
+    const events = await http.call<Array<{ id: string; metadata: Record<string, unknown> }>>(
       "verify-single-event",
       "GET",
-      `${REST_URL}/calendar_events?select=id&resource_id=eq.${resourceId}&starts_at=eq.${encodeURIComponent(startsIso)}`,
+      `${REST_URL}/calendar_events?select=id,metadata&resource_id=eq.${resourceId}&starts_at=eq.${encodeURIComponent(startsIso)}`,
       { headers: adminHeaders(adminToken) },
     );
     expect(events.data).toHaveLength(1);
-    expect(events.data[0].id).toBe(confirm.data.eventId);
+    expect(events.data[0].id).toBe(confirmWinner.data.eventId);
+    expect(
+      (events.data[0].metadata as { publicBookingRequestId?: string })?.publicBookingRequestId,
+    ).toBe(winner.data.requestId);
+
+    // Request row statuses must exactly match the outcome.
+    const rows = await http.call<Array<{ id: string; status: string }>>(
+      "verify-request-statuses",
+      "GET",
+      `${REST_URL}/public_booking_requests?select=id,status&id=in.(${winner.data.requestId},${loser.data.requestId})`,
+      { headers: adminHeaders(adminToken) },
+    );
+    const byId = Object.fromEntries(rows.data.map((r) => [r.id, r.status]));
+    expect(byId[winner.data.requestId!]).toBe("confirmed");
+    expect(byId[loser.data.requestId!]).toBe("rejected");
+
+    // Loser must NOT have produced a calendar_event.
+    const loserEvents = await http.call<Array<{ id: string }>>(
+      "verify-no-loser-event",
+      "GET",
+      `${REST_URL}/calendar_events?select=id&metadata->>publicBookingRequestId=eq.${loser.data.requestId}`,
+      { headers: adminHeaders(adminToken) },
+    );
+    expect(loserEvents.data).toHaveLength(0);
   });
+
+
 
 
   test("rejection flow does not create a calendar event", async ({
