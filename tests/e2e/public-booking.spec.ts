@@ -343,6 +343,77 @@ test.describe("public-meeting-booking E2E", () => {
     expect(event.data[0].source_type).toBe("external_booking");
   });
 
+  test("concurrent requests for the same slot: one succeeds, the other 409s", async ({
+    http,
+    adminToken,
+    resourceId,
+    link,
+    cleanup,
+  }) => {
+    const slot = await findAvailableSlot(http, link.slug);
+    expect(slot, "no available slots for conflict test").toBeTruthy();
+
+    const stamp = Date.now();
+    const payload = (suffix: string) => ({
+      slug: link.slug,
+      date: slot!.date,
+      time: slot!.time,
+      resourceId,
+      requesterName: `E2E Conflict ${suffix}`,
+      purpose: `Playwright E2E conflict ${suffix}`,
+    });
+
+    // Fire both requests in parallel — get_calendar_resource_conflict must
+    // let exactly one through and reject the other with 409.
+    const [a, b] = await Promise.all([
+      callFn<{ requestId?: string; status?: string; error?: string }>(
+        http,
+        "create-request",
+        payload(`A-${stamp}`),
+      ),
+      callFn<{ requestId?: string; status?: string; error?: string }>(
+        http,
+        "create-request",
+        payload(`B-${stamp}`),
+      ),
+    ]);
+
+    for (const r of [a, b]) {
+      if (r.status === 200 && r.data.requestId) cleanup.requestIds.push(r.data.requestId);
+    }
+
+    const statuses = [a.status, b.status].sort();
+    expect(statuses, `unexpected statuses: ${JSON.stringify({ a, b })}`).toEqual([200, 409]);
+
+    const loser = a.status === 409 ? a : b;
+    expect(loser.data.error).toMatch(/이미 예약/);
+
+    // Confirm the winner and verify only one calendar_events row exists
+    // for the resource + start time.
+    const winner = a.status === 200 ? a : b;
+    expect(winner.data.requestId).toBeTruthy();
+    const confirm = await callFn<{ eventId: string; status: string }>(
+      http,
+      "confirm-request",
+      { requestId: winner.data.requestId, reviewNote: "E2E conflict winner" },
+      adminToken,
+    );
+    expect(confirm.status).toBe(200);
+    cleanup.eventIds.push(confirm.data.eventId);
+
+    const startsAt = `${slot!.date}T${slot!.time}:00+09:00`;
+    const startsIso = new Date(startsAt).toISOString();
+    const events = await http.call<Array<{ id: string }>>(
+      "verify-single-event",
+      "GET",
+      `${REST_URL}/calendar_events?select=id&resource_id=eq.${resourceId}&starts_at=eq.${encodeURIComponent(startsIso)}`,
+      { headers: adminHeaders(adminToken) },
+    );
+    expect(events.data).toHaveLength(1);
+    expect(events.data[0].id).toBe(confirm.data.eventId);
+  });
+
+
   test("rejection flow does not create a calendar event", async ({
     http,
     adminToken,
