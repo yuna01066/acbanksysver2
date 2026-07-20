@@ -61,7 +61,7 @@ class HttpRecorder {
     method: "GET" | "POST" | "DELETE",
     url: string,
     init: { headers?: Record<string, string>; data?: unknown } = {},
-  ): Promise<{ status: number; data: T; text: string }> {
+  ): Promise<{ status: number; data: T; text: string; durationMs: number; responseBytes: number }> {
     const entry: LogEntry = {
       ts: new Date().toISOString(),
       label,
@@ -70,6 +70,7 @@ class HttpRecorder {
       request: init.data !== undefined ? this.redact(init.data) : undefined,
     };
     this.entries.push(entry);
+    const startedAt = performance.now();
     try {
       const res =
         method === "GET"
@@ -78,6 +79,8 @@ class HttpRecorder {
           ? await this.api.delete(url, { headers: init.headers })
           : await this.api.post(url, { headers: init.headers, data: init.data });
       const text = await res.text();
+      const durationMs = Math.round((performance.now() - startedAt) * 1000) / 1000;
+      const responseBytes = new TextEncoder().encode(text).length;
       let data: unknown = text;
       try {
         data = text ? JSON.parse(text) : {};
@@ -86,12 +89,17 @@ class HttpRecorder {
       }
       entry.status = res.status();
       entry.response = data;
-      return { status: res.status(), data: data as T, text };
+      entry.durationMs = durationMs;
+      entry.responseBytes = responseBytes;
+      return { status: res.status(), data: data as T, text, durationMs, responseBytes };
     } catch (err) {
+      entry.durationMs = Math.round((performance.now() - startedAt) * 1000) / 1000;
       entry.error = err instanceof Error ? err.message : String(err);
       throw err;
     }
   }
+}
+
 }
 
 type Fixtures = {
