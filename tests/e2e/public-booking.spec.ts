@@ -1102,7 +1102,7 @@ test.describe("public-meeting-booking E2E", () => {
               cell,
               reason: `loser must be 409, got ${l.status}: ${JSON.stringify(l.data)}`,
             });
-          } else if (!conflictLike(l.data)) {
+          } else if (!/이미 예약|conflict|충돌/i.test(JSON.stringify(l.data))) {
             failures.push({
               cell,
               reason: `409 body missing conflict marker: ${JSON.stringify(l.data)}`,
