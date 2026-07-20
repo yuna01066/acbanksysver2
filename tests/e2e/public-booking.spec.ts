@@ -1,17 +1,18 @@
-import { test, expect, request as pwRequest, APIRequestContext } from "@playwright/test";
+import {
+  test as base,
+  expect,
+  request as pwRequest,
+  APIRequestContext,
+} from "@playwright/test";
 
 /**
  * Full E2E: auto-provisions a public booking link with the admin session token,
  * runs approve + reject flows against the live `public-meeting-booking`
  * Edge Function, verifies the resulting calendar events, then cleans up.
  *
- * Env vars (see tests/e2e/README.md):
- *   E2E_SUPABASE_URL, E2E_SUPABASE_ANON_KEY
- *   E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD
- *
- * Optional overrides:
- *   E2E_RESOURCE_ID   pre-existing calendar_resources.id to use;
- *                     otherwise the first active resource is auto-selected.
+ * On failure this suite dumps every request/response made during the test and
+ * a live DB snapshot (link, requests, events) to the console AND attaches
+ * them to the Playwright HTML report next to the retained trace.
  */
 
 const SUPABASE_URL = requiredEnv("E2E_SUPABASE_URL");
@@ -30,33 +31,173 @@ function requiredEnv(name: string) {
   return value;
 }
 
-type SlotResponse = {
-  slots: Array<{
-    resourceId: string;
-    resourceName: string;
-    startsAt: string;
-    endsAt: string;
-    time: string;
-    label: string;
-  }>;
+type LogEntry = {
+  ts: string;
+  label: string;
+  method: string;
+  url: string;
+  status?: number;
+  request?: unknown;
+  response?: unknown;
+  error?: string;
 };
 
-async function callFn<T = unknown>(
-  api: APIRequestContext,
-  body: Record<string, unknown>,
-  authToken?: string,
-): Promise<{ status: number; data: T }> {
-  const res = await api.post(FN_URL, {
-    headers: {
-      apikey: ANON_KEY,
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${authToken ?? ANON_KEY}`,
-    },
-    data: body,
-  });
-  const data = (await res.json().catch(() => ({}))) as T;
-  return { status: res.status(), data };
+class HttpRecorder {
+  entries: LogEntry[] = [];
+
+  constructor(private api: APIRequestContext) {}
+
+  private redact(value: unknown): unknown {
+    if (!value || typeof value !== "object") return value;
+    const clone: Record<string, unknown> = { ...(value as Record<string, unknown>) };
+    for (const key of ["password", "access_token", "refresh_token", "apikey", "Authorization"]) {
+      if (key in clone) clone[key] = "[redacted]";
+    }
+    return clone;
+  }
+
+  async call<T>(
+    label: string,
+    method: "GET" | "POST" | "DELETE",
+    url: string,
+    init: { headers?: Record<string, string>; data?: unknown } = {},
+  ): Promise<{ status: number; data: T; text: string }> {
+    const entry: LogEntry = {
+      ts: new Date().toISOString(),
+      label,
+      method,
+      url,
+      request: init.data !== undefined ? this.redact(init.data) : undefined,
+    };
+    this.entries.push(entry);
+    try {
+      const res =
+        method === "GET"
+          ? await this.api.get(url, { headers: init.headers })
+          : method === "DELETE"
+          ? await this.api.delete(url, { headers: init.headers })
+          : await this.api.post(url, { headers: init.headers, data: init.data });
+      const text = await res.text();
+      let data: unknown = text;
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        // keep as text
+      }
+      entry.status = res.status();
+      entry.response = data;
+      return { status: res.status(), data: data as T, text };
+    } catch (err) {
+      entry.error = err instanceof Error ? err.message : String(err);
+      throw err;
+    }
+  }
 }
+
+type Fixtures = {
+  api: APIRequestContext;
+  http: HttpRecorder;
+  adminToken: string;
+  resourceId: string;
+  link: { id: string; slug: string };
+  cleanup: { requestIds: string[]; eventIds: string[] };
+};
+
+const test = base.extend<Fixtures>({
+  api: async ({}, use) => {
+    const api = await pwRequest.newContext();
+    await use(api);
+    await api.dispose();
+  },
+  http: async ({ api }, use) => {
+    await use(new HttpRecorder(api));
+  },
+  adminToken: async ({ http }, use) => {
+    const { data } = await http.call<{ access_token?: string }>(
+      "admin-login",
+      "POST",
+      `${AUTH_URL}/token?grant_type=password`,
+      {
+        headers: { apikey: ANON_KEY, "Content-Type": "application/json" },
+        data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+      },
+    );
+    if (!data.access_token) throw new Error("admin login returned no access_token");
+    await use(data.access_token);
+  },
+  resourceId: async ({ http, adminToken }, use) => {
+    if (RESOURCE_ID_OVERRIDE) return use(RESOURCE_ID_OVERRIDE);
+    const { data } = await http.call<Array<{ id: string }>>(
+      "pick-resource",
+      "GET",
+      `${REST_URL}/calendar_resources?select=id&is_active=eq.true&order=display_order.asc&limit=1`,
+      { headers: adminHeaders(adminToken) },
+    );
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error("No active calendar_resources found. Set E2E_RESOURCE_ID.");
+    }
+    await use(data[0].id);
+  },
+  link: async ({ http, adminToken, resourceId }, use) => {
+    const slug = `e2e-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const { data, status, text } = await http.call<Array<{ id: string; slug: string }>>(
+      "provision-link",
+      "POST",
+      `${REST_URL}/public_booking_links`,
+      {
+        headers: adminHeaders(adminToken, { Prefer: "return=representation" }),
+        data: {
+          slug,
+          link_type: "customer_request",
+          title: "E2E Automation Link",
+          description: "Auto-provisioned for Playwright E2E — safe to delete",
+          is_active: true,
+          allowed_resource_ids: [resourceId],
+          allowed_weekdays: [0, 1, 2, 3, 4, 5, 6],
+          start_time: "00:00:00",
+          end_time: "23:59:00",
+          slot_minutes: 30,
+          duration_minutes: 30,
+          buffer_minutes: 0,
+          min_notice_minutes: 0,
+          max_days_ahead: 30,
+          requires_approval: true,
+          notify_user_ids: [],
+          metadata: { e2e: true },
+        },
+      },
+    );
+    if (status >= 300 || !Array.isArray(data) || !data[0]?.id) {
+      throw new Error(`failed to create link: ${status} ${text}`);
+    }
+    const link = data[0];
+    await use(link);
+    // teardown handled in afterEach cleanup fixture
+    await http
+      .call("delete-link", "DELETE", `${REST_URL}/public_booking_links?id=eq.${link.id}`, {
+        headers: adminHeaders(adminToken),
+      })
+      .catch(() => undefined);
+  },
+  cleanup: async ({ http, adminToken }, use) => {
+    const state = { requestIds: [] as string[], eventIds: [] as string[] };
+    await use(state);
+    for (const id of state.eventIds) {
+      await http
+        .call("delete-event", "DELETE", `${REST_URL}/calendar_events?id=eq.${id}`, {
+          headers: adminHeaders(adminToken),
+        })
+        .catch(() => undefined);
+    }
+    for (const id of state.requestIds) {
+      await http
+        .call("delete-request", "DELETE", `${REST_URL}/public_booking_requests?id=eq.${id}`, {
+          headers: adminHeaders(adminToken),
+        })
+        .catch(() => undefined);
+    }
+  },
+});
 
 function adminHeaders(token: string, extra: Record<string, string> = {}) {
   return {
@@ -67,112 +208,105 @@ function adminHeaders(token: string, extra: Record<string, string> = {}) {
   };
 }
 
-async function loginAdmin(api: APIRequestContext): Promise<string> {
-  const res = await api.post(`${AUTH_URL}/token?grant_type=password`, {
-    headers: { apikey: ANON_KEY, "Content-Type": "application/json" },
-    data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-  });
-  expect(res.ok(), `admin login failed (${res.status()})`).toBeTruthy();
-  const json = (await res.json()) as { access_token?: string };
-  if (!json.access_token) throw new Error("admin login returned no access_token");
-  return json.access_token;
-}
-
-async function pickResourceId(api: APIRequestContext, token: string): Promise<string> {
-  if (RESOURCE_ID_OVERRIDE) return RESOURCE_ID_OVERRIDE;
-  const res = await api.get(
-    `${REST_URL}/calendar_resources?select=id&is_active=eq.true&order=display_order.asc&limit=1`,
-    { headers: adminHeaders(token) },
-  );
-  expect(res.ok(), `failed to load calendar_resources: ${res.status()}`).toBeTruthy();
-  const rows = (await res.json()) as Array<{ id: string }>;
-  if (rows.length === 0) {
-    throw new Error(
-      "No active calendar_resources found. Create one first or set E2E_RESOURCE_ID.",
-    );
-  }
-  return rows[0].id;
-}
-
-async function provisionLink(
-  api: APIRequestContext,
-  token: string,
-  resourceId: string,
-): Promise<{ id: string; slug: string }> {
-  const slug = `e2e-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const res = await api.post(`${REST_URL}/public_booking_links`, {
-    headers: adminHeaders(token, { Prefer: "return=representation" }),
-    data: {
-      slug,
-      link_type: "customer_request",
-      title: "E2E Automation Link",
-      description: "Auto-provisioned for Playwright E2E — safe to delete",
-      is_active: true,
-      allowed_resource_ids: [resourceId],
-      allowed_weekdays: [0, 1, 2, 3, 4, 5, 6],
-      start_time: "00:00:00",
-      end_time: "23:59:00",
-      slot_minutes: 30,
-      duration_minutes: 30,
-      buffer_minutes: 0,
-      min_notice_minutes: 0,
-      max_days_ahead: 30,
-      requires_approval: true,
-      notify_user_ids: [],
-      metadata: { e2e: true },
+async function callFn<T = unknown>(
+  http: HttpRecorder,
+  action: string,
+  body: Record<string, unknown>,
+  authToken?: string,
+) {
+  return http.call<T>(`fn:${action}`, "POST", FN_URL, {
+    headers: {
+      apikey: ANON_KEY,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${authToken ?? ANON_KEY}`,
     },
+    data: { ...body, action },
   });
-  expect(res.ok(), `failed to create link: ${res.status()} ${await res.text()}`).toBeTruthy();
-  const rows = (await res.json()) as Array<{ id: string; slug: string }>;
-  return rows[0];
 }
 
-async function deleteRow(api: APIRequestContext, table: string, id: string, token: string) {
-  await api
-    .delete(`${REST_URL}/${table}?id=eq.${id}`, { headers: adminHeaders(token) })
-    .catch(() => undefined);
+async function findAvailableSlot(
+  http: HttpRecorder,
+  slug: string,
+): Promise<{ date: string; time: string } | null> {
+  const now = new Date();
+  for (let offset = 0; offset <= 14; offset++) {
+    const day = new Date(now.getTime() + offset * 24 * 60 * 60 * 1000);
+    const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(day);
+    const res = await callFn<{ slots?: Array<{ time: string }> }>(http, "get-availability", {
+      slug,
+      date,
+    });
+    const slot = res.data.slots?.[0];
+    if (slot) return { date, time: slot.time };
+  }
+  return null;
 }
+
+test.afterEach(async ({ http, adminToken, link, cleanup }, testInfo) => {
+  if (testInfo.status === testInfo.expectedStatus) return;
+
+  // Live DB snapshot for post-mortem
+  const snapshot: Record<string, unknown> = { link };
+  if (link?.id) {
+    for (const [key, url] of [
+      ["requests", `${REST_URL}/public_booking_requests?link_id=eq.${link.id}&select=*`],
+      [
+        "events",
+        `${REST_URL}/calendar_events?select=*&metadata->>publicBookingLinkId=eq.${link.id}`,
+      ],
+    ] as const) {
+      try {
+        const { data } = await http.call(`snapshot-${key}`, "GET", url, {
+          headers: adminHeaders(adminToken),
+        });
+        snapshot[key] = data;
+      } catch (err) {
+        snapshot[key] = { error: err instanceof Error ? err.message : String(err) };
+      }
+    }
+  }
+  snapshot.pendingCleanup = cleanup;
+
+  const dump = {
+    test: testInfo.titlePath.join(" › "),
+    status: testInfo.status,
+    error: testInfo.errors.map((e) => e.message),
+    httpLog: http.entries,
+    snapshot,
+  };
+  const json = JSON.stringify(dump, null, 2);
+  console.error(`\n===== E2E FAILURE DUMP: ${testInfo.title} =====\n${json}\n===== END DUMP =====\n`);
+  await testInfo.attach("failure-dump.json", { body: json, contentType: "application/json" });
+  await testInfo.attach("http-log.json", {
+    body: JSON.stringify(http.entries, null, 2),
+    contentType: "application/json",
+  });
+});
 
 test.describe("public-meeting-booking E2E", () => {
-  let api: APIRequestContext;
-  let adminToken: string;
-  let resourceId: string;
-  let link: { id: string; slug: string };
-  const createdRequestIds: string[] = [];
-  const createdEventIds: string[] = [];
-
-  test.beforeAll(async () => {
-    api = await pwRequest.newContext();
-    adminToken = await loginAdmin(api);
-    resourceId = await pickResourceId(api, adminToken);
-    link = await provisionLink(api, adminToken, resourceId);
-  });
-
-  test.afterAll(async () => {
-    for (const id of createdEventIds) await deleteRow(api, "calendar_events", id, adminToken);
-    for (const id of createdRequestIds) await deleteRow(api, "public_booking_requests", id, adminToken);
-    if (link?.id) await deleteRow(api, "public_booking_links", link.id, adminToken);
-    await api.dispose();
-  });
-
-  test("approval flow creates a calendar event", async () => {
+  test("approval flow creates a calendar event", async ({
+    http,
+    adminToken,
+    resourceId,
+    link,
+    cleanup,
+  }) => {
     const meta = await callFn<{
       slug: string;
       requiresApproval: boolean;
       requiresAccessCode: boolean;
       resources: Array<{ id: string }>;
-    }>(api, { action: "get-link", slug: link.slug });
+    }>(http, "get-link", { slug: link.slug });
     expect(meta.status).toBe(200);
     expect(meta.data.slug).toBe(link.slug);
     expect(meta.data.requiresApproval).toBe(true);
     expect(meta.data.resources.map((r) => r.id)).toContain(resourceId);
 
-    const slot = await findAvailableSlot(api, link.slug);
+    const slot = await findAvailableSlot(http, link.slug);
     expect(slot, "no available slots found in next 14 days").toBeTruthy();
 
     const stamp = Date.now();
-    const create = await callFn<{ requestId: string; status: string }>(api, {
-      action: "create-request",
+    const create = await callFn<{ requestId: string; status: string }>(http, "create-request", {
       slug: link.slug,
       date: slot!.date,
       time: slot!.time,
@@ -185,35 +319,42 @@ test.describe("public-meeting-booking E2E", () => {
     });
     expect(create.status, JSON.stringify(create.data)).toBe(200);
     expect(create.data.status).toBe("pending_review");
-    createdRequestIds.push(create.data.requestId);
+    cleanup.requestIds.push(create.data.requestId);
 
     const confirm = await callFn<{ eventId: string; status: string }>(
-      api,
-      { action: "confirm-request", requestId: create.data.requestId, reviewNote: "E2E approve" },
+      http,
+      "confirm-request",
+      { requestId: create.data.requestId, reviewNote: "E2E approve" },
       adminToken,
     );
     expect(confirm.status, JSON.stringify(confirm.data)).toBe(200);
     expect(confirm.data.status).toBe("confirmed");
     expect(confirm.data.eventId).toBeTruthy();
-    createdEventIds.push(confirm.data.eventId);
+    cleanup.eventIds.push(confirm.data.eventId);
 
-    const eventRes = await api.get(
+    const event = await http.call<Array<{ source_type: string }>>(
+      "verify-event",
+      "GET",
       `${REST_URL}/calendar_events?id=eq.${confirm.data.eventId}&select=id,source_type`,
       { headers: adminHeaders(adminToken) },
     );
-    expect(eventRes.ok(), await eventRes.text()).toBeTruthy();
-    const rows = (await eventRes.json()) as Array<{ source_type: string }>;
-    expect(rows).toHaveLength(1);
-    expect(rows[0].source_type).toBe("external_booking");
+    expect(event.status).toBe(200);
+    expect(event.data).toHaveLength(1);
+    expect(event.data[0].source_type).toBe("external_booking");
   });
 
-  test("rejection flow does not create a calendar event", async () => {
-    const slot = await findAvailableSlot(api, link.slug);
+  test("rejection flow does not create a calendar event", async ({
+    http,
+    adminToken,
+    resourceId,
+    link,
+    cleanup,
+  }) => {
+    const slot = await findAvailableSlot(http, link.slug);
     expect(slot, "no available slots for rejection test").toBeTruthy();
 
     const stamp = Date.now();
-    const create = await callFn<{ requestId: string; status: string }>(api, {
-      action: "create-request",
+    const create = await callFn<{ requestId: string; status: string }>(http, "create-request", {
       slug: link.slug,
       date: slot!.date,
       time: slot!.time,
@@ -222,41 +363,23 @@ test.describe("public-meeting-booking E2E", () => {
       purpose: `Playwright E2E reject ${stamp}`,
     });
     expect(create.status, JSON.stringify(create.data)).toBe(200);
-    createdRequestIds.push(create.data.requestId);
+    cleanup.requestIds.push(create.data.requestId);
 
     const reject = await callFn<{ status: string }>(
-      api,
-      {
-        action: "reject-request",
-        requestId: create.data.requestId,
-        reviewNote: "E2E rejection reason",
-      },
+      http,
+      "reject-request",
+      { requestId: create.data.requestId, reviewNote: "E2E rejection reason" },
       adminToken,
     );
-    expect(reject.status, JSON.stringify(reject.data)).toBe(200);
+    expect(reject.status).toBe(200);
     expect(reject.data.status).toBe("rejected");
 
-    const eventRes = await api.get(
+    const events = await http.call<unknown[]>(
+      "verify-no-event",
+      "GET",
       `${REST_URL}/calendar_events?select=id&source_type=eq.external_booking&metadata->>publicBookingRequestId=eq.${create.data.requestId}`,
       { headers: adminHeaders(adminToken) },
     );
-    const rows = (await eventRes.json().catch(() => [])) as unknown[];
-    expect(rows).toHaveLength(0);
+    expect(events.data).toHaveLength(0);
   });
 });
-
-async function findAvailableSlot(
-  api: APIRequestContext,
-  slug: string,
-): Promise<{ date: string; time: string } | null> {
-  const now = new Date();
-  for (let offset = 0; offset <= 14; offset++) {
-    const day = new Date(now.getTime() + offset * 24 * 60 * 60 * 1000);
-    const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(day);
-    const res = await callFn<SlotResponse>(api, { action: "get-availability", slug, date });
-    if (res.status !== 200) continue;
-    const slot = res.data.slots?.[0];
-    if (slot) return { date, time: slot.time };
-  }
-  return null;
-}
