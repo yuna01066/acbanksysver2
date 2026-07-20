@@ -708,6 +708,133 @@ test.describe("public-meeting-booking E2E", () => {
   });
 
 
+  test("conflict resolution stays consistent as concurrency scales from 2 to 5", async ({
+    http,
+    adminToken,
+    resourceId,
+    link,
+    cleanup,
+  }) => {
+    const CONCURRENCY_LEVELS = [2, 3, 4, 5];
+    const usedSlotKeys = new Set<string>();
+
+    for (const N of CONCURRENCY_LEVELS) {
+      // Pick a fresh available slot per iteration so previous confirmed
+      // events don't interfere with this run.
+      let slot: { date: string; time: string } | null = null;
+      for (let attempt = 0; attempt < 5 && !slot; attempt += 1) {
+        const candidate = await findAvailableSlot(http, link.slug);
+        if (!candidate) break;
+        const key = `${candidate.date}T${candidate.time}`;
+        if (!usedSlotKeys.has(key)) {
+          usedSlotKeys.add(key);
+          slot = candidate;
+        }
+      }
+      expect(slot, `no available slot for concurrency=${N}`).toBeTruthy();
+
+      const stamp = Date.now();
+      const payload = (i: number) => ({
+        slug: link.slug,
+        date: slot!.date,
+        time: slot!.time,
+        resourceId,
+        requesterName: `E2E Scale N=${N} #${i}`,
+        purpose: `Playwright E2E scale N=${N} idx=${i}`,
+      });
+
+      // 1) Create N pending requests in parallel — all must succeed.
+      const creates = await Promise.all(
+        Array.from({ length: N }, (_, i) =>
+          callFn<{ requestId?: string; status?: string; error?: string }>(
+            http,
+            "create-request",
+            payload(i),
+          ),
+        ),
+      );
+      const requestIds: string[] = [];
+      for (const r of creates) {
+        expect(r.status, `create-request must succeed (N=${N}): ${JSON.stringify(r.data)}`).toBe(200);
+        expect(r.data.status).toBe("pending_review");
+        if (r.data.requestId) {
+          requestIds.push(r.data.requestId);
+          cleanup.requestIds.push(r.data.requestId);
+        }
+      }
+      expect(requestIds).toHaveLength(N);
+
+      // 2) Fire N confirm-request calls in parallel — exactly one must win
+      //    with 200; all others must fail with 409 conflict.
+      const confirms = await Promise.all(
+        requestIds.map((rid) =>
+          callFn<{ eventId?: string; status?: string; error?: string }>(
+            http,
+            "confirm-request",
+            { requestId: rid, reviewNote: `E2E scale N=${N} confirm` },
+            adminToken,
+          ).then((res) => ({ rid, ...res })),
+        ),
+      );
+
+      const winners = confirms.filter((c) => c.status === 200);
+      const losers = confirms.filter((c) => c.status !== 200);
+
+      expect(
+        winners,
+        `exactly 1 winner expected for N=${N}, got ${winners.length}: ${JSON.stringify(
+          confirms.map((c) => ({ rid: c.rid, status: c.status, data: c.data })),
+        )}`,
+      ).toHaveLength(1);
+      expect(losers).toHaveLength(N - 1);
+
+      const winner = winners[0];
+      expect(winner.data.status).toBe("confirmed");
+      expect(winner.data.eventId).toBeTruthy();
+      cleanup.eventIds.push(winner.data.eventId as string);
+
+      for (const l of losers) {
+        expect(
+          l.status,
+          `loser must return 409 conflict (N=${N}, rid=${l.rid}): ${JSON.stringify(l.data)}`,
+        ).toBe(409);
+        expect(JSON.stringify(l.data)).toMatch(/이미 예약|conflict|충돌/i);
+      }
+
+      // 3) DB assertion — exactly one calendar_event for this slot.
+      const startsIso = new Date(`${slot!.date}T${slot!.time}:00+09:00`).toISOString();
+      const events = await http.call<Array<{ id: string; metadata: Record<string, unknown> }>>(
+        `verify-scale-single-event-N${N}`,
+        "GET",
+        `${REST_URL}/calendar_events?select=id,metadata&resource_id=eq.${resourceId}&starts_at=eq.${encodeURIComponent(startsIso)}`,
+        { headers: adminHeaders(adminToken) },
+      );
+      expect(
+        events.data,
+        `expected exactly 1 calendar_event for N=${N}, got ${events.data.length}`,
+      ).toHaveLength(1);
+      expect(events.data[0].id).toBe(winner.data.eventId);
+      expect(
+        (events.data[0].metadata as { publicBookingRequestId?: string })?.publicBookingRequestId,
+      ).toBe(winner.rid);
+
+      // Clean up losers so subsequent iterations aren't blocked and to keep
+      // the pending_review backlog empty.
+      for (const l of losers) {
+        await callFn<{ status: string }>(
+          http,
+          "reject-request",
+          { requestId: l.rid, reviewNote: `E2E scale N=${N} loser reject` },
+          adminToken,
+        );
+      }
+    }
+  });
+
+
+
+
+
   test("rejection flow does not create a calendar event", async ({
     http,
     adminToken,
