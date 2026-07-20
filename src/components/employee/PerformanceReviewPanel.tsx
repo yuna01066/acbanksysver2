@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -18,8 +18,10 @@ import { ko } from 'date-fns/locale';
 import {
   IMPROVEMENT_FEEDBACK_OPTIONS,
   NEXT_ACTION_FEEDBACK_OPTIONS,
-  SCORE_EVIDENCE_OPTIONS,
+  PERFORMANCE_SCORE_GUIDE,
   STRENGTH_FEEDBACK_OPTIONS,
+  getObjectiveReviewCategories,
+  getScoreGuideForScore,
   serializeFeedbackSelections,
   splitFeedbackText,
   keepStructuredFeedbackOnly,
@@ -89,6 +91,23 @@ const calcAutoGrade = (scores: Record<string, { score: number; comment: string }
   if (avg >= 3) return 'C';
   return 'D';
 };
+
+const calcWeightedAverage = (
+  scores: Record<string, { score: number; comment: string }>,
+  categories: Array<Pick<ReviewCategory, 'id' | 'weight'>>,
+) => {
+  if (categories.length === 0 || Object.keys(scores).length === 0) return null;
+  let totalWeight = 0;
+  let weightedSum = 0;
+  categories.forEach(c => {
+    const s = scores[c.id];
+    if (s) {
+      totalWeight += c.weight;
+      weightedSum += s.score * c.weight;
+    }
+  });
+  return totalWeight > 0 ? weightedSum / totalWeight : null;
+};
 const REVIEWER_TYPES = [
   { value: 'self', label: '자기 평가' },
   { value: 'superior', label: '상급자 평가' },
@@ -113,6 +132,81 @@ const chipClassName = (selected: boolean) =>
       ? 'border-primary bg-primary text-primary-foreground shadow-sm'
       : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-muted'
   }`;
+
+interface RadarDatum {
+  id: string;
+  label: string;
+  value: number;
+}
+
+const getRadarPoint = (index: number, value: number, total: number, radius: number) => {
+  const angle = (Math.PI * 2 * index) / total - Math.PI / 2;
+  return {
+    x: 110 + Math.cos(angle) * radius * value,
+    y: 110 + Math.sin(angle) * radius * value,
+  };
+};
+
+const CompetencyRadarChart: React.FC<{ data: RadarDatum[]; title?: string }> = ({ data, title = '역량 육각형' }) => {
+  const normalized = data.slice(0, 6);
+  const polygon = normalized
+    .map((item, index) => {
+      const point = getRadarPoint(index, Math.max(0, Math.min(10, item.value)) / 10, normalized.length, 74);
+      return `${point.x},${point.y}`;
+    })
+    .join(' ');
+
+  if (normalized.length < 3) {
+    return (
+      <div className="rounded-xl border bg-background p-4 text-center text-xs text-muted-foreground">
+        평가 항목이 3개 이상일 때 육각형 그래프가 표시됩니다.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border bg-background p-4">
+      <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+        <ShieldCheck className="h-3.5 w-3.5" />
+        {title}
+      </div>
+      <svg viewBox="0 0 220 220" className="mx-auto h-56 w-full max-w-64" role="img" aria-label={`${title} 차트`}>
+        {[0.25, 0.5, 0.75, 1].map(ring => {
+          const points = normalized
+            .map((_, index) => {
+              const point = getRadarPoint(index, ring, normalized.length, 74);
+              return `${point.x},${point.y}`;
+            })
+            .join(' ');
+          return <polygon key={ring} points={points} fill="none" stroke="hsl(var(--border))" strokeWidth="1" />;
+        })}
+        {normalized.map((item, index) => {
+          const edge = getRadarPoint(index, 1, normalized.length, 74);
+          const label = getRadarPoint(index, 1.2, normalized.length, 74);
+          return (
+            <g key={item.id}>
+              <line x1="110" y1="110" x2={edge.x} y2={edge.y} stroke="hsl(var(--border))" strokeWidth="1" />
+              <text
+                x={label.x}
+                y={label.y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className="fill-muted-foreground text-[9px] font-semibold"
+              >
+                {item.label.length > 6 ? `${item.label.slice(0, 6)}…` : item.label}
+              </text>
+            </g>
+          );
+        })}
+        <polygon points={polygon} fill="hsl(var(--primary) / 0.16)" stroke="hsl(var(--primary))" strokeWidth="2" />
+        {normalized.map((item, index) => {
+          const point = getRadarPoint(index, Math.max(0, Math.min(10, item.value)) / 10, normalized.length, 74);
+          return <circle key={item.id} cx={point.x} cy={point.y} r="3.5" fill="hsl(var(--primary))" />;
+        })}
+      </svg>
+    </div>
+  );
+};
 
 interface Props {
   userId: string;
@@ -147,6 +241,14 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
   const [formComment, setFormComment] = useState('');
   const [formScores, setFormScores] = useState<Record<string, { score: number; comment: string }>>({});
   const [saving, setSaving] = useState(false);
+  const objectiveCategories = useMemo(() => getObjectiveReviewCategories(categories), [categories]);
+  const formAverage = calcWeightedAverage(formScores, objectiveCategories);
+  const formEvidenceCount = objectiveCategories.filter(cat => splitFeedbackText(formScores[cat.id]?.comment).length > 0).length;
+  const formRadarData = objectiveCategories.map(cat => ({
+    id: cat.id,
+    label: cat.objectiveName,
+    value: formScores[cat.id]?.score ?? 7,
+  }));
 
   useEffect(() => {
     fetchData();
@@ -165,13 +267,13 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
 
   useEffect(() => {
     const selectedCycleIsActive = cycles.find(c => c.id === selectedCycleId)?.status === 'active';
-    if (!autoOpenDraft || autoOpenedDraftRef.current || !existingDraftReview || categories.length === 0 || !selectedCycleIsActive) {
+    if (!autoOpenDraft || autoOpenedDraftRef.current || !existingDraftReview || objectiveCategories.length === 0 || !selectedCycleIsActive) {
       return;
     }
 
     autoOpenedDraftRef.current = true;
     openForm(existingDraftReview);
-  }, [autoOpenDraft, existingDraftReview, categories.length, cycles, selectedCycleId]);
+  }, [autoOpenDraft, existingDraftReview, objectiveCategories.length, cycles, selectedCycleId]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -247,7 +349,7 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
     setFormImprovements('');
     setFormComment('');
     const defaultScores: Record<string, { score: number; comment: string }> = {};
-    categories.forEach(c => { defaultScores[c.id] = { score: 7, comment: '' }; });
+    objectiveCategories.forEach(c => { defaultScores[c.id] = { score: 7, comment: '' }; });
     setFormScores(defaultScores);
   };
 
@@ -266,7 +368,7 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
       setFormImprovements(keepStructuredFeedbackOnly(draftReview.improvements));
       setFormComment(keepStructuredFeedbackOnly(draftReview.general_comment));
       const scores: Record<string, { score: number; comment: string }> = {};
-      categories.forEach(c => { scores[c.id] = { score: 7, comment: '' }; });
+      objectiveCategories.forEach(c => { scores[c.id] = { score: 7, comment: '' }; });
       (draftReview.scores || []).forEach(s => {
         scores[s.category_id] = { score: s.score, comment: keepStructuredFeedbackOnly(s.comment) };
       });
@@ -280,10 +382,17 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
 
   const handleSubmit = async (asDraft: boolean) => {
     if (!selectedCycleId || !user || !profile) return;
-    const autoGrade = calcAutoGrade(formScores, categories);
+    const autoGrade = calcAutoGrade(formScores, objectiveCategories);
     if (!asDraft && !autoGrade) {
       toast.error('항목별 점수를 입력해주세요.');
       return;
+    }
+    if (!asDraft) {
+      const missingEvidence = objectiveCategories.filter(cat => splitFeedbackText(formScores[cat.id]?.comment).length === 0);
+      if (missingEvidence.length > 0) {
+        toast.error(`${missingEvidence[0].objectiveName} 항목의 관찰 근거를 선택해주세요.`);
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -336,12 +445,15 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
         reviewId = review.id;
       }
 
-      const scoreInserts = Object.entries(formScores).map(([catId, val]) => ({
-        review_id: reviewId,
-        category_id: catId,
-        score: val.score,
-        comment: val.comment || null,
-      }));
+      const objectiveCategoryIds = new Set(objectiveCategories.map(cat => cat.id));
+      const scoreInserts = Object.entries(formScores)
+        .filter(([catId]) => objectiveCategoryIds.has(catId))
+        .map(([catId, val]) => ({
+          review_id: reviewId,
+          category_id: catId,
+          score: val.score,
+          comment: val.comment || null,
+        }));
 
       if (scoreInserts.length > 0) {
         const { error: scoresError } = await supabase.from('performance_review_scores').insert(scoreInserts);
@@ -380,7 +492,7 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
     let totalWeight = 0;
     let weightedSum = 0;
     scores.forEach(s => {
-      const cat = categories.find(c => c.id === s.category_id);
+      const cat = objectiveCategories.find(c => c.id === s.category_id);
       const w = cat?.weight || 1;
       totalWeight += w;
       weightedSum += s.score * w;
@@ -649,12 +761,12 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
                   <div className="pt-4">
                     <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-3">항목별 점수</h4>
                     <div className="space-y-2">
-                      {categories.map(cat => {
+                      {objectiveCategories.map(cat => {
                         const score = review.scores?.find(s => s.category_id === cat.id);
                         if (!score) return null;
                         return (
                           <div key={cat.id} className="flex items-center gap-3">
-                            <span className="text-sm w-40 shrink-0">{cat.name}</span>
+                            <span className="text-sm w-40 shrink-0">{cat.objectiveName}</span>
                             <div className="flex-1 bg-muted rounded-full h-2">
                               <div className="bg-primary rounded-full h-2 transition-all" style={{ width: `${score.score * 10}%` }} />
                             </div>
@@ -691,15 +803,16 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
 
       {/* Review Form Dialog */}
       <Dialog open={showForm} onOpenChange={(open) => { setShowForm(open); if (!open) setEditingReviewId(null); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] p-0">
+        <DialogContent className="max-w-5xl max-h-[92vh] p-0">
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="h-5 w-5" />
               {userName} 업무 평가 {editingReviewId ? '(수정)' : ''}
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="max-h-[70vh] px-6 pb-6">
-            <div className="space-y-6 pt-4">
+          <ScrollArea className="max-h-[76vh] px-6 pb-6">
+            <div className="grid gap-6 pt-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">평가 유형</Label>
@@ -716,12 +829,8 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
                   <Label className="text-xs text-muted-foreground">종합 등급 (자동 산출)</Label>
                   <div className="flex items-center gap-2 mt-1.5">
                     {(() => {
-                      const auto = calcAutoGrade(formScores, categories);
-                      const avg = (() => {
-                        let tw = 0, ws = 0;
-                        categories.forEach(c => { const s = formScores[c.id]; if (s) { tw += c.weight; ws += s.score * c.weight; } });
-                        return tw > 0 ? (ws / tw).toFixed(1) : '-';
-                      })();
+                      const auto = calcAutoGrade(formScores, objectiveCategories);
+                      const avg = formAverage !== null ? formAverage.toFixed(1) : '-';
                       return (
                         <>
                           {GRADES.map(g => (
@@ -757,28 +866,49 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
               <Separator />
 
               <div>
-                <h3 className="text-sm font-semibold mb-3">항목별 평가 (0~10점)</h3>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold">항목별 평가 (0~10점)</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">6각형 역량 기준으로 점수와 관찰 근거를 함께 기록합니다.</p>
+                  </div>
+                  <Badge variant={formEvidenceCount === objectiveCategories.length ? 'default' : 'outline'} className="shrink-0">
+                    근거 {formEvidenceCount}/{objectiveCategories.length}
+                  </Badge>
+                </div>
                 <div className="space-y-4">
-                  {categories.map(cat => (
-                    <div key={cat.id} className="space-y-1.5">
+                  {objectiveCategories.map(cat => {
+                    const currentScore = formScores[cat.id]?.score ?? 7;
+                    const selectedEvidence = splitFeedbackText(formScores[cat.id]?.comment);
+                    const scoreGuide = getScoreGuideForScore(currentScore);
+                    return (
+                    <div key={cat.id} className="space-y-2 rounded-xl border bg-background p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="text-sm font-medium">{cat.name}</span>
-                          {cat.description && <span className="text-xs text-muted-foreground ml-2">{cat.description}</span>}
+                          <span className="text-sm font-semibold">{cat.objectiveName}</span>
+                          <span className="text-xs text-muted-foreground ml-2">{cat.objectiveDescription}</span>
+                          {cat.originalName !== cat.objectiveName && (
+                            <p className="mt-1 text-[11px] text-muted-foreground">기존 항목: {cat.originalName}</p>
+                          )}
                         </div>
-                        <span className="text-sm font-bold font-mono">{formScores[cat.id]?.score ?? 7}</span>
+                        <span className="text-sm font-bold font-mono">{currentScore}</span>
                       </div>
                       <Slider
-                        value={[formScores[cat.id]?.score ?? 7]}
+                        value={[currentScore]}
                         onValueChange={([v]) => setFormScores(prev => ({ ...prev, [cat.id]: { ...prev[cat.id], score: v, comment: prev[cat.id]?.comment || '' } }))}
                         max={10}
                         step={1}
                       />
+                      <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">{scoreGuide.label} 기준</span>
+                        <span className="ml-2">{scoreGuide.description}</span>
+                      </div>
                       <div className="pt-1">
-                        <p className="mb-1.5 text-xs text-muted-foreground">관찰 근거 선택</p>
+                        <p className="mb-1.5 text-xs text-muted-foreground">
+                          관찰 근거 선택 <span className="font-semibold text-destructive">*</span>
+                        </p>
                         <div className="flex flex-wrap gap-1.5">
-                          {SCORE_EVIDENCE_OPTIONS.map(option => {
-                            const selected = splitFeedbackText(formScores[cat.id]?.comment).includes(option);
+                          {cat.evidenceOptions.map(option => {
+                            const selected = selectedEvidence.includes(option);
                             return (
                               <button
                                 key={`${cat.id}-${option}`}
@@ -805,7 +935,8 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -853,6 +984,49 @@ const PerformanceReviewPanel: React.FC<Props> = ({ userId, userName, summaryOnly
                   제출
                 </Button>
               </div>
+              </div>
+
+              <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+                <CompetencyRadarChart data={formRadarData} />
+                <div className="rounded-xl border bg-background p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold">시스템 참고 지표</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <p className="text-xs text-muted-foreground">평균 점수</p>
+                      <p className="mt-1 font-bold">{formAverage !== null ? formAverage.toFixed(1) : '-'}</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <p className="text-xs text-muted-foreground">자동 등급</p>
+                      <p className="mt-1 font-bold">{calcAutoGrade(formScores, objectiveCategories) || '-'}</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <p className="text-xs text-muted-foreground">목표 달성률</p>
+                      <p className="mt-1 font-bold">{formGoalRate}%</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <p className="text-xs text-muted-foreground">근거 입력률</p>
+                      <p className="mt-1 font-bold">{objectiveCategories.length ? Math.round((formEvidenceCount / objectiveCategories.length) * 100) : 0}%</p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                    참고 지표는 평가자가 일관되게 판단하도록 돕는 보조 정보입니다. 최종 평가는 항목별 점수와 선택 근거 기준으로 저장됩니다.
+                  </p>
+                </div>
+                <div className="rounded-xl border bg-background p-4">
+                  <h3 className="mb-3 text-sm font-semibold">1/3/5/7/9점 기준</h3>
+                  <div className="space-y-2">
+                    {PERFORMANCE_SCORE_GUIDE.map(item => (
+                      <div key={item.score} className="rounded-lg border bg-muted/20 p-2 text-xs">
+                        <span className="font-semibold text-foreground">{item.label}</span>
+                        <span className="ml-2 text-muted-foreground">{item.description}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </aside>
             </div>
           </ScrollArea>
         </DialogContent>
