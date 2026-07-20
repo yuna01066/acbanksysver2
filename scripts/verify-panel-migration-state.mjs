@@ -70,12 +70,16 @@ const failures = [];
 const warnings = [];
 const evidence = {};
 
-// 1. panel_sizes: active/inactive by size_name
+// 1. panel_sizes: active/inactive by size_name (only rows tagged with the new pricing version)
 const sizeRows = psqlJson(`
-  SELECT thickness, size_name, is_active, price, actual_width, actual_height
-  FROM public.panel_sizes
-  WHERE size_name IN ('3*6', '소3*6', '대3*6')
-  ORDER BY size_name, thickness
+  SELECT ps.thickness, ps.size_name, ps.is_active, ps.price,
+         ps.actual_width, ps.actual_height, pm.name AS panel_master_name
+  FROM public.panel_sizes ps
+  JOIN public.panel_masters pm ON pm.id = ps.panel_master_id
+  JOIN public.panel_pricing_versions v ON v.id = ps.pricing_version_id
+  WHERE v.version_name = 'A/B 원판 상한 2026-06-01 + 3%'
+    AND ps.size_name IN ('3*6', '소3*6', '대3*6')
+  ORDER BY pm.name, ps.size_name, ps.thickness
 `);
 evidence.panel_sizes = sizeRows;
 
