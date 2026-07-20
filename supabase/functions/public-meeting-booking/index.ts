@@ -2,14 +2,19 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 type JsonObject = Record<string, unknown>;
+type PublicBookingLinkType = "customer_request" | "partner_room" | "consultation_booking";
+type MeetingMode = "visit" | "phone" | "online";
+type ContactPreference = "phone" | "email" | "kakao" | "any";
 type PublicBookingLink = {
   id: string;
   slug: string;
-  link_type: "customer_request" | "partner_room";
+  link_type: PublicBookingLinkType;
   title: string;
   description: string | null;
   is_active: boolean;
   allowed_resource_ids: string[];
+  assigned_user_ids: string[];
+  meeting_modes: MeetingMode[];
   allowed_weekdays: number[];
   start_time: string;
   end_time: string;
@@ -33,14 +38,26 @@ type PublicBookingRequest = {
   status: string;
   starts_at: string;
   ends_at: string;
-  resource_id: string;
+  resource_id: string | null;
   requester_name: string;
   company_name: string | null;
   purpose: string;
 };
+type AvailabilitySlot = {
+  resourceId: string | null;
+  resourceName: string;
+  meetingMode: MeetingMode;
+  assignedTo: string | null;
+  startsAt: string;
+  endsAt: string;
+  time: string;
+  label: string;
+};
 
 const RATE_LIMIT_WINDOW_MINUTES = 10;
 const RATE_LIMIT_MAX_REQUESTS = 20;
+const MEETING_MODES: MeetingMode[] = ["visit", "phone", "online"];
+const CONTACT_PREFERENCES: ContactPreference[] = ["phone", "email", "kakao", "any"];
 
 function getEnv(name: string, required = true) {
   const value = Deno.env.get(name);
@@ -176,6 +193,44 @@ function getTimeOnly(value: unknown) {
   return /^\d{2}:\d{2}$/.test(time) ? time : "";
 }
 
+function isMeetingMode(value: string): value is MeetingMode {
+  return MEETING_MODES.includes(value as MeetingMode);
+}
+
+function isContactPreference(value: string): value is ContactPreference {
+  return CONTACT_PREFERENCES.includes(value as ContactPreference);
+}
+
+function normalizeMeetingModes(link: PublicBookingLink): MeetingMode[] {
+  const rawModes = Array.isArray(link.meeting_modes) ? link.meeting_modes : [];
+  const modes = rawModes.filter((mode): mode is MeetingMode => isMeetingMode(String(mode)));
+  return modes.length > 0 ? modes : ["visit"];
+}
+
+function getMeetingModeLabel(mode: MeetingMode) {
+  if (mode === "phone") return "전화 상담";
+  if (mode === "online") return "온라인 상담";
+  return "방문 상담";
+}
+
+function getContactPreference(value: unknown): ContactPreference {
+  const next = text(value, 20);
+  return isContactPreference(next) ? next : "any";
+}
+
+function getConsultationType(value: unknown) {
+  const next = text(value, 50);
+  return ["sheet_purchase", "fabrication", "design"].includes(next) ? next : "fabrication";
+}
+
+function isConsultationLink(link: PublicBookingLink) {
+  return link.link_type === "consultation_booking";
+}
+
+function requiresResource(link: PublicBookingLink, meetingMode: MeetingMode) {
+  return !isConsultationLink(link) || meetingMode === "visit";
+}
+
 function publicLinkResponse(link: PublicBookingLink, resources: CalendarResource[]) {
   return {
     slug: link.slug,
@@ -185,6 +240,7 @@ function publicLinkResponse(link: PublicBookingLink, resources: CalendarResource
     isActive: link.is_active,
     requiresApproval: link.requires_approval,
     requiresAccessCode: Boolean(link.access_code_hash),
+    meetingModes: normalizeMeetingModes(link),
     rules: {
       allowedWeekdays: link.allowed_weekdays,
       startTime: link.start_time.slice(0, 5),
@@ -236,8 +292,17 @@ async function verifyAccessCode(link: PublicBookingLink, accessCode: unknown) {
 
 function assertLinkUsable(link: PublicBookingLink) {
   if (!link.is_active) throw new Error("비활성화된 예약 링크입니다.");
-  if (!Array.isArray(link.allowed_resource_ids) || link.allowed_resource_ids.length === 0) {
+  if (!isConsultationLink(link) && (!Array.isArray(link.allowed_resource_ids) || link.allowed_resource_ids.length === 0)) {
     throw new Error("예약 가능한 회의실이 설정되지 않았습니다.");
+  }
+  if (isConsultationLink(link)) {
+    const modes = normalizeMeetingModes(link);
+    if (modes.includes("visit") && (!Array.isArray(link.allowed_resource_ids) || link.allowed_resource_ids.length === 0)) {
+      throw new Error("방문 상담에 사용할 회의실이 설정되지 않았습니다.");
+    }
+    if (!link.requires_approval && (!Array.isArray(link.assigned_user_ids) || link.assigned_user_ids.length === 0)) {
+      throw new Error("자동 확정 상담 링크에는 상담 담당자 후보가 필요합니다.");
+    }
   }
 }
 
@@ -276,6 +341,7 @@ async function findConflict(
   startsAt: string,
   endsAt: string,
 ) {
+  if (resourceIds.length === 0) return null;
   const { data, error } = await supabase.rpc("get_calendar_resource_conflict", {
     _resource_ids: resourceIds,
     _starts_at: startsAt,
@@ -284,6 +350,45 @@ async function findConflict(
   });
   if (error) throw error;
   return typeof data === "string" && data ? data : null;
+}
+
+async function findUserConflict(
+  supabase: ReturnType<typeof getServiceClient>,
+  userIds: string[],
+  startsAt: string,
+  endsAt: string,
+) {
+  if (userIds.length === 0) return null;
+  const { data, error } = await supabase.rpc("get_calendar_user_conflict", {
+    _user_ids: userIds,
+    _starts_at: startsAt,
+    _ends_at: endsAt,
+    _exclude_event_id: null,
+  });
+  if (error) throw error;
+  return typeof data === "string" && data ? data : null;
+}
+
+async function selectAvailableAssignee(
+  supabase: ReturnType<typeof getServiceClient>,
+  link: PublicBookingLink,
+  startsAt: string,
+  endsAt: string,
+  requestedAssignee?: string | null,
+) {
+  const candidates = Array.isArray(link.assigned_user_ids) ? link.assigned_user_ids.filter(Boolean) : [];
+  if (requestedAssignee) {
+    if (!candidates.includes(requestedAssignee)) throw new Error("선택 가능한 상담 담당자가 아닙니다.");
+    const conflict = await findUserConflict(supabase, [requestedAssignee], startsAt, endsAt);
+    if (conflict) return null;
+    return requestedAssignee;
+  }
+  if (candidates.length === 0) return null;
+  for (const userId of candidates) {
+    const conflict = await findUserConflict(supabase, [userId], startsAt, endsAt);
+    if (!conflict) return userId;
+  }
+  return null;
 }
 
 async function checkRateLimit(
@@ -322,11 +427,12 @@ async function notifyTargets(
 
   if (targetIds.size === 0) return;
 
+  const isConsultation = isConsultationLink(link);
   const title = kind === "pending"
-    ? "외부 예약 요청이 접수되었습니다"
+    ? isConsultation ? "상담 예약 요청이 접수되었습니다" : "외부 예약 요청이 접수되었습니다"
     : kind === "confirmed"
-    ? "외부 회의실 예약이 확정되었습니다"
-    : "외부 예약 요청이 거절되었습니다";
+    ? isConsultation ? "상담 예약이 확정되었습니다" : "외부 회의실 예약이 확정되었습니다"
+    : isConsultation ? "상담 예약 요청이 거절되었습니다" : "외부 예약 요청이 거절되었습니다";
   const description = `${request.company_name || request.requester_name} / ${new Date(request.starts_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}`;
 
   const rows = [...targetIds].map((userId) => ({
@@ -338,6 +444,7 @@ async function notifyTargets(
       publicBookingRequestId: request.id,
       publicBookingLinkId: link.id,
       status: request.status,
+      linkType: link.link_type,
     },
     dedupe_key: `public-booking:${request.id}`,
   }));
@@ -388,27 +495,52 @@ async function handleAvailability(origin: string | null, body: JsonObject, supab
   const resources = await loadResources(supabase, link.allowed_resource_ids || []);
   const startMinutes = clockToMinutes(link.start_time);
   const endMinutes = clockToMinutes(link.end_time);
-  const slots = [];
+  const slots: AvailabilitySlot[] = [];
+  const modes = isConsultationLink(link) ? normalizeMeetingModes(link) : ["visit"];
 
-  for (const resource of resources) {
-    for (let cursor = startMinutes; cursor + link.duration_minutes <= endMinutes; cursor += link.slot_minutes) {
-      const startsAt = new Date(toSeoulDateTime(date, minutesToClock(cursor)));
-      const endsAt = addMinutes(startsAt, link.duration_minutes);
-      try {
-        validateWindow(link, date, startsAt, endsAt);
+  for (let cursor = startMinutes; cursor + link.duration_minutes <= endMinutes; cursor += link.slot_minutes) {
+    const startsAt = new Date(toSeoulDateTime(date, minutesToClock(cursor)));
+    const endsAt = addMinutes(startsAt, link.duration_minutes);
+    try {
+      validateWindow(link, date, startsAt, endsAt);
+    } catch {
+      continue;
+    }
+
+    for (const mode of modes) {
+      const assignedTo = isConsultationLink(link)
+        ? await selectAvailableAssignee(supabase, link, startsAt.toISOString(), endsAt.toISOString())
+        : null;
+      if (isConsultationLink(link) && link.assigned_user_ids.length > 0 && !assignedTo) continue;
+
+      if (!requiresResource(link, mode)) {
+        slots.push({
+          resourceId: null,
+          resourceName: getMeetingModeLabel(mode),
+          meetingMode: mode,
+          assignedTo,
+          startsAt: startsAt.toISOString(),
+          endsAt: endsAt.toISOString(),
+          time: minutesToClock(cursor),
+          label: `${minutesToClock(cursor)} - ${minutesToClock(cursor + link.duration_minutes)}`,
+        });
+        continue;
+      }
+
+      for (const resource of resources) {
         const conflict = await findConflict(supabase, [resource.id], startsAt.toISOString(), endsAt.toISOString());
         if (!conflict) {
           slots.push({
             resourceId: resource.id,
             resourceName: resource.name,
+            meetingMode: mode,
+            assignedTo,
             startsAt: startsAt.toISOString(),
             endsAt: endsAt.toISOString(),
             time: minutesToClock(cursor),
             label: `${minutesToClock(cursor)} - ${minutesToClock(cursor + link.duration_minutes)}`,
           });
         }
-      } catch {
-        // Exclude invalid or unavailable slots.
       }
     }
   }
@@ -416,17 +548,130 @@ async function handleAvailability(origin: string | null, body: JsonObject, supab
   return ok(origin, { slots });
 }
 
+async function loadExistingConsultationByToken(
+  supabase: ReturnType<typeof getServiceClient>,
+  submissionToken: string | null,
+) {
+  if (!submissionToken) return null;
+  const { data, error } = await supabase
+    .from("client_consultation_leads")
+    .select("id, public_booking_request_id")
+    .eq("source", "public-booking")
+    .eq("submission_token", submissionToken)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.public_booking_request_id) return null;
+
+  const { data: request, error: requestError } = await supabase
+    .from("public_booking_requests")
+    .select("id, status")
+    .eq("id", data.public_booking_request_id)
+    .maybeSingle();
+  if (requestError) throw requestError;
+  return request ? { leadId: data.id as string, requestId: request.id as string, status: request.status as string } : null;
+}
+
+async function createConsultationLead(
+  supabase: ReturnType<typeof getServiceClient>,
+  body: JsonObject,
+  requestId: string,
+  link: PublicBookingLink,
+  startsAt: Date,
+  endsAt: Date,
+  assignedTo: string | null,
+  ipHash: string,
+  userAgent: string,
+) {
+  const requesterName = text(body.requesterName, 80);
+  const companyName = optionalText(body.companyName, 120);
+  const phone = text(body.phone, 80);
+  const email = optionalText(body.email, 160);
+  const purpose = text(body.purpose, 500);
+  const notes = optionalText(body.notes, 1000);
+  const projectName = optionalText(body.projectName, 160);
+  const desiredDeliveryDate = getDateOnly(body.desiredDeliveryDate) || null;
+  const consultationType = getConsultationType(body.consultationType);
+  const contactPreference = getContactPreference(body.contactPreference);
+  const meetingModeText = text(body.meetingMode, 20);
+  const meetingMode = isMeetingMode(meetingModeText) ? meetingModeText : "visit";
+  const submissionToken = optionalText(body.submissionToken, 160);
+
+  const inquiryBody = concatLines([
+    purpose,
+    notes ? `추가 메모: ${notes}` : "",
+    projectName ? `프로젝트명: ${projectName}` : "",
+    `예약 일시: ${startsAt.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} - ${endsAt.toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul" })}`,
+    `상담 방식: ${getMeetingModeLabel(meetingMode)}`,
+  ]);
+
+  const { data, error } = await supabase
+    .from("client_consultation_leads")
+    .insert({
+      source: "public-booking",
+      submission_token: submissionToken,
+      public_booking_request_id: requestId,
+      customer_name: requesterName,
+      customer_company: companyName,
+      customer_phone: phone,
+      customer_email: email,
+      project_name: projectName,
+      consultation_type: consultationType,
+      desired_delivery_date: desiredDeliveryDate,
+      inquiry_body: inquiryBody,
+      privacy_consent: true,
+      marketing_consent: false,
+      assigned_to: assignedTo,
+      assigned_at: assignedTo ? new Date().toISOString() : null,
+      follow_up_at: startsAt.toISOString(),
+      status: "new",
+      response_status: "not_contacted",
+      priority: "normal",
+      quality_score: phone && purpose ? 80 : 60,
+      missing_fields: [],
+      processing: [],
+      submitter_ip_hash: ipHash,
+      user_agent: userAgent,
+      raw_payload: {
+        source: "public_booking",
+        publicBookingRequestId: requestId,
+        publicBookingLinkId: link.id,
+        publicBookingLinkSlug: link.slug,
+        publicBookingLinkType: link.link_type,
+        meetingMode,
+        contactPreference,
+        requestedStartsAt: startsAt.toISOString(),
+        requestedEndsAt: endsAt.toISOString(),
+      },
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id as string;
+}
+
+function concatLines(lines: string[]) {
+  return lines.map((line) => line.trim()).filter(Boolean).join("\n");
+}
+
 async function handleCreateRequest(req: Request, origin: string | null, body: JsonObject, supabase: ReturnType<typeof getServiceClient>) {
   const slug = text(body.slug, 100);
   const date = getDateOnly(body.date);
   const time = getTimeOnly(body.time);
-  const resourceId = text(body.resourceId, 80);
-  if (!slug || !date || !time || !resourceId) return fail(origin, "예약 날짜, 시간, 회의실을 선택해주세요.", 400);
+  if (!slug || !date || !time) return fail(origin, "예약 날짜와 시간을 선택해주세요.", 400);
 
   const link = await loadLink(supabase, slug);
   assertLinkUsable(link);
   if (!(await verifyAccessCode(link, body.accessCode))) return fail(origin, "접근 코드가 올바르지 않습니다.", 403);
-  if (!link.allowed_resource_ids.includes(resourceId)) return fail(origin, "예약 가능한 회의실이 아닙니다.", 400);
+
+  const meetingModeRaw = text(body.meetingMode, 20);
+  const meetingMode = isConsultationLink(link)
+    ? isMeetingMode(meetingModeRaw) && normalizeMeetingModes(link).includes(meetingModeRaw)
+      ? meetingModeRaw
+      : normalizeMeetingModes(link)[0]
+    : "visit";
+  const resourceId = optionalText(body.resourceId, 80);
+  if (requiresResource(link, meetingMode) && !resourceId) return fail(origin, "예약 가능한 회의실을 선택해주세요.", 400);
+  if (resourceId && !link.allowed_resource_ids.includes(resourceId)) return fail(origin, "예약 가능한 회의실이 아닙니다.", 400);
 
   const startsAt = new Date(toSeoulDateTime(date, time));
   const endsAt = addMinutes(startsAt, link.duration_minutes);
@@ -434,15 +679,43 @@ async function handleCreateRequest(req: Request, origin: string | null, body: Js
 
   const requesterName = text(body.requesterName, 80);
   const purpose = text(body.purpose, 500);
+  const phone = text(body.phone, 80);
+  const privacyConsent = Boolean(body.privacyConsent);
   if (!requesterName) return fail(origin, "예약자 이름을 입력해주세요.", 400);
-  if (!purpose) return fail(origin, "예약 목적을 입력해주세요.", 400);
+  if (!purpose) return fail(origin, isConsultationLink(link) ? "상담 내용을 입력해주세요." : "예약 목적을 입력해주세요.", 400);
+  if (isConsultationLink(link) && !phone) return fail(origin, "상담 예약에는 연락처가 필요합니다.", 400);
+  if (isConsultationLink(link) && !privacyConsent) return fail(origin, "개인정보 수집 및 이용에 동의해주세요.", 400);
+
+  const submissionToken = optionalText(body.submissionToken, 160);
+  const existing = isConsultationLink(link)
+    ? await loadExistingConsultationByToken(supabase, submissionToken)
+    : null;
+  if (existing) {
+    return ok(origin, {
+      requestId: existing.requestId,
+      status: existing.status,
+      consultationLeadId: existing.leadId,
+      requiresApproval: link.requires_approval,
+      duplicate: true,
+    });
+  }
 
   const ipHash = await sha256(`${getClientIp(req)}:${slug}`);
   await checkRateLimit(supabase, link.id, ipHash);
 
-  const conflict = await findConflict(supabase, [resourceId], startsAt.toISOString(), endsAt.toISOString());
-  if (conflict) return fail(origin, `이미 예약된 회의실입니다: ${conflict}`, 409);
+  if (resourceId) {
+    const conflict = await findConflict(supabase, [resourceId], startsAt.toISOString(), endsAt.toISOString());
+    if (conflict) return fail(origin, `이미 예약된 회의실입니다: ${conflict}`, 409);
+  }
 
+  const assignedTo = isConsultationLink(link)
+    ? await selectAvailableAssignee(supabase, link, startsAt.toISOString(), endsAt.toISOString(), optionalText(body.assignedTo, 80))
+    : null;
+  if (isConsultationLink(link) && link.assigned_user_ids.length > 0 && !assignedTo) {
+    return fail(origin, "선택한 시간에 상담 가능한 담당자가 없습니다.", 409);
+  }
+
+  const userAgent = text(req.headers.get("user-agent") || "", 500);
   const { data: requestRow, error: insertError } = await supabase
     .from("public_booking_requests")
     .insert({
@@ -457,24 +730,41 @@ async function handleCreateRequest(req: Request, origin: string | null, body: Js
       email: optionalText(body.email, 160),
       purpose,
       notes: optionalText(body.notes, 1000),
+      assigned_to: assignedTo,
+      meeting_mode: meetingMode,
+      contact_preference: isConsultationLink(link) ? getContactPreference(body.contactPreference) : null,
       ip_hash: ipHash,
-      user_agent: text(req.headers.get("user-agent") || "", 500),
+      user_agent: userAgent,
       metadata: {
         source: "public_booking_link",
         link_slug: link.slug,
         link_type: link.link_type,
+        meeting_mode: meetingMode,
+        consultation_type: isConsultationLink(link) ? getConsultationType(body.consultationType) : null,
+        desired_delivery_date: isConsultationLink(link) ? getDateOnly(body.desiredDeliveryDate) || null : null,
+        project_name: isConsultationLink(link) ? optionalText(body.projectName, 160) : null,
       },
     })
     .select("id, status, starts_at, ends_at, resource_id, requester_name, company_name, purpose")
     .single();
   if (insertError) throw insertError;
 
+  let consultationLeadId: string | null = null;
+  if (isConsultationLink(link)) {
+    consultationLeadId = await createConsultationLead(supabase, body, requestRow.id, link, startsAt, endsAt, assignedTo, ipHash, userAgent);
+    const { error: requestUpdateError } = await supabase
+      .from("public_booking_requests")
+      .update({ consultation_lead_id: consultationLeadId })
+      .eq("id", requestRow.id);
+    if (requestUpdateError) throw requestUpdateError;
+  }
+
   let nextStatus = "pending_review";
   if (!link.requires_approval) {
     const { error: confirmError } = await supabase.rpc("confirm_public_booking_request", {
       _request_id: requestRow.id,
       _reviewer_id: null,
-      _review_note: "공유회사 전용 링크 자동 확정",
+      _review_note: isConsultationLink(link) ? "공개 상담 예약 링크 자동 확정" : "공유회사 전용 링크 자동 확정",
     });
     if (confirmError) throw confirmError;
     nextStatus = "confirmed";
@@ -485,6 +775,7 @@ async function handleCreateRequest(req: Request, origin: string | null, body: Js
 
   return ok(origin, {
     requestId: requestRow.id,
+    consultationLeadId,
     status: nextStatus,
     requiresApproval: link.requires_approval,
   });
@@ -530,10 +821,23 @@ async function handleRejectRequest(req: Request, origin: string | null, body: Js
     })
     .eq("id", requestId)
     .in("status", ["pending_review"])
-    .select("id, status, starts_at, ends_at, resource_id, requester_name, company_name, purpose, public_booking_links(*)")
+    .select("id, status, starts_at, ends_at, resource_id, requester_name, company_name, purpose, consultation_lead_id, public_booking_links(*)")
     .maybeSingle();
   if (error) throw error;
   if (!requestRow) return fail(origin, "거절할 수 있는 예약 요청을 찾을 수 없습니다.", 404);
+
+  if (requestRow.consultation_lead_id) {
+    const { error: leadError } = await supabase
+      .from("client_consultation_leads")
+      .update({
+        status: "closed",
+        closed_at: new Date().toISOString(),
+        memo: `시스템: 상담 예약이 거절되었습니다. 사유: ${reviewNote}`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", requestRow.consultation_lead_id);
+    if (leadError) console.error("Failed to close consultation lead", leadError);
+  }
 
   const link = asObject(requestRow.public_booking_links) as unknown as PublicBookingLink;
   if (link?.id) await notifyTargets(supabase, link, requestRow as PublicBookingRequest, "rejected");

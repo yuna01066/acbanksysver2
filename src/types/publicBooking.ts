@@ -1,5 +1,7 @@
-export type PublicBookingLinkType = 'customer_request' | 'partner_room';
+export type PublicBookingLinkType = 'customer_request' | 'partner_room' | 'consultation_booking';
 export type PublicBookingRequestStatus = 'pending_review' | 'confirmed' | 'rejected' | 'canceled' | 'expired';
+export type PublicBookingMeetingMode = 'visit' | 'phone' | 'online';
+export type PublicBookingContactPreference = 'phone' | 'email' | 'kakao' | 'any';
 
 export type PublicBookingResource = {
   id: string;
@@ -26,13 +28,16 @@ export type PublicBookingLinkPublic = {
   isActive: boolean;
   requiresApproval: boolean;
   requiresAccessCode: boolean;
+  meetingModes: PublicBookingMeetingMode[];
   rules: PublicBookingLinkRules;
   resources: PublicBookingResource[];
 };
 
 export type PublicBookingSlot = {
-  resourceId: string;
+  resourceId: string | null;
   resourceName: string;
+  meetingMode: PublicBookingMeetingMode;
+  assignedTo?: string | null;
   startsAt: string;
   endsAt: string;
   time: string;
@@ -47,6 +52,8 @@ export type PublicBookingLinkRow = {
   description: string | null;
   is_active: boolean;
   allowed_resource_ids: string[];
+  assigned_user_ids: string[];
+  meeting_modes: PublicBookingMeetingMode[];
   allowed_weekdays: number[];
   start_time: string;
   end_time: string;
@@ -70,7 +77,11 @@ export type PublicBookingRequestRow = {
   status: PublicBookingRequestStatus;
   starts_at: string;
   ends_at: string;
-  resource_id: string;
+  resource_id: string | null;
+  consultation_lead_id: string | null;
+  assigned_to: string | null;
+  meeting_mode: PublicBookingMeetingMode;
+  contact_preference: PublicBookingContactPreference | null;
   requester_name: string;
   company_name: string | null;
   phone: string | null;
@@ -86,6 +97,16 @@ export type PublicBookingRequestRow = {
   updated_at: string;
   public_booking_links?: Pick<PublicBookingLinkRow, 'id' | 'slug' | 'title' | 'link_type' | 'requires_approval'> | null;
   calendar_resources?: Pick<PublicBookingResource, 'id' | 'name' | 'floor'> | null;
+  assigned_profile?: {
+    id: string;
+    full_name: string | null;
+    department: string | null;
+  } | null;
+  client_consultation_leads?: {
+    id: string;
+    status: string;
+    consultation_type: string;
+  } | null;
 };
 
 export type PublicBookingLinkDraft = {
@@ -96,6 +117,8 @@ export type PublicBookingLinkDraft = {
   description?: string | null;
   is_active: boolean;
   allowed_resource_ids: string[];
+  assigned_user_ids: string[];
+  meeting_modes: PublicBookingMeetingMode[];
   allowed_weekdays: number[];
   start_time: string;
   end_time: string;

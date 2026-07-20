@@ -26,6 +26,8 @@ async function buildLinkPayload(draft: PublicBookingLinkDraft, userId?: string |
     description: draft.description?.trim() || null,
     is_active: draft.is_active,
     allowed_resource_ids: draft.allowed_resource_ids,
+    assigned_user_ids: draft.assigned_user_ids,
+    meeting_modes: draft.meeting_modes,
     allowed_weekdays: draft.allowed_weekdays,
     start_time: normalizeTime(draft.start_time),
     end_time: normalizeTime(draft.end_time),
@@ -103,6 +105,16 @@ export function usePublicBookingRequests(enabled = true) {
             id,
             name,
             floor
+          ),
+          assigned_profile:assigned_to (
+            id,
+            full_name,
+            department
+          ),
+          client_consultation_leads:consultation_lead_id (
+            id,
+            status,
+            consultation_type
           )
         `)
         .order('created_at', { ascending: false })
@@ -121,7 +133,16 @@ export function useSavePublicBookingLink(userId?: string | null) {
     mutationFn: async (draft: PublicBookingLinkDraft) => {
       if (!draft.title.trim()) throw new Error('링크 이름을 입력해주세요.');
       if (!draft.slug.trim()) throw new Error('공개 링크 주소를 입력해주세요.');
-      if (draft.allowed_resource_ids.length === 0) throw new Error('회의실을 1개 이상 선택해주세요.');
+      const isConsultation = draft.link_type === 'consultation_booking';
+      const meetingModes = draft.meeting_modes || [];
+      if (isConsultation && meetingModes.length === 0) throw new Error('상담 방식을 1개 이상 선택해주세요.');
+      if (!isConsultation && draft.allowed_resource_ids.length === 0) throw new Error('회의실을 1개 이상 선택해주세요.');
+      if (isConsultation && meetingModes.includes('visit') && draft.allowed_resource_ids.length === 0) {
+        throw new Error('방문 상담을 사용하려면 회의실을 1개 이상 선택해주세요.');
+      }
+      if (isConsultation && !draft.requires_approval && draft.assigned_user_ids.length === 0) {
+        throw new Error('자동 확정 상담 링크는 담당자 후보를 1명 이상 선택해주세요.');
+      }
       if (draft.allowed_weekdays.length === 0) throw new Error('예약 가능한 요일을 선택해주세요.');
 
       const payload = await buildLinkPayload(draft, userId);

@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { addDays, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarCheck2, CheckCircle2, Clock3, Loader2, LockKeyhole, MapPin, Send, UserRound } from 'lucide-react';
+import { CalendarCheck2, CheckCircle2, Clock3, Loader2, LockKeyhole, MapPin, Phone, Send, UserRound, Video } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { PublicBookingLinkPublic, PublicBookingSlot } from '@/types/publicBooking';
+import type { PublicBookingLinkPublic, PublicBookingMeetingMode, PublicBookingSlot } from '@/types/publicBooking';
 
 const todayString = () => format(new Date(), 'yyyy-MM-dd');
 
@@ -31,6 +32,31 @@ function formatDateLabel(date: string) {
   return Number.isNaN(value.getTime()) ? date : format(value, 'yyyy년 M월 d일 EEEE', { locale: ko });
 }
 
+const CONSULTATION_TYPES = [
+  { value: 'fabrication', label: '제작 상담' },
+  { value: 'design', label: '디자인 상담' },
+  { value: 'sheet_purchase', label: '자재/샘플 상담' },
+];
+
+const CONTACT_PREFERENCES = [
+  { value: 'any', label: '상관없음' },
+  { value: 'phone', label: '전화' },
+  { value: 'email', label: '이메일' },
+  { value: 'kakao', label: '카카오톡' },
+];
+
+function getMeetingModeLabel(mode: PublicBookingMeetingMode) {
+  if (mode === 'phone') return '전화 상담';
+  if (mode === 'online') return '온라인 상담';
+  return '방문 상담';
+}
+
+function getMeetingModeIcon(mode: PublicBookingMeetingMode) {
+  if (mode === 'phone') return Phone;
+  if (mode === 'online') return Video;
+  return MapPin;
+}
+
 const PublicBookingPage = () => {
   const { slug = '' } = useParams();
   const [link, setLink] = useState<PublicBookingLinkPublic | null>(null);
@@ -47,15 +73,22 @@ const PublicBookingPage = () => {
     companyName: '',
     phone: '',
     email: '',
+    consultationType: 'fabrication',
+    projectName: '',
+    desiredDeliveryDate: '',
+    contactPreference: 'any',
     purpose: '',
     notes: '',
+    privacyConsent: false,
   });
   const [result, setResult] = useState<{ status: string; requiresApproval: boolean } | null>(null);
 
   const selectedSlot = useMemo(
-    () => slots.find((slot) => `${slot.resourceId}:${slot.time}` === selectedSlotKey) || null,
+    () => slots.find((slot) => `${slot.meetingMode}:${slot.resourceId || 'none'}:${slot.time}` === selectedSlotKey) || null,
     [selectedSlotKey, slots],
   );
+
+  const isConsultation = link?.linkType === 'consultation_booking';
 
   useEffect(() => {
     let mounted = true;
@@ -97,7 +130,12 @@ const PublicBookingPage = () => {
       });
       if (invokeError) throw invokeError;
       if (data?.error) throw new Error(String(data.error));
-      setSlots((data.slots || []) as PublicBookingSlot[]);
+      setSlots(((data.slots || []) as PublicBookingSlot[]).map((slot) => ({
+        ...slot,
+        meetingMode: slot.meetingMode || 'visit',
+        resourceId: slot.resourceId || null,
+        resourceName: slot.resourceName || getMeetingModeLabel(slot.meetingMode || 'visit'),
+      })));
     } catch (nextError) {
       setSlots([]);
       setError(getErrorMessage(nextError, '예약 가능 시간을 불러오지 못했습니다.'));
@@ -115,7 +153,7 @@ const PublicBookingPage = () => {
     loadAvailability();
   }, [link, date, accessCode, result]);
 
-  const updateForm = (key: keyof typeof form, value: string) => {
+  const updateForm = (key: keyof typeof form, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -126,7 +164,15 @@ const PublicBookingPage = () => {
       return;
     }
     if (!form.purpose.trim()) {
-      setError('예약 목적을 입력해주세요.');
+      setError(isConsultation ? '상담 내용을 입력해주세요.' : '예약 목적을 입력해주세요.');
+      return;
+    }
+    if (isConsultation && !form.phone.trim()) {
+      setError('상담 예약에는 연락처가 필요합니다.');
+      return;
+    }
+    if (isConsultation && !form.privacyConsent) {
+      setError('개인정보 수집 및 이용에 동의해주세요.');
       return;
     }
 
@@ -140,7 +186,10 @@ const PublicBookingPage = () => {
           date,
           time: selectedSlot.time,
           resourceId: selectedSlot.resourceId,
+          meetingMode: selectedSlot.meetingMode,
+          assignedTo: selectedSlot.assignedTo || null,
           accessCode,
+          submissionToken: `${slug}:${selectedSlot.startsAt}:${form.phone}:${form.requesterName}`.slice(0, 160),
           ...form,
         },
       });
@@ -187,13 +236,19 @@ const PublicBookingPage = () => {
           </h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
             {result.requiresApproval
-              ? '담당자가 회의실 가능 여부와 내용을 확인한 뒤 확정합니다.'
+              ? isConsultation
+                ? '담당자가 상담 내용과 시간을 확인한 뒤 확정합니다.'
+                : '담당자가 회의실 가능 여부와 내용을 확인한 뒤 확정합니다.'
+              : isConsultation
+              ? '선택한 시간으로 상담 예약이 내부 캘린더에 반영되었습니다.'
               : '선택한 시간으로 회의실 예약이 내부 캘린더에 반영되었습니다.'}
           </p>
           {selectedSlot && (
             <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4 text-left">
               <p className="text-sm font-semibold">{formatDateLabel(date)}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{selectedSlot.resourceName} / {selectedSlot.label}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {getMeetingModeLabel(selectedSlot.meetingMode)} / {selectedSlot.resourceName} / {selectedSlot.label}
+              </p>
             </div>
           )}
         </section>
@@ -213,7 +268,7 @@ const PublicBookingPage = () => {
             </span>
             <div className="min-w-0">
               <Badge variant="outline" className="rounded-full">
-                {link.linkType === 'partner_room' ? '공유 회의실 예약' : '고객 미팅 요청'}
+                {link.linkType === 'partner_room' ? '공유 회의실 예약' : isConsultation ? '고객 상담 예약' : '고객 미팅 요청'}
               </Badge>
               <h1 className="mt-3 text-2xl font-bold leading-tight">{link.title}</h1>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -232,9 +287,19 @@ const PublicBookingPage = () => {
             <div className="rounded-lg border border-border bg-muted/30 p-3">
               <p className="font-semibold">회의실</p>
               <p className="mt-1 text-muted-foreground">
-                {link.resources.map((resource) => resource.name).join(', ') || '설정된 회의실 없음'}
+                {isConsultation
+                  ? link.meetingModes.map((mode) => getMeetingModeLabel(mode)).join(', ')
+                  : link.resources.map((resource) => resource.name).join(', ') || '설정된 회의실 없음'}
               </p>
             </div>
+            {isConsultation && link.meetingModes.includes('visit') && (
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="font-semibold">방문 상담 회의실</p>
+                <p className="mt-1 text-muted-foreground">
+                  {link.resources.map((resource) => resource.name).join(', ') || '설정된 회의실 없음'}
+                </p>
+              </div>
+            )}
             <div className="rounded-lg border border-border bg-muted/30 p-3">
               <p className="font-semibold">처리 방식</p>
               <p className="mt-1 text-muted-foreground">
@@ -282,8 +347,9 @@ const PublicBookingPage = () => {
                 </div>
                 <div className="grid max-h-48 gap-2 overflow-auto rounded-lg border border-border bg-muted/20 p-2 sm:grid-cols-2">
                   {slots.length > 0 ? slots.map((slot) => {
-                    const key = `${slot.resourceId}:${slot.time}`;
+                    const key = `${slot.meetingMode}:${slot.resourceId || 'none'}:${slot.time}`;
                     const selected = selectedSlotKey === key;
+                    const ModeIcon = getMeetingModeIcon(slot.meetingMode);
                     return (
                       <button
                         key={key}
@@ -301,8 +367,8 @@ const PublicBookingPage = () => {
                           {slot.label}
                         </span>
                         <span className={cn('mt-1 flex items-center gap-1 text-xs', selected ? 'text-background/70' : 'text-muted-foreground')}>
-                          <MapPin className="h-3 w-3" />
-                          {slot.resourceName}
+                          <ModeIcon className="h-3 w-3" />
+                          {isConsultation ? `${getMeetingModeLabel(slot.meetingMode)} · ${slot.resourceName}` : slot.resourceName}
                         </span>
                       </button>
                     );
@@ -314,6 +380,76 @@ const PublicBookingPage = () => {
                 </div>
               </div>
             </div>
+
+            {isConsultation && (
+              <div className="grid gap-3 rounded-lg border border-border bg-muted/20 p-3">
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">상담 유형</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {CONSULTATION_TYPES.map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => updateForm('consultationType', item.value)}
+                        className={cn(
+                          'rounded-full border px-3 py-1.5 text-sm font-semibold',
+                          form.consultationType === item.value
+                            ? 'border-foreground bg-foreground text-background'
+                            : 'border-border bg-card text-foreground',
+                        )}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="projectName" className="text-sm font-semibold">프로젝트명</Label>
+                    <Input
+                      id="projectName"
+                      value={form.projectName}
+                      onChange={(event) => updateForm('projectName', event.target.value)}
+                      placeholder="예: 아크릴 진열대 제작"
+                      className="h-11 rounded-lg"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="desiredDeliveryDate" className="text-sm font-semibold">희망 납기일</Label>
+                    <Input
+                      id="desiredDeliveryDate"
+                      type="date"
+                      value={form.desiredDeliveryDate}
+                      min={todayString()}
+                      onChange={(event) => updateForm('desiredDeliveryDate', event.target.value)}
+                      className="h-11 rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">선호 연락 방식</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {CONTACT_PREFERENCES.map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => updateForm('contactPreference', item.value)}
+                        className={cn(
+                          'rounded-full border px-3 py-1.5 text-sm',
+                          form.contactPreference === item.value
+                            ? 'border-foreground bg-foreground text-background'
+                            : 'border-border bg-card text-foreground',
+                        )}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
@@ -363,15 +499,27 @@ const PublicBookingPage = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="purpose" className="text-sm font-semibold">예약 목적</Label>
+              <Label htmlFor="purpose" className="text-sm font-semibold">{isConsultation ? '상담 내용' : '예약 목적'}</Label>
               <Textarea
                 id="purpose"
                 value={form.purpose}
                 onChange={(event) => updateForm('purpose', event.target.value)}
-                placeholder="미팅 목적, 참석 인원, 필요한 준비 사항을 적어주세요."
+                placeholder={isConsultation ? '제작 품목, 수량, 사이즈, 상담받고 싶은 내용을 적어주세요.' : '미팅 목적, 참석 인원, 필요한 준비 사항을 적어주세요.'}
                 className="min-h-24 rounded-lg"
               />
             </div>
+
+            {isConsultation && (
+              <label className="flex items-start gap-3 rounded-lg border border-border bg-muted/20 p-3 text-sm">
+                <Checkbox
+                  checked={form.privacyConsent}
+                  onCheckedChange={(checked) => updateForm('privacyConsent', Boolean(checked))}
+                />
+                <span className="leading-6 text-muted-foreground">
+                  상담 예약 처리를 위해 이름, 연락처, 회사명, 상담 내용을 수집하고 내부 상담 리드로 저장하는 데 동의합니다.
+                </span>
+              </label>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="notes" className="text-sm font-semibold">추가 메모</Label>
@@ -397,7 +545,9 @@ const PublicBookingPage = () => {
               className="h-12 rounded-full bg-foreground text-background hover:bg-foreground/90"
             >
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-              {link.requiresApproval ? '예약 요청 보내기' : '예약 확정하기'}
+              {isConsultation
+                ? link.requiresApproval ? '상담 예약 요청 보내기' : '상담 예약 확정하기'
+                : link.requiresApproval ? '예약 요청 보내기' : '예약 확정하기'}
             </Button>
           </div>
         </section>

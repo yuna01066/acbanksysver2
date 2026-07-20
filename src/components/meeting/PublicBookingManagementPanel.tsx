@@ -25,7 +25,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import type { PublicBookingLinkDraft, PublicBookingLinkRow, PublicBookingLinkType, PublicBookingRequestRow } from '@/types/publicBooking';
+import type {
+  PublicBookingLinkDraft,
+  PublicBookingLinkRow,
+  PublicBookingLinkType,
+  PublicBookingMeetingMode,
+  PublicBookingRequestRow,
+} from '@/types/publicBooking';
 
 const WEEKDAYS = [
   { value: 0, label: '일' },
@@ -38,6 +44,11 @@ const WEEKDAYS = [
 ];
 const DURATION_OPTIONS = [30, 60, 90, 120, 180, 240];
 const SLOT_OPTIONS = [15, 30, 60];
+const MEETING_MODE_OPTIONS: Array<{ value: PublicBookingMeetingMode; label: string; description: string }> = [
+  { value: 'visit', label: '방문', description: '회의실 가능 시간까지 확인' },
+  { value: 'phone', label: '전화', description: '담당자 일정만 확인' },
+  { value: 'online', label: '온라인', description: '담당자 일정만 확인' },
+];
 const STATUS_LABELS: Record<string, string> = {
   pending_review: '확정 대기',
   confirmed: '확정',
@@ -54,6 +65,8 @@ function createDefaultDraft(resourceIds: string[]): PublicBookingLinkDraft {
     description: '상담 또는 방문 미팅을 요청해주세요. 담당자가 확인 후 확정합니다.',
     is_active: true,
     allowed_resource_ids: resourceIds.slice(0, 2),
+    assigned_user_ids: [],
+    meeting_modes: ['visit'],
     allowed_weekdays: [1, 2, 3, 4, 5],
     start_time: '09:00',
     end_time: '18:00',
@@ -78,6 +91,8 @@ function draftFromLink(link: PublicBookingLinkRow): PublicBookingLinkDraft {
     description: link.description || '',
     is_active: link.is_active,
     allowed_resource_ids: link.allowed_resource_ids || [],
+    assigned_user_ids: link.assigned_user_ids || [],
+    meeting_modes: link.meeting_modes || ['visit'],
     allowed_weekdays: link.allowed_weekdays || [],
     start_time: link.start_time.slice(0, 5),
     end_time: link.end_time.slice(0, 5),
@@ -147,16 +162,43 @@ const PublicBookingManagementPanel = () => {
     }));
   };
 
+  const toggleAssignedUser = (userId: string) => {
+    setDraft((prev) => ({
+      ...prev,
+      assigned_user_ids: prev.assigned_user_ids.includes(userId)
+        ? prev.assigned_user_ids.filter((id) => id !== userId)
+        : [...prev.assigned_user_ids, userId],
+    }));
+  };
+
+  const toggleMeetingMode = (mode: PublicBookingMeetingMode) => {
+    setDraft((prev) => {
+      const hasMode = prev.meeting_modes.includes(mode);
+      const nextModes = hasMode
+        ? prev.meeting_modes.filter((item) => item !== mode)
+        : [...prev.meeting_modes, mode];
+      return {
+        ...prev,
+        meeting_modes: nextModes.length > 0 ? nextModes : [mode],
+      };
+    });
+  };
+
   const setLinkType = (linkType: PublicBookingLinkType) => {
+    const isPartner = linkType === 'partner_room';
+    const isConsultation = linkType === 'consultation_booking';
     setDraft((prev) => ({
       ...prev,
       link_type: linkType,
-      title: linkType === 'partner_room' ? '공유회사 회의실 예약' : '고객 미팅 예약 요청',
-      description: linkType === 'partner_room'
+      title: isPartner ? '공유회사 회의실 예약' : isConsultation ? '고객 상담 예약' : '고객 미팅 예약 요청',
+      description: isPartner
         ? '공유 사무실 파트너가 빈 회의실을 직접 예약합니다.'
+        : isConsultation
+        ? '상담 유형과 가능한 시간을 선택하면 내부 상담 리드와 캘린더에 연결됩니다.'
         : '상담 또는 방문 미팅을 요청해주세요. 담당자가 확인 후 확정합니다.',
-      requires_approval: linkType === 'customer_request',
-      slug: generatePublicBookingSlug(linkType === 'partner_room' ? 'partner-room' : 'customer-booking'),
+      requires_approval: !isPartner,
+      meeting_modes: isConsultation ? ['visit', 'phone', 'online'] : ['visit'],
+      slug: generatePublicBookingSlug(isPartner ? 'partner-room' : isConsultation ? 'consultation-booking' : 'customer-booking'),
     }));
   };
 
@@ -226,7 +268,7 @@ const PublicBookingManagementPanel = () => {
             </span>
             <div>
               <h2 className="text-lg font-bold">공개 예약 링크 관리</h2>
-              <p className="text-sm text-muted-foreground">고객 요청과 공유회사 회의실 예약을 내부 캘린더에 연결합니다.</p>
+          <p className="text-sm text-muted-foreground">고객 상담, 고객 미팅, 공유회사 회의실 예약을 내부 캘린더에 연결합니다.</p>
             </div>
           </div>
         </div>
@@ -269,8 +311,26 @@ const PublicBookingManagementPanel = () => {
                   </div>
                   <div className="min-w-0 text-xs text-muted-foreground">
                     <p className="font-medium text-foreground">{formatRequestDate(request)}</p>
-                    <p className="mt-1">{request.calendar_resources?.name || '회의실 미확인'}</p>
+                    <p className="mt-1">
+                      {request.meeting_mode === 'phone'
+                        ? '전화 상담'
+                        : request.meeting_mode === 'online'
+                        ? '온라인 상담'
+                        : request.calendar_resources?.name || '회의실 미확인'}
+                    </p>
+                    {request.assigned_profile?.full_name && (
+                      <p className="mt-1 truncate">담당 {request.assigned_profile.full_name}</p>
+                    )}
                     <p className="mt-1 truncate">{request.public_booking_links?.title || '공개 예약 링크'}</p>
+                    {request.consultation_lead_id && (
+                      <button
+                        type="button"
+                        className="mt-1 text-xs font-semibold text-foreground underline-offset-2 hover:underline"
+                        onClick={() => window.open(`/channel-talk-leads?source=imweb&id=${request.consultation_lead_id}`, '_blank')}
+                      >
+                        상담 리드 보기
+                      </button>
+                    )}
                   </div>
                   <div>
                     <Badge
@@ -347,6 +407,7 @@ const PublicBookingManagementPanel = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="customer_request">고객 미팅 요청</SelectItem>
+                    <SelectItem value="consultation_booking">고객 상담 예약</SelectItem>
                     <SelectItem value="partner_room">공유회사 회의실 예약</SelectItem>
                   </SelectContent>
                 </Select>
@@ -383,8 +444,28 @@ const PublicBookingManagementPanel = () => {
                 />
               </div>
 
+              {draft.link_type === 'consultation_booking' && (
+                <div className="grid gap-2">
+                  <Label>상담 방식</Label>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {MEETING_MODE_OPTIONS.map((mode) => (
+                      <label key={mode.value} className="flex items-start gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+                        <Checkbox
+                          checked={draft.meeting_modes.includes(mode.value)}
+                          onCheckedChange={() => toggleMeetingMode(mode.value)}
+                        />
+                        <span>
+                          <span className="block font-semibold">{mode.label}</span>
+                          <span className="text-xs text-muted-foreground">{mode.description}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="grid gap-2">
-                <Label>회의실</Label>
+                <Label>{draft.link_type === 'consultation_booking' ? '방문 상담 회의실' : '회의실'}</Label>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {meetingRooms.map((resource) => (
                     <label key={resource.id} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
@@ -396,7 +477,31 @@ const PublicBookingManagementPanel = () => {
                     </label>
                   ))}
                 </div>
+                {draft.link_type === 'consultation_booking' && !draft.meeting_modes.includes('visit') && (
+                  <p className="text-xs text-muted-foreground">전화/온라인 상담만 받는 링크는 회의실 없이 저장할 수 있습니다.</p>
+                )}
               </div>
+
+              {draft.link_type === 'consultation_booking' && (
+                <div className="grid gap-2">
+                  <Label>상담 담당자 후보</Label>
+                  <div className="grid max-h-36 gap-2 overflow-auto rounded-lg border border-border p-2 sm:grid-cols-2">
+                    {employees.map((employee) => (
+                      <label key={employee.id} className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted/60">
+                        <Checkbox
+                          checked={draft.assigned_user_ids.includes(employee.id)}
+                          onCheckedChange={() => toggleAssignedUser(employee.id)}
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate">{employee.full_name}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{employee.department || '부서 미지정'}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">선택하면 가능한 담당자 중 1명이 자동 배정됩니다. 비워두면 관리자 확정 시 지정할 수 있습니다.</p>
+                </div>
+              )}
 
               <div className="grid gap-2">
                 <Label>예약 가능 요일</Label>
@@ -456,7 +561,7 @@ const PublicBookingManagementPanel = () => {
                 <label className="flex items-center justify-between gap-3 text-sm">
                   <span>
                     <span className="block font-semibold">관리자 확정 필요</span>
-                    <span className="text-xs text-muted-foreground">고객 링크는 켜고, 공유회사 링크는 끄는 것을 권장합니다.</span>
+                    <span className="text-xs text-muted-foreground">고객/상담 링크는 켜고, 공유회사 링크는 끄는 것을 권장합니다.</span>
                   </span>
                   <Switch checked={draft.requires_approval} onCheckedChange={(checked) => updateDraft('requires_approval', checked)} />
                 </label>
@@ -530,7 +635,7 @@ const PublicBookingManagementPanel = () => {
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold">{link.title}</p>
                         <Badge variant="outline" className="rounded-full">
-                          {link.link_type === 'partner_room' ? '공유회사' : '고객'}
+                          {link.link_type === 'partner_room' ? '공유회사' : link.link_type === 'consultation_booking' ? '상담예약' : '고객'}
                         </Badge>
                         <Badge variant={link.is_active ? 'default' : 'secondary'} className="rounded-full">
                           {link.is_active ? '활성' : '비활성'}
@@ -539,6 +644,7 @@ const PublicBookingManagementPanel = () => {
                       <p className="mt-1 truncate font-mono text-xs text-muted-foreground">/public-booking/{link.slug}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {link.start_time.slice(0, 5)}-{link.end_time.slice(0, 5)} / {link.duration_minutes}분 / {link.requires_approval ? '관리자 확정' : '자동 확정'}
+                        {link.link_type === 'consultation_booking' && ` / ${link.meeting_modes.map((mode) => MEETING_MODE_OPTIONS.find((item) => item.value === mode)?.label || mode).join(', ')}`}
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-2">
