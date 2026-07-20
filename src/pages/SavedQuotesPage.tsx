@@ -109,6 +109,8 @@ interface UserProfile {
 type SortOption = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'number-desc' | 'number-asc';
 type LostReasonFilter = 'all' | 'missing' | string;
 
+const isQuoteLossAnalysisTarget = (quote: Pick<SavedQuote, 'lost_recorded_at'>) => Boolean(quote.lost_recorded_at);
+
 const SavedQuotesPage = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin } = useAuth();
@@ -185,7 +187,7 @@ const SavedQuotesPage = () => {
   const listSummary = useMemo(() => {
     const totalAmount = filteredQuotes.reduce((sum, quote) => sum + Number(quote.total || 0), 0);
     const linkedProjectCount = filteredQuotes.filter(quote => quote.linked_project).length;
-    const lostQuotes = filteredQuotes.filter(quote => normalizeProjectStage(quote.project_stage, quote.quote_status) === 'cancelled');
+    const lostQuotes = filteredQuotes.filter(isQuoteLossAnalysisTarget);
     const lostAmount = lostQuotes.reduce((sum, quote) => sum + Number(quote.total || 0), 0);
     const lostReasonMissingCount = lostQuotes.filter(quote => !quote.lost_reason_category).length;
     const recipientCount = new Set(
@@ -396,8 +398,7 @@ const SavedQuotesPage = () => {
 
     if (lostReasonFilter !== 'all') {
       filtered = filtered.filter((quote) => {
-        const isLost = normalizeProjectStage(quote.project_stage, quote.quote_status) === 'cancelled';
-        if (!isLost) return false;
+        if (!isQuoteLossAnalysisTarget(quote)) return false;
         if (lostReasonFilter === 'missing') return !quote.lost_reason_category;
         return quote.lost_reason_category === lostReasonFilter;
       });
@@ -702,7 +703,7 @@ const SavedQuotesPage = () => {
             </div>
           </div>
           <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-none">
-            <div className="text-xs font-medium text-muted-foreground">수주 실패</div>
+            <div className="text-xs font-medium text-muted-foreground">수주 실패 분석</div>
             <div className="mt-1 text-xl font-semibold tabular-nums text-foreground">
               {listSummary.lostCount.toLocaleString()}건
               <span className="ml-2 text-sm font-normal text-muted-foreground">
@@ -896,6 +897,7 @@ const SavedQuotesPage = () => {
                   const simplifiedStageInfo = getSimplifiedStageInfo(quote.project_stage, quote.quote_status);
                   const canRecordLoss = canRecordQuoteLostReason(quote.project_stage, quote.quote_status, quote.project_id);
                   const isLostQuote = normalizeProjectStage(quote.project_stage, quote.quote_status) === 'cancelled';
+                  const isLossAnalysisTarget = isQuoteLossAnalysisTarget(quote);
 
                   return (
                     <div
@@ -989,7 +991,7 @@ const SavedQuotesPage = () => {
                               재발행본
                             </Badge>
                           )}
-                          {isLostQuote && (
+                          {isLossAnalysisTarget && (
                             <Badge
                               variant="outline"
                               className={`border-red-200 text-[10px] ${

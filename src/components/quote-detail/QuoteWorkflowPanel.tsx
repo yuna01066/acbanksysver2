@@ -108,6 +108,7 @@ const QuoteWorkflowPanel = ({
   const stageInfo = getStageInfo(normalizedProjectStage);
   const isProjectFollowupNotRequired = projectFollowupStatus === 'not_required';
   const canRecordLoss = canRecordQuoteLostReason(normalizedProjectStage, quoteStatus, linkedProject?.id || null);
+  const isLossAnalysisTarget = Boolean(lostRecordedAt);
   const hasLostReason = Boolean(lostReasonCategory || lostReasonDetail);
   const followupUpdatedDate = projectFollowupUpdatedAt
     ? new Date(projectFollowupUpdatedAt).toLocaleDateString('ko-KR')
@@ -240,7 +241,7 @@ const QuoteWorkflowPanel = ({
               수주 실패 처리
             </Button>
           )}
-          {!canRecordLoss && normalizedProjectStage === 'cancelled' && (
+          {!canRecordLoss && normalizedProjectStage === 'cancelled' && isLossAnalysisTarget && (
             <div className="mb-2 rounded-lg border border-red-100 bg-red-50 p-3 text-xs text-red-700">
               <div className="font-semibold">수주 실패/취소 처리됨</div>
               <p className="mt-1 leading-relaxed">
@@ -252,6 +253,14 @@ const QuoteWorkflowPanel = ({
                 <p className="mt-2 rounded-md bg-white/70 px-2 py-1 leading-relaxed">{lostReasonDetail}</p>
               )}
               {!hasLostReason && <p className="mt-1 text-red-600">원인 미입력 상태입니다.</p>}
+            </div>
+          )}
+          {!canRecordLoss && normalizedProjectStage === 'cancelled' && !isLossAnalysisTarget && (
+            <div className="mb-2 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+              <div className="font-semibold text-foreground">기존 취소 견적</div>
+              <p className="mt-1 leading-relaxed">
+                수주 실패 원인 분석 도입 전 취소건으로, 원인 미입력 관리 대상에는 포함하지 않습니다.
+              </p>
             </div>
           )}
           <Button
