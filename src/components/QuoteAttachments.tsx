@@ -293,7 +293,7 @@ const QuoteAttachments = ({
           let filePath = '';
 
           try {
-            const renamedFile = new File([file], uploadFileName, {
+            const renamedFile = new globalThis.File([file], uploadFileName, {
               type: file.type || 'application/octet-stream',
             });
             const uploadResult = await gcsUploadFile(renamedFile, gcsPrefix);
@@ -541,7 +541,7 @@ const QuoteAttachments = ({
 
       const gcsPrefix = `quote-pdfs/${user.id}/${safeQuoteNumber}`;
       try {
-        const renamedFile = new File([file], fileName, { type: file.type || 'application/pdf' });
+        const renamedFile = new globalThis.File([file], fileName, { type: file.type || 'application/pdf' });
         const uploadResult = await gcsUploadFile(renamedFile, gcsPrefix);
         filePath = uploadResult.gcsPath;
       } catch (uploadError) {
