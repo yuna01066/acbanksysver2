@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { Loader2, ArrowLeft, Send, User, Star, Target, TrendingUp, MessageSquare, Search, CheckCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import ProfileAvatarImage from '@/components/employee/ProfileAvatarImage';
+import { summarizeStructuredFeedback } from '@/lib/performanceFeedback';
 
 interface ReviewCycle {
   id: string;
@@ -201,9 +202,18 @@ const AdminReviewDashboard: React.FC = () => {
 
   const openSendDialog = (emp: EmployeeReviewData) => {
     setSendGrade(emp.mostFreqGrade || '');
-    setSendStrengths(emp.strengths.join('\n\n'));
-    setSendImprovements(emp.improvements.join('\n\n'));
-    setSendComment(emp.generalComments.join('\n\n'));
+    setSendStrengths(summarizeStructuredFeedback(
+      emp.strengths,
+      '선택형 강점 피드백이 부족합니다. 관리자 확인 후 요약을 작성해주세요.',
+    ));
+    setSendImprovements(summarizeStructuredFeedback(
+      emp.improvements,
+      '선택형 개선 피드백이 부족합니다. 관리자 확인 후 요약을 작성해주세요.',
+    ));
+    setSendComment(summarizeStructuredFeedback(
+      emp.generalComments,
+      '개별 평가 문장은 익명성 보호를 위해 자동 전달하지 않습니다. 선택형 피드백과 점수를 기준으로 관리자 요약을 작성해주세요.',
+    ));
     setShowSendDialog(true);
   };
 
@@ -256,6 +266,13 @@ const AdminReviewDashboard: React.FC = () => {
       setSending(false);
     }
   };
+
+  const selectedStrengthSummary = selectedEmployee
+    ? summarizeStructuredFeedback(selectedEmployee.strengths, '선택형 강점 피드백이 아직 없습니다.')
+    : '';
+  const selectedImprovementSummary = selectedEmployee
+    ? summarizeStructuredFeedback(selectedEmployee.improvements, '선택형 개선 피드백이 아직 없습니다.')
+    : '';
 
   const filteredEmployees = employeeData.filter(e => {
     if (!search.trim()) return true;
@@ -370,37 +387,32 @@ const AdminReviewDashboard: React.FC = () => {
             </Card>
           )}
 
-          {/* Aggregated Comments */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {selectedEmployee.strengths.length > 0 && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-1.5"><TrendingUp className="h-4 w-4" />강점 요약</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {selectedEmployee.strengths.map((s, i) => (
-                      <p key={i} className="text-sm bg-muted/50 p-2 rounded border whitespace-pre-line">{s}</p>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            {selectedEmployee.improvements.length > 0 && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-1.5"><MessageSquare className="h-4 w-4" />개선점 요약</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {selectedEmployee.improvements.map((s, i) => (
-                      <p key={i} className="text-sm bg-muted/50 p-2 rounded border whitespace-pre-line">{s}</p>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          {/* Structured Feedback Summary */}
+          {selectedEmployee.reviewCount > 0 && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-1.5"><TrendingUp className="h-4 w-4" />선택형 강점 요약</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm bg-muted/50 p-3 rounded border whitespace-pre-line">{selectedStrengthSummary}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-1.5"><MessageSquare className="h-4 w-4" />선택형 개선점 요약</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm bg-muted/50 p-3 rounded border whitespace-pre-line">{selectedImprovementSummary}</p>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-sm text-muted-foreground">
+                개별 평가 원문은 문체 노출을 막기 위해 자동 표시하지 않습니다. 직원 전달 전에는 선택형 피드백과 점수 분포를 기준으로 공식 요약만 작성해주세요.
+              </div>
+            </div>
+          )}
 
           {/* Send button */}
           <div className="flex justify-end">
