@@ -37,9 +37,12 @@ type LogEntry = {
   method: string;
   url: string;
   status?: number;
+  durationMs?: number;
+  responseBytes?: number;
   request?: unknown;
   response?: unknown;
   error?: string;
+
 };
 
 class HttpRecorder {
