@@ -682,9 +682,6 @@ const SavedQuoteDetailPage = () => {
       lostBy: value.lostBy,
       reasonCategory: value.reasonCategory,
       detail: value.detail,
-      competitorName: value.competitorName,
-      priceGap: value.priceGap,
-      followUpAt: value.followUpAt,
       actorId: user.id,
       actorName: profile?.full_name || user.email || '알 수 없음',
     });

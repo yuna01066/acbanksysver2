@@ -144,9 +144,6 @@ const ProjectStageSelect = ({
         lostBy: value.lostBy,
         reasonCategory: value.reasonCategory,
         detail: value.detail,
-        competitorName: value.competitorName,
-        priceGap: value.priceGap,
-        followUpAt: value.followUpAt,
         actorId: user.id,
         actorName,
       });
