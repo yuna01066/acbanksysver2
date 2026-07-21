@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, Loader2, XCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,9 +18,6 @@ export interface QuoteLostReasonFormValue {
   lostBy: QuoteLostBy;
   reasonCategory: QuoteLostReasonCategory;
   detail: string;
-  competitorName?: string | null;
-  priceGap?: number | null;
-  followUpAt?: string | null;
 }
 
 interface QuoteLostReasonDialogProps {
@@ -47,29 +43,17 @@ const QuoteLostReasonDialog = ({
   const [lostBy, setLostBy] = useState<QuoteLostBy>('client');
   const [reasonCategory, setReasonCategory] = useState<QuoteLostReasonCategory>('price_too_high');
   const [detail, setDetail] = useState('');
-  const [competitorName, setCompetitorName] = useState('');
-  const [priceGap, setPriceGap] = useState('');
-  const [followUpAt, setFollowUpAt] = useState('');
 
   useEffect(() => {
     if (!open) return;
     setLostBy('client');
     setReasonCategory('price_too_high');
     setDetail('');
-    setCompetitorName('');
-    setPriceGap('');
-    setFollowUpAt('');
   }, [open, quote?.quoteNumber]);
 
   const trimmedDetail = detail.trim();
-  const parsedPriceGap = useMemo(() => {
-    const normalized = priceGap.replace(/,/g, '').trim();
-    if (!normalized) return null;
-    const parsed = Number(normalized);
-    return Number.isFinite(parsed) ? parsed : null;
-  }, [priceGap]);
   const detailTooShort = trimmedDetail.length > 0 && trimmedDetail.length < 5;
-  const canSubmit = trimmedDetail.length >= 5 && (!priceGap.trim() || parsedPriceGap !== null);
+  const canSubmit = trimmedDetail.length >= 5;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -77,9 +61,6 @@ const QuoteLostReasonDialog = ({
       lostBy,
       reasonCategory,
       detail: trimmedDetail,
-      competitorName: competitorName.trim() || null,
-      priceGap: parsedPriceGap,
-      followUpAt: followUpAt ? new Date(followUpAt).toISOString() : null,
     });
   };
 
@@ -158,46 +139,12 @@ const QuoteLostReasonDialog = ({
           <Textarea
             value={detail}
             onChange={(event) => setDetail(event.target.value)}
-            placeholder="예: 타사 견적이 약 15% 낮아 거래처에서 타사 진행을 결정함"
-            className="min-h-[120px] resize-y rounded-lg"
+            placeholder="예: 예산 축소로 이번 제작은 보류하기로 함"
+            className="min-h-[108px] resize-y rounded-lg"
           />
           <p className={`text-xs ${detailTooShort ? 'text-destructive' : 'text-muted-foreground'}`}>
             5자 이상 입력해야 저장할 수 있습니다. 내부 통계와 활동 이력에 함께 남습니다.
           </p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="space-y-2">
-            <Label>타사/경쟁사</Label>
-            <Input
-              value={competitorName}
-              onChange={(event) => setCompetitorName(event.target.value)}
-              placeholder="선택 입력"
-              className="h-10 rounded-lg"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>가격 차이</Label>
-            <Input
-              inputMode="numeric"
-              value={priceGap}
-              onChange={(event) => setPriceGap(event.target.value)}
-              placeholder="예: 150000"
-              className="h-10 rounded-lg"
-            />
-            {priceGap.trim() && parsedPriceGap === null && (
-              <p className="text-xs text-destructive">숫자로 입력해주세요.</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label>재연락 예정일</Label>
-            <Input
-              type="date"
-              value={followUpAt}
-              onChange={(event) => setFollowUpAt(event.target.value)}
-              className="h-10 rounded-lg"
-            />
-          </div>
         </div>
 
         <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">

@@ -18,17 +18,9 @@ export interface RecordQuoteLostReasonInput {
   lostBy: QuoteLostBy;
   reasonCategory: QuoteLostReasonCategory;
   detail: string;
-  competitorName?: string | null;
-  priceGap?: number | null;
-  followUpAt?: string | null;
   actorId: string;
   actorName: string;
 }
-
-const trimOrNull = (value?: string | null) => {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
-};
 
 export async function recordQuoteLostReason(input: RecordQuoteLostReasonInput) {
   if (!canRecordQuoteLostReason(input.projectStage, input.quoteStatus, input.projectId)) {
@@ -49,9 +41,9 @@ export async function recordQuoteLostReason(input: RecordQuoteLostReasonInput) {
     lost_by: input.lostBy,
     lost_reason_category: input.reasonCategory,
     lost_reason_detail: detail,
-    lost_competitor_name: trimOrNull(input.competitorName),
-    lost_price_gap: typeof input.priceGap === 'number' && Number.isFinite(input.priceGap) ? input.priceGap : null,
-    lost_follow_up_at: input.followUpAt || null,
+    lost_competitor_name: null,
+    lost_price_gap: null,
+    lost_follow_up_at: null,
     lost_recorded_by: input.actorId,
     lost_recorded_at: nowIso,
   };
@@ -77,9 +69,6 @@ export async function recordQuoteLostReason(input: RecordQuoteLostReasonInput) {
       lostByLabel: getQuoteLostByLabel(input.lostBy),
       reasonCategory: input.reasonCategory,
       reasonLabel: getQuoteLostReasonLabel(input.reasonCategory),
-      competitorName: trimOrNull(input.competitorName),
-      priceGap: updatePayload.lost_price_gap,
-      followUpAt: input.followUpAt || null,
     },
   });
 
