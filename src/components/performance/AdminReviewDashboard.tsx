@@ -12,8 +12,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, Send, User, Star, Target, TrendingUp, MessageSquare, Search, CheckCircle } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
+import { Loader2, ArrowLeft, Send, User, Star, TrendingUp, MessageSquare, Search, CheckCircle, Users, ClipboardCheck, Award } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import ProfileAvatarImage from '@/components/employee/ProfileAvatarImage';
 import { summarizeStructuredFeedback } from '@/lib/performanceFeedback';
 
@@ -48,14 +48,6 @@ interface EmployeeReviewData {
   generalComments: string[];
   hasSummary: boolean;
 }
-
-const GRADE_COLORS: Record<string, string> = {
-  S: '#eab308',
-  A: '#22c55e',
-  B: '#3b82f6',
-  C: '#f97316',
-  D: '#ef4444',
-};
 
 const gradeColor = (grade: string) => {
   switch (grade) {
@@ -282,6 +274,14 @@ const AdminReviewDashboard: React.FC = () => {
   });
 
   const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--primary) / 0.8)', 'hsl(var(--primary) / 0.6)', 'hsl(var(--primary) / 0.4)'];
+  const selectedCycle = cycles.find(c => c.id === selectedCycleId);
+  const reviewedEmployeeCount = employeeData.filter(e => e.reviewCount > 0).length;
+  const sentSummaryCount = employeeData.filter(e => e.hasSummary).length;
+  const scoredEmployees = employeeData.filter(e => e.avgScore !== null);
+  const averageScore = scoredEmployees.length
+    ? scoredEmployees.reduce((sum, e) => sum + (e.avgScore || 0), 0) / scoredEmployees.length
+    : null;
+  const reviewRate = employeeData.length ? Math.round((reviewedEmployeeCount / employeeData.length) * 100) : 0;
 
   if (loading && cycles.length === 0) {
     return <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin" /></div>;
@@ -289,70 +289,116 @@ const AdminReviewDashboard: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Cycle selector */}
-      <div className="flex items-center gap-3">
-        <Select value={selectedCycleId} onValueChange={v => { setSelectedCycleId(v); setSelectedEmployee(null); }}>
-          <SelectTrigger className="w-56 h-9 text-sm">
-            <SelectValue placeholder="평가 주기 선택" />
-          </SelectTrigger>
-          <SelectContent>
-            {cycles.map(c => (
-              <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-      </div>
+      <Card className="border bg-card/95 shadow-sm">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold">관리자 대시보드</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                평가 현황, 점수 분포, 직원별 전달 상태를 한 화면에서 확인합니다.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={selectedCycleId} onValueChange={v => { setSelectedCycleId(v); setSelectedEmployee(null); }}>
+                <SelectTrigger className="h-10 w-full rounded-xl text-sm sm:w-64">
+                  <SelectValue placeholder="평가 주기 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cycles.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedCycle && (
+                <Badge variant="secondary" className="h-9 rounded-full px-3 text-xs">
+                  {selectedCycle.status === 'active' ? '진행중' : selectedCycle.status === 'closed' ? '종료' : '대기'}
+                </Badge>
+              )}
+              {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border bg-background p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Users className="h-4 w-4" /> 대상 직원
+              </div>
+              <p className="mt-2 text-2xl font-semibold">{employeeData.length}</p>
+            </div>
+            <div className="rounded-2xl border bg-background p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <ClipboardCheck className="h-4 w-4" /> 평가 작성
+              </div>
+              <p className="mt-2 text-2xl font-semibold">{reviewedEmployeeCount}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{reviewRate}% 진행</p>
+            </div>
+            <div className="rounded-2xl border bg-background p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Award className="h-4 w-4" /> 평균 점수
+              </div>
+              <p className="mt-2 text-2xl font-semibold">{averageScore !== null ? averageScore.toFixed(1) : '-'}</p>
+            </div>
+            <div className="rounded-2xl border bg-background p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Send className="h-4 w-4" /> 결과 발송
+              </div>
+              <p className="mt-2 text-2xl font-semibold">{sentSummaryCount}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {selectedEmployee ? (
         /* Employee Detail View */
         <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={() => setSelectedEmployee(null)}>
+          <div className="rounded-2xl border bg-card p-4 shadow-sm flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <Button variant="outline" size="sm" onClick={() => setSelectedEmployee(null)} className="shrink-0 rounded-xl">
               <ArrowLeft className="h-4 w-4 mr-1" /> 목록으로
             </Button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 {selectedEmployee.avatar_url ? (
-                  <ProfileAvatarImage src={selectedEmployee.avatar_url} className="w-8 h-8 rounded-full object-cover" />
+                  <ProfileAvatarImage src={selectedEmployee.avatar_url} className="w-10 h-10 rounded-full object-cover" />
                 ) : (
-                  <User className="h-4 w-4 text-primary" />
+                  <User className="h-5 w-5 text-primary" />
                 )}
               </div>
-              <div>
-                <span className="font-semibold text-sm">{selectedEmployee.full_name}</span>
-                {selectedEmployee.department && <span className="text-xs text-muted-foreground ml-2">{selectedEmployee.department}</span>}
+              <div className="min-w-0">
+                <div className="font-semibold text-base truncate">{selectedEmployee.full_name}</div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {[selectedEmployee.department, selectedEmployee.position].filter(Boolean).join(' · ') || '부서 정보 없음'}
+                </div>
               </div>
             </div>
             {selectedEmployee.hasSummary && (
-              <Badge variant="secondary" className="text-xs gap-1">
+              <Badge variant="secondary" className="w-fit rounded-full text-xs gap-1">
                 <CheckCircle className="h-3 w-3" /> 발송 완료
               </Badge>
             )}
           </div>
 
           {/* Stats cards */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Card>
-              <CardContent className="p-4 text-center">
+              <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-1">평가 건수</p>
                 <p className="text-2xl font-bold">{selectedEmployee.reviewCount}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4 text-center">
+              <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-1">평균 점수</p>
                 <p className="text-2xl font-bold">{selectedEmployee.avgScore?.toFixed(1) ?? '-'}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4 text-center">
+              <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-1">목표 달성률</p>
                 <p className="text-2xl font-bold">{selectedEmployee.avgGoalRate !== null ? `${selectedEmployee.avgGoalRate}%` : '-'}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4 text-center">
+              <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-1">최빈 등급</p>
                 <p className="text-2xl font-bold">
                   {selectedEmployee.mostFreqGrade ? (
@@ -425,9 +471,11 @@ const AdminReviewDashboard: React.FC = () => {
       ) : (
         /* Employee List */
         <div className="space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="이름, 부서로 검색..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
+          <div className="rounded-2xl border bg-card p-3 shadow-sm">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="이름, 부서로 검색..." value={search} onChange={e => setSearch(e.target.value)} className="h-11 rounded-xl pl-9 text-sm" />
+            </div>
           </div>
 
           {filteredEmployees.length === 0 && !loading ? (
@@ -437,14 +485,14 @@ const AdminReviewDashboard: React.FC = () => {
               {filteredEmployees.map(emp => (
                 <Card
                   key={emp.id}
-                  className="cursor-pointer hover:border-primary/40 transition-all"
+                  className="cursor-pointer border bg-card transition-all hover:border-primary/40 hover:shadow-sm"
                   onClick={() => setSelectedEmployee(emp)}
                 >
-                  <CardContent className="p-4 flex items-center justify-between">
+                  <CardContent className="p-4 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                         {emp.avatar_url ? (
-                          <ProfileAvatarImage src={emp.avatar_url} className="w-9 h-9 rounded-full object-cover" />
+                          <ProfileAvatarImage src={emp.avatar_url} className="w-11 h-11 rounded-full object-cover" />
                         ) : (
                           <User className="h-4 w-4 text-primary" />
                         )}
@@ -452,8 +500,8 @@ const AdminReviewDashboard: React.FC = () => {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold">{emp.full_name}</span>
-                          {emp.department && <Badge variant="secondary" className="text-xs">{emp.department}</Badge>}
-                          {emp.hasSummary && <Badge variant="outline" className="text-xs gap-1"><CheckCircle className="h-2.5 w-2.5" />발송완료</Badge>}
+                          {emp.department && <Badge variant="secondary" className="rounded-full text-xs">{emp.department}</Badge>}
+                          {emp.hasSummary && <Badge variant="outline" className="rounded-full text-xs gap-1"><CheckCircle className="h-2.5 w-2.5" />발송완료</Badge>}
                         </div>
                         {emp.position && <span className="text-xs text-muted-foreground">{emp.position}</span>}
                       </div>
