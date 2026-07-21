@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Star, Search, Loader2, User, Shield, AlertTriangle, CalendarDays, ArrowLeft } from 'lucide-react';
+import { Star, Search, Loader2, User, Shield, AlertTriangle, CalendarDays, ArrowLeft, ChevronRight, Users } from 'lucide-react';
 import PerformanceReviewPanel from '@/components/employee/PerformanceReviewPanel';
 import AdminReviewDashboard from '@/components/performance/AdminReviewDashboard';
 import IncidentReportPanel from '@/components/performance/IncidentReportPanel';
@@ -44,18 +44,28 @@ const PerformanceReviewPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b px-4 py-3 flex items-center gap-3 bg-card">
-        <h1 className="text-base font-semibold flex items-center gap-2">
-          <Star className="h-5 w-5 text-primary" />
-          업무 평가
-        </h1>
+    <div className="min-h-screen bg-muted/20">
+      <div className="border-b bg-card/90">
+        <div className="container max-w-6xl mx-auto px-4 py-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+              <Star className="h-6 w-6 text-primary" />
+              업무 평가
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              분기별 평가를 작성하고 관리자 검토 결과를 정리합니다.
+            </p>
+          </div>
+          <Badge variant="outline" className="w-fit rounded-full px-3 py-1 text-xs">
+            6각형 역량 기준
+          </Badge>
+        </div>
       </div>
 
-      <div className="container max-w-5xl mx-auto px-4 py-6">
+      <div className="container max-w-6xl mx-auto px-4 py-6">
         {canAccessAdmin ? (
           <Tabs defaultValue="review">
-            <TabsList className="mb-4">
+            <TabsList className="mb-5 h-auto rounded-2xl border bg-background/80 p-1 shadow-sm">
               <TabsTrigger value="review" className="gap-1.5">
                 <Star className="h-3.5 w-3.5" /> 평가하기
               </TabsTrigger>
@@ -81,7 +91,7 @@ const PerformanceReviewPage = () => {
           </Tabs>
         ) : (
           <Tabs defaultValue="review">
-            <TabsList className="mb-4">
+            <TabsList className="mb-5 h-auto rounded-2xl border bg-background/80 p-1 shadow-sm">
               <TabsTrigger value="review" className="gap-1.5">
                 <Star className="h-3.5 w-3.5" /> 평가하기
               </TabsTrigger>
@@ -187,32 +197,34 @@ const ReviewEmployeeList: React.FC = () => {
   });
 
   const selectedCycle = cycles.find(c => c.id === selectedCycleId);
+  const selectedCycleStatusLabel = selectedCycle?.status === 'active' ? '진행중' : selectedCycle?.status === 'closed' ? '종료' : '대기';
 
   if (selectedEmployee) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => setSelectedEmployee(null)}>
+        <div className="rounded-2xl border bg-card p-4 shadow-sm flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="outline" size="sm" onClick={() => setSelectedEmployee(null)} className="shrink-0 rounded-xl">
             <ArrowLeft className="h-4 w-4 mr-1" /> 직원 목록
           </Button>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               {selectedEmployee.avatar_url ? (
-                <ProfileAvatarImage src={selectedEmployee.avatar_url} className="w-8 h-8 rounded-full object-cover" />
+                <ProfileAvatarImage src={selectedEmployee.avatar_url} className="w-10 h-10 rounded-full object-cover" />
               ) : (
-                <User className="h-4 w-4 text-primary" />
+                <User className="h-5 w-5 text-primary" />
               )}
             </div>
-            <div>
-              <span className="font-semibold text-sm">{selectedEmployee.full_name}</span>
-              {selectedEmployee.department && (
-                <span className="text-xs text-muted-foreground ml-2">{selectedEmployee.department}</span>
-              )}
+            <div className="min-w-0">
+              <div className="font-semibold text-base truncate">{selectedEmployee.full_name}</div>
+              <div className="text-xs text-muted-foreground truncate">
+                {[selectedEmployee.department, selectedEmployee.position].filter(Boolean).join(' · ') || '부서 정보 없음'}
+              </div>
             </div>
           </div>
           {selectedCycle && (
-            <Badge variant="outline" className="text-xs ml-auto">
-              <CalendarDays className="h-3 w-3 mr-1" />{selectedCycle.title}
+            <Badge variant="outline" className="w-fit rounded-full text-xs">
+              <CalendarDays className="h-3 w-3 mr-1" />
+              {selectedCycle.title}
             </Badge>
           )}
         </div>
@@ -232,27 +244,60 @@ const ReviewEmployeeList: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Cycle selector */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Select value={selectedCycleId} onValueChange={v => { setSelectedCycleId(v); setSearch(''); }}>
-          <SelectTrigger className="w-60 h-9 text-sm">
-            <SelectValue placeholder="평가 주기 선택" />
-          </SelectTrigger>
-          <SelectContent>
-            {cycles.map(c => (
-              <SelectItem key={c.id} value={c.id}>
-                <span className="flex items-center gap-2">
-                  {c.title}
-                  {c.status === 'active' && <Badge className="text-[10px] px-1.5 py-0">진행중</Badge>}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {employees.length > 0 && (
-          <span className="text-xs text-muted-foreground">대상자 {employees.length}명</span>
-        )}
-      </div>
+      <Card className="border bg-card/95 shadow-sm">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold">평가 대상 선택</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                평가 주기를 선택한 뒤 대상자를 눌러 평가를 작성합니다.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={selectedCycleId} onValueChange={v => { setSelectedCycleId(v); setSearch(''); }}>
+                <SelectTrigger className="h-10 w-full rounded-xl text-sm sm:w-64">
+                  <SelectValue placeholder="평가 주기 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cycles.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      <span className="flex items-center gap-2">
+                        {c.title}
+                        {c.status === 'active' && <Badge className="text-[10px] px-1.5 py-0">진행중</Badge>}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedCycle && (
+                <Badge variant="secondary" className="h-9 rounded-full px-3 text-xs">
+                  {selectedCycleStatusLabel}
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="이름, 부서, 직급으로 검색..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="h-11 rounded-xl pl-9 text-sm"
+              />
+            </div>
+            <div className="flex gap-2 text-xs text-muted-foreground">
+              <span className="rounded-full border bg-background px-3 py-2">
+                대상 {employees.length}명
+              </span>
+              <span className="rounded-full border bg-background px-3 py-2">
+                표시 {filteredEmployees.length}명
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {!selectedCycleId ? (
         <Card>
@@ -270,30 +315,40 @@ const ReviewEmployeeList: React.FC = () => {
         </Card>
       ) : (
         <>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="이름, 부서, 직급으로 검색..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Users className="h-4 w-4" />
+            평가 대상자
           </div>
           {filteredEmployees.length === 0 ? (
             <p className="text-center text-muted-foreground py-8 text-sm">검색 결과가 없습니다.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {filteredEmployees.map(emp => (
-                <Card key={emp.id} className="cursor-pointer hover:border-primary/40 transition-all" onClick={() => setSelectedEmployee(emp)}>
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      {emp.avatar_url ? (
-                        <ProfileAvatarImage src={emp.avatar_url} className="w-10 h-10 rounded-full object-cover" />
-                      ) : (
-                        <User className="h-5 w-5 text-primary" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate">{emp.full_name}</p>
-                      <div className="flex items-center gap-1.5">
-                        {emp.department && <Badge variant="secondary" className="text-xs">{emp.department}</Badge>}
-                        {emp.position && <span className="text-xs text-muted-foreground">{emp.position}</span>}
+                <Card
+                  key={emp.id}
+                  className="group cursor-pointer border bg-card transition-all hover:border-primary/40 hover:shadow-sm"
+                  onClick={() => setSelectedEmployee(emp)}
+                >
+                  <CardContent className="p-4 flex items-center justify-between gap-4">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        {emp.avatar_url ? (
+                          <ProfileAvatarImage src={emp.avatar_url} className="w-11 h-11 rounded-full object-cover" />
+                        ) : (
+                          <User className="h-5 w-5 text-primary" />
+                        )}
                       </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">{emp.full_name}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          {emp.department && <Badge variant="secondary" className="rounded-full text-xs">{emp.department}</Badge>}
+                          {emp.position && <span className="text-xs text-muted-foreground">{emp.position}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2 text-xs font-medium text-muted-foreground group-hover:text-primary">
+                      평가 작성
+                      <ChevronRight className="h-4 w-4" />
                     </div>
                   </CardContent>
                 </Card>
