@@ -6014,6 +6014,9 @@ export type Database = {
           metadata: Json
           min_notice_minutes: number
           notify_user_ids: string[]
+          preview_description: string | null
+          preview_image_url: string | null
+          preview_title: string | null
           requires_approval: boolean
           slot_minutes: number
           slug: string
@@ -6040,6 +6043,9 @@ export type Database = {
           metadata?: Json
           min_notice_minutes?: number
           notify_user_ids?: string[]
+          preview_description?: string | null
+          preview_image_url?: string | null
+          preview_title?: string | null
           requires_approval?: boolean
           slot_minutes?: number
           slug: string
@@ -6066,6 +6072,9 @@ export type Database = {
           metadata?: Json
           min_notice_minutes?: number
           notify_user_ids?: string[]
+          preview_description?: string | null
+          preview_image_url?: string | null
+          preview_title?: string | null
           requires_approval?: boolean
           slot_minutes?: number
           slug?: string
