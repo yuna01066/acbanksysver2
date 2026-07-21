@@ -26,6 +26,9 @@ type PublicBookingLink = {
   requires_approval: boolean;
   access_code_hash: string | null;
   notify_user_ids: string[];
+  preview_title: string | null;
+  preview_description: string | null;
+  preview_image_url: string | null;
 };
 type CalendarResource = {
   id: string;
