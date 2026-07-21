@@ -79,6 +79,7 @@ function getAllowedOrigins() {
     : [
       "https://acbank.co.kr",
       "https://www.acbank.co.kr",
+      "https://acbanksysver2.lovable.app",
       "http://localhost:8080",
       "http://127.0.0.1:8080",
       "http://localhost:8081",
