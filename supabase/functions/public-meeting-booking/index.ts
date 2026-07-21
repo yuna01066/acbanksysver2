@@ -244,6 +244,9 @@ function publicLinkResponse(link: PublicBookingLink, resources: CalendarResource
     requiresApproval: link.requires_approval,
     requiresAccessCode: Boolean(link.access_code_hash),
     meetingModes: normalizeMeetingModes(link),
+    previewTitle: link.preview_title ?? null,
+    previewDescription: link.preview_description ?? null,
+    previewImageUrl: link.preview_image_url ?? null,
     rules: {
       allowedWeekdays: link.allowed_weekdays,
       startTime: link.start_time.slice(0, 5),
