@@ -7372,6 +7372,14 @@ export type Database = {
           issuer_phone: string | null
           issuer_position: string | null
           items: Json
+          lost_by: string | null
+          lost_competitor_name: string | null
+          lost_follow_up_at: string | null
+          lost_price_gap: number | null
+          lost_reason_category: string | null
+          lost_reason_detail: string | null
+          lost_recorded_at: string | null
+          lost_recorded_by: string | null
           payment_condition: string | null
           pricing_version_id: string | null
           project_followup_note: string | null
@@ -7427,6 +7435,14 @@ export type Database = {
           issuer_phone?: string | null
           issuer_position?: string | null
           items: Json
+          lost_by?: string | null
+          lost_competitor_name?: string | null
+          lost_follow_up_at?: string | null
+          lost_price_gap?: number | null
+          lost_reason_category?: string | null
+          lost_reason_detail?: string | null
+          lost_recorded_at?: string | null
+          lost_recorded_by?: string | null
           payment_condition?: string | null
           pricing_version_id?: string | null
           project_followup_note?: string | null
@@ -7482,6 +7498,14 @@ export type Database = {
           issuer_phone?: string | null
           issuer_position?: string | null
           items?: Json
+          lost_by?: string | null
+          lost_competitor_name?: string | null
+          lost_follow_up_at?: string | null
+          lost_price_gap?: number | null
+          lost_reason_category?: string | null
+          lost_reason_detail?: string | null
+          lost_recorded_at?: string | null
+          lost_recorded_by?: string | null
           payment_condition?: string | null
           pricing_version_id?: string | null
           project_followup_note?: string | null
@@ -7518,6 +7542,13 @@ export type Database = {
           {
             foreignKeyName: "saved_quotes_assigned_to_fkey"
             columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_quotes_lost_recorded_by_fkey"
+            columns: ["lost_recorded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
