@@ -13,6 +13,8 @@
     "test:pricing:saved-quotes": "node scripts/test-saved-quotes-unchanged.mjs",
     "verify:panel-migration": "node scripts/verify-panel-migration-state.mjs",
     "verify:quote-loss-columns": "node scripts/verify-quote-loss-columns.mjs",
+    "verify:quote-loss-columns:report": "node scripts/verify-quote-loss-columns.mjs --report",
+    "verify:quote-loss-columns:json": "node scripts/verify-quote-loss-columns.mjs --json",
     "verify:db-migrations": "node scripts/verify-quote-loss-columns.mjs && node scripts/verify-panel-migration-state.mjs",
     "test:pricing:ab-comprehensive": "node scripts/test-ab-tier-pricing-comprehensive-e2e.mjs",
     "verify:pricing:all": "node scripts/test-saved-quotes-unchanged.mjs && node scripts/test-ab-buffer-pricing-e2e.mjs && node scripts/test-ab-tier-pricing-comprehensive-e2e.mjs && node scripts/verify-panel-migration-state.mjs",
