@@ -12,8 +12,11 @@
     "test:pricing:ab-e2e": "node scripts/test-ab-buffer-pricing-e2e.mjs",
     "test:pricing:saved-quotes": "node scripts/test-saved-quotes-unchanged.mjs",
     "verify:panel-migration": "node scripts/verify-panel-migration-state.mjs",
+    "verify:quote-loss-columns": "node scripts/verify-quote-loss-columns.mjs",
+    "verify:db-migrations": "node scripts/verify-quote-loss-columns.mjs && node scripts/verify-panel-migration-state.mjs",
     "test:pricing:ab-comprehensive": "node scripts/test-ab-tier-pricing-comprehensive-e2e.mjs",
     "verify:pricing:all": "node scripts/test-saved-quotes-unchanged.mjs && node scripts/test-ab-buffer-pricing-e2e.mjs && node scripts/test-ab-tier-pricing-comprehensive-e2e.mjs && node scripts/verify-panel-migration-state.mjs",
+    "predeploy": "node scripts/verify-quote-loss-columns.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "worker:quote-wizard": "node workers/quote-wizard-worker/src/index.mjs"
