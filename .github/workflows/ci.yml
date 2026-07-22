@@ -34,5 +34,16 @@ jobs:
       - name: Pricing regression tests
         run: node scripts/test-price-calculations.mjs
 
+      - name: Verify DB migration state (staging)
+        if: ${{ env.PGHOST != '' }}
+        env:
+          PGHOST: ${{ secrets.STAGING_PGHOST }}
+          PGPORT: ${{ secrets.STAGING_PGPORT }}
+          PGUSER: ${{ secrets.STAGING_PGUSER }}
+          PGPASSWORD: ${{ secrets.STAGING_PGPASSWORD }}
+          PGDATABASE: ${{ secrets.STAGING_PGDATABASE }}
+          CI_STRICT_DB_VERIFY: "1"
+        run: npm run verify:db-migrations
+
       - name: Build
         run: npm run build
