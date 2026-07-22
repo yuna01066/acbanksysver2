@@ -16,21 +16,24 @@
  *
  * Usage:
  *   node scripts/verify-quote-loss-columns.mjs
- *   node scripts/verify-quote-loss-columns.mjs --apply   # auto-apply migration on failure and re-verify
+ *   node scripts/verify-quote-loss-columns.mjs --apply   # auto-apply migration on failure
+ *   node scripts/verify-quote-loss-columns.mjs --json    # emit JSON report to stdout only
+ *   node scripts/verify-quote-loss-columns.mjs --report  # also write scripts/reports/quote-loss-columns-<ts>.json
  */
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const MIGRATION_PATH = resolve(
-  __dirname,
-  "..",
-  "supabase/migrations/20260722073000_ensure_quote_loss_columns.sql",
-);
+const MIGRATION_FILE =
+  "supabase/migrations/20260722073000_ensure_quote_loss_columns.sql";
+const MIGRATION_PATH = resolve(__dirname, "..", MIGRATION_FILE);
+const REPORT_DIR = resolve(__dirname, "reports");
 
 const APPLY = process.argv.includes("--apply");
+const JSON_ONLY = process.argv.includes("--json");
+const WRITE_REPORT = process.argv.includes("--report");
 
 const EXPECTED_COLUMNS = [
   ["lost_by", "text"],
@@ -54,14 +57,19 @@ const EXPECTED_INDEXES = [
   "idx_saved_quotes_lost_recorded_by",
 ];
 
-const REMEDY =
-  "Apply supabase/migrations/20260722073000_ensure_quote_loss_columns.sql, " +
-  "then run: NOTIFY pgrst, 'reload schema';  " +
-  "(or re-run this script with --apply to auto-apply)";
+function log(...args) {
+  if (!JSON_ONLY) console.log(...args);
+}
+function warn(...args) {
+  if (!JSON_ONLY) console.warn(...args);
+}
+function err(...args) {
+  if (!JSON_ONLY) console.error(...args);
+}
 
 function ensurePgEnv() {
   if (!process.env.PGHOST) {
-    console.warn(
+    warn(
       "[verify-quote-loss-columns] PGHOST is not set — skipping DB verification. " +
         "Export PG* env vars (or configure Lovable Cloud managed psql access) to run this check.",
     );
@@ -86,23 +94,25 @@ function psql(sql) {
 function applyMigrationFile(path) {
   ensurePgEnv();
   if (!existsSync(path)) {
-    console.error(`[verify-quote-loss-columns] migration file not found: ${path}`);
+    err(`[verify-quote-loss-columns] migration file not found: ${path}`);
     process.exit(1);
   }
-  console.log(`[verify-quote-loss-columns] applying migration: ${path}`);
+  log(`[verify-quote-loss-columns] applying migration: ${path}`);
   execFileSync("psql", ["-v", "ON_ERROR_STOP=1", "-f", path], {
     encoding: "utf8",
-    stdio: "inherit",
+    stdio: JSON_ONLY ? "pipe" : "inherit",
   });
-  // Force a schema reload in case the migration file omitted the NOTIFY.
-  execFileSync("psql", ["-v", "ON_ERROR_STOP=1", "-c", "NOTIFY pgrst, 'reload schema';"], {
-    encoding: "utf8",
-    stdio: "inherit",
-  });
+  execFileSync(
+    "psql",
+    ["-v", "ON_ERROR_STOP=1", "-c", "NOTIFY pgrst, 'reload schema';"],
+    { encoding: "utf8", stdio: JSON_ONLY ? "pipe" : "inherit" },
+  );
 }
 
 function runChecks() {
-  const failures = [];
+  const columns = [];
+  const constraints = [];
+  const indexes = [];
 
   const colRows = psql(`
     SELECT column_name, data_type
@@ -114,11 +124,11 @@ function runChecks() {
   `);
   const colMap = new Map(colRows.map(([name, type]) => [name, type]));
   for (const [name, expectedType] of EXPECTED_COLUMNS) {
-    const actual = colMap.get(name);
-    if (!actual) failures.push(`missing column: ${name} (expected ${expectedType})`);
-    else if (actual !== expectedType) {
-      failures.push(`column ${name} has type "${actual}", expected "${expectedType}"`);
-    }
+    const actual = colMap.get(name) || null;
+    let status = "ok";
+    if (!actual) status = "missing";
+    else if (actual !== expectedType) status = "type_mismatch";
+    columns.push({ name, expectedType, actualType: actual, status });
   }
 
   const conRows = psql(`
@@ -129,7 +139,7 @@ function runChecks() {
   `);
   const conSet = new Set(conRows.map(([name]) => name));
   for (const name of EXPECTED_CONSTRAINTS) {
-    if (!conSet.has(name)) failures.push(`missing CHECK constraint: ${name}`);
+    constraints.push({ name, status: conSet.has(name) ? "ok" : "missing" });
   }
 
   const idxRows = psql(`
@@ -141,49 +151,134 @@ function runChecks() {
   `);
   const idxSet = new Set(idxRows.map(([name]) => name));
   for (const name of EXPECTED_INDEXES) {
-    if (!idxSet.has(name)) failures.push(`missing index: ${name}`);
+    indexes.push({ name, status: idxSet.has(name) ? "ok" : "missing" });
   }
 
-  return failures;
+  const failures = [
+    ...columns.filter((c) => c.status !== "ok").map((c) =>
+      c.status === "missing"
+        ? `missing column: ${c.name} (expected ${c.expectedType})`
+        : `column ${c.name} has type "${c.actualType}", expected "${c.expectedType}"`,
+    ),
+    ...constraints.filter((c) => c.status !== "ok").map((c) => `missing CHECK constraint: ${c.name}`),
+    ...indexes.filter((i) => i.status !== "ok").map((i) => `missing index: ${i.name}`),
+  ];
+
+  return { columns, constraints, indexes, failures };
 }
 
-let failures = runChecks();
+function buildReport(before, after, applied) {
+  const final = after || before;
+  const ok = final.failures.length === 0;
+  return {
+    schemaVersion: "v1",
+    generatedAt: new Date().toISOString(),
+    target: { schema: "public", table: "saved_quotes" },
+    migration: { file: MIGRATION_FILE, applied: Boolean(applied) },
+    ok,
+    summary: {
+      columns: {
+        expected: EXPECTED_COLUMNS.length,
+        ok: final.columns.filter((c) => c.status === "ok").length,
+        missing: final.columns.filter((c) => c.status === "missing").length,
+        typeMismatch: final.columns.filter((c) => c.status === "type_mismatch").length,
+      },
+      constraints: {
+        expected: EXPECTED_CONSTRAINTS.length,
+        ok: final.constraints.filter((c) => c.status === "ok").length,
+        missing: final.constraints.filter((c) => c.status === "missing").length,
+      },
+      indexes: {
+        expected: EXPECTED_INDEXES.length,
+        ok: final.indexes.filter((i) => i.status === "ok").length,
+        missing: final.indexes.filter((i) => i.status === "missing").length,
+      },
+    },
+    checks: final,
+    beforeApply: applied ? before : null,
+    recommendation: ok
+      ? null
+      : {
+        migration: MIGRATION_FILE,
+        command: `psql -v ON_ERROR_STOP=1 -f ${MIGRATION_FILE}`,
+        followUp: "NOTIFY pgrst, 'reload schema';",
+        note: "Re-run this script with --apply to auto-apply and re-verify.",
+      },
+  };
+}
 
-if (failures.length > 0 && APPLY) {
-  console.warn(
-    `[verify-quote-loss-columns] ${failures.length} issue(s) detected — attempting auto-apply...`,
+function printHumanSummary(report) {
+  const { summary, checks, migration, ok, recommendation } = report;
+  log("");
+  log("=== saved_quotes quote-loss columns report ===");
+  log(`  status     : ${ok ? "✅ OK" : "❌ FAIL"}`);
+  log(`  generated  : ${report.generatedAt}`);
+  log(`  migration  : ${migration.file}${migration.applied ? " (applied this run)" : ""}`);
+  log(
+    `  columns    : ${summary.columns.ok}/${summary.columns.expected} ok, ` +
+      `${summary.columns.missing} missing, ${summary.columns.typeMismatch} type mismatch`,
   );
-  for (const f of failures) console.warn(`  - ${f}`);
+  log(
+    `  constraints: ${summary.constraints.ok}/${summary.constraints.expected} ok, ` +
+      `${summary.constraints.missing} missing`,
+  );
+  log(
+    `  indexes    : ${summary.indexes.ok}/${summary.indexes.expected} ok, ` +
+      `${summary.indexes.missing} missing`,
+  );
+
+  if (!ok) {
+    log("\n  Missing items:");
+    for (const f of checks.failures) log(`    - ${f}`);
+    if (recommendation) {
+      log("\n  Recommended migration:");
+      log(`    file  : ${recommendation.migration}`);
+      log(`    apply : ${recommendation.command}`);
+      log(`    then  : ${recommendation.followUp}`);
+      log(`    tip   : ${recommendation.note}`);
+    }
+  }
+  log("");
+}
+
+function writeReportFile(report) {
+  mkdirSync(REPORT_DIR, { recursive: true });
+  const ts = report.generatedAt.replace(/[:.]/g, "-");
+  const path = resolve(REPORT_DIR, `quote-loss-columns-${ts}.json`);
+  writeFileSync(path, JSON.stringify(report, null, 2));
+  log(`  report file: ${path}`);
+  return path;
+}
+
+// --- main ---
+const before = runChecks();
+let after = null;
+let applied = false;
+
+if (before.failures.length > 0 && APPLY) {
+  warn(
+    `[verify-quote-loss-columns] ${before.failures.length} issue(s) detected — attempting auto-apply...`,
+  );
+  for (const f of before.failures) warn(`  - ${f}`);
   try {
     applyMigrationFile(MIGRATION_PATH);
-  } catch (err) {
-    console.error("[verify-quote-loss-columns] migration apply failed:");
-    console.error(err?.message || err);
+    applied = true;
+  } catch (e) {
+    err("[verify-quote-loss-columns] migration apply failed:");
+    err(e?.message || e);
+    const report = buildReport(before, before, false);
+    if (WRITE_REPORT) writeReportFile(report);
+    if (JSON_ONLY) process.stdout.write(JSON.stringify(report, null, 2) + "\n");
+    else printHumanSummary(report);
     process.exit(1);
   }
-  failures = runChecks();
-  if (failures.length === 0) {
-    console.log(
-      "✅ saved_quotes quote-loss columns verified after --apply: " +
-        `${EXPECTED_COLUMNS.length} columns, ${EXPECTED_CONSTRAINTS.length} checks, ` +
-        `${EXPECTED_INDEXES.length} indexes present.`,
-    );
-    process.exit(0);
-  }
-  console.error("❌ verification still failing after --apply:");
-  for (const f of failures) console.error(`  - ${f}`);
-  process.exit(1);
+  after = runChecks();
 }
 
-if (failures.length > 0) {
-  console.error("❌ saved_quotes quote-loss columns verification FAILED:");
-  for (const f of failures) console.error(`  - ${f}`);
-  console.error(`\nRemedy: ${REMEDY}`);
-  process.exit(1);
-}
+const report = buildReport(before, after, applied);
 
-console.log(
-  "✅ saved_quotes quote-loss columns verified: " +
-    `${EXPECTED_COLUMNS.length} columns, ${EXPECTED_CONSTRAINTS.length} checks, ` +
-    `${EXPECTED_INDEXES.length} indexes present.`,
-);
+if (WRITE_REPORT) writeReportFile(report);
+if (JSON_ONLY) process.stdout.write(JSON.stringify(report, null, 2) + "\n");
+else printHumanSummary(report);
+
+process.exit(report.ok ? 0 : 1);
