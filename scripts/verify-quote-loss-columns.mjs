@@ -259,12 +259,59 @@ function diffChecks(before, after) {
   return diff;
 }
 
+function detectEnvName() {
+  if (process.env.VERIFY_ENV_NAME) return process.env.VERIFY_ENV_NAME;
+  if (process.env.GITHUB_ACTIONS === "true") return "ci";
+  const host = (process.env.PGHOST || "").toLowerCase();
+  if (!host) return "unknown";
+  if (host.includes("localhost") || host.startsWith("127.") || host === "::1") return "local";
+  if (host.includes("staging") || host.includes("stage")) return "staging";
+  if (host.includes("prod")) return "production";
+  if (host.includes("supabase")) return "lovable-cloud";
+  return "remote";
+}
+
+function collectRuntimeContext() {
+  const pgHost = process.env.PGHOST || null;
+  // Mask host: keep first label + last label for identification without leaking full endpoint.
+  const maskedHost = pgHost
+    ? pgHost.length > 24
+      ? `${pgHost.slice(0, 8)}…${pgHost.slice(-12)}`
+      : pgHost
+    : null;
+  return {
+    envName: detectEnvName(),
+    node: process.version,
+    os: { platform: platform(), release: release(), arch: arch() },
+    host: hostname(),
+    user: (() => { try { return userInfo().username; } catch { return null; } })(),
+    ci: process.env.GITHUB_ACTIONS === "true"
+      ? {
+          provider: "github-actions",
+          workflow: process.env.GITHUB_WORKFLOW || null,
+          runId: process.env.GITHUB_RUN_ID || null,
+          ref: process.env.GITHUB_REF || null,
+          sha: process.env.GITHUB_SHA || null,
+        }
+      : null,
+    database: {
+      host: maskedHost,
+      hostRaw: pgHost && process.env.VERIFY_INCLUDE_RAW_HOST === "1" ? pgHost : null,
+      port: process.env.PGPORT || null,
+      database: process.env.PGDATABASE || null,
+      user: process.env.PGUSER || null,
+      sslmode: process.env.PGSSLMODE || null,
+    },
+  };
+}
+
 function buildReport(before, after, applied) {
   const final = after || before;
   const ok = final.failures.length === 0;
   return {
-    schemaVersion: "v3",
+    schemaVersion: "v4",
     generatedAt: new Date().toISOString(),
+    runtime: collectRuntimeContext(),
     target: { schema: "public", table: "saved_quotes" },
     migration: { file: MIGRATION_FILE, applied: Boolean(applied) },
     ok,
