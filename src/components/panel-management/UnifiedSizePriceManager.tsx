@@ -468,7 +468,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="rounded-lg border-border bg-white shadow-none">
         <CardContent className="p-8 text-center text-muted-foreground">
           로딩 중...
         </CardContent>
@@ -477,28 +477,31 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
+    <Card className="rounded-lg border-border bg-white shadow-none">
+      <CardHeader className="px-4 pb-3 pt-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2">
-            <Button onClick={onBack} variant="ghost" size="sm">
+            <Button onClick={onBack} variant="outline" size="sm" className="h-9 rounded-full shadow-none">
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <CardTitle>{qualityName} - 사이즈 / 가격 관리</CardTitle>
+            <div>
+              <CardTitle className="text-base">{qualityName} 기준가·추가금 matrix</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">
+                두께×사이즈 조합별 실규격, 기준가, 활성 여부와 사이즈별 추가금을 한 화면에서 관리합니다.
+              </p>
+            </div>
           </div>
+          <Badge variant="outline" className="w-fit rounded-full">panel_sizes</Badge>
         </div>
-        <p className="text-sm text-muted-foreground mt-2">
-          두께 x 사이즈 조합별 실제 치수(mm)와 가격을 관리합니다. 셀을 클릭하여 수정하세요.
-        </p>
       </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
+      <CardContent className="px-4 pb-4">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-24 sticky left-0 bg-background z-10">두께</TableHead>
+                <TableHead className="sticky left-0 z-10 w-24 bg-muted/40 text-xs font-semibold">두께</TableHead>
                 {availableSizes.map(size => (
-                  <TableHead key={size} className="text-center min-w-[200px]">
+                  <TableHead key={size} className="min-w-[190px] bg-muted/40 text-center text-xs font-semibold">
                     {size}
                   </TableHead>
                 ))}
@@ -506,8 +509,8 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
             </TableHeader>
             <TableBody>
               {thicknesses.map(thickness => (
-                <TableRow key={thickness}>
-                  <TableCell className="font-medium sticky left-0 bg-background z-10">
+                <TableRow key={thickness} className="hover:bg-transparent">
+                  <TableCell className="sticky left-0 z-10 bg-white text-sm font-semibold">
                     {thickness}
                   </TableCell>
                   {availableSizes.map(sizeName => {
@@ -519,7 +522,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
                     return (
                       <TableCell 
                         key={cellKey} 
-                        className={`text-center relative group ${!cellData?.is_active ? 'bg-muted/30' : ''}`}
+                        className={`group relative h-[112px] text-center ${!cellData?.is_active ? 'bg-muted/25' : 'bg-white'}`}
                       >
                         {isEditing ? (
                           <div className="flex flex-col gap-2 p-2">
@@ -571,19 +574,20 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
                           <div className="flex flex-col gap-1">
                             {hasDimensions ? (
                               <>
-                                <div className="text-sm font-mono">
+                                <div className="text-sm font-mono text-foreground">
                                   {cellData.actual_width}×{cellData.actual_height}mm
                                 </div>
                                 {cellData.price && (
-                                  <div className="text-xs font-semibold text-primary">
+                                  <div className="text-sm font-semibold text-foreground">
                                     ₩{cellData.price.toLocaleString()}
                                   </div>
                                 )}
-                                <div className="flex items-center justify-center gap-1 mt-1">
+                                <div className="mt-2 flex items-center justify-center gap-1">
                                   <Switch
                                     checked={cellData.is_active}
                                     onCheckedChange={() => handleToggleActive(thickness, sizeName)}
-                                    className="h-5 scale-75"
+                                    aria-label={`${thickness} ${sizeName} 활성 상태 변경`}
+                                    className="h-5 scale-75 data-[state=checked]:bg-foreground"
                                   />
                                   <Button
                                     size="sm"
@@ -595,7 +599,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
                                       cellData.actual_height,
                                       cellData.price
                                     )}
-                                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="h-7 w-7 rounded-full p-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                                   >
                                     <Pencil className="w-3 h-3" />
                                   </Button>
@@ -606,7 +610,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => handleEditStart(thickness, sizeName)}
-                                className="h-16 w-full opacity-50 hover:opacity-100"
+                                className="h-16 w-full rounded-md text-xs text-muted-foreground opacity-70 hover:bg-muted/40 hover:opacity-100"
                               >
                                 + 추가
                               </Button>
@@ -623,16 +627,19 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
         </div>
 
         {/* Color Mixing & Adhesive Costs */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="border rounded-lg p-4">
-            <h4 className="font-semibold text-sm mb-3">조색비 (두께별)</h4>
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="rounded-lg border border-border bg-white p-4 shadow-none">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h4 className="text-sm font-semibold">조색비</h4>
+              <Badge variant="outline" className="rounded-full text-[10px]">두께별</Badge>
+            </div>
             <div className="space-y-2">
               {thicknesses.map(thickness => {
                 const currentCost = getColorMixingCost(thickness);
                 const isEditing = editingCost?.type === 'color' && editingCost?.thickness === thickness;
                 
                 return (
-                  <div key={`color-${thickness}`} className="flex items-center justify-between p-2 border rounded bg-background">
+                  <div key={`color-${thickness}`} className="flex items-center justify-between rounded-md border border-border bg-muted/10 px-3 py-2">
                     <span className="font-medium text-sm">{thickness}</span>
                     {isEditing ? (
                       <div className="flex items-center gap-2">
@@ -662,7 +669,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono">
+                        <span className="text-sm font-mono text-foreground">
                           ₩{currentCost.toLocaleString()}
                         </span>
                         <Button
@@ -680,25 +687,27 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
               })}
             </div>
           </div>
-
         </div>
 
-        <div className="mt-6 space-y-4">
-          <div>
-            <h4 className="font-semibold text-base">사이즈별 옵션 추가금</h4>
-            <p className="text-sm text-muted-foreground mt-1">
-              단가표의 하단 추가금 영역을 사이즈별로 관리합니다. 금액이 없거나 0원이면 계산에 적용되지 않습니다.
-            </p>
+        <div className="mt-5 space-y-4">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h4 className="text-base font-semibold">사이즈별 옵션 추가금</h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                단가표의 하단 추가금 영역을 사이즈별로 관리합니다. 금액이 없거나 0원이면 계산에 적용되지 않습니다.
+              </p>
+            </div>
+            <Badge variant="outline" className="w-fit rounded-full">panel_option_surcharges</Badge>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {optionSurchargeSections.map(section => (
-              <div key={section.type} className="border rounded-lg p-4">
+              <div key={section.type} className="rounded-lg border border-border bg-white p-4 shadow-none">
                 <div className="mb-3">
-                  <h5 className="font-semibold text-sm">{section.title}</h5>
-                  <p className="text-xs text-muted-foreground mt-1">{section.description}</p>
+                  <h5 className="text-sm font-semibold">{section.title}</h5>
+                  <p className="mt-1 text-xs text-muted-foreground">{section.description}</p>
                 </div>
-                <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
                   {availableSizes.map(sizeName => {
                     const currentCost = getOptionSurchargeCost(section.type, sizeName);
                     const isEditing =
@@ -706,7 +715,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
                       editingOptionCost?.sizeName === sizeName;
 
                     return (
-                      <div key={`${section.type}-${sizeName}`} className="flex items-center justify-between p-2 border rounded bg-background">
+                      <div key={`${section.type}-${sizeName}`} className="flex items-center justify-between rounded-md border border-border bg-muted/10 px-3 py-2">
                         <span className="font-medium text-sm">{sizeName}</span>
                         {isEditing ? (
                           <div className="flex items-center gap-2">
@@ -736,7 +745,7 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-mono">
+                            <span className="text-sm font-mono text-foreground">
                               {currentCost > 0 ? `₩${currentCost.toLocaleString()}` : '-'}
                             </span>
                             <Button
@@ -758,9 +767,9 @@ export const PanelSizeManager = ({ qualityId, qualityName, onBack }: PanelSizeMa
           </div>
         </div>
 
-        <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-2">
-          <h4 className="font-semibold text-sm">안내</h4>
-          <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+        <div className="mt-4 space-y-2 rounded-lg border border-border bg-muted/20 p-4">
+          <h4 className="text-sm font-semibold">안내</h4>
+          <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
             <li>셀을 클릭하여 사이즈와 가격을 입력할 수 있습니다</li>
             <li>스위치를 통해 각 사이즈의 활성화/비활성화를 관리할 수 있습니다</li>
             <li>비활성화된 사이즈는 계산기에 표시되지 않습니다</li>

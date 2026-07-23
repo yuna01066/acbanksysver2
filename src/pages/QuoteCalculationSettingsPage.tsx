@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -9,7 +9,6 @@ import {
   ListChecks,
   Loader2,
   Package,
-  Palette,
   Settings2,
   ShieldCheck,
   TrendingUp,
@@ -34,7 +33,6 @@ import { cn } from '@/lib/utils';
 const TABS = [
   'flow',
   'panel-base',
-  'panel-surcharges',
   'processing-options',
   'processing-logic',
   'validation',
@@ -50,14 +48,9 @@ const TAB_META: Record<QuoteCalculationTab, { label: string; icon: LucideIcon; d
     description: '견적 계산기가 원판가, 추가금, 가공비를 합산하는 순서를 확인합니다.',
   },
   'panel-base': {
-    label: '원판 기준가',
+    label: '원판·추가금',
     icon: Package,
-    description: '소재와 재질별 두께, 원장 사이즈, 실규격, 기준가, 활성 여부를 관리합니다.',
-  },
-  'panel-surcharges': {
-    label: '원판 추가금',
-    icon: Palette,
-    description: '양면, 사틴/아스텔, 브라이트/진백, 조색비처럼 원판가에 더해지는 값을 관리합니다.',
+    description: '소재와 재질별 기준가, 생산 가능 사이즈, 양면·사틴/아스텔·조색비 추가금을 한 화면에서 관리합니다.',
   },
   'processing-options': {
     label: '가공 옵션',
@@ -132,9 +125,35 @@ const STATUS_ITEMS = [
   { label: '가격 정책', value: 'AB+3%' },
 ];
 
-const getTab = (value: string | null): QuoteCalculationTab => (
-  TABS.includes(value as QuoteCalculationTab) ? value as QuoteCalculationTab : 'flow'
-);
+const TAB_ALIASES: Record<string, QuoteCalculationTab> = {
+  'panel-surcharges': 'panel-base',
+};
+
+const CATALOG_SCOPE_ITEMS = [
+  {
+    label: '기준가',
+    detail: '두께×사이즈 matrix, 실규격, 활성 여부',
+    source: 'panel_sizes',
+  },
+  {
+    label: '추가금',
+    detail: '양단면, 사틴/아스텔, 브라이트/진백',
+    source: 'panel_option_surcharges',
+  },
+  {
+    label: '컬러·조색',
+    detail: '컬러 생산 가능 여부와 두께별 조색비',
+    source: 'color_options · color_mixing_costs',
+  },
+];
+
+const getTab = (value: string | null): QuoteCalculationTab => {
+  if (value && TAB_ALIASES[value]) {
+    return TAB_ALIASES[value];
+  }
+
+  return TABS.includes(value as QuoteCalculationTab) ? value as QuoteCalculationTab : 'flow';
+};
 
 const FormulaPolicyCard = () => (
   <Card className="rounded-lg border-border bg-white shadow-none">
@@ -213,11 +232,9 @@ type SelectedMaterial = { id: string; name: string } | null;
 type SelectedProduct = { id: string; name: string } | null;
 
 const PanelSelectionSteps = ({
-  mode,
   selectedMaterial,
   selectedProduct,
 }: {
-  mode: 'base' | 'surcharge';
   selectedMaterial: SelectedMaterial;
   selectedProduct: SelectedProduct;
 }) => {
@@ -235,7 +252,7 @@ const PanelSelectionSteps = ({
       current: Boolean(selectedMaterial && !selectedProduct),
     },
     {
-      label: mode === 'base' ? '기준가 matrix' : '추가금 matrix',
+      label: '기준가·추가금',
       value: selectedProduct ? '수정 가능' : '대기 중',
       done: false,
       current: Boolean(selectedProduct),
@@ -278,23 +295,9 @@ const PanelSelectionSteps = ({
   );
 };
 
-const PanelCatalogSettings = ({ mode }: { mode: 'base' | 'surcharge' }) => {
+const PanelCatalogSettings = () => {
   const [selectedMaterial, setSelectedMaterial] = useState<SelectedMaterial>(null);
   const [selectedProduct, setSelectedProduct] = useState<SelectedProduct>(null);
-
-  const intro = useMemo(() => (
-    mode === 'base'
-      ? {
-          title: '원판 기준가 관리 순서',
-          description: '소재와 재질을 먼저 선택하면 두께×사이즈 matrix에서 기준가, 실규격, 활성 여부를 수정할 수 있습니다.',
-          badge: 'panel_sizes',
-        }
-      : {
-          title: '추가금 관리 순서',
-          description: '같은 matrix 안에서 양면, 사틴/아스텔, 안료, 조색비처럼 원판가에 더해지는 항목을 함께 확인합니다.',
-          badge: 'panel_option_surcharges · color_mixing_costs',
-        }
-  ), [mode]);
 
   const handleSelectMaterial = (id: string, name: string) => {
     setSelectedMaterial({ id, name });
@@ -317,11 +320,15 @@ const PanelCatalogSettings = ({ mode }: { mode: 'base' | 'surcharge' }) => {
       <div className="rounded-lg border border-border bg-white px-4 py-4 shadow-none">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <div className="text-base font-semibold">{intro.title}</div>
-            <div className="mt-1 max-w-3xl text-sm leading-5 text-muted-foreground">{intro.description}</div>
+            <div className="text-base font-semibold">원판 단가 관리 순서</div>
+            <div className="mt-1 max-w-3xl text-sm leading-5 text-muted-foreground">
+              소재와 재질을 선택하면 기준가 matrix, 생산 가능 조합, 추가금과 조색비를 한 흐름에서 관리할 수 있습니다.
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="w-fit rounded-full">{intro.badge}</Badge>
+            <Badge variant="outline" className="w-fit rounded-full">panel_sizes</Badge>
+            <Badge variant="outline" className="w-fit rounded-full">panel_option_surcharges</Badge>
+            <Badge variant="outline" className="w-fit rounded-full">color_mixing_costs</Badge>
             <Badge variant="secondary" className="w-fit rounded-full">기존 견적 미변경</Badge>
             {hasSelection && (
               <Button variant="outline" size="sm" className="rounded-full shadow-none" onClick={handleReset}>
@@ -332,10 +339,20 @@ const PanelCatalogSettings = ({ mode }: { mode: 'base' | 'surcharge' }) => {
         </div>
         <div className="mt-4">
           <PanelSelectionSteps
-            mode={mode}
             selectedMaterial={selectedMaterial}
             selectedProduct={selectedProduct}
           />
+        </div>
+        <div className="mt-3 grid gap-2 lg:grid-cols-3">
+          {CATALOG_SCOPE_ITEMS.map((item) => (
+            <div key={item.label} className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-foreground">{item.label}</span>
+                <Badge variant="outline" className="rounded-full text-[10px]">{item.source}</Badge>
+              </div>
+              <div className="mt-1 text-xs leading-5 text-muted-foreground">{item.detail}</div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -362,20 +379,16 @@ const PanelCatalogSettings = ({ mode }: { mode: 'base' | 'surcharge' }) => {
         <div className="space-y-4">
           <div className="flex flex-col gap-3 rounded-lg border border-border bg-white p-3 shadow-none md:flex-row md:items-center md:justify-between">
             <div className="min-w-0">
-              <div className="text-sm font-semibold">
-                {selectedProduct.name} {mode === 'base' ? '기준가 수정' : '추가금 확인'}
-              </div>
+              <div className="text-sm font-semibold">{selectedProduct.name} 원판 단가 관리</div>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="rounded-full">{selectedMaterial?.name}</Badge>
                 <Badge variant="outline" className="rounded-full">{selectedProduct.name}</Badge>
                 <Badge variant="outline" className="rounded-full">소3*6 / 대3*6 기준</Badge>
                 <Badge variant="outline" className="rounded-full">100원 단위</Badge>
               </div>
-              {mode === 'surcharge' && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  사틴/아스텔은 생산 가능한 사이즈만 활성화해 계산기 선택 오류를 줄입니다.
-                </p>
-              )}
+              <p className="mt-2 text-xs text-muted-foreground">
+                기준가를 먼저 확인한 뒤, 아래 추가금·컬러 설정에서 생산 불가 조합과 조색비를 함께 점검하세요.
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" className="rounded-full shadow-none" onClick={() => setSelectedProduct(null)}>
@@ -392,9 +405,7 @@ const PanelCatalogSettings = ({ mode }: { mode: 'base' | 'surcharge' }) => {
             qualityName={selectedProduct.name}
             onBack={() => setSelectedProduct(null)}
           />
-          {mode === 'surcharge' && (
-            <ColorManager qualityId={selectedProduct.id} />
-          )}
+          <ColorManager qualityId={selectedProduct.id} />
         </div>
       )}
     </div>
@@ -501,23 +512,20 @@ const QuoteCalculationSettingsPage = () => {
           </TabsList>
 
           <section className="flex flex-col gap-2 border-b border-border pb-3 md:flex-row md:items-end md:justify-between">
-              <div>
-                <div className="text-base font-semibold">{TAB_META[activeTab].label}</div>
-                <div className="mt-1 text-sm leading-5 text-muted-foreground">{TAB_META[activeTab].description}</div>
-              </div>
-              <Badge variant="outline" className="w-fit rounded-full">
-                저장 전 대표 검산 권장
-              </Badge>
+            <div>
+              <div className="text-base font-semibold">{TAB_META[activeTab].label}</div>
+              <div className="mt-1 text-sm leading-5 text-muted-foreground">{TAB_META[activeTab].description}</div>
+            </div>
+            <Badge variant="outline" className="w-fit rounded-full">
+              저장 전 대표 검산 권장
+            </Badge>
           </section>
 
           <TabsContent value="flow" className="mt-0">
             <FlowOverview />
           </TabsContent>
           <TabsContent value="panel-base" className="mt-0">
-            <PanelCatalogSettings mode="base" />
-          </TabsContent>
-          <TabsContent value="panel-surcharges" className="mt-0">
-            <PanelCatalogSettings mode="surcharge" />
+            <PanelCatalogSettings />
           </TabsContent>
           <TabsContent value="processing-options" className="mt-0">
             <ProcessingOptionsManager defaultTab="advanced" visibleTabs={['advanced']} />
