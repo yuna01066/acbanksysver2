@@ -57,6 +57,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type ProcessingOptionCategory = 'raw' | 'simple' | 'complex' | 'full' | 'adhesion' | 'additional';
 type PricingMethod = NonNullable<ProcessingOption['pricing_method']>;
+type ProcessingManagerTab = 'advanced' | 'logic';
+
+interface ProcessingOptionsManagerProps {
+  defaultTab?: ProcessingManagerTab;
+  visibleTabs?: ProcessingManagerTab[];
+}
 
 interface SlotConfig {
   slotKey: string;
@@ -171,7 +177,10 @@ const SortableOptionRow = ({
   );
 };
 
-const ProcessingOptionsManager = () => {
+const ProcessingOptionsManager = ({
+  defaultTab = 'advanced',
+  visibleTabs = ['advanced', 'logic'],
+}: ProcessingOptionsManagerProps = {}) => {
   const { processingOptions, isLoading, updateOption, deleteOption, createOption } = useProcessingOptions();
   const { settings: advancedSettings, isLoading: isLoadingAdvanced, updateSetting } = useAdvancedProcessingSettings();
   const { slotTypes, isLoading: isLoadingSlots, updateSlotType, createSlotType, deleteSlotType } = useSlotTypes();
@@ -691,16 +700,26 @@ const ProcessingOptionsManager = () => {
     { name: 'Folder', icon: Folder },
     { name: 'FileText', icon: FileText },
   ];
+  const enabledTabs = visibleTabs.length > 0 ? visibleTabs : ['advanced', 'logic'];
+  const activeDefaultTab = enabledTabs.includes(defaultTab) ? defaultTab : enabledTabs[0];
+  const showTabList = enabledTabs.length > 1;
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <Tabs defaultValue="advanced" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="advanced">고급 옵션 단가</TabsTrigger>
-          <TabsTrigger value="logic">가공 로직 & 옵션</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue={activeDefaultTab} className="w-full">
+        {showTabList && (
+          <TabsList className="grid w-full grid-cols-2">
+            {enabledTabs.includes('advanced') && (
+              <TabsTrigger value="advanced">고급 옵션 단가</TabsTrigger>
+            )}
+            {enabledTabs.includes('logic') && (
+              <TabsTrigger value="logic">가공 로직 & 옵션</TabsTrigger>
+            )}
+          </TabsList>
+        )}
 
         {/* 고급 옵션 단가 설정 */}
+        {enabledTabs.includes('advanced') && (
         <TabsContent value="advanced" className="space-y-4">
           <Card className="shadow-smooth">
             <CardHeader className="border-b border-border/50">
@@ -792,8 +811,10 @@ const ProcessingOptionsManager = () => {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
         {/* 가공 로직 & 옵션 관리 */}
+        {enabledTabs.includes('logic') && (
         <TabsContent value="logic" className="space-y-6">
           {/* 슬롯 타입 관리 */}
           <Card className="shadow-smooth">
@@ -1143,6 +1164,7 @@ const ProcessingOptionsManager = () => {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
       </Tabs>
 
       {/* 슬롯 추가 다이얼로그 */}

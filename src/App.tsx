@@ -32,10 +32,8 @@ const BrandingIntakeWidgetPage = lazy(() => import("./pages/BrandingIntakeWidget
 const PublicBookingPage = lazy(() => import("./pages/PublicBookingPage"));
 const BrandingIntakesPage = lazy(() => import("./pages/BrandingIntakesPage"));
 const AdminSettingsPage = lazy(() => import("./pages/AdminSettingsPage"));
-const PriceManagement = lazy(() => import("./pages/PriceManagement"));
-const PanelManagementPage = lazy(() => import("./pages/PanelManagementPage"));
+const QuoteCalculationSettingsPage = lazy(() => import("./pages/QuoteCalculationSettingsPage"));
 const PanelSizeComparisonPage = lazy(() => import("./pages/PanelSizeComparisonPage"));
-const ProcessingPriceManagement = lazy(() => import("./pages/ProcessingPriceManagement"));
 const SavedQuotesPage = lazy(() => import("./pages/SavedQuotesPage"));
 const SavedQuoteDetailPage = lazy(() => import("./pages/SavedQuoteDetailPage"));
 const QuoteDraftsPage = lazy(() => import("./pages/QuoteDraftsPage"));
@@ -134,10 +132,11 @@ const App = () => (
               <Route path="/public-booking/:slug" element={<PublicBookingPage />} />
               <Route path="/branding-intakes" element={<G><BrandingIntakesPage /></G>} />
               <Route path="/admin-settings" element={<AdminSettingsPage />} />
-              <Route path="/price-management" element={<PriceManagement />} />
-              <Route path="/panel-management" element={<PanelManagementPage />} />
+              <Route path="/quote-calculation-settings" element={<G><QuoteCalculationSettingsPage /></G>} />
+              <Route path="/price-management" element={<Navigate to="/quote-calculation-settings" replace />} />
+              <Route path="/panel-management" element={<Navigate to="/quote-calculation-settings?tab=panel-base" replace />} />
               <Route path="/panel-size-comparison" element={<G><PanelSizeComparisonPage /></G>} />
-              <Route path="/processing-price-management" element={<ProcessingPriceManagement />} />
+              <Route path="/processing-price-management" element={<Navigate to="/quote-calculation-settings?tab=processing-options" replace />} />
               <Route path="/saved-quotes" element={<G><SavedQuotesPage /></G>} />
               <Route path="/saved-quotes/:id" element={<G><SavedQuoteDetailPage /></G>} />
               <Route path="/quote-drafts" element={<G><QuoteDraftsPage /></G>} />

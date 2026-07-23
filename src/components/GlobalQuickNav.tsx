@@ -22,7 +22,6 @@ import {
   Star,
   User,
   Users,
-  Wrench,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import acbankLogoOrange from '@/assets/acbank-logo-orange.png';
@@ -77,8 +76,7 @@ const QUICK_NAV_ITEMS: QuickNavItem[] = [
   { title: '회사 설정', description: '마스터 전용 민감정보 관리', path: '/company-settings', group: '관리', keywords: '회사 설정 마스터 민감정보 company settings master', icon: Building2, masterOnly: true },
   { title: '응대 보조 관리', description: 'AI 응대 지침과 근거 관리', path: '/response-assistant-management', group: '관리', keywords: '상담 응대 보조 관리 instruction prompt response assistant', icon: MessageSquareText, adminOnly: true },
   { title: '찍찍이 이벤트 관리', description: '시간대·성과 반응 설정', path: '/jjikjjiki-event-settings', group: '관리', keywords: '찍찍이 이벤트 햄찌 hamzzi jjikjjiki 점심 성과', icon: Sparkles, adminOnly: true },
-  { title: '원판 관리', description: '원판/컬러/사이즈 단가', path: '/panel-management', group: '관리', keywords: '원판 컬러 사이즈 단가 panel color price', icon: Palette, adminOnly: true },
-  { title: '가공 가격 관리', description: '가공 옵션과 배수 관리', path: '/processing-price-management', group: '관리', keywords: '가공 가격 옵션 processing price', icon: Wrench, adminOnly: true },
+  { title: '견적 계산 설정', description: '원판·추가금·가공 옵션', path: '/quote-calculation-settings', group: '관리', keywords: '견적 계산 설정 원판 컬러 사이즈 단가 가공 가격 옵션 배수 panel color price processing calculator', icon: Calculator, adminOnly: true },
   { title: '경영 대시보드', description: '매출·비용·수익성', path: '/business-dashboard', group: '관리', keywords: '경영 대시보드 매출 수익 dashboard', icon: Briefcase, adminOnly: true },
   { title: '직원 관리', description: '구성원/권한/인사 정보', path: '/employee-profiles', group: '관리', keywords: '직원 구성원 권한 인사 employee', icon: Users, adminOnly: true },
   { title: '세금계산서', description: '계산서 발행/관리', path: '/tax-invoices', group: '관리', keywords: '세금계산서 계산서 tax invoice', icon: Receipt, adminOnly: true },
