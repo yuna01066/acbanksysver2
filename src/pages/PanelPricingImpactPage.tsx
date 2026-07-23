@@ -92,7 +92,11 @@ interface Discrepancy {
   details?: string;
 }
 
-export default function PanelPricingImpactPage() {
+interface PanelPricingImpactPanelProps {
+  embedded?: boolean;
+}
+
+export function PanelPricingImpactPanel({ embedded = false }: PanelPricingImpactPanelProps) {
   const navigate = useNavigate();
   const { user, isAdmin, loading: authLoading } = useAuth();
 
@@ -104,11 +108,11 @@ export default function PanelPricingImpactPage() {
   const [quality, setQuality] = useState<Quality>('glossy-color');
 
   useEffect(() => {
-    if (!authLoading && (!user || !isAdmin)) {
+    if (!embedded && !authLoading && (!user || !isAdmin)) {
       toast.error('관리자만 접근할 수 있습니다.');
       navigate('/');
     }
-  }, [user, isAdmin, authLoading, navigate]);
+  }, [embedded, user, isAdmin, authLoading, navigate]);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -282,21 +286,35 @@ export default function PanelPricingImpactPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
-      <div className="flex items-center justify-between gap-3">
+    <div className={embedded ? 'space-y-4' : 'mx-auto max-w-7xl space-y-6 px-4 py-6'}>
+      <div className={embedded
+        ? 'flex flex-col gap-3 rounded-lg border border-border bg-white px-4 py-3 shadow-none md:flex-row md:items-center md:justify-between'
+        : 'flex items-center justify-between gap-3'}
+      >
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/admin-settings')}>
-            <ArrowLeft className="mr-1 h-4 w-4" /> 관리자 설정
-          </Button>
-          <h1 className="text-xl font-semibold">AB+버퍼 가격 영향 대시보드</h1>
+          {!embedded && (
+            <Button variant="ghost" size="sm" onClick={() => navigate('/admin-settings')}>
+              <ArrowLeft className="mr-1 h-4 w-4" /> 관리자 설정
+            </Button>
+          )}
+          <div>
+            <h1 className={embedded ? 'text-sm font-semibold text-foreground' : 'text-xl font-semibold'}>
+              AB+버퍼 가격 영향
+            </h1>
+            {embedded && (
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                활성 가격 버전, 레거시 3*6, 생산 가능 규격과 가격 분포를 한 번에 점검합니다.
+              </p>
+            )}
+          </div>
         </div>
-        <Button variant="outline" size="sm" onClick={load}>
+        <Button variant="outline" size="sm" className="w-fit rounded-full shadow-none" onClick={load}>
           <RefreshCw className="mr-1 h-4 w-4" /> 새로고침
         </Button>
       </div>
 
       {/* Active version card */}
-      <Card>
+      <Card className="rounded-lg border-border bg-white shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">활성 가격 버전</CardTitle>
         </CardHeader>
@@ -330,7 +348,7 @@ export default function PanelPricingImpactPage() {
       </Card>
 
       {/* Discrepancies */}
-      <Card>
+      <Card className="rounded-lg border-border bg-white shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <AlertTriangle className="h-4 w-4" /> 불일치 감지
@@ -367,7 +385,7 @@ export default function PanelPricingImpactPage() {
       </Card>
 
       {/* Pivot */}
-      <Card>
+      <Card className="rounded-lg border-border bg-white shadow-none">
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="text-base">사이즈 × 두께 가격 영향</CardTitle>
@@ -393,7 +411,7 @@ export default function PanelPricingImpactPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="sticky left-0 bg-background">두께 \ 사이즈</TableHead>
+                    <TableHead className="sticky left-0 bg-white">두께 \ 사이즈</TableHead>
                     {usedSizes.map(s => (
                       <TableHead key={s} className="text-right whitespace-nowrap">{s}</TableHead>
                     ))}
@@ -402,7 +420,7 @@ export default function PanelPricingImpactPage() {
                 <TableBody>
                   {usedThicknesses.map(t => (
                     <TableRow key={t}>
-                      <TableCell className="sticky left-0 bg-background font-medium">{t}</TableCell>
+                      <TableCell className="sticky left-0 bg-white font-medium">{t}</TableCell>
                       {usedSizes.map(s => {
                         const row = priceLookup.get(`${t}|${s}`);
                         if (!row) return <TableCell key={s} className="text-right text-muted-foreground">—</TableCell>;
@@ -433,7 +451,7 @@ export default function PanelPricingImpactPage() {
       </Card>
 
       {/* Surcharges */}
-      <Card>
+      <Card className="rounded-lg border-border bg-white shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">옵션 서차지 (양면 / 사틴·아스텔 / 브라이트)</CardTitle>
         </CardHeader>
@@ -473,6 +491,10 @@ export default function PanelPricingImpactPage() {
       </Card>
     </div>
   );
+}
+
+export default function PanelPricingImpactPage() {
+  return <PanelPricingImpactPanel />;
 }
 
 function Stat({ label, value, tone }: { label: string; value: number | string; tone?: 'ok' | 'bad' }) {
