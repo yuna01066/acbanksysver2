@@ -236,11 +236,33 @@ function runChecks() {
   return { columns, constraints, indexes, failures };
 }
 
+function diffChecks(before, after) {
+  const diff = { fixed: [], stillFailing: [], regressed: [], unchanged: [] };
+  const kinds = [
+    ["column", "columns"],
+    ["constraint", "constraints"],
+    ["index", "indexes"],
+  ];
+  for (const [kind, key] of kinds) {
+    const beforeMap = new Map(before[key].map((x) => [x.name, x.status]));
+    const afterMap = new Map(after[key].map((x) => [x.name, x.status]));
+    for (const [name, afterStatus] of afterMap) {
+      const beforeStatus = beforeMap.get(name);
+      const entry = { kind, name, before: beforeStatus, after: afterStatus };
+      if (beforeStatus !== "ok" && afterStatus === "ok") diff.fixed.push(entry);
+      else if (beforeStatus === "ok" && afterStatus !== "ok") diff.regressed.push(entry);
+      else if (afterStatus !== "ok") diff.stillFailing.push(entry);
+      else diff.unchanged.push(entry);
+    }
+  }
+  return diff;
+}
+
 function buildReport(before, after, applied) {
   const final = after || before;
   const ok = final.failures.length === 0;
   return {
-    schemaVersion: "v2",
+    schemaVersion: "v3",
     generatedAt: new Date().toISOString(),
     target: { schema: "public", table: "saved_quotes" },
     migration: { file: MIGRATION_FILE, applied: Boolean(applied) },
@@ -265,6 +287,7 @@ function buildReport(before, after, applied) {
     },
     checks: final,
     beforeApply: applied ? before : null,
+    applyDiff: applied && after ? diffChecks(before, after) : null,
     recommendation: ok
       ? null
       : {
