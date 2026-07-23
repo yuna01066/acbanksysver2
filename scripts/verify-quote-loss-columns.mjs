@@ -334,7 +334,7 @@ if (before.failures.length > 0 && APPLY) {
   warn(
     `[verify-quote-loss-columns] ${before.failures.length} issue(s) detected — attempting auto-apply...`,
   );
-  for (const f of before.failures) warn(`  - ${f}`);
+  for (const f of before.failures) warn(`  - [${f.kind}] ${f.message} (${f.migration})`);
   try {
     applyMigrationFile(MIGRATION_PATH);
     applied = true;
