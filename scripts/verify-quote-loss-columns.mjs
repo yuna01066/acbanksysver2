@@ -353,6 +353,11 @@ function printHumanSummary(report) {
   log("=== saved_quotes quote-loss columns report ===");
   log(`  status     : ${ok ? "✅ OK" : "❌ FAIL"}`);
   log(`  generated  : ${report.generatedAt}`);
+  const rt = report.runtime || {};
+  const db = rt.database || {};
+  log(`  environment: ${rt.envName || "unknown"}${rt.ci ? ` (${rt.ci.provider})` : ""}`);
+  log(`  database   : ${db.user || "?"}@${db.host || "?"}${db.port ? `:${db.port}` : ""}/${db.database || "?"}${db.sslmode ? ` [sslmode=${db.sslmode}]` : ""}`);
+  log(`  runner     : node ${rt.node} · ${rt.os?.platform}/${rt.os?.arch} · ${rt.user || "?"}@${rt.host || "?"}`);
   log(`  migration  : ${migration.file}${migration.applied ? " (applied this run)" : ""}`);
   log(
     `  columns    : ${summary.columns.ok}/${summary.columns.expected} ok, ` +
