@@ -240,7 +240,7 @@ function buildReport(before, after, applied) {
   const final = after || before;
   const ok = final.failures.length === 0;
   return {
-    schemaVersion: "v1",
+    schemaVersion: "v2",
     generatedAt: new Date().toISOString(),
     target: { schema: "public", table: "saved_quotes" },
     migration: { file: MIGRATION_FILE, applied: Boolean(applied) },
