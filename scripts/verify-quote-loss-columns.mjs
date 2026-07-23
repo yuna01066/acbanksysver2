@@ -300,7 +300,7 @@ function buildReport(before, after, applied) {
 }
 
 function printHumanSummary(report) {
-  const { summary, checks, migration, ok, recommendation } = report;
+  const { summary, checks, migration, ok, recommendation, applyDiff } = report;
   log("");
   log("=== saved_quotes quote-loss columns report ===");
   log(`  status     : ${ok ? "✅ OK" : "❌ FAIL"}`);
