@@ -35,6 +35,49 @@ const APPLY = process.argv.includes("--apply");
 const JSON_ONLY = process.argv.includes("--json");
 const WRITE_REPORT = process.argv.includes("--report");
 
+const COLUMN_SQL = {
+  lost_by: "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_by TEXT;",
+  lost_reason_category:
+    "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_reason_category TEXT;",
+  lost_reason_detail:
+    "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_reason_detail TEXT;",
+  lost_competitor_name:
+    "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_competitor_name TEXT;",
+  lost_price_gap:
+    "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_price_gap NUMERIC;",
+  lost_follow_up_at:
+    "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_follow_up_at TIMESTAMPTZ;",
+  lost_recorded_by:
+    "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_recorded_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;",
+  lost_recorded_at:
+    "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_recorded_at TIMESTAMPTZ;",
+};
+
+const CONSTRAINT_SQL = {
+  saved_quotes_lost_by_check: `ALTER TABLE public.saved_quotes
+  ADD CONSTRAINT saved_quotes_lost_by_check
+  CHECK (lost_by IS NULL OR lost_by IN ('client', 'internal', 'expired', 'system'));`,
+  saved_quotes_lost_reason_category_check: `ALTER TABLE public.saved_quotes
+  ADD CONSTRAINT saved_quotes_lost_reason_category_check
+  CHECK (lost_reason_category IS NULL OR lost_reason_category IN (
+    'price_too_high','lead_time','spec_mismatch','competitor_selected',
+    'client_budget_cancelled','no_response','internal_rejected',
+    'duplicate_or_test','other'
+  ));`,
+};
+
+const INDEX_SQL = {
+  idx_saved_quotes_lost_recorded_at: `CREATE INDEX IF NOT EXISTS idx_saved_quotes_lost_recorded_at
+  ON public.saved_quotes(lost_recorded_at DESC)
+  WHERE lost_recorded_at IS NOT NULL;`,
+  idx_saved_quotes_lost_reason_category: `CREATE INDEX IF NOT EXISTS idx_saved_quotes_lost_reason_category
+  ON public.saved_quotes(lost_reason_category)
+  WHERE lost_reason_category IS NOT NULL;`,
+  idx_saved_quotes_lost_recorded_by: `CREATE INDEX IF NOT EXISTS idx_saved_quotes_lost_recorded_by
+  ON public.saved_quotes(lost_recorded_by)
+  WHERE lost_recorded_by IS NOT NULL;`,
+};
+
 const EXPECTED_COLUMNS = [
   ["lost_by", "text"],
   ["lost_reason_category", "text"],
@@ -46,16 +89,8 @@ const EXPECTED_COLUMNS = [
   ["lost_recorded_at", "timestamp with time zone"],
 ];
 
-const EXPECTED_CONSTRAINTS = [
-  "saved_quotes_lost_by_check",
-  "saved_quotes_lost_reason_category_check",
-];
-
-const EXPECTED_INDEXES = [
-  "idx_saved_quotes_lost_recorded_at",
-  "idx_saved_quotes_lost_reason_category",
-  "idx_saved_quotes_lost_recorded_by",
-];
+const EXPECTED_CONSTRAINTS = Object.keys(CONSTRAINT_SQL);
+const EXPECTED_INDEXES = Object.keys(INDEX_SQL);
 
 function log(...args) {
   if (!JSON_ONLY) console.log(...args);
@@ -128,7 +163,12 @@ function runChecks() {
     let status = "ok";
     if (!actual) status = "missing";
     else if (actual !== expectedType) status = "type_mismatch";
-    columns.push({ name, expectedType, actualType: actual, status });
+    const entry = { name, expectedType, actualType: actual, status };
+    if (status !== "ok") {
+      entry.migration = MIGRATION_FILE;
+      entry.sql = COLUMN_SQL[name];
+    }
+    columns.push(entry);
   }
 
   const conRows = psql(`
@@ -139,7 +179,13 @@ function runChecks() {
   `);
   const conSet = new Set(conRows.map(([name]) => name));
   for (const name of EXPECTED_CONSTRAINTS) {
-    constraints.push({ name, status: conSet.has(name) ? "ok" : "missing" });
+    const status = conSet.has(name) ? "ok" : "missing";
+    const entry = { name, status };
+    if (status !== "ok") {
+      entry.migration = MIGRATION_FILE;
+      entry.sql = CONSTRAINT_SQL[name];
+    }
+    constraints.push(entry);
   }
 
   const idxRows = psql(`
@@ -151,17 +197,40 @@ function runChecks() {
   `);
   const idxSet = new Set(idxRows.map(([name]) => name));
   for (const name of EXPECTED_INDEXES) {
-    indexes.push({ name, status: idxSet.has(name) ? "ok" : "missing" });
+    const status = idxSet.has(name) ? "ok" : "missing";
+    const entry = { name, status };
+    if (status !== "ok") {
+      entry.migration = MIGRATION_FILE;
+      entry.sql = INDEX_SQL[name];
+    }
+    indexes.push(entry);
   }
 
   const failures = [
-    ...columns.filter((c) => c.status !== "ok").map((c) =>
-      c.status === "missing"
-        ? `missing column: ${c.name} (expected ${c.expectedType})`
-        : `column ${c.name} has type "${c.actualType}", expected "${c.expectedType}"`,
-    ),
-    ...constraints.filter((c) => c.status !== "ok").map((c) => `missing CHECK constraint: ${c.name}`),
-    ...indexes.filter((i) => i.status !== "ok").map((i) => `missing index: ${i.name}`),
+    ...columns.filter((c) => c.status !== "ok").map((c) => ({
+      kind: "column",
+      name: c.name,
+      message:
+        c.status === "missing"
+          ? `missing column: ${c.name} (expected ${c.expectedType})`
+          : `column ${c.name} has type "${c.actualType}", expected "${c.expectedType}"`,
+      migration: MIGRATION_FILE,
+      sql: COLUMN_SQL[c.name],
+    })),
+    ...constraints.filter((c) => c.status !== "ok").map((c) => ({
+      kind: "constraint",
+      name: c.name,
+      message: `missing CHECK constraint: ${c.name}`,
+      migration: MIGRATION_FILE,
+      sql: CONSTRAINT_SQL[c.name],
+    })),
+    ...indexes.filter((i) => i.status !== "ok").map((i) => ({
+      kind: "index",
+      name: i.name,
+      message: `missing index: ${i.name}`,
+      migration: MIGRATION_FILE,
+      sql: INDEX_SQL[i.name],
+    })),
   ];
 
   return { columns, constraints, indexes, failures };
@@ -171,7 +240,7 @@ function buildReport(before, after, applied) {
   const final = after || before;
   const ok = final.failures.length === 0;
   return {
-    schemaVersion: "v1",
+    schemaVersion: "v2",
     generatedAt: new Date().toISOString(),
     target: { schema: "public", table: "saved_quotes" },
     migration: { file: MIGRATION_FILE, applied: Boolean(applied) },
@@ -229,7 +298,13 @@ function printHumanSummary(report) {
 
   if (!ok) {
     log("\n  Missing items:");
-    for (const f of checks.failures) log(`    - ${f}`);
+    for (const f of checks.failures) {
+      log(`    - [${f.kind}] ${f.message}`);
+      log(`        migration: ${f.migration}`);
+      const sqlLines = String(f.sql || "").split("\n");
+      log(`        sql      : ${sqlLines[0]}`);
+      for (const line of sqlLines.slice(1)) log(`                   ${line}`);
+    }
     if (recommendation) {
       log("\n  Recommended migration:");
       log(`    file  : ${recommendation.migration}`);
@@ -259,7 +334,7 @@ if (before.failures.length > 0 && APPLY) {
   warn(
     `[verify-quote-loss-columns] ${before.failures.length} issue(s) detected — attempting auto-apply...`,
   );
-  for (const f of before.failures) warn(`  - ${f}`);
+  for (const f of before.failures) warn(`  - [${f.kind}] ${f.message} (${f.migration})`);
   try {
     applyMigrationFile(MIGRATION_PATH);
     applied = true;
