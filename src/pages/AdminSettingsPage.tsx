@@ -158,7 +158,7 @@ const ADMIN_FEATURES: AdminFeatureItem[] = [
     description: '원판 기준가, 추가금, 가공 옵션과 계산기 노출 로직을 관리합니다.',
     category: 'quote',
     icon: Calculator,
-    keywords: '견적 계산 설정 원판 관리 가공 가격 컬러 사이즈 두께 옵션 배수 panel price acrylic processing calculator',
+    keywords: '견적 계산 설정 원판 관리 가공 가격 컬러 사이즈 두께 옵션 배수 AB 상한 버퍼 가격 영향 panel price acrylic processing calculator pricing impact',
     access: 'admin',
     priority: 20,
     path: '/quote-calculation-settings',
@@ -352,17 +352,6 @@ const ADMIN_FEATURES: AdminFeatureItem[] = [
     access: 'admin',
     priority: 70,
     path: '/error-logs',
-  },
-  {
-    id: 'panel-pricing-impact',
-    title: 'AB+버퍼 가격 영향 대시보드',
-    description: '2026-06-01 A/B 상한 + 3% 버퍼 가격의 사이즈/두께별 영향과 레거시 3*6·생산 규격 위반 등 불일치를 확인합니다.',
-    category: 'quote',
-    icon: TrendingUp,
-    keywords: 'AB 상한 버퍼 가격 영향 pricing impact panel 3*6 소3*6 대3*6 사틴 아스텔 discrepancy',
-    access: 'admin',
-    priority: 75,
-    path: '/panel-pricing-impact',
   },
 ];
 

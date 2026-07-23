@@ -12,6 +12,7 @@ import {
   Palette,
   Settings2,
   ShieldCheck,
+  TrendingUp,
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
@@ -26,6 +27,7 @@ import { PanelSizeManager } from '@/components/panel-management/UnifiedSizePrice
 import ColorManager from '@/components/panel-management/ColorManager';
 import { PanelCatalogValidationReport } from '@/components/panel-management/PanelCatalogValidationReport';
 import ProcessingOptionsManager from '@/components/admin/ProcessingOptionsManager';
+import { PanelPricingImpactPanel } from '@/pages/PanelPricingImpactPage';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
@@ -36,6 +38,7 @@ const TABS = [
   'processing-options',
   'processing-logic',
   'validation',
+  'pricing-impact',
 ] as const;
 
 type QuoteCalculationTab = typeof TABS[number];
@@ -70,6 +73,11 @@ const TAB_META: Record<QuoteCalculationTab, { label: string; icon: LucideIcon; d
     label: '검증 리포트',
     icon: ShieldCheck,
     description: '활성 원판, 컬러, 추가금 기준정보의 누락과 차단 대상을 점검합니다.',
+  },
+  'pricing-impact': {
+    label: 'AB+버퍼 영향',
+    icon: TrendingUp,
+    description: 'A/B 상한 + 3% 버퍼 가격이 원판과 추가금에 어떻게 반영됐는지 확인합니다.',
   },
 };
 
@@ -204,6 +212,72 @@ const FlowOverview = () => (
 type SelectedMaterial = { id: string; name: string } | null;
 type SelectedProduct = { id: string; name: string } | null;
 
+const PanelSelectionSteps = ({
+  mode,
+  selectedMaterial,
+  selectedProduct,
+}: {
+  mode: 'base' | 'surcharge';
+  selectedMaterial: SelectedMaterial;
+  selectedProduct: SelectedProduct;
+}) => {
+  const steps = [
+    {
+      label: '소재 선택',
+      value: selectedMaterial?.name ?? '선택 전',
+      done: Boolean(selectedMaterial),
+      current: !selectedMaterial,
+    },
+    {
+      label: '재질 선택',
+      value: selectedProduct?.name ?? '선택 전',
+      done: Boolean(selectedProduct),
+      current: Boolean(selectedMaterial && !selectedProduct),
+    },
+    {
+      label: mode === 'base' ? '기준가 matrix' : '추가금 matrix',
+      value: selectedProduct ? '수정 가능' : '대기 중',
+      done: false,
+      current: Boolean(selectedProduct),
+    },
+  ];
+
+  return (
+    <div className="grid gap-2 md:grid-cols-3">
+      {steps.map((step, index) => (
+        <div
+          key={step.label}
+          className={cn(
+            'rounded-lg border px-3 py-3 transition-colors',
+            step.current
+              ? 'border-foreground bg-white'
+              : step.done
+                ? 'border-border bg-muted/20'
+                : 'border-border bg-white text-muted-foreground'
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold',
+                step.current
+                  ? 'border-foreground bg-foreground text-background'
+                  : step.done
+                    ? 'border-border bg-white text-foreground'
+                    : 'border-border bg-muted text-muted-foreground'
+              )}
+            >
+              {index + 1}
+            </span>
+            <span className="text-xs font-medium">{step.label}</span>
+          </div>
+          <div className="mt-2 truncate text-sm font-semibold text-foreground">{step.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const PanelCatalogSettings = ({ mode }: { mode: 'base' | 'surcharge' }) => {
   const [selectedMaterial, setSelectedMaterial] = useState<SelectedMaterial>(null);
   const [selectedProduct, setSelectedProduct] = useState<SelectedProduct>(null);
@@ -231,16 +305,37 @@ const PanelCatalogSettings = ({ mode }: { mode: 'base' | 'surcharge' }) => {
     setSelectedProduct({ id, name });
   };
 
+  const handleReset = () => {
+    setSelectedMaterial(null);
+    setSelectedProduct(null);
+  };
+
+  const hasSelection = Boolean(selectedMaterial || selectedProduct);
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 rounded-lg border border-border bg-white px-4 py-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="text-sm font-semibold">{intro.title}</div>
-          <div className="mt-1 text-xs leading-5 text-muted-foreground">{intro.description}</div>
+      <div className="rounded-lg border border-border bg-white px-4 py-4 shadow-none">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="text-base font-semibold">{intro.title}</div>
+            <div className="mt-1 max-w-3xl text-sm leading-5 text-muted-foreground">{intro.description}</div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="w-fit rounded-full">{intro.badge}</Badge>
+            <Badge variant="secondary" className="w-fit rounded-full">기존 견적 미변경</Badge>
+            {hasSelection && (
+              <Button variant="outline" size="sm" className="rounded-full shadow-none" onClick={handleReset}>
+                처음부터 선택
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="w-fit rounded-full">{intro.badge}</Badge>
-          <Badge variant="secondary" className="w-fit rounded-full">기존 견적 미변경</Badge>
+        <div className="mt-4">
+          <PanelSelectionSteps
+            mode={mode}
+            selectedMaterial={selectedMaterial}
+            selectedProduct={selectedProduct}
+          />
         </div>
       </div>
 
@@ -265,18 +360,32 @@ const PanelCatalogSettings = ({ mode }: { mode: 'base' | 'surcharge' }) => {
 
       {selectedProduct && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-white p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary" className="rounded-full">{selectedMaterial?.name}</Badge>
-              <Badge variant="outline" className="rounded-full">{selectedProduct.name}</Badge>
+          <div className="flex flex-col gap-3 rounded-lg border border-border bg-white p-3 shadow-none md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold">
+                {selectedProduct.name} {mode === 'base' ? '기준가 수정' : '추가금 확인'}
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="rounded-full">{selectedMaterial?.name}</Badge>
+                <Badge variant="outline" className="rounded-full">{selectedProduct.name}</Badge>
+                <Badge variant="outline" className="rounded-full">소3*6 / 대3*6 기준</Badge>
+                <Badge variant="outline" className="rounded-full">100원 단위</Badge>
+              </div>
               {mode === 'surcharge' && (
-                <Badge variant="outline" className="rounded-full">추가금/조색비 확인</Badge>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  사틴/아스텔은 생산 가능한 사이즈만 활성화해 계산기 선택 오류를 줄입니다.
+                </p>
               )}
             </div>
-            <Button variant="outline" size="sm" onClick={() => setSelectedProduct(null)}>
-              <ArrowLeft className="h-4 w-4" />
-              재질 선택
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" className="rounded-full shadow-none" onClick={() => setSelectedProduct(null)}>
+                <ArrowLeft className="h-4 w-4" />
+                재질 다시 선택
+              </Button>
+              <Button variant="ghost" size="sm" className="rounded-full" onClick={handleReset}>
+                소재부터 다시
+              </Button>
+            </div>
           </div>
           <PanelSizeManager
             qualityId={selectedProduct.id}
@@ -421,6 +530,9 @@ const QuoteCalculationSettingsPage = () => {
               <RepresentativeCheckPanel />
               <PanelCatalogValidationReport />
             </div>
+          </TabsContent>
+          <TabsContent value="pricing-impact" className="mt-0">
+            <PanelPricingImpactPanel embedded />
           </TabsContent>
         </Tabs>
       </div>
