@@ -336,6 +336,24 @@ function printHumanSummary(report) {
       log(`    tip   : ${recommendation.note}`);
     }
   }
+
+  if (applyDiff) {
+    log("\n  === Apply diff (before → after) ===");
+    log(
+      `    fixed        : ${applyDiff.fixed.length}` +
+        `   still failing: ${applyDiff.stillFailing.length}` +
+        `   regressed: ${applyDiff.regressed.length}`,
+    );
+    for (const d of applyDiff.fixed) {
+      log(`    ✅ [${d.kind}] ${d.name}: ${d.before} → ${d.after}`);
+    }
+    for (const d of applyDiff.stillFailing) {
+      log(`    ❌ [${d.kind}] ${d.name}: ${d.before} → ${d.after}`);
+    }
+    for (const d of applyDiff.regressed) {
+      log(`    ⚠️  [${d.kind}] ${d.name}: ${d.before} → ${d.after}`);
+    }
+  }
   log("");
 }
 
