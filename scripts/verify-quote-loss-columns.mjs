@@ -298,7 +298,13 @@ function printHumanSummary(report) {
 
   if (!ok) {
     log("\n  Missing items:");
-    for (const f of checks.failures) log(`    - ${f}`);
+    for (const f of checks.failures) {
+      log(`    - [${f.kind}] ${f.message}`);
+      log(`        migration: ${f.migration}`);
+      const sqlLines = String(f.sql || "").split("\n");
+      log(`        sql      : ${sqlLines[0]}`);
+      for (const line of sqlLines.slice(1)) log(`                   ${line}`);
+    }
     if (recommendation) {
       log("\n  Recommended migration:");
       log(`    file  : ${recommendation.migration}`);
