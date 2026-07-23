@@ -35,6 +35,49 @@ const APPLY = process.argv.includes("--apply");
 const JSON_ONLY = process.argv.includes("--json");
 const WRITE_REPORT = process.argv.includes("--report");
 
+const COLUMN_SQL = {
+  lost_by: "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_by TEXT;",
+  lost_reason_category:
+    "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_reason_category TEXT;",
+  lost_reason_detail:
+    "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_reason_detail TEXT;",
+  lost_competitor_name:
+    "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_competitor_name TEXT;",
+  lost_price_gap:
+    "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_price_gap NUMERIC;",
+  lost_follow_up_at:
+    "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_follow_up_at TIMESTAMPTZ;",
+  lost_recorded_by:
+    "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_recorded_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;",
+  lost_recorded_at:
+    "ALTER TABLE public.saved_quotes ADD COLUMN IF NOT EXISTS lost_recorded_at TIMESTAMPTZ;",
+};
+
+const CONSTRAINT_SQL = {
+  saved_quotes_lost_by_check: `ALTER TABLE public.saved_quotes
+  ADD CONSTRAINT saved_quotes_lost_by_check
+  CHECK (lost_by IS NULL OR lost_by IN ('client', 'internal', 'expired', 'system'));`,
+  saved_quotes_lost_reason_category_check: `ALTER TABLE public.saved_quotes
+  ADD CONSTRAINT saved_quotes_lost_reason_category_check
+  CHECK (lost_reason_category IS NULL OR lost_reason_category IN (
+    'price_too_high','lead_time','spec_mismatch','competitor_selected',
+    'client_budget_cancelled','no_response','internal_rejected',
+    'duplicate_or_test','other'
+  ));`,
+};
+
+const INDEX_SQL = {
+  idx_saved_quotes_lost_recorded_at: `CREATE INDEX IF NOT EXISTS idx_saved_quotes_lost_recorded_at
+  ON public.saved_quotes(lost_recorded_at DESC)
+  WHERE lost_recorded_at IS NOT NULL;`,
+  idx_saved_quotes_lost_reason_category: `CREATE INDEX IF NOT EXISTS idx_saved_quotes_lost_reason_category
+  ON public.saved_quotes(lost_reason_category)
+  WHERE lost_reason_category IS NOT NULL;`,
+  idx_saved_quotes_lost_recorded_by: `CREATE INDEX IF NOT EXISTS idx_saved_quotes_lost_recorded_by
+  ON public.saved_quotes(lost_recorded_by)
+  WHERE lost_recorded_by IS NOT NULL;`,
+};
+
 const EXPECTED_COLUMNS = [
   ["lost_by", "text"],
   ["lost_reason_category", "text"],
@@ -46,16 +89,8 @@ const EXPECTED_COLUMNS = [
   ["lost_recorded_at", "timestamp with time zone"],
 ];
 
-const EXPECTED_CONSTRAINTS = [
-  "saved_quotes_lost_by_check",
-  "saved_quotes_lost_reason_category_check",
-];
-
-const EXPECTED_INDEXES = [
-  "idx_saved_quotes_lost_recorded_at",
-  "idx_saved_quotes_lost_reason_category",
-  "idx_saved_quotes_lost_recorded_by",
-];
+const EXPECTED_CONSTRAINTS = Object.keys(CONSTRAINT_SQL);
+const EXPECTED_INDEXES = Object.keys(INDEX_SQL);
 
 function log(...args) {
   if (!JSON_ONLY) console.log(...args);
