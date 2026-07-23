@@ -163,7 +163,12 @@ function runChecks() {
     let status = "ok";
     if (!actual) status = "missing";
     else if (actual !== expectedType) status = "type_mismatch";
-    columns.push({ name, expectedType, actualType: actual, status });
+    const entry = { name, expectedType, actualType: actual, status };
+    if (status !== "ok") {
+      entry.migration = MIGRATION_FILE;
+      entry.sql = COLUMN_SQL[name];
+    }
+    columns.push(entry);
   }
 
   const conRows = psql(`
@@ -174,7 +179,13 @@ function runChecks() {
   `);
   const conSet = new Set(conRows.map(([name]) => name));
   for (const name of EXPECTED_CONSTRAINTS) {
-    constraints.push({ name, status: conSet.has(name) ? "ok" : "missing" });
+    const status = conSet.has(name) ? "ok" : "missing";
+    const entry = { name, status };
+    if (status !== "ok") {
+      entry.migration = MIGRATION_FILE;
+      entry.sql = CONSTRAINT_SQL[name];
+    }
+    constraints.push(entry);
   }
 
   const idxRows = psql(`
@@ -186,17 +197,40 @@ function runChecks() {
   `);
   const idxSet = new Set(idxRows.map(([name]) => name));
   for (const name of EXPECTED_INDEXES) {
-    indexes.push({ name, status: idxSet.has(name) ? "ok" : "missing" });
+    const status = idxSet.has(name) ? "ok" : "missing";
+    const entry = { name, status };
+    if (status !== "ok") {
+      entry.migration = MIGRATION_FILE;
+      entry.sql = INDEX_SQL[name];
+    }
+    indexes.push(entry);
   }
 
   const failures = [
-    ...columns.filter((c) => c.status !== "ok").map((c) =>
-      c.status === "missing"
-        ? `missing column: ${c.name} (expected ${c.expectedType})`
-        : `column ${c.name} has type "${c.actualType}", expected "${c.expectedType}"`,
-    ),
-    ...constraints.filter((c) => c.status !== "ok").map((c) => `missing CHECK constraint: ${c.name}`),
-    ...indexes.filter((i) => i.status !== "ok").map((i) => `missing index: ${i.name}`),
+    ...columns.filter((c) => c.status !== "ok").map((c) => ({
+      kind: "column",
+      name: c.name,
+      message:
+        c.status === "missing"
+          ? `missing column: ${c.name} (expected ${c.expectedType})`
+          : `column ${c.name} has type "${c.actualType}", expected "${c.expectedType}"`,
+      migration: MIGRATION_FILE,
+      sql: COLUMN_SQL[c.name],
+    })),
+    ...constraints.filter((c) => c.status !== "ok").map((c) => ({
+      kind: "constraint",
+      name: c.name,
+      message: `missing CHECK constraint: ${c.name}`,
+      migration: MIGRATION_FILE,
+      sql: CONSTRAINT_SQL[c.name],
+    })),
+    ...indexes.filter((i) => i.status !== "ok").map((i) => ({
+      kind: "index",
+      name: i.name,
+      message: `missing index: ${i.name}`,
+      migration: MIGRATION_FILE,
+      sql: INDEX_SQL[i.name],
+    })),
   ];
 
   return { columns, constraints, indexes, failures };
