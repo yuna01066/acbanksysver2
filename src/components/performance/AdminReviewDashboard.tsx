@@ -13,9 +13,13 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, Send, User, Star, TrendingUp, MessageSquare, Search, CheckCircle, Users, ClipboardCheck, Award } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import ProfileAvatarImage from '@/components/employee/ProfileAvatarImage';
-import { summarizeStructuredFeedback } from '@/lib/performanceFeedback';
+import PerformanceRadarChart, { type PerformanceRadarMetric } from '@/components/performance/PerformanceRadarChart';
+import {
+  getObjectiveReviewCategories,
+  splitFeedbackText,
+  summarizeStructuredFeedback,
+} from '@/lib/performanceFeedback';
 
 interface ReviewCycle {
   id: string;
@@ -30,6 +34,7 @@ interface ReviewCategory {
   name: string;
   weight: number;
   display_order: number;
+  description?: string | null;
 }
 
 interface EmployeeReviewData {
@@ -42,7 +47,7 @@ interface EmployeeReviewData {
   avgScore: number | null;
   avgGoalRate: number | null;
   mostFreqGrade: string | null;
-  categoryScores: { name: string; avg: number }[];
+  categoryScores: PerformanceRadarMetric[];
   strengths: string[];
   improvements: string[];
   generalComments: string[];
@@ -58,6 +63,12 @@ const gradeColor = (grade: string) => {
     case 'D': return 'bg-red-100 text-red-800 border-red-300';
     default: return '';
   }
+};
+
+const countEvidenceItems = (value: unknown) => {
+  if (Array.isArray(value)) return value.filter(Boolean).length;
+  if (typeof value === 'string') return splitFeedbackText(value).length;
+  return 0;
 };
 
 const AdminReviewDashboard: React.FC = () => {
@@ -125,6 +136,8 @@ const AdminReviewDashboard: React.FC = () => {
       allScores = scoresData || [];
     }
 
+    const objectiveCategories = getObjectiveReviewCategories(categories);
+
     // Aggregate per employee
     const result: EmployeeReviewData[] = employees.map(emp => {
       const empReviews = reviews.filter(r => r.reviewee_id === emp.id);
@@ -160,11 +173,24 @@ const AdminReviewDashboard: React.FC = () => {
         mostFreqGrade = Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
       }
 
-      // Category avg scores
-      const categoryScores = categories.map(cat => {
+      // Objective competency scores
+      const categoryScores: PerformanceRadarMetric[] = objectiveCategories.map(cat => {
         const catScores = empScores.filter((s: any) => s.category_id === cat.id);
-        const avg = catScores.length > 0 ? catScores.reduce((sum: number, s: any) => sum + s.score, 0) / catScores.length : 0;
-        return { name: cat.name, avg: Math.round(avg * 10) / 10 };
+        const avg = catScores.length > 0
+          ? catScores.reduce((sum: number, s: any) => sum + s.score, 0) / catScores.length
+          : null;
+        const evidenceCount = catScores.reduce(
+          (total: number, s: any) => total + countEvidenceItems(s.evidence_tags ?? s.comment),
+          0,
+        );
+
+        return {
+          id: cat.objectiveKey || cat.id,
+          label: cat.objectiveName || cat.name,
+          value: avg == null ? null : Math.round(avg * 10) / 10,
+          description: cat.objectiveDescription || cat.description || null,
+          evidenceCount,
+        };
       });
 
       // Aggregated text
@@ -225,7 +251,13 @@ const AdminReviewDashboard: React.FC = () => {
           overall_grade: sendGrade || null,
           avg_score: selectedEmployee.avgScore,
           avg_goal_rate: selectedEmployee.avgGoalRate,
-          category_scores: selectedEmployee.categoryScores,
+          category_scores: selectedEmployee.categoryScores.map(score => ({
+            id: score.id,
+            name: score.label,
+            avg: score.value,
+            description: score.description,
+            evidenceCount: score.evidenceCount ?? 0,
+          })),
           strengths_summary: sendStrengths || null,
           improvements_summary: sendImprovements || null,
           general_comment: sendComment || null,
@@ -273,7 +305,6 @@ const AdminReviewDashboard: React.FC = () => {
       (e.department && e.department.toLowerCase().includes(s));
   });
 
-  const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--primary) / 0.8)', 'hsl(var(--primary) / 0.6)', 'hsl(var(--primary) / 0.4)'];
   const selectedCycle = cycles.find(c => c.id === selectedCycleId);
   const reviewedEmployeeCount = employeeData.filter(e => e.reviewCount > 0).length;
   const sentSummaryCount = employeeData.filter(e => e.hasSummary).length;
@@ -409,26 +440,20 @@ const AdminReviewDashboard: React.FC = () => {
             </Card>
           </div>
 
-          {/* Category Score Chart */}
+          {/* Objective Competency Radar */}
           {selectedEmployee.reviewCount > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">항목별 평균 점수</CardTitle>
+                <CardTitle className="text-sm">육각형 역량 지표</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={selectedEmployee.categoryScores} layout="vertical" margin={{ left: 80, right: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" domain={[0, 10]} tickCount={6} />
-                    <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(val: number) => val.toFixed(1)} />
-                    <Bar dataKey="avg" radius={[0, 4, 4, 0]}>
-                      {selectedEmployee.categoryScores.map((_, idx) => (
-                        <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                <PerformanceRadarChart
+                  title="직원별 역량 분포"
+                  summary="평가 평균과 선택형 근거 수를 함께 확인합니다."
+                  metrics={selectedEmployee.categoryScores}
+                  framed={false}
+                  compact
+                />
               </CardContent>
             </Card>
           )}

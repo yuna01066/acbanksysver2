@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,10 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Loader2, User, Star, Target, TrendingUp, MessageSquare, ChevronDown, ChevronUp, Search, ArrowLeft, AlertTriangle } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import ProfileAvatarImage from '@/components/employee/ProfileAvatarImage';
+import PerformanceRadarChart, { type PerformanceRadarMetric } from '@/components/performance/PerformanceRadarChart';
+import { getObjectiveReviewCategories, splitFeedbackText } from '@/lib/performanceFeedback';
 
 interface ReviewCycle {
   id: string;
@@ -27,6 +28,10 @@ interface ReviewCategory {
   weight: number;
   display_order: number;
   description: string | null;
+  objectiveKey?: string;
+  objectiveName?: string;
+  objectiveDescription?: string;
+  originalName?: string;
 }
 
 interface Review {
@@ -43,7 +48,7 @@ interface Review {
   general_comment: string | null;
   status: string;
   created_at: string;
-  scores?: { category_id: string; score: number; comment: string | null }[];
+  scores?: { category_id: string; score: number; comment: string | null; evidence_tags?: string[] | null }[];
 }
 
 interface Employee {
@@ -72,7 +77,11 @@ const gradeColor = (grade: string) => {
   }
 };
 
-const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--primary) / 0.8)', 'hsl(var(--primary) / 0.6)', 'hsl(var(--primary) / 0.4)'];
+const countEvidenceItems = (value: unknown) => {
+  if (Array.isArray(value)) return value.filter(Boolean).length;
+  if (typeof value === 'string') return splitFeedbackText(value).length;
+  return 0;
+};
 
 interface Props {
   initialEmployeeId?: string;
@@ -182,10 +191,21 @@ const AdminReviewDetailViewer: React.FC<Props> = ({ initialEmployeeId }) => {
     grades.forEach(g => { freq[g] = (freq[g] || 0) + 1; });
     return Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
   })();
-  const categoryAvgScores = categories.map(cat => {
+  const objectiveCategories = useMemo(() => getObjectiveReviewCategories(categories), [categories]);
+  const categoryAvgScores: PerformanceRadarMetric[] = objectiveCategories.map(cat => {
     const scores = submitted.flatMap(r => (r.scores || []).filter(s => s.category_id === cat.id));
-    const avg = scores.length > 0 ? scores.reduce((sum, s) => sum + s.score, 0) / scores.length : 0;
-    return { name: cat.name, avg: Math.round(avg * 10) / 10 };
+    const avg = scores.length > 0 ? scores.reduce((sum, s) => sum + s.score, 0) / scores.length : null;
+    const evidenceCount = scores.reduce(
+      (total, s) => total + countEvidenceItems(s.evidence_tags ?? s.comment),
+      0,
+    );
+    return {
+      id: cat.objectiveKey || cat.id,
+      label: cat.objectiveName || cat.originalName || cat.name,
+      value: avg == null ? null : Math.round(avg * 10) / 10,
+      description: cat.objectiveDescription || cat.description || null,
+      evidenceCount,
+    };
   });
 
   const filteredEmployees = employees.filter(e => {
@@ -298,23 +318,17 @@ const AdminReviewDetailViewer: React.FC<Props> = ({ initialEmployeeId }) => {
                     </Card>
                   </div>
 
-                  {/* Category chart */}
+                  {/* Objective competency chart */}
                   <Card>
-                    <CardHeader className="pb-2"><CardTitle className="text-sm">항목별 평균 점수</CardTitle></CardHeader>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm">육각형 역량 지표</CardTitle></CardHeader>
                     <CardContent>
-                      <ResponsiveContainer width="100%" height={220}>
-                        <BarChart data={categoryAvgScores} layout="vertical" margin={{ left: 80, right: 20 }}>
-                          <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                          <XAxis type="number" domain={[0, 10]} tickCount={6} />
-                          <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 12 }} />
-                          <Tooltip formatter={(val: number) => val.toFixed(1)} />
-                          <Bar dataKey="avg" radius={[0, 4, 4, 0]}>
-                            {categoryAvgScores.map((_, idx) => (
-                              <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                      <PerformanceRadarChart
+                        title="직원별 역량 지표"
+                        summary="선택된 직원의 항목별 평균과 선택형 근거 수를 함께 확인합니다."
+                        metrics={categoryAvgScores}
+                        framed={false}
+                        compact
+                      />
                     </CardContent>
                   </Card>
                 </>
