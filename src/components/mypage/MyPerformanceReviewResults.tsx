@@ -5,9 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Star, Target, TrendingUp, MessageSquare, ChevronDown, ChevronUp, Lock, FileText, ShieldCheck } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { getObjectiveReviewCategories } from '@/lib/performanceFeedback';
+import { Loader2, Star, Target, TrendingUp, MessageSquare, ChevronDown, ChevronUp, Lock, FileText } from 'lucide-react';
+import PerformanceRadarChart, { type PerformanceRadarMetric } from '@/components/performance/PerformanceRadarChart';
+import { getObjectiveReviewCategories, splitFeedbackText } from '@/lib/performanceFeedback';
 
 interface ReviewCycle {
   id: string;
@@ -23,6 +23,10 @@ interface ReviewCategory {
   description?: string | null;
   weight: number;
   display_order: number;
+  objectiveKey?: string;
+  objectiveName?: string;
+  objectiveDescription?: string;
+  originalName?: string;
 }
 
 interface ReviewScore {
@@ -30,6 +34,7 @@ interface ReviewScore {
   category_id: string;
   score: number;
   comment: string | null;
+  evidence_tags?: string[] | null;
 }
 
 interface Review {
@@ -47,7 +52,13 @@ interface SentSummary {
   overall_grade: string | null;
   avg_score: number | null;
   avg_goal_rate: number | null;
-  category_scores: { name: string; avg: number }[];
+  category_scores: {
+    name: string;
+    avg: number | null;
+    evidenceCount?: number;
+    evidence_count?: number;
+    description?: string | null;
+  }[];
   strengths_summary: string | null;
   improvements_summary: string | null;
   general_comment: string | null;
@@ -66,7 +77,11 @@ const gradeColor = (grade: string) => {
   }
 };
 
-const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--primary) / 0.8)', 'hsl(var(--primary) / 0.6)', 'hsl(var(--primary) / 0.4)'];
+const countEvidenceItems = (value: unknown) => {
+  if (Array.isArray(value)) return value.filter(Boolean).length;
+  if (typeof value === 'string') return splitFeedbackText(value).length;
+  return 0;
+};
 
 const MyPerformanceReviewResults: React.FC = () => {
   const { user } = useAuth();
@@ -168,7 +183,7 @@ const MyPerformanceReviewResults: React.FC = () => {
     return totalWeight > 0 ? (weightedSum / totalWeight).toFixed(1) : null;
   };
 
-  const submittedReviews = reviews.filter(r => r.status === 'submitted');
+  const submittedReviews = useMemo(() => reviews.filter(r => r.status === 'submitted'), [reviews]);
   const avgScore = (() => {
     const avgs = submittedReviews.map(r => getWeightedAvg(r.scores || [])).filter(Boolean).map(Number);
     return avgs.length > 0 ? (avgs.reduce((a, b) => a + b, 0) / avgs.length).toFixed(1) : null;
@@ -185,12 +200,24 @@ const MyPerformanceReviewResults: React.FC = () => {
     return Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
   })();
 
-  const categoryAvgScores = objectiveCategories.map(cat => {
+  const categoryAvgScores: PerformanceRadarMetric[] = useMemo(() => objectiveCategories.map(cat => {
     const scores = submittedReviews.flatMap(r => (r.scores || []).filter(s => s.category_id === cat.id));
     const avg = scores.length > 0 ? scores.reduce((sum, s) => sum + s.score, 0) / scores.length : null;
-    return { ...cat, avg };
-  });
-  const summaryCategoryScores = useMemo(() => {
+    const evidenceCount = scores.reduce(
+      (total, score) => total + countEvidenceItems(score.evidence_tags ?? score.comment),
+      0,
+    );
+
+    return {
+      id: cat.objectiveKey || cat.id,
+      label: cat.objectiveName || cat.originalName || cat.name,
+      value: avg === null ? null : Math.round(avg * 10) / 10,
+      description: cat.objectiveDescription || cat.description || null,
+      evidenceCount,
+    };
+  }), [objectiveCategories, submittedReviews]);
+
+  const summaryCategoryScores: PerformanceRadarMetric[] = useMemo(() => {
     return (summary?.category_scores || []).map((score, index) => {
       const matchedCategory =
         objectiveCategories.find(cat =>
@@ -200,25 +227,14 @@ const MyPerformanceReviewResults: React.FC = () => {
         ) || objectiveCategories[index];
 
       return {
-        ...score,
-        name: matchedCategory?.objectiveName || score.name,
+        id: matchedCategory?.objectiveKey || matchedCategory?.id || `${score.name}-${index}`,
+        label: matchedCategory?.objectiveName || score.name,
+        value: typeof score.avg === 'number' ? Math.round(score.avg * 10) / 10 : null,
+        description: score.description || matchedCategory?.objectiveDescription || matchedCategory?.description || null,
+        evidenceCount: score.evidenceCount ?? score.evidence_count ?? 0,
       };
     });
   }, [summary?.category_scores, objectiveCategories]);
-  const radarCategories = categoryAvgScores.filter(cat => cat.avg !== null).slice(0, 6);
-  const getRadarPoint = (index: number, value: number, total: number, radius: number) => {
-    const angle = (Math.PI * 2 * index) / total - Math.PI / 2;
-    return {
-      x: 100 + Math.cos(angle) * radius * value,
-      y: 100 + Math.sin(angle) * radius * value,
-    };
-  };
-  const radarPolygon = radarCategories
-    .map((cat, index) => {
-      const point = getRadarPoint(index, (cat.avg || 0) / 10, radarCategories.length, 70);
-      return `${point.x},${point.y}`;
-    })
-    .join(' ');
 
   if (loading) {
     return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>;
@@ -294,21 +310,14 @@ const MyPerformanceReviewResults: React.FC = () => {
 
             {/* Category scores chart */}
             {summaryCategoryScores.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">항목별 점수</h4>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={summaryCategoryScores} layout="vertical" margin={{ left: 92, right: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" domain={[0, 10]} tickCount={6} />
-                    <YAxis type="category" dataKey="name" width={88} tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(val: number) => val.toFixed(1)} />
-                    <Bar dataKey="avg" radius={[0, 4, 4, 0]}>
-                      {summaryCategoryScores.map((_, idx) => (
-                        <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="rounded-xl border bg-card p-4">
+                <PerformanceRadarChart
+                  title="전달받은 육각형 역량"
+                  summary="관리자가 직원 전달용으로 확정한 항목별 평균입니다."
+                  metrics={summaryCategoryScores}
+                  framed={false}
+                  compact
+                />
               </div>
             )}
 
@@ -369,58 +378,19 @@ const MyPerformanceReviewResults: React.FC = () => {
 
           <Card>
             <CardContent className="p-4">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-3">항목별 평균 점수</h4>
-              <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
-                {radarCategories.length >= 3 && (
-                  <div className="rounded-xl border bg-background p-3">
-                    <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      역량 육각형
-                    </div>
-                    <svg viewBox="0 0 200 200" className="mx-auto h-48 w-48" role="img" aria-label="업무 역량 육각형 차트">
-                      {[0.25, 0.5, 0.75, 1].map(ring => {
-                        const points = radarCategories
-                          .map((_, index) => {
-                            const point = getRadarPoint(index, ring, radarCategories.length, 70);
-                            return `${point.x},${point.y}`;
-                          })
-                          .join(' ');
-                        return <polygon key={ring} points={points} fill="none" stroke="hsl(var(--border))" strokeWidth="1" />;
-                      })}
-                      {radarCategories.map((cat, index) => {
-                        const edge = getRadarPoint(index, 1, radarCategories.length, 70);
-                        const label = getRadarPoint(index, 1.18, radarCategories.length, 70);
-                        return (
-                          <g key={cat.id}>
-                            <line x1="100" y1="100" x2={edge.x} y2={edge.y} stroke="hsl(var(--border))" strokeWidth="1" />
-                            <text x={label.x} y={label.y} textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-[9px] font-medium">
-                              {cat.objectiveName.length > 6 ? `${cat.objectiveName.slice(0, 6)}...` : cat.objectiveName}
-                            </text>
-                          </g>
-                        );
-                      })}
-                      <polygon points={radarPolygon} fill="hsl(var(--primary) / 0.18)" stroke="hsl(var(--primary))" strokeWidth="2" />
-                      {radarCategories.map((cat, index) => {
-                        const point = getRadarPoint(index, (cat.avg || 0) / 10, radarCategories.length, 70);
-                        return <circle key={cat.id} cx={point.x} cy={point.y} r="3" fill="hsl(var(--primary))" />;
-                      })}
-                    </svg>
-                  </div>
-                )}
-                <div className="space-y-2">
-                  {categoryAvgScores.map(cat => (
-                    <div key={cat.id} className="flex items-center gap-3">
-                      <span className="text-sm w-36 shrink-0 truncate" title={cat.objectiveName}>{cat.objectiveName}</span>
-                      <div className="flex-1 bg-muted rounded-full h-2.5">
-                        <div className="bg-primary rounded-full h-2.5 transition-all" style={{ width: `${(cat.avg ?? 0) * 10}%` }} />
-                      </div>
-                      <span className="text-sm font-mono font-medium w-10 text-right">
-                        {cat.avg !== null ? cat.avg.toFixed(1) : '-'}
-                      </span>
-                    </div>
-                  ))}
+              {categoryAvgScores.some(metric => metric.value !== null) ? (
+                <PerformanceRadarChart
+                  title="항목별 평균 점수"
+                  summary="제출된 평가의 항목별 평균과 선택형 근거를 함께 확인합니다."
+                  metrics={categoryAvgScores}
+                  framed={false}
+                  compact
+                />
+              ) : (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  아직 평가 데이터가 없습니다.
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </>
