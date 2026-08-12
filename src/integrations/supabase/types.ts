@@ -2380,6 +2380,21 @@ export type Database = {
         }
         Relationships: []
       }
+      company_master_users: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       company_public_info: {
         Row: {
           address: string | null
@@ -8752,6 +8767,7 @@ export type Database = {
         Returns: boolean
       }
       mark_employee_offline: { Args: never; Returns: undefined }
+      normalize_access_key: { Args: { _key: string }; Returns: string }
       notify_approval_reviewers: {
         Args: { _request_id: string }
         Returns: undefined
