@@ -756,26 +756,32 @@ serve(async (req) => {
     const body = await req.json();
     const { action } = body;
 
-    const adminActions = new Set([
+    const adminOnlyActions = new Set([
+      'upload-portfolio-image',
+      'copy-portfolio-drive-files',
+      'bulk-import-portfolio-folder',
+      'delete-portfolio-file',
+    ]);
+    const staffActions = new Set([
       'copy-document-file-to-drive',
       'sync-pending-document-files',
       'list-drive-usage',
       'delete-file',
-      'bulk-import-portfolio-folder',
     ]);
 
-
     const useInternalSecret = action === 'bulk-import-portfolio-folder';
-    await requireFunctionAuth(
+    const allowedRoles: ('admin' | 'moderator')[] | undefined = adminOnlyActions.has(action)
+      ? ['admin']
+      : staffActions.has(action)
+        ? ['admin', 'moderator']
+        : undefined;
+    const authContext = await requireFunctionAuth(
       req,
       {
-        ...(adminActions.has(action) ? { allowedRoles: ['admin', 'moderator'] as ('admin' | 'moderator')[] } : {}),
+        ...(allowedRoles ? { allowedRoles } : {}),
         ...(useInternalSecret ? { allowInternalSecret: true } : {}),
       },
     );
-
-
-
     const { serviceAccount, sharedDriveId } = getConfig();
     const accessToken = await getAccessToken(serviceAccount);
 
@@ -1217,7 +1223,7 @@ serve(async (req) => {
       if (!rootFolderId) throw new Error('Missing rootFolderId');
       const maxImagesPerPost = Math.min(Number(body.maxImagesPerPost || 20), 20);
       const pilot = !!body.pilot;
-      const createdBy = String(body.createdBy || 'bulk-import');
+      const createdBy = authContext.user?.id || String(body.createdBy || 'bulk-import');
       const dryRun = !!body.dryRun;
       const projectStart = Math.max(0, Number(body.projectStart || 0));
       const projectLimit = Math.max(1, Math.min(Number(body.projectLimit || 999), 999));

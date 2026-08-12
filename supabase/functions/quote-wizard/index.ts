@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isAuthResponse, requireFunctionAuth, withCors } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,26 +55,6 @@ function ok(body: Json, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-function getEnv(name: string, required = true): string {
-  const value = Deno.env.get(name);
-  if (required && !value) throw new Error(`${name} is not configured`);
-  return value || "";
-}
-
-function getServiceClient() {
-  return createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"));
-}
-
-async function getAuthenticatedUser(req: Request, supabase: ReturnType<typeof createClient>) {
-  const authHeader = req.headers.get("Authorization") || "";
-  const token = authHeader.replace("Bearer ", "");
-  if (!token) throw new Error("Authorization token is required");
-
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user) throw new Error("Invalid authorization token");
-  return data.user;
 }
 
 async function loadPayload(supabase: ReturnType<typeof createClient>, jobId: string, userId: string) {
@@ -1071,13 +1052,58 @@ async function cleanupExpired(supabase: ReturnType<typeof createClient>) {
   return { removedFiles, deletedRows: Number(deletedRows) || 0 };
 }
 
+async function requireQuoteWizardAccess(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+) {
+  const { data: override, error: overrideError } = await supabase
+    .from("page_access_permissions")
+    .select("effect")
+    .eq("user_id", userId)
+    .eq("page_key", "/quote-wizard")
+    .maybeSingle();
+
+  if (overrideError) {
+    throw new Response(JSON.stringify({ error: "Authorization context unavailable" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (override?.effect === "deny") {
+    throw new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  if (override?.effect === "allow") return;
+
+  const { data: isAdmin, error: roleError } = await supabase.rpc("has_role", {
+    _user_id: userId,
+    _role: "admin",
+  });
+  if (roleError) {
+    throw new Response(JSON.stringify({ error: "Authorization context unavailable" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  if (!isAdmin) {
+    throw new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return ok({});
   if (req.method !== "POST") return ok({ error: "Method not allowed" }, 405);
 
   try {
-    const supabase = getServiceClient();
-    const user = await getAuthenticatedUser(req, supabase);
+    const { supabaseAdmin: supabase, user } = await requireFunctionAuth(req);
+    if (!user) throw new Error("Authenticated user is required");
+    await requireQuoteWizardAccess(supabase, user.id);
     const body = await req.json();
     const action = String(body.action || "");
 
@@ -1090,6 +1116,7 @@ serve(async (req) => {
 
     return ok({ error: "Unknown quote wizard action" }, 400);
   } catch (error) {
+    if (isAuthResponse(error)) return withCors(error, corsHeaders);
     console.error("quote-wizard error:", error);
     return ok({ error: error instanceof Error ? error.message : "견적 마법사 처리 중 오류가 발생했습니다." }, 500);
   }

@@ -9,11 +9,27 @@ interface QuoteEmptyStateProps {
   description?: string;
 }
 
+export function canNavigateToPreviousScreen(historyState: unknown): boolean {
+  if (!historyState || typeof historyState !== "object") return false;
+
+  const historyIndex = (historyState as { idx?: unknown }).idx;
+  return typeof historyIndex === "number" && historyIndex > 0;
+}
+
 const QuoteEmptyState = ({
   onBackToCalculator,
   title = "담긴 견적이 없습니다.",
   description = "계산기에서 항목을 추가하면 이곳에서 발행 전 견적을 확인할 수 있습니다.",
 }: QuoteEmptyStateProps) => {
+  const handlePreviousScreen = () => {
+    if (canNavigateToPreviousScreen(window.history.state)) {
+      window.history.back();
+      return;
+    }
+
+    onBackToCalculator();
+  };
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-5 py-12">
       <Card className="w-full max-w-[680px] rounded-lg border border-border bg-card shadow-none">
@@ -39,7 +55,7 @@ const QuoteEmptyState = ({
             <Button
               type="button"
               variant="outline"
-              onClick={() => window.history.back()}
+              onClick={handlePreviousScreen}
               className="h-11 rounded-full border-border bg-card px-5 text-sm font-medium shadow-none hover:bg-muted"
             >
               <ArrowLeft className="h-4 w-4" />

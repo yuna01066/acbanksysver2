@@ -753,6 +753,20 @@ async function deletePortfolioThumbnail(bucket: string | null | undefined, path:
   if (error) throw error;
 }
 
+async function cleanupPortfolioImageFiles(image: PortfolioImage): Promise<string[]> {
+  const cleanupResults = await Promise.allSettled([
+    deletePortfolioDriveFile(image.drive_file_id, image.drive_folder_id),
+    deletePortfolioThumbnail(image.thumbnail_bucket, image.thumbnail_path),
+  ]);
+  const labels = ['Drive 원본', '썸네일'];
+
+  return cleanupResults.flatMap((result, index) => (
+    result.status === 'rejected'
+      ? [`${labels[index]}: ${getErrorMessage(result.reason)}`]
+      : []
+  ));
+}
+
 async function readFileAsBase64(file: File): Promise<string> {
   return await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -1190,7 +1204,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
   const galleryConfig = GALLERY_CONFIG[galleryType];
   const [searchParams] = useSearchParams();
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const lightboxStageRef = useRef<HTMLDivElement>(null);
@@ -1271,9 +1285,18 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
   const [loadingOriginalImage, setLoadingOriginalImage] = useState(false);
   const [loadingDetailImages, setLoadingDetailImages] = useState(false);
 
+  const canManagePortfolio = Boolean(user && isAdmin);
+  const manageModeActive = canManagePortfolio && isManageMode;
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const normalizedSearchQuery = deferredSearchQuery.trim();
   const activeCategoryKeywords = useMemo(() => getPortfolioCategoryKeywords(activeCategoryFilter), [activeCategoryFilter]);
+
+  useEffect(() => {
+    if (canManagePortfolio) return;
+    setIsManageMode(false);
+    setShowCreateDialog(false);
+    setShowEditDialog(false);
+  }, [canManagePortfolio]);
 
   useEffect(() => {
     const nextQuery = searchParams.get('q') || searchParams.get('search') || '';
@@ -1788,6 +1811,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
   };
 
   const handleCreate = useCallback(async () => {
+    if (!canManagePortfolio || !user?.id) { toast.error('관리자만 등록할 수 있습니다.'); return; }
     if (!newTitle.trim()) { toast.error('제목을 입력해주세요.'); return; }
     if (pendingImages.length === 0) { toast.error('이미지를 최소 1개 추가해주세요.'); return; }
     const projectYear = parseProjectYear(newProjectYear);
@@ -1814,7 +1838,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
           processes: parseListInput(newProcessesInput),
           visibility: 'published',
           keywords: Array.from(new Set(newKeywords.map(removeLeadingHash).filter(Boolean))),
-          created_by: user?.email || 'unknown',
+          created_by: user.id,
         })
         .select()
         .single();
@@ -1931,7 +1955,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
           file_size: fileSize,
           mime_type: mimeType,
           storage_provider: 'google_drive',
-          uploaded_by: user?.email || user?.id || null,
+          uploaded_by: user.id,
           access_level: 'internal',
           delete_status: 'active',
         });
@@ -1967,63 +1991,80 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
       qc.invalidateQueries({ queryKey: ['portfolio-popular-keywords', galleryType] });
     } catch (err) {
       setUploadStatus('실패 항목을 정리하는 중...');
-      await Promise.allSettled(uploadedDriveFiles.map(file => deletePortfolioDriveFile(file.fileId, file.folderId)));
-      await Promise.allSettled(uploadedThumbnails.map(file => deletePortfolioThumbnail(file.bucket, file.path)));
+      let canCleanupExternalFiles = createdPostId === null;
       if (createdPostId) {
-        await supabase.from('portfolio_posts').delete().eq('id', createdPostId);
+        const { data: deletedPost, error: deletePostError } = await supabase
+          .from('portfolio_posts')
+          .delete()
+          .eq('id', createdPostId)
+          .select('id')
+          .maybeSingle();
+        canCleanupExternalFiles = !deletePostError && Boolean(deletedPost);
+        if (!canCleanupExternalFiles) {
+          toast.error('DB 등록 정보 정리에 실패해 Drive 원본은 보존했습니다. 관리자에게 확인해주세요.');
+        }
+      }
+      if (canCleanupExternalFiles) {
+        await Promise.allSettled(uploadedDriveFiles.map(file => deletePortfolioDriveFile(file.fileId, file.folderId)));
+        await Promise.allSettled(uploadedThumbnails.map(file => deletePortfolioThumbnail(file.bucket, file.path)));
       }
       toast.error('등록 실패: ' + getErrorMessage(err));
     } finally {
       setCreating(false);
       setUploadStatus(null);
     }
-  }, [newTitle, newMemo, newCategory, newClientName, newProjectYear, newLocation, newMaterialsInput, newProcessesInput, newKeywords, pendingImages, user, qc, galleryType, galleryConfig]);
+  }, [canManagePortfolio, newTitle, newMemo, newCategory, newClientName, newProjectYear, newLocation, newMaterialsInput, newProcessesInput, newKeywords, pendingImages, user, qc, galleryType, galleryConfig]);
 
   const deleteMutation = useMutation({
     mutationFn: async (postId: string) => {
-      const post = posts.find(p => p.id === postId);
-      if (post) {
-        const imagesToDelete = post.images.length >= post.image_count
-          ? post.images
-          : await fetchPortfolioImagesForPost(postId);
-        await supabase
-          .from('portfolio_images')
-          .update({ delete_status: 'pending', delete_error: null })
-          .eq('post_id', postId);
-
-        const deleteFailures: string[] = [];
-        for (const img of imagesToDelete) {
-          try {
-            await deletePortfolioDriveFile(img.drive_file_id, img.drive_folder_id);
-            await deletePortfolioThumbnail(img.thumbnail_bucket, img.thumbnail_path);
-          } catch (error) {
-            const message = getErrorMessage(error);
-            deleteFailures.push(`${img.file_name}: ${message}`);
-            await supabase
-              .from('portfolio_images')
-              .update({ delete_status: 'failed', delete_error: message })
-              .eq('id', img.id);
-          }
-        }
-
-        if (deleteFailures.length > 0) {
-          throw new Error(deleteFailures.join('\n'));
-        }
+      if (!canManagePortfolio) {
+        throw new Error('관리자만 삭제할 수 있습니다.');
       }
-      const { error } = await supabase.from('portfolio_posts').delete().eq('id', postId);
-      if (error) throw error;
+      const post = posts.find(p => p.id === postId);
+      if (!post) {
+        throw new Error('삭제할 항목을 찾을 수 없습니다.');
+      }
+
+      const imagesToDelete = post.images.length >= post.image_count
+        ? post.images
+        : await fetchPortfolioImagesForPost(postId);
+      const { data: deletedPost, error: deletePostError } = await supabase
+        .from('portfolio_posts')
+        .delete()
+        .eq('id', postId)
+        .select('id')
+        .maybeSingle();
+      if (deletePostError) throw deletePostError;
+      if (!deletedPost) {
+        throw new Error('삭제 권한이 없거나 이미 삭제된 항목입니다.');
+      }
+
+      const cleanupFailures: string[] = [];
+      for (const image of imagesToDelete) {
+        const failures = await cleanupPortfolioImageFiles(image);
+        cleanupFailures.push(...failures.map(message => `${image.file_name}: ${message}`));
+      }
+      return cleanupFailures;
     },
-    onSuccess: () => {
+    onSuccess: (cleanupFailures) => {
       qc.invalidateQueries({ queryKey: ['portfolio-posts', galleryType] });
       qc.invalidateQueries({ queryKey: ['portfolio-popular-keywords', galleryType] });
       setSelectedPost(null);
-      toast.success('삭제되었습니다.');
+      if (cleanupFailures.length > 0) {
+        toast.warning(`DB 항목은 삭제했지만 외부 파일 ${cleanupFailures.length}건은 정리가 필요합니다.`);
+      } else {
+        toast.success('삭제되었습니다.');
+      }
     },
     onError: (error) => toast.error('삭제 실패: ' + getErrorMessage(error)),
   });
 
   // Edit handlers
   const openEditDialog = async (post: PortfolioPost) => {
+    if (!canManagePortfolio) {
+      toast.error('관리자만 수정할 수 있습니다.');
+      return;
+    }
     let images = post.images;
     if (post.images.length < post.image_count) {
       setLoadingDetailImages(true);
@@ -2159,6 +2200,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
   };
 
   const handleEdit = useCallback(async () => {
+    if (!canManagePortfolio || !user?.id) { toast.error('관리자만 수정할 수 있습니다.'); return; }
     if (!selectedPost || !editTitle.trim()) { toast.error('제목을 입력해주세요.'); return; }
     if (editImages.length + editPendingImages.length === 0) { toast.error('이미지는 최소 1장 필요합니다.'); return; }
     const projectYear = parseProjectYear(editProjectYear);
@@ -2167,6 +2209,8 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
     const uploadedDriveFiles: Array<{ fileId: string; folderId: string | null }> = [];
     const uploadedThumbnails: Array<{ bucket: string; path: string }> = [];
     const insertedImages: PortfolioImage[] = [];
+    const insertedImageIds: string[] = [];
+    const cleanupFailures: string[] = [];
     try {
       const normalizedKeywords = Array.from(new Set(
         editKeywords
@@ -2209,11 +2253,16 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
       }
 
       for (const image of editRemovedImages) {
-        await supabase.from('portfolio_images').update({ delete_status: 'pending', delete_error: null }).eq('id', image.id);
-        await deletePortfolioDriveFile(image.drive_file_id, image.drive_folder_id);
-        await deletePortfolioThumbnail(image.thumbnail_bucket, image.thumbnail_path);
-        const { error: deleteRowError } = await supabase.from('portfolio_images').delete().eq('id', image.id);
+        const { data: deletedImage, error: deleteRowError } = await supabase
+          .from('portfolio_images')
+          .delete()
+          .eq('id', image.id)
+          .select('id')
+          .maybeSingle();
         if (deleteRowError) throw deleteRowError;
+        if (!deletedImage) throw new Error(`${image.file_name} 삭제 권한이 없거나 이미 삭제되었습니다.`);
+        const failures = await cleanupPortfolioImageFiles(image);
+        cleanupFailures.push(...failures.map(message => `${image.file_name}: ${message}`));
       }
 
       for (let i = 0; i < editPendingImages.length; i++) {
@@ -2249,16 +2298,21 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
           file_size: uploadData.fileSize,
           mime_type: uploadData.mimeType,
           storage_provider: 'google_drive',
-          uploaded_by: user?.email || user?.id || null,
+          uploaded_by: user.id,
           access_level: 'internal',
           delete_status: 'active',
         }).select().single();
         if (insertImageError) throw insertImageError;
+        insertedImageIds.push(insertedImage.id);
         const [hydratedImage] = await hydratePortfolioImages([insertedImage as unknown as PortfolioImage]);
         insertedImages.push(hydratedImage);
       }
 
-      toast.success('수정되었습니다.');
+      if (cleanupFailures.length > 0) {
+        toast.warning(`수정은 완료했지만 외부 파일 ${cleanupFailures.length}건은 정리가 필요합니다.`);
+      } else {
+        toast.success('수정되었습니다.');
+      }
       setShowEditDialog(false);
       setEditKeywords(normalizedKeywords);
       setEditRemovedImages([]);
@@ -2288,14 +2342,29 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
       qc.invalidateQueries({ queryKey: ['portfolio-posts', galleryType] });
       qc.invalidateQueries({ queryKey: ['portfolio-popular-keywords', galleryType] });
     } catch (err) {
-      await Promise.allSettled(uploadedDriveFiles.map(file => deletePortfolioDriveFile(file.fileId, file.folderId)));
-      await Promise.allSettled(uploadedThumbnails.map(file => deletePortfolioThumbnail(file.bucket, file.path)));
+      let canCleanupExternalFiles = insertedImageIds.length === 0;
+      if (insertedImageIds.length > 0) {
+        const { data: deletedImages, error: deleteImagesError } = await supabase
+          .from('portfolio_images')
+          .delete()
+          .in('id', insertedImageIds)
+          .select('id');
+        canCleanupExternalFiles = !deleteImagesError && deletedImages?.length === insertedImageIds.length;
+        if (!canCleanupExternalFiles) {
+          toast.error('DB 사진 정보 정리에 실패해 Drive 원본은 보존했습니다. 관리자에게 확인해주세요.');
+        }
+      }
+      if (canCleanupExternalFiles) {
+        await Promise.allSettled(uploadedDriveFiles.map(file => deletePortfolioDriveFile(file.fileId, file.folderId)));
+        await Promise.allSettled(uploadedThumbnails.map(file => deletePortfolioThumbnail(file.bucket, file.path)));
+      }
       toast.error('수정 실패: ' + getErrorMessage(err));
     } finally {
       setEditing(false);
     }
   }, [
     selectedPost,
+    canManagePortfolio,
     editTitle,
     editMemo,
     editCategory,
@@ -2419,15 +2488,17 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
                   <Monitor className="mr-1 h-4 w-4" />
                   <span className="hidden sm:inline">상담</span>
                 </Button>
-                <Button
-                  variant={isManageMode ? 'default' : 'outline'}
-                  size="sm"
-                  className={`h-11 rounded-full px-3 ${isManageMode ? 'bg-[#111111] text-white hover:bg-[#39393b]' : 'border-[#cacacb]'}`}
-                  onClick={() => setIsManageMode(prev => !prev)}
-                >
-                  <ShieldCheck className="mr-1 h-4 w-4" />
-                  <span className="hidden sm:inline">관리</span>
-                </Button>
+                {canManagePortfolio && (
+                  <Button
+                    variant={isManageMode ? 'default' : 'outline'}
+                    size="sm"
+                    className={`h-11 rounded-full px-3 ${isManageMode ? 'bg-[#111111] text-white hover:bg-[#39393b]' : 'border-[#cacacb]'}`}
+                    onClick={() => setIsManageMode(prev => !prev)}
+                  >
+                    <ShieldCheck className="mr-1 h-4 w-4" />
+                    <span className="hidden sm:inline">관리</span>
+                  </Button>
+                )}
                 <Button
                   variant={showFavoritesOnly ? 'default' : 'outline'}
                   size="sm"
@@ -2441,7 +2512,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
                   <RefreshCw className={`mr-1 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
                   <span className="hidden sm:inline">새로고침</span>
                 </Button>
-                {isManageMode && (
+                {manageModeActive && (
                   <Button size="sm" className="h-11 rounded-full bg-[#111111] px-4 text-white hover:bg-[#39393b]" onClick={() => setShowCreateDialog(true)}>
                     <Plus className="mr-1 h-4 w-4" />
                     등록
@@ -2490,7 +2561,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
             </div>
           </div>
 
-          {isManageMode && (
+          {manageModeActive && (
             <div className="grid gap-2 rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-xs font-bold text-[#707072] sm:grid-cols-4">
               <div className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4" /> 로딩 {portfolioData.totalMatches}건</div>
               <div className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> 사진 {portfolioStats.imageCount}장</div>
@@ -2575,7 +2646,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
                       </Button>
                     ))}
                   </div>
-                ) : isManageMode && (
+                ) : manageModeActive && (
                   <Button variant="outline" className="mt-4 rounded-full" onClick={() => setShowCreateDialog(true)}>
                     <Plus className="mr-2 h-4 w-4" />
                     {galleryConfig.firstCreateLabel}
@@ -3196,7 +3267,7 @@ const PortfolioGallery = ({ galleryType = 'portfolio' }: PortfolioGalleryProps) 
                       {collectionPostIds.has(selectedPost.id) ? <BookmarkCheck className="mr-1 h-4 w-4" /> : <BookmarkPlus className="mr-1 h-4 w-4" />}
                       컬렉션
                     </Button>
-                    {isManageMode && (
+                    {manageModeActive && (
                       <>
                         <Button variant="outline" size="sm" className="flex-1 rounded-full" onClick={() => openEditDialog(selectedPost)} disabled={loadingDetailImages}>
                           <Pencil className="mr-1 h-4 w-4" />

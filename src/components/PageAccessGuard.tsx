@@ -12,7 +12,7 @@ interface PageAccessGuardProps {
 
 const PageAccessGuard: React.FC<PageAccessGuardProps> = ({ children }) => {
   const { allowed, checking } = usePageAccess();
-  const { user, loading: authLoading } = useAuth();
+  const { user, isApproved, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -27,6 +27,30 @@ const PageAccessGuard: React.FC<PageAccessGuardProps> = ({ children }) => {
   if (!user) {
     const redirectTo = `${location.pathname}${location.search}`;
     return <Navigate to={`/auth?redirectTo=${encodeURIComponent(redirectTo)}`} replace />;
+  }
+
+  if (!isApproved) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center mb-4">
+              <Lock className="w-6 h-6 text-warning" />
+            </div>
+            <CardTitle>계정 승인 필요</CardTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              관리자 승인 후 내부 페이지를 이용할 수 있습니다.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => navigate('/auth')} className="w-full">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              로그인 화면으로 이동
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   if (!allowed) {

@@ -75,6 +75,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userRole, setUserRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const resetRoleState = () => {
+    setIsAdmin(false);
+    setIsModerator(false);
+    setIsManager(false);
+    setIsEmployee(false);
+    setUserRole(null);
+  };
+
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
@@ -143,23 +151,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resetAuthState = () => {
     setProfile(null);
-    setIsAdmin(false);
-    setIsModerator(false);
-    setIsManager(false);
-    setIsEmployee(false);
+    resetRoleState();
     setIsApproved(false);
-    setUserRole(null);
   };
 
   const loadUserContext = async (userId: string) => {
-    await withAuthTimeout(
-      Promise.all([
-        fetchProfile(userId),
-        checkUserRole(userId),
-      ]),
-      'User context load',
-      null
+    resetRoleState();
+    const profileResult = await withAuthTimeout(
+      fetchProfile(userId),
+      'Profile load',
+      { data: null, error: new Error('Profile load timed out') },
     );
+
+    if (!profileResult.data?.is_approved) {
+      resetRoleState();
+      return false;
+    }
+
+    await withAuthTimeout(
+      checkUserRole(userId),
+      'User role load',
+      { data: null, error: new Error('User role load timed out') },
+    );
+
+    return true;
   };
 
   useEffect(() => {
@@ -173,7 +188,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoading(true);
           setTimeout(async () => {
             try {
-              await loadUserContext(session.user.id);
+              const approved = await loadUserContext(session.user.id);
+              if (!approved) {
+                await supabase.auth.signOut();
+                setSession(null);
+                setUser(null);
+                resetAuthState();
+              }
             } finally {
               setLoading(false);
             }
@@ -197,7 +218,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        await loadUserContext(session.user.id);
+        const approved = await loadUserContext(session.user.id);
+        if (!approved) {
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          resetAuthState();
+        }
       }
       setLoading(false);
     }).catch((error) => {
@@ -247,17 +274,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (profileError) {
           console.error('[Auth] Failed to check approval after sign in', profileError);
+          await supabase.auth.signOut();
           return { error: profileError };
         }
 
-        if (profileData && !profileData.is_approved) {
+        if (!profileData?.is_approved) {
           // 미승인 사용자는 로그아웃 처리
           await supabase.auth.signOut();
           return { error: { message: 'PENDING_APPROVAL' } };
         }
 
         setLoading(true);
-        await loadUserContext(data.user.id);
+        const approved = await loadUserContext(data.user.id);
+        if (!approved) {
+          await supabase.auth.signOut();
+          setLoading(false);
+          return { error: { message: 'PENDING_APPROVAL' } };
+        }
         setLoading(false);
         toast.success('로그인되었습니다!');
       }

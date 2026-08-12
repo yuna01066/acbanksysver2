@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,7 +20,6 @@ import ProjectStageSelect from '@/components/ProjectStageSelect';
 import {
   isQuoteExpired,
   isReissueProtectedProjectStage,
-  matchesSimplifiedStageFilter,
   normalizeProjectStage,
   projectStageToLegacyQuoteStatus,
   SIMPLIFIED_QUOTE_STAGE_FILTERS,
@@ -107,6 +106,84 @@ interface UserProfile {
 type SortOption = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'number-desc' | 'number-asc';
 type LostReasonFilter = 'all' | 'missing' | string;
 
+const ITEMS_PER_PAGE = 50;
+
+export function getSavedQuoteSort(sortBy: SortOption): {
+  column: 'quote_date' | 'total' | 'quote_number';
+  ascending: boolean;
+} {
+  switch (sortBy) {
+    case 'date-asc':
+      return { column: 'quote_date', ascending: true };
+    case 'amount-desc':
+      return { column: 'total', ascending: false };
+    case 'amount-asc':
+      return { column: 'total', ascending: true };
+    case 'number-desc':
+      return { column: 'quote_number', ascending: false };
+    case 'number-asc':
+      return { column: 'quote_number', ascending: true };
+    case 'date-desc':
+    default:
+      return { column: 'quote_date', ascending: false };
+  }
+}
+
+export function getQuoteDateRange(dateFilter: string): { from: string; to: string } | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateFilter)) return null;
+
+  const fromDate = new Date(`${dateFilter}T00:00:00+09:00`);
+  const localDateParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(fromDate);
+  if (Number.isNaN(fromDate.getTime()) || localDateParts !== dateFilter) return null;
+
+  const toDate = new Date(fromDate);
+  toDate.setUTCDate(toDate.getUTCDate() + 1);
+  return { from: fromDate.toISOString(), to: toDate.toISOString() };
+}
+
+export function buildSavedQuoteSearchFilter(searchTerm: string, profileIds: string[]): string | null {
+  const normalizedTerm = searchTerm
+    .trim()
+    .replace(/[* ,()%_"'\\]/g, ' ')
+    .replace(/\s+/g, ' ');
+  if (!normalizedTerm) return null;
+
+  const pattern = `*${normalizedTerm}*`;
+  const textColumns = [
+    'quote_number',
+    'recipient_name',
+    'recipient_company',
+    'project_name',
+    'lost_reason_detail',
+    'issuer_name',
+    'assigned_to_name',
+  ];
+  const filters = textColumns.map((column) => `${column}.ilike.${pattern}`);
+  const uniqueProfileIds = [...new Set(profileIds.filter(Boolean))];
+
+  if (uniqueProfileIds.length > 0) {
+    const ids = uniqueProfileIds.join(',');
+    filters.push(`user_id.in.(${ids})`, `issuer_id.in.(${ids})`, `assigned_to.in.(${ids})`);
+  }
+
+  return filters.join(',');
+}
+
+export function getPageAfterQuoteDeletion(
+  currentPage: number,
+  totalCountBeforeDeletion: number,
+  pageSize: number,
+): number {
+  const remainingCount = Math.max(0, totalCountBeforeDeletion - 1);
+  const lastPage = Math.max(1, Math.ceil(remainingCount / pageSize));
+  return Math.min(Math.max(1, currentPage), lastPage);
+}
+
 const isQuoteLossAnalysisTarget = (quote: Pick<SavedQuote, 'lost_recorded_at'>) => Boolean(quote.lost_recorded_at);
 
 const SavedQuotesPage = () => {
@@ -114,8 +191,8 @@ const SavedQuotesPage = () => {
   const { user, profile, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [quotes, setQuotes] = useState<SavedQuote[]>([]);
-  const [filteredQuotes, setFilteredQuotes] = useState<SavedQuote[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -127,7 +204,8 @@ const SavedQuotesPage = () => {
   const [lostReasonFilter, setLostReasonFilter] = useState<LostReasonFilter>('all');
   const [creatingProjectQuoteId, setCreatingProjectQuoteId] = useState<string | null>(null);
   const [reissuingQuoteId, setReissuingQuoteId] = useState<string | null>(null);
-  const ITEMS_PER_PAGE = 50;
+  const fetchRequestIdRef = useRef(0);
+  const filteredQuotes = quotes;
 
   const getQuoteTitle = (quote: SavedQuote): string => {
     const projectName = quote.project_name?.trim();
@@ -161,16 +239,17 @@ const SavedQuotesPage = () => {
   }, [isAdmin]);
 
   useEffect(() => {
-    fetchQuotes();
-  }, [currentPage, user, isAdmin, userFilter]);
+    const timer = window.setTimeout(() => setDebouncedSearchTerm(searchTerm), 250);
+    return () => window.clearTimeout(timer);
+  }, [searchTerm]);
 
   useEffect(() => {
-    filterQuotes();
-  }, [searchTerm, dateFilter, quotes, sortBy, stageFilter, lostReasonFilter]);
+    fetchQuotes();
+  }, [currentPage, user?.id, isAdmin, userFilter, debouncedSearchTerm, dateFilter, sortBy, stageFilter, lostReasonFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, dateFilter, stageFilter, userFilter, lostReasonFilter]);
+  }, [debouncedSearchTerm, dateFilter, stageFilter, userFilter, lostReasonFilter, sortBy]);
 
   const activeFilterCount = [
     searchTerm.trim() ? 'search' : null,
@@ -201,6 +280,7 @@ const SavedQuotesPage = () => {
     setStageFilter('all');
     setLostReasonFilter('all');
     if (isAdmin) setUserFilter('all');
+    setCurrentPage(1);
   };
 
   const canReissueQuote = (quote: SavedQuote) => {
@@ -245,183 +325,147 @@ const SavedQuotesPage = () => {
     return quote.assigned_to_name || quote.issuer_name || profileMap[quote.user_id] || null;
   };
 
+  const fetchMatchingProfileIds = async (term: string): Promise<string[]> => {
+    const normalizedTerm = term
+      .trim()
+      .replace(/[* ,()%_"'\\]/g, ' ')
+      .replace(/\s+/g, ' ');
+    if (!normalizedTerm) return [];
+
+    const { data, error } = await (supabase.from('profile_directory' as any) as any)
+      .select('id')
+      .ilike('full_name', `%${normalizedTerm}%`);
+
+    if (error) {
+      console.warn('Error searching quote assignees:', error);
+      return [];
+    }
+
+    return (data || []).map((item: { id: string }) => item.id);
+  };
+
   const fetchQuotes = async () => {
+    const requestId = ++fetchRequestIdRef.current;
+
     if (!user) {
-      setLoading(false);
+      if (fetchRequestIdRef.current === requestId) {
+        setQuotes([]);
+        setTotalCount(0);
+        setLoading(false);
+      }
       return;
     }
+
+    setLoading(true);
 
     try {
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
+      const matchingProfileIds = await fetchMatchingProfileIds(debouncedSearchTerm);
+      if (fetchRequestIdRef.current !== requestId) return;
+
+      let dataQuery = supabase
+        .from('saved_quotes')
+        .select('*', { count: 'exact' });
 
       if (isAdmin) {
-        let countQuery = supabase
-          .from('saved_quotes')
-          .select('*', { count: 'exact', head: true });
-
-        let dataQuery = supabase
-          .from('saved_quotes')
-          .select('*')
-          .order('quote_date', { ascending: false })
-          .range(from, to);
-
         if (userFilter !== 'all') {
-          countQuery = countQuery.eq('assigned_to', userFilter);
           dataQuery = dataQuery.eq('assigned_to', userFilter);
         }
-
-        const { count, error: countError } = await countQuery;
-        if (countError) throw countError;
-        setTotalCount(count || 0);
-
-        const { data, error } = await dataQuery;
-        if (error) throw error;
-
-        const formattedData = (data || []).map((q: any) => ({
-          ...q,
-          items: Array.isArray(q.items) ? q.items : []
-        }));
-        
-        const projectIds = formattedData.filter(q => q.project_id).map(q => q.project_id);
-        let projectMap: Record<string, LinkedProject> = {};
-        if (projectIds.length > 0) {
-          const { data: projects } = await supabase
-            .from('projects')
-            .select('id, name, status, payment_status')
-            .in('id', projectIds);
-          if (projects) {
-            projectMap = Object.fromEntries(projects.map(p => [p.id, p]));
-          }
-        }
-        
-        const profileMap = await fetchProfileNameMap(
-          formattedData.flatMap(q => [q.user_id, q.assigned_to, q.issuer_id])
-        );
-        
-        const finalQuotes = formattedData.map(q => ({
-          ...q,
-          linked_project: q.project_id ? projectMap[q.project_id] || null : null,
-          creator_name: profileMap[q.user_id] || null,
-          project_stage: normalizeProjectStage(q.project_stage, q.quote_status),
-          assigned_to_name: getAssignedName(q, profileMap),
-        }));
-        
-        setQuotes(finalQuotes);
       } else {
-        // Non-admin: show quotes where user is owner OR issuer
-        const { count, error: countError } = await supabase
-          .from('saved_quotes')
-          .select('*', { count: 'exact', head: true })
-          .or(`user_id.eq.${user.id},issuer_id.eq.${user.id},assigned_to.eq.${user.id}`);
-
-        if (countError) throw countError;
-        setTotalCount(count || 0);
-
-        const { data, error } = await supabase
-          .from('saved_quotes')
-          .select('*')
-          .or(`user_id.eq.${user.id},issuer_id.eq.${user.id},assigned_to.eq.${user.id}`)
-          .order('quote_date', { ascending: false })
-          .range(from, to);
-
-        if (error) throw error;
-
-        const formattedData = (data || []).map((q: any) => ({
-          ...q,
-          items: Array.isArray(q.items) ? q.items : []
-        }));
-        
-        const projectIds = formattedData.filter(q => q.project_id).map(q => q.project_id);
-        let projectMap2: Record<string, LinkedProject> = {};
-        if (projectIds.length > 0) {
-          const { data: projects } = await supabase
-            .from('projects')
-            .select('id, name, status, payment_status')
-            .in('id', projectIds);
-          if (projects) {
-            projectMap2 = Object.fromEntries(projects.map(p => [p.id, p]));
-          }
-        }
-        
-        const profileMap2 = await fetchProfileNameMap(
-          formattedData.flatMap(q => [q.user_id, q.assigned_to, q.issuer_id])
+        dataQuery = dataQuery.or(
+          `user_id.eq.${user.id},issuer_id.eq.${user.id},assigned_to.eq.${user.id}`,
         );
-        
-        const finalQuotes2 = formattedData.map(q => ({
-          ...q,
-          linked_project: q.project_id ? projectMap2[q.project_id] || null : null,
-          creator_name: profileMap2[q.user_id] || null,
-          project_stage: normalizeProjectStage(q.project_stage, q.quote_status),
-          assigned_to_name: getAssignedName(q, profileMap2),
-        }));
-        
-        setQuotes(finalQuotes2);
       }
+
+      const searchFilter = buildSavedQuoteSearchFilter(debouncedSearchTerm, matchingProfileIds);
+      if (searchFilter) {
+        dataQuery = dataQuery.or(searchFilter);
+      }
+
+      const dateRange = getQuoteDateRange(dateFilter);
+      if (dateRange) {
+        dataQuery = dataQuery.gte('quote_date', dateRange.from).lt('quote_date', dateRange.to);
+      }
+
+      if (stageFilter !== 'all') {
+        const selectedStage = SIMPLIFIED_QUOTE_STAGE_FILTERS.find(
+          (stage) => stage.value === stageFilter,
+        );
+        if (selectedStage) {
+          dataQuery = dataQuery.in('project_stage', [...selectedStage.stages]);
+        }
+      }
+
+      if (lostReasonFilter !== 'all') {
+        dataQuery = dataQuery.not('lost_recorded_at', 'is', null);
+        dataQuery = lostReasonFilter === 'missing'
+          ? dataQuery.is('lost_reason_category', null)
+          : dataQuery.eq('lost_reason_category', lostReasonFilter);
+      }
+
+      const sort = getSavedQuoteSort(sortBy);
+      const { data, count, error } = await dataQuery
+        .order(sort.column, { ascending: sort.ascending })
+        .order('id', { ascending: true })
+        .range(from, to);
+
+      if (error) throw error;
+      if (fetchRequestIdRef.current !== requestId) return;
+
+      const nextTotalCount = count || 0;
+      const lastPage = Math.max(1, Math.ceil(nextTotalCount / ITEMS_PER_PAGE));
+      if (currentPage > lastPage) {
+        setTotalCount(nextTotalCount);
+        setCurrentPage(lastPage);
+        return;
+      }
+
+      const formattedData = (data || []).map((quote) => ({
+        ...quote,
+        items: Array.isArray(quote.items) ? quote.items : [],
+      })) as SavedQuote[];
+
+      const projectIds = [...new Set(
+        formattedData
+          .map((quote) => quote.project_id)
+          .filter((id): id is string => Boolean(id)),
+      )];
+      let projectMap: Record<string, LinkedProject> = {};
+      if (projectIds.length > 0) {
+        const { data: projects, error: projectsError } = await supabase
+          .from('projects')
+          .select('id, name, status, payment_status')
+          .in('id', projectIds);
+        if (projectsError) throw projectsError;
+        projectMap = Object.fromEntries((projects || []).map((project) => [project.id, project]));
+      }
+
+      const profileMap = await fetchProfileNameMap(
+        formattedData.flatMap((quote) => [quote.user_id, quote.assigned_to, quote.issuer_id]),
+      );
+      if (fetchRequestIdRef.current !== requestId) return;
+
+      const finalQuotes = formattedData.map((quote) => ({
+        ...quote,
+        linked_project: quote.project_id ? projectMap[quote.project_id] || null : null,
+        creator_name: profileMap[quote.user_id] || null,
+        project_stage: normalizeProjectStage(quote.project_stage, quote.quote_status),
+        assigned_to_name: getAssignedName(quote, profileMap),
+      }));
+
+      setTotalCount(nextTotalCount);
+      setQuotes(finalQuotes);
     } catch (error) {
+      if (fetchRequestIdRef.current !== requestId) return;
       console.error('Error fetching quotes:', error);
       toast.error('견적서를 불러오는데 실패했습니다.');
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterQuotes = () => {
-    let filtered = [...quotes];
-
-    if (searchTerm) {
-      filtered = filtered.filter(quote => 
-        quote.quote_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        quote.recipient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        quote.recipient_company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        quote.project_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        quote.lost_reason_detail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        quote.assigned_to_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        quote.issuer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        quote.creator_name?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (dateFilter) {
-      filtered = filtered.filter(quote => 
-        quote.quote_date.startsWith(dateFilter)
-      );
-    }
-
-    if (stageFilter !== 'all') {
-      filtered = filtered.filter(quote => matchesSimplifiedStageFilter(quote.project_stage, quote.quote_status, stageFilter));
-    }
-
-    if (lostReasonFilter !== 'all') {
-      filtered = filtered.filter((quote) => {
-        if (!isQuoteLossAnalysisTarget(quote)) return false;
-        if (lostReasonFilter === 'missing') return !quote.lost_reason_category;
-        return quote.lost_reason_category === lostReasonFilter;
-      });
-    }
-
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'date-desc':
-          return new Date(b.quote_date).getTime() - new Date(a.quote_date).getTime();
-        case 'date-asc':
-          return new Date(a.quote_date).getTime() - new Date(b.quote_date).getTime();
-        case 'amount-desc':
-          return b.total - a.total;
-        case 'amount-asc':
-          return a.total - b.total;
-        case 'number-desc':
-          return b.quote_number.localeCompare(a.quote_number);
-        case 'number-asc':
-          return a.quote_number.localeCompare(b.quote_number);
-        default:
-          return 0;
+      if (fetchRequestIdRef.current === requestId) {
+        setLoading(false);
       }
-    });
-
-    setFilteredQuotes(filtered);
+    }
   };
-
   const handleDeleteQuote = async (quoteId: string) => {
     if (!confirm('이 견적서를 삭제하시겠습니까?')) return;
 
@@ -446,7 +490,12 @@ const SavedQuotesPage = () => {
       }
       
       toast.success('견적서가 삭제되었습니다.');
-      fetchQuotes();
+      const targetPage = getPageAfterQuoteDeletion(currentPage, totalCount, ITEMS_PER_PAGE);
+      if (targetPage !== currentPage) {
+        setCurrentPage(targetPage);
+      } else {
+        fetchQuotes();
+      }
     } catch (error) {
       console.error('Error deleting quote:', error);
       toast.error('견적서 삭제에 실패했습니다.');
@@ -593,6 +642,7 @@ const SavedQuotesPage = () => {
         : quote
     )));
     queryClient.invalidateQueries({ queryKey: ['quote-statistics'] });
+    void fetchQuotes();
   };
 
   const handleInlineLostReasonRecorded = (quoteId: string, payload: Record<string, unknown>) => {
@@ -607,6 +657,7 @@ const SavedQuotesPage = () => {
         : quote
     )));
     queryClient.invalidateQueries({ queryKey: ['quote-statistics'] });
+    void fetchQuotes();
   };
 
   const handleReissueQuote = async (quote: SavedQuote) => {
@@ -1111,7 +1162,7 @@ const SavedQuotesPage = () => {
               </div>
             </Card>
 
-            {!searchTerm && !dateFilter && totalCount > ITEMS_PER_PAGE && (
+            {totalCount > ITEMS_PER_PAGE && (
               <Card className="mt-4 rounded-lg border-border bg-card shadow-none">
                 <CardContent className="flex flex-col items-center justify-center gap-3 p-4">
                   <div className="flex items-center gap-2">

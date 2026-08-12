@@ -1,10 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.58.0";
+import { isApprovedProfile } from "./approval.ts";
 
 export type AppRole = "admin" | "moderator";
 
 interface RequireAuthOptions {
   allowedRoles?: AppRole[];
   allowInternalSecret?: boolean;
+  /**
+   * Defaults to true for every user-token flow. Only explicitly public account
+   * bootstrap endpoints may opt out; webhook and internal-secret flows do not
+   * use a user approval check.
+   */
+  requireApproved?: boolean;
 }
 
 interface AuthContext {
@@ -65,6 +72,29 @@ export async function requireFunctionAuth(
       status: 401,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  if (options.requireApproved !== false) {
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("is_approved")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("[FunctionAuth] Failed to verify account approval", profileError);
+      throw new Response(JSON.stringify({ error: "Authorization context unavailable" }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (!isApprovedProfile(profile)) {
+      throw new Response(JSON.stringify({ error: "Account approval required" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
   }
 
   if (options.allowedRoles?.length) {
